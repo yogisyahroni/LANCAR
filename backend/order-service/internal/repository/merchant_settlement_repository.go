@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,24 +28,36 @@ func (r *merchantSettlementRepository) Create(ctx context.Context, s *domain.Mer
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
+	// Food order (FOOD-BIKE-067) tidak punya payment link — insert NULL,
+	// bukan string kosong (agar tidak melanggar FK payment_links).
+	var paymentLinkIDArg any
+	if s.PaymentLinkID == "" {
+		paymentLinkIDArg = nil
+	} else {
+		paymentLinkIDArg = s.PaymentLinkID
+	}
+
 	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO merchant_settlements (
 			id, payment_link_id, merchant_id, order_id,
-			gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
+			gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
+			merchant_promo_discount_idr, net_payout_idr,
 			status, idempotency_key,
 			pod_confirmed_at, holding_release_at,
 			retry_count, metadata, created_by_admin_id,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4,
-			$5, $6, $7, $8,
-			$9, $10,
-			$11, $12,
-			$13, $14, $15,
+			$5, $6, $7,
+			$8, $9,
+			$10, $11,
+			$12, $13,
+			$14, $15, $16,
 			NOW(), NOW()
 		) ON CONFLICT (idempotency_key) DO NOTHING`,
-		s.ID, s.PaymentLinkID, s.MerchantID, s.OrderID,
-		s.GrossItemPriceIDR, s.MerchantFeeIDR, s.DisbursementFeeIDR, s.NetPayoutIDR,
+		s.ID, paymentLinkIDArg, s.MerchantID, s.OrderID,
+		s.GrossItemPriceIDR, s.MerchantFeeIDR, s.DisbursementFeeIDR,
+		s.MerchantPromoDiscountIDR, s.NetPayoutIDR,
 		s.Status, s.IdempotencyKey,
 		s.PODConfirmedAt, s.HoldingReleaseAt,
 		s.RetryCount, metaJSON, s.CreatedByAdminID,
@@ -55,7 +68,8 @@ func (r *merchantSettlementRepository) Create(ctx context.Context, s *domain.Mer
 func (r *merchantSettlementRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.MerchantSettlement, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, payment_link_id, merchant_id, order_id,
-		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
+		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
+		       merchant_promo_discount_idr, net_payout_idr,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -68,7 +82,8 @@ func (r *merchantSettlementRepository) GetByID(ctx context.Context, id uuid.UUID
 func (r *merchantSettlementRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.MerchantSettlement, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, payment_link_id, merchant_id, order_id,
-		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
+		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
+		       merchant_promo_discount_idr, net_payout_idr,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -88,7 +103,8 @@ func (r *merchantSettlementRepository) GetByIdempotencyKey(ctx context.Context, 
 func (r *merchantSettlementRepository) GetPendingHoldingReleased(ctx context.Context, now time.Time, limit int) ([]*domain.MerchantSettlement, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, payment_link_id, merchant_id, order_id,
-		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
+		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
+		       merchant_promo_discount_idr, net_payout_idr,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -164,7 +180,8 @@ func (r *merchantSettlementRepository) RequeueForRetry(ctx context.Context, id u
 func (r *merchantSettlementRepository) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MerchantSettlement, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, payment_link_id, merchant_id, order_id,
-		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
+		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
+		       merchant_promo_discount_idr, net_payout_idr,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -187,7 +204,8 @@ func (r *merchantSettlementRepository) ListAll(ctx context.Context, status strin
 	if status == "" {
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id, payment_link_id, merchant_id, order_id,
-			       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
+			       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
+		       merchant_promo_discount_idr, net_payout_idr,
 			       status, idempotency_key,
 			       pod_confirmed_at, holding_release_at, settled_at,
 			       disbursement_ref, failure_reason, retry_count,
@@ -199,7 +217,8 @@ func (r *merchantSettlementRepository) ListAll(ctx context.Context, status strin
 	} else {
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id, payment_link_id, merchant_id, order_id,
-			       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
+			       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
+		       merchant_promo_discount_idr, net_payout_idr,
 			       status, idempotency_key,
 			       pod_confirmed_at, holding_release_at, settled_at,
 			       disbursement_ref, failure_reason, retry_count,
@@ -258,6 +277,37 @@ func (r *merchantSettlementRepository) GetOrderByAWB(ctx context.Context, awbNum
 	return o, nil
 }
 
+// GetFoodOrderForSettlement — ambil data order food untuk settlement escrow
+// (FOOD-BIKE-067). Gross = SUM(food_order_items.subtotal); hanya order dengan
+// service_sub_type = 'food_delivery' & merchant_id terisi. Return nil jika
+// bukan order food.
+func (r *merchantSettlementRepository) GetFoodOrderForSettlement(ctx context.Context, orderID string) (*domain.FoodOrderSettlementData, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT o.id,
+		       COALESCE(o.merchant_id::text, ''),
+		       COALESCE(o.platform_fee_idr, 0),
+		       COALESCE(SUM(f.subtotal), 0)
+		FROM orders o
+		LEFT JOIN food_order_items f ON f.order_id = o.id
+		WHERE o.id = $1
+		  AND o.service_sub_type = 'food_delivery'
+		  AND o.merchant_id IS NOT NULL
+		GROUP BY o.id, o.merchant_id, o.platform_fee_idr`, orderID)
+
+	var d domain.FoodOrderSettlementData
+	err := row.Scan(&d.OrderID, &d.MerchantID, &d.PlatformFeeIDR, &d.GrossItemIDR)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("GetFoodOrderForSettlement failed: %w", err)
+	}
+	if d.MerchantID == "" {
+		return nil, nil
+	}
+	return &d, nil
+}
+
 func (r *merchantSettlementRepository) GetPaymentLinkByOrderID(ctx context.Context, orderID string) (*domain.PaymentLink, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, merchant_id, item_price, merchant_fee_amount,
@@ -293,6 +343,68 @@ func (r *merchantSettlementRepository) UpdateOrderDeliveryConfirmed(ctx context.
 	return err
 }
 
+// ListFoodOrderItemsForPromo — FB-101: item order food untuk kalkulasi
+// potongan promo merchant (menu_item_id, harga satuan, qty, subtotal).
+func (r *merchantSettlementRepository) ListFoodOrderItemsForPromo(ctx context.Context, orderID string) ([]domain.FoodOrderItemForPromo, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT menu_item_id::text, item_price, quantity, subtotal
+		FROM food_order_items
+		WHERE order_id = $1
+		ORDER BY created_at`, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("ListFoodOrderItemsForPromo failed: %w", err)
+	}
+	defer rows.Close()
+
+	out := []domain.FoodOrderItemForPromo{}
+	for rows.Next() {
+		var it domain.FoodOrderItemForPromo
+		if err := rows.Scan(&it.MenuItemID, &it.ItemPrice, &it.Quantity, &it.Subtotal); err != nil {
+			return nil, fmt.Errorf("ListFoodOrderItemsForPromo scan failed: %w", err)
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// ListActiveMerchantPromos — FB-101: promo merchant aktif pada saat ini
+// (is_active + window waktu) untuk potongan payout settlement.
+func (r *merchantSettlementRepository) ListActiveMerchantPromos(ctx context.Context, merchantID string, now time.Time) ([]domain.ActiveMerchantPromo, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT menu_item_id::text, discount_type, discount_value, max_discount_idr
+		FROM merchant_promos
+		WHERE merchant_id = $1
+		  AND is_active = TRUE
+		  AND starts_at <= $2
+		  AND ends_at > $2`,
+		merchantID, now)
+	if err != nil {
+		return nil, fmt.Errorf("ListActiveMerchantPromos failed: %w", err)
+	}
+	defer rows.Close()
+
+	out := []domain.ActiveMerchantPromo{}
+	for rows.Next() {
+		var p domain.ActiveMerchantPromo
+		var menuItemID, maxDiscount sql.NullString
+		if err := rows.Scan(&menuItemID, &p.DiscountType, &p.DiscountValue, &maxDiscount); err != nil {
+			return nil, fmt.Errorf("ListActiveMerchantPromos scan failed: %w", err)
+		}
+		if menuItemID.Valid && menuItemID.String != "" {
+			v := menuItemID.String
+			p.MenuItemID = &v
+		}
+		if maxDiscount.Valid && maxDiscount.String != "" {
+			v, err := strconv.ParseInt(maxDiscount.String, 10, 64)
+			if err == nil {
+				p.MaxDiscountIDR = &v
+			}
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // ─── Internal scan helpers ────────────────────────────────────────────────────
 
 func (r *merchantSettlementRepository) scanOne(row *sql.Row) (*domain.MerchantSettlement, error) {
@@ -301,7 +413,8 @@ func (r *merchantSettlementRepository) scanOne(row *sql.Row) (*domain.MerchantSe
 	var disbRef, failReason sql.NullString
 	err := row.Scan(
 		&s.ID, &s.PaymentLinkID, &s.MerchantID, &s.OrderID,
-		&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.DisbursementFeeIDR, &s.NetPayoutIDR,
+		&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.DisbursementFeeIDR,
+		&s.MerchantPromoDiscountIDR, &s.NetPayoutIDR,
 		&s.Status, &s.IdempotencyKey,
 		&s.PODConfirmedAt, &s.HoldingReleaseAt, &s.SettledAt,
 		&disbRef, &failReason, &s.RetryCount,

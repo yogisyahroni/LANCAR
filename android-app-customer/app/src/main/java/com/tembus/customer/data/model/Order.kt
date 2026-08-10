@@ -99,6 +99,15 @@ data class Order(
     @SerialName("courier_name")
     var courierName: String? = null,
 
+    // FOOD-BIKE-060: nama merchant (food delivery), untuk dialog rating merchant
+    @ColumnInfo(name = "merchant_name")
+    @SerialName("merchant_name")
+    var merchantName: String? = null,
+
+    @ColumnInfo(name = "merchant_id")
+    @SerialName("merchant_id")
+    var merchantId: String? = null,
+
     @ColumnInfo(name = "courier_vehicle")
     @SerialName("courier_vehicle")
     var courierVehicle: String? = null,
@@ -117,5 +126,48 @@ data class Order(
 
     @ColumnInfo(name = "service_sub_type")
     @SerialName("service_sub_type")
-    var serviceSubType: String? = null
+    var serviceSubType: String? = null,
+
+    // FB-111: rincian item pesanan food (snapshot food_order_items dari
+    // backend getCustomerOrderById). Kosong [] untuk order non-food.
+    @ColumnInfo(name = "food_items")
+    @SerialName("food_items")
+    var foodItems: List<FoodOrderItem> = emptyList(),
+
+    // FB-121: catatan keseluruhan order (mis. "pisahin sambal semua").
+    @ColumnInfo(name = "order_notes")
+    @SerialName("order_notes")
+    var orderNotes: String? = null
+)
+
+// FB-111: satu baris item pesanan food (nama, qty, catatan, harga beku).
+@Serializable
+data class FoodOrderItem(
+    @SerialName("name")
+    val name: String = "",
+    @SerialName("quantity")
+    val quantity: Int = 1,
+    @SerialName("notes")
+    val notes: String? = null,
+    @SerialName("price")
+    val price: Long = 0,
+    @SerialName("subtotal")
+    val subtotal: Long = 0,
+    // FB-108: pilihan varian yang dipilih customer saat order
+    // (mis. [Level Pedas → Extra Pedas]).
+    @SerialName("variants")
+    val variants: List<FoodOrderItemVariantSnapshot> = emptyList()
+)
+
+// FB-108: snapshot satu pilihan varian (nama grup + opsi, harga delta).
+@Serializable
+data class FoodOrderItemVariantSnapshot(
+    @SerialName("variant_id")
+    val variantId: String = "",
+    @SerialName("variant_name")
+    val variantName: String = "",
+    @SerialName("option_name")
+    val optionName: String = "",
+    @SerialName("price_delta")
+    val priceDelta: Long = 0
 )

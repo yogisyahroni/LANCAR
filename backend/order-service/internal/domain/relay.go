@@ -33,6 +33,15 @@ type CourierPerformanceStats struct {
 	ComplaintRatioPct float64   `json:"complaint_ratio_pct" db:"complaint_ratio_pct"`
 	RelayScore        float64   `json:"relay_score" db:"relay_score"`
 	Tier              string    `json:"tier" db:"tier"`
+	// FB-116: feedback rating terbaru dari customer (dengan komentar).
+	RecentRatings []CourierRatingComment `json:"recent_ratings,omitempty"`
+}
+
+// CourierRatingComment — satu feedback rating driver (FB-116).
+type CourierRatingComment struct {
+	Stars     int       `json:"stars" db:"stars"`
+	Comment   string    `json:"comment" db:"comment"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
 // CourierDispatchScoreStats holds the runtime metrics required to rank a courier

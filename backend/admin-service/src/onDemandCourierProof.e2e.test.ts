@@ -322,4 +322,110 @@ describe('on-demand courier proof to ledger lifecycle', () => {
       }),
     }));
   });
+
+  it('rejects pickup barcode that does not match handover token (FOOD-BIKE-032)', async () => {
+    const pickupClient = makeClient();
+    const auditClient = makeClient();
+
+    (db.connect as jest.Mock)
+      .mockResolvedValueOnce(pickupClient)
+      .mockResolvedValueOnce(auditClient);
+
+    pickupClient.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 'order-1',
+          customer_id: 'customer-1',
+          order_number: 'LCR-OD-1',
+          status: 'accepted',
+          model: 'p2p',
+          service_code: 'instant',
+          leg_id: 'leg-1',
+          leg_status: 'assigned',
+          distance_m: 8,
+          face_verification_required: true,
+          handover_token: 'TOKEN-HO-001',
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [{ total_packages: 0 }] })
+      .mockResolvedValueOnce({ rows: [] }) // package lookup
+      .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+
+    auditClient.query.mockResolvedValue({ rows: [] });
+
+    const res = makeResponse();
+    await scanMobileCourierOrder({
+      user: { id: 'courier-1', role: 'courier' },
+      body: {
+        order_id: 'order-1',
+        scan_type: 'pickup',
+        latitude: -6.175392,
+        longitude: 106.827153,
+        accuracy: 12,
+        barcode_value: 'WRONG-CODE',
+      },
+    } as any, res);
+
+    expect(res.status).toHaveBeenCalledWith(422);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: false,
+      code: 'ERR_BARCODE_MISMATCH',
+    }));
+    expect(auditClient.query.mock.calls.some(([sql, params]: any[]) =>
+      String(sql).includes('courier_proof_attempts') && params.includes('barcode_mismatch')
+    )).toBe(true);
+  });
+
+  it('accepts pickup barcode that matches handover token (FOOD-BIKE-032)', async () => {
+    const pickupScanClient = makeClient();
+
+    (db.connect as jest.Mock).mockResolvedValueOnce(pickupScanClient);
+
+    pickupScanClient.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 'order-1',
+          customer_id: 'customer-1',
+          order_number: 'LCR-OD-1',
+          status: 'accepted',
+          model: 'p2p',
+          service_code: 'instant',
+          leg_id: 'leg-1',
+          leg_status: 'assigned',
+          distance_m: 8,
+          face_verification_required: true,
+          handover_token: 'TOKEN-HO-001',
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [{ total_packages: 0 }] })
+      .mockResolvedValueOnce({ rows: [] }) // package lookup
+      .mockResolvedValueOnce({ rows: [{ id: 'scan-pickup-code', recorded_at: '2026-05-18T04:00:00.000Z' }] })
+      .mockResolvedValueOnce({ rows: [{ has_scan: true, has_photo: false }] })
+      .mockResolvedValueOnce({ rows: [] }) // order event
+      .mockResolvedValueOnce({ rows: [] }) // proof attempt
+      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+    const res = makeResponse();
+    await scanMobileCourierOrder({
+      user: { id: 'courier-1', role: 'courier' },
+      body: {
+        order_id: 'order-1',
+        scan_type: 'pickup',
+        latitude: -6.175392,
+        longitude: 106.827153,
+        accuracy: 12,
+        barcode_value: 'TOKEN-HO-001',
+      },
+    } as any, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      data: expect.objectContaining({
+        scan_type: 'pickup_scan',
+        pickup_scan_verified: true,
+      }),
+    }));
+  });
 });

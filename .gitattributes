@@ -1,1 +1,3 @@
 graphify-out/graph.json merge=graphify
+# Normalisasi line ending ke LF — konsisten cross-platform (fix warning CRLF)
+* text=auto eol=lf

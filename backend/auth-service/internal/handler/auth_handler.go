@@ -15,8 +15,10 @@ import (
 )
 
 // deviceIDRegex enforces a safe format for device_id values (LGN-05).
+// Allows "android:<hex>" style IDs from mobile apps (customer/merchant/courier)
+// plus plain alphanumeric UUIDs. Colon is harmless — value is stored hashed.
 // Prevents overly-long or special-character device IDs from being stored in DB.
-var deviceIDRegex = regexp.MustCompile(`^[A-Za-z0-9_\-]{8,256}$`)
+var deviceIDRegex = regexp.MustCompile(`^[A-Za-z0-9_\-:]{8,256}$`)
 
 type AuthHandler struct {
 	abuse *middleware.AuthAbuseProtector
@@ -572,10 +574,20 @@ func (h *AuthHandler) RegisterCourier(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		VehicleType  string `json:"vehicle_type"`
 		VehiclePlate string `json:"vehicle_plate"`
+		// FOOD-BIKE-042: app kirim vehicleCategory/vehiclePlate (camelCase) —
+		// terima keduanya untuk backward compat.
+		VehicleCategory string `json:"vehicleCategory"`
+		VehiclePlateAlt string `json:"vehiclePlate"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
+	}
+	if req.VehicleType == "" {
+		req.VehicleType = req.VehicleCategory
+	}
+	if req.VehiclePlate == "" {
+		req.VehiclePlate = req.VehiclePlateAlt
 	}
 
 	err := h.svc.RegisterCourier(r.Context(), userID, req.VehicleType, req.VehiclePlate)
@@ -595,8 +607,8 @@ func (h *AuthHandler) RegisterCourier(w http.ResponseWriter, r *http.Request) {
 // @Accept multipart/form-data
 // @Produce json
 // @Security Bearer
-// @Param document_type formData string true "Type of document (sim, stnk, ktp)"
-// @Param document formData file true "Document file"
+// @Param doc_type formData string true "Type of document (sim, stnk, ktp)"
+// @Param file formData file true "Document file"
 // @Success 200 {object} map[string]string
 // @Router /couriers/documents [post]
 func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Request) {
@@ -613,13 +625,13 @@ func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	docType := r.FormValue("document_type")
+	docType := r.FormValue("doc_type")
 	if docType == "" {
-		http.Error(w, "document_type is required", http.StatusBadRequest)
+		http.Error(w, "doc_type is required", http.StatusBadRequest)
 		return
 	}
 
-	file, header, err := r.FormFile("document")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "Invalid file", http.StatusBadRequest)
 		return
@@ -640,8 +652,8 @@ func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
-		"message":      "Document uploaded successfully",
-		"document_url": url,
+		"message":  "Document uploaded successfully",
+		"file_url": url,
 	})
 }
 

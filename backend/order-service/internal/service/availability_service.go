@@ -31,6 +31,16 @@ func (s *availabilityServiceImpl) GetCourierAvailability(ctx context.Context, co
 	return s.repo.GetAvailabilityState(ctx, courierID)
 }
 
+// UpdateRadius — FOOD-BIKE-029: set radius_max_km driver food delivery.
+// Validasi nilai dropdown (1-20 km, sesuai CHECK constraint DB).
+func (s *availabilityServiceImpl) UpdateRadius(ctx context.Context, courierID string, radiusKM int) error {
+	allowed := map[int]bool{1: true, 2: true, 4: true, 6: true, 10: true, 12: true, 14: true, 16: true, 18: true, 20: true}
+	if !allowed[radiusKM] {
+		return fmt.Errorf("radius tidak valid: %d km (pilihan: 1,2,4,6,10,12,14,16,18,20)", radiusKM)
+	}
+	return s.repo.UpdateCourierRadius(ctx, courierID, radiusKM)
+}
+
 // FindAvailableCouriers returns couriers that can accept new orders.
 // Rules:
 // - IDLE: always available
@@ -50,6 +60,18 @@ func (s *availabilityServiceImpl) FindAvailableCouriers(
 	var available []domain.NearbyCourier
 
 	for _, courier := range allCouriers {
+		// Food delivery defense-in-depth: hanya kurir sepeda, dan jarak order
+		// harus dalam radius pribadi kurir (radius_max_km). Filter ganda dengan
+		// SQL di FindCouriersByCapability supaya satu lapis gagal = masih ketahan.
+		if IsFoodDelivery(serviceSubType) {
+			if courier.VehicleType != "sepeda" {
+				continue
+			}
+			if courier.RadiusMaxKM > 0 && courier.DistanceKM > float64(courier.RadiusMaxKM) {
+				continue
+			}
+		}
+
 		state, err := s.repo.GetAvailabilityState(ctx, courier.CourierID)
 		if err != nil {
 			// No state record = treat as idle

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"tembus/order-service/internal/domain"
 	"time"
@@ -120,6 +121,16 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 
 // Order Repository Implementation
 func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
+	return r.insertOrder(ctx, r.db, o)
+}
+
+// execer — interface minimal yang dipenuhi *sql.DB dan *sql.Tx,
+// supaya insertOrder bisa dipakai baik langsung maupun dalam transaksi.
+type execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Order) error {
 	query := `INSERT INTO orders (
 				id, order_number, customer_id, model, status, 
 				pickup_location, pickup_address, pickup_city, pickup_zip_code,
@@ -131,18 +142,24 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 				surge_multiplier, weather_multiplier, traffic_multiplier, pricing_snapshot,
 				total_price_idr, ppn_idr, mdr_idr, handover_token,
 				dispatch_expiry, batch_id, sequence_no, receiver_name, receiver_phone, routing_code,
-				tax_rule_code, ppn_rate_effective_pct, ppn_rate_statutory_pct, dpp_idr,
-				tax_invoice_required, tax_invoice_status, platform_fee_idr, platform_fee_pct, promo_subsidy_idr,
-				created_at, updated_at
-			  ) VALUES (
-				$1, $2, $3, $4, $5, 
-				ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, $9, $10,
-				ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15,
-				$16, $17, $18, $19, $20, $21,
-				$22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35,
-				$36, $37, $38, $39, $40, $41, $42, $43, $44,
-				$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57
-			  )`
+					tax_rule_code, ppn_rate_effective_pct, ppn_rate_statutory_pct, dpp_idr,
+					tax_invoice_required, tax_invoice_status, platform_fee_idr, platform_fee_pct, promo_subsidy_idr,
+						service_sub_type, merchant_id, prep_time_minutes,
+					contactless,
+					order_notes,
+					scheduled_at, -- FB-123: NULL = pesan langsung; diisi = terjadwal
+					created_at, updated_at
+					) VALUES (
+					$1, $2, $3, $4, $5, 
+					ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, $9, $10,
+					ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15,
+					$16, $17, $18, $19, $20, $21,
+					$22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35,
+					$36, $37, $38, $39, $40, $41, $42, $43, $44,
+					$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55,
+					$56, $57, $58, $59, $60,
+					$61, $62, $63, $64
+					)`
 
 	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
 	mdr := int64(mdrFixed)
@@ -159,7 +176,7 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 		o.TrafficMultiplier = 1.0
 	}
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := q.ExecContext(ctx, query,
 		o.ID, o.OrderNumber, o.CustomerID, o.Model, o.Status,
 		o.PickupLng, o.PickupLat, o.PickupAddress, o.PickupCity, o.PickupZipCode,
 		o.DropoffLng, o.DropoffLat, o.DropoffAddress, o.DropoffCity, o.DropoffZipCode,
@@ -172,6 +189,10 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 		o.DispatchExpiry, o.BatchID, o.SequenceNo, o.ReceiverName, o.ReceiverPhone, o.RoutingCode,
 		o.TaxRuleCode, o.PPNRateEffectivePct, o.PPNRateStatutoryPct, o.DPPIDR,
 		o.TaxInvoiceRequired, o.TaxInvoiceStatus, o.PlatformFeeIDR, o.PlatformFeePct, o.PromoSubsidyIDR,
+		o.ServiceSubType, o.MerchantID, o.PrepTimeMinutes,
+		o.Contactless,
+		o.OrderNotes,
+		o.ScheduledAt, // FB-123
 		o.CreatedAt, o.UpdatedAt,
 	)
 	return err
@@ -191,8 +212,15 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
 				COALESCE(tax_rule_code, ''), COALESCE(ppn_rate_effective_pct, 0), COALESCE(ppn_rate_statutory_pct, 0), COALESCE(dpp_idr, 0), COALESCE(ppn_idr, 0),
 				COALESCE(tax_invoice_required, false), COALESCE(tax_invoice_status, ''), COALESCE(platform_fee_idr, 0), COALESCE(platform_fee_pct, 0), COALESCE(promo_subsidy_idr, 0),
+				COALESCE(service_sub_type, ''), merchant_id::text, merchant_accepted_at, prep_time_minutes, food_ready_at,
+				COALESCE(contactless, false),
+				COALESCE(order_notes, ''),
+				scheduled_at,
+				COALESCE(m.nama_toko, ''),
 				created_at, updated_at
-			  FROM orders WHERE id = $1`
+				FROM orders
+				LEFT JOIN merchants m ON m.id = orders.merchant_id
+				WHERE orders.id = $1`
 
 	o := &domain.Order{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
@@ -208,6 +236,11 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
 		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
 		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
+		&o.ServiceSubType, &o.MerchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
+		&o.Contactless,
+		&o.OrderNotes,
+		&o.ScheduledAt, // FB-123: NULL = pesan langsung
+		&o.MerchantName,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
@@ -216,6 +249,8 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		}
 		return nil, err
 	}
+	// FB-123: IsScheduled = turunan dari scheduled_at (computed).
+	o.IsScheduled = o.ScheduledAt != nil
 	return o, nil
 }
 
@@ -362,6 +397,19 @@ func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domai
 	return err
 }
 
+// GetCourierIDByUserID — AUDIT-FIX m5: ambil courier_profiles.id milik user.
+// Dipakai validasi kepemilikan: kurir hanya boleh update status order yang
+// courier_id-nya = profil dia.
+func (r *postgresRepo) GetCourierIDByUserID(ctx context.Context, userID string) (string, error) {
+	var courierID string
+	err := r.readDB.QueryRowContext(ctx,
+		`SELECT id FROM courier_profiles WHERE user_id = $1`, userID).Scan(&courierID)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return courierID, err
+}
+
 // UpdateOrderAWB menyimpan nomor AWB dan URL tracking ke tabel orders.
 // Dipanggil oleh payment_link_service setelah AWB berhasil dibuat via integration-gateway.
 func (r *postgresRepo) UpdateOrderAWB(ctx context.Context, orderID, awbNumber, trackingURL string) error {
@@ -369,8 +417,6 @@ func (r *postgresRepo) UpdateOrderAWB(ctx context.Context, orderID, awbNumber, t
 	_, err := r.db.ExecContext(ctx, query, awbNumber, trackingURL, time.Now(), orderID)
 	return err
 }
-
-
 
 func (r *postgresRepo) UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error {
 	query := `UPDATE orders SET length = $1, width = $2, height = $3, weight = $4, updated_at = $5 WHERE id = $6`
@@ -480,7 +526,61 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 	return orders, nil
 }
 
-// Order Event Repository Implementation
+// GetGhostedAcceptedOrders — FOOD-BIKE-066: order status 'accepted' yang
+// tidak ada progress (updated_at lama dari threshold). Driver accept tapi
+// tidak bergerak menuju pickup → kandidat soft_ghosting.
+func (r *postgresRepo) GetGhostedAcceptedOrders(ctx context.Context, timeout time.Duration) ([]*domain.Order, error) {
+	query := `
+		SELECT id, order_number, customer_id, model, status,
+			COALESCE(courier_id::text, ''),
+			COALESCE(merchant_id::text, ''),
+			COALESCE(service_sub_type, ''),
+			created_at, updated_at
+		FROM orders
+		WHERE status = 'accepted'
+		  AND updated_at < $1
+		ORDER BY updated_at ASC
+		LIMIT 50`
+
+	thresholdTime := time.Now().Add(-timeout)
+	rows, err := r.readDB.QueryContext(ctx, query, thresholdTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []*domain.Order
+	for rows.Next() {
+		o := &domain.Order{}
+		var courierID, merchantID, serviceSubType string
+		if err := rows.Scan(&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+			&courierID, &merchantID, &serviceSubType, &o.CreatedAt, &o.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if courierID != "" {
+			o.CourierID = &courierID
+		}
+		if merchantID != "" {
+			o.MerchantID = &merchantID
+		}
+		o.ServiceSubType = serviceSubType
+		orders = append(orders, o)
+	}
+	return orders, rows.Err()
+}
+
+// ReleaseGhostedOrder — FOOD-BIKE-066: lepas driver dari order ghosting.
+// courier_id → NULL, status → searching, dispatch_expiry direset agar
+// matching worker bisa menawarkan lagi ke driver lain.
+func (r *postgresRepo) ReleaseGhostedOrder(ctx context.Context, orderID string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE orders
+		 SET courier_id = NULL, status = 'searching', dispatch_expiry = NULL, updated_at = NOW()
+		 WHERE id = $1 AND status = 'accepted'`,
+		orderID,
+	)
+	return err
+}
 func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error {
 	query := `INSERT INTO order_events (order_id, user_id, status, message, created_at) 
 			  VALUES ($1, $2, $3, $4, $5)`
@@ -866,6 +966,43 @@ func (r *postgresRepo) SaveOrderRating(ctx context.Context, orderID string, cour
 		WHERE user_id = $2
 	`
 	_, err = tx.ExecContext(ctx, queryCourier, rating, courierID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// SaveMerchantRating menyimpan rating makanan (FOOD-BIKE-059/060).
+// INSERT ke merchant_ratings + update avg_rating merchants secara atomik.
+// Idempotent via UNIQUE (order_id, merchant_id) — second rating → error.
+func (r *postgresRepo) SaveMerchantRating(ctx context.Context, orderID string, merchantID string, ratedBy string, rating float64, comment string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	queryInsert := `
+		INSERT INTO merchant_ratings (order_id, merchant_id, rated_by, stars, comment)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (order_id, merchant_id) DO NOTHING
+		RETURNING id`
+	var insertedID string
+	if err := tx.QueryRowContext(ctx, queryInsert, orderID, merchantID, ratedBy, int(rating), comment).Scan(&insertedID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("merchant already rated for this order")
+		}
+		return err
+	}
+
+	queryMerchant := `
+		UPDATE merchants
+		SET avg_rating = ((COALESCE(avg_rating, 5.0) * COALESCE(rating_count, 0)) + $1) / (COALESCE(rating_count, 0) + 1),
+			rating_count = COALESCE(rating_count, 0) + 1,
+			updated_at = NOW()
+		WHERE id = $2`
+	_, err = tx.ExecContext(ctx, queryMerchant, rating, merchantID)
 	if err != nil {
 		return err
 	}

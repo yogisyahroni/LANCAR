@@ -28,8 +28,10 @@ class DashboardViewModel @Inject constructor(
     val customerName: StateFlow<String?> = sessionManager.customerName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Pelanggan")
 
-    private val _activeOrder = MutableStateFlow<Order?>(null)
-    val activeOrder = _activeOrder.asStateFlow()
+    // FB-126: backend TIDAK memblokir order food kedua — UI harus
+    // tampilkan SEMUA order aktif (list), bukan satu banner saja.
+    private val _activeOrders = MutableStateFlow<List<Order>>(emptyList())
+    val activeOrders = _activeOrders.asStateFlow()
 
     private val _incomingPackages = MutableStateFlow<List<Order>>(emptyList())
     val incomingPackages = _incomingPackages.asStateFlow()
@@ -61,17 +63,21 @@ class DashboardViewModel @Inject constructor(
             orderRepository.getOrderHistory().collectLatest { result ->
                 _isLoading.value = false
                 result.onSuccess { orders ->
-                    // Find ongoing order first; if none, show latest non-delivered order (e.g. cancelled/failed) for user awareness
-                    val ongoing = orders.firstOrNull { 
+                    // FB-126: kumpulkan SEMUA order yang masih berjalan
+                    // (food + parcel), bukan firstOrNull. Customer bisa
+                    // punya >1 order aktif sekaligus.
+                    val ongoing = orders.filter {
                         val s = it.status.lowercase()
                         s !in setOf("delivered", "completed", "cancelled", "canceled", "failed", "rejected", "payment_failed") && !s.contains("cancel")
                     }
-                    _activeOrder.value = ongoing ?: orders.firstOrNull {
-                        val s = it.status.lowercase()
-                        s != "delivered" && s != "completed" && s != "arrived"
+                    _activeOrders.value = ongoing.ifEmpty {
+                        orders.filter {
+                            val s = it.status.lowercase()
+                            s != "delivered" && s != "completed" && s != "arrived"
+                        }
                     }
                 }.onFailure { error ->
-                    _activeOrder.value = null
+                    _activeOrders.value = emptyList()
                     _dataError.value = userSafeMessage(
                         error.localizedMessage,
                         "Riwayat pengiriman belum dapat dimuat. Coba lagi."

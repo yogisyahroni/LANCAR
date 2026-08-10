@@ -28,8 +28,8 @@ type CourierProfile struct {
 type CourierDocument struct {
 	ID           string    `json:"id" db:"id"`
 	CourierID    string    `json:"courier_id" db:"courier_id"`
-	DocumentType string    `json:"document_type" db:"document_type"` // ktp, sim, stnk, selfie
-	DocumentURL  string    `json:"document_url" db:"document_url"`
+	DocumentType string    `json:"doc_type" db:"doc_type"` // ktp, sim, stnk, selfie
+	DocumentURL  string    `json:"file_url" db:"file_url"`
 	IsVerified   bool      `json:"is_verified" db:"is_verified"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }

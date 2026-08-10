@@ -6,7 +6,7 @@ import { createNotification } from '../notifications';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
 import { isExpiredOrFailedTransaction, isSuccessfulTransaction } from '../midtrans';
 import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode, listEnabledDeliveryServicesForCustomer } from './deliveryServices.controller';
-import { advanceOnDemandDispatchQueue, notifyOnDemandOffers } from './courierAuth.controller';
+import { advanceOnDemandDispatchQueue, dispatchToPreferredCourier, notifyOnDemandOffers } from './courierAuth.controller';
 import { redis } from '../redis';
 import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../services/onDemandRealtime';
 import { buildOnDemandTrackingSnapshot, evaluateLocationQuality, writeLocationSafetyEvent } from '../services/onDemandTracking';
@@ -359,6 +359,8 @@ const publicCustomerPaymentSession = (row: any) => {
     active_payment_provider: process.env.ACTIVE_PAYMENT_PROVIDER || 'midtrans',
     amount_idr: Number(row.amount_idr || row.total_price_idr || 0),
     wallet_balance_idr: Number(row.wallet_balance || 0),
+    // FOOD-BIKE-076: breakdown item makanan (null untuk order non-food)
+    items: row.items || null,
     snap_token: row.snap_token || null,
     redirect_url: row.redirect_url || null,
     midtrans_order_id: row.provider_reference || null,
@@ -378,6 +380,8 @@ const getCustomerOrderPaymentRow = async (customerId: string, orderId: string) =
             o.service_snapshot,
             o.recipient_name,
             o.recipient_phone_masked,
+            o.merchant_id,
+            o.model,
             p.id AS payment_id,
             p.provider,
             p.method,
@@ -396,6 +400,28 @@ const getCustomerOrderPaymentRow = async (customerId: string, orderId: string) =
   );
   if (!rows[0]) return null;
   rows[0].wallet_balance = await getCustomerWalletBalance(customerId);
+  // FOOD-BIKE-076: breakdown multi-item untuk order food (merchant_id terisi)
+  if (rows[0].merchant_id) {
+    const itemRows = await db.query(
+      `SELECT item_name, item_price, quantity, notes, subtotal,
+              COALESCE((
+                SELECT jsonb_agg(jsonb_build_object(
+                  'variant_name', foiv.variant_name,
+                  'option_name', foiv.option_name,
+                  'price_delta', foiv.price_delta
+                ) ORDER BY foiv.id)
+                FROM food_order_item_variants foiv
+                WHERE foiv.order_item_id = foi.id
+              ), '[]'::jsonb) AS variants
+         FROM food_order_items foi
+        WHERE order_id = $1
+        ORDER BY foi.created_at ASC`,
+      [orderId]
+    );
+    rows[0].items = itemRows.rows;
+  } else {
+    rows[0].items = null;
+  }
   return rows[0];
 };
 
@@ -1038,12 +1064,14 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       price_breakdown,
       service_code,
       promo_code,
+      voucher_code, // FB-078: kode voucher diskon (opsional, terpisah dari promo)
       logistics_provider,
       logistics_service_type,
       logistics_tariff_idr,
       logistics_net_cost_idr,
       pickup_city,
-      dropoff_city
+      dropoff_city,
+      preferred_courier_id
     } = req.body;
 
     const service = await findDeliveryServiceByCode(price_breakdown?.service_code || service_code);
@@ -1164,8 +1192,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       appliedPromoCode = promoResult.campaign?.code || normalizedPromoCode;
     }
 
-    const totalPrice = Math.max(0, grossTotalPrice - promoDiscountIdr);
-    const settlement = {
+    let totalPrice = Math.max(0, grossTotalPrice - promoDiscountIdr);
+    let settlement = {
       ...grossSettlement,
       platform_commission_idr: Math.max(0, grossSettlement.platform_commission_idr - promoDiscountIdr),
       settlement_snapshot: {
@@ -1179,6 +1207,101 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     };
 
     await client.query('BEGIN');
+
+    // ── FB-078: Voucher redeem customer ──────────────────────────────
+    // Tabel vouchers/voucher_usages (migration 00008). Terpisah dari promo
+    // campaign; voucher TIDAK bisa digabung dengan promo.
+    // Semua early-return di blok ini WAJIB ROLLBACK dulu (sudah BEGIN).
+    let voucherDiscountIdr = 0;
+    let voucherId: string | null = null;
+    const voucherFail = async (status: number, code: string, error: string) => {
+      await client.query('ROLLBACK').catch(() => undefined);
+      client.release();
+      res.status(status).json({ code, error });
+    };
+    if (voucher_code) {
+      if (normalizedPromoCode) {
+        await voucherFail(409, 'ERR_VOUCHER_CONFLICT', 'Voucher tidak bisa digabung dengan promo.');
+        return;
+      }
+      const vResult = await client.query(
+        `SELECT id, name, type, value, max_discount_idr, min_order_idr,
+                quota, used_count, is_single_use, applicable_models,
+                valid_from, valid_until
+           FROM vouchers
+          WHERE code = $1 AND is_active = TRUE`,
+        [String(voucher_code).trim().toUpperCase()]
+      );
+      const v = vResult.rows[0];
+      if (!v) {
+        await voucherFail(404, 'ERR_VOUCHER_NOT_FOUND', 'Kode voucher tidak ditemukan atau sudah nonaktif.');
+        return;
+      }
+      const now = new Date();
+      if (new Date(v.valid_from) > now || (v.valid_until && new Date(v.valid_until) < now)) {
+        await voucherFail(400, 'ERR_VOUCHER_EXPIRED', 'Voucher sudah kedaluwarsa atau belum aktif.');
+        return;
+      }
+      if (v.quota != null && v.used_count >= v.quota) {
+        await voucherFail(409, 'ERR_VOUCHER_QUOTA', 'Kuota voucher sudah habis.');
+        return;
+      }
+      if (v.is_single_use) {
+        const usedRes = await client.query(
+          `SELECT 1 FROM voucher_usages WHERE voucher_id = $1 AND user_id = $2 LIMIT 1`,
+          [v.id, customer_id]
+        );
+        if (usedRes.rows.length > 0) {
+          await voucherFail(409, 'ERR_VOUCHER_USED', 'Voucher sudah pernah dipakai.');
+          return;
+        }
+      }
+      if (v.min_order_idr && grossTotalPrice < Number(v.min_order_idr)) {
+        await voucherFail(400, 'ERR_VOUCHER_MIN_ORDER', 'Minimal belanja belum terpenuhi untuk voucher ini.');
+        return;
+      }
+      const vModels = Array.isArray(v.applicable_models) ? v.applicable_models : [];
+      if (vModels.length > 0 && !vModels.includes(service.route_model)) {
+        await voucherFail(400, 'ERR_VOUCHER_MODEL', 'Voucher tidak berlaku untuk layanan ini.');
+        return;
+      }
+
+      let discount = 0;
+      if (v.type === 'percentage') {
+        discount = Math.round((grossTotalPrice * Number(v.value)) / 100);
+        if (v.max_discount_idr && discount > Number(v.max_discount_idr)) {
+          discount = Number(v.max_discount_idr);
+        }
+      } else if (v.type === 'fixed') {
+        discount = Number(v.value);
+      } else if (v.type === 'free_shipping') {
+        discount = Number(trustedPriceBreakdown.dynamic_price_idr || 0) || 8000;
+      } else {
+        await voucherFail(400, 'ERR_VOUCHER_TYPE', 'Jenis voucher tidak didukung.');
+        return;
+      }
+      voucherDiscountIdr = Math.max(0, Math.min(discount, grossTotalPrice));
+      if (voucherDiscountIdr <= 0) {
+        await voucherFail(400, 'ERR_VOUCHER_ZERO', 'Nilai diskon voucher Rp0.');
+        return;
+      }
+      voucherId = v.id;
+      appliedPromoCode = String(voucher_code).trim().toUpperCase();
+    }
+
+    // Terapkan diskon voucher ke total & settlement (konsisten dgn promo)
+    if (voucherDiscountIdr > 0) {
+      totalPrice = Math.max(0, totalPrice - voucherDiscountIdr);
+      settlement = {
+        ...settlement,
+        platform_commission_idr: Math.max(0, settlement.platform_commission_idr - voucherDiscountIdr),
+        settlement_snapshot: {
+          ...settlement.settlement_snapshot,
+          final_total_price_idr: Math.max(0, totalPrice),
+          voucher_discount_idr: voucherDiscountIdr,
+        } as any,
+      };
+    }
 
     // Generate simple order number
     const order_number = `TMB-${Date.now().toString().slice(-6)}`;
@@ -1230,12 +1353,13 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         logistics_net_cost_idr,
         pickup_city,
         dropoff_city,
+        preferred_courier_id,
         created_at
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
-        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, NOW()
+        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, NOW()
       ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
@@ -1259,7 +1383,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       trustedPriceBreakdown.volumetric_surcharge_idr || 0,
       trustedPriceBreakdown.insurance_premium_idr || 0,
       trustedPriceBreakdown.dynamic_price_idr || 0,
-      promoDiscountIdr,
+      promoDiscountIdr + voucherDiscountIdr, // total diskon (promo + voucher FB-078)
       totalPrice,
       settlement.ppn_idr,
       settlement.mdr_idr,
@@ -1286,11 +1410,25 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       logistics_tariff_idr || null,
       logistics_net_cost_idr || null,
       pickup_city || null,
-      dropoff_city || null
+      dropoff_city || null,
+      preferred_courier_id || null
     ];
 
     const result = await client.query(insertQuery, values);
     const newOrder = result.rows[0];
+
+    if (voucherId) {
+      await client.query(
+        `INSERT INTO voucher_usages (voucher_id, order_id, user_id, discount_idr)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (voucher_id, order_id) DO NOTHING`,
+        [voucherId, newOrder.id, customer_id, voucherDiscountIdr]
+      );
+      await client.query(
+        `UPDATE vouchers SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1`,
+        [voucherId]
+      );
+    }
 
     if (reservedPromoKey && promoCampaignId) {
       await client.query(
@@ -1400,6 +1538,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         promo_discount_idr: promoDiscountIdr,
         promo_campaign_id: promoCampaignId,
         promo_code: appliedPromoCode,
+        voucher_discount_idr: voucherDiscountIdr, // FB-078
+        voucher_code: voucherId ? (appliedPromoCode || voucher_code) : null, // FB-078
         distance_km: trustedPriceBreakdown.distance_km || 0,
         route_snapshot_hash: trustedRouteSnapshot.snapshot_hash || null,
         route_provider: trustedRouteSnapshot.provider || null,
@@ -1414,10 +1554,21 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     if (isPaymentBypassed) {
       const dispatchClient = await db.connect();
       try {
-        const createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+        let createdOffers: Awaited<ReturnType<typeof advanceOnDemandDispatchQueue>> = [];
+        if (preferred_courier_id) {
+          // "Pilih Petugas" flow: dispatch langsung ke courier yang dipilih customer
+          const offer = await dispatchToPreferredCourier(dispatchClient, newOrder.id, preferred_courier_id);
+          if (offer) createdOffers.push(offer);
+          if (!offer) {
+            securityLog.warn(`[WARN] Preferred courier ${preferred_courier_id} tidak bisa di-dispatch untuk order ${newOrder.id}; fallback ke queue normal`);
+            createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+          }
+        } else {
+          createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+        }
         await notifyOnDemandOffers(createdOffers);
       } catch (dispatchErr) {
-        securityLog.error('[WARN] advanceOnDemandDispatchQueue after bypass failed:', dispatchErr);
+        securityLog.error('[WARN] dispatch after bypass failed:', dispatchErr);
       } finally {
         dispatchClient.release();
       }
@@ -1483,6 +1634,8 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
               o.service_snapshot,
               o.recipient_name,
               o.recipient_phone_masked,
+              o.merchant_id,
+              o.model,
               p.id AS payment_id,
               p.provider,
               p.method,
@@ -1508,6 +1661,28 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
     }
 
     const order = rows[0];
+    // FOOD-BIKE-076: breakdown item makanan (flow LAPAY)
+    if (order.merchant_id) {
+      const itemRows = await client.query(
+        `SELECT item_name, item_price, quantity, notes, subtotal,
+                COALESCE((
+                  SELECT jsonb_agg(jsonb_build_object(
+                    'variant_name', foiv.variant_name,
+                    'option_name', foiv.option_name,
+                    'price_delta', foiv.price_delta
+                  ) ORDER BY foiv.id)
+                  FROM food_order_item_variants foiv
+                  WHERE foiv.order_item_id = foi.id
+                ), '[]'::jsonb) AS variants
+           FROM food_order_items foi
+          WHERE order_id = $1
+          ORDER BY foi.created_at ASC`,
+        [orderId]
+      );
+      order.items = itemRows.rows;
+    } else {
+      order.items = null;
+    }
     const amountIdr = Number(order.amount_idr || order.total_price_idr || 0);
     if (!Number.isInteger(amountIdr) || amountIdr <= 0) {
       const error = new Error('Nominal pembayaran tidak valid.');
@@ -2594,7 +2769,27 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
       ORDER BY COALESCE(scanned_at, created_at) ASC
     `, [id]);
 
-    res.json({ success: true, order, events, proofs });
+    // FB-111: rincian item food untuk customer (snapshot food_order_items —
+    // harga beku saat order). Kosong [] untuk order non-food.
+    // FB-108: + variants (nama grup/opsi + harga delta) supaya customer
+    // bisa lihat kembali pilihan yang dipesan.
+    const { rows: foodItems } = await db.query(`
+      SELECT item_name AS name, quantity, notes, item_price AS price, subtotal,
+             COALESCE((
+               SELECT jsonb_agg(jsonb_build_object(
+                 'variant_name', foiv.variant_name,
+                 'option_name', foiv.option_name,
+                 'price_delta', foiv.price_delta
+               ) ORDER BY foiv.id)
+               FROM food_order_item_variants foiv
+               WHERE foiv.order_item_id = foi.id
+             ), '[]'::jsonb) AS variants
+      FROM food_order_items foi
+      WHERE order_id = $1
+      ORDER BY foi.id ASC
+    `, [id]);
+
+    res.json({ success: true, order, events, proofs, food_items: foodItems });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -2614,9 +2809,13 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
              o.recipient_phone_masked, o.model, o.status, o.distance_km, o.total_price_idr,
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.package_details, o.customer_notes, o.created_at, o.updated_at,
+             COALESCE(o.order_notes, '') AS order_notes,
+             COALESCE(o.service_sub_type, '') AS service_sub_type,
+             COALESCE(m.nama_toko, '') AS merchant_name,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate,
              cp.avg_partner_rating as courier_rating, NULL::text as courier_phone
       FROM orders o
+      LEFT JOIN merchants m ON m.id = o.merchant_id
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
       LEFT JOIN courier_profiles cp ON u.id = cp.user_id
@@ -4229,12 +4428,18 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
 
     // Statuses pelanggan boleh membatalkan (sebelum kurir pick up)
     const cancellableStatuses = ['pending', 'pending_payment', 'paid', 'dispatching', 'offered', 'searching', 'no_courier_found'];
+    // FB-079: food order — window lebih panjang: boleh cancel sampai picking_up
+    // (accepted/picking_up dikenakan biaya layanan sbg cancellation fee)
+    const foodCancellableStatuses = [
+      'pending', 'pending_payment', 'pending_merchant', 'preparing',
+      'ready_for_pickup', 'searching', 'accepted', 'picking_up', 'no_courier_found',
+    ];
 
     await client.query('BEGIN');
 
     // Lock baris order milik customer ini
     const { rows: orderRows } = await client.query(
-      `SELECT id, status, order_number FROM orders
+      `SELECT id, status, order_number, service_sub_type, merchant_id FROM orders
        WHERE id = $1 AND customer_id = $2
        FOR UPDATE`,
       [orderId, customerId]
@@ -4247,12 +4452,20 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
     }
 
     const order = orderRows[0];
+    const isFood = order.service_sub_type === 'food_delivery' || order.merchant_id != null;
+    // Simpan status ASAL sebelum diubah → dipakai refund service utk hitung
+    // refund window (tanpa ini order sudah 'cancelled' → refund selalu 100%)
+    const originalStatus = order.status;
 
-    if (!cancellableStatuses.includes(order.status)) {
+    const allowedStatuses = isFood ? foodCancellableStatuses : cancellableStatuses;
+    if (!allowedStatuses.includes(order.status)) {
       await client.query('ROLLBACK');
+      const disputeHint = isFood && ['picked_up', 'delivering', 'delivered'].includes(order.status)
+        ? ' Pesanan sudah diambil kurir — gunakan menu Bantuan/Komplain untuk dispute.'
+        : '';
       res.status(409).json({
         success: false,
-        error: `Pesanan tidak dapat dibatalkan pada status "${order.status}". Hubungi CS jika memerlukan bantuan.`,
+        error: `Pesanan tidak dapat dibatalkan pada status "${order.status}". Hubungi CS jika memerlukan bantuan.${disputeHint}`,
       });
       return;
     }
@@ -4287,7 +4500,7 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
     fetch(`${orderServiceClientUrl}/api/v1/internal/refunds/process`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_id: orderId, reason }),
+      body: JSON.stringify({ order_id: orderId, reason, original_status: originalStatus }),
     }).then(res => {
       if (!res.ok) console.warn(`[OrderService] Refund trigger returned status ${res.status} for ${orderId}`);
     }).catch(err => {

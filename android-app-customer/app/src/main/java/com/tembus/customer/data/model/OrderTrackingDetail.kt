@@ -56,6 +56,12 @@ data class TrackingOrder(
     val courierPhone: String? = null,
     @SerialName("courier_photo_url")
     val courierPhotoUrl: String? = null,
+    @SerialName("merchant_id")
+    val merchantId: String? = null,
+    @SerialName("merchant_name")
+    val merchantName: String? = null,
+    @SerialName("service_sub_type")
+    val serviceSubType: String? = null,
     @SerialName("route_snapshot")
     val routeSnapshot: RouteSnapshot? = null,
     @SerialName("route_provider")
@@ -71,7 +77,9 @@ data class TrackingOrder(
     @SerialName("created_at")
     val createdAt: String? = null,
     @SerialName("updated_at")
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+    @SerialName("order_notes")
+    val orderNotes: String? = null
 )
 
 @Serializable

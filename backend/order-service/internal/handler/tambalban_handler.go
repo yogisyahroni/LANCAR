@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
@@ -66,7 +67,7 @@ func (h *TambalBanHandler) GetNearbyCouriers(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // ============================================================
@@ -105,7 +106,7 @@ func (h *TambalBanHandler) CalculateSettlement(w http.ResponseWriter, r *http.Re
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // ============================================================
@@ -138,7 +139,37 @@ func (h *TambalBanHandler) UpdateAvailabilityState(w http.ResponseWriter, r *htt
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "State updated", "new_state": req.State})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "State updated", "new_state": req.State})
+}
+
+// ============================================================
+// PUT /api/v1/courier/radius
+// Update radius_max_km driver (dropdown 1-20 km) — FOOD-BIKE-029
+// ============================================================
+func (h *TambalBanHandler) UpdateRadius(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		RadiusKM int `json:"radius_km"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "Invalid request body",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	if err := h.availabilitySvc.UpdateRadius(r.Context(), userID, req.RadiusKM); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_RADIUS", err.Error(),
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Radius updated", "radius_km": fmt.Sprintf("%d", req.RadiusKM)})
 }
 
 // ============================================================
@@ -160,7 +191,7 @@ func (h *TambalBanHandler) GetAvailabilityState(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(state)
+	_ = json.NewEncoder(w).Encode(state)
 }
 
 // ============================================================
@@ -191,7 +222,7 @@ func (h *TambalBanHandler) CreateTambalBanReport(w http.ResponseWriter, r *http.
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(req)
+	_ = json.NewEncoder(w).Encode(req)
 }
 
 // ============================================================
@@ -222,5 +253,5 @@ func (h *TambalBanHandler) CreateTowingReport(w http.ResponseWriter, r *http.Req
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(req)
+	_ = json.NewEncoder(w).Encode(req)
 }

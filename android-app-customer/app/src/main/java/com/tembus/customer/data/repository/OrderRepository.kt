@@ -69,6 +69,21 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    // FB-078: validasi kode voucher (preview diskon sebelum submit)
+    suspend fun validateVoucher(code: String, baseIdr: Long, model: String = "p2p"): Result<VoucherValidateResponse> {
+        return try {
+            val response = apiService.validateVoucher(VoucherValidateRequest(code, baseIdr, model))
+            val body = response.body()
+            if (response.isSuccessful && body != null && body.valid) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception(body?.error ?: "Kode voucher tidak valid (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun calculateCustomerOrderPrices(request: CustomerPriceEstimateRequest): Result<List<PriceBreakdown>> {
         return try {
             val response = apiService.calculateCustomerOrderPrices(request)
@@ -240,7 +255,10 @@ class OrderRepository @Inject constructor(
                         courierName = trackingOrder.courierName,
                         courierVehicle = trackingOrder.courierVehicle,
                         courierPlate = trackingOrder.courierPlate,
-                        courierPhone = trackingOrder.courierPhone
+                        courierPhone = trackingOrder.courierPhone,
+                        serviceSubType = trackingOrder.serviceSubType,
+                        merchantName = trackingOrder.merchantName,
+                        orderNotes = trackingOrder.orderNotes // FB-121
                     )
                 ))
             } else {
@@ -391,10 +409,59 @@ class OrderRepository @Inject constructor(
         return try {
             val response = apiService.submitCourierRating(orderId, request)
             val body = response.body()
-            if (response.isSuccessful && body?.success == true) {
+            if (response.isSuccessful && body?.status == "success") {
                 Result.success(body.message ?: "Berhasil mengirim rating")
             } else {
                 Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal mengirim rating")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Submit rating merchant (makanan) — FOOD-BIKE-060, terpisah dari driver. */
+    suspend fun submitMerchantRating(orderId: String, request: SubmitRatingRequest): Result<String> {
+        return try {
+            val response = apiService.submitMerchantRating(orderId, request)
+            val body = response.body()
+            if (response.isSuccessful && body?.status == "success") {
+                Result.success(body.message ?: "Berhasil mengirim rating")
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal mengirim rating")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // ============================================================
+    // FB-077: TIPS DRIVER — semua service (parcel/tambal/towing/food)
+    // ============================================================
+
+    /** Beri tip ke kurir (Rp1.000–Rp200.000, 1x per order). */
+    suspend fun giveTip(orderId: String, amountIdr: Long): Result<TipCreateResponse> {
+        return try {
+            val response = apiService.createTip(orderId, CreateTipRequest(amountIdr))
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                Result.success(body.data)
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal mengirim tip")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Cek apakah order sudah di-tip (untuk sembunyikan tombol tip). */
+    suspend fun getTipStatus(orderId: String): Result<Boolean> {
+        return try {
+            val response = apiService.getTipStatus(orderId)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                Result.success(body.data.tipped)
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal cek status tip")))
             }
         } catch (e: Exception) {
             Result.failure(e)

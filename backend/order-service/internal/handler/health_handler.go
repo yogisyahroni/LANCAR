@@ -37,7 +37,7 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(HealthResponse{
+	_ = json.NewEncoder(w).Encode(HealthResponse{
 		Status:    "ok",
 		Service:   "order-service",
 		Version:   version,
@@ -72,7 +72,7 @@ func ReadinessHandlerFunc(db *sql.DB) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		json.NewEncoder(w).Encode(ReadinessResponse{
+		_ = json.NewEncoder(w).Encode(ReadinessResponse{
 			Status:    overallStatus,
 			Checks:    checks,
 			Timestamp: time.Now().UTC().Format(time.RFC3339),

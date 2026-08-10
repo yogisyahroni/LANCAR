@@ -142,7 +142,17 @@ interface TEMBUSApiService {
     suspend fun submitCourierRating(
         @Path("id") id: String,
         @Body request: SubmitRatingRequest
-    ): Response<ApiResponse<Unit>>
+    ): Response<RatingSubmitResponse>
+
+    /**
+     * Submit rating (1-5 bintang) untuk merchant (makanan) — FOOD-BIKE-060.
+     * Terpisah dari rating driver. Backend memvalidasi ownership via JWT.
+     */
+    @POST("api/v1/customer/orders/{id}/merchant-rating")
+    suspend fun submitMerchantRating(
+        @Path("id") id: String,
+        @Body request: SubmitRatingRequest
+    ): Response<RatingSubmitResponse>
 
     /**
      * Ambil list order yang menunggu rating dari customer yang sedang login.
@@ -152,6 +162,37 @@ interface TEMBUSApiService {
      */
     @GET("api/v1/customer/rating-reminders")
     suspend fun getRatingReminders(): Response<RatingReminderListResponse>
+
+    // ============================================================
+    // FB-077: TIPS DRIVER — semua service (parcel/tambal/towing/food)
+    // ============================================================
+
+    /**
+     * Beri tip ke kurir (Rp1.000–Rp200.000, 1x per order).
+     * Berjalan untuk order berstatus accepted → delivered.
+     */
+    @POST("api/v1/orders/{id}/tips")
+    suspend fun createTip(
+        @Path("id") id: String,
+        @Body request: CreateTipRequest
+    ): Response<ApiResponse<TipCreateResponse>>
+
+    /**
+     * Cek apakah order sudah di-tip (untuk menyembunyikan tombol saat sudah tip).
+     */
+    @GET("api/v1/orders/{id}/tip")
+    suspend fun getTipStatus(
+        @Path("id") id: String
+    ): Response<ApiResponse<TipStatusResponse>>
+
+    // ============================================================
+    // FB-078: VOUCHER REDEEM — preview diskon sebelum checkout
+    // ============================================================
+
+    @POST("api/v1/vouchers/validate")
+    suspend fun validateVoucher(
+        @Body request: VoucherValidateRequest
+    ): Response<VoucherValidateResponse>
 
     @GET("api/v1/customer/addresses")
     suspend fun getCustomerAddresses(
@@ -347,6 +388,35 @@ interface TEMBUSApiService {
     
     @POST("api/v1/order/{orderId}/settlement")
     suspend fun calculateSettlement(@Path("orderId") orderId: String, @Body request: Map<String, Any>): Response<SettlementResult>
+
+    // ============================================================
+    // FOOD DELIVERY — Browse merchant, detail, cart, checkout (FOOD-BIKE-055/056/057/075)
+    // ============================================================
+
+    @GET("api/v1/food/merchants")
+    suspend fun listFoodMerchants(
+        @Query("lat") lat: Double,
+        @Query("lng") lng: Double,
+        @Query("search") search: String? = null,
+        // ADR 003: filter halal — all (default) | halal_certified | non_halal
+        @Query("halal") halal: String? = null
+    ): Response<FoodMerchantListResponse>
+
+    @GET("api/v1/food/merchants/{id}")
+    suspend fun getFoodMerchantDetail(
+        @Path("id") id: String
+    ): Response<FoodMerchantDetailResponse>
+
+    @POST("api/v1/orders/food")
+    suspend fun createFoodOrder(
+        @Body request: CreateFoodOrderRequest
+    ): Response<FoodOrderCreateResponse>
+
+    // FB-084 REORDER: validasi ulang item order food lama (harga + availability)
+    @GET("api/v1/orders/reorder-info")
+    suspend fun getReorderInfo(
+        @Query("id") orderId: String
+    ): Response<ReorderInfoResponse>
 }
 
 

@@ -974,6 +974,18 @@ func (s *AuthService) UpdateUserRole(ctx context.Context, userID string, role st
 }
 
 func (s *AuthService) RegisterCourier(ctx context.Context, userID string, vehicleType, vehiclePlate string) error {
+	// FOOD-BIKE-039: validasi vehicle type — 'sepeda' diizinkan (FOOD-BIKE-001),
+	// dan sepeda tidak wajib plat nomor (tidak seperti motor).
+	switch vehicleType {
+	case "bebek", "matic", "sport", "sepeda":
+		// valid
+	default:
+		return fmt.Errorf("vehicle_type tidak valid: %s (harus bebek/matic/sport/sepeda)", vehicleType)
+	}
+	if vehicleType != "sepeda" && strings.TrimSpace(vehiclePlate) == "" {
+		return fmt.Errorf("vehicle_plate wajib diisi untuk kendaraan %s", vehicleType)
+	}
+
 	profile := &domain.CourierProfile{
 		UserID:       userID,
 		VehicleType:  vehicleType,
@@ -1032,7 +1044,7 @@ func (s *AuthService) UploadCourierDocument(ctx context.Context, userID string, 
 		ActorID:  userID,
 		Action:   "upload_document",
 		TargetID: profile.ID,
-		Payload:  fmt.Sprintf(`{"document_type": "%s", "url": "%s"}`, docType, url),
+		Payload:  fmt.Sprintf(`{"doc_type": "%s", "url": "%s"}`, docType, url),
 	})
 
 	return url, nil

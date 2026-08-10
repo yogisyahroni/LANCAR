@@ -7,6 +7,32 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+// FB-105: rincian item pesanan food (snapshot food_order_items dari
+// backend courier order detail). Driver butuh tahu isi pesanan yang
+// dijemput/diantar — tidak bisa hanya andalkan struk fisik.
+@Serializable
+data class CourierOrderFoodItem(
+    @SerialName("name")
+    val name: String = "",
+    @SerialName("quantity")
+    val quantity: Int = 1,
+    @SerialName("notes")
+    val notes: String? = null,
+    // FB-108: pilihan varian yang dipilih customer (mis. "Level Pedas: Extra
+    // Pedas") — driver harus tahu persis apa yang diserah terima merchant.
+    @SerialName("variants")
+    val variants: List<CourierOrderItemVariantSnapshot> = emptyList(),
+)
+
+// FB-108: snapshot satu pilihan varian untuk driver.
+@Serializable
+data class CourierOrderItemVariantSnapshot(
+    @SerialName("variant_name")
+    val variantName: String = "",
+    @SerialName("option_name")
+    val optionName: String = "",
+)
+
 @Serializable
 data class CourierOrderPackage(
     @SerialName("package_id")
@@ -130,6 +156,11 @@ data class Order(
     @SerialName("fee")
     val fee: String = "",
 
+    // FB-077: tip dari customer (Rp). 0 = belum di-tip.
+    @ColumnInfo(name = "tip_amount_idr")
+    @SerialName("tip_amount_idr")
+    val tipAmountIdr: Long = 0,
+
     @ColumnInfo(name = "courier_payout_estimate_idr")
     @SerialName("courier_payout_estimate_idr")
     val courierPayoutEstimateIdr: Int = 0,
@@ -201,6 +232,12 @@ data class Order(
     @ColumnInfo(name = "item_description")
     @SerialName("item_description")
     val itemDescription: String? = null,
+
+    // FB-105: rincian item food (snapshot food_order_items dari backend).
+    // Kosong [] untuk order parcel biasa. Dipakai OrderDetailScreen.
+    @ColumnInfo(name = "food_items")
+    @SerialName("food_items")
+    val foodItems: List<CourierOrderFoodItem> = emptyList(),
 
     @ColumnInfo(name = "item_image_url")
     @SerialName("item_image_url")
@@ -346,6 +383,14 @@ data class Order(
     @ColumnInfo(name = "pickup_photo_verified")
     @SerialName("pickup_photo_verified")
     val pickupPhotoVerified: Boolean = false,
+
+    /**
+     * FB-089: contactless delivery — antar tanpa kontak fisik
+     * (letakkan paket di lokasi). POD foto tetap wajib.
+     */
+    @ColumnInfo(name = "contactless")
+    @SerialName("contactless")
+    val contactless: Boolean = false,
 
     @ColumnInfo(name = "length")
     @SerialName("length")

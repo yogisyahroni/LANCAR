@@ -87,7 +87,7 @@ func (h *AggregatorFinanceHandler) ListInvoices(w http.ResponseWriter, r *http.R
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"invoices": invoices})
+	_ = json.NewEncoder(w).Encode(map[string]any{"invoices": invoices})
 }
 
 func (h *AggregatorFinanceHandler) ReconcileInvoice(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +104,7 @@ func (h *AggregatorFinanceHandler) ReconcileInvoice(w http.ResponseWriter, r *ht
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 func (h *AggregatorFinanceHandler) ApproveInvoice(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +126,7 @@ func (h *AggregatorFinanceHandler) ApproveInvoice(w http.ResponseWriter, r *http
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"status": "APPROVED"})
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "APPROVED"})
 }
 
 func (h *AggregatorFinanceHandler) ListPolicies(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +136,7 @@ func (h *AggregatorFinanceHandler) ListPolicies(w http.ResponseWriter, r *http.R
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"policies": policies})
+	_ = json.NewEncoder(w).Encode(map[string]any{"policies": policies})
 }
 
 func (h *AggregatorFinanceHandler) UpdatePolicy(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +153,7 @@ func (h *AggregatorFinanceHandler) UpdatePolicy(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(pol)
+	_ = json.NewEncoder(w).Encode(pol)
 }
 
 func (h *AggregatorFinanceHandler) SubmitClaim(w http.ResponseWriter, r *http.Request) {
@@ -171,7 +171,7 @@ func (h *AggregatorFinanceHandler) SubmitClaim(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 func (h *AggregatorFinanceHandler) ListClaims(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +189,7 @@ func (h *AggregatorFinanceHandler) ListClaims(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"claims": claims})
+	_ = json.NewEncoder(w).Encode(map[string]any{"claims": claims})
 }
 
 func (h *AggregatorFinanceHandler) ResolveClaim(w http.ResponseWriter, r *http.Request) {
@@ -213,5 +213,5 @@ func (h *AggregatorFinanceHandler) ResolveClaim(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"id": id, "status": body.Status})
+	_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "status": body.Status})
 }

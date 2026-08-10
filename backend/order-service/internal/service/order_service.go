@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"sort"
 	"strings"
 	"tembus/order-service/internal/domain"
@@ -33,6 +34,13 @@ type orderServiceImpl struct {
 	reportSvc       domain.ServiceReportService
 	ledgerRepo      domain.FinanceLedgerRepository
 	taxSvc          domain.TaxService
+	foodRepo        domain.FoodRepository
+	settlementSvc   domain.MerchantSettlementService
+	pointsSvc       domain.DriverPointsService
+	penaltySvc      domain.DriverPenaltyService
+	voucherSvc      domain.VoucherService
+	tipSvc          domain.TipService  // FB-083: refund tip saat order batal
+	pushSvc         domain.PushService // FB-084: notif push customer saat merchant reject/timeout
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -56,8 +64,41 @@ func (s *orderServiceImpl) SetRefundService(rs domain.RefundService) {
 	s.refundSvc = rs
 }
 
+func (s *orderServiceImpl) SetTipService(ts domain.TipService) {
+	s.tipSvc = ts
+}
+
+func (s *orderServiceImpl) SetPushService(ps domain.PushService) {
+	s.pushSvc = ps
+}
+
+// SetMerchantSettlementService inject settlement service (FOOD-BIKE-067).
+// Dipanggil dari ScanPackage saat order food delivered tanpa payment link.
+func (s *orderServiceImpl) SetMerchantSettlementService(mss domain.MerchantSettlementService) {
+	s.settlementSvc = mss
+}
+
+// SetDriverIncentiveServices inject points + penalty service (FOOD-BIKE-068).
+// Points ditambah saat order food delivered; penalty dipakai anti-ghosting.
+func (s *orderServiceImpl) SetDriverIncentiveServices(pts domain.DriverPointsService, pen domain.DriverPenaltyService) {
+	s.pointsSvc = pts
+	s.penaltySvc = pen
+}
+
 func (s *orderServiceImpl) SetServiceReportService(reportSvc domain.ServiceReportService) {
 	s.reportSvc = reportSvc
+}
+
+// SetFoodRepository — inject food repository (FOOD-BIKE-073).
+// Dipanggil dari wiring setelah service di-construct.
+func (s *orderServiceImpl) SetFoodRepository(fr domain.FoodRepository) {
+	s.foodRepo = fr
+}
+
+// SetVoucherService — inject voucher service (FB-078).
+// Dipanggil dari wiring setelah service di-construct.
+func (s *orderServiceImpl) SetVoucherService(vs domain.VoucherService) {
+	s.voucherSvc = vs
 }
 
 func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req domain.CreateOrderRequest) (*domain.Order, error) {
@@ -191,9 +232,45 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		order.TaxInvoiceStatus = taxSnapshot.TaxInvoiceStatus
 	}
 
+	// 5.c FB-078: apply voucher diskon (kalau ada) — zero-trust server-side.
+	// Tidak bisa digabung dengan promo lain (estimate.DiscountIDR != 0).
+	var voucherUsage *domain.VoucherValidationResult
+	if req.VoucherCode != "" && s.voucherSvc != nil {
+		if order.DiscountIDR > 0 {
+			return nil, fmt.Errorf("voucher tidak bisa digabung dengan promo lain")
+		}
+		baseIDR := order.DynamicPriceIDR + order.DistanceFeeIDR
+		// Validate dulu (tanpa catat usage) — usage dicatat SETELAH order tersimpan.
+		vres, verr := s.voucherSvc.Validate(ctx, req.VoucherCode, userID, baseIDR, order.Model)
+		if verr != nil {
+			return nil, fmt.Errorf("voucher: %w", verr)
+		}
+		if !vres.Valid {
+			return nil, fmt.Errorf("voucher tidak valid: %s", vres.Error)
+		}
+		discount := vres.DiscountIDR
+		if discount > order.TotalPriceIDR {
+			discount = order.TotalPriceIDR
+		}
+		order.DiscountIDR += discount
+		order.PromoCode = req.VoucherCode
+		order.TotalPriceIDR -= discount
+		voucherUsage = vres
+	}
+
 	// 6. Save to DB
 	if err := s.orderRepo.Create(ctx, order); err != nil {
 		return nil, fmt.Errorf("failed to save order: %w", err)
+	}
+
+	// 6.b Catat pemakaian voucher SETELAH order sukses dibuat — kalau order
+	// gagal, voucher tidak hangus (single-use tetap valid utk retry).
+	if voucherUsage != nil {
+		if oid, errO := uuid.Parse(order.ID); errO == nil {
+			if uid, errU := uuid.Parse(order.CustomerID); errU == nil {
+				_ = s.voucherSvc.RecordUsage(ctx, voucherUsage.VoucherID, oid, uid, voucherUsage.DiscountIDR)
+			}
+		}
 	}
 
 	// 7. Publish and Persist creation event
@@ -313,7 +390,6 @@ func (s *orderServiceImpl) CreateInternalAggregatorOrder(ctx context.Context, us
 
 	return order, nil
 }
-
 
 func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, req domain.CreateBulkOrderRequest) ([]*domain.Order, string, error) {
 	if len(req.Destinations) < 2 {
@@ -497,7 +573,37 @@ func (s *orderServiceImpl) ListOrders(ctx context.Context, userID string, filter
 	return s.orderRepo.ListByUserID(ctx, userID, filter)
 }
 
+func (s *orderServiceImpl) GetCourierIDByUserID(ctx context.Context, userID string) (string, error) {
+	return s.orderRepo.GetCourierIDByUserID(ctx, userID)
+}
+
 func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, status domain.OrderStatus) error {
+	// FB-081: tangkap status lama SEBELUM update — dipakai sbg original_status
+	// refund. Tanpa ini, order sudah berstatus cancelled saat refund dihitung
+	// → food cancel lewat jalur ini dihitung 0% (salah untuk pending_merchant dll).
+	var prevStatus domain.OrderStatus
+	prevOrder, errPrev := s.orderRepo.GetByID(ctx, orderID)
+	if errPrev == nil && prevOrder != nil {
+		prevStatus = prevOrder.Status
+	}
+
+	// AUDIT-FIX m5: guard transisi terakhir (defense in depth) —
+	// 1) idempotent: target == status sekarang → no-op, JANGAN trigger
+	//    refund/event dua kali (order sudah cancelled, dana sudah kembali).
+	// 2) status final (delivered/cancelled) TIDAK boleh berubah lagi —
+	//    membunuh resurrection via endpoint generic (order delivered →
+	//    di-cancel → refund order selesai; order cancelled → di-delivered).
+	if prevOrder != nil {
+		if prevOrder.Status == status {
+			return nil
+		}
+		if (prevOrder.Status == domain.StatusDelivered || prevOrder.Status == domain.StatusCancelled) &&
+			status != prevOrder.Status {
+			return fmt.Errorf("order %s sudah berstatus final (%s), tidak bisa diubah ke %s",
+				orderID, prevOrder.Status, status)
+		}
+	}
+
 	err := s.orderRepo.UpdateStatus(ctx, orderID, status)
 	if err != nil {
 		return err
@@ -518,7 +624,7 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 
 		// Push to task queue for persistent background processing (notifications)
 		if s.taskQueue != nil {
-			s.taskQueue.Push(ctx, queue.Task{
+			_ = s.taskQueue.Push(ctx, queue.Task{
 				Type: "order.status_updated",
 				Payload: map[string]interface{}{
 					"order_id": order.ID,
@@ -531,9 +637,21 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 		if status == domain.StatusCancelled && s.refundSvc != nil {
 			if oid, errParse := uuid.Parse(orderID); errParse == nil {
 				log.Printf("[OrderService] Order %s cancelled, triggering automatic refund...", orderID)
-				_, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, "Order cancelled")
+				_, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, "Order cancelled", domain.RefundOptions{OriginalStatus: prevStatus})
 				if errRefund != nil {
 					log.Printf("[OrderService] Failed to trigger refund for order %s: %v", orderID, errRefund)
+				}
+			}
+		}
+
+		// FB-083: order batal → tip yang sudah dibayar dikembalikan ke customer
+		// (fire-and-forget: error hanya di-log, tidak menggagalkan cancel flow).
+		if status == domain.StatusCancelled && s.tipSvc != nil {
+			if oid, errParse := uuid.Parse(orderID); errParse == nil {
+				if errTip := s.tipSvc.RefundTipByOrder(ctx, oid); errTip != nil {
+					log.Printf("[OrderService] Failed to refund tip for cancelled order %s: %v", orderID, errTip)
+				} else {
+					log.Printf("[OrderService] Tip refunded for cancelled order %s", orderID)
 				}
 			}
 		}
@@ -624,6 +742,15 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 			_ = s.eventRepo.SaveEvent(ctx, event)
 			_ = s.eventBus.Publish(ctx, "order.updates", event)
 
+			// FB-124: notif customer bahwa driver sudah di-assign (hanya
+			// order food — parcel sudah dapat notif "order_accepted" di atas).
+			// Fire-and-forget — gagal kirim hanya di-log.
+			if o.MerchantID != nil && s.pushSvc != nil {
+				if errPush := s.pushSvc.NotifyCustomerDriverAssigned(ctx, o.ID, "Driver ditemukan — sedang menuju merchant"); errPush != nil {
+					log.Printf("[OrderService] FB-124 push driver_assigned gagal order %s: %v", o.ID, errPush)
+				}
+			}
+
 			// 5. Notify Customer
 			_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
 				UserID:  o.CustomerID,
@@ -635,6 +762,14 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 					"type":     "order_accepted",
 				},
 			})
+		}
+	}
+
+	// FB-088: kalau batch ini adalah food batch → tandai courier di
+	// food_batches (forming → assigned). Tidak fatal kalau batch parcel biasa.
+	if order.BatchID != nil && s.foodRepo != nil {
+		if err := s.foodRepo.UpdateFoodBatchCourier(ctx, *order.BatchID, courierID); err != nil {
+			log.Printf("failed to update food batch courier %s: %v", *order.BatchID, err)
 		}
 	}
 
@@ -945,7 +1080,7 @@ func (s *orderServiceImpl) notifyCustomerNoCourier(ctx context.Context, order *d
 		log.Printf("Failed to send notification to customer %s: %v", order.CustomerID, err)
 	}
 
-	s.taskQueue.Push(ctx, queue.Task{
+	_ = s.taskQueue.Push(ctx, queue.Task{
 		Type: "order.no_courier_found",
 		Payload: map[string]interface{}{
 			"order_id": order.ID,
@@ -1077,7 +1212,7 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 	if targetStatus == domain.StatusDelivered {
 		// Calculate courier earnings based on order BasePrice + Volumetric + Dynamic
 		grossTariff := order.BasePriceIDR + order.VolumetricSurchargeIDR + order.DynamicPriceIDR
-		
+
 		// 80% to courier (example, should be from config but we'll use standard model)
 		// For simplicity we just use 80% of grossTariff for courier payable
 		courierPayable := int64(float64(grossTariff) * 0.8)
@@ -1092,17 +1227,23 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 			CreatedBy:      scannedBy,
 			ActorRole:      "courier",
 		}
-		
+		// FB-088: catat batch_id di metadata untuk rekonsiliasi earnings
+		// (order batch food: payout tetap per-order saat tiap delivery —
+		// pickup di-share 1 trip, tanpa double-count).
+		if order.BatchID != nil {
+			journal.Metadata["batch_id"] = *order.BatchID
+		}
+
 		entries := []domain.LedgerEntry{
 			// Revenue Recognition (Realized)
 			{AccountName: "unearned_revenue", DebitIDR: grossTariff, CreditIDR: 0},
 			{AccountName: "delivery_revenue", DebitIDR: 0, CreditIDR: grossTariff},
-			
+
 			// Courier Payable Accrual
 			{AccountName: "courier_payout_expense", DebitIDR: courierPayable, CreditIDR: 0},
 			{AccountName: "courier_payable", DebitIDR: 0, CreditIDR: courierPayable},
 		}
-		
+
 		// If promo applied (we assume TotalPriceIDR < grossTariff indicates promo)
 		promoDiscount := grossTariff - order.TotalPriceIDR
 		if promoDiscount > 0 {
@@ -1112,6 +1253,51 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 
 		if err = s.ledgerRepo.CreateJournalWithEntries(ctx, journal, entries); err != nil {
 			return fmt.Errorf("failed to write ledger for delivery: %w", err)
+		}
+	}
+
+	// FOOD-BIKE-067: Merchant settlement escrow untuk order food on-demand
+	// (merchant_id terisi, tanpa payment link). Non-fatal: jika settlement
+	// gagal dibuat, scan delivered tetap sukses — settlement bisa diproses
+	// manual/reconcile. Idempotent via "settle-order-<orderID>".
+	if targetStatus == domain.StatusDelivered && order.MerchantID != nil && s.settlementSvc != nil {
+		if err := s.settlementSvc.HandleFoodOrderDelivered(ctx, order.ID); err != nil {
+			log.Printf("[settlement] FOOD-BIKE-067 failed untuk order %s: %v", order.ID, err)
+		}
+	}
+
+	// FOOD-BIKE-068: Tambah poin "tutup poin" saat order delivered dengan
+	// courier terassign. Non-fatal — kegagalan hanya dilog.
+	if targetStatus == domain.StatusDelivered && order.CourierID != nil && s.pointsSvc != nil {
+		courierUserID, errUser := uuid.Parse(*order.CourierID)
+		orderUUID, errOrder := uuid.Parse(order.ID)
+		if errUser == nil && errOrder == nil {
+			if err := s.pointsSvc.AddPoints(ctx, courierUserID, orderUUID); err != nil {
+				log.Printf("[points] FOOD-BIKE-068 failed untuk order %s: %v", order.ID, err)
+			}
+		}
+	}
+
+	// FB-124: Push progress ke customer + merchant pada transisi food.
+	// pickup (accepted → picked_up): customer tahu pesanan diambil driver,
+	// merchant dapat konfirmasi serah terima. delivered: keduanya di-notif.
+	// Fire-and-forget — gagal kirim hanya di-log, tidak menggagalkan scan.
+	if order.MerchantID != nil && s.pushSvc != nil {
+		if targetStatus == domain.StatusPickedUp {
+			if errPush := s.pushSvc.NotifyCustomerPickedUp(ctx, order.ID, "Pesananmu sudah diambil driver dan sedang dalam perjalanan"); errPush != nil {
+				log.Printf("[OrderService] FB-124 push picked_up customer gagal order %s: %v", order.ID, errPush)
+			}
+			if errPush := s.pushSvc.NotifyMerchantPickedUp(ctx, order.ID, "Pesanan sudah diambil driver — terima kasih!"); errPush != nil {
+				log.Printf("[OrderService] FB-124 push picked_up merchant gagal order %s: %v", order.ID, errPush)
+			}
+		}
+		if targetStatus == domain.StatusDelivered {
+			if errPush := s.pushSvc.NotifyCustomerDelivered(ctx, order.ID, "Pesananmu sudah diantar — selamat menikmati!"); errPush != nil {
+				log.Printf("[OrderService] FB-124 push delivered customer gagal order %s: %v", order.ID, errPush)
+			}
+			if errPush := s.pushSvc.NotifyMerchantDelivered(ctx, order.ID, "Pesanan sudah diantar ke customer"); errPush != nil {
+				log.Printf("[OrderService] FB-124 push delivered merchant gagal order %s: %v", order.ID, errPush)
+			}
 		}
 	}
 
@@ -1359,6 +1545,38 @@ func (s *orderServiceImpl) SubmitRating(ctx context.Context, customerID string, 
 	return s.orderRepo.SaveOrderRating(ctx, orderID, courierID, req.Rating, req.Comment)
 }
 
+// SubmitMerchantRating — FOOD-BIKE-059/060: customer menilai makanan merchant,
+// terpisah dari rating driver. Validasi sama (order milik customer + delivered),
+// idempotent via UNIQUE(order_id, merchant_id).
+func (s *orderServiceImpl) SubmitMerchantRating(ctx context.Context, customerID string, orderID string, req domain.SubmitRatingRequest) error {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return domain.ErrNotFound
+	}
+
+	// Security: pastikan order milik customer yang sedang login
+	if order.CustomerID != customerID {
+		return domain.ErrForbidden
+	}
+
+	// Validasi status: hanya order delivered yang bisa di-rating
+	if order.Status != domain.StatusDelivered {
+		return fmt.Errorf("rating hanya bisa diberikan untuk order yang sudah terkirim (status: %s)", order.Status)
+	}
+
+	// Validasi range rating
+	if req.Rating < 1.0 || req.Rating > 5.0 {
+		return fmt.Errorf("rating harus antara 1 sampai 5 bintang")
+	}
+
+	// Order food harus punya merchant
+	if order.MerchantID == nil || *order.MerchantID == "" {
+		return fmt.Errorf("order tidak memiliki data merchant")
+	}
+
+	return s.orderRepo.SaveMerchantRating(ctx, orderID, *order.MerchantID, customerID, req.Rating, req.Comment)
+}
+
 // GetOrdersNeedingRatingReminder mengembalikan order yang perlu mendapat notifikasi
 // reminder rating. Dipanggil saat customer membuka notifikasi atau oleh worker.
 // Constraint: max 4 reminder, interval minimal 12 jam.
@@ -1374,4 +1592,852 @@ func (s *orderServiceImpl) GetCourierPerformanceStats(ctx context.Context, couri
 		return nil, err
 	}
 	return s.relayRepo.GetCourierPerformanceStats(ctx, uuidID)
+}
+
+// ─────────────────────────────────────────────────────────────
+// FOOD DELIVERY — CreateFoodOrder (FOOD-BIKE-073)
+// Zero-trust: harga item dihitung ulang server-side dari
+// merchant_menu_items. Client hanya kirim menu_item_id + quantity.
+// ─────────────────────────────────────────────────────────────
+func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, req domain.CreateFoodOrderRequest) (*domain.Order, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+
+	// 1. Validasi merchant: ada, approved, buka
+	merchant, err := s.foodRepo.GetFoodMerchant(ctx, req.MerchantID)
+	if err != nil {
+		return nil, err
+	}
+	if merchant.VerificationStatus != "approved" {
+		return nil, fmt.Errorf("merchant belum terverifikasi")
+	}
+	if !merchant.IsOpen {
+		return nil, fmt.Errorf("merchant tutup")
+	}
+	// FB-107: merchant sedang pause sementara — tolak order baru sampai
+	// paused_until lewat (auto un-pause, tidak butuh aksi merchant).
+	if merchant.PausedUntil != nil && merchant.PausedUntil.After(time.Now()) {
+		return nil, fmt.Errorf("merchant sedang pause — coba lagi setelah %s",
+			merchant.PausedUntil.Format("15:04"))
+	}
+	// FB-094: merchant wajib punya lokasi (pin di peta saat daftar).
+	// Tanpa lokasi, ongkir & "resto terdekat" tidak bisa dihitung dengan benar.
+	if merchant.Lat == 0 && merchant.Lng == 0 {
+		return nil, fmt.Errorf("merchant belum melengkapi lokasi toko — lengkapi pin lokasi di profil merchant dulu")
+	}
+
+	// 1b. FB-123: validasi pesanan terjadwal (kalau IsScheduled).
+	// Aturan: wajib isi waktu, min lead 30 menit, same-day only, dalam jam
+	// operasional merchant. Status tetap pending_payment — transisi ke
+	// 'scheduled' terjadi di payment callback (payment_service.go).
+	var scheduledAt *time.Time
+	if req.IsScheduled {
+		if errV := validateScheduledAt(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup, time.Now()); errV != nil {
+			return nil, errV
+		}
+		scheduledAt = req.ScheduledAt
+	}
+
+	// 2. Ambil menu items by ID — harga dari server, bukan client
+	menuIDs := make([]string, 0, len(req.Items))
+	for _, it := range req.Items {
+		menuIDs = append(menuIDs, it.MenuID)
+	}
+	menuItems, err := s.foodRepo.GetFoodMenuItems(ctx, menuIDs)
+	if err != nil {
+		return nil, err
+	}
+	menuByID := make(map[string]domain.FoodMenuItemInfo, len(menuItems))
+	for _, mi := range menuItems {
+		menuByID[mi.ID] = mi
+	}
+
+	// 3. Validasi: semua item ketemu, available, milik merchant ini
+	for _, it := range req.Items {
+		mi, ok := menuByID[it.MenuID]
+		if !ok {
+			return nil, fmt.Errorf("menu item tidak ditemukan: %s", it.MenuID)
+		}
+		if mi.MerchantID != req.MerchantID {
+			return nil, fmt.Errorf("menu item bukan milik merchant ini: %s", it.MenuID)
+		}
+		if !mi.IsAvailable {
+			return nil, fmt.Errorf("menu item tidak tersedia: %s", mi.Name)
+		}
+	}
+
+	// 3b. FB-108: ambil grup varian semua menu item (map[menuID][]variant).
+	variantMap, err := s.foodRepo.GetMenuItemVariants(ctx, menuIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get menu variants: %w", err)
+	}
+
+	// 4. Hitung ulang harga (server-side) + snapshot item
+	var subtotal int64
+	maxPrep := 0
+	orderItems := make([]domain.FoodOrderItem, 0, len(req.Items))
+	for _, it := range req.Items {
+		mi := menuByID[it.MenuID]
+		variants, hasVariants := variantMap[it.MenuID]
+
+		// FB-108: validasi pilihan varian — zero-trust, semua dicek server.
+		var itemDelta int64
+		itemVariants := make([]domain.FoodOrderItemVariant, 0, len(it.Variants))
+		if hasVariants && len(it.Variants) > 0 {
+			selectedByVariant := make(map[string][]string) // variantID -> optionIDs
+			optionByID := make(map[string]domain.MenuItemVariantOption)
+			for _, v := range variants {
+				for _, o := range v.Options {
+					optionByID[o.ID] = o
+				}
+			}
+			for _, sel := range it.Variants {
+				// variant harus milik menu item ini
+				var varFound *domain.MenuItemVariant
+				for i := range variants {
+					if variants[i].ID == sel.VariantID {
+						varFound = &variants[i]
+						break
+					}
+				}
+				if varFound == nil {
+					return nil, fmt.Errorf("variant %s bukan milik menu item %s", sel.VariantID, mi.Name)
+				}
+				// option harus milik variant itu
+				opt, okOpt := optionByID[sel.OptionID]
+				if !okOpt || opt.VariantID != sel.VariantID {
+					return nil, fmt.Errorf("option %s bukan milik variant %s", sel.OptionID, sel.VariantID)
+				}
+				selectedByVariant[sel.VariantID] = append(selectedByVariant[sel.VariantID], sel.OptionID)
+				itemDelta += opt.PriceDelta
+				itemVariants = append(itemVariants, domain.FoodOrderItemVariant{
+					VariantID:   varFound.ID,
+					OptionID:    opt.ID,
+					VariantName: varFound.Nama,
+					OptionName:  opt.Nama,
+					PriceDelta:  opt.PriceDelta,
+				})
+			}
+			// validasi aturan per grup: required + max_select
+			for _, v := range variants {
+				selCount := len(selectedByVariant[v.ID])
+				if v.IsRequired && selCount == 0 {
+					return nil, fmt.Errorf("pilih %s dulu untuk %s", v.Nama, mi.Name)
+				}
+				if selCount > v.MaxSelect {
+					return nil, fmt.Errorf("maksimal %d pilihan untuk %s (%s)", v.MaxSelect, v.Nama, mi.Name)
+				}
+				if selCount > 0 && selCount < v.MinSelect {
+					return nil, fmt.Errorf("minimal %d pilihan untuk %s (%s)", v.MinSelect, v.Nama, mi.Name)
+				}
+			}
+		} else if hasVariants {
+			// Item punya varian tapi client tidak kirim satupun — tolak kalau
+			// ada grup required. Grup optional tanpa pilihan = skip (boleh).
+			for _, v := range variants {
+				if v.IsRequired {
+					return nil, fmt.Errorf("pilih %s dulu untuk %s", v.Nama, mi.Name)
+				}
+			}
+		}
+
+		unitPrice := mi.Price + itemDelta
+		sub := unitPrice * int64(it.Quantity)
+		subtotal += sub
+		if mi.PrepTimeMinutes > maxPrep {
+			maxPrep = mi.PrepTimeMinutes
+		}
+		orderItems = append(orderItems, domain.FoodOrderItem{
+			MenuItemID: mi.ID,
+			ItemName:   mi.Name,
+			ItemPrice:  unitPrice,
+			Quantity:   it.Quantity,
+			Notes:      it.Notes,
+			Subtotal:   sub,
+			Variants:   itemVariants,
+		})
+	}
+
+	// FB-109: minimum subtotal order merchant (0 = tanpa minimum).
+	// Validasi SEBELUM bayar — customer langsung dapat pesan jelas.
+	if merchant.MinOrderIDR > 0 && subtotal < merchant.MinOrderIDR {
+		return nil, fmt.Errorf("minimum order di toko ini Rp %d — subtotal kamu Rp %d",
+			merchant.MinOrderIDR, subtotal)
+	}
+
+	// 5. Ongkir: jarak merchant → dropoff, tarif dari service product food_delivery
+	distanceKM := haversineKM(merchant.Lat, merchant.Lng, req.DropoffLat, req.DropoffLng)
+
+	// FB-104: tolak order yang jaraknya melebihi radius maksimum kurir
+	// (20 km = batas atas dropdown radius kurir sepeda). Tanpa ini order
+	// tetap dibuat, masuk searching, lalu timeout tanpa peringatan awal —
+	// customer sudah bayar duluan baru tahu tidak ada kurir.
+	if err := validateFoodDeliveryDistance(distanceKM); err != nil {
+		return nil, err
+	}
+
+	svc, err := s.pricingRepo.GetDeliveryServiceByCode(ctx, "food_delivery")
+	if err != nil || svc == nil {
+		return nil, fmt.Errorf("service product food_delivery tidak ditemukan: %w", err)
+	}
+	deliveryFee := svc.BaseFareIDR
+	if distanceKM > svc.IncludedDistanceKM {
+		extra := int64(math.Ceil(distanceKM - svc.IncludedDistanceKM))
+		deliveryFee += extra * svc.PerKmIDR
+	}
+
+	// 6. Biaya layanan (platform fee) — default 10% kalau config 0
+	platformFeePct := svc.PlatformFeePct
+	if platformFeePct <= 0 {
+		platformFeePct = 10
+	}
+	platformFee := int64(math.Round(float64(subtotal) * platformFeePct / 100))
+
+	total := subtotal + deliveryFee + platformFee
+
+	// 6b. FB-078: apply voucher diskon (kalau ada) — zero-trust server-side.
+	// Base diskon = subtotal + deliveryFee (platform fee tidak boleh kena diskon).
+	// Validate dulu (tanpa catat usage); usage dicatat SETELAH order tersimpan.
+	orderID := uuid.New().String()
+	var voucherDiscount int64
+	var voucherUsage *domain.VoucherValidationResult
+	if req.VoucherCode != "" && s.voucherSvc != nil {
+		vres, verr := s.voucherSvc.Validate(ctx, req.VoucherCode, userID, subtotal+deliveryFee, "p2p")
+		if verr != nil {
+			return nil, fmt.Errorf("voucher: %w", verr)
+		}
+		if !vres.Valid {
+			return nil, fmt.Errorf("voucher tidak valid: %s", vres.Error)
+		}
+		voucherDiscount = vres.DiscountIDR
+		if voucherDiscount > total {
+			voucherDiscount = total
+		}
+		total -= voucherDiscount
+		voucherUsage = vres
+	}
+
+	// 7. Build Order (status awal pending_payment, service_sub_type food_delivery)
+	orderNum := fmt.Sprintf("TMBS%s", strings.ToUpper(uuid.New().String()[:6]))
+	handoverToken := uuid.New().String()
+	qrURL, err := utils.GenerateQRCodeDataURI(handoverToken, 256)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate qr code: %w", err)
+	}
+
+	prepMin := maxPrep
+	merchantID := merchant.ID
+	serviceSubType := "food_delivery"
+	now := time.Now()
+	order := &domain.Order{
+		ID:                 orderID,
+		OrderNumber:        orderNum,
+		CustomerID:         userID,
+		Model:              "p2p", // CHECK constraint orders_model_check — hanya p2p/two_legs/three_legs/hub_and_spoke; food = p2p + service_sub_type food_delivery
+		Status:             domain.StatusPendingPayment,
+		PickupAddress:      merchant.Address,
+		PickupLat:          merchant.Lat,
+		PickupLng:          merchant.Lng,
+		DropoffAddress:     req.DropoffAddress,
+		DropoffCity:        req.DropoffCity,
+		DropoffZipCode:     req.DropoffZipCode,
+		DropoffLat:         req.DropoffLat,
+		DropoffLng:         req.DropoffLng,
+		ItemDescription:    "Pesanan makanan",
+		DistanceKM:         distanceKM,
+		IncludedDistanceKM: svc.IncludedDistanceKM,
+		DistanceFeeIDR:     deliveryFee,
+		BasePriceIDR:       subtotal,
+		DynamicPriceIDR:    subtotal,
+		TotalPriceIDR:      total,
+		DiscountIDR:        voucherDiscount,
+		PromoCode:          req.VoucherCode,
+		PlatformFeeIDR:     platformFee,
+		PlatformFeePct:     platformFeePct,
+		HandoverToken:      handoverToken,
+		QRCodeURL:          qrURL,
+		ReceiverName:       req.ReceiverName,
+		ReceiverPhone:      req.ReceiverPhone,
+		ServiceSubType:     serviceSubType,
+		Contactless:        req.Contactless,
+		OrderNotes:         req.OrderNotes, // FB-121: catatan level order
+		MerchantID:         &merchantID,
+		PrepTimeMinutes:    &prepMin,
+		ScheduledAt:        scheduledAt,   // FB-123: NULL = pesan langsung
+		IsScheduled:        scheduledAt != nil,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+
+	// 8. Simpan order + items dalam SATU transaksi
+	if err := s.foodRepo.CreateFoodOrderWithItems(ctx, order, orderItems); err != nil {
+		return nil, err
+	}
+
+	// 8.b Catat pemakaian voucher SETELAH order sukses — kalau order gagal,
+	// voucher tidak hangus (single-use tetap valid utk retry).
+	if voucherUsage != nil {
+		if oid, errO := uuid.Parse(order.ID); errO == nil {
+			if uid, errU := uuid.Parse(order.CustomerID); errU == nil {
+				_ = s.voucherSvc.RecordUsage(ctx, voucherUsage.VoucherID, oid, uid, voucherUsage.DiscountIDR)
+			}
+		}
+	}
+
+	// 9. Event + broadcast (pola CreateOrder)
+	event := domain.OrderEvent{
+		OrderID:   order.ID,
+		UserID:    order.CustomerID,
+		Status:    order.Status,
+		Message:   "Food order created, awaiting payment",
+		CreatedAt: now,
+	}
+	_ = s.eventRepo.SaveEvent(ctx, event)
+	_ = s.eventBus.Publish(ctx, "order.updates", event)
+
+	if s.notificationSvc != nil {
+		_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
+			UserID:  userID,
+			Title:   "Order dibuat",
+			Message: fmt.Sprintf("Order %s menunggu pembayaran", orderNum),
+		})
+	}
+
+	return order, nil
+}
+
+// validateFoodDeliveryDistance — FB-104: tolak order food kalau jarak
+// merchant → dropoff melebihi radius maksimum kurir (20 km = batas atas
+// dropdown radius kurir sepeda). Dipanggil di CreateFoodOrder SEBELUM
+// customer bayar, supaya tidak ada order yang masuk searching lalu
+// timeout tanpa kurir bersedia.
+func validateFoodDeliveryDistance(distanceKM float64) error {
+	const foodMaxRadiusKM = 20.0
+	if distanceKM > foodMaxRadiusKM {
+		return fmt.Errorf("jarak pengantaran %.1f km melebihi radius maksimum kurir (%.0f km) — pilih merchant yang lebih dekat atau alamat antar yang lain", distanceKM, foodMaxRadiusKM)
+	}
+	return nil
+}
+
+// jakartaLoc — AUDIT-FIX M1: semua perbandingan jam operasional & same-day
+// memakai zona WIB (Asia/Jakarta) eksplisit, TIDAK bergantung TZ OS server
+// (container Docker default UTC → geser 7 jam). Merchant beroperasi di
+// Indonesia; jadwal customer dikirim dengan offset lokal dan dikonversi ke
+// WIB untuk dibandingkan dengan jam_buka/jam_tutup merchant.
+var jakartaLoc = func() *time.Location {
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		return time.FixedZone("WIB", 7*60*60) // fallback aman kalau tzdata hilang
+	}
+	return loc
+}()
+
+// inJakarta — konversi time ke zona WIB (AUDIT-FIX M1).
+func inJakarta(t time.Time) time.Time {
+	return t.In(jakartaLoc)
+}
+
+// validateScheduledAt — FB-123: aturan pesanan terjadwal yang dipakai
+// CreateFoodOrder: wajib ada waktu, min lead 30 menit, same-day only,
+// dalam jam operasional merchant (jam_buka/jam_tutup TIME "HH:MM[:SS]").
+// AUDIT-FIX M1: perbandingan jam/tanggal memakai zona WIB eksplisit;
+// AUDIT-FIX M3: dukung jam operasional lintas tengah malam (buka 18:00–02:00).
+// Pure function (terima `now` eksplisit) — testable & tidak time-dependent.
+func validateScheduledAt(sa *time.Time, jamBuka, jamTutup *string, now time.Time) error {
+	if sa == nil {
+		return fmt.Errorf("waktu jadwal wajib diisi (scheduled_at)")
+	}
+	if sa.Before(now.Add(30 * time.Minute)) {
+		return fmt.Errorf("waktu jadwal minimal 30 menit dari sekarang")
+	}
+	// Same-day only (V1): tanggal harus sama dengan hari ini (zona WIB).
+	saJkt := inJakarta(*sa)
+	nowJkt := inJakarta(now)
+	y1, m1, d1 := saJkt.Date()
+	y2, m2, d2 := nowJkt.Date()
+	if y1 != y2 || m1 != m2 || d1 != d2 {
+		return fmt.Errorf("pesanan terjadwal hanya bisa untuk hari ini — pilih jam yang masih hari ini")
+	}
+	// Jam operasional merchant (jam_buka/jam_tutup TIME "HH:MM[:SS]").
+	// Jam merchant diasumsikan zona WIB (operasi di Indonesia).
+	if jamBuka != nil && jamTutup != nil {
+		openH, openM, errO := parseHHMM(*jamBuka)
+		closeH, closeM, errC := parseHHMM(*jamTutup)
+		if errO == nil && errC == nil {
+			targetMin := saJkt.Hour()*60 + saJkt.Minute()
+			openMin := openH*60 + openM
+			closeMin := closeH*60 + closeM
+			// M3: rentang lintas tengah malam (tutup < buka, mis. 18:00–02:00):
+			// valid kalau target >= buka ATAU target <= tutup.
+			if closeMin < openMin {
+				if targetMin < openMin && targetMin > closeMin {
+					return fmt.Errorf("merchant buka jam %s–%s — pilih waktu di dalam jam operasional",
+						*jamBuka, *jamTutup)
+				}
+			} else if targetMin < openMin || targetMin > closeMin {
+				return fmt.Errorf("merchant buka jam %s–%s — pilih waktu di dalam jam operasional",
+					*jamBuka, *jamTutup)
+			}
+		}
+	}
+	return nil
+}
+
+// parseHHMM — FB-123: parse jam operasional merchant (TIME "HH:MM" atau
+// "HH:MM:SS") → jam + menit. Return error kalau format tidak dikenal.
+func parseHHMM(s string) (int, int, error) {
+	t, err := time.Parse("15:04:05", s)
+	if err != nil {
+		t, err = time.Parse("15:04", s)
+	}
+	if err != nil {
+		return 0, 0, err
+	}
+	return t.Hour(), t.Minute(), nil
+}
+
+// haversineKM — jarak dua titik koordinat dalam kilometer.
+func haversineKM(lat1, lng1, lat2, lng2 float64) float64 {
+	const earthRadiusKM = 6371.0
+	dLat := (lat2 - lat1) * math.Pi / 180.0
+	dLng := (lng2 - lng1) * math.Pi / 180.0
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*math.Pi/180.0)*math.Cos(lat2*math.Pi/180.0)*
+			math.Sin(dLng/2)*math.Sin(dLng/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusKM * c
+}
+
+// ── FOOD-BIKE-021: accept/reject order food oleh merchant ────────────────────
+
+// AcceptByMerchant — merchant menyetujui order food: pending_merchant → preparing.
+// food_ready_at dihitung = NOW() + prep_time_minutes (dipakai worker matching).
+func (s *orderServiceImpl) AcceptByMerchant(ctx context.Context, orderID string, merchantID string) error {
+	if s.foodRepo == nil {
+		return fmt.Errorf("food repository not wired")
+	}
+	o, err := s.foodRepo.GetFoodOrderForMerchant(ctx, orderID, merchantID)
+	if err != nil {
+		return err
+	}
+	if o.Status != domain.StatusPendingMerchant {
+		return fmt.Errorf("order %s tidak dalam status pending_merchant (status: %s)", orderID, o.Status)
+	}
+	prep := 15
+	if o.PrepTimeMinutes != nil && *o.PrepTimeMinutes > 0 {
+		prep = *o.PrepTimeMinutes
+	}
+	if err := s.foodRepo.AcceptFoodOrder(ctx, orderID, prep); err != nil {
+		return err
+	}
+	s.publishOrderEvent(ctx, orderID, domain.StatusPreparing, "Merchant menerima pesanan — makanan disiapkan")
+
+	// FB-124: notif customer bahwa merchant menerima pesanannya
+	// (fire-and-forget — gagal kirim hanya di-log, tidak menggagalkan accept).
+	if s.pushSvc != nil {
+		if errPush := s.pushSvc.NotifyCustomerMerchantAccepted(ctx, orderID, "Merchant menerima pesananmu — makanan sedang disiapkan"); errPush != nil {
+			log.Printf("[OrderService] FB-124 push merchant_accepted gagal order %s: %v", orderID, errPush)
+		}
+	}
+	return nil
+}
+
+// RejectByMerchant — merchant menolak order food: pending_merchant → cancelled.
+// Reason wajib (alasan penolakan merchant). FB-081: setelah reject sukses →
+// trigger refund 100% otomatis. FB-082: fee di-charge ke merchant (piutang).
+func (s *orderServiceImpl) RejectByMerchant(ctx context.Context, orderID string, merchantID string, reason string) error {
+	if s.foodRepo == nil {
+		return fmt.Errorf("food repository not wired")
+	}
+	o, err := s.foodRepo.GetFoodOrderForMerchant(ctx, orderID, merchantID)
+	if err != nil {
+		return err
+	}
+	if o.Status != domain.StatusPendingMerchant {
+		return fmt.Errorf("order %s tidak dalam status pending_merchant (status: %s)", orderID, o.Status)
+	}
+	if err := s.foodRepo.RejectFoodOrder(ctx, orderID, reason); err != nil {
+		return err
+	}
+	s.publishOrderEvent(ctx, orderID, domain.StatusCancelled, "Pesanan ditolak merchant: "+reason)
+
+	// FB-081: merchant menolak = kesalahan merchant → refund penuh
+	// FB-082: fee di-charge ke merchant (customer refund 100%, platform tidak rugi)
+	s.triggerRefundOnCancel(ctx, orderID, "Pesanan ditolak merchant: "+reason, domain.StatusPendingMerchant, "merchant")
+	return nil
+}
+
+// triggerRefundOnCancel — helper: trigger refund dgn original status eksplisit
+// (fire-and-forget — error hanya di-log, tidak menggagalkan flow utama).
+// chargeFeeTo: "customer" (default) | "merchant" (FB-082) | "none".
+func (s *orderServiceImpl) triggerRefundOnCancel(ctx context.Context, orderID string, reason string, originalStatus domain.OrderStatus, chargeFeeTo string) {
+	if s.refundSvc == nil {
+		return
+	}
+	oid, errParse := uuid.Parse(orderID)
+	if errParse != nil {
+		log.Printf("[OrderService] triggerRefundOnCancel: invalid order id %s", orderID)
+		return
+	}
+	if _, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, reason, domain.RefundOptions{OriginalStatus: originalStatus, ChargeCancellationFeeTo: chargeFeeTo}); errRefund != nil {
+		log.Printf("[OrderService] triggerRefundOnCancel: gagal refund order %s: %v", orderID, errRefund)
+	}
+	// FB-083: refund tip juga (kalau ada) — fire-and-forget
+	if s.tipSvc != nil {
+		if errTip := s.tipSvc.RefundTipByOrder(ctx, oid); errTip != nil {
+			log.Printf("[OrderService] triggerRefundOnCancel: gagal refund tip order %s: %v", orderID, errTip)
+		}
+	}
+	// FB-084: notif push customer — order batal karena kesalahan merchant
+	// (reject / timeout respon). Fire-and-forget.
+	if s.pushSvc != nil {
+		if errPush := s.pushSvc.NotifyCustomerOrderCancelled(ctx, orderID, reason); errPush != nil {
+			log.Printf("[OrderService] triggerRefundOnCancel: gagal push notif customer order %s: %v", orderID, errPush)
+		}
+	}
+}
+
+// ProcessFoodPrepTransitions — dipanggil food_prep_worker tiap 1 menit:
+//  1. Order preparing yang food_ready_at ≤ NOW()+5m → searching (driver matching
+//     mulai 5 menit sebelum makanan siap, driver standby saat ready).
+//  2. Order pending_merchant yang belum direspon > 3 menit → auto-cancel
+//     (FOOD-BIKE-022, pola SLA worker).
+func (s *orderServiceImpl) ProcessFoodPrepTransitions(ctx context.Context) error {
+	if s.foodRepo == nil {
+		return nil // food belum di-wire — skip aman
+	}
+
+	// 1) preparing → searching
+	prepping, err := s.foodRepo.GetPreparingFoodOrders(ctx)
+	if err != nil {
+		return fmt.Errorf("get preparing food orders: %w", err)
+	}
+	for _, o := range prepping {
+		if err := s.orderRepo.UpdateStatus(ctx, o.ID, domain.StatusSearching); err != nil {
+			log.Printf("[FoodPrepWorker] gagal transisi %s → searching: %v", o.ID, err)
+			continue
+		}
+		s.publishOrderEvent(ctx, o.ID, domain.StatusSearching, "Makanan hampir siap — mencari driver terdekat")
+	}
+
+	// 2) pending_merchant timeout → auto-cancel
+	timeouts, err := s.foodRepo.GetPendingMerchantFoodOrders(ctx, 3*time.Minute)
+	if err != nil {
+		return fmt.Errorf("get pending merchant timeouts: %w", err)
+	}
+	for _, o := range timeouts {
+		if err := s.foodRepo.RejectFoodOrder(ctx, o.ID, "merchant_timeout_3m"); err != nil {
+			log.Printf("[FoodPrepWorker] gagal auto-cancel %s: %v", o.ID, err)
+			continue
+		}
+		s.publishOrderEvent(ctx, o.ID, domain.StatusCancelled, "Merchant tidak merespon dalam 3 menit — order dibatalkan otomatis")
+		// FB-081: auto-cancel karena merchant tidak merespon → refund 100%
+		// (status asal pending_merchant = free window).
+		// FB-082: fee di-charge ke merchant (piutang).
+		s.triggerRefundOnCancel(ctx, o.ID, "Merchant tidak merespon dalam 3 menit", domain.StatusPendingMerchant, "merchant")
+	}
+
+	return nil
+}
+
+// ProcessScheduledOrderActivation — dipanggil scheduled_order_worker tiap 1
+// menit (FB-123). Order status 'scheduled' yang sudah due (scheduled_at ≤
+// NOW() + prep_time + buffer 5 menit):
+//
+//  1. Re-validasi merchant masih layak terima order:
+//     - approved (verification_status)
+//     - is_open
+//     - tidak sedang paused_until > NOW()
+//     - scheduled_at masih dalam jam operasional (jam tutup tidak dimajukan)
+//  2. Valid → scheduled → pending_merchant + NotifyMerchantNewOrder (dari
+//     titik ini alur sama persis dengan order normal: SLA 3 menit accept).
+//  3. Tidak valid → auto-cancel + refund 100% + notif customer (belum ada
+//     pihak lain yang mulai kerja → tidak ada fee ke siapapun).
+func (s *orderServiceImpl) ProcessScheduledOrderActivation(ctx context.Context) error {
+	if s.foodRepo == nil {
+		return nil // food belum di-wire — skip aman
+	}
+
+	due, err := s.foodRepo.GetScheduledFoodOrdersDue(ctx)
+	if err != nil {
+		return fmt.Errorf("get scheduled food orders due: %w", err)
+	}
+	if len(due) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	for _, so := range due {
+		// Re-validasi merchant (bisa berubah sejak order dibuat).
+		merchant, errM := s.foodRepo.GetFoodMerchant(ctx, so.MerchantID)
+		if errM != nil {
+			log.Printf("[ScheduledOrderWorker] gagal load merchant %s untuk order %s: %v", so.MerchantID, so.OrderID, errM)
+			// Jangan cancel karena error teknis — biarkan di run berikutnya.
+			continue
+		}
+		valid := merchant != nil &&
+			merchant.VerificationStatus == "approved" &&
+			merchant.IsOpen &&
+			(merchant.PausedUntil == nil || merchant.PausedUntil.Before(now))
+		// Jam operasional saat aktivasi (zona WIB — AUDIT-FIX M1).
+		// M2: kalau belum jam buka → JANGAN cancel, tunggu tick berikutnya
+		// (merchant baru is_open pagi hari; auto-cancel prematur merugikan).
+		// M3: dukung rentang lintas tengah malam.
+		// m3: aktivasi tepat jam tutup (nowMin == closeMin) dianggap TUTUP.
+		nowJkt := inJakarta(now)
+		nowMin := nowJkt.Hour()*60 + nowJkt.Minute()
+		if valid && merchant.JamBuka != nil && merchant.JamTutup != nil {
+			openH, openM, errO := parseHHMM(*merchant.JamBuka)
+			closeH, closeM, errC := parseHHMM(*merchant.JamTutup)
+			if errO == nil && errC == nil {
+				openMin := openH*60 + openM
+				closeMin := closeH*60 + closeM
+				if closeMin < openMin {
+					// Lintas tengah malam: tutup kalau di luar [buka..24:00] ∪ [00:00..tutup]
+					if nowMin < openMin && nowMin > closeMin {
+						log.Printf("[ScheduledOrderWorker] %s: di luar jam operasional %s–%s (lintas tengah malam) — skip, coba tick berikutnya", so.OrderID, *merchant.JamBuka, *merchant.JamTutup)
+						continue
+					}
+				} else if nowMin < openMin {
+					// M2: BELUM jam buka → skip (jangan cancel), tunggu tick berikutnya.
+					log.Printf("[ScheduledOrderWorker] %s: belum jam buka (%s) — skip, coba tick berikutnya", so.OrderID, *merchant.JamBuka)
+					continue
+				} else if nowMin >= closeMin {
+					// m3: sudah lewat/tepat jam tutup → cancel.
+					valid = false
+				}
+			}
+		}
+
+		if !valid {
+			reason := "merchant_tidak_tersedia_saat_aktivasi"
+			if errC := s.foodRepo.CancelScheduledFoodOrder(ctx, so.OrderID, reason); errC != nil {
+				log.Printf("[ScheduledOrderWorker] gagal auto-cancel scheduled %s: %v", so.OrderID, errC)
+				continue
+			}
+			s.publishOrderEvent(ctx, so.OrderID, domain.StatusCancelled,
+				"Maaf, merchant tidak bisa menerima pesanan terjadwal kamu saat ini — dana dikembalikan penuh")
+			s.triggerRefundOnCancel(ctx, so.OrderID,
+				"Merchant tidak bisa menerima pesanan terjadwal saat aktivasi", domain.StatusScheduled, "platform")
+			// m2-AUDIT-FIX: triggerRefundOnCancel sudah mengirim
+			// NotifyCustomerOrderCancelled — tidak perlu push kedua (duplikat).
+			log.Printf("[ScheduledOrderWorker] auto-cancel scheduled %s (merchant tidak valid)", so.OrderID)
+			continue
+		}
+
+		// Valid → aktivasi.
+		if errA := s.foodRepo.ActivateScheduledFoodOrder(ctx, so.OrderID); errA != nil {
+			log.Printf("[ScheduledOrderWorker] gagal aktivasi scheduled %s: %v", so.OrderID, errA)
+			continue
+		}
+		s.publishOrderEvent(ctx, so.OrderID, domain.StatusPendingMerchant,
+			"Pesanan terjadwal kamu mulai diproses merchant")
+		if s.pushSvc != nil {
+			if errN := s.pushSvc.NotifyMerchantNewOrder(ctx, so.OrderID); errN != nil {
+				log.Printf("[ScheduledOrderWorker] gagal notify merchant order %s: %v", so.OrderID, errN)
+			}
+		}
+		log.Printf("[ScheduledOrderWorker] aktivasi scheduled %s → pending_merchant", so.OrderID)
+	}
+
+	return nil
+}
+
+// PairFoodBatches — FB-088: pairing 2 order food `searching` dari merchant
+// sama + dropoff berdekatan (≤ 1.5 km) menjadi 1 batch trip courier.
+//
+// GATE SLA assessment:
+//   - Pairing hanya terjadi di window `searching` (matching driver sudah mulai
+//     5 menit sebelum makanan siap) → tidak menambah ETA.
+//   - Timebox ≤ 2 menit (GetSearchingFoodOrdersForBatch) → kalau tidak ada
+//     pasangan, order jalan solo (broadcast normal) — delay bounded.
+//   - Radius antar dropoff ≤ 1.5 km → detour maks ~5 menit.
+//   - Max 2 order per batch → terukur & aman untuk SLA.
+//
+// Setelah pairing, courier yang accept order pertama otomatis di-assign ke
+// semua order dalam batch (AcceptOrder sudah batch-aware via GetByBatchID).
+func (s *orderServiceImpl) PairFoodBatches(ctx context.Context) error {
+	if s.foodRepo == nil {
+		return nil // food belum di-wire — skip aman
+	}
+
+	const (
+		maxRadiusKM  = 1.5
+		maxETAMin    = 30
+	)
+
+	candidates, err := s.foodRepo.GetSearchingFoodOrdersForBatch(ctx)
+	if err != nil {
+		return fmt.Errorf("get searching food orders for batch: %w", err)
+	}
+
+	paired := make(map[string]bool, len(candidates))
+	for _, o := range candidates {
+		if paired[o.ID] {
+			continue
+		}
+		// Cari pasangan yang juga masih searching & tanpa batch
+		cand, distM, err := s.foodRepo.FindBatchCandidate(ctx, o.ID, maxRadiusKM)
+		if err != nil {
+			log.Printf("[FoodBatchWorker] FindBatchCandidate %s: %v", o.ID, err)
+			continue
+		}
+		if cand == nil {
+			continue // tidak ada pasangan — order jalan solo (GATE)
+		}
+
+		// Ambil merchant_id order A (pasangan pasti merchant sama — query menjamin)
+		orderA, err := s.orderRepo.GetByID(ctx, o.ID)
+		if err != nil {
+			continue
+		}
+		batch := &domain.FoodBatch{
+			ID:               uuid.New().String(),
+			MerchantID:       *orderA.MerchantID,
+			DropoffDistanceM: int(distM),
+			MaxETAMinutes:    maxETAMin,
+		}
+		if err := s.foodRepo.CreateFoodBatch(ctx, batch, o.ID, cand.ID); err != nil {
+			log.Printf("[FoodBatchWorker] CreateFoodBatch %s+%s: %v", o.ID, cand.ID, err)
+			continue
+		}
+
+		paired[o.ID] = true
+		paired[cand.ID] = true
+		log.Printf("[FoodBatchWorker] batch %s terbentuk: %s + %s (jarak dropoff %dm)", batch.ID, o.ID, cand.ID, int(distM))
+
+		// Notify kedua customer — pesanan digabung 1 trip, ETA tetap aman
+		for _, oid := range []string{o.ID, cand.ID} {
+			s.publishOrderEvent(ctx, oid, domain.StatusSearching,
+				"Pesanan digabung dengan pesanan lain di sekitar — driver akan antar keduanya dalam satu perjalanan")
+		}
+	}
+
+	return nil
+}
+func (s *orderServiceImpl) publishOrderEvent(ctx context.Context, orderID string, status domain.OrderStatus, message string) {
+	event := domain.OrderEvent{
+		OrderID:   orderID,
+		Status:    status,
+		Message:   message,
+		CreatedAt: time.Now(),
+	}
+	_ = s.eventRepo.SaveEvent(ctx, event)
+	_ = s.eventBus.Publish(ctx, "order.updates", event)
+}
+
+// ─────────────────────────────────────────────────────────────
+// FOOD DELIVERY — Browse merchant (FOOD-BIKE-055/056)
+// ─────────────────────────────────────────────────────────────
+func (s *orderServiceImpl) ListFoodMerchants(ctx context.Context, lat, lng float64, search, halal string) ([]domain.FoodMerchantInfo, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+	return s.foodRepo.ListFoodMerchants(ctx, lat, lng, search, halal, 50)
+}
+
+func (s *orderServiceImpl) GetFoodMerchantDetail(ctx context.Context, merchantID string) (*domain.FoodMerchantInfo, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+	merchant, err := s.foodRepo.GetFoodMerchant(ctx, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	menu, err := s.foodRepo.GetFoodMerchantMenu(ctx, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	merchant.MenuItems = menu
+	return merchant, nil
+}
+
+// ─────────────────────────────────────────────────────────────
+// FB-084 REORDER — validasi ulang item order food lama
+// ─────────────────────────────────────────────────────────────
+// CheckReorder membandingkan snapshot food_order_items (harga beku saat
+// order) vs harga/availability merchant_menu_items saat ini. Hasilnya
+// dipakai client untuk prefill cart + dialog perbedaan harga.
+func (s *orderServiceImpl) CheckReorder(ctx context.Context, orderID string) (*domain.ReorderCheckResult, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if order == nil {
+		return nil, errors.New("order not found")
+	}
+	if order.ServiceSubType != "food_delivery" {
+		return nil, errors.New("reorder hanya untuk order food delivery")
+	}
+
+	// 1. Snapshot item saat order (harga beku).
+	snapshotItems, err := s.foodRepo.GetFoodOrderItems(ctx, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("get food order items: %w", err)
+	}
+
+	// 2. Merchant saat ini (is_open + nama) untuk konteks checkout.
+	if order.MerchantID == nil || *order.MerchantID == "" {
+		return nil, errors.New("order bukan pesanan merchant (tidak bisa reorder)")
+	}
+	merchant, err := s.foodRepo.GetFoodMerchant(ctx, *order.MerchantID)
+	if err != nil {
+		return nil, fmt.Errorf("get food merchant: %w", err)
+	}
+
+	// 3. Harga & availability menu SAAT INI untuk tiap menu_item_id.
+	menuIDs := make([]string, 0, len(snapshotItems))
+	for _, it := range snapshotItems {
+		menuIDs = append(menuIDs, it.MenuItemID)
+	}
+	currentMenu := map[string]domain.FoodMenuItemInfo{}
+	if len(menuIDs) > 0 {
+		list, err := s.foodRepo.GetFoodMenuItems(ctx, menuIDs)
+		if err != nil {
+			return nil, fmt.Errorf("get current menu items: %w", err)
+		}
+		for _, m := range list {
+			currentMenu[m.ID] = m
+		}
+	}
+
+	// 4. Bangun hasil per item + total.
+	result := &domain.ReorderCheckResult{
+		OrderID:      order.ID,
+		MerchantID:   *order.MerchantID,
+		MerchantName: merchant.Name,
+		MerchantOpen: merchant.IsOpen,
+		Items:        make([]domain.ReorderCheckItem, 0, len(snapshotItems)),
+	}
+	for _, it := range snapshotItems {
+		cur, found := currentMenu[it.MenuItemID]
+		newPrice := it.ItemPrice
+		available := found && cur.IsAvailable
+		if found {
+			newPrice = cur.Price
+		}
+		item := domain.ReorderCheckItem{
+			MenuItemID:   it.MenuItemID,
+			ItemName:     it.ItemName,
+			Quantity:     it.Quantity,
+			Notes:        it.Notes,
+			OldPrice:     it.ItemPrice,
+			NewPrice:     newPrice,
+			Available:    available,
+			PriceChanged: !found || cur.Price != it.ItemPrice,
+		}
+		result.Items = append(result.Items, item)
+		result.TotalOld += it.ItemPrice * int64(it.Quantity)
+		result.TotalNew += newPrice * int64(it.Quantity)
+		if item.PriceChanged || !item.Available {
+			result.HasChanges = true
+		}
+	}
+
+	return result, nil
 }

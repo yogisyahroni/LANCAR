@@ -873,6 +873,28 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          COALESCE(dsp.failed_delivery_policy, 'must_deliver') AS service_failed_delivery_policy,
          COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
          NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
+         -- FB-105: rincian item food untuk driver app (snapshot food_order_items).
+         -- FB-108: + variants (nama grup/opsi + harga delta) supaya driver tahu
+         -- pilihan yang harus diserahkan (mis. "Level Pedas: Extra Pedas").
+         COALESCE((
+           SELECT jsonb_agg(jsonb_build_object(
+             'name', foi.item_name,
+             'quantity', foi.quantity,
+             'notes', foi.notes,
+             'price', foi.item_price,
+             'variants', COALESCE((
+               SELECT jsonb_agg(jsonb_build_object(
+                 'variant_name', foiv.variant_name,
+                 'option_name', foiv.option_name,
+                 'price_delta', foiv.price_delta
+               ) ORDER BY foiv.id)
+               FROM food_order_item_variants foiv
+               WHERE foiv.order_item_id = foi.id
+             ), '[]'::jsonb)
+           ) ORDER BY foi.id)
+           FROM food_order_items foi
+           WHERE foi.order_id = o.id
+         ), '[]'::jsonb) AS food_items,
          NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
          NULLIF(o.package_details->>'width_cm', '')::float8 AS width,
          NULLIF(o.package_details->>'height_cm', '')::float8 AS height,
@@ -906,11 +928,14 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
              AND ps.scan_type IN ('pickup_photo')
          ) AS pickup_photo_verified,
          (SELECT row_to_json(tr) FROM tambal_ban_reports tr WHERE tr.order_id = o.id LIMIT 1) AS tambal_ban_report,
-         (SELECT row_to_json(twr) FROM towing_reports twr WHERE twr.order_id = o.id LIMIT 1) AS towing_report
-       FROM order_legs ol
-       JOIN orders o ON o.id = ol.order_id
-       LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
-       LEFT JOIN users c ON c.id = o.customer_id
+         (SELECT row_to_json(twr) FROM towing_reports twr WHERE twr.order_id = o.id LIMIT 1) AS towing_report,
+         -- FB-077: tip dari customer (LEFT JOIN — 0/null kalau belum di-tip)
+         COALESCE(dt.amount_idr, 0)::bigint AS tip_amount_idr
+         FROM order_legs ol
+         JOIN orders o ON o.id = ol.order_id
+         LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
+         LEFT JOIN users c ON c.id = o.customer_id
+         LEFT JOIN driver_tips dt ON dt.order_id = o.id
        WHERE ol.courier_id = $1
        ORDER BY o.id, o.sequence_no ASC NULLS FIRST, o.created_at ASC
        LIMIT 100`,
@@ -1022,6 +1047,28 @@ const mobileOrderSelect = `
   COALESCE(dsp.failed_delivery_policy, 'must_deliver') AS service_failed_delivery_policy,
   COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
   NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
+  -- FB-105: rincian item food untuk driver app (snapshot food_order_items).
+  -- FB-108: + variants (nama grup/opsi + harga delta) supaya driver tahu
+  -- pilihan yang harus diserahkan (mis. "Level Pedas: Extra Pedas").
+  COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+      'name', foi.item_name,
+      'quantity', foi.quantity,
+      'notes', foi.notes,
+      'price', foi.item_price,
+      'variants', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'variant_name', foiv.variant_name,
+          'option_name', foiv.option_name,
+          'price_delta', foiv.price_delta
+        ) ORDER BY foiv.id)
+        FROM food_order_item_variants foiv
+        WHERE foiv.order_item_id = foi.id
+      ), '[]'::jsonb)
+    ) ORDER BY foi.id)
+    FROM food_order_items foi
+    WHERE foi.order_id = o.id
+  ), '[]'::jsonb) AS food_items,
   NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
   NULLIF(o.package_details->>'width_cm', '')::float8 AS width,
   NULLIF(o.package_details->>'height_cm', '')::float8 AS height,
@@ -1080,6 +1127,7 @@ const normalizeMobileOrder = (order: any) => {
     offer_ttl_seconds: order.offer_ttl_seconds ? Number(order.offer_ttl_seconds) : null,
     tambal_ban_report: order.tambal_ban_report || null,
     towing_report: order.towing_report || null,
+    tip_amount_idr: Number(order.tip_amount_idr || 0),
   };
 };
 
@@ -2772,6 +2820,176 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
   };
 };
 
+/**
+ * dispatchToPreferredCourier — "Pilih Petugas" flow (tambal ban & towing).
+ * Customer explicitly selects a courier from the nearby list; instead of
+ * ranking via the normal queue, we create a direct offer to that courier.
+ */
+export const dispatchToPreferredCourier = async (
+  client: any,
+  orderId: string,
+  preferredCourierUserId: string
+): Promise<CreatedDispatchOffer | null> => {
+  const activeOffer = await client.query(
+    `SELECT id
+     FROM courier_offer_dispatches
+     WHERE order_id = $1
+       AND status = 'offered'
+       AND expires_at > NOW()
+     LIMIT 1`,
+    [orderId]
+  );
+  if (activeOffer.rows.length > 0) return null;
+
+  const accepted = await client.query(
+    `SELECT id
+     FROM courier_offer_dispatches
+     WHERE order_id = $1
+       AND status = 'accepted'
+     LIMIT 1`,
+    [orderId]
+  );
+  if (accepted.rows.length > 0) return null;
+
+  // Validate the preferred courier is online, approved, capable & nearby.
+  const courier = await client.query(
+    `SELECT
+       cp.user_id AS courier_id,
+       cp.current_zone_id AS zone_id,
+       COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0) AS distance_m,
+       COALESCE(cp.avg_partner_rating, cp.relay_score, 5.00)::numeric(3,2) AS rating_snapshot,
+       COALESCE(cp.acceptance_rate_pct, 100)::int AS acceptance_rate_snapshot,
+       COALESCE(cp.completion_rate_pct, 100)::int AS completion_rate_snapshot,
+       o.pickup_address,
+       o.dropoff_address,
+       COALESCE(NULLIF(o.route_snapshot->>'distance_km', '')::numeric, o.distance_km, 0)::text AS distance,
+       COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::text AS fee,
+       COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::int AS courier_payout_estimate_idr,
+       COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
+       COALESCE(u.full_name, 'Customer') AS customer_name,
+       COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS') AS service_name,
+       o.service_code,
+       NULLIF(o.route_snapshot->>'vehicle_type', '') AS vehicle_type,
+       COALESCE(NULLIF(o.route_snapshot->>'eta_minutes', '')::int, 0) AS eta_minutes,
+       o.route_profile,
+       o.route_provider,
+       COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
+       COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
+       NULLIF(o.route_snapshot->>'snapshot_hash', '') AS route_snapshot_hash,
+       NULLIF(o.route_snapshot->>'snapshot_version', '')::int AS route_snapshot_version,
+       NULLIF(o.route_snapshot->>'route_version', '') AS route_version
+     FROM orders o
+     JOIN delivery_service_products dsp ON dsp.code = o.service_code
+      AND dsp.is_enabled = TRUE
+     JOIN courier_profiles cp ON cp.user_id = $2
+      AND cp.verification_status = 'approved'
+      AND cp.is_online = TRUE
+      AND cp.current_location IS NOT NULL
+      AND cp.last_location_at >= NOW() - INTERVAL '10 minutes'
+     JOIN courier_service_capabilities csc ON csc.courier_profile_id = cp.id
+      AND csc.service_code = o.service_code
+      AND csc.status = 'enabled'
+     LEFT JOIN users u ON u.id = o.customer_id
+     WHERE o.id = $1
+       AND o.status = ANY($3::text[])
+     LIMIT 1`,
+    [orderId, preferredCourierUserId, ON_DEMAND_OPEN_ORDER_STATUSES]
+  );
+  const nextCourier = courier.rows[0];
+  if (!nextCourier) return null;
+
+  const rank = await client.query(
+    `SELECT COALESCE(MAX(rank_number), 0) + 1 AS next_rank
+     FROM courier_offer_dispatches
+     WHERE order_id = $1`,
+    [orderId]
+  );
+
+  const inserted = await client.query(
+    `INSERT INTO courier_offer_dispatches (
+       order_id,
+       courier_id,
+       zone_id,
+       rank_number,
+       score,
+       distance_m,
+       rating_snapshot,
+       acceptance_rate_snapshot,
+       completion_rate_snapshot,
+       expires_at,
+       metadata
+     )
+     VALUES ($1, $2, $3, $4, 9999, $5, $6, $7, $8, NOW() + ($9::text || ' seconds')::interval, $10)
+     ON CONFLICT (order_id, courier_id) DO NOTHING
+     RETURNING id, expires_at`,
+    [
+      orderId,
+      nextCourier.courier_id,
+      nextCourier.zone_id,
+      Number(rank.rows[0]?.next_rank || 1),
+      nextCourier.distance_m,
+      nextCourier.rating_snapshot,
+      nextCourier.acceptance_rate_snapshot,
+      nextCourier.completion_rate_snapshot,
+      ON_DEMAND_OFFER_TTL_SECONDS,
+      JSON.stringify({ source: 'customer_selected', dispatch_type: 'preferred' }),
+    ]
+  );
+  const dispatch = inserted.rows[0];
+  if (!dispatch) return null;
+
+  await client.query(
+    `UPDATE orders
+     SET status = CASE
+           WHEN status IN ('pending', 'pending_payment', 'paid', 'matched', 'offered') THEN 'dispatching'
+           ELSE status
+         END,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [orderId]
+  );
+
+  await client.query(
+    `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+     VALUES ($1, $2, 'offer_dispatched', 'Offer dispatched to customer-selected courier', $3)`,
+    [
+      orderId,
+      nextCourier.courier_id,
+      JSON.stringify({
+        dispatch_id: dispatch.id,
+        ttl_seconds: ON_DEMAND_OFFER_TTL_SECONDS,
+        rank_number: Number(rank.rows[0]?.next_rank || 1),
+        source: 'customer_selected',
+        dispatch_type: 'preferred',
+      }),
+    ]
+  );
+
+  return {
+    dispatch_id: dispatch.id,
+    order_id: orderId,
+    courier_id: nextCourier.courier_id,
+    pickup_address: nextCourier.pickup_address,
+    dropoff_address: nextCourier.dropoff_address,
+    distance: nextCourier.distance,
+    fee: nextCourier.fee,
+    customer_name: nextCourier.customer_name,
+    expires_at: dispatch.expires_at,
+    service_name: nextCourier.service_name,
+    service_code: nextCourier.service_code,
+    vehicle_type: nextCourier.vehicle_type,
+    route_profile: nextCourier.route_profile,
+    route_provider: nextCourier.route_provider,
+    route_distance_meters: nextCourier.route_distance_meters,
+    route_duration_seconds: nextCourier.route_duration_seconds,
+    eta_minutes: nextCourier.eta_minutes,
+    route_snapshot_hash: nextCourier.route_snapshot_hash,
+    route_snapshot_version: nextCourier.route_snapshot_version,
+    route_version: nextCourier.route_version,
+    courier_payout_estimate_idr: Number(nextCourier.courier_payout_estimate_idr || 0),
+  };
+};
+
 export const advanceOnDemandDispatchQueue = async (client: any, limit = 25): Promise<CreatedDispatchOffer[]> => {
   const createdOffers = await expireStaleOnDemandOffers(client);
 
@@ -3654,6 +3872,7 @@ const verifyOnDemandStep = async ({
          COALESCE(dsp.proof_gps_override_policy, '{}'::jsonb) AS proof_gps_override_policy,
          COALESCE(dsp.face_verification_required, TRUE) AS face_verification_required,
          COALESCE(dsp.pod_label, 'POD') AS pod_label,
+         o.handover_token,
          ST_Distance(
            CASE WHEN $2 = 'pickup' THEN o.pickup_location ELSE o.dropoff_location END,
            ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography
@@ -3882,6 +4101,32 @@ const verifyOnDemandStep = async ({
       return;
     }
     const packageId = packageRes.rows[0]?.id || null;
+
+    // FOOD-BIKE-032: validasi barcode terhadap handover token order.
+    // Sebelumnya barcode hanya disimpan untuk audit tanpa dicocokkan —
+    // celah keamanan (barcode/QR asal bisa dipakai bukti pickup palsu).
+    // Sekarang: untuk order tanpa order_packages (single proof flow),
+    // barcode yang di-scan WAJIB cocok dengan order.handover_token.
+    // Backward compatible: token kosong (order lama) → skip validasi.
+    const normalizedBarcode = String(barcodeValue || '').trim();
+    const orderHandoverToken = String(order.handover_token || '').trim();
+    if (
+      step === 'pickup' &&
+      totalPackages === 0 &&
+      normalizedBarcode &&
+      orderHandoverToken &&
+      normalizedBarcode !== orderHandoverToken
+    ) {
+      await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('barcode_mismatch', distanceM);
+      res.status(422).json({
+        success: false,
+        data: null,
+        message: 'Kode barcode tidak cocok dengan token handover order ini. Periksa kembali kode pada paket/struk.',
+        code: 'ERR_BARCODE_MISMATCH',
+      });
+      return;
+    }
 
     const scanType = step === 'pickup'
       ? (photoUrl ? 'pickup_photo' : 'pickup_scan')

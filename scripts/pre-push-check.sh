@@ -3,7 +3,7 @@
 # PRE-PUSH CHECKLIST — jalankan sebelum `git push`
 # Menangkap error yang biasa lolos: lint, migration, test
 # ============================================================
-set -euo pipefail
+set -eo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -26,20 +26,27 @@ check "Go Build (auth-service)" \
 
 # ── 2. Go lint (golangci-lint: errcheck) ─────────────
 if command -v golangci-lint &>/dev/null; then
-  if golangci-lint run --disable-all --enable=errcheck ./backend/auth-service/... 2>&1; then
-    echo -e "  ${GREEN}✓${NC}"
-    PASS=$((PASS+1))
-  else
-    echo -e "  ${RED}✗${NC}"
-    FAIL=$((FAIL+1))
-  fi
+  check "Go Lint - errcheck (auth-service)" \
+    sh -c "cd backend/auth-service && golangci-lint run --disable-all --enable=errcheck ./... 2>&1"
 else
   skip "Go Lint - errcheck" "golangci-lint not installed (install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)"
 fi
 
 # ── 3. Check migration version uniqueness ────────────
-check "Migration version uniqueness" \
-  sh -c "ls database/migrations/*.sql | sed 's/.*\///; s/^\([0-9]*\).*/\1/' | sort | uniq -d | grep -q . && { echo '  ❌ DUPLICATE VERSIONS:'; ls database/migrations/*.sql | sed 's/.*\///; s/^\([0-9]*\).*/\1/' | sort | uniq -d | while read v; do ls database/migrations/${v}*.sql | sed 's/.*\///'; done; exit 1; } || echo '  ✅ All unique'"
+migration_check() {
+  local dup
+  dup=$(ls database/migrations/*.sql | sed 's/.*\///; s/^\([0-9]*\).*/\1/' | sort | uniq -d)
+  if [ -n "$dup" ]; then
+    echo "  ❌ DUPLICATE VERSIONS:"
+    for v in $dup; do
+      ls database/migrations/${v}*.sql | sed 's/.*\///'
+    done
+    return 1
+  fi
+  echo "  ✅ All unique"
+  return 0
+}
+check "Migration version uniqueness" migration_check
 
 # ── 4. TypeScript lint (admin-dashboard) ─────────────
 check "TS Build (admin-dashboard)" \

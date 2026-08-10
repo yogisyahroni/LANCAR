@@ -14,7 +14,9 @@ import {
   Users,
   BarChart3,
   Truck,
-  RefreshCw
+  RefreshCw,
+  Store,
+  UtensilsCrossed
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -22,6 +24,16 @@ import { api } from '../lib/api'
 import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
+
+// FB-123: scheduled_at (ISO UTC) → jam lokal "HH:mm".
+const formatScheduledTime = (iso?: string | null) => {
+  if (!iso) return ''
+  try {
+    return format(new Date(iso), 'HH:mm')
+  } catch {
+    return ''
+  }
+}
 
 const uploadUrl = (path?: string | null) => {
   if (!path) return ''
@@ -477,12 +489,22 @@ export default function ActiveOrdersTable() {
                         "w-2 h-2 rounded-full",
                         order.status === 'delivered' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
                         order.status === 'delayed' || order.status === 'failed' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
+                        order.status === 'scheduled' ? "bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]" :
                         "bg-primary animate-pulse shadow-[0_0_8px_rgba(0,100,55,0.5)]"
                       )} />
                       <span className={cn(
                         "text-xs font-black uppercase tracking-widest",
-                        order.status === 'delayed' ? "text-red-400" : "text-zinc-200"
+                        order.status === 'delayed' ? "text-red-400" :
+                        order.status === 'scheduled' ? "text-violet-300" : "text-zinc-200"
                       )}>{order.status}</span>
+                      {/* FB-123: badge Terjadwal hanya untuk order yang MASIH terjadwal
+                          (AUDIT-FIX: setelah aktivasi status berubah tapi scheduled_at
+                          masih terisi → badge tidak boleh muncul di non-scheduled) */}
+                      {order.status === 'scheduled' && order.scheduled_at && (
+                        <span className="text-[10px] font-bold bg-violet-500/10 text-violet-300 border border-violet-500/30 rounded-full px-2 py-0.5 ml-1">
+                          🕐 Terjadwal — {formatScheduledTime(order.scheduled_at)}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-5 text-right">
@@ -641,6 +663,60 @@ export default function ActiveOrdersTable() {
                             </div>
                           </div>
                         </div>
+
+                        {/* FB-110: rincian food (merchant + item + timeline masak) */}
+                        {orderDetail.food_items?.length > 0 && (
+                          <div className="space-y-6 p-8 rounded-[40px] bg-white/[0.02] border border-white/5 shadow-inner">
+                            <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                              <UtensilsCrossed size={14} className="text-primary-light" />
+                              Food Order Detail
+                            </p>
+                            {orderDetail.food_merchant && (
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between group">
+                                  <span className="text-sm text-zinc-500 font-bold italic group-hover:text-zinc-400 transition-colors flex items-center gap-2">
+                                    <Store size={14} className="text-primary-light" /> Merchant
+                                  </span>
+                                  <div className="text-right">
+                                    <p className="text-sm font-black text-zinc-100">{orderDetail.food_merchant.merchant_name}</p>
+                                    <p className="text-[10px] text-zinc-600 font-medium">{orderDetail.food_merchant.merchant_address}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-zinc-500 font-bold italic">Diterima Merchant</span>
+                                  <span className="text-sm font-black text-zinc-100">
+                                    {orderDetail.food_merchant.merchant_accepted_at
+                                      ? format(new Date(orderDetail.food_merchant.merchant_accepted_at), 'dd MMM yyyy HH:mm')
+                                      : '—'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-zinc-500 font-bold italic">Makanan Siap</span>
+                                  <span className="text-sm font-black text-zinc-100">
+                                    {orderDetail.food_merchant.food_ready_at
+                                      ? format(new Date(orderDetail.food_merchant.food_ready_at), 'dd MMM yyyy HH:mm')
+                                      : '—'}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            <div className="pt-2 space-y-3">
+                              {orderDetail.food_items.map((item: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between border-t border-white/5 pt-3">
+                                  <div>
+                                    <p className="text-sm font-black text-zinc-100">
+                                      {item.quantity}× {item.item_name}
+                                    </p>
+                                    {item.notes && (
+                                      <p className="text-[10px] text-zinc-600 font-medium">Catatan: {item.notes}</p>
+                                    )}
+                                  </div>
+                                  <span className="text-sm font-black text-zinc-100">Rp {parseInt(item.subtotal).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         <div className="space-y-10">
                           <h3 className="text-2xl font-black text-zinc-100 tracking-tight flex items-center gap-4">

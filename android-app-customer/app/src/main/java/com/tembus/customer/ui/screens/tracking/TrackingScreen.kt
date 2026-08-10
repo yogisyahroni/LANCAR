@@ -52,7 +52,12 @@ import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.screens.rating.CourierRatingDialog
 import com.tembus.customer.ui.screens.rating.CourierRatingViewModel
+import com.tembus.customer.ui.screens.rating.MerchantRatingDialog
+import com.tembus.customer.ui.screens.rating.MerchantRatingViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tembus.customer.ui.screens.tip.TipDialog
+import com.tembus.customer.ui.screens.tip.TipViewModel
+import androidx.compose.material.icons.filled.VolunteerActivism
 
 @Composable
 fun TrackingScreen(
@@ -61,14 +66,19 @@ fun TrackingScreen(
     onBackClick: () -> Unit,
     onChatClick: (String, String?) -> Unit,
     onCallClick: (String, String?) -> Unit,
-    ratingViewModel: CourierRatingViewModel = hiltViewModel()
+    ratingViewModel: CourierRatingViewModel = hiltViewModel(),
+    merchantRatingViewModel: MerchantRatingViewModel = hiltViewModel(),
+    tipViewModel: TipViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val ratingState by ratingViewModel.uiState.collectAsState()
+    val merchantRatingState by merchantRatingViewModel.uiState.collectAsState()
+    val tipState by tipViewModel.uiState.collectAsState()
 
     // Tracking start
     LaunchedEffect(orderId) {
         viewModel.startTracking(orderId)
+        tipViewModel.checkTipStatus(orderId)
     }
 
     // Tampilkan dialog rating otomatis ketika order DELIVERED dan belum di-rating
@@ -88,6 +98,26 @@ fun TrackingScreen(
                 courierPhotoUrl = order.courierPhotoUrl ?: "",
                 courierPlate = order.courierPlate ?: ""
             )
+        }
+    }
+
+    // FOOD-BIKE-060: dialog rating merchant untuk order food (punya merchant_id).
+    // Muncul setelah dialog rating kurir ditutup (submitted ATAU di-skip).
+    LaunchedEffect(ratingState.isSubmitted, uiState.detail?.order?.merchantName) {
+        val order = uiState.detail?.order
+        if (order != null &&
+            !order.merchantId.isNullOrBlank() &&
+            !merchantRatingState.showDialog &&
+            !merchantRatingState.isSubmitted
+        ) {
+            // Tunggu sampai rating kurir selesai (submitted atau dismiss) sebelum tampil
+            if (ratingState.isSubmitted || ratingState.pendingReminders.isEmpty()) {
+                merchantRatingViewModel.prepare(
+                    orderId = orderId,
+                    orderNumber = order.orderNumber ?: "",
+                    merchantName = order.merchantName ?: "Merchant"
+                )
+            }
         }
     }
 
@@ -178,6 +208,18 @@ fun TrackingScreen(
                     )
                 },
                 hasUnreadMessage = uiState.hasUnreadMessage,
+                // FB-077: tip — tampil saat kurir sudah ditugaskan, status eligible, belum di-tip
+                canTip = !tipState.tipped &&
+                    uiState.detail?.order?.courierName != null &&
+                    (uiState.detail?.order?.status?.lowercase() in tipEligibleCustomerStatuses),
+                onTipClick = {
+                    val order = uiState.detail?.order
+                    tipViewModel.prepare(
+                        orderId = orderId,
+                        orderNumber = order?.orderNumber ?: "",
+                        courierName = order?.courierName ?: ""
+                    )
+                },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
             )
         }
@@ -216,8 +258,46 @@ fun TrackingScreen(
                 onDismissError = { ratingViewModel.clearError() }
             )
         }
+
+        // FOOD-BIKE-060: dialog rating merchant (muncul setelah rating kurir selesai)
+        if (merchantRatingState.showDialog) {
+            MerchantRatingDialog(
+                merchantName = merchantRatingState.merchantName,
+                orderNumber = merchantRatingState.orderNumber,
+                isSubmitting = merchantRatingState.isSubmitting,
+                isSubmitted = merchantRatingState.isSubmitted,
+                errorMessage = merchantRatingState.error,
+                onSubmit = { rating, comment ->
+                    merchantRatingViewModel.submitRating(rating, comment)
+                },
+                onDismiss = { merchantRatingViewModel.dismiss() },
+                onDismissError = { merchantRatingViewModel.clearError() }
+            )
+        }
+
+        // FB-077: dialog tip kurir (semua service)
+        if (tipState.showDialog) {
+            TipDialog(
+                courierName = tipState.courierName,
+                orderNumber = tipState.orderNumber,
+                isSubmitting = tipState.isSubmitting,
+                isSubmitted = tipState.isSubmitted,
+                errorMessage = tipState.error,
+                onSubmit = { amount -> tipViewModel.submitTip(amount) },
+                onDismiss = { tipViewModel.dismiss() },
+                onDismissError = { tipViewModel.clearError() }
+            )
+        }
     }
 }
+
+// FB-077: status order customer yang masih bisa di-tip
+// (selaras dengan eligible statuses di backend tip_service.go)
+private val tipEligibleCustomerStatuses = setOf(
+    "accepted", "picking_up", "picked_up",
+    "inbound_origin", "outbound_origin", "inbound_destination", "outbound_destination",
+    "delivering", "delivered"
+)
 
 @Composable
 private fun RuntimeMapFallback(
@@ -295,6 +375,8 @@ fun CourierStatusCard(
     onCallClick: () -> Unit,
     onChatClick: () -> Unit,
     hasUnreadMessage: Boolean,
+    canTip: Boolean = false,
+    onTipClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -459,6 +541,33 @@ fun CourierStatusCard(
                 }
             }
 
+            // FB-077: tombol Kasih Tip — tampil saat kurir ditugaskan & status eligible
+            if (canTip) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Button(
+                    onClick = onTipClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF4E5))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VolunteerActivism,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Kasih Tip ke Kurir",
+                        color = Primary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
             if (detail != null) {
                 Spacer(modifier = Modifier.height(18.dp))
                 TrackingTimeline(detail = detail)
@@ -472,11 +581,31 @@ fun CourierStatusCard(
 private fun TrackingTimeline(detail: OrderTrackingDetail) {
     val completedTypes = remember(detail.events) { detail.events.map { it.eventType.lowercase() }.toSet() }
     val status = detail.order.status.lowercase()
+    val isFood = !detail.order.merchantId.isNullOrBlank() || detail.order.model?.lowercase() == "food_delivery"
     val isCancelled = status in setOf("cancelled", "failed") || completedTypes.contains("pickup_cancelled_by_courier")
     val steps = if (isCancelled) {
         listOf(
-            TimelineStep("accepted", "Kurir menerima order", true),
-            TimelineStep("cancelled", "Pickup tidak dilanjutkan", true)
+            TimelineStep("merchant_order", "Order diterima", true),
+            TimelineStep("cancelled", "Pengiriman tidak dilanjutkan", true)
+        )
+    } else if (isFood) {
+        // FOOD-BIKE-058: timeline khusus food — tahap merchant sebelum kurir
+        // FB-123: kalau status 'scheduled', tampilkan step jadwal dulu.
+        fun pastOrAt(vararg states: String) = status in states || status == "delivered" || status == "completed"
+        if (status == "scheduled") {
+            listOf(
+                TimelineStep("scheduled", "Pesanan dijadwalkan", true),
+                TimelineStep("merchant_order", "Merchant menerima pesanan", false),
+                TimelineStep("merchant_prep", "Makanan disiapkan", false),
+                TimelineStep("delivery", "Dalam pengantaran", false)
+            )
+        } else listOf(
+            TimelineStep("merchant_order", "Merchant menerima pesanan", pastOrAt("pending_merchant", "preparing", "searching", "accepted", "picking_up", "picked_up", "delivering")),
+            TimelineStep("merchant_prep", "Makanan disiapkan", pastOrAt("preparing", "searching", "accepted", "picking_up", "picked_up", "delivering")),
+            TimelineStep("accepted", "Kurir sepeda mengambil", pastOrAt("accepted", "picking_up", "picked_up", "delivering")),
+            TimelineStep("pickup", "Diverifikasi di merchant", pastOrAt("picked_up", "delivering")),
+            TimelineStep("delivery", "Dalam pengantaran", pastOrAt("delivering")),
+            TimelineStep("pod", "POD diterima", status in setOf("delivered", "completed"))
         )
     } else listOf(
         TimelineStep("accepted", "Kurir menerima order", completedTypes.any { it in setOf("accepted", "courier_assigned", "assigned") } || status in setOf("accepted", "picking_up", "picked_up", "in_transit", "delivered", "completed")),
@@ -613,10 +742,12 @@ private data class TimelineStep(val key: String, val label: String, val done: Bo
 private fun eventMatchesStep(eventType: String, step: String): Boolean {
     val normalized = eventType.lowercase()
     return when (step) {
+        "merchant_order" -> normalized in setOf("pending_merchant", "merchant_accepted", "order_accepted")
+        "merchant_prep" -> normalized in setOf("preparing", "food_preparing", "food_ready")
         "accepted" -> normalized in setOf("accepted", "assigned", "courier_assigned")
-        "pickup" -> normalized == "pickup_verified"
-        "delivery" -> normalized in setOf("delivery_started", "in_transit", "picked_up")
-        "pod" -> normalized == "pod_verified"
+        "pickup" -> normalized in setOf("pickup_verified", "picked_up")
+        "delivery" -> normalized in setOf("delivery_started", "in_transit", "picked_up", "delivering")
+        "pod" -> normalized in setOf("pod_verified", "delivered")
         "cancelled" -> normalized in setOf("pickup_cancelled_by_courier", "cancelled", "failed")
         else -> false
     }
@@ -635,6 +766,10 @@ private fun absoluteUploadUrl(path: String?): String {
 
 private fun trackingStageText(status: String?): String {
     return when (status?.lowercase()) {
+        "scheduled" -> "Pesanan terjadwal — akan diproses merchant mendekati jam pilihan" // FB-123
+        "pending_merchant" -> "Menunggu merchant menerima pesanan"
+        "preparing" -> "Merchant sedang menyiapkan makanan"
+        "searching" -> "Mencari kurir sepeda terdekat"
         "accepted", "picking_up", "assigned" -> "Kurir menuju titik pickup"
         "picked_up", "in_transit", "delivering" -> "Barang sudah dipickup dan sedang diantar"
         "delivered", "completed" -> "Pengiriman selesai"

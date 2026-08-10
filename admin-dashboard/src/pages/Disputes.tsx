@@ -132,7 +132,11 @@ export default function Disputes() {
               <div className={cn(
                 "absolute left-0 top-0 bottom-0 w-1.5",
                 dispute.category?.toLowerCase().includes('damage') ? "bg-red-500" : 
-                dispute.category?.toLowerCase().includes('late') ? "bg-amber-500" : "bg-primary"
+                dispute.category?.toLowerCase().includes('late') ? "bg-amber-500" :
+                // FOOD-BIKE-052: badge kategori food delivery
+                dispute.category?.toLowerCase().includes('makanan') ? "bg-emerald-500" :
+                dispute.category?.toLowerCase().includes('ghosting') ? "bg-purple-500" :
+                dispute.category?.toLowerCase().includes('coerced') ? "bg-rose-500" : "bg-primary"
               )} />
               
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">

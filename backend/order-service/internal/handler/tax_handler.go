@@ -44,7 +44,7 @@ func (h *TaxHandler) GenerateEFakturExport(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(export)
+	_ = json.NewEncoder(w).Encode(export)
 }
 
 // DownloadEFaktur serves the generated CSV file.

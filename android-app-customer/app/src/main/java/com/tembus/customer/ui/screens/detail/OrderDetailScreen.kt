@@ -84,19 +84,23 @@ fun OrderDetailScreen(
     }
 
     if (showDisputeDialog) {
+        val order = (state as? OrderDetailUiState.Success)?.order
         DisputeDialog(
             onDismiss = { showDisputeDialog = false },
             onSubmit = { type, desc, bytes, mime ->
                 viewModel.submitDispute(orderId, type, desc, bytes, mime)
             },
-            submitState = disputeState
+            submitState = disputeState,
+            isFood = order?.serviceSubType == "food_delivery"
         )
     }
 
     // S2-CUSTOMER-02: Cancel Reason Dialog
     if (showCancelDialog) {
+        val order = (state as? OrderDetailUiState.Success)?.order
         CancelReasonDialog(
             reasons = cancelReasons,
+            refundHint = order?.let { refundHintForStatus(it.status, it.serviceSubType == "food_delivery") } ?: "",
             onConfirm = { reason ->
                 showCancelDialog = false
                 viewModel.cancelOrder(orderId, reason)
@@ -159,7 +163,7 @@ fun OrderDetailScreen(
                                 Spacer(Modifier.width(16.dp))
                                 Column {
                                     Text("Status Saat Ini", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
-                                    Text(order.status.uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                    Text(statusDisplayText(order.status), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                 }
                             }
                         }
@@ -192,6 +196,82 @@ fun OrderDetailScreen(
                         }
 
                         Spacer(Modifier.height(16.dp))
+
+                        // FB-111: Rincian item pesanan food (snapshot
+                        // food_order_items dari backend) — customer bisa lihat
+                        // lagi isi pesanan setelah order selesai.
+                        if (order.foodItems.isNotEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Outline)
+                            ) {
+                            Column(Modifier.padding(20.dp)) {
+                                    Text("Rincian Pesanan", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OnSurface)
+                                    Spacer(Modifier.height(12.dp))
+                                    order.foodItems.forEach { item ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            verticalAlignment = Alignment.Top,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Text(
+                                                "${item.quantity}×",
+                                                fontWeight = FontWeight.Black,
+                                                color = Accent
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(item.name, fontWeight = FontWeight.SemiBold, color = OnSurface)
+                                                // FB-108: tampilkan pilihan varian yang dipilih
+                                                // (mis. "Level Pedas: Extra Pedas").
+                                                if (!item.variants.isNullOrEmpty()) {
+                                                    Text(
+                                                        item.variants.joinToString(" · ") { v ->
+                                                            "${v.variantName ?: ""}${if (v.variantName.isNullOrBlank()) "" else ": "}${v.optionName ?: ""}"
+                                                        },
+                                                        fontSize = 12.sp,
+                                                        color = OnSurfaceVariant
+                                                    )
+                                                }
+                                                if (!item.notes.isNullOrBlank()) {
+                                                    Text(
+                                                        "Catatan: ${item.notes}",
+                                                        fontSize = 12.sp,
+                                                        color = OnSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                            if (item.subtotal > 0) {
+                                                Text(
+                                                    "Rp ${item.subtotal}",
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Primary
+                                                )
+                                            }
+                                        }
+                                        HorizontalDivider(color = Outline.copy(alpha = 0.4f))
+                                    }
+                                    // FB-121: catatan level order (mis. "pisahin sambal semua")
+                                    if (!order.orderNotes.isNullOrBlank()) {
+                                        Spacer(Modifier.height(10.dp))
+                                        Text(
+                                            "Catatan untuk merchant:",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = OnSurfaceVariant
+                                        )
+                                        Text(
+                                            order.orderNotes!!,
+                                            fontSize = 14.sp,
+                                            color = OnSurface,
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(16.dp))
+                        }
 
                         // Info Pembayaran
                         Card(
@@ -253,8 +333,13 @@ fun OrderDetailScreen(
                                     }
                                 }
                                 
-                                // Service Report button for tambal ban/towing
-                                if (order.serviceSubType != null && order.status.lowercase() == "delivered") {
+                                // Service Report button for tambal ban/towing only
+                                // FB-112: sebelumnya muncul utk SEMUA serviceSubType
+                                // (termasuk food) padahal aslinya utk tambal ban/towing.
+                                if (order.serviceSubType in setOf(
+                                        "tambal_ban_motor", "tambal_ban_mobil",
+                                        "towing_motor", "towing_mobil"
+                                    ) && order.status.lowercase() == "delivered") {
                                     OutlinedButton(
                                         onClick = { /* Navigate to service report */ },
                                         modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -289,6 +374,22 @@ fun OrderDetailScreen(
     }
 }
 
+// statusDisplayText — label status yang ramah user (FB-123: scheduled → "Terjadwal").
+private fun statusDisplayText(status: String): String {
+    return when (status.lowercase()) {
+        "scheduled" -> "Terjadwal"
+        "pending_merchant" -> "Menunggu Merchant"
+        "preparing" -> "Disiapkan"
+        "searching" -> "Mencari Kurir"
+        "accepted" -> "Kurir Menuju Merchant"
+        "picked_up" -> "Sedang Diantar"
+        "delivering" -> "Sedang Diantar"
+        "delivered" -> "Selesai"
+        "cancelled" -> "Dibatalkan"
+        else -> status.uppercase()
+    }
+}
+
 private fun canOpenConversation(status: String): Boolean {
     return status.lowercase() in setOf(
         "assigned",
@@ -309,13 +410,46 @@ private fun canCancelOrder(status: String): Boolean {
         "pending_assignment",
         "pending",
         "pending_payment",
-        "no_courier_found"
+        "no_courier_found",
+        // FB-079: food order — cancel window diperpanjang (free sebelum driver,
+        // kena biaya layanan saat accepted/picking_up)
+        "pending_merchant",
+        "preparing",
+        "ready_for_pickup",
+        "picking_up",
+        // FB-123: order terjadwal — masih ditahan, bebas dibatalkan.
+        "scheduled"
     )
+}
+
+/**
+ * FB-079: info refund yang ditampilkan di dialog pembatalan.
+ * - FREE: pembatalan gratis, refund penuh
+ * - FEE: dikenakan biaya layanan (cancellation fee)
+ */
+private fun refundHintForStatus(status: String, isFood: Boolean): String {
+    val s = status.lowercase()
+    if (!isFood) {
+        return if (s in setOf("accepted", "picking_up")) {
+            "Pembatalan dikenakan biaya 20% dari total pesanan."
+        } else {
+            "Pembatalan gratis — dana dikembalikan penuh."
+        }
+    }
+    return when (s) {
+        "accepted", "picking_up" ->
+            "Pembatalan dikenakan biaya layanan (biaya jasa tidak dikembalikan)."
+        "searching" ->
+            "Gratis jika kurir belum ditugaskan. Jika kurir sudah menerima pesanan, biaya layanan ditahan."
+        else ->
+            "Pembatalan gratis — dana dikembalikan penuh."
+    }
 }
 
 @Composable
 private fun CancelReasonDialog(
     reasons: List<String>,
+    refundHint: String,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -326,6 +460,22 @@ private fun CancelReasonDialog(
         title = { Text("Alasan Pembatalan", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // FB-079: info refund window (free / kena biaya layanan)
+                if (refundHint.isNotEmpty()) {
+                    Surface(
+                        color = Color(0xFFFFF3E0),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            refundHint,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFB26A00),
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
                 Text(
                     "Pilih alasan pembatalan pesanan:",
                     style = MaterialTheme.typography.bodySmall,

@@ -69,7 +69,10 @@ export const getDisputeStats = async (req: Request, res: Response) => {
 
 export const updateDisputeStatus = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { status, resolution_note } = req.body;
+  // FB-080: resolution = 'customer' | 'merchant' | 'both' — pihak yang
+  // dimenangkan admin saat resolve. refund_items = [{menu_item_id, quantity, reason}]
+  // untuk partial refund per item; include_delivery_fee utk kesalahan driver/platform.
+  const { status, resolution_note, resolution, refund_items, include_delivery_fee } = req.body;
   const admin_id = (req as any).user?.id;
 
   try {
@@ -91,6 +94,73 @@ export const updateDisputeStatus = async (req: Request, res: Response) => {
 
     const dispute = result.rows[0];
 
+    // ── FB-080: resolve memihak customer → refund partial + chargeback merchant ──
+    const winsCustomer =
+      status === 'resolved' &&
+      (resolution === 'customer' || resolution === 'both' || (Array.isArray(refund_items) && refund_items.length > 0));
+
+    if (winsCustomer) {
+      const orderServiceUrl = process.env.ORDER_SERVICE_URL || 'http://order-service:8080';
+      const internalHeaders = {
+        'Content-Type': 'application/json',
+        'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || 'dev-internal-key-super-secret'
+      };
+
+      // 1) Partial refund per item (order-service menghitung dari snapshot food_order_items)
+      const refundItems = Array.isArray(refund_items) && refund_items.length > 0
+        ? refund_items.map((it: any) => ({
+            menu_item_id: it.menu_item_id,
+            quantity: it.quantity,
+            reason: it.reason || `${dispute.category} (dispute ${id})`
+          }))
+        : null;
+
+      if (refundItems && refundItems.length > 0) {
+        try {
+          const refundRes = await fetch(`${orderServiceUrl}/api/v1/internal/refunds/items`, {
+            method: 'POST',
+            headers: internalHeaders,
+            body: JSON.stringify({
+              order_id: dispute.order_id,
+              items: refundItems,
+              include_delivery_fee: !!include_delivery_fee
+            })
+          });
+          if (refundRes.ok) {
+            const refundData = await refundRes.json();
+            const refundAmount = refundData?.data?.amount_idr ?? refundData?.data?.AmountIDR ?? null;
+            if (refundAmount) {
+              await db.query(`UPDATE disputes SET compensation_idr = $1, compensation_type = 'refund_items' WHERE id = $2`, [refundAmount, id]);
+            } else {
+              await db.query(`UPDATE disputes SET compensation_type = 'refund_items' WHERE id = $2`, [id]);
+            }
+          } else {
+            securityLog.error(`[Dispute] Item refund trigger failed (${refundRes.status}) untuk dispute ${id}`, await refundRes.text());
+          }
+        } catch (refundErr: any) {
+          securityLog.error(`[Dispute] Failed to reach order-service for item refund:`, refundErr.message);
+        }
+      }
+
+      // 2) Chargeback: tahan settlement merchant untuk order ini (dana tidak di-disburse)
+      try {
+        const chargebackRes = await fetch(`${orderServiceUrl}/api/v1/internal/settlements/chargeback`, {
+          method: 'POST',
+          headers: internalHeaders,
+          body: JSON.stringify({
+            order_id: dispute.order_id,
+            admin_id: admin_id || '',
+            reason: `Dispute ${id} resolved memihak customer (${dispute.category})`
+          })
+        });
+        if (!chargebackRes.ok) {
+          securityLog.error(`[Dispute] Chargeback trigger failed (${chargebackRes.status}) untuk dispute ${id}`, await chargebackRes.text());
+        }
+      } catch (cbErr: any) {
+        securityLog.error(`[Dispute] Failed to reach order-service for chargeback:`, cbErr.message);
+      }
+    }
+
     // Notify Customer about status change
     try {
       let title = 'Update Status Dispute';
@@ -98,7 +168,11 @@ export const updateDisputeStatus = async (req: Request, res: Response) => {
       
       if (status === 'resolved') {
         title = 'Dispute Terselesaikan';
-        body = `Tiket dispute Anda telah diselesaikan oleh Admin. Catatan: ${resolution_note || 'Tidak ada catatan'}`;
+        if (winsCustomer) {
+          body = 'Tiket dispute Anda telah diselesaikan memihak Anda. Refund item akan diproses oleh tim kami.';
+        } else {
+          body = `Tiket dispute Anda telah diselesaikan oleh Admin. Catatan: ${resolution_note || 'Tidak ada catatan'}`;
+        }
       } else if (status === 'investigating') {
         title = 'Dispute Sedang Diinvestigasi';
         body = 'Admin sedang meninjau laporan Anda. Mohon tunggu update selanjutnya.';
@@ -112,7 +186,8 @@ export const updateDisputeStatus = async (req: Request, res: Response) => {
         order_id: dispute.order_id,
         metadata: {
           dispute_id: id,
-          status
+          status,
+          resolution
         },
         deep_link: `/orders/${dispute.order_id}`
       });
@@ -158,6 +233,24 @@ export const createDispute = async (req: Request, res: Response) => {
 
   if (!order_id || !category || !description) {
     return res.status(400).json({ error: 'Order ID, category, and description are required' });
+  }
+
+  // FOOD-BIKE-052: kategori dispute food delivery
+  // FB-080: + kualitas_buruk (makanan basi/rusak/kualitas jelek) & kurang_item
+  // (item tidak dikirim / salah jumlah) — dua-duanya resolvable dengan
+  // partial refund per item via /internal/refunds/items.
+  const FOOD_DISPUTE_CATEGORIES = [
+    'makanan_tidak_sesuai', // pesanan tidak sesuai (menu/kuantitas)
+    'driver_ghosting_food', // driver menghilang setelah accept (ghosting)
+    'coerced_cancel',       // batal karena paksaan customer/keadaan
+    'kualitas_buruk',       // FB-080: makanan basi/rusak/kualitas buruk
+    'kurang_item',          // FB-080: item tidak dikirim / salah jumlah
+  ];
+  const isFoodCategory = FOOD_DISPUTE_CATEGORIES.includes(category.toLowerCase());
+  if (isFoodCategory && (!evidence_urls || evidence_urls.length === 0)) {
+    return res.status(400).json({
+      error: 'Dispute kategori food memerlukan bukti (foto pesanan / tangkapan layar chat).'
+    });
   }
 
   // Validate Lost Item Evidence

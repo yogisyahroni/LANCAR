@@ -171,6 +171,7 @@ const authBreaker = createServiceBreaker('auth-service');
 const orderBreaker = createServiceBreaker('order-service');
 const adminBreaker = createServiceBreaker('admin-service');
 const paymentBreaker = createServiceBreaker('payment-service');
+const merchantBreaker = createServiceBreaker('merchant-service'); // FOOD-BIKE-019
 
 const requestLogContext = (req: Request) => {
   const activeTrace = getActiveTraceContext();
@@ -319,9 +320,11 @@ const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
       issuer: expectedIssuer,  // Validasi klaim 'iss' — cegah token cross-service
     }, (err: any, user: any) => {
       if (err) {
-        return res.status(403).json({ 
+        // RFC 6750: access token invalid/expired → 401 (bukan 403).
+        // OkHttp Authenticator & klien standar lain hanya memicu refresh pada 401.
+        return res.status(401).json({ 
           status: 'error', 
-          code: 'ERR_FORBIDDEN', 
+          code: 'ERR_UNAUTHORIZED', 
           message: 'Invalid or expired token' 
         });
       }
@@ -359,6 +362,7 @@ const jsonParser = express.json({ limit: '16kb' });
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8081';
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost:8084';
+const MERCHANT_SERVICE_URL = process.env.MERCHANT_SERVICE_URL || 'http://localhost:8085'; // FOOD-BIKE-019
 const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3000';
 const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://localhost:8082';
 
@@ -463,6 +467,21 @@ app.use(createProxyMiddleware({
   changeOrigin: true
 }));
 
+// FB-110: Merchant uploads (foto menu & dokumen registrasi) — path unik
+// /merchant-uploads → merchant-service, PUBLIK (tanpa JWT) supaya gambar
+// bisa tampil di app customer / web tanpa login.
+app.use(createProxyMiddleware({
+  pathFilter: '/merchant-uploads',
+  target: MERCHANT_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('merchant_uploads', req, MERCHANT_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    }
+  }
+}));
+
 // --- VALIDATED ROUTES ---
 
 // Auth Service (Gateway-level validation)
@@ -484,6 +503,22 @@ app.post(
 
 app.post(
   '/api/v1/auth/customer/login/start',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+// Route eksplisit (bukan via app.use mount) — http-proxy-middleware v3 di Express 5
+// tidak meneruskan app.use(path, proxy) untuk path ini (regresi; test 2026-08-10).
+app.post(
+  '/api/v1/auth/refresh',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+app.post(
+  '/api/v1/auth/logout',
   authLimiter,
   jsonParser,
   proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
@@ -600,6 +635,22 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       logProxyForward('courier_auth', req, ADMIN_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    }
+  }
+}));
+
+// Merchant Public Web Registration (merchant.bawain.my.id)
+// Upload dokumen + cek status pendaftaran → admin-service (pola courier).
+// Diletakkan SEBELUM '/api/v1/auth' general (auth-service) supaya tidak
+// ketimpa — endpoint ini hanya ada di admin-service.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/auth/merchant',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('merchant_auth', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     }
   }
@@ -991,6 +1042,25 @@ app.use(createProxyMiddleware({
 // Wallet Routes (Payment Service)
 // ─────────────────────────────────────────────
 app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker));
+
+// ─────────────────────────────────────────────
+// Merchant Routes (Merchant Service — FOOD-BIKE-019)
+// ─────────────────────────────────────────────
+app.use('/api/v1/merchant', authenticateJWT);
+// NOTE: pakai pathFilter (BUKAN express app.use prefix) supaya full path
+// /api/v1/merchant/... diteruskan utuh — app.use prefix strip req.url jadi
+// '/register' → merchant-service 404 "404 page not found" tanpa log.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/merchant',
+  target: MERCHANT_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('merchant_register', req, MERCHANT_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    }
+  }
+}));
 
 
 // ─────────────────────────────────────────────

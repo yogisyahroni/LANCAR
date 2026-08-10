@@ -31,6 +31,8 @@ routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(re
 routes.post('/api/v1/auth/courier/login', (req, res) => controllers.loginCourier(req, res));
 routes.post('/api/v1/auth/courier/otp/verify', (req, res) => controllers.verifyCourierLoginOtp(req, res));
 routes.post('/api/v1/auth/courier/documents/upload', publicEndpointRateLimiter, ...secureUploadSingle('file', 'courierDocument'), (req, res) => controllers.uploadCourierOnDemandDocument(req, res));
+routes.post('/api/v1/auth/merchant/documents/upload', publicEndpointRateLimiter, ...secureUploadSingle('file', 'merchantDocument'), (req, res) => controllers.uploadMerchantPublicDocument(req, res));
+routes.get('/api/v1/auth/merchant/registration-status', publicEndpointRateLimiter, (req, res) => controllers.getMerchantRegistrationStatus(req, res));
 routes.post('/api/v1/auth/courier/register', (req, res) => controllers.submitOnDemandCourierApplication(req, res));
 routes.get('/api/v1/auth/courier/registration-links/:token', (req, res) => controllers.getPublicCourierRegistrationLink(req, res));
 routes.post('/api/v1/auth/courier/register/:token', (req, res) => controllers.submitCourierApplicationByRegistrationLink(req, res));
@@ -364,6 +366,17 @@ routes.patch('/admin/couriers/:id/service-capabilities', (req, res) => controlle
 routes.patch('/admin/couriers/:id/profile-photo', ...secureUploadSingle('photo', 'profileImage'), (req, res) => controllers.updateCourierProfilePhoto(req, res));
 routes.get('/admin/couriers/:id/history', (req, res) => controllers.getCourierHistory(req, res));
 routes.get('/admin/couriers/export', (req, res) => controllers.exportCouriers(req, res));
+
+
+// Merchant Management (FOOD-BIKE-048)
+routes.get('/admin/merchants', (req, res) => controllers.listAdminMerchants(req, res));
+routes.get('/admin/merchants/performance', (req, res) => controllers.listMerchantPerformance(req, res));
+// FOOD-BIKE-054: hold balance driver + penalty log + appeal
+routes.get('/admin/driver-wallet-holds', (req, res) => controllers.listDriverWalletHolds(req, res));
+routes.patch('/admin/driver-penalties/:penaltyId/appeal', (req, res) => controllers.updatePenaltyAppeal(req, res));
+routes.get('/admin/merchants/:id', (req, res) => controllers.getAdminMerchantDetail(req, res));
+routes.post('/admin/merchants/:id/approve', (req, res) => controllers.approveAdminMerchant(req, res));
+routes.post('/admin/merchants/:id/reject', (req, res) => controllers.rejectAdminMerchant(req, res));
 
 
 // Disputes Management

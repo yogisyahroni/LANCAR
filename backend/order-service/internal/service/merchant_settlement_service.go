@@ -23,6 +23,7 @@ type merchantSettlementService struct {
 	notificationSvc domain.NotificationService
 	awbClient       domain.AWBClient
 	ledgerRepo      domain.FinanceLedgerRepository
+	cancelFeeRepo   domain.MerchantCancellationFeeRepository // FB-082: potong piutang fee saat settlement dibuat
 	gatewayURL      string
 	internalAPIKey  string
 	httpClient      *http.Client
@@ -35,6 +36,7 @@ func NewMerchantSettlementService(
 	notificationSvc domain.NotificationService,
 	awbClient domain.AWBClient,
 	ledgerRepo domain.FinanceLedgerRepository,
+	cancelFeeRepo domain.MerchantCancellationFeeRepository,
 ) domain.MerchantSettlementService {
 	gatewayURL := os.Getenv("INTEGRATION_GATEWAY_URL")
 	if gatewayURL == "" {
@@ -46,6 +48,7 @@ func NewMerchantSettlementService(
 		notificationSvc: notificationSvc,
 		awbClient:       awbClient,
 		ledgerRepo:      ledgerRepo,
+		cancelFeeRepo:   cancelFeeRepo,
 		gatewayURL:      gatewayURL,
 		internalAPIKey:  os.Getenv("INTERNAL_API_KEY"),
 		httpClient:      &http.Client{Timeout: 15 * time.Second},
@@ -119,7 +122,7 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 
 	// 5. Hitung Disbursement Fee & Net Payout
 	disbursementFeeIDR := int64(s.configRepo.GetIntConfig(ctx, "merchant_disbursement_fee_idr", 4000))
-	
+
 	netPayoutIDR := paymentLink.ItemPrice - paymentLink.MerchantFeeAmount - disbursementFeeIDR
 	if netPayoutIDR < 0 {
 		return fmt.Errorf("HandleDeliveryConfirmed: invalid net payout amount (price: %d, fee: %d, disburse_fee: %d) — payout cannot be negative", paymentLink.ItemPrice, paymentLink.MerchantFeeAmount, disbursementFeeIDR)
@@ -133,6 +136,14 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 	}
 	_, _ = uuid.Parse(order.ID)
 
+	// 6b. FB-082: potong piutang cancellation fee merchant (order food batal
+	// karena kesalahan merchant) dari payout parcel ini.
+	deductedFees, feeErr := s.deductOutstandingCancellationFees(ctx, paymentLink.MerchantID, &netPayoutIDR, settlementID, order.ID)
+	if feeErr != nil {
+		slog.WarnContext(ctx, "merchant_settlement: gagal potong cancellation fees (lanjut tanpa potongan)",
+			"merchant_id", paymentLink.MerchantID, "error", feeErr)
+	}
+
 	settlement := &domain.MerchantSettlement{
 		ID:                 settlementID,
 		PaymentLinkID:      paymentLink.ID,
@@ -143,16 +154,17 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 		DisbursementFeeIDR: disbursementFeeIDR,
 		NetPayoutIDR:       netPayoutIDR,
 		Status:             domain.SettlementStatusHolding,
-		IdempotencyKey:    idempotencyKey,
-		PODConfirmedAt:    &now,
-		HoldingReleaseAt:  &holdingReleaseAt,
-		RetryCount:        0,
+		IdempotencyKey:     idempotencyKey,
+		PODConfirmedAt:     &now,
+		HoldingReleaseAt:   &holdingReleaseAt,
+		RetryCount:         0,
 		Metadata: map[string]any{
-			"awb_number":    req.AWBNumber,
-			"provider":      req.Provider,
-			"pod_url":       req.PodURL,
-			"holding_days":  holdingDays,
-			"merchant_id":   merchantUUID.String(),
+			"awb_number":                    req.AWBNumber,
+			"provider":                      req.Provider,
+			"pod_url":                       req.PodURL,
+			"holding_days":                  holdingDays,
+			"merchant_id":                   merchantUUID.String(),
+			"cancellation_fee_deducted_idr": deductedFees,
 		},
 	}
 
@@ -203,8 +215,8 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 			Message: msg,
 			Channel: domain.ChannelPush,
 			Data: map[string]string{
-				"type":          "merchant_settlement_pending",
-				"settlement_id": settlementID.String(),
+				"type":            "merchant_settlement_pending",
+				"settlement_id":   settlementID.String(),
 				"payment_link_id": paymentLink.ID,
 			},
 		})
@@ -214,6 +226,167 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 		"settlement_id", settlementID,
 		"payment_link_id", paymentLink.ID,
 		"merchant_id", paymentLink.MerchantID,
+		"net_payout_idr", netPayoutIDR,
+		"holding_release_at", holdingReleaseAt)
+
+	return nil
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HandleFoodOrderDelivered dipanggil dari ScanPackage (order-service) ketika
+// order food on-demand (merchant_id terisi, tanpa payment link) mencapai
+// status delivered. Membuat merchant_settlement HOLDING dengan idempotency
+// "settle-order-<orderID>" — tidak bergantung webhook 3PL.
+// ─────────────────────────────────────────────────────────────────────────────
+func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context, orderID string) error {
+	// 1. Food order yang dibuat via payment link di-handle HandleDeliveryConfirmed
+	//    (webhook 3PL). Skip di sini untuk mencegah double settlement.
+	paymentLink, err := s.repo.GetPaymentLinkByOrderID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("HandleFoodOrderDelivered: payment link lookup failed: %w", err)
+	}
+	if paymentLink != nil {
+		slog.InfoContext(ctx, "merchant_settlement: food order has payment link — handled via delivery webhook, skipping",
+			"order_id", orderID, "payment_link_id", paymentLink.ID)
+		return nil
+	}
+
+	// 2. Ambil data order food (hanya food_delivery dengan merchant_id)
+	data, err := s.repo.GetFoodOrderForSettlement(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("HandleFoodOrderDelivered: fetch food order failed: %w", err)
+	}
+	if data == nil {
+		slog.InfoContext(ctx, "merchant_settlement: order bukan food_delivery/merchant, skipping",
+			"order_id", orderID)
+		return nil
+	}
+
+	// 3. Idempotency check: satu order hanya satu settlement
+	idempotencyKey := fmt.Sprintf("settle-order-%s", orderID)
+	existing, err := s.repo.GetByIdempotencyKey(ctx, idempotencyKey)
+	if err != nil {
+		return fmt.Errorf("HandleFoodOrderDelivered: idempotency check failed: %w", err)
+	}
+	if existing != nil {
+		slog.InfoContext(ctx, "merchant_settlement: idempotent skip, food settlement already exists",
+			"idempotency_key", idempotencyKey, "settlement_id", existing.ID, "status", existing.Status)
+		return nil
+	}
+
+	// 4. Financial sanity check (pola sama HandleDeliveryConfirmed)
+	if data.GrossItemIDR < 0 || data.PlatformFeeIDR < 0 {
+		return fmt.Errorf("HandleFoodOrderDelivered: invalid negative amount (gross: %d, fee: %d) — blocked", data.GrossItemIDR, data.PlatformFeeIDR)
+	}
+	disbursementFeeIDR := int64(s.configRepo.GetIntConfig(ctx, "merchant_disbursement_fee_idr", 4000))
+
+	// 4b. FB-101: potongan promo merchant (dibiayai merchant) mengurangi
+	// payout — BUKAN komisi PT. Ambil item order + promo aktif merchant,
+	// hitung diskon, kurangi dari netPayout.
+	promoDiscountIDR, promoErr := s.computeMerchantPromoDiscount(ctx, data.MerchantID, data.OrderID)
+	if promoErr != nil {
+		slog.WarnContext(ctx, "merchant_settlement: gagal hitung promo discount (lanjut tanpa potongan)",
+			"merchant_id", data.MerchantID, "order_id", data.OrderID, "error", promoErr)
+	}
+
+	netPayoutIDR := data.GrossItemIDR - data.PlatformFeeIDR - disbursementFeeIDR - promoDiscountIDR
+	if netPayoutIDR < 0 {
+		return fmt.Errorf("HandleFoodOrderDelivered: invalid net payout (gross: %d, fee: %d, disburse_fee: %d, promo: %d) — payout cannot be negative", data.GrossItemIDR, data.PlatformFeeIDR, disbursementFeeIDR, promoDiscountIDR)
+	}
+
+	// 5. Buat settlement HOLDING
+	holdingDays := s.configRepo.GetIntConfig(ctx, "merchant_settlement_holding_days", 1)
+	now := time.Now()
+	holdingReleaseAt := now.Add(time.Duration(holdingDays) * 24 * time.Hour)
+	settlementID := uuid.New()
+
+	// 5b. FB-082: potong piutang cancellation fee merchant (order food batal
+	// karena kesalahan merchant) dari payout ini.
+	deductedFees, feeErr := s.deductOutstandingCancellationFees(ctx, data.MerchantID, &netPayoutIDR, settlementID, data.OrderID)
+	if feeErr != nil {
+		slog.WarnContext(ctx, "merchant_settlement: gagal potong cancellation fees (lanjut tanpa potongan)",
+			"merchant_id", data.MerchantID, "error", feeErr)
+	}
+
+	settlement := &domain.MerchantSettlement{
+		ID:                       settlementID,
+		PaymentLinkID:            "", // food on-demand tanpa payment link (insert NULL)
+		MerchantID:               data.MerchantID,
+		OrderID:                  data.OrderID,
+		GrossItemPriceIDR:        data.GrossItemIDR,
+		MerchantFeeIDR:           data.PlatformFeeIDR,
+		DisbursementFeeIDR:       disbursementFeeIDR,
+		MerchantPromoDiscountIDR: promoDiscountIDR,
+		NetPayoutIDR:             netPayoutIDR,
+		Status:                   domain.SettlementStatusHolding,
+		IdempotencyKey:           idempotencyKey,
+		PODConfirmedAt:           &now,
+		HoldingReleaseAt:         &holdingReleaseAt,
+		RetryCount:               0,
+		Metadata: map[string]any{
+			"source":                        "food_delivery",
+			"order_id":                      data.OrderID,
+			"merchant_id":                   data.MerchantID,
+			"holding_days":                  holdingDays,
+			"cancellation_fee_deducted_idr": deductedFees,
+			"merchant_promo_discount_idr":   promoDiscountIDR,
+		},
+	}
+	if err := s.repo.Create(ctx, settlement); err != nil {
+		return fmt.Errorf("HandleFoodOrderDelivered: failed to create settlement: %w", err)
+	}
+
+	// 6. Ledger journal (escrow holding) — pola sama HandleDeliveryConfirmed
+	if s.ledgerRepo != nil {
+		journal := &domain.LedgerJournal{
+			ID:            uuid.New(),
+			JournalType:   "SETTLEMENT",
+			ReferenceType: "MERCHANT_SETTLEMENT_HOLDING",
+			ReferenceID:   settlement.ID.String(),
+			Reason:        fmt.Sprintf("Food order delivered — merchant settlement escrow holding for order %s", data.OrderID),
+			CreatedBy:     "SYSTEM",
+			ActorRole:     "SYSTEM",
+			CreatedAt:     now,
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "1101 - Cash / Bank", DebitIDR: data.GrossItemIDR, CreditIDR: 0},
+			{AccountName: "2102 - Merchant Compensation Payable", DebitIDR: 0, CreditIDR: netPayoutIDR},
+			{AccountName: "4102 - Platform Admin Fee", DebitIDR: 0, CreditIDR: data.PlatformFeeIDR},
+			{AccountName: "4102 - Platform Admin Fee", DebitIDR: 0, CreditIDR: disbursementFeeIDR},
+		}
+		if _, err := s.ledgerRepo.CreateJournalReturningID(ctx, journal, entries); err != nil {
+			slog.WarnContext(ctx, "merchant_settlement: failed to post ledger journal for food holding", "error", err)
+		}
+	}
+
+	// 7. Notifikasi merchant: dana escrow + jadwal release
+	merchantUUID, err := uuid.Parse(data.MerchantID)
+	if err == nil {
+		go func() {
+			notifCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			msg := fmt.Sprintf(
+				"✅ *Pesanan Food Terkirim!*\n\nPesanan food Anda telah dikonfirmasi terkirim ke pembeli.\n\n💰 *Dana Rp %s akan dicairkan ke rekening Anda dalam %d hari kerja.*",
+				formatIDR(netPayoutIDR), holdingDays,
+			)
+			_ = s.notificationSvc.Send(notifCtx, domain.NotificationRequest{
+				UserID:  merchantUUID.String(),
+				Title:   "Dana Segera Cair!",
+				Message: msg,
+				Channel: domain.ChannelPush,
+				Data: map[string]string{
+					"type":          "merchant_settlement_pending",
+					"settlement_id": settlementID.String(),
+					"order_id":      data.OrderID,
+				},
+			})
+		}()
+	}
+
+	slog.InfoContext(ctx, "merchant_settlement: food settlement created",
+		"settlement_id", settlementID,
+		"order_id", data.OrderID,
+		"merchant_id", data.MerchantID,
 		"net_payout_idr", netPayoutIDR,
 		"holding_release_at", holdingReleaseAt)
 
@@ -318,11 +491,11 @@ func (s *merchantSettlementService) disburseToMerchant(ctx context.Context, sett
 
 	// 3. Simpan bank snapshot ke metadata SEBELUM disburse (audit trail)
 	settlement.Metadata["bank_snapshot"] = map[string]any{
-		"bank_code":              *bankInfo.BankCode,
-		"bank_account_name":      *bankInfo.BankAccountName,
-		"masked_account_number":  maskAccountNumber(*bankInfo.BankAccountNumber),
-		"disbursed_amount_idr":   settlement.NetPayoutIDR,
-		"disbursed_at":           time.Now().Format(time.RFC3339),
+		"bank_code":             *bankInfo.BankCode,
+		"bank_account_name":     *bankInfo.BankAccountName,
+		"masked_account_number": maskAccountNumber(*bankInfo.BankAccountNumber),
+		"disbursed_amount_idr":  settlement.NetPayoutIDR,
+		"disbursed_at":          time.Now().Format(time.RFC3339),
 	}
 
 	// 4. Panggil integration-gateway untuk disburse
@@ -411,9 +584,9 @@ func (s *merchantSettlementService) disburseToMerchant(ctx context.Context, sett
 			Message: fmt.Sprintf("Dana sebesar Rp %s untuk pesanan dari payment link Anda telah berhasil ditransfer ke rekening %s.", formatIDR(settlement.NetPayoutIDR), *bankInfo.BankCode),
 			Channel: domain.ChannelPush,
 			Data: map[string]string{
-				"type":            "merchant_settlement_completed",
-				"settlement_id":   settlement.ID.String(),
-				"payment_link_id": settlement.PaymentLinkID,
+				"type":             "merchant_settlement_completed",
+				"settlement_id":    settlement.ID.String(),
+				"payment_link_id":  settlement.PaymentLinkID,
 				"disbursement_ref": disbRef,
 			},
 		})
@@ -500,6 +673,39 @@ func (s *merchantSettlementService) MarkDisputed(ctx context.Context, settlement
 	return nil
 }
 
+// ChargebackByOrder — FB-080: saat dispute food resolved memihak customer,
+// settlement merchant untuk order tsb ditahan (DISPUTED) — dana tidak di-
+// disbursement sampai admin memutuskan (chargeback potong payout merchant).
+func (s *merchantSettlementService) ChargebackByOrder(ctx context.Context, orderID string, adminID uuid.UUID, reason string) error {
+	key := fmt.Sprintf("settle-order-%s", orderID)
+	settlement, err := s.repo.GetByIdempotencyKey(ctx, key)
+	if err != nil {
+		return fmt.Errorf("ChargebackByOrder: lookup settlement for order %s: %w", orderID, err)
+	}
+	if settlement == nil {
+		// Settlement belum dibuat (order belum delivered / bukan food on-demand).
+		// No-op — bukan error: admin bisa retry nanti setelah settlement ada.
+		slog.InfoContext(ctx, "merchant_settlement: chargeback no-op, settlement not found",
+			"order_id", orderID)
+		return nil
+	}
+
+	moved, err := s.repo.AtomicSetStatus(ctx, settlement.ID, domain.SettlementStatusHolding, domain.SettlementStatusDisputed)
+	if err != nil {
+		return fmt.Errorf("ChargebackByOrder: mark disputed for order %s: %w", orderID, err)
+	}
+	if !moved {
+		slog.InfoContext(ctx, "merchant_settlement: chargeback no-op, settlement not HOLDING",
+			"order_id", orderID, "settlement_id", settlement.ID, "status", settlement.Status)
+		return nil
+	}
+
+	_ = s.repo.UpdateFailed(ctx, settlement.ID, fmt.Sprintf("CHARGEBACK by admin %s: %s", adminID, reason))
+	slog.InfoContext(ctx, "merchant_settlement: chargeback applied (DISPUTED)",
+		"order_id", orderID, "settlement_id", settlement.ID, "admin_id", adminID)
+	return nil
+}
+
 func (s *merchantSettlementService) GetByPaymentLink(ctx context.Context, paymentLinkID string) (*domain.MerchantSettlement, error) {
 	key := fmt.Sprintf("settle-%s", paymentLinkID)
 	return s.repo.GetByIdempotencyKey(ctx, key)
@@ -511,6 +717,95 @@ func (s *merchantSettlementService) ListByMerchant(ctx context.Context, merchant
 
 func (s *merchantSettlementService) ListAll(ctx context.Context, status string, limit, offset int) ([]*domain.MerchantSettlement, error) {
 	return s.repo.ListAll(ctx, status, limit, offset)
+}
+
+// deductOutstandingCancellationFees — FB-082: potong piutang cancellation fee
+// merchant (PENDING) dari net payout settlement yang sedang dibuat.
+// Fee dipotong penuh hanya jika payout mencukupi; kalau tidak, sisa fee tetap
+// PENDING (carry forward ke settlement berikutnya). Mengembalikan total yang
+// berhasil dipotong.
+func (s *merchantSettlementService) deductOutstandingCancellationFees(ctx context.Context, merchantID string, netPayout *int64, settlementID uuid.UUID, orderID string) (int64, error) {
+	if s.cancelFeeRepo == nil {
+		return 0, nil
+	}
+	fees, err := s.cancelFeeRepo.GetOutstandingByMerchant(ctx, merchantID)
+	if err != nil {
+		return 0, fmt.Errorf("get outstanding cancellation fees: %w", err)
+	}
+
+	var totalDeducted int64
+	for _, f := range fees {
+		if *netPayout <= 0 {
+			break // payout habis — sisa fee carry forward
+		}
+		if f.AmountIDR <= *netPayout {
+			*netPayout -= f.AmountIDR
+			totalDeducted += f.AmountIDR
+			if err := s.cancelFeeRepo.MarkDeducted(ctx, f.ID, settlementID); err != nil {
+				slog.WarnContext(ctx, "merchant_settlement: gagal mark fee deducted (fee dipotong tp status tetap PENDING)",
+					"fee_id", f.ID, "error", err)
+			}
+			slog.InfoContext(ctx, "merchant_settlement: cancellation fee deducted",
+				"fee_id", f.ID, "order_id", f.OrderID, "settlement_id", settlementID,
+				"amount_idr", f.AmountIDR)
+		}
+		// fee > payout → tidak cukup, carry forward (tidak dipotong sebagian)
+	}
+	if totalDeducted > 0 {
+		slog.InfoContext(ctx, "merchant_settlement: cancellation fees deducted from payout",
+			"merchant_id", merchantID, "order_id", orderID, "settlement_id", settlementID,
+			"total_deducted_idr", totalDeducted, "net_after", *netPayout)
+	}
+	return totalDeducted, nil
+}
+
+// computeMerchantPromoDiscount — FB-101: hitung potongan promo merchant
+// (dibiayai merchant) yang berlaku untuk order food ini. Ambil item order +
+// promo aktif merchant (window waktu sekarang), hitung diskon per item,
+// cap di subtotal. Gagal → return 0 (settlement tetap jalan, tanpa potongan).
+func (s *merchantSettlementService) computeMerchantPromoDiscount(ctx context.Context, merchantID, orderID string) (int64, error) {
+	items, err := s.repo.ListFoodOrderItemsForPromo(ctx, orderID)
+	if err != nil {
+		return 0, fmt.Errorf("list food order items for promo: %w", err)
+	}
+	promos, err := s.repo.ListActiveMerchantPromos(ctx, merchantID, time.Now())
+	if err != nil {
+		return 0, fmt.Errorf("list active merchant promos: %w", err)
+	}
+	if len(items) == 0 || len(promos) == 0 {
+		return 0, nil
+	}
+
+	lines := make([]PromoItemLine, 0, len(items))
+	for _, it := range items {
+		lines = append(lines, PromoItemLine{
+			MenuItemID: it.MenuItemID,
+			ItemPrice:  it.ItemPrice,
+			Quantity:   it.Quantity,
+			Subtotal:   it.Subtotal,
+		})
+	}
+	rules := make([]MerchantPromoRule, 0, len(promos))
+	for _, p := range promos {
+		menuItemID := ""
+		if p.MenuItemID != nil {
+			menuItemID = *p.MenuItemID
+		}
+		rules = append(rules, MerchantPromoRule{
+			MenuItemID:     menuItemID,
+			DiscountType:   p.DiscountType,
+			DiscountValue:  p.DiscountValue,
+			MaxDiscountIDR: p.MaxDiscountIDR,
+		})
+	}
+
+	discount := ComputeMerchantPromoDiscount(lines, rules)
+	if discount > 0 {
+		slog.InfoContext(ctx, "merchant_settlement: merchant promo discount applied to payout",
+			"merchant_id", merchantID, "order_id", orderID,
+			"promo_discount_idr", discount)
+	}
+	return discount, nil
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

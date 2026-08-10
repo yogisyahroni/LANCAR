@@ -12,7 +12,7 @@ export type ConversationAccess = {
   orderId: string;
   orderNumber: string;
   conversationId: string;
-  memberType: 'customer' | 'courier' | 'recipient' | 'admin';
+  memberType: 'customer' | 'courier' | 'recipient' | 'admin' | 'merchant'; // FB-119
   conversationPhase: ConversationPhase;
   orderStatus: string;
   customerId: string | null;
@@ -166,9 +166,12 @@ const inferMemberType = (accessRow: any, user: CommunicationUser): ConversationA
   if (isAdminRole(user.role)) return 'admin';
   if (accessRow.customer_id && accessRow.customer_id === user.id) return 'customer';
   if (accessRow.courier_id && accessRow.courier_id === user.id) return 'courier';
+  // FB-119: merchant food order — merchant_id langsung dari orders.
+  if (accessRow.merchant_id && accessRow.merchant_id === user.id) return 'merchant';
   if (accessRow.recipient_has_access === true) return 'recipient';
   const role = String(user.role || '').toLowerCase();
   if (role.includes('courier')) return 'courier';
+  if (role.includes('merchant')) return 'merchant'; // FB-119
   if (role.includes('customer')) return 'customer';
   return 'customer';
 };
@@ -252,6 +255,7 @@ const getOrderAccessRow = async (orderId: string, user: CommunicationUser) => {
             o.recipient_name,
             o.recipient_phone_hash,
             actor.phone_number AS actor_phone_number,
+            o.merchant_id AS merchant_id, -- FB-119
             (
               SELECT ol.courier_id
               FROM order_legs ol
@@ -292,6 +296,7 @@ const getOrderAccessRow = async (orderId: string, user: CommunicationUser) => {
     row.customer_id === user.id ||
     row.courier_id === user.id ||
     row.courier_has_access === true ||
+    row.merchant_id === user.id || // FB-119: merchant pemilik order food
     row.recipient_has_access === true ||
     isAdminRole(user.role);
 

@@ -64,7 +64,14 @@ data class BookingState(
     val isResolvingMapPoint: Boolean = false,
     val mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
     val mapsProviderError: String? = null,
-    val promoCode: String = ""
+    val promoCode: String = "",
+    // FB-078: voucher redeem
+    val voucherCode: String = "",
+    val voucherDiscountIdr: Long = 0,
+    val voucherName: String = "",
+    val voucherApplied: Boolean = false,
+    val voucherLoading: Boolean = false,
+    val voucherError: String? = null
 )
 
 @HiltViewModel
@@ -370,6 +377,62 @@ class BookingViewModel @Inject constructor(
         _bookingState.value = _bookingState.value.copy(promoCode = "")
     }
 
+    // ── FB-078: Voucher redeem ──
+    fun setVoucherCode(value: String) {
+        val normalized = value.trim().uppercase()
+            .filter { it.isLetterOrDigit() || it == '_' || it == '-' }
+            .take(32)
+        _bookingState.value = _bookingState.value.copy(voucherCode = normalized)
+    }
+
+    fun clearVoucher() {
+        _bookingState.value = _bookingState.value.copy(
+            voucherCode = "",
+            voucherDiscountIdr = 0,
+            voucherName = "",
+            voucherApplied = false,
+            voucherError = null
+        )
+    }
+
+    fun validateVoucher() {
+        val state = _bookingState.value
+        val code = state.voucherCode.trim()
+        if (code.isEmpty()) {
+            clearVoucher()
+            return
+        }
+        val base = state.estimatedPrice
+        if (base <= 0) {
+            _bookingState.value = state.copy(
+                voucherError = "Hitung estimasi harga dulu sebelum pakai voucher.",
+                voucherApplied = false
+            )
+            return
+        }
+        viewModelScope.launch {
+            _bookingState.value = state.copy(voucherLoading = true, voucherError = null)
+            orderRepository.validateVoucher(code, base).fold(
+                onSuccess = { v ->
+                    _bookingState.value = _bookingState.value.copy(
+                        voucherLoading = false,
+                        voucherApplied = true,
+                        voucherName = v.name,
+                        voucherDiscountIdr = v.discountIdr,
+                        voucherError = null
+                    )
+                },
+                onFailure = { e ->
+                    _bookingState.value = _bookingState.value.copy(
+                        voucherLoading = false,
+                        voucherApplied = false,
+                        voucherError = e.localizedMessage ?: "Voucher tidak valid"
+                    )
+                }
+            )
+        }
+    }
+
     fun toggleDeliveryCode(enabled: Boolean) {
         _bookingState.value = _bookingState.value.copy(deliveryCodeEnabled = enabled)
     }
@@ -514,7 +577,8 @@ class BookingViewModel @Inject constructor(
                 customerNotes = state.itemDescription,
                 priceBreakdown = priceBreakdown,
                 serviceCode = state.selectedServiceCode,
-                promoCode = state.promoCode.ifBlank { null }
+                promoCode = state.promoCode.ifBlank { null },
+                voucherCode = if (state.voucherApplied) state.voucherCode else null // FB-078
             )
 
             orderRepository.createCustomerOnDemandOrder(req).collectLatest { result ->

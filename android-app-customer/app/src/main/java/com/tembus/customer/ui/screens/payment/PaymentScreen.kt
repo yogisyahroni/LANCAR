@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tembus.customer.data.model.FoodPaymentItem
 import com.tembus.customer.data.security.LocalDeviceSecurityManager
 import com.tembus.customer.ui.security.LocalSecurityChallengeDialog
 import java.text.NumberFormat
@@ -204,6 +205,7 @@ private fun PaymentMethodChooser(
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF667085)
                 )
+                PaymentItemsBlock(state.items)
                 PaymentAmountBlock(state.amountIdr)
                 PaymentMethodCard(
                     method = CustomerPaymentMethod.LAPAY,
@@ -275,6 +277,55 @@ private fun PaymentMethodChooser(
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF084C2E)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaymentItemsBlock(items: List<FoodPaymentItem>?) {
+    if (items.isNullOrEmpty()) return
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xFFF9FAFB)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Ringkasan pesanan",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF475467)
+            )
+            items.forEach { item ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "${item.quantity}× ${item.itemName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF101828)
+                        )
+                        if (!item.notes.isNullOrBlank()) {
+                            Text(
+                                text = item.notes,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF667085)
+                            )
+                        }
+                    }
+                    Text(
+                        text = formatRupiah(item.subtotal),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF101828)
+                    )
+                }
             }
         }
     }

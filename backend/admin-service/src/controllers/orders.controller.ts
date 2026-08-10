@@ -21,6 +21,10 @@ export const getAllOrders = async (req: Request, res: Response) => {
         o.total_price_idr as total_amount, 
         o.base_price_idr as base_fare,
         o.created_at,
+        -- AUDIT-FIX: kirim scheduled_at (UTC ISO) supaya badge "Terjadwal"
+        -- di dashboard benar-benar tampil (sebelumnya tidak di-SELECT →
+        -- badge mati permanen).
+        to_char(o.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as scheduled_at,
         u.full_name as customer_name,
         u.phone_number as customer_phone,
         (SELECT cu.full_name 
@@ -43,7 +47,9 @@ export const getAllOrders = async (req: Request, res: Response) => {
 
     if (search) {
       values.push(`%${search}%`);
-      query += ` AND (o.id::text ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR cu.full_name ILIKE $${values.length})`;
+      // AUDIT-FIX: cu.full_name sebelumnya pakai alias yang tidak ada di
+      // FROM (JOIN pakai `u`) → SQL error kalau admin pakai search.
+      query += ` AND (o.id::text ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR o.order_number ILIKE $${values.length})`;
     }
 
     if (status) {
@@ -278,6 +284,31 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       WHERE order_id = $1
     `, [id]);
 
+    // FB-110: rincian food (item pesanan + merchant) untuk investigasi CS.
+    const foodItemsRes = await readDb.query(`
+      SELECT foi.menu_item_id,
+             foi.item_name,
+             foi.item_price,
+             foi.quantity,
+             foi.notes,
+             foi.subtotal,
+             foi.created_at
+      FROM food_order_items foi
+      WHERE foi.order_id = $1
+      ORDER BY foi.created_at ASC
+    `, [id]);
+
+    const foodMerchantRes = await readDb.query(`
+      SELECT m.id AS merchant_id,
+             m.nama_toko AS merchant_name,
+             m.alamat AS merchant_address,
+             o.merchant_accepted_at,
+             o.food_ready_at
+      FROM orders o
+      LEFT JOIN merchants m ON m.id = o.merchant_id
+      WHERE o.id = $1
+    `, [id]);
+
     res.json({
       ...orderRes.rows[0],
       events: eventsRes.rows,
@@ -289,7 +320,9 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       proof_attempts: proofAttemptsRes.rows,
       face_verifications: faceVerificationsRes.rows,
       tambal_ban_report: tambalBanReportsRes.rows.length > 0 ? tambalBanReportsRes.rows[0] : null,
-      towing_report: towingReportsRes.rows.length > 0 ? towingReportsRes.rows[0] : null
+      towing_report: towingReportsRes.rows.length > 0 ? towingReportsRes.rows[0] : null,
+      food_items: foodItemsRes.rows,
+      food_merchant: foodMerchantRes.rows.length > 0 ? foodMerchantRes.rows[0] : null
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

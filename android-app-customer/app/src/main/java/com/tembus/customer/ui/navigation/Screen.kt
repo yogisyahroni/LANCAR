@@ -67,16 +67,32 @@ sealed class Screen(val route: String) {
     object ServiceCategory : Screen("service-category")
     object SubTypeSelector : Screen("sub-type-selector/{category}") {
         fun createRoute(category: String): String {
-            return "sub-type-selector/"
+            return "sub-type-selector/$category"
         }
     }
 
     // Tambal Ban & Towing — Booking
-    object ServiceBooking : Screen("service-booking/{serviceSubType}") {
-        fun createRoute(serviceSubType: String): String {
-            return "service-booking/"
+    object ServiceBooking : Screen("service-booking/{serviceSubType}?courierId={courierId}&courierPrice={courierPrice}") {
+        fun createRoute(serviceSubType: String, courierId: String? = null, courierPrice: Long? = null): String {
+            val base = "service-booking/$serviceSubType"
+            val query = mutableListOf<String>()
+            if (!courierId.isNullOrBlank()) {
+                query += "courierId=${java.net.URLEncoder.encode(courierId, "UTF-8")}"
+            }
+            if (courierPrice != null && courierPrice > 0) {
+                query += "courierPrice=$courierPrice"
+            }
+            return if (query.isEmpty()) base else "$base?${query.joinToString("&")}"
         }
     }
+
+    // FOOD-BIKE-055/056/057/075: Food Delivery
+    object FoodHome : Screen("food-home")
+    object FoodMerchantDetail : Screen("food-merchant/{merchantId}") {
+        fun createRoute(merchantId: String) = "food-merchant/$merchantId"
+    }
+    object FoodCart : Screen("food-cart")
+    object FoodCheckout : Screen("food-checkout")
 }
 
 

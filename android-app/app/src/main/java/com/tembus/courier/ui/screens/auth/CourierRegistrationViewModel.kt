@@ -114,7 +114,10 @@ class CourierRegistrationViewModel @Inject constructor(
                 }
             }
             2 -> {
-                if (state.vehiclePlate.isBlank() || state.vehicleBrand.isBlank() || state.vehicleModel.isBlank() || state.vehicleYear.isBlank() || state.vehicleCc.isBlank()) {
+                // FOOD-BIKE-041: sepeda tidak wajib plat/brand/model/tahun/CC
+                if (state.vehicleCategory == "sepeda") {
+                    // hanya perlu kategori terpilih
+                } else if (state.vehiclePlate.isBlank() || state.vehicleBrand.isBlank() || state.vehicleModel.isBlank() || state.vehicleYear.isBlank() || state.vehicleCc.isBlank()) {
                     _uiState.update { it.copy(error = "Harap lengkapi detail Kendaraan") }
                     return
                 }

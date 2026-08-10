@@ -160,6 +160,11 @@ func main() {
 	// Internal SOS wallet handlers
 	mux.HandleFunc("/api/internal/wallet/sos-penalty", middleware.BaseChain(h.SosPenalty))
 	mux.HandleFunc("/api/internal/wallet/sos-reward", middleware.BaseChain(h.SosReward))
+	mux.HandleFunc("/api/internal/wallet/hold-deduct", middleware.BaseChain(h.HoldDeduct))
+	mux.HandleFunc("/api/internal/wallet/hold-autorefill", middleware.BaseChain(h.HoldAutoRefill))
+	mux.HandleFunc("/api/internal/wallet/hold-minimum", middleware.BaseChain(h.SetHoldMinimum))
+	mux.HandleFunc("/api/internal/wallet/tip", middleware.BaseChain(h.Tip))
+	mux.HandleFunc("/api/internal/wallet/tip/refund", middleware.BaseChain(h.TipRefund)) // FB-083
 
 	// Webhooks
 	mux.HandleFunc("/webhooks/xendit", middleware.BaseChain(wh.XenditWebhook))
@@ -167,7 +172,7 @@ func main() {
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	// LAUNCH-5: Swagger UI (enabled via SWAGGER_ENABLED=true env, default: non-production only)

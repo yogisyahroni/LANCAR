@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -143,6 +144,25 @@ fun ServiceGridMenu(
                     onClick = onHistoryClick,
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            // Row 3: Food Delivery (FOOD-BIKE-030/030b)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                val foodDelivery = services.find { it.code == "food_delivery" || it.code == "food" }
+                foodDelivery?.let {
+                    ServiceGridItem(
+                        service = it,
+                        icon = Icons.Default.Restaurant,
+                        color = Color(0xFFFFF8E1), // Light amber
+                        onClick = { onServiceClick(it.code) },
+                        modifier = Modifier.weight(1f)
+                    )
+                } ?: Spacer(Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
             }
         }
     }

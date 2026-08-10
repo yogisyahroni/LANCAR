@@ -153,7 +153,9 @@ data class CustomerOrderCreateRequest(
     @SerialName("customer_notes") val customerNotes: String = "",
     @SerialName("price_breakdown") val priceBreakdown: PriceBreakdown,
     @SerialName("service_code") val serviceCode: String,
-    @SerialName("promo_code") val promoCode: String? = null
+    @SerialName("promo_code") val promoCode: String? = null,
+    @SerialName("voucher_code") val voucherCode: String? = null, // FB-078
+    @SerialName("preferred_courier_id") val preferredCourierId: String? = null
 )
 
 @Serializable
@@ -274,11 +276,23 @@ data class CustomerPaymentSetup(
     @SerialName("active_payment_provider") val activePaymentProvider: String? = null,
     @SerialName("amount_idr") val amountIdr: Long = 0L,
     @SerialName("wallet_balance_idr") val walletBalanceIdr: Long = 0L,
+    // FOOD-BIKE-076: breakdown multi-item (null untuk order non-food)
+    @SerialName("items") val items: List<FoodPaymentItem>? = null,
     @SerialName("snap_token") val snapToken: String? = null,
     @SerialName("redirect_url") val redirectUrl: String? = null,
     @SerialName("midtrans_order_id") val midtransOrderId: String? = null,
     @SerialName("expires_in") val expiresIn: Int = 0,
     @SerialName("expires_at") val expiresAt: String? = null
+)
+
+/** FOOD-BIKE-076: item makanan di breakdown pembayaran. */
+@Serializable
+data class FoodPaymentItem(
+    @SerialName("item_name") val itemName: String,
+    @SerialName("item_price") val itemPrice: Long = 0L,
+    @SerialName("quantity") val quantity: Int = 1,
+    @SerialName("notes") val notes: String? = null,
+    @SerialName("subtotal") val subtotal: Long = 0L
 )
 
 @Serializable

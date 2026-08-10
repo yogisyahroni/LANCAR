@@ -427,18 +427,29 @@ private fun Step2VehicleContent(
         AppDropdownField(
             label = "Kategori Kendaraan",
             value = state.vehicleCategory,
-            options = listOf("matic", "bebek", "sport", "listrik")
+            options = listOf("matic", "bebek", "sport", "listrik", "sepeda")
         ) { viewModel.update { copy(vehicleCategory = it) } }
-        AppTextField("Plat nomor (contoh: B 1234 CD)", state.vehiclePlate) { viewModel.update { copy(vehiclePlate = it) } }
-        AppTextField("Merk motor (Honda, Yamaha, dll)", state.vehicleBrand) { viewModel.update { copy(vehicleBrand = it) } }
-        AppTextField("Model motor (Beat, Vario, NMAX)", state.vehicleModel) { viewModel.update { copy(vehicleModel = it) } }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AppTextField("Tahun", state.vehicleYear, KeyboardType.Number, modifier = Modifier.weight(1f)) { viewModel.update { copy(vehicleYear = it) } }
-            AppTextField("Kapasitas CC", state.vehicleCc, KeyboardType.Number, modifier = Modifier.weight(1f)) { viewModel.update { copy(vehicleCc = it) } }
+        if (state.vehicleCategory == "sepeda") {
+            // FOOD-BIKE-041: sepeda tidak wajib plat/SIM — info ringkas
+            Text(
+                "Sepeda food delivery: tanpa plat nomor & SIM. Hanya wajib foto kendaraan.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        } else {
+            AppTextField("Plat nomor (contoh: B 1234 CD)", state.vehiclePlate) { viewModel.update { copy(vehiclePlate = it) } }
+            AppTextField("Merk motor (Honda, Yamaha, dll)", state.vehicleBrand) { viewModel.update { copy(vehicleBrand = it) } }
+            AppTextField("Model motor (Beat, Vario, NMAX)", state.vehicleModel) { viewModel.update { copy(vehicleModel = it) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AppTextField("Tahun", state.vehicleYear, KeyboardType.Number, modifier = Modifier.weight(1f)) { viewModel.update { copy(vehicleYear = it) } }
+                AppTextField("Kapasitas CC", state.vehicleCc, KeyboardType.Number, modifier = Modifier.weight(1f)) { viewModel.update { copy(vehicleCc = it) } }
+            }
         }
-        CheckRow("SIM C / D aktif", state.simActive) { viewModel.update { copy(simActive = it) } }
-        CheckRow("Pajak 5 tahunan (STNK/SKPD) hidup", state.skpdTaxActive) { viewModel.update { copy(skpdTaxActive = it) } }
-        CheckRow("Mesin 4-tak (bukan 2-tak berasap)", state.fourStroke) { viewModel.update { copy(fourStroke = it) } }
+        if (state.vehicleCategory != "sepeda") {
+            CheckRow("SIM C / D aktif", state.simActive) { viewModel.update { copy(simActive = it) } }
+            CheckRow("Pajak 5 tahunan (STNK/SKPD) hidup", state.skpdTaxActive) { viewModel.update { copy(skpdTaxActive = it) } }
+            CheckRow("Mesin 4-tak (bukan 2-tak berasap)", state.fourStroke) { viewModel.update { copy(fourStroke = it) } }
+        }
     }
 }
 

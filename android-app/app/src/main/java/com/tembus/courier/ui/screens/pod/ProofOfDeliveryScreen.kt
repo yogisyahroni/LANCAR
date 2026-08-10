@@ -397,6 +397,21 @@ private fun CameraPreviewContent(
                         color = Color.White.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center
                     )
+                    if (order.contactless && !isPickupProof) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            color = Color(0xFFE65100).copy(alpha = 0.9f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "ANTAR TANPA KONTAK — letakkan paket di lokasi tanpa serah terima fisik. Foto tetap wajib.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
                 }
             }
 

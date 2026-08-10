@@ -42,7 +42,44 @@ type RefundGateway interface {
 	ProcessRefund(ctx context.Context, orderID string, paymentRef string, amount int, reason string) (string, error)
 }
 
+// RefundOptions — parameter tambahan kalkulasi refund (FB-079).
+// OriginalStatus: status order SEBELUM diubah ke cancelled. Wajib dikirim
+// dari cancel flow karena order sudah berstatus cancelled saat refund
+// diproses — tanpa ini refund selalu dihitung sebagai 100% (bug).
+//
+// ChargeCancellationFeeTo (FB-082): pihak yang menanggung cancellation fee
+// saat order batal:
+//   - "" | "customer" (default): platform fee ditahan dari refund customer
+//     (perilaku FB-079 — customer cancel di window berbayar).
+//   - "merchant": customer refund 100%, fee TIDAK direversal — menjadi
+//     piutang merchant (merchant_cancellation_fees) yang dipotong dari
+//     settlement berikutnya (perilaku FB-082 — kesalahan merchant).
+//   - "none": refund 100% + fee direversal penuh ke customer (platform rugi,
+//     dipakai kalau blm ada mekanisme piutang).
+type RefundOptions struct {
+	OriginalStatus        OrderStatus
+	ChargeCancellationFeeTo string
+}
+
+// ItemRefundRequest — satu baris item untuk refund partial per item (FB-080).
+// Refund dihitung dari snapshot food_order_items (harga beku saat order).
+type ItemRefundRequest struct {
+	MenuItemID string `json:"menu_item_id" validate:"required"`
+	Quantity   int    `json:"quantity" validate:"required,min=1"`
+	Reason     string `json:"reason,omitempty"`
+}
+
+// RefundItemOptions — opsi tambahan untuk refund partial per item.
+type RefundItemOptions struct {
+	// IncludeDeliveryFee: true hanya jika kesalahan driver/platform
+	// (spec FB-080: ongkir tidak direfund kecuali kesalahan driver/platform).
+	IncludeDeliveryFee bool
+}
+
 type RefundService interface {
-	CalculateAndTriggerRefund(ctx context.Context, orderID uuid.UUID, cancelReason string) (*RefundRecord, error)
+	CalculateAndTriggerRefund(ctx context.Context, orderID uuid.UUID, cancelReason string, opts RefundOptions) (*RefundRecord, error)
+	// CalculateItemRefund — refund partial per item food (FB-080):
+	// refund = Σ(snapshot item_price × qty), ongkir opsional.
+	CalculateItemRefund(ctx context.Context, orderID uuid.UUID, items []ItemRefundRequest, opts RefundItemOptions) (*RefundRecord, error)
 	ProcessPendingRefunds(ctx context.Context) error
 }

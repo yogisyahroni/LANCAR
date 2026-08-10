@@ -591,6 +591,31 @@ services:
       - tembus-private
 
 
+  merchant-web:
+    <<: *app-security
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.merchant.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.merchant.entrypoints=merchant"
+      - "traefik.http.services.merchant.loadbalancer.server.port=80"
+    image: ${MERCHANT_WEB_IMAGE:-tembus/merchant-web:production}
+    build:
+      context: ./merchant-web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL is required}
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${PUBLIC_BIND:-127.0.0.1}:${MERCHANT_WEB_HOST_PORT:-3004}:80"
+    networks:
+      - tembus-private
+
+
   traefik:
     image: traefik:v3.0
     container_name: tembus-prod-traefik
@@ -603,11 +628,13 @@ services:
       - "--entrypoints.landing.address=:3003"
       - "--entrypoints.frontend.address=:3000"
       - "--entrypoints.admin.address=:3002"
+      - "--entrypoints.merchant.address=:3004"
     ports:
       - "${PUBLIC_BIND:-127.0.0.1}:${GATEWAY_HOST_PORT:-8080}:8080"
       - "${PUBLIC_BIND:-127.0.0.1}:${LANDING_HOST_PORT:-3003}:3003"
       - "${PUBLIC_BIND:-127.0.0.1}:${FRONTEND_HOST_PORT:-3000}:3000"
       - "${PUBLIC_BIND:-127.0.0.1}:${ADMIN_DASHBOARD_HOST_PORT:-3002}:3002"
+      - "${PUBLIC_BIND:-127.0.0.1}:${MERCHANT_WEB_HOST_PORT:-3004}:3004"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:

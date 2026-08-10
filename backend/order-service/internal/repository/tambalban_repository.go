@@ -132,6 +132,10 @@ func (r *availabilityRepo) FindCouriersByCapability(
 	serviceSubType string,
 	radiusKM, lat, lng float64,
 ) ([]*domain.NearbyCourier, error) {
+	// Food delivery: wajib kendaraan 'sepeda' + dalam radius pribadi driver (radius_max_km)
+	// (inline check — hindari import cycle service→repository)
+	isFood := serviceSubType == "food_delivery"
+
 	// Haversine distance calculation in SQL
 	query := `
 		SELECT 
@@ -141,6 +145,7 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		    cp.vehicle_type,
 		    cp.vehicle_type_car,
 		    COALESCE(csp.price_amount, 0) as courier_service_price,
+		    COALESCE(cp.radius_max_km, 1) as radius_max_km,
 		    (
 		        6371 * acos(
 		            cos(radians($1)) * cos(radians(cp.latitude)) *
@@ -164,11 +169,29 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		            cos(radians(cp.longitude) - radians($2)) +
 		            sin(radians($1)) * sin(radians(cp.latitude))
 		        )
-		    ) <= $5
+		    ) <= $5`
+
+	args := []any{lat, lng, serviceSubType, serviceSubType, radiusKM}
+
+	// Food delivery: hanya kurir bersepeda, dan hanya dalam radius yang dia set sendiri
+	if isFood {
+		query += `
+		    AND cp.vehicle_type = 'sepeda'
+		    AND cp.radius_max_km IS NOT NULL
+		    AND cp.radius_max_km >= (
+		        6371 * acos(
+		            cos(radians($1)) * cos(radians(cp.latitude)) *
+		            cos(radians(cp.longitude) - radians($2)) +
+		            sin(radians($1)) * sin(radians(cp.latitude))
+		        )
+		    )`
+	}
+
+	query += `
 		ORDER BY distance_km ASC
 		LIMIT 10`
-	
-	rows, err := r.db.QueryContext(ctx, query, lat, lng, serviceSubType, serviceSubType, radiusKM)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +203,7 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		err := rows.Scan(
 			&c.CourierID, &c.CourierName, &c.Rating,
 			&c.VehicleType, &c.VehicleTypeCar, &c.CourierServicePrice,
-			&c.DistanceKM,
+			&c.RadiusMaxKM, &c.DistanceKM,
 		)
 		if err != nil {
 			return nil, err
@@ -267,6 +290,19 @@ func (r *availabilityRepo) GetActiveOrderRemainingMinutes(ctx context.Context, c
 	}
 
 	return remaining, nil
+}
+
+// UpdateCourierRadius — FOOD-BIKE-029: set radius_max_km driver
+// (CHECK constraint: 1,2,4,6,10,12,14,16,18,20). Dipanggil saat driver
+// mengubah radius jangkauan food delivery dari app.
+// courierID dari JWT = users.id → resolve ke courier_profiles.id dulu.
+func (r *availabilityRepo) UpdateCourierRadius(ctx context.Context, courierID string, radiusKM int) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE courier_profiles SET radius_max_km = $1, updated_at = NOW()
+		 WHERE user_id = $2`,
+		radiusKM, courierID,
+	)
+	return err
 }
 
 // ============================================================
