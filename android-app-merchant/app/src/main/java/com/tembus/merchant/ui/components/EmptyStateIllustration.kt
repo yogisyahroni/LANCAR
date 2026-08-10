@@ -3,14 +3,16 @@ package com.tembus.merchant.ui.components
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,42 +39,50 @@ fun EmptyStateIllustration(
     title: String,
     description: String,
     modifier: Modifier = Modifier,
-    imageSize: Int = 220,
+    imageWidthFraction: Float = 0.85f,
+    imageMaxHeight: Dp = 220.dp,
     contentPadding: PaddingValues = PaddingValues(32.dp),
     action: (@Composable () -> Unit)? = null
 ) {
-    Column(
+    // Box + contentAlignment = Center: PASTI center di sisa ruang parent
+    // (pola Column fillMaxSize + Arrangement.Center terbukti TIDAK center
+    //  saat dipanggil sebagai child terakhir Column parent — konten
+    //  menggantung di bawah, debug 2026-08-11).
+    Box(
         modifier = modifier
             .fillMaxSize()
             .padding(contentPadding),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        contentAlignment = Alignment.Center
     ) {
-        Image(
-            painter = painterResource(illustration),
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxWidth()
-                .size(imageSize.dp)
-                .padding(horizontal = 16.dp),
-            contentScale = ContentScale.Fit
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        if (action != null) {
-            Spacer(modifier = Modifier.height(20.dp))
-            action()
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Image(
+                painter = painterResource(illustration),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth(imageWidthFraction)
+                    .heightIn(max = imageMaxHeight),
+                contentScale = ContentScale.Fit
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            if (action != null) {
+                Spacer(modifier = Modifier.height(24.dp))
+                action()
+            }
         }
     }
 }
