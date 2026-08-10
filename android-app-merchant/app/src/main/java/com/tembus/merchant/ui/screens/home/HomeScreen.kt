@@ -28,9 +28,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tembus.merchant.R
 import com.tembus.merchant.data.model.MerchantOrder
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
+import com.tembus.merchant.ui.components.EmptyStateIllustration
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.AccentLight
 import com.tembus.merchant.ui.theme.Primary
@@ -600,37 +602,18 @@ private fun StatusBadge(status: String) {
 
 @Composable
 private fun EmptyOrdersContent(onRefresh: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Storefront,
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Belum ada order",
-            style = MaterialTheme.typography.titleMedium
-        )
-        Text(
-            text = "Order baru akan muncul di sini",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedButton(onClick = onRefresh) {
-            Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Muat Ulang")
+    EmptyStateIllustration(
+        illustration = R.drawable.ill_receipt,
+        title = "Belum ada order",
+        description = "Order baru akan muncul di sini. Pastikan toko kamu buka dan menu tersedia ya.",
+        action = {
+            OutlinedButton(onClick = onRefresh) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Muat Ulang")
+            }
         }
-    }
+    )
 }
 
 // ── FB-123: pesanan terjadwal hari ini ──

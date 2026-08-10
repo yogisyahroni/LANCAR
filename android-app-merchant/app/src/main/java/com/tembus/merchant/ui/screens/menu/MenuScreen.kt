@@ -36,10 +36,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardOptions
 import coil.compose.AsyncImage
+import com.tembus.merchant.R
 import com.tembus.merchant.data.model.MenuItem
 import com.tembus.merchant.data.model.MenuItemRequest
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
+import com.tembus.merchant.ui.components.EmptyStateIllustration
 import com.tembus.merchant.ui.theme.Accent
 import kotlinx.coroutines.launch
 
@@ -482,35 +484,16 @@ private fun Uri.toCacheImageFile(context: Context): java.io.File? = runCatching 
 
 @Composable
 private fun EmptyMenuContent(onAdd: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Filled.RestaurantMenu,
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Menu masih kosong",
-            style = MaterialTheme.typography.titleMedium
-        )
-        Text(
-            text = "Tambahkan menu pertamamu agar customer bisa memesan.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onAdd) {
-            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Tambah Menu")
+    EmptyStateIllustration(
+        illustration = R.drawable.ill_streetfood,
+        title = "Menu masih kosong",
+        description = "Tambahkan menu pertamamu agar customer bisa memesan. Foto yang menarik bikin menu lebih laku!",
+        action = {
+            Button(onClick = onAdd) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Tambah Menu")
+            }
         }
-    }
+    )
 }
