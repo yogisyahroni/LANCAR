@@ -320,9 +320,11 @@ const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
       issuer: expectedIssuer,  // Validasi klaim 'iss' — cegah token cross-service
     }, (err: any, user: any) => {
       if (err) {
-        return res.status(403).json({ 
+        // RFC 6750: access token invalid/expired → 401 (bukan 403).
+        // OkHttp Authenticator & klien standar lain hanya memicu refresh pada 401.
+        return res.status(401).json({ 
           status: 'error', 
-          code: 'ERR_FORBIDDEN', 
+          code: 'ERR_UNAUTHORIZED', 
           message: 'Invalid or expired token' 
         });
       }

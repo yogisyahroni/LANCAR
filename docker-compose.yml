@@ -231,6 +231,7 @@ services:
       AUTH_PORT: ${AUTH_PORT:-8081}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-changeme_refresh_min32chars}
+      JWT_ACCESS_TOKEN_TTL_MINUTES: ${JWT_ACCESS_TOKEN_TTL_MINUTES:-15}
       OTP_TTL_SECONDS: ${OTP_TTL_SECONDS:-300}
       # ─── Integration Gateway ─────────────────────────────────────────────────
       INTEGRATION_GATEWAY_URL: ${INTEGRATION_GATEWAY_URL:-http://integration-gateway:8085}
