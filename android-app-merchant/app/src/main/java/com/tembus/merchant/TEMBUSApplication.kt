@@ -24,7 +24,7 @@ class AppContainer(context: Context) {
     val onboardingPreferences: OnboardingPreferences = OnboardingPreferences(context)
     val deviceIdentityProvider: DeviceIdentityProvider = DeviceIdentityProvider(context)
 
-    val apiService: TEMBUSApiService = ApiClient.createService(sessionManager)
+    val apiService: TEMBUSApiService = ApiClient.createService(sessionManager, deviceIdentityProvider)
 
     val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences, deviceIdentityProvider)
     val merchantRepository: MerchantRepository = MerchantRepository(apiService)

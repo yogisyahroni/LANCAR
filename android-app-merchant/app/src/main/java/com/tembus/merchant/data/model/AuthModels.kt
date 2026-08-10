@@ -37,3 +37,9 @@ data class ApiError(
     @SerializedName("error") val error: String? = null,
     @SerializedName("message") val message: String? = null
 )
+
+/** Request refresh token — endpoint /api/v1/auth/refresh (ADR-004). */
+data class RefreshTokenRequest(
+    @SerializedName("refresh_token") val refreshToken: String,
+    @SerializedName("device_id") val deviceId: String
+)

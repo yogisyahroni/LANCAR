@@ -41,6 +41,9 @@ class AuthSessionManager(private val context: Context) {
     private val _authToken = MutableStateFlow(sharedPreferences.getString(KEY_AUTH_TOKEN, null))
     val authToken: Flow<String?> = _authToken.asStateFlow()
 
+    private val _refreshToken = MutableStateFlow(sharedPreferences.getString(KEY_REFRESH_TOKEN, null))
+    val refreshToken: Flow<String?> = _refreshToken.asStateFlow()
+
     private val _userId = MutableStateFlow(sharedPreferences.getString(KEY_USER_ID, null))
     val userId: Flow<String?> = _userId.asStateFlow()
 
@@ -53,15 +56,17 @@ class AuthSessionManager(private val context: Context) {
     private val _sessionInvalidationReason = MutableStateFlow<SessionInvalidationReason?>(null)
     val sessionInvalidationReason = _sessionInvalidationReason.asStateFlow()
 
-    fun saveLogin(token: String, userId: String, name: String?, email: String?) {
+    fun saveLogin(token: String, refreshToken: String?, userId: String, name: String?, email: String?) {
         sharedPreferences.edit().apply {
             putString(KEY_AUTH_TOKEN, token)
+            putString(KEY_REFRESH_TOKEN, refreshToken)
             putString(KEY_USER_ID, userId)
             putString(KEY_USER_NAME, name)
             putString(KEY_USER_EMAIL, email)
             apply()
         }
         _authToken.value = token
+        _refreshToken.value = refreshToken
         _userId.value = userId
         _userName.value = name
         _userEmail.value = email
@@ -69,9 +74,21 @@ class AuthSessionManager(private val context: Context) {
         _isLoggedIn.value = true
     }
 
+    /** Ganti access token (dan refresh token bila ada) setelah refresh — ADR-004. */
+    fun updateTokens(newAccessToken: String, newRefreshToken: String?) {
+        sharedPreferences.edit().apply {
+            putString(KEY_AUTH_TOKEN, newAccessToken)
+            if (!newRefreshToken.isNullOrBlank()) putString(KEY_REFRESH_TOKEN, newRefreshToken)
+            apply()
+        }
+        _authToken.value = newAccessToken
+        if (!newRefreshToken.isNullOrBlank()) _refreshToken.value = newRefreshToken
+    }
+
     fun clearSession(reason: SessionInvalidationReason = SessionInvalidationReason.USER_LOGOUT) {
         sharedPreferences.edit().clear().apply()
         _authToken.value = null
+        _refreshToken.value = null
         _userId.value = null
         _userName.value = null
         _userEmail.value = null
@@ -84,8 +101,15 @@ class AuthSessionManager(private val context: Context) {
     /** Baca userId sinkron dari SharedPreferences (untuk ViewModel init). */
     fun getUserIdSync(): String? = sharedPreferences.getString(KEY_USER_ID, null)
 
+    /** Baca access token sinkron — dipakai TokenAuthenticator (OkHttp thread). */
+    fun getAuthTokenSync(): String? = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
+
+    /** Baca refresh token sinkron — dipakai TokenAuthenticator (OkHttp thread). */
+    fun getRefreshTokenSync(): String? = sharedPreferences.getString(KEY_REFRESH_TOKEN, null)
+
     companion object {
         private const val KEY_AUTH_TOKEN = "auth_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_EMAIL = "user_email"

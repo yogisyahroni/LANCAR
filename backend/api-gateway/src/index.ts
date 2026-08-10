@@ -506,6 +506,22 @@ app.post(
   proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
 );
 
+// Route eksplisit (bukan via app.use mount) — http-proxy-middleware v3 di Express 5
+// tidak meneruskan app.use(path, proxy) untuk path ini (regresi; test 2026-08-10).
+app.post(
+  '/api/v1/auth/refresh',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+app.post(
+  '/api/v1/auth/logout',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
 app.post(
   '/api/v1/auth/customer/register/start',
   authLimiter,

@@ -20,7 +20,13 @@ interface TEMBUSApiService {
     // ── Auth (auth-service, generic untuk semua role) ──
     @POST("api/v1/auth/customer/login/start")
     suspend fun login(
-        @Body request: LoginRequest
+        @Body body: LoginRequest
+    ): Response<AuthResponse>
+
+    /** Auto-refresh token saat 401 (ADR-004) — tanpa JWT, dipanggil TokenAuthenticator. */
+    @POST("api/v1/auth/refresh")
+    suspend fun refreshToken(
+        @Body body: RefreshTokenRequest
     ): Response<AuthResponse>
 
     // ── Merchant profile ──

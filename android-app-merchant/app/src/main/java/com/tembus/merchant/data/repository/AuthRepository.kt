@@ -4,6 +4,7 @@ import com.tembus.merchant.data.api.TEMBUSApiService
 import com.tembus.merchant.data.device.DeviceIdentityProvider
 import com.tembus.merchant.data.model.AuthResponse
 import com.tembus.merchant.data.model.LoginRequest
+import com.tembus.merchant.data.model.RefreshTokenRequest
 import com.tembus.merchant.data.onboarding.OnboardingPreferences
 import com.tembus.merchant.data.session.AuthSessionManager
 
@@ -47,10 +48,26 @@ class AuthRepository(
             val name = auth.authUser?.name ?: auth.authUser?.fullName ?: auth.data?.name
             val emailSaved = auth.authUser?.email ?: email
 
-            sessionManager.saveLogin(token, userId, name, emailSaved)
+            sessionManager.saveLogin(token, auth.refreshToken, userId, name, emailSaved)
             onboardingPreferences.markHadLoggedIn()
             auth
         }
+    }
+
+    /** Refresh manual (dipakai TokenAuthenticator via OkHttp; di sini untuk reuse logic). */
+    suspend fun refreshSession(): Result<Boolean> = runCatching {
+        val refreshToken = sessionManager.getRefreshTokenSync()
+            ?: throw Exception("Tidak ada refresh token")
+        val resp = api.refreshToken(
+            RefreshTokenRequest(refreshToken, deviceIdentityProvider.deviceId())
+        )
+        if (!resp.isSuccessful) throw Exception("Refresh gagal")
+        val auth = resp.body() ?: throw Exception("Response kosong")
+        val newAccess = auth.accessToken ?: auth.data?.token
+            ?: throw Exception("Access token tidak ditemukan")
+        val newRefresh = auth.refreshToken ?: refreshToken
+        sessionManager.updateTokens(newAccess, newRefresh)
+        true
     }
 
     fun logout() {
