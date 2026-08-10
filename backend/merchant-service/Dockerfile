@@ -38,6 +38,10 @@ WORKDIR /app
 # Copy binary
 COPY --from=builder /bin/merchant-service ./merchant-service
 
+# FB-110: direktori upload foto menu — dibuat & di-own appuser supaya
+# volume mount (tembus-merchant-uploads) bisa ditulis oleh non-root.
+RUN mkdir -p /app/public/uploads && chown -R appuser:appuser /app/public
+
 # Set proper permissions
 RUN chmod 755 ./merchant-service
 

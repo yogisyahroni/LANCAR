@@ -2,11 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
 
 	"tembus/merchant-service/internal/domain"
+	"tembus/merchant-service/internal/service"
 
 	"github.com/google/uuid"
 )
@@ -15,11 +18,12 @@ import (
 // Identity user diambil dari header X-User-ID (di-set API Gateway setelah
 // verifikasi JWT) — pola sama persis dengan payment-service.
 type MerchantHandler struct {
-	svc domain.MerchantService
+	svc      domain.MerchantService
+	uploadSvc *service.MenuPhotoStorage
 }
 
-func NewMerchantHandler(svc domain.MerchantService) *MerchantHandler {
-	return &MerchantHandler{svc: svc}
+func NewMerchantHandler(svc domain.MerchantService, uploadSvc *service.MenuPhotoStorage) *MerchantHandler {
+	return &MerchantHandler{svc: svc, uploadSvc: uploadSvc}
 }
 
 // parseUserID fail-closed: header wajib ada & UUID valid.
@@ -238,6 +242,57 @@ func (h *MerchantHandler) UpdateFoodDocs(w http.ResponseWriter, r *http.Request)
 }
 
 // ─────────────────────────────────────────────
+// UploadMenuItemPhoto — FB-110: upload foto menu dari galeri (bukan cuma URL).
+// @Summary Upload menu item photo
+// @Description Multipart field "file" (JPG/PNG/WebP, maks 2MB) → return URL publik.
+// @Tags merchant menu
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Foto menu"
+// @Success 201 {object} map[string]string
+// @Router /api/v1/merchant/menu/upload [post]
+func (h *MerchantHandler) UploadMenuItemPhoto(w http.ResponseWriter, r *http.Request) {
+	if h.uploadSvc == nil {
+		h.respondError(w, http.StatusServiceUnavailable, "Upload tidak tersedia")
+		return
+	}
+	if _, ok := h.parseUserID(w, r); !ok {
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 2*1024*1024+4096)
+	if err := r.ParseMultipartForm(2 * 1024 * 1024); err != nil {
+		h.respondError(w, http.StatusRequestEntityTooLarge, "File terlalu besar (maks 2MB)")
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "Field 'file' wajib diisi")
+		return
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "Gagal membaca file")
+		return
+	}
+
+	url, err := h.uploadSvc.Save(r.Context(), header.Filename, content)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, service.ErrMenuPhotoTooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		h.respondError(w, status, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusCreated, map[string]string{"url": url})
+}
+
 // Menu CRUD (FOOD-BIKE-018)
 // ─────────────────────────────────────────────
 

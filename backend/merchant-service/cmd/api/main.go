@@ -82,12 +82,26 @@ func main() {
 	_ = featureflags.NewFlagReader(db)
 
 	// Wire Layers
+	// FB-110: upload foto menu (local storage, pola auth-service)
+	uploadDir := os.Getenv("UPLOAD_DIR")
+	if uploadDir == "" {
+		uploadDir = "/app/public/uploads"
+	}
+	uploadBaseURL := os.Getenv("UPLOAD_PUBLIC_URL")
+	if uploadBaseURL == "" {
+		uploadBaseURL = "http://merchant-service:8085/uploads"
+	}
+	uploadSvc, err := service.NewMenuPhotoStorage(uploadDir, uploadBaseURL)
+	if err != nil {
+		log.Fatal("Could not init menu upload storage:", err)
+	}
+
 	merchantRepo := repository.NewPostgresMerchantRepository(db, db)
 	menuRepo := repository.NewPostgresMenuItemRepository(db, db)
 	orderRepo := repository.NewPostgresMerchantOrderRepository(db, db)
 	reportRepo := repository.NewPostgresReportRepository(db, db)
 	svc := service.NewMerchantService(merchantRepo, menuRepo, orderRepo, reportRepo)
-	h := handler.NewMerchantHandler(svc)
+	h := handler.NewMerchantHandler(svc, uploadSvc)
 
 	// FB-099: promo merchant self-serve (dibiayai merchant, bukan duit PT)
 	promoRepo := repository.NewPostgresMerchantPromoRepository(db, db)
@@ -104,6 +118,9 @@ func main() {
 
 	// Router
 	mux := http.NewServeMux()
+
+	// Serve foto menu (GET publik, cache immutable)
+	mux.Handle("/uploads/", middleware.BaseChain(service.StaticUploadHandler(uploadDir)))
 
 	// Pendaftaran & profil (FOOD-BIKE-045/018)
 	mux.HandleFunc("/api/v1/merchant/register", middleware.BaseChain(h.RegisterMerchant))
@@ -124,6 +141,9 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/pause", middleware.BaseChain(h.Pause))
 	mux.HandleFunc("/api/v1/merchant/resume", middleware.BaseChain(h.Resume))
 	mux.HandleFunc("/api/v1/merchant/food-docs", middleware.BaseChain(h.UpdateFoodDocs))
+
+	// FB-110: upload foto menu (multipart → URL publik)
+	mux.HandleFunc("/api/v1/merchant/menu/upload", middleware.BaseChain(h.UploadMenuItemPhoto))
 
 	// Menu CRUD (FOOD-BIKE-018)
 	mux.HandleFunc("/api/v1/merchant/menu", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {

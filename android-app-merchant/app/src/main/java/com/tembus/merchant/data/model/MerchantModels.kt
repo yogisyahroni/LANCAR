@@ -266,6 +266,12 @@ data class SuccessResponse(
     @SerializedName("success") val success: Boolean = false
 )
 
+// FB-110: response upload foto menu — {url: "https://.../uploads/<uuid>.jpg"}
+data class UploadMenuPhotoResponse(
+    @SerializedName("url") val url: String? = null,
+    @SerializedName("error") val error: String? = null
+)
+
 // ── FB-086: Laporan penjualan merchant — GET /api/v1/merchant/reports?period=daily|weekly ──
 /** TopSellingItem — item terlaris dalam periode. */
 data class TopSellingItem(

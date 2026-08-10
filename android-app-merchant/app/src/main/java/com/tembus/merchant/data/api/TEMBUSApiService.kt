@@ -1,6 +1,7 @@
 package com.tembus.merchant.data.api
 
 import com.tembus.merchant.data.model.*
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -63,6 +64,13 @@ interface TEMBUSApiService {
     ): Response<Merchant>
 
     // ── Menu CRUD ──
+    // FB-110: upload foto menu (multipart → URL publik)
+    @Multipart
+    @POST("api/v1/merchant/menu/upload")
+    suspend fun uploadMenuPhoto(
+        @Part file: MultipartBody.Part
+    ): Response<UploadMenuPhotoResponse>
+
     @GET("api/v1/merchant/menu")
     suspend fun listMenu(
         @Query("page") page: Int = 1,

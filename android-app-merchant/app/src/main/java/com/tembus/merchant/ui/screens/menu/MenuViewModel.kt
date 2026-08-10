@@ -59,6 +59,10 @@ class MenuViewModel(
         }
     }
 
+    // FB-110: upload foto menu → URL publik. Dipanggil dari dialog editor.
+    suspend fun uploadPhoto(file: java.io.File): Result<String> =
+        merchantRepository.uploadMenuPhoto(file)
+
     fun updateItem(id: String, request: MenuItemRequest) {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {

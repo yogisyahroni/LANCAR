@@ -1,9 +1,16 @@
 package com.tembus.merchant.ui.screens.menu
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -14,17 +21,23 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardOptions
+import coil.compose.AsyncImage
 import com.tembus.merchant.data.model.MenuItem
 import com.tembus.merchant.data.model.MenuItemRequest
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
+import kotlinx.coroutines.launch
 
 /**
  * MenuScreen — tab Menu: CRUD menu item + toggle ketersediaan.
@@ -52,6 +65,7 @@ fun MenuScreen(
     if (showEditor || editorTarget != null) {
         MenuItemEditorDialog(
             existing = editorTarget,
+            onUploadPhoto = { file -> viewModel.uploadPhoto(file) },
             onDismiss = {
                 showEditor = false
                 editorTarget = null
@@ -201,6 +215,7 @@ private fun MenuItemCard(
 @Composable
 private fun MenuItemEditorDialog(
     existing: MenuItem?,
+    onUploadPhoto: suspend (java.io.File) -> Result<String>,
     onDismiss: () -> Unit,
     onSave: (MenuItemRequest) -> Unit
 ) {
@@ -209,12 +224,39 @@ private fun MenuItemEditorDialog(
     var kategori by remember(existing?.id) { mutableStateOf(existing?.kategori ?: "") }
     var prepTime by remember(existing?.id) { mutableStateOf(existing?.prepTimeMinutes?.toString() ?: "15") }
     var foto by remember(existing?.id) { mutableStateOf(existing?.foto ?: "") }
+    var uploading by remember { mutableStateOf(false) }
+    var uploadError by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // FB-110: PhotoPicker galeri → copy ke cache → upload → URL diisi ke field foto.
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            uploadError = null
+            scope.launch {
+                uploading = true
+                val file = uri.toCacheImageFile(context)
+                if (file == null) {
+                    uploading = false
+                    uploadError = "Gagal membaca foto dari galeri"
+                } else {
+                    onUploadPhoto(file)
+                        .onSuccess { url -> foto = url }
+                        .onFailure { e -> uploadError = e.message ?: "Gagal upload foto" }
+                    uploading = false
+                }
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "Tambah Menu" else "Edit Menu") },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = nama,
                     onValueChange = { nama = it },
@@ -248,11 +290,60 @@ private fun MenuItemEditorDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // ── Foto menu (FB-110: upload dari galeri / tempel URL) ──
+                if (foto.isNotBlank()) {
+                    AsyncImage(
+                        model = foto,
+                        contentDescription = "Foto menu",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (uploading) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Mengunggah foto...", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = {
+                            photoPicker.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (foto.isBlank()) "Upload foto dari galeri" else "Ganti foto")
+                    }
+                }
+
+                uploadError?.let { msg ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(msg, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                }
+
+                if (foto.isNotBlank()) {
+                    TextButton(onClick = { foto = "" }) {
+                        Text("Hapus foto", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
                 OutlinedTextField(
                     value = foto,
                     onValueChange = { foto = it },
-                    label = { Text("URL foto (opsional)") },
+                    label = { Text("atau tempel URL foto (opsional)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -282,6 +373,14 @@ private fun MenuItemEditorDialog(
         }
     )
 }
+
+// FB-110: salin foto dari galeri (content://) ke file cache supaya bisa di-upload.
+private fun Uri.toCacheImageFile(context: Context): java.io.File? = runCatching {
+    val bytes = context.contentResolver.openInputStream(this)?.use { it.readBytes() } ?: return null
+    val f = java.io.File(context.cacheDir, "menu_${System.currentTimeMillis()}.jpg")
+    f.writeBytes(bytes)
+    f
+}.getOrNull()
 
 @Composable
 private fun EmptyMenuContent(onAdd: () -> Unit) {

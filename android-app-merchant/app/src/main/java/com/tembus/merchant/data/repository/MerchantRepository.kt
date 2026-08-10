@@ -2,6 +2,9 @@ package com.tembus.merchant.data.repository
 
 import com.tembus.merchant.data.api.TEMBUSApiService
 import com.tembus.merchant.data.model.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
 
 /**
@@ -38,6 +41,15 @@ class MerchantRepository(private val api: TEMBUSApiService) {
 
     suspend fun createMenuItem(req: MenuItemRequest): Result<MenuItem> =
         request { api.createMenuItem(req) }
+
+    // FB-110: upload foto menu dari galeri → URL publik (buat diisi ke field foto).
+    suspend fun uploadMenuPhoto(file: java.io.File): Result<String> =
+        request {
+            val body = file.asRequestBody("image/jpeg".toMediaType())
+            api.uploadMenuPhoto(
+                MultipartBody.Part.createFormData("file", file.name, body)
+            )
+        }.map { it.url ?: throw Exception("Upload gagal: response tanpa URL") }
 
     suspend fun updateMenuItem(id: String, req: MenuItemRequest): Result<MenuItem> =
         request { api.updateMenuItem(id, req) }

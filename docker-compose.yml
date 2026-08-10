@@ -287,6 +287,11 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
       ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
+      # FB-110: foto menu — local disk persistent + URL publik via service ini
+      UPLOAD_DIR: /app/public/uploads
+      UPLOAD_PUBLIC_URL: http://merchant-service:8085/uploads
+    volumes:
+      - tembus-merchant-uploads:/app/public/uploads
     ports:
       - "8085:8085"
     healthcheck:
@@ -763,6 +768,8 @@ volumes:
     name: rabbitmq_data
   tembus-admin-uploads:
     name: tembus-admin-uploads
+  tembus-merchant-uploads:
+    name: tembus-merchant-uploads
 
 networks:
   tembus-net:
