@@ -51,6 +51,15 @@ class MerchantRepository(private val api: TEMBUSApiService) {
             )
         }.map { it.url ?: throw Exception("Upload gagal: response tanpa URL") }
 
+    // FB-045: upload dokumen registrasi generic (KTP/foto toko/rekening) → URL publik.
+    suspend fun uploadPhoto(file: java.io.File): Result<String> =
+        request {
+            val body = file.asRequestBody("image/jpeg".toMediaType())
+            api.uploadDoc(
+                MultipartBody.Part.createFormData("file", file.name, body)
+            )
+        }.map { it.url ?: throw Exception("Upload gagal: response tanpa URL") }
+
     suspend fun updateMenuItem(id: String, req: MenuItemRequest): Result<MenuItem> =
         request { api.updateMenuItem(id, req) }
 

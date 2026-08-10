@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -24,6 +25,7 @@ import java.util.TimeZone
  * discount_type: percent | fixed | buy1get1. Window waktu default:
  * hari ini 00:00 UTC → +7 hari 23:59 UTC.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PromoCreateDialog(
     onDismiss: () -> Unit,
@@ -36,87 +38,91 @@ fun PromoCreateDialog(
     var endsAt by remember { mutableStateOf(defaultEnd()) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text("Buat Promo", modifier = Modifier.weight(1f))
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Buat Promo",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Filled.Close, contentDescription = "Tutup")
                 }
             }
-        },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "Dibiayai toko sendiri — langsung aktif tanpa persetujuan admin. " +
-                        "Potongan mengurangi pendapatan bersih toko, bukan komisi platform.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
 
-                Text("Jenis diskon", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("percent" to "Percent %", "fixed" to "Fixed Rp", "buy1get1" to "Beli 1 Gratis 1")
-                        .forEach { (value, label) ->
-                            FilterChip(
-                                selected = discountType == value,
-                                onClick = { discountType = value },
-                                label = { Text(label) }
-                            )
-                        }
-                }
+            Text(
+                "Dibiayai toko sendiri — langsung aktif tanpa persetujuan admin. " +
+                    "Potongan mengurangi pendapatan bersih toko, bukan komisi platform.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-                if (discountType != "buy1get1") {
-                    OutlinedTextField(
-                        value = discountValue,
-                        onValueChange = { discountValue = it.filter { c -> c.isDigit() } },
-                        label = { Text(if (discountType == "percent") "Diskon (%)" else "Diskon (Rp)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                if (discountType == "percent") {
-                    OutlinedTextField(
-                        value = maxDiscount,
-                        onValueChange = { maxDiscount = it.filter { c -> c.isDigit() } },
-                        label = { Text("Maks diskon (Rp, opsional)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                OutlinedTextField(
-                    value = startsAt,
-                    onValueChange = { startsAt = it },
-                    label = { Text("Mulai (YYYY-MM-DDTHH:MM:SSZ)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = endsAt,
-                    onValueChange = { endsAt = it },
-                    label = { Text("Selesai (YYYY-MM-DDTHH:MM:SSZ)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                error?.let {
-                    Text(
-                        it,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
+            Text("Jenis diskon", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("percent" to "Percent %", "fixed" to "Fixed Rp", "buy1get1" to "Beli 1 Gratis 1")
+                    .forEach { (value, label) ->
+                        FilterChip(
+                            selected = discountType == value,
+                            onClick = { discountType = value },
+                            label = { Text(label) }
+                        )
+                    }
             }
-        },
-        confirmButton = {
+
+            if (discountType != "buy1get1") {
+                OutlinedTextField(
+                    value = discountValue,
+                    onValueChange = { discountValue = it.filter { c -> c.isDigit() } },
+                    label = { Text(if (discountType == "percent") "Diskon (%)" else "Diskon (Rp)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            if (discountType == "percent") {
+                OutlinedTextField(
+                    value = maxDiscount,
+                    onValueChange = { maxDiscount = it.filter { c -> c.isDigit() } },
+                    label = { Text("Maks diskon (Rp, opsional)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            OutlinedTextField(
+                value = startsAt,
+                onValueChange = { startsAt = it },
+                label = { Text("Mulai (YYYY-MM-DDTHH:MM:SSZ)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = endsAt,
+                onValueChange = { endsAt = it },
+                label = { Text("Selesai (YYYY-MM-DDTHH:MM:SSZ)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            error?.let {
+                Text(
+                    it,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
             Button(
                 onClick = {
                     val req = buildRequest(discountType, discountValue, maxDiscount, startsAt, endsAt)
@@ -126,13 +132,18 @@ fun PromoCreateDialog(
                     } else {
                         onSave(req)
                     }
-                }
-            ) { Text("Simpan") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Batal") }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text("Simpan Promo", style = MaterialTheme.typography.titleMedium)
+            }
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                Text("Batal")
+            }
         }
-    )
+    }
 }
 
 private fun buildRequest(

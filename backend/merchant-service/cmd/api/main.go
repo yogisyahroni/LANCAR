@@ -144,6 +144,8 @@ func main() {
 
 	// FB-110: upload foto menu (multipart → URL publik)
 	mux.HandleFunc("/api/v1/merchant/menu/upload", middleware.BaseChain(h.UploadMenuItemPhoto))
+	// FB-045: upload dokumen registrasi generic (KTP/foto toko/rekening)
+	mux.HandleFunc("/api/v1/merchant/upload", middleware.BaseChain(h.UploadMerchantDoc))
 
 	// Menu CRUD (FOOD-BIKE-018)
 	mux.HandleFunc("/api/v1/merchant/menu", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {

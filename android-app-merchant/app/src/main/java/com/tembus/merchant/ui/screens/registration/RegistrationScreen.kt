@@ -1,24 +1,38 @@
 package com.tembus.merchant.ui.screens.registration
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.tembus.merchant.data.model.RegisterMerchantRequest
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.components.LocationPickerSection
 import com.tembus.merchant.ui.theme.Primary
+import kotlinx.coroutines.launch
 
 /**
  * RegistrationScreen — pendaftaran merchant (FOOD-BIKE-045/049).
@@ -52,6 +66,49 @@ fun RegistrationScreen(
     var sppIrtExpiry by remember { mutableStateOf("") }
     var bpomNumber by remember { mutableStateOf("") }
     var bpomExpiry by remember { mutableStateOf("") }
+
+    // FB-045: upload dokumen dari galeri — target field yang lagi di-upload
+    var docUploading by remember { mutableStateOf<String?>(null) } // "ktp"|"toko"|"rekening"
+    var docUploadError by remember { mutableStateOf<String?>(null) }
+    var docTarget by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            val target = docTarget
+            docUploadError = null
+            scope.launch {
+                docUploading = target
+                val file = uri.toCacheImageFile(context)
+                if (file == null) {
+                    docUploading = null
+                    docUploadError = "Gagal membaca foto dari galeri"
+                } else {
+                    viewModel.uploadPhoto(file)
+                        .onSuccess { url ->
+                            when (target) {
+                                "ktp" -> ktpUrl = url
+                                "toko" -> fotoTokoUrl = url
+                                "rekening" -> rekeningUrl = url
+                            }
+                        }
+                        .onFailure { e -> docUploadError = e.message ?: "Gagal upload foto" }
+                    docUploading = null
+                }
+            }
+        }
+    }
+
+    fun pickDoc(target: String) {
+        docTarget = target
+        photoPicker.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
+    }
 
     state.errorMessage?.let { msg ->
         AlertDialog(
@@ -151,43 +208,48 @@ fun RegistrationScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Dokumen Verifikasi (URL)",
+                text = "Dokumen Verifikasi",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Unggah dokumen via website admin, lalu tempel URL-nya di sini.",
+                text = "Foto KTP, tempat usaha, dan rekening diunggah dari galeri. Admin memakai dokumen ini untuk verifikasi.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
+            DocumentUploadField(
+                label = "Foto KTP",
+                helper = "KTP pemilik toko*",
                 value = ktpUrl,
-                onValueChange = { ktpUrl = it },
-                label = { Text("URL Foto KTP*") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                modifier = Modifier.fillMaxWidth()
+                uploading = docUploading == "ktp",
+                onPick = { pickDoc("ktp") },
+                onValueChange = { ktpUrl = it }
             )
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
+            DocumentUploadField(
+                label = "Foto Tempat Usaha",
+                helper = "Tampak depan toko*",
                 value = fotoTokoUrl,
-                onValueChange = { fotoTokoUrl = it },
-                label = { Text("URL Foto Tempat Usaha*") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                modifier = Modifier.fillMaxWidth()
+                uploading = docUploading == "toko",
+                onPick = { pickDoc("toko") },
+                onValueChange = { fotoTokoUrl = it }
             )
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
+            DocumentUploadField(
+                label = "Foto Rekening Bank",
+                helper = "Buku tabungan / bukti rekening*",
                 value = rekeningUrl,
-                onValueChange = { rekeningUrl = it },
-                label = { Text("URL Rekening Bank*") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                modifier = Modifier.fillMaxWidth()
+                uploading = docUploading == "rekening",
+                onPick = { pickDoc("rekening") },
+                onValueChange = { rekeningUrl = it }
             )
+
+            docUploadError?.let { msg ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(msg, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -389,3 +451,90 @@ private fun RegisteredSuccessContent(onDone: () -> Unit) {
         }
     }
 }
+
+// FB-045: field upload dokumen — area tap → galeri + preview + fallback URL.
+@Composable
+private fun DocumentUploadField(
+    label: String,
+    helper: String,
+    value: String,
+    uploading: Boolean,
+    onPick: () -> Unit,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(96.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable(enabled = !uploading) { onPick() },
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                uploading -> {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                }
+
+                value.isNotBlank() -> {
+                    AsyncImage(
+                        model = value,
+                        contentDescription = label,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    // Overlay tipis + label "Ganti"
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.30f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Ganti foto",
+                            color = androidx.compose.ui.graphics.Color.White,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
+                }
+
+                else -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Filled.AddPhotoAlternate,
+                            contentDescription = null,
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(label, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            helper,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text("atau tempel URL $label") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+// FB-045: salin foto dari galeri (content://) ke file cache supaya bisa di-upload.
+private fun Uri.toCacheImageFile(context: Context): java.io.File? = runCatching {
+    val bytes = context.contentResolver.openInputStream(this)?.use { it.readBytes() } ?: return null
+    val f = java.io.File(context.cacheDir, "doc_${System.currentTimeMillis()}.jpg")
+    f.writeBytes(bytes)
+    f
+}.getOrNull()

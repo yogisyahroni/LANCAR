@@ -39,6 +39,7 @@ import com.tembus.merchant.ui.theme.PrimaryLight
  * ProfileScreen — tab Profil: info merchant, status verifikasi,
  * akses Promo & Diskon, dan logout. (FOOD-BIKE-049: status verifikasi di sini.)
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onGoToRegistration: () -> Unit,
@@ -354,47 +355,57 @@ fun ProfileScreen(
     // FB-109: dialog atur minimal order value.
     if (showMinOrderDialog) {
         var minOrderText by remember { mutableStateOf(state.merchant?.minOrderIdr?.toString() ?: "0") }
-        AlertDialog(
-            onDismissRequest = { showMinOrderDialog = false },
-            title = { Text("Minimal Order") },
-            text = {
-                Column {
-                    Text(
-                        text = "Order dengan subtotal di bawah nominal ini akan ditolak otomatis. 0 = tidak ada minimum.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = minOrderText,
-                        onValueChange = { minOrderText = it.filter { c -> c.isDigit() }.take(9) },
-                        label = { Text("Minimal order (Rp)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (state.isSavingMinOrder) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    }
+        ModalBottomSheet(onDismissRequest = { showMinOrderDialog = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 36.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "Minimal Order",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Order dengan subtotal di bawah nominal ini akan ditolak otomatis. 0 = tidak ada minimum.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = minOrderText,
+                    onValueChange = { minOrderText = it.filter { c -> c.isDigit() }.take(9) },
+                    label = { Text("Minimal order") },
+                    prefix = { Text("Rp ") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (state.isSavingMinOrder) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 }
-            },
-            confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         val value = minOrderText.toLongOrNull() ?: 0L
                         viewModel.updateMinOrder(value)
                         showMinOrderDialog = false
                     },
-                    enabled = !state.isSavingMinOrder
+                    enabled = !state.isSavingMinOrder,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
                 ) {
-                    Text("Simpan")
+                    Text("Simpan", style = MaterialTheme.typography.titleMedium)
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showMinOrderDialog = false }) { Text("Batal") }
+                TextButton(
+                    onClick = { showMinOrderDialog = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Batal")
+                }
             }
-        )
+        }
     }
 }
 

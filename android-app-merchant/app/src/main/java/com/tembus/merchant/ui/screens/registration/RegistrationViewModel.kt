@@ -38,6 +38,10 @@ class RegistrationViewModel(
         }
     }
 
+    // FB-045: upload dokumen registrasi (KTP/foto toko/rekening) → URL publik.
+    suspend fun uploadPhoto(file: java.io.File): Result<String> =
+        merchantRepository.uploadPhoto(file)
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }

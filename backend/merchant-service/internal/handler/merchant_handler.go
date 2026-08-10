@@ -252,6 +252,25 @@ func (h *MerchantHandler) UpdateFoodDocs(w http.ResponseWriter, r *http.Request)
 // @Success 201 {object} map[string]string
 // @Router /api/v1/merchant/menu/upload [post]
 func (h *MerchantHandler) UploadMenuItemPhoto(w http.ResponseWriter, r *http.Request) {
+	h.handlePhotoUpload(w, r)
+}
+
+// UploadMerchantDoc — FB-045: upload dokumen registrasi (KTP/foto toko/rekening).
+// @Summary Upload merchant document photo
+// @Description Endpoint generic: multipart field "file" (gambar ≤2MB) → URL publik.
+// Dipakai untuk KTP pemilik, foto tempat usaha, rekening bank, dsb.
+// @Tags merchant
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Foto dokumen"
+// @Success 201 {object} map[string]string
+// @Router /api/v1/merchant/upload [post]
+func (h *MerchantHandler) UploadMerchantDoc(w http.ResponseWriter, r *http.Request) {
+	h.handlePhotoUpload(w, r)
+}
+
+// handlePhotoUpload — implementasi upload gambar → URL publik (validasi 2MB + magic bytes).
+func (h *MerchantHandler) handlePhotoUpload(w http.ResponseWriter, r *http.Request) {
 	if h.uploadSvc == nil {
 		h.respondError(w, http.StatusServiceUnavailable, "Upload tidak tersedia")
 		return

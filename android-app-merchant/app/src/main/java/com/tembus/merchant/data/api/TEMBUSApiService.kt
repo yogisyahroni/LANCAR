@@ -71,6 +71,13 @@ interface TEMBUSApiService {
         @Part file: MultipartBody.Part
     ): Response<UploadMenuPhotoResponse>
 
+    // FB-045: upload dokumen registrasi generic (KTP/foto toko/rekening)
+    @Multipart
+    @POST("api/v1/merchant/upload")
+    suspend fun uploadDoc(
+        @Part file: MultipartBody.Part
+    ): Response<UploadMenuPhotoResponse>
+
     @GET("api/v1/merchant/menu")
     suspend fun listMenu(
         @Query("page") page: Int = 1,
