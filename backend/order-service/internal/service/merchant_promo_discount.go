@@ -29,10 +29,6 @@ func ComputeMerchantPromoDiscount(items []PromoItemLine, promos []MerchantPromoR
 	var total int64
 
 	// Index promo per menu item: "all" = merchant-wide, "item:<id>" = spesifik.
-	type rule struct {
-		promo   MerchantPromoRule
-		applied bool
-	}
 	byItem := map[string][]MerchantPromoRule{}
 	for _, p := range promos {
 		key := "all"
