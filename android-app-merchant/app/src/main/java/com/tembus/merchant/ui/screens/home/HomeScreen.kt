@@ -400,8 +400,8 @@ private fun FilterChipsRow(
                 shape = RoundedCornerShape(20.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    // WCAG AA fix 2026-08-11: border aktif hijau tua (oranye 2.97 FAIL utk teks)
-                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                    // WCAG AA fix 2026-08-11: border aktif netral (teks aktif = onSurface)
+                    if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
                 ),
                 onClick = { onSelect(filter) }
             ) {
@@ -409,7 +409,7 @@ private fun FilterChipsRow(
                     text = filter.label,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }

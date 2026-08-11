@@ -79,9 +79,11 @@ fun MainScreen(
                     icon = { Icon(tab.icon, contentDescription = tab.label) },
                     label = { Text(tab.label) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        // WCAG AA fix 2026-08-11: hijau tua #0E2C22 di nav hitam #05080D
+                        // = 1.34:1 nyaris tak terlihat (keluhan user). Aktif = putih 20:1.
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                        indicatorColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.12f),
                         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )

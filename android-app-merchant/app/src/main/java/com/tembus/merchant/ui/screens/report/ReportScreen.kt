@@ -94,7 +94,7 @@ fun ReportScreen(
                             text = period.label,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selected) Primary else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                             modifier = Modifier.padding(vertical = 8.dp),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
