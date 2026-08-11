@@ -485,7 +485,7 @@ private fun Uri.toCacheImageFile(context: Context): java.io.File? = runCatching 
 @Composable
 private fun EmptyMenuContent(onAdd: () -> Unit) {
     EmptyStateIllustration(
-        illustration = R.drawable.ill_menu_ref,
+        illustration = R.drawable.ill_plates,
         title = "Menu masih kosong",
         description = "Tambahkan menu pertamamu agar customer bisa memesan. Foto yang menarik bikin menu lebih laku!",
         action = {

@@ -1,5 +1,6 @@
 package com.tembus.merchant.ui.screens.report
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,15 +14,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tembus.merchant.R
 import com.tembus.merchant.data.model.SalesReportSummary
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.screens.settlement.SettlementScreen
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.FreshGreen
+import com.tembus.merchant.ui.theme.FreshGreenDark
 import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
 
@@ -217,14 +224,29 @@ private fun RevenueSummaryCard(report: SalesReportSummary?) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(Accent)
+            // Gradient hijau segar — konsisten dengan dashboard (referensi 2026-08-11)
+            .background(
+                Brush.linearGradient(
+                    listOf(FreshGreen, FreshGreenDark)
+                )
+            )
             .padding(20.dp)
     ) {
-        Text(
-            text = "Pendapatan Bersih",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Pendapatan Bersih",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
+                modifier = Modifier.weight(1f)
+            )
+            // Ilustrasi dompet abu-abu — referensi user 2026-08-11
+            Image(
+                painter = painterResource(R.drawable.ill_wallet),
+                contentDescription = null,
+                modifier = Modifier.size(30.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = Format.rupiah(report?.gmvIdr ?: 0L),

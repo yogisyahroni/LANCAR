@@ -117,7 +117,7 @@ fun DashboardScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Image(
-                        painter = painterResource(R.drawable.ill_dash_ref),
+                        painter = painterResource(R.drawable.ill_shop),
                         contentDescription = null,
                         modifier = Modifier
                             .fillMaxWidth(0.6f)
