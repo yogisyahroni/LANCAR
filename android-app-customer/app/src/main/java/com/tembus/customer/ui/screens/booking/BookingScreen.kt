@@ -504,7 +504,7 @@ fun BookingScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Rute & Layanan Terpilih", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Primary)
                                 Spacer(Modifier.height(4.dp))
-                                Text("${uiState.pickupAddress.take(22)}... ➔ ${uiState.destinationAddress.take(22)}...", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink)
+                                Text("${uiState.pickupAddress.take(22)}... → ${uiState.destinationAddress.take(22)}...", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink)
                                 Text("${uiState.selectedService()?.name ?: "TEMBUS"} • ${uiState.selectedSizeTier()?.name ?: ""} (${uiState.packageWeight} kg)", fontSize = 12.sp, color = Muted)
                             }
                             TextButton(onClick = { currentStep = 1 }) {

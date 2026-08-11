@@ -240,7 +240,7 @@ fun FoodCheckoutScreen(
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Text(
-                        if (scheduledAtMs != null) "🕐 Diantar ~${timeFmt.format(Date(scheduledAtMs!!))}"
+                        if (scheduledAtMs != null) "Diantar ~${timeFmt.format(Date(scheduledAtMs!!))}"
                         else "Pilih waktu jadwal (min 30 menit lagi)",
                         fontSize = 14.sp,
                         color = if (scheduledAtMs != null) Primary else Color(0xFF475569)

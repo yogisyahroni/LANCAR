@@ -3,7 +3,10 @@ package com.tembus.courier.ui.screens.sos
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import com.tembus.courier.ui.theme.Success
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,7 +94,16 @@ fun SosResolutionScreen(
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     if (proofBitmap != null) {
-                        Text("✅ Foto berhasil diambil", color = Color(0xFF4CAF50))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Success,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Foto berhasil diambil", color = Success)
+                        }
                     } else {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.CameraAlt, contentDescription = "Kamera")
@@ -103,11 +115,20 @@ fun SosResolutionScreen(
             }
 
             if (selectedVerdict == "PRANK") {
-                Text(
-                    text = "⚠️ PERINGATAN: Memilih Laporan Palsu akan memberikan penalti denda Rp 100.000 kepada pembuat laporan.",
-                    color = Color.Red,
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "PERINGATAN: Memilih Laporan Palsu akan memberikan penalti denda Rp 100.000 kepada pembuat laporan.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.weight(1f))

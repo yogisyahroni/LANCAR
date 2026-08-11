@@ -230,7 +230,7 @@ fun FaceVerificationScreen(
             // ── Hint Text ────────────────────────────────────────
             Text(
                 text = when {
-                    state.isVerified -> "✅ Verifikasi berhasil!"
+                    state.isVerified -> "Verifikasi berhasil!"
                     state.capturedBitmap != null -> "Foto siap. Tekan Verifikasi untuk melanjutkan."
                     else -> "Posisikan wajah di dalam lingkaran, lalu ambil foto"
                 },

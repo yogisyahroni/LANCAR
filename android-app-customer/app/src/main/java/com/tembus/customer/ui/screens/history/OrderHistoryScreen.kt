@@ -289,7 +289,7 @@ private fun ReorderConfirmDialog(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
                     ) {
                         Text(
-                            "⚠️ Merchant sedang tutup — cek jam buka sebelum checkout.",
+                            "Merchant sedang tutup — cek jam buka sebelum checkout.",
                             fontSize = 12.sp,
                             color = Error,
                             fontWeight = FontWeight.SemiBold,

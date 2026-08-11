@@ -285,7 +285,7 @@ fun OtpVerifyScreen(
                     ) {
                         Text(
                             text = when {
-                                isVerified -> "Terverifikasi ✓"
+                                isVerified -> "Terverifikasi"
                                 isVerifying -> "Memverifikasi..."
                                 else -> "Verifikasi"
                             },

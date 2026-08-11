@@ -136,7 +136,7 @@ fun ServiceBookingScreen(
 
             // Location section (GPS)
             Text(
-                "📍 Lokasi Anda",
+                "Lokasi Anda",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -204,7 +204,7 @@ fun ServiceBookingScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            "🛠️ Petugas dipilih",
+                            "Petugas dipilih",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )

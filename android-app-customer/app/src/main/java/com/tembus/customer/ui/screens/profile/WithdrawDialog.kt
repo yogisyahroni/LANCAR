@@ -516,7 +516,7 @@ private fun ConfirmationSummary(amount: Long, accountNumber: String, accountHold
         ConfirmRow("Pemilik Rekening", accountHolder)
         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         Text(
-            "⚠\uFE0F Pastikan data sudah benar. Penarikan yang sudah diproses tidak dapat dibatalkan.",
+            "Pastikan data sudah benar. Penarikan yang sudah diproses tidak dapat dibatalkan.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 11.sp
         )

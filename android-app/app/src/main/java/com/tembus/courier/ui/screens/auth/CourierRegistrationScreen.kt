@@ -410,8 +410,8 @@ private fun Step1ProfileContent(
             }
         }
 
-        AppTextField("NIK (16 digit) ${if (state.isOcrVerified) "[✔ OCR]" else ""}", state.nik, KeyboardType.Number) { viewModel.update { copy(nik = it) } }
-        AppTextField("Nama lengkap sesuai KTP ${if (state.isOcrVerified) "[✔ OCR]" else ""}", state.fullName) { viewModel.update { copy(fullName = it) } }
+        AppTextField("NIK (16 digit) ${if (state.isOcrVerified) "[OCR]" else ""}", state.nik, KeyboardType.Number) { viewModel.update { copy(nik = it) } }
+        AppTextField("Nama lengkap sesuai KTP ${if (state.isOcrVerified) "[OCR]" else ""}", state.fullName) { viewModel.update { copy(fullName = it) } }
         AppTextField("Nomor WhatsApp aktif", state.phoneNumber, KeyboardType.Phone) { viewModel.update { copy(phoneNumber = it) } }
         AppTextField("Alamat email aktif", state.email, KeyboardType.Email) { viewModel.update { copy(email = it) } }
         AppPasswordField("Password login setelah disetujui", state.password) { viewModel.update { copy(password = it) } }
@@ -564,7 +564,7 @@ private fun AppPasswordField(
         supportingText = {
             val isValid = value.length >= 8
             val color = if (value.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else if (isValid) Primary else MaterialTheme.colorScheme.error
-            val text = if (value.isEmpty()) "Minimal 8 karakter agar akun aman & mudah diingat" else if (isValid) "✔ Kekuatan password: Kuat & Aman" else "❌ Terlalu pendek (minimal 8 karakter)"
+            val text = if (value.isEmpty()) "Minimal 8 karakter agar akun aman & mudah diingat" else if (isValid) "Kekuatan password: Kuat & Aman" else "Terlalu pendek (minimal 8 karakter)"
             Text(text = text, style = MaterialTheme.typography.bodySmall, color = color)
         }
     )

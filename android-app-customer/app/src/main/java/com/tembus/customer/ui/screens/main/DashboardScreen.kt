@@ -97,6 +97,7 @@ import com.tembus.customer.ui.theme.Background
 import com.tembus.customer.ui.theme.CustomerHeroEnd
 import com.tembus.customer.ui.theme.CustomerHeroStart
 import com.tembus.customer.ui.theme.Error
+import com.tembus.customer.ui.theme.Success
 import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
@@ -652,14 +653,14 @@ private fun ActiveOrderCard(
     )
 
     val displayTitle = when {
-        isCancelled -> if (statusLower == "failed" || statusLower == "payment_failed") "⚠️ Pengiriman Gagal" else "⚠️ Pengiriman Dibatalkan"
-        isDelivered -> "✅ Pengiriman Selesai"
+        isCancelled -> if (statusLower == "failed" || statusLower == "payment_failed") "Pengiriman Gagal" else "Pengiriman Dibatalkan"
+        isDelivered -> "Pengiriman Selesai"
         else -> title
     }
     
     val statusColor = when {
         isCancelled -> Error
-        isDelivered -> Color(0xFF22C55E)
+        isDelivered -> Success
         else -> LcGreen
     }
     
@@ -670,8 +671,8 @@ private fun ActiveOrderCard(
     }
     
     val ctaText = when {
-        isCancelled -> "Detail ➔"
-        isDelivered -> "Detail ➔"
+        isCancelled -> "Detail"
+        isDelivered -> "Detail"
         else -> "Lacak"
     }
 
