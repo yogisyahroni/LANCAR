@@ -140,7 +140,7 @@ private fun SummaryCards(summary: SettlementSummary) {
             modifier = Modifier.weight(1f),
             label = "Ditahan",
             value = Format.rupiah(summary.holdingIdr),
-            valueColor = Accent
+            valueColor = MaterialTheme.colorScheme.primary // WCAG AA fix 2026-08-11: oranye di putih 2.97 -> hijau tua 13.85
         )
     }
 }
@@ -173,7 +173,7 @@ private fun SummaryCard(modifier: Modifier, label: String, value: String, valueC
 private fun SettlementRow(record: SettlementRecord) {
     val (statusText, statusColor, bgColor) = when (record.status) {
         "COMPLETED" -> Triple("CAIR", GreenText, GreenText.copy(alpha = 0.10f))
-        "HOLDING" -> Triple("DITAHAN", Accent, Accent.copy(alpha = 0.10f))
+        "HOLDING" -> Triple("DITAHAN", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)) // WCAG AA fix: oranye 2.97 -> hijau tua 13.85
         "PROCESSING" -> Triple("PROSES", Info, Info.copy(alpha = 0.10f))
         "FAILED", "DISPUTED" -> Triple(record.status, MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.error.copy(alpha = 0.10f))
         else -> Triple(record.status, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f))

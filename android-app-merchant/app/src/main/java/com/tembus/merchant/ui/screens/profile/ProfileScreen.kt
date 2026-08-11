@@ -277,7 +277,7 @@ fun ProfileScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 val legend = listOf(
-                    "Baru" to Accent,
+                    "Baru" to MaterialTheme.colorScheme.primary, // WCAG AA fix: oranye 2.97 -> hijau tua 13.85
                     "Diproses" to Primary,
                     "Siap" to Primary,
                     "Diambil Driver" to Primary,

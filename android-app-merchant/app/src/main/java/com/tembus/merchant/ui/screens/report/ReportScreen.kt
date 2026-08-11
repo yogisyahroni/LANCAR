@@ -31,6 +31,7 @@ import com.tembus.merchant.ui.theme.FreshGreen
 import com.tembus.merchant.ui.theme.FreshGreenDark
 import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
+import com.tembus.merchant.ui.theme.PrimaryDark
 
 /**
  * ReportScreen — tab Laporan (design merchant 2026):
@@ -227,10 +228,12 @@ private fun RevenueSummaryCard(report: SalesReportSummary?) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            // Gradient hijau segar — konsisten dengan dashboard (referensi 2026-08-11)
+            // Gradient hijau TUA pekat — kontras WCAG AA utk teks putih (13.85:1).
+            // Sebelumnya FreshGreen->FreshGreenDark 2.28:1 FAIL (konsisten dgn
+            // fix RevenueCard dashboard 2026-08-11).
             .background(
                 Brush.linearGradient(
-                    listOf(FreshGreen, FreshGreenDark)
+                    listOf(Primary, PrimaryDark)
                 )
             )
             .padding(20.dp)
@@ -285,7 +288,7 @@ private fun TopItemRow(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (rank == 1) Accent else MaterialTheme.colorScheme.surfaceVariant),
+                        .background(if (rank == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant), // WCAG AA fix: oranye+putih 2.97 -> hijau tua+putih 13.85
                     contentAlignment = Alignment.Center
                 ) {
                     Text(

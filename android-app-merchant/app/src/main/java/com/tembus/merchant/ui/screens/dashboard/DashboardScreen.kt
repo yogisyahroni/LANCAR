@@ -33,6 +33,7 @@ import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.FreshGreen
 import com.tembus.merchant.ui.theme.FreshGreenDark
 import com.tembus.merchant.ui.theme.Primary
+import com.tembus.merchant.ui.theme.PrimaryDark
 
 /**
  * DashboardScreen — tab Dashboard (design merchant 2026):
@@ -132,12 +133,12 @@ fun DashboardScreen(
                     modifier = Modifier.weight(1f)
                 )
                 TextButton(onClick = onGoToOrders) {
-                    Text("Lihat Semua", color = Accent)
+                    Text("Lihat Semua", color = MaterialTheme.colorScheme.primary)
                     Icon(
                         Icons.Filled.ChevronRight,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
-                        tint = Accent
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -247,11 +248,13 @@ private fun RevenueCard(report: com.tembus.merchant.data.model.SalesReportSummar
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 16.dp)
             .clip(RoundedCornerShape(20.dp))
-            // Gradient hijau segar — mengikuti referensi mockup hijau-putih
-            // (sebelumnya oranye polos, iterasi 2026-08-11)
+            // Gradient hijau TUA pekat — kontras WCAG AA utk teks putih di atasnya
+            // (13.85:1). Sebelumnya FreshGreen->FreshGreenDark (2.28:1 FAIL, teks
+            // putih nyaris tak terlihat — keluhan user 2026-08-11, pola GoBiz/
+            // GrabMerchant: kartu revenue selalu hijau tua + teks putih).
             .background(
                 Brush.linearGradient(
-                    listOf(FreshGreen, FreshGreenDark)
+                    listOf(Primary, PrimaryDark)
                 )
             )
             .padding(20.dp)
@@ -411,7 +414,7 @@ private fun RecentOrderRow(
                     onClick = onOpenStruk,
                     contentPadding = PaddingValues(0.dp)
                 ) {
-                    Text("Struk", style = MaterialTheme.typography.labelMedium, color = Accent)
+                    Text("Struk", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }

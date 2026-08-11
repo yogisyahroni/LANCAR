@@ -28,7 +28,7 @@ import com.tembus.merchant.ui.theme.TEMBUSMerchantTheme
 
 // Skema warna login mengikuti mockup: bg hijau sangat gelap + tombol oranye #FF6201
 private val LoginBackground = Color(0xFF001E16)
-private val LoginAccent = Color(0xFFFF6201)
+private val LoginAccent = Color(0xFF0E2C22) // WCAG AA fix 2026-08-11: oranye #FF6201+putih 2.97 FAIL -> hijau tua #0E2C22+putih 13.85 (Primary)
 private val LoginOnAccent = Color(0xFFFFFFFF)
 private val LoginText = Color(0xFFFDFDFD)
 private val LoginTextSoft = Color(0xB3FDFDFD) // putih 70%

@@ -138,7 +138,9 @@ fun MenuScreen(
                 onClick = { showEditor = true },
                 icon = { Icon(Icons.Filled.Add, contentDescription = null) },
                 text = { Text("Tambah Menu") },
-                containerColor = Accent,
+                // WCAG AA fix 2026-08-11: oranye+putih 2.97 FAIL -> hijau tua+putih 13.85
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp)

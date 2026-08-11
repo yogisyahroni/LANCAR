@@ -342,7 +342,7 @@ private fun OrdersHeader(
                     ) {
                         Text(
                             if (isPauseLoading) "..." else "Resume sekarang",
-                            color = Accent,
+                            color = MaterialTheme.colorScheme.primary, // WCAG AA fix 2026-08-11: oranye 2.97 -> hijau tua 13.85
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -400,7 +400,8 @@ private fun FilterChipsRow(
                 shape = RoundedCornerShape(20.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (isSelected) Accent else MaterialTheme.colorScheme.outline
+                    // WCAG AA fix 2026-08-11: border aktif hijau tua (oranye 2.97 FAIL utk teks)
+                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                 ),
                 onClick = { onSelect(filter) }
             ) {
@@ -408,7 +409,7 @@ private fun FilterChipsRow(
                     text = filter.label,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) Accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
@@ -600,7 +601,7 @@ private fun OrderCard(
 @Composable
 private fun StatusBadge(status: String) {
     val (label, color, bg) = when (status) {
-        "pending_merchant" -> Triple("Baru", Accent, AccentLight)
+        "pending_merchant" -> Triple("Baru", MaterialTheme.colorScheme.primary, AccentLight) // WCAG AA fix 2026-08-11: teks hijau tua di AccentLight 8+:1
         "preparing" -> Triple("Diproses", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         "searching" -> Triple("Siap", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         "accepted", "picking_up", "picked_up" -> Triple("Diambil Driver", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
