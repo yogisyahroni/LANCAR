@@ -441,7 +441,7 @@ services:
       OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-traceidratio}
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
     ports:
-      - "${ADMIN_PORT:-3001}:3000"
+      - "${ADMIN_PORT:-3087}:3000"
     volumes:
       - tembus-admin-uploads:/app/public/uploads
     healthcheck:
