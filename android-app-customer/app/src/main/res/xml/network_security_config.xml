@@ -6,6 +6,13 @@
         </trust-anchors>
     </base-config>
 
+    <!-- Debug/dev: izinkan cleartext ke host lokal (emulator & LAN) -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">192.168.1.100</domain>
+    </domain-config>
+
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.bawain.my.id</domain>
         <!-- Certificate Pinning: Let's Encrypt leaf + intermediate -->
