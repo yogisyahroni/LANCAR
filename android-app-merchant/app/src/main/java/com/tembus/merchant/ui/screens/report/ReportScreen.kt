@@ -51,11 +51,14 @@ fun ReportScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Header hijau
+        // Header hijau — AUDIT-FIX 2026-08-11: tambah statusBarsPadding
+        // (sebelumnya tanpa → teks bisa ketutup status bar di device ber-notch;
+        // 4 screen lain sudah pakai).
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Primary)
+                .statusBarsPadding()
                 .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 20.dp)
         ) {
             Text(

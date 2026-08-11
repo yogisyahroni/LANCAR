@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.tembus.merchant.BuildConfig
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.model.UpdateBankAccountRequest
 import com.tembus.merchant.ui.Format
@@ -343,7 +344,7 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "TEMBUS Merchant v1.0",
+            text = "TEMBUS Merchant v${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

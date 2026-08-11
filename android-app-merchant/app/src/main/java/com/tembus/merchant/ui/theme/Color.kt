@@ -24,6 +24,13 @@ val AccentLight = Color(0xFFFFF1E6)
 // Teks aksen hijau (harga, nilai statistik)
 val GreenText = Color(0xFF2E5D39)
 
+// Scheduled (pesanan terjadwal) — ungu lembut, dibedakan dari status
+// realtime (sebelumnya hardcode #7C3AED dkk di HomeScreen; token 2026-08-11)
+val Scheduled = Color(0xFF7C3AED)
+val OnScheduled = Color(0xFF5B21B6)
+val ScheduledContainer = Color(0xFFEDE9FE)
+val ScheduledCard = Color(0xFFFAF5FF)
+
 // Bottom navigation — gelap pekat dengan item aktif oranye
 val NavBackground = Color(0xFF05080D)
 

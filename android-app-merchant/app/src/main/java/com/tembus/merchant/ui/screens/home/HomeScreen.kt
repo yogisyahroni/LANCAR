@@ -14,8 +14,11 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,7 +38,11 @@ import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.components.EmptyStateIllustration
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.AccentLight
+import com.tembus.merchant.ui.theme.OnScheduled
 import com.tembus.merchant.ui.theme.Primary
+import com.tembus.merchant.ui.theme.Scheduled
+import com.tembus.merchant.ui.theme.ScheduledCard
+import com.tembus.merchant.ui.theme.ScheduledContainer
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.LocalDate
@@ -316,8 +323,15 @@ private fun OrdersHeader(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(
+                        Icons.Filled.Pause,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "⏸ Sedang pause sementara",
+                        text = "Sedang pause sementara",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.weight(1f)
@@ -484,12 +498,21 @@ private fun OrderCard(
             // FB-121: catatan level order dari customer (mis. "pisahin sambal semua")
             if (!order.orderNotes.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "📝 ${order.orderNotes}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.Notes,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = order.orderNotes,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -586,7 +609,7 @@ private fun StatusBadge(status: String) {
         "cancelled_by_merchant" -> Triple("Ditolak", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
         "cancelled" -> Triple("Dibatalkan", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
         // FB-123: order terjadwal — belum masuk antrian, hanya informasi.
-        "scheduled" -> Triple("🕐 Terjadwal", Color(0xFF7C3AED), Color(0xFFEDE9FE))
+        "scheduled" -> Triple("Terjadwal", Scheduled, ScheduledContainer)
         else -> Triple(status, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.surfaceVariant)
     }
     Surface(color = bg, shape = RoundedCornerShape(8.dp)) {
@@ -649,22 +672,29 @@ private fun ScheduledTodayHeader(count: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFEDE9FE), RoundedCornerShape(12.dp))
+            .background(ScheduledContainer, RoundedCornerShape(12.dp))
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Icon(
+            Icons.Filled.Schedule,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = OnScheduled
+        )
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
-            text = "🕐 Pesanan Terjadwal Hari Ini",
+            text = "Pesanan Terjadwal Hari Ini",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF5B21B6)
+            color = OnScheduled
         )
         Spacer(modifier = Modifier.weight(1f))
         Text(
             text = "$count order",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF7C3AED)
+            color = Scheduled
         )
     }
 }
@@ -674,7 +704,7 @@ private fun ScheduledOrderCard(order: MerchantOrder, onOpenStruk: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF5FF))
+        colors = CardDefaults.cardColors(containerColor = ScheduledCard)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -690,7 +720,7 @@ private fun ScheduledOrderCard(order: MerchantOrder, onOpenStruk: () -> Unit) {
             Text(
                 text = "Diantar ~${parseScheduledTime(order.scheduledAt)} — ${order.customerName ?: "Customer"}",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF6D28D9)
+                color = OnScheduled
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
@@ -710,21 +740,25 @@ private fun ScheduledOrderCard(order: MerchantOrder, onOpenStruk: () -> Unit) {
 
 @Composable
 private fun ErrorRetryContent(message: String, onRetry: () -> Unit) {
-    Column(
+    // Box + contentAlignment Center — pola terbukti center di sisa ruang
+    // (Column fillMaxSize + Arrangement.Center sebagai child terakhir Column
+    //  terbukti menggantung ke bawah; debug 2026-08-11).
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onRetry) { Text("Coba Lagi") }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onRetry) { Text("Coba Lagi") }
+        }
     }
 }
 

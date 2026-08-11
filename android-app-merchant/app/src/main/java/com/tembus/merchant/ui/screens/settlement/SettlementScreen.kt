@@ -22,6 +22,7 @@ import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.GreenText
+import com.tembus.merchant.ui.theme.Info
 import com.tembus.merchant.ui.theme.Primary
 
 /**
@@ -76,14 +77,17 @@ fun SettlementScreen(
                 }
             }
             state.errorMessage != null -> {
-                Column(
+                // Box + Center — pola terbukti center (Column fillMaxSize
+                // sebagai child terakhir Column menggantung; debug 2026-08-11)
+                Box(
                     Modifier.fillMaxSize().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(state.errorMessage!!, color = MaterialTheme.colorScheme.error)
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = { viewModel.load() }) { Text("Coba Lagi") }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(state.errorMessage!!, color = MaterialTheme.colorScheme.error, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = { viewModel.load() }) { Text("Coba Lagi") }
+                    }
                 }
             }
             else -> {
@@ -170,7 +174,7 @@ private fun SettlementRow(record: SettlementRecord) {
     val (statusText, statusColor, bgColor) = when (record.status) {
         "COMPLETED" -> Triple("CAIR", GreenText, GreenText.copy(alpha = 0.10f))
         "HOLDING" -> Triple("DITAHAN", Accent, Accent.copy(alpha = 0.10f))
-        "PROCESSING" -> Triple("PROSES", Color(0xFF2563EB), Color(0xFF2563EB).copy(alpha = 0.10f))
+        "PROCESSING" -> Triple("PROSES", Info, Info.copy(alpha = 0.10f))
         "FAILED", "DISPUTED" -> Triple(record.status, MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.error.copy(alpha = 0.10f))
         else -> Triple(record.status, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f))
     }

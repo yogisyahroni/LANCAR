@@ -248,21 +248,21 @@ private fun StrukContent(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider(color = Color(0xFFE1E7EF))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 StrukRow("No. Order", struk.orderNumber)
                 struk.customerName?.let { StrukRow("Customer", it) }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider(color = Color(0xFFE1E7EF))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 struk.items.forEach { item ->
@@ -286,7 +286,7 @@ private fun StrukContent(
                         Text(
                             text = "   • $it",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF6B7280)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     // FB-108-FIX: varian/opsi terpilih di struk digital.
@@ -297,13 +297,13 @@ private fun StrukContent(
                                 "   • ${v.variantName}: ${v.optionName}"
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF6B7280)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider(color = Color(0xFFE1E7EF))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Spacer(modifier = Modifier.height(4.dp))
 
                 StrukRow("Subtotal", Format.rupiah(struk.subtotalIdr))
@@ -350,7 +350,7 @@ private fun StrukContent(
                 Text(
                     text = "Tunjukkan QR ini ke kurir saat pickup",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -360,7 +360,7 @@ private fun StrukContent(
                 Text(
                     text = struk.createdAt.orEmpty(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF9CA3AF),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -418,7 +418,7 @@ private fun StrukRow(label: String, value: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF6B7280)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = value,
