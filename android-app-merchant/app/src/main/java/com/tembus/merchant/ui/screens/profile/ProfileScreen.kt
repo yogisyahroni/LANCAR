@@ -60,6 +60,7 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Primary)
+                    .statusBarsPadding() // AUDIT-FIX 2026-08-11: header promo juga nabrak status bar
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -96,6 +97,7 @@ fun ProfileScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding() // AUDIT-FIX 2026-08-11: konsisten dgn 4 tab lain — konten nabrak status bar tanpa ini
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
