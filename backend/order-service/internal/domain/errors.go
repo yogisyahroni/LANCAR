@@ -15,6 +15,22 @@ func (e *ModelUnavailableError) Error() string {
 	return fmt.Sprintf("model %s unavailable: %s", e.Model, e.UserMsg)
 }
 
+// UserFacingError — error bisnis yang pesannya AMAN & penting ditampilkan
+// langsung ke customer (mis. "menu item tidak tersedia", "pilih Level Pedas
+// dulu"). UAT-C-012/C-014: tanpa ini, userSafeError menelan pesan asli dan
+// menampilkan ERR_INTERNAL generic.
+type UserFacingError struct {
+	UserMsg string
+}
+
+func (e *UserFacingError) Error() string {
+	return e.UserMsg
+}
+
+func NewUserFacingError(msg string) error {
+	return &UserFacingError{UserMsg: msg}
+}
+
 var (
 	ErrInvalidEstimate    = errors.New("INVALID_ESTIMATE")
 	ErrInternal           = errors.New("INTERNAL_SERVER_ERROR")

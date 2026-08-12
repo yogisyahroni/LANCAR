@@ -1610,16 +1610,16 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		return nil, err
 	}
 	if merchant.VerificationStatus != "approved" {
-		return nil, fmt.Errorf("merchant belum terverifikasi")
+		return nil, domain.NewUserFacingError("merchant belum terverifikasi")
 	}
 	if !merchant.IsOpen {
-		return nil, fmt.Errorf("merchant tutup")
+		return nil, domain.NewUserFacingError("merchant tutup")
 	}
 	// FB-107: merchant sedang pause sementara — tolak order baru sampai
 	// paused_until lewat (auto un-pause, tidak butuh aksi merchant).
 	if merchant.PausedUntil != nil && merchant.PausedUntil.After(time.Now()) {
-		return nil, fmt.Errorf("merchant sedang pause — coba lagi setelah %s",
-			merchant.PausedUntil.Format("15:04"))
+		return nil, domain.NewUserFacingError(fmt.Sprintf("merchant sedang pause — coba lagi setelah %s",
+			merchant.PausedUntil.Format("15:04")))
 	}
 	// FB-094: merchant wajib punya lokasi (pin di peta saat daftar).
 	// Tanpa lokasi, ongkir & "resto terdekat" tidak bisa dihitung dengan benar.
@@ -1663,7 +1663,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 			return nil, fmt.Errorf("menu item bukan milik merchant ini: %s", it.MenuID)
 		}
 		if !mi.IsAvailable {
-			return nil, fmt.Errorf("menu item tidak tersedia: %s", mi.Name)
+			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item tidak tersedia: %s", mi.Name))
 		}
 	}
 
@@ -1723,13 +1723,13 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 			for _, v := range variants {
 				selCount := len(selectedByVariant[v.ID])
 				if v.IsRequired && selCount == 0 {
-					return nil, fmt.Errorf("pilih %s dulu untuk %s", v.Nama, mi.Name)
+					return nil, domain.NewUserFacingError(fmt.Sprintf("pilih %s dulu untuk %s", v.Nama, mi.Name))
 				}
 				if selCount > v.MaxSelect {
-					return nil, fmt.Errorf("maksimal %d pilihan untuk %s (%s)", v.MaxSelect, v.Nama, mi.Name)
+					return nil, domain.NewUserFacingError(fmt.Sprintf("maksimal %d pilihan untuk %s (%s)", v.MaxSelect, v.Nama, mi.Name))
 				}
 				if selCount > 0 && selCount < v.MinSelect {
-					return nil, fmt.Errorf("minimal %d pilihan untuk %s (%s)", v.MinSelect, v.Nama, mi.Name)
+					return nil, domain.NewUserFacingError(fmt.Sprintf("minimal %d pilihan untuk %s (%s)", v.MinSelect, v.Nama, mi.Name))
 				}
 			}
 		} else if hasVariants {
@@ -1737,7 +1737,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 			// ada grup required. Grup optional tanpa pilihan = skip (boleh).
 			for _, v := range variants {
 				if v.IsRequired {
-					return nil, fmt.Errorf("pilih %s dulu untuk %s", v.Nama, mi.Name)
+					return nil, domain.NewUserFacingError(fmt.Sprintf("pilih %s dulu untuk %s", v.Nama, mi.Name))
 				}
 			}
 		}

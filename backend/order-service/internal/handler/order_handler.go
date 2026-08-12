@@ -42,6 +42,8 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 		"error":          err.Error(),
 	})
 
+	var ufe *domain.UserFacingError
+
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Data tidak ditemukan", correlationID)
@@ -53,6 +55,10 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ESTIMATE", "Estimasi harga tidak valid atau sudah kedaluwarsa", correlationID)
 	case errors.Is(err, domain.ErrLocationNotCovered):
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_LOCATION_NOT_COVERED", "Alamat pickup atau tujuan tidak tercover oleh layanan kami", correlationID)
+	case errors.As(err, &ufe) && ufe.UserMsg != "":
+		// UAT-C-012/C-014: error bisnis user-facing → tampilkan pesan asli
+		// (bukan ERR_INTERNAL generic).
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", ufe.UserMsg, correlationID)
 	default:
 		status := defaultStatus
 		if status == 0 {

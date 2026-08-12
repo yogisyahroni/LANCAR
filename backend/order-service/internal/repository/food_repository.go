@@ -552,8 +552,8 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT id::text, merchant_id::text, nama, harga, is_available, prep_time_minutes, kategori, foto
 		FROM merchant_menu_items
-		WHERE merchant_id = $1 AND is_available = TRUE
-		ORDER BY kategori NULLS LAST, nama ASC`,
+		WHERE merchant_id = $1
+		ORDER BY is_available DESC, kategori NULLS LAST, nama ASC`,
 		merchantID,
 	)
 	if err != nil {
