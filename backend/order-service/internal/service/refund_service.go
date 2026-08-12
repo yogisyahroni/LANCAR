@@ -134,8 +134,12 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		return nil, fmt.Errorf("failed to check existing refunds: %w", errExists)
 	}
 	for _, r := range existing {
-		if r.Status == domain.RefundStatusPending || r.Status == domain.RefundStatusProcessed {
-			log.Printf("Refund already active for order %s (status %s) — skip duplicate", orderID, r.Status)
+		// UAT-AN-070 fix: failed ikut diblokir — refund yang gagal ke gateway
+		// TIDAK boleh bikin record baru (risiko double payout saat retry).
+		// Retry harus lewat record yang sama (worker update failed→pending),
+		// bukan create baru. Jaring DB: partial unique index diperluas.
+		if r.Status == domain.RefundStatusPending || r.Status == domain.RefundStatusProcessed || r.Status == domain.RefundStatusFailed {
+			log.Printf("Refund already exists for order %s (status %s) — skip duplicate", orderID, r.Status)
 			return &r, nil
 		}
 	}
@@ -240,6 +244,8 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 	record := &domain.RefundRecord{
 		ID:                     refundID,
 		OrderID:                orderID,
+		UserID:                 &order.CustomerID,
+		PaymentID:              &payment.ID,
 		AmountIDR:              refundAmount,
 		Reason:                 cancelReason,
 		Status:                 domain.RefundStatusPending,

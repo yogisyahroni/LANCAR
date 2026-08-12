@@ -44,6 +44,11 @@ type Payment struct {
 	QRCodeURL           *string         `json:"qr_code_url" db:"qr_code_url"`
 	QRCodeString        *string         `json:"qr_code_string" db:"qr_code_string"`
 	WebhookPayload      []byte          `json:"webhook_payload" db:"webhook_payload"` // JSONB
+	SnapToken           *string         `json:"snap_token,omitempty" db:"snap_token"`
+	RedirectURL         *string         `json:"redirect_url,omitempty" db:"redirect_url"`
+	ClientKey           *string         `json:"client_key,omitempty" db:"client_key"`
+	SnapJSURL           *string         `json:"snap_js_url,omitempty" db:"snap_js_url"`
+	BatchID             *string         `json:"batch_id,omitempty" db:"batch_id"`
 	ExpiresAt           time.Time       `json:"expires_at" db:"expires_at"`
 	PaidAt              *time.Time      `json:"paid_at" db:"paid_at"`
 	CreatedAt           time.Time       `json:"created_at" db:"created_at"`

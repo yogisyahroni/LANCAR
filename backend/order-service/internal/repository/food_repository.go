@@ -438,7 +438,9 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 	}
 	defer rows.Close()
 
-	var out []domain.FoodMerchantInfo
+	// UAT-C-004: return [] bukan nil — kalau kosong, JSON "merchants": []
+	// (bukan null) supaya client tidak crash saat iterate.
+	out := []domain.FoodMerchantInfo{}
 	for rows.Next() {
 		var m domain.FoodMerchantInfo
 		var jamBuka, jamTutup, halalStatus sql.NullString

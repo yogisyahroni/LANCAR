@@ -18,6 +18,8 @@ const (
 type RefundRecord struct {
 	ID                     uuid.UUID    `json:"id" db:"id"`
 	OrderID                uuid.UUID    `json:"order_id" db:"order_id"`
+	UserID                 *string      `json:"user_id,omitempty" db:"user_id"`
+	PaymentID              *string      `json:"payment_id,omitempty" db:"payment_id"`
 	AmountIDR              int          `json:"amount_idr" db:"amount_idr"`
 	Reason                 string       `json:"reason" db:"reason"`
 	Status                 RefundStatus `json:"status" db:"status"`

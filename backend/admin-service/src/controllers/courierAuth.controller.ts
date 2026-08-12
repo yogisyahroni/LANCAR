@@ -4732,6 +4732,22 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
     const currentStatus = String(order.leg_status || order.order_status || '').toLowerCase();
     const failedDeliveryPolicy = String(order.failed_delivery_policy || '').toLowerCase();
 
+    // F8-AN-071 (resurrection guard): order dengan status FINAL tidak boleh
+    // diubah lagi — delivered/cancelled immutable. Mencegah event telat /
+    // request kurir mengubah status yang sudah final (harus 409 jelas,
+    // bukan 503 "internal error").
+    const finalOrderStatus = String(order.order_status || '').toLowerCase();
+    if (['delivered', 'cancelled', 'completed', 'returned'].includes(finalOrderStatus)) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: `Order sudah berstatus final (${order.order_status}) — status tidak bisa diubah lagi.`,
+        code: 'ERR_FINAL_STATUS',
+      });
+      return;
+    }
+
     if (workflowRole === 'on_demand' && ['failed', 'return_required', 'returned', 'reschedule_required', 'delivery_rescheduled'].includes(requestedStatus)) {
       await client.query('ROLLBACK');
       res.status(409).json({

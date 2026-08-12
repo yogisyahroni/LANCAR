@@ -46,6 +46,15 @@ func TestValidateScheduledAt_FB123(t *testing.T) {
 		{"lintas_malam_valid_20:00", now, timePtr(time.Date(2026, 8, 9, 20, 0, 0, 0, jakartaLoc)), strPtr("18:00"), strPtr("02:00"), false},
 		{"lintas_malam_valid_01:00", time.Date(2026, 8, 10, 0, 30, 0, 0, jakartaLoc), timePtr(time.Date(2026, 8, 10, 1, 0, 0, 0, jakartaLoc)), strPtr("18:00"), strPtr("02:00"), false},
 		{"lintas_malam_ditolak_12:00", now, timePtr(time.Date(2026, 8, 9, 12, 0, 0, 0, jakartaLoc)), strPtr("18:00"), strPtr("02:00"), true},
+		// UAT-AN-072 (timezone): scheduled 23:45 WIB.
+		// - Dengan jam operasional 08:00–22:00 → DITOLAK (sudah lewat tutup).
+		// - Dengan jam operasional 08:00–23:59 → VALID di WIB.
+		// - Dipastikan bukan selisih 7 jam: kalau validasi salah pakai UTC,
+		//   23:45 WIB = 16:45 UTC → masih dalam 08:00–22:00 → lolos padahal
+		//   seharusnya tolak (regresi timezone yang harus dicegah).
+		{"an072_23:45_wib_ditolak_setelah_tutup_22:00", now, timePtr(time.Date(2026, 8, 9, 23, 45, 0, 0, jakartaLoc)), strPtr("08:00"), strPtr("22:00"), true},
+		{"an072_23:45_wib_valid_sampai_23:59", now, timePtr(time.Date(2026, 8, 9, 23, 45, 0, 0, jakartaLoc)), strPtr("08:00"), strPtr("23:59"), false},
+		{"an072_16:45_utc_ekuivalen_harus_sama_dengan_23:45_wib", now, timePtr(time.Date(2026, 8, 9, 16, 45, 0, 0, time.UTC)), strPtr("08:00"), strPtr("22:00"), true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

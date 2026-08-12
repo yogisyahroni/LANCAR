@@ -128,9 +128,21 @@ func (r *PostgresPaymentRepo) Create(ctx context.Context, p *domain.Payment) err
 	return nil
 }
 
+// paymentColumns — SELECT kolom eksplisit payments dengan COALESCE untuk
+// kolom nullable yang di-scan ke tipe non-pointer di domain.Payment.
+// (UAT F8-AN-070: SELECT * gagal "converting NULL to float64" dkk.)
+const paymentColumns = `id, order_id, payment_number, provider, method, status, amount_idr,
+	mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, COALESCE(insurance_reserve_idr, 0) AS insurance_reserve_idr,
+	net_operational_idr, provider_reference, qr_code_url, qr_code_string,
+	COALESCE(webhook_payload, '{}'::jsonb) AS webhook_payload, expires_at, paid_at, created_at, updated_at,
+	snap_token, redirect_url, client_key, snap_js_url, batch_id,
+	tax_rule_code, COALESCE(ppn_rate_effective_pct, 0) AS ppn_rate_effective_pct,
+	COALESCE(ppn_rate_statutory_pct, 0) AS ppn_rate_statutory_pct,
+	COALESCE(dpp_idr, 0) AS dpp_idr, COALESCE(tax_invoice_required, false) AS tax_invoice_required, tax_invoice_status`
+
 func (r *PostgresPaymentRepo) GetByID(ctx context.Context, id string) (*domain.Payment, error) {
 	var p domain.Payment
-	err := r.db.GetContext(ctx, &p, "SELECT * FROM payments WHERE id = $1", id)
+	err := r.db.GetContext(ctx, &p, "SELECT "+paymentColumns+" FROM payments WHERE id = $1", id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -142,7 +154,7 @@ func (r *PostgresPaymentRepo) GetByID(ctx context.Context, id string) (*domain.P
 
 func (r *PostgresPaymentRepo) GetByOrderID(ctx context.Context, orderID string) (*domain.Payment, error) {
 	var p domain.Payment
-	err := r.db.GetContext(ctx, &p, "SELECT * FROM payments WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1", orderID)
+	err := r.db.GetContext(ctx, &p, "SELECT "+paymentColumns+" FROM payments WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1", orderID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -154,7 +166,7 @@ func (r *PostgresPaymentRepo) GetByOrderID(ctx context.Context, orderID string) 
 
 func (r *PostgresPaymentRepo) GetByPaymentNumber(ctx context.Context, paymentNumber string) (*domain.Payment, error) {
 	var p domain.Payment
-	err := r.db.GetContext(ctx, &p, "SELECT * FROM payments WHERE payment_number = $1", paymentNumber)
+	err := r.db.GetContext(ctx, &p, "SELECT "+paymentColumns+" FROM payments WHERE payment_number = $1", paymentNumber)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrNotFound

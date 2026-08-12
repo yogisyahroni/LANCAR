@@ -201,29 +201,32 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 
 func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, error) {
 	query := `SELECT 
-				id, order_number, customer_id, model, status, 
-				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, COALESCE(pickup_city, ''), COALESCE(pickup_zip_code, ''),
-				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''),
-				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
-				distance_km, COALESCE(included_distance_km, 0), COALESCE(distance_fee_idr, 0), COALESCE(volumetric_weight_kg, 0),
-				base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, COALESCE(surge_fee_idr, 0), COALESCE(discount_idr, 0), COALESCE(promo_code, ''), COALESCE(promo_sponsor, 'platform'),
-				COALESCE(surge_multiplier, 1), COALESCE(weather_multiplier, 1), COALESCE(traffic_multiplier, 1), COALESCE(pricing_snapshot::text, ''),
-				total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''),
-				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
-				COALESCE(tax_rule_code, ''), COALESCE(ppn_rate_effective_pct, 0), COALESCE(ppn_rate_statutory_pct, 0), COALESCE(dpp_idr, 0), COALESCE(ppn_idr, 0),
-				COALESCE(tax_invoice_required, false), COALESCE(tax_invoice_status, ''), COALESCE(platform_fee_idr, 0), COALESCE(platform_fee_pct, 0), COALESCE(promo_subsidy_idr, 0),
-				COALESCE(service_sub_type, ''), merchant_id::text, merchant_accepted_at, prep_time_minutes, food_ready_at,
-				COALESCE(contactless, false),
-				COALESCE(order_notes, ''),
-				scheduled_at,
+				o.id, o.order_number, o.customer_id, o.model, o.status, 
+				ST_Y(o.pickup_location::geometry), ST_X(o.pickup_location::geometry), o.pickup_address, COALESCE(o.pickup_city, ''), COALESCE(o.pickup_zip_code, ''),
+				ST_Y(o.dropoff_location::geometry), ST_X(o.dropoff_location::geometry), o.dropoff_address, COALESCE(o.dropoff_city, ''), COALESCE(o.dropoff_zip_code, ''),
+				o.length, o.width, o.height, o.weight, o.item_description, COALESCE(o.item_image_url, ''),
+				o.distance_km, COALESCE(o.included_distance_km, 0), COALESCE(o.distance_fee_idr, 0), COALESCE(o.volumetric_weight_kg, 0),
+				o.base_price_idr, o.volumetric_surcharge_idr, 
+				o.dynamic_price_idr, COALESCE(o.surge_fee_idr, 0), COALESCE(o.discount_idr, 0), COALESCE(o.promo_code, ''), COALESCE(o.promo_sponsor, 'platform'),
+				COALESCE(o.surge_multiplier, 1), COALESCE(o.weather_multiplier, 1), COALESCE(o.traffic_multiplier, 1), COALESCE(o.pricing_snapshot::text, ''),
+				o.total_price_idr, o.handover_token, o.dispatch_expiry, o.batch_id, o.sequence_no,
+				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = o.id AND ol.leg_number = 1 LIMIT 1), ''),
+				COALESCE(o.awb_number, ''), COALESCE(o.tracking_url, ''),
+				COALESCE(o.receiver_name, ''), COALESCE(o.receiver_phone, ''), COALESCE(o.routing_code, ''),
+				COALESCE(o.tax_rule_code, ''), COALESCE(o.ppn_rate_effective_pct, 0), COALESCE(o.ppn_rate_statutory_pct, 0), COALESCE(o.dpp_idr, 0), COALESCE(o.ppn_idr, 0),
+				COALESCE(o.tax_invoice_required, false), COALESCE(o.tax_invoice_status, ''), COALESCE(o.platform_fee_idr, 0), COALESCE(o.platform_fee_pct, 0), COALESCE(o.promo_subsidy_idr, 0),
+				COALESCE(o.service_sub_type, ''), COALESCE(o.merchant_id::text, ''), o.merchant_accepted_at, o.prep_time_minutes, o.food_ready_at,
+				COALESCE(o.contactless, false),
+				COALESCE(o.order_notes, ''),
+				o.scheduled_at,
 				COALESCE(m.nama_toko, ''),
-				created_at, updated_at
-				FROM orders
-				LEFT JOIN merchants m ON m.id = orders.merchant_id
-				WHERE orders.id = $1`
+				o.created_at, o.updated_at
+				FROM orders o
+				LEFT JOIN merchants m ON m.id = o.merchant_id
+				WHERE o.id = $1`
 
 	o := &domain.Order{}
+	var courierID, merchantID string
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
 		&o.PickupLat, &o.PickupLng, &o.PickupAddress, &o.PickupCity, &o.PickupZipCode,
@@ -233,11 +236,11 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.BasePriceIDR, &o.VolumetricSurchargeIDR,
 		&o.DynamicPriceIDR, &o.SurgeFeeIDR, &o.DiscountIDR, &o.PromoCode, &o.PromoSponsor,
 		&o.SurgeMultiplier, &o.WeatherMultiplier, &o.TrafficMultiplier, &o.PricingSnapshot,
-		&o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL,
+		&o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.AWB, &o.TrackingURL,
 		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
 		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
 		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
-		&o.ServiceSubType, &o.MerchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
+		&o.ServiceSubType, &merchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
 		&o.Contactless,
 		&o.OrderNotes,
 		&o.ScheduledAt, // FB-123: NULL = pesan langsung
@@ -249,6 +252,12 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 			return nil, nil
 		}
 		return nil, err
+	}
+	if courierID != "" {
+		o.CourierID = &courierID
+	}
+	if merchantID != "" {
+		o.MerchantID = &merchantID
 	}
 	// FB-123: IsScheduled = turunan dari scheduled_at (computed).
 	o.IsScheduled = o.ScheduledAt != nil
@@ -262,7 +271,9 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''),
 				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''),
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no,
+				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
+				COALESCE(awb_number, ''), COALESCE(tracking_url, ''),
 				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
 				COALESCE(tax_rule_code, ''), COALESCE(ppn_rate_effective_pct, 0), COALESCE(ppn_rate_statutory_pct, 0), COALESCE(dpp_idr, 0), COALESCE(ppn_idr, 0),
 				COALESCE(tax_invoice_required, false), COALESCE(tax_invoice_status, ''), COALESCE(platform_fee_idr, 0), COALESCE(platform_fee_pct, 0), COALESCE(promo_subsidy_idr, 0),
@@ -270,13 +281,14 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 			  FROM orders WHERE order_number = $1`
 
 	o := &domain.Order{}
+	var courierID string
 	err := r.readDB.QueryRowContext(ctx, query, orderNumber).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
 		&o.PickupLat, &o.PickupLng, &o.PickupAddress, &o.PickupCity, &o.PickupZipCode,
 		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress, &o.DropoffCity, &o.DropoffZipCode,
 		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.AWB, &o.TrackingURL,
 		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
 		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
 		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
@@ -288,6 +300,9 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 		}
 		return nil, err
 	}
+	if courierID != "" {
+		o.CourierID = &courierID
+	}
 	return o, nil
 }
 
@@ -298,26 +313,32 @@ func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order,
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
 				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
-			  FROM orders WHERE awb_number = $1`
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no,
+				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
+				COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
+				FROM orders WHERE awb_number = $1`
 
-	o := &domain.Order{}
-	err := r.readDB.QueryRowContext(ctx, query, awb).Scan(
-		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
-		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
-		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
-		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
-		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
-	)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return o, nil
-}
+				o := &domain.Order{}
+				var courierID string
+				err := r.readDB.QueryRowContext(ctx, query, awb).Scan(
+				&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+				&o.PickupLat, &o.PickupLng, &o.PickupAddress,
+				&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+				&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
+				&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+				&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
+				)
+				if err != nil {
+				if err == sql.ErrNoRows {
+				return nil, nil
+				}
+				return nil, err
+				}
+				if courierID != "" {
+				o.CourierID = &courierID
+				}
+				return o, nil
+				}
 
 func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*domain.Order, error) {
 	query := `
@@ -327,7 +348,9 @@ func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*dom
 			ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address,
 			length, width, height, weight, item_description, COALESCE(item_image_url, ''),
 			distance_km, base_price_idr, volumetric_surcharge_idr,
-			dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, created_at, updated_at
+			dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no,
+			COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
+			created_at, updated_at
 		FROM orders
 		WHERE batch_id = $1
 		ORDER BY sequence_no ASC
@@ -341,16 +364,20 @@ func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*dom
 	orders := []*domain.Order{}
 	for rows.Next() {
 		o := &domain.Order{}
+		var courierID string
 		err := rows.Scan(
 			&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
 			&o.PickupLat, &o.PickupLng, &o.PickupAddress,
 			&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
 			&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.CreatedAt, &o.UpdatedAt,
+			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.CreatedAt, &o.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if courierID != "" {
+			o.CourierID = &courierID
 		}
 		orders = append(orders, o)
 	}
@@ -364,33 +391,39 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
 				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, created_at, updated_at
-			  FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no,
+				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
+				created_at, updated_at
+				FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
 
-	rows, err := r.readDB.QueryContext(ctx, query, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+				rows, err := r.readDB.QueryContext(ctx, query, userID)
+				if err != nil {
+				return nil, err
+				}
+				defer rows.Close()
 
-	orders := []*domain.Order{}
-	for rows.Next() {
-		o := &domain.Order{}
-		err := rows.Scan(
-			&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
-			&o.PickupLat, &o.PickupLng, &o.PickupAddress,
-			&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
-			&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
-			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.CreatedAt, &o.UpdatedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		orders = append(orders, o)
-	}
-	return orders, nil
-}
+				orders := []*domain.Order{}
+				for rows.Next() {
+				o := &domain.Order{}
+				var courierID string
+				err := rows.Scan(
+				&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+				&o.PickupLat, &o.PickupLng, &o.PickupAddress,
+				&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+				&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
+				&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+				&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.CreatedAt, &o.UpdatedAt,
+				)
+				if err != nil {
+				return nil, err
+				}
+				if courierID != "" {
+				o.CourierID = &courierID
+				}
+				orders = append(orders, o)
+				}
+				return orders, nil
+				}
 
 func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
 	query := `UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3`
@@ -1016,7 +1049,9 @@ func (r *postgresRepo) SaveMerchantRating(ctx context.Context, orderID string, m
 func (r *postgresRepo) GetDeliveredUnratedOrders(ctx context.Context, customerID string, maxReminder int, reminderIntervalHours int) ([]*domain.Order, error) {
 	query := `
 		SELECT 
-			id, order_number, courier_id, courier_name, 
+			id, order_number, 
+			COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
+			courier_name, 
 			rating_reminder_count, last_rating_reminder_at 
 		FROM orders 
 		WHERE customer_id = $1 

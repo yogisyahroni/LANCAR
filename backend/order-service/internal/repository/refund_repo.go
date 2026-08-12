@@ -24,9 +24,9 @@ func NewPostgresRefundRepo(db *sqlx.DB, readDb *sqlx.DB) *PostgresRefundRepo {
 func (r *PostgresRefundRepo) CreateRefund(ctx context.Context, record *domain.RefundRecord) error {
 	query := `
 		INSERT INTO refunds (
-			id, order_id, amount_idr, reason, status, refund_percentage, tax_reversal_idr, platform_fee_reversal_idr, ledger_journal_id, created_at, updated_at
+			id, order_id, user_id, payment_id, amount_idr, reason, status, refund_percentage, tax_reversal_idr, platform_fee_reversal_idr, ledger_journal_id, created_at, updated_at
 		) VALUES (
-			:id, :order_id, :amount_idr, :reason, :status, :refund_percentage, :tax_reversal_idr, :platform_fee_reversal_idr, :ledger_journal_id, :created_at, :updated_at
+			:id, :order_id, :user_id, :payment_id, :amount_idr, :reason, :status, :refund_percentage, :tax_reversal_idr, :platform_fee_reversal_idr, :ledger_journal_id, :created_at, :updated_at
 		)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, record)
@@ -43,9 +43,16 @@ func (r *PostgresRefundRepo) UpdateRefundStatus(ctx context.Context, id uuid.UUI
 	return err
 }
 
+// refundColumns — kolom eksplisit refunds sesuai struct domain.RefundRecord.
+// (UAT F8-AN-070: SELECT * gagal "missing destination name payment_id" —
+// tabel punya payment_id/user_id/processed_at yang tidak ada di struct.)
+const refundColumns = `id, order_id, amount_idr, reason, status, refund_percentage,
+	tax_reversal_idr, platform_fee_reversal_idr, ledger_journal_id, gateway_ref,
+	failure_reason, created_at, updated_at`
+
 func (r *PostgresRefundRepo) GetRefundsByOrder(ctx context.Context, orderID uuid.UUID) ([]domain.RefundRecord, error) {
 	query := `
-		SELECT * FROM refunds 
+		SELECT ` + refundColumns + ` FROM refunds 
 		WHERE order_id = $1
 		ORDER BY created_at ASC
 	`
@@ -56,7 +63,7 @@ func (r *PostgresRefundRepo) GetRefundsByOrder(ctx context.Context, orderID uuid
 
 func (r *PostgresRefundRepo) GetPendingRefunds(ctx context.Context) ([]domain.RefundRecord, error) {
 	query := `
-		SELECT * FROM refunds 
+		SELECT ` + refundColumns + ` FROM refunds 
 		WHERE status = 'pending'
 		ORDER BY created_at ASC
 	`
