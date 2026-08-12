@@ -147,7 +147,8 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 						service_sub_type, merchant_id, prep_time_minutes,
 					contactless,
 					order_notes,
-					scheduled_at, -- FB-123: NULL = pesan langsung; diisi = terjadwal
+					-- FB-123: NULL = pesan langsung; diisi = terjadwal
+					scheduled_at,
 					created_at, updated_at
 					) VALUES (
 					$1, $2, $3, $4, $5, 
@@ -158,7 +159,7 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 					$36, $37, $38, $39, $40, $41, $42, $43, $44,
 					$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55,
 					$56, $57, $58, $59, $60,
-					$61, $62, $63, $64
+					$61, $62, $63
 					)`
 
 	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
@@ -531,15 +532,16 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 // tidak bergerak menuju pickup → kandidat soft_ghosting.
 func (r *postgresRepo) GetGhostedAcceptedOrders(ctx context.Context, timeout time.Duration) ([]*domain.Order, error) {
 	query := `
-		SELECT id, order_number, customer_id, model, status,
-			COALESCE(courier_id::text, ''),
-			COALESCE(merchant_id::text, ''),
-			COALESCE(service_sub_type, ''),
-			created_at, updated_at
-		FROM orders
-		WHERE status = 'accepted'
-		  AND updated_at < $1
-		ORDER BY updated_at ASC
+		SELECT o.id, o.order_number, o.customer_id, o.model, o.status,
+			COALESCE(ol.courier_id::text, ''),
+			COALESCE(o.merchant_id::text, ''),
+			COALESCE(o.service_sub_type, ''),
+			o.created_at, o.updated_at
+		FROM orders o
+		JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+		WHERE o.status = 'accepted'
+		  AND o.updated_at < $1
+		ORDER BY o.updated_at ASC
 		LIMIT 50`
 
 	thresholdTime := time.Now().Add(-timeout)

@@ -276,7 +276,7 @@ export const listEnabledDeliveryServicesForCustomer = async (): Promise<Delivery
     `SELECT *
      FROM delivery_service_products
      WHERE is_enabled = TRUE
-       AND (route_model = 'p2p' AND service_category IN ('on_demand', 'regular')
+       AND (route_model = 'p2p' AND service_category IN ('on_demand', 'regular', 'food_delivery')
         OR service_category = 'aggregator')
      ORDER BY display_order ASC, name ASC`
   );

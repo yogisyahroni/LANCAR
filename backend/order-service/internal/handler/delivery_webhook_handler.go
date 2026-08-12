@@ -89,6 +89,48 @@ func (h *DeliveryWebhookHandler) HandleChargeback(w http.ResponseWriter, r *http
 	})
 }
 
+// HandleFoodSettlement adalah endpoint POST /api/v1/internal/orders/food-settlement.
+// Dipanggil admin-service setelah proof delivery sukses untuk order food on-demand
+// (jalur courier mobile) — parity dengan ScanPackage (Go) yang memanggil
+// HandleFoodOrderDelivered saat delivered. Idempotent via settle-order-<orderID>.
+func (h *DeliveryWebhookHandler) HandleFoodSettlement(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	receivedKey := r.Header.Get("X-Internal-Api-Key")
+	if h.internalAPIKey != "" && receivedKey != h.internalAPIKey {
+		slog.WarnContext(r.Context(), "food_settlement: unauthorized attempt", "remote_addr", r.RemoteAddr)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var payload struct {
+		OrderID string `json:"order_id"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 64*1024)).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if payload.OrderID == "" {
+		http.Error(w, "order_id is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.settlementSvc.HandleFoodOrderDelivered(r.Context(), payload.OrderID); err != nil {
+		slog.ErrorContext(r.Context(), "food_settlement: failed", "order_id", payload.OrderID, "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":  "success",
+		"message": "Food settlement initiated (idempotent) untuk order " + payload.OrderID,
+	})
+}
+
 // HandleDeliveryEvent adalah endpoint POST /api/internal/delivery/webhook.
 // Menerima event pengiriman dari integration-gateway dan memulai proses settlement
 // jika status = "DELIVERED".

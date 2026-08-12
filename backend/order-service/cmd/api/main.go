@@ -614,6 +614,9 @@ func main() {
 	mux.HandleFunc("/api/v1/internal/merchant-settlements", middleware.BaseChain(deliveryWebhookHandler.HandleListSettlements))
 	// FB-080: chargeback settlement merchant per order (dipanggil admin-service saat dispute food resolved memihak customer)
 	mux.HandleFunc("/api/v1/internal/settlements/chargeback", middleware.BaseChain(deliveryWebhookHandler.HandleChargeback))
+	// Parity: food settlement dipicu admin-service setelah proof delivery sukses
+	// (jalur courier mobile) — idempotent, sama dengan ScanPackage Go.
+	mux.HandleFunc("/api/v1/internal/orders/food-settlement", middleware.BaseChain(deliveryWebhookHandler.HandleFoodSettlement))
 
 	// Aggregator Finance Routes (Invoices & Claims)
 	mux.HandleFunc("/api/v1/internal/aggregator-finance/invoices", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {

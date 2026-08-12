@@ -15,7 +15,7 @@ data class Order(
     val localId: Long = 0,
 
     @ColumnInfo(name = "order_id")
-    @SerialName("id")
+    @SerialName("order_id") // FIX 2026-08-11: backend /customer/orders & /orders/{id} return order_id, bukan id
     val orderId: String = "",
 
     @ColumnInfo(name = "order_number")

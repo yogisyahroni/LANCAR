@@ -102,6 +102,11 @@ services:
       PGBOUNCER_SERVER_IDLE_TIMEOUT: ${PGBOUNCER_SERVER_IDLE_TIMEOUT:-600}
       PGBOUNCER_SERVER_LIFETIME: ${PGBOUNCER_SERVER_LIFETIME:-3600}
       PGBOUNCER_CLIENT_IDLE_TIMEOUT: ${PGBOUNCER_CLIENT_IDLE_TIMEOUT:-0}
+    volumes:
+      # FIX 2026-08-11: file custom (statement_flush=auto) — entrypoint image
+      # hanya generate pgbouncer.ini kalau file belum ada, jadi file ini
+      # menang dan konfigurasi tidak di-overwrite saat recreate.
+      - ./deploy/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
     ports:
       - "${PGBOUNCER_PORT:-6432}:6432"
     healthcheck:
@@ -225,8 +230,8 @@ services:
         condition: service_healthy
     environment:
       # ─── Semua koneksi DB WAJIB via PgBouncer (port 6432) ──────────────
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       AUTH_PORT: ${AUTH_PORT:-8081}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
@@ -282,8 +287,8 @@ services:
         condition: service_started
     environment:
       # ─── Semua koneksi DB WAJIB via PgBouncer (port 6432) ──────────────
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
       PORT: 8085
       ENVIRONMENT: ${ENVIRONMENT:-development}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
@@ -468,8 +473,8 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ROUTING_PORT: 8082
       ROUTING_SERVICE_PORT: 8082
@@ -508,8 +513,8 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ORDER_PORT: ${ORDER_PORT:-8083}
       TOMTOM_SERVER_API_KEY: ${TOMTOM_SERVER_API_KEY:-}
@@ -544,7 +549,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       PAYMENT_PORT: ${PAYMENT_PORT:-8084}
       ENVIRONMENT: ${ENVIRONMENT:-development}

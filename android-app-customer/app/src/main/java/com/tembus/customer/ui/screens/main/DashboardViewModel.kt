@@ -66,14 +66,16 @@ class DashboardViewModel @Inject constructor(
                     // FB-126: kumpulkan SEMUA order yang masih berjalan
                     // (food + parcel), bukan firstOrNull. Customer bisa
                     // punya >1 order aktif sekaligus.
+                    val terminal = setOf("delivered", "completed", "cancelled", "canceled", "failed", "rejected", "payment_failed")
                     val ongoing = orders.filter {
                         val s = it.status.lowercase()
-                        s !in setOf("delivered", "completed", "cancelled", "canceled", "failed", "rejected", "payment_failed") && !s.contains("cancel")
+                        s !in terminal && !s.contains("cancel")
                     }
                     _activeOrders.value = ongoing.ifEmpty {
+                        // FIX 2026-08-11: fallback JANGAN memasukkan status terminal (cancelled dkk)
                         orders.filter {
                             val s = it.status.lowercase()
-                            s != "delivered" && s != "completed" && s != "arrived"
+                            s !in terminal && s != "arrived" && !s.contains("cancel")
                         }
                     }
                 }.onFailure { error ->
@@ -104,7 +106,7 @@ class DashboardViewModel @Inject constructor(
             orderRepository.getCustomerDeliveryServices().collectLatest { result ->
                 result.onSuccess { services ->
                     _services.value = services
-                        .filter { it.serviceCategory == "on_demand" && it.isEnabled }
+                        .filter { it.serviceCategory in setOf("on_demand", "regular", "food_delivery") && it.isEnabled } // FIX 2026-08-11: food_delivery category ikut muncul di grid
                         .sortedBy { it.displayOrder }
                 }.onFailure { error ->
                     _services.value = emptyList()

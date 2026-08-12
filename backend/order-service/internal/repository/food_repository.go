@@ -599,14 +599,19 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 // updated_at di-update oleh UpdateStatus saat transisi ke pending_merchant,
 // jadi dihitung dari sana.
 func (r *foodRepo) GetPendingMerchantFoodOrders(ctx context.Context, timeout time.Duration) ([]*domain.Order, error) {
-	rows, err := r.readDB.QueryContext(ctx, `
+	// FIX 2026-08-11: query bind ($1 * INTERVAL) konflik dengan unnamed
+	// prepared statement pgbouncer (transaction pooling) → error 26000/08P01
+	// intermittent. Interval dibuat literal — aman (timeout dari konstanta
+	// bisnis int seconds), dan bebas prepared statement.
+	q := fmt.Sprintf(`
 		SELECT id::text
 		FROM orders
 		WHERE service_sub_type = 'food_delivery'
 		  AND status = 'pending_merchant'
-		  AND updated_at <= NOW() - ($1 * INTERVAL '1 second')`,
+		  AND updated_at <= NOW() - INTERVAL '%d seconds'`,
 		int(timeout.Seconds()),
 	)
+	rows, err := r.readDB.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}

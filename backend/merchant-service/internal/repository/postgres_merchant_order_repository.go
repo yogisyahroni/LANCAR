@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
+
+	"github.com/lib/pq"
 
 	"tembus/merchant-service/internal/domain"
 	"tembus/merchant-service/internal/util"
@@ -181,12 +184,14 @@ type itemWithOrder struct {
 func queryItemsWithVariants(ctx context.Context, db *sql.DB, whereClause string, args ...any) ([]itemWithOrder, error) {
 	var where string
 	switch whereClause {
-	case "foi.order_id = ANY($1)", "foi.order_id = $1":
-		where = whereClause
+	case "foi.order_id = ANY($1)", "foi.order_id = ANY($1::uuid[])":
+		where = "foi.order_id = ANY($1::uuid[])"
+	case "foi.order_id = $1":
+		where = "foi.order_id = $1"
 	default:
 		return nil, fmt.Errorf("queryItemsWithVariants: whereClause tidak dikenal")
 	}
-	q := `SELECT foi.id, foi.order_id, COALESCE(foi.menu_item_id, ''), foi.item_name, foi.quantity, foi.item_price, foi.subtotal,
+	q := `SELECT foi.id, foi.order_id, COALESCE(foi.menu_item_id::text, ''), foi.item_name, foi.quantity, foi.item_price, foi.subtotal,
 	       COALESCE(foi.notes, ''),
 	       COALESCE(foiv.variant_name, ''), COALESCE(foiv.option_name, ''), COALESCE(foiv.price_delta, 0)
 	FROM food_order_items foi
@@ -195,6 +200,7 @@ func queryItemsWithVariants(ctx context.Context, db *sql.DB, whereClause string,
 	ORDER BY foi.id, foiv.id`
 	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
+		log.Printf("DEBUG queryItemsWithVariants ERROR: where=%s args=%#v err=%v", where, args, err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -231,7 +237,8 @@ func queryItemsWithVariants(ctx context.Context, db *sql.DB, whereClause string,
 }
 
 func (r *postgresMerchantOrderRepository) attachItems(ctx context.Context, index map[string]*domain.MerchantOrderView, orderIDs []string) error {
-	items, err := queryItemsWithVariants(ctx, r.readDB, "foi.order_id = ANY($1)", orderIDs)
+	log.Printf("DEBUG attachItems: orderIDs=%q", orderIDs)
+	items, err := queryItemsWithVariants(ctx, r.readDB, "foi.order_id = ANY($1)", pq.Array(orderIDs))
 	if err != nil {
 		return err
 	}
@@ -244,6 +251,7 @@ func (r *postgresMerchantOrderRepository) attachItems(ctx context.Context, index
 }
 
 func (r *postgresMerchantOrderRepository) CountByMerchant(ctx context.Context, merchantID, status string) (int, error) {
+	log.Printf("DEBUG CountByMerchant: merchantID=%q status=%q", merchantID, status)
 	var n int
 	err := r.readDB.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM orders

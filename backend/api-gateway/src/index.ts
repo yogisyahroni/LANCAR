@@ -720,6 +720,37 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Food Service (FOOD-BIKE-030b: customer mobile food merchant list/detail)
+// FIX 2026-08-11: endpoint /api/v1/food/* belum di-proxy ke order-service
+// sehingga app customer selalu dapat 404 "Cannot GET /api/v1/food/merchants".
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/food',
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('food', req, ORDER_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        orderBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      orderBreaker.fire(null);
+      logProxyError('food', ORDER_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Service is currently unavailable',
+        });
+      }
+    }
+  }
+}));
+
 // Couriers Service (Order-related actions)
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/couriers',

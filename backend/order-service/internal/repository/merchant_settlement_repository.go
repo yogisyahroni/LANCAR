@@ -410,13 +410,14 @@ func (r *merchantSettlementRepository) ListActiveMerchantPromos(ctx context.Cont
 func (r *merchantSettlementRepository) scanOne(row *sql.Row) (*domain.MerchantSettlement, error) {
 	s := &domain.MerchantSettlement{}
 	var metaRaw []byte
-	var disbRef, failReason sql.NullString
+	var disbRef, failReason, paymentLinkID sql.NullString
+	var podConfirmedAt, holdingReleaseAt, settledAt sql.NullTime
 	err := row.Scan(
-		&s.ID, &s.PaymentLinkID, &s.MerchantID, &s.OrderID,
+		&s.ID, &paymentLinkID, &s.MerchantID, &s.OrderID,
 		&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.DisbursementFeeIDR,
 		&s.MerchantPromoDiscountIDR, &s.NetPayoutIDR,
 		&s.Status, &s.IdempotencyKey,
-		&s.PODConfirmedAt, &s.HoldingReleaseAt, &s.SettledAt,
+		&podConfirmedAt, &holdingReleaseAt, &settledAt,
 		&disbRef, &failReason, &s.RetryCount,
 		&metaRaw, &s.CreatedByAdminID, &s.CreatedAt, &s.UpdatedAt,
 	)
@@ -425,6 +426,18 @@ func (r *merchantSettlementRepository) scanOne(row *sql.Row) (*domain.MerchantSe
 	}
 	if err != nil {
 		return nil, err
+	}
+	if paymentLinkID.Valid {
+		s.PaymentLinkID = paymentLinkID.String
+	}
+	if podConfirmedAt.Valid {
+		s.PODConfirmedAt = &podConfirmedAt.Time
+	}
+	if holdingReleaseAt.Valid {
+		s.HoldingReleaseAt = &holdingReleaseAt.Time
+	}
+	if settledAt.Valid {
+		s.SettledAt = &settledAt.Time
 	}
 	if disbRef.Valid {
 		s.DisbursementRef = disbRef.String
@@ -446,17 +459,31 @@ func (r *merchantSettlementRepository) scanMany(rows *sql.Rows) ([]*domain.Merch
 	for rows.Next() {
 		s := &domain.MerchantSettlement{}
 		var metaRaw []byte
-		var disbRef, failReason sql.NullString
+		var disbRef, failReason, paymentLinkID sql.NullString
+		var podConfirmedAt, holdingReleaseAt, settledAt sql.NullTime
 		err := rows.Scan(
-			&s.ID, &s.PaymentLinkID, &s.MerchantID, &s.OrderID,
-			&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.DisbursementFeeIDR, &s.NetPayoutIDR,
+			&s.ID, &paymentLinkID, &s.MerchantID, &s.OrderID,
+			&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.DisbursementFeeIDR,
+			&s.MerchantPromoDiscountIDR, &s.NetPayoutIDR,
 			&s.Status, &s.IdempotencyKey,
-			&s.PODConfirmedAt, &s.HoldingReleaseAt, &s.SettledAt,
+			&podConfirmedAt, &holdingReleaseAt, &settledAt,
 			&disbRef, &failReason, &s.RetryCount,
 			&metaRaw, &s.CreatedByAdminID, &s.CreatedAt, &s.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanMany: %w", err)
+		}
+		if paymentLinkID.Valid {
+			s.PaymentLinkID = paymentLinkID.String
+		}
+		if podConfirmedAt.Valid {
+			s.PODConfirmedAt = &podConfirmedAt.Time
+		}
+		if holdingReleaseAt.Valid {
+			s.HoldingReleaseAt = &holdingReleaseAt.Time
+		}
+		if settledAt.Valid {
+			s.SettledAt = &settledAt.Time
 		}
 		if disbRef.Valid {
 			s.DisbursementRef = disbRef.String

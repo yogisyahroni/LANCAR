@@ -3,6 +3,7 @@ import { securityLog } from '../security/logRedaction';
 import { db } from '../db';
 import { createNotification } from '../notifications';
 import crypto from 'crypto';
+import axios from 'axios';
 import { evaluateCourierPayoutRisk } from '../services/payoutRiskEngine';
 import { decoratePayoutRequest, payoutMobileMessage } from '../services/payoutStatusPolicy';
 import { evaluatePayoutAlerts, writePayoutAuditEvent } from '../utils/payoutObservability';
@@ -76,6 +77,7 @@ const signCourierJwt = (userId: string) => {
   const payload = base64Url(JSON.stringify({
     user_id: userId,
     role: 'courier',
+    iss: process.env.JWT_ISSUER || 'tembus-auth-service',
     iat: now,
     nbf: now,
     exp: expiresAt,
@@ -933,7 +935,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          COALESCE(dt.amount_idr, 0)::bigint AS tip_amount_idr
          FROM order_legs ol
          JOIN orders o ON o.id = ol.order_id
-         LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
+         LEFT JOIN delivery_service_products dsp ON dsp.code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
          LEFT JOIN users c ON c.id = o.customer_id
          LEFT JOIN driver_tips dt ON dt.order_id = o.id
        WHERE ol.courier_id = $1
@@ -2625,9 +2627,9 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           COALESCE(u.full_name, 'Customer') AS customer_name,
           COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS On Demand') AS service_name
        FROM orders o
-       JOIN delivery_service_products dsp ON dsp.code = o.service_code
+       JOIN delivery_service_products dsp ON dsp.code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
         AND dsp.is_enabled = TRUE
-        AND dsp.service_category = 'on_demand'
+        AND dsp.service_category IN ('on_demand', 'food_delivery')
        JOIN courier_profiles cp ON cp.application_channel = 'on_demand'
         AND cp.verification_status = 'approved'
         AND cp.is_online = TRUE
@@ -2635,7 +2637,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
         AND cp.current_location IS NOT NULL
         AND cp.last_location_at >= NOW() - INTERVAL '10 minutes'
        JOIN courier_service_capabilities csc ON csc.courier_profile_id = cp.id
-        AND csc.service_code = o.service_code
+        AND csc.service_code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
         AND csc.application_channel = 'on_demand'
         AND csc.status = 'enabled'
        JOIN courier_vehicles cv ON cv.id = csc.vehicle_id
@@ -2879,7 +2881,7 @@ export const dispatchToPreferredCourier = async (
        NULLIF(o.route_snapshot->>'snapshot_version', '')::int AS route_snapshot_version,
        NULLIF(o.route_snapshot->>'route_version', '') AS route_version
      FROM orders o
-     JOIN delivery_service_products dsp ON dsp.code = o.service_code
+     JOIN delivery_service_products dsp ON dsp.code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
       AND dsp.is_enabled = TRUE
      JOIN courier_profiles cp ON cp.user_id = $2
       AND cp.verification_status = 'approved'
@@ -2887,7 +2889,7 @@ export const dispatchToPreferredCourier = async (
       AND cp.current_location IS NOT NULL
       AND cp.last_location_at >= NOW() - INTERVAL '10 minutes'
      JOIN courier_service_capabilities csc ON csc.courier_profile_id = cp.id
-      AND csc.service_code = o.service_code
+      AND csc.service_code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
       AND csc.status = 'enabled'
      LEFT JOIN users u ON u.id = o.customer_id
      WHERE o.id = $1
@@ -3165,7 +3167,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
           o.courier_payout_estimate_idr,
           o.platform_commission_idr,
           o.pickup_location,
-          o.service_code,
+          COALESCE(NULLIF(o.service_code, ''), o.service_sub_type) AS service_code,
           o.customer_id,
           o.order_number,
           o.route_snapshot,
@@ -3251,7 +3253,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
         AND csc.status = 'enabled'
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code
         AND dsp.is_enabled = TRUE
-        AND dsp.service_category = 'on_demand'
+        AND dsp.service_category IN ('on_demand', 'food_delivery')
        CROSS JOIN active_jobs aj
        WHERE cp.user_id = $1
          AND cp.application_channel = 'on_demand'
@@ -3818,7 +3820,7 @@ const verifyOnDemandStep = async ({
          manual_review_required,
          policy_snapshot
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
       [
         orderId,
         req.user?.id,
@@ -4265,9 +4267,9 @@ const verifyOnDemandStep = async ({
     if (deliveryComplete || pickupComplete) {
       await client.query(
         `UPDATE orders
-         SET status = $2,
-             picked_up_at = CASE WHEN $2 = 'in_transit' THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
-             delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+         SET status = $2::text,
+             picked_up_at = CASE WHEN $2::text = 'in_transit' THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
+             delivered_at = CASE WHEN $2::text = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
              updated_at = NOW()
          WHERE id = $1`,
         [orderId, nextStatus]
@@ -4275,9 +4277,9 @@ const verifyOnDemandStep = async ({
 
       await client.query(
         `UPDATE order_legs
-         SET status = $2,
-             started_at = CASE WHEN $2 = 'in_transit' THEN COALESCE(started_at, NOW()) ELSE started_at END,
-             completed_at = CASE WHEN $2 = 'delivered' THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+         SET status = $2::text,
+             started_at = CASE WHEN $2::text = 'in_transit' THEN COALESCE(started_at, NOW()) ELSE started_at END,
+             completed_at = CASE WHEN $2::text = 'delivered' THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
              updated_at = NOW()
          WHERE id = $1`,
         [order.leg_id, nextStatus]
@@ -4287,6 +4289,28 @@ const verifyOnDemandStep = async ({
     const earningCredit = deliveryComplete
       ? await creditCourierDeliveryEarning(client, orderId, req.user.id)
       : null;
+
+    // Parity FOOD-BIKE-067: proof delivery lewat jalur courier mobile
+    // (admin-service) juga harus memicu merchant settlement food on-demand,
+    // sama seperti ScanPackage (order-service Go). Fire-and-forget: endpoint
+    // internal idempotent (settle-order-<orderID>); service yang memutuskan
+    // apakah order ini food/merchant — gagal tidak menggagalkan POD sukses.
+    if (deliveryComplete) {
+      const orderServiceUrl = process.env.ORDER_SERVICE_URL || 'http://order-service:8083';
+      axios
+        .post(`${orderServiceUrl}/api/v1/internal/orders/food-settlement`, { order_id: orderId }, { timeout: 8000 })
+        .then(() => {
+          console.info(JSON.stringify({
+            event: 'food_settlement_triggered',
+            order_id: orderId,
+            source: 'courier_mobile_proof',
+          }));
+        })
+        .catch((error: unknown) => {
+          const msg = error instanceof Error ? error.message : String(error);
+          console.warn(`[settlement] gagal trigger food settlement via admin proof flow untuk order ${orderId}: ${msg}`);
+        });
+    }
 
     const eventType = step === 'delivery'
       ? (deliveryComplete ? 'pod_verified' : 'pod_package_verified')
@@ -4675,6 +4699,7 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
           COALESCE(dsp.regular_max_reschedule_attempts, 3)::int AS regular_max_reschedule_attempts,
           CASE
             WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
+            WHEN COALESCE(dsp.service_category, '') = 'food_delivery' THEN 'food_delivery'
             WHEN LOWER(o.model) = 'p2p' THEN 'regular'
             WHEN ol.leg_number = 1 THEN 'pickup'
             WHEN ol.leg_number > 1 THEN 'delivery'
@@ -4682,12 +4707,12 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
           END AS workflow_role
          FROM order_legs ol
          JOIN orders o ON o.id = ol.order_id
-         LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
+         LEFT JOIN delivery_service_products dsp ON dsp.code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
         WHERE o.id = $1
           AND ol.courier_id = $2
         ORDER BY ol.leg_number ASC
         LIMIT 1
-        FOR UPDATE`,
+        FOR UPDATE OF o, ol`,
       [orderId, req.user.id]
     );
 
@@ -4797,9 +4822,9 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
     if (isPickupStatus && order.batch_id) {
       await client.query(
         `UPDATE order_legs
-            SET status = $2,
-                started_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(started_at, NOW()) ELSE started_at END,
-                completed_at = CASE WHEN $2 IN ('delivered', 'failed', 'return_required') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+            SET status = $2::text,
+                started_at = CASE WHEN $2::text IN ('picked_up', 'in_transit') THEN COALESCE(started_at, NOW()) ELSE started_at END,
+                completed_at = CASE WHEN $2::text IN ('delivered', 'failed', 'return_required') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
                 updated_at = NOW()
           WHERE courier_id = $3 AND order_id IN (SELECT id FROM orders WHERE batch_id = $1)`,
         [order.batch_id, effectiveRequestedStatus, req.user.id]
@@ -4807,9 +4832,9 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
 
       await client.query(
         `UPDATE orders
-            SET status = $2,
-                picked_up_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
-                delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+            SET status = $2::text,
+                picked_up_at = CASE WHEN $2::text IN ('picked_up', 'in_transit') THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
+                delivered_at = CASE WHEN $2::text = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
                 updated_at = NOW()
           WHERE batch_id = $1`,
         [order.batch_id, effectiveRequestedStatus]
@@ -4817,9 +4842,9 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
     } else {
       await client.query(
         `UPDATE order_legs
-            SET status = $2,
-                started_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(started_at, NOW()) ELSE started_at END,
-                completed_at = CASE WHEN $2 IN ('delivered', 'failed', 'return_required') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+            SET status = $2::text,
+                started_at = CASE WHEN $2::text IN ('picked_up', 'in_transit') THEN COALESCE(started_at, NOW()) ELSE started_at END,
+                completed_at = CASE WHEN $2::text IN ('delivered', 'failed', 'return_required') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
                 updated_at = NOW()
           WHERE id = $1`,
         [order.leg_id, effectiveRequestedStatus]
@@ -4827,9 +4852,9 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
 
       await client.query(
         `UPDATE orders
-            SET status = $2,
-                picked_up_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
-                delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+            SET status = $2::text,
+                picked_up_at = CASE WHEN $2::text IN ('picked_up', 'in_transit') THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
+                delivered_at = CASE WHEN $2::text = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
                 updated_at = NOW()
           WHERE id = $1`,
         [orderId, effectiveRequestedStatus]

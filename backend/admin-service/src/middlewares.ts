@@ -109,9 +109,33 @@ export const requireMobileOrWebAuth = async (req: Request, res: Response, next: 
         };
         securityLog.info('Authenticated mobile request via bearer JWT access token', requestLogMeta(req, { role: user.role }));
         return next();
-      } else {
-        throw new Error('User not found or deleted');
       }
+
+      // FIX 2026-08-11: JWT courier dikeluarkan dengan user_id = courier_profiles.id
+      // (bukan users.id). Cek courier_profiles supaya token courier valid.
+      if (decoded.role === 'courier') {
+        const courierResult = await db.query(
+          `SELECT cp.id, 'courier' AS role, u.full_name
+           FROM courier_profiles cp
+           JOIN users u ON u.id = cp.user_id
+           WHERE cp.id = $1 AND u.deleted_at IS NULL`,
+          [userId]
+        );
+        if (courierResult.rows.length > 0) {
+          const courier = courierResult.rows[0];
+          req.user = {
+            id: courier.id,
+            role: 'courier',
+            full_name: courier.full_name,
+            totp_verified: false,
+          };
+          securityLog.info('Authenticated courier request via bearer JWT access token', requestLogMeta(req, { role: 'courier' }));
+          return next();
+        }
+        throw new Error('Courier not found or deleted');
+      }
+
+      throw new Error('User not found or deleted');
     } catch (error) {
       securityLog.error('Mobile bearer session verification failed', requestLogMeta(req, { error }));
       // We don't return 500 here, we just fall through to the Web session checks or 401

@@ -1830,9 +1830,14 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
       throw error;
     }
 
+    // FOOD-BIKE-077-FIX: order food (merchant_id terisi) setelah paid harus
+    // masuk antrian merchant (pending_merchant), BUKAN pending (status parcel
+    // yang menunggu dispatch kurir). Tanpa ini merchant tidak bisa accept:
+    // AcceptOrder hanya menerima status pending_merchant.
+    const isFoodOrder = order.merchant_id != null;
     await client.query(
-      `UPDATE orders SET status = 'pending', updated_at = NOW() WHERE id = $1 AND status = 'pending_payment'`,
-      [orderId]
+      `UPDATE orders SET status = $2, updated_at = NOW() WHERE id = $1 AND status = 'pending_payment'`,
+      [orderId, isFoodOrder ? 'pending_merchant' : 'pending']
     );
 
     await redeemReservedPromosForPaidOrder(client, customerId, orderId);
@@ -1858,14 +1863,16 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
       },
     });
 
-    createdOffers = await advanceOnDemandDispatchQueue(client, 1);
+    if (!isFoodOrder) {
+      createdOffers = await advanceOnDemandDispatchQueue(client, 1);
+    }
 
     await client.query('COMMIT');
 
     const payment = publicCustomerPaymentSession({
       ...order,
       ...paymentResult.rows[0],
-      order_status: 'pending',
+      order_status: isFoodOrder ? 'pending_merchant' : 'pending',
       wallet_balance: runningBalance
     });
 

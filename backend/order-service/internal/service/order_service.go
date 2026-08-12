@@ -1853,6 +1853,8 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		TotalPriceIDR:      total,
 		DiscountIDR:        voucherDiscount,
 		PromoCode:          req.VoucherCode,
+		PricingSnapshot:    "{}", // kolom json NOT NULL — food tidak punya snap struct; kirim objek kosong
+		TaxRuleCode:        "PPN_11", // FK tax_rules.code — food kena PPN standar 11%
 		PlatformFeeIDR:     platformFee,
 		PlatformFeePct:     platformFeePct,
 		HandoverToken:      handoverToken,
