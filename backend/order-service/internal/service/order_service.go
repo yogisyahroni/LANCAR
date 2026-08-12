@@ -1634,7 +1634,8 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	var scheduledAt *time.Time
 	if req.IsScheduled {
 		if errV := validateScheduledAt(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup, time.Now()); errV != nil {
-			return nil, errV
+			// UAT-C-033/034/035: pesan validasi jadwal tampil ke customer.
+			return nil, domain.NewUserFacingError(errV.Error())
 		}
 		scheduledAt = req.ScheduledAt
 	}
@@ -1657,10 +1658,10 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	for _, it := range req.Items {
 		mi, ok := menuByID[it.MenuID]
 		if !ok {
-			return nil, fmt.Errorf("menu item tidak ditemukan: %s", it.MenuID)
+			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item tidak ditemukan: %s", it.MenuID))
 		}
 		if mi.MerchantID != req.MerchantID {
-			return nil, fmt.Errorf("menu item bukan milik merchant ini: %s", it.MenuID)
+			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item bukan milik merchant ini: %s", it.MenuID))
 		}
 		if !mi.IsAvailable {
 			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item tidak tersedia: %s", mi.Name))
@@ -1702,12 +1703,12 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 					}
 				}
 				if varFound == nil {
-					return nil, fmt.Errorf("variant %s bukan milik menu item %s", sel.VariantID, mi.Name)
+					return nil, domain.NewUserFacingError(fmt.Sprintf("variant %s bukan milik menu item %s", sel.VariantID, mi.Name))
 				}
 				// option harus milik variant itu
 				opt, okOpt := optionByID[sel.OptionID]
 				if !okOpt || opt.VariantID != sel.VariantID {
-					return nil, fmt.Errorf("option %s bukan milik variant %s", sel.OptionID, sel.VariantID)
+					return nil, domain.NewUserFacingError(fmt.Sprintf("option %s bukan milik variant %s", sel.OptionID, sel.VariantID))
 				}
 				selectedByVariant[sel.VariantID] = append(selectedByVariant[sel.VariantID], sel.OptionID)
 				itemDelta += opt.PriceDelta
@@ -1774,7 +1775,8 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	// tetap dibuat, masuk searching, lalu timeout tanpa peringatan awal —
 	// customer sudah bayar duluan baru tahu tidak ada kurir.
 	if err := validateFoodDeliveryDistance(distanceKM); err != nil {
-		return nil, err
+		// UAT-C-032: pesan radius tampil ke customer sebelum bayar.
+		return nil, domain.NewUserFacingError(err.Error())
 	}
 
 	svc, err := s.pricingRepo.GetDeliveryServiceByCode(ctx, "food_delivery")

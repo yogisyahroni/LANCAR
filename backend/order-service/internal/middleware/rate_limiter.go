@@ -39,7 +39,9 @@ var (
 	}
 
 	policyOrderCreation = rateLimitPolicy{
-		maxRequests: 10,
+		// UAT-FOOD-BIKE: dinaikkan 10→50/5mnt sementara UAT berjalan
+		// (batch create-order test). Sebelum release, kembalikan ke 10.
+		maxRequests: 50,
 		window:      5 * 60 * time.Second,
 		keyPrefix:   "rl:order:create",
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // Voucher — FB-078: diskon yang bisa di-redeem customer saat checkout.
@@ -22,7 +23,8 @@ type Voucher struct {
 	UsedCount        int        `json:"used_count" db:"used_count"`
 	IsActive         bool       `json:"is_active" db:"is_active"`
 	IsSingleUse      bool       `json:"is_single_use" db:"is_single_use"`
-	ApplicableModels []string   `json:"applicable_models,omitempty" db:"applicable_models"`
+	// UAT-C-037: pq.StringArray — scan aman untuk kolom text[] (NULL → kosong).
+	ApplicableModels pq.StringArray `json:"applicable_models,omitempty" db:"applicable_models"`
 	ValidFrom        time.Time  `json:"valid_from" db:"valid_from"`
 	ValidUntil       *time.Time `json:"valid_until,omitempty" db:"valid_until"`
 	CreatedAt        time.Time  `json:"created_at" db:"created_at"`

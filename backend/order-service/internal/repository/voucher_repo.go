@@ -25,7 +25,8 @@ func NewPostgresVoucherRepo(primaryDB *sqlx.DB, replicaDB *sqlx.DB) *PostgresVou
 func (r *PostgresVoucherRepo) GetActiveByCode(ctx context.Context, code string) (*domain.Voucher, error) {
 	query := `
 		SELECT id, code, name, type, value, max_discount_idr, min_order_idr,
-		       quota, used_count, is_active, is_single_use, applicable_models,
+		       quota, used_count, is_active, is_single_use,
+		       COALESCE(applicable_models, ARRAY[]::text[]) AS applicable_models,
 		       valid_from, valid_until, created_at, updated_at
 		FROM vouchers
 		WHERE code = $1 AND is_active = TRUE
