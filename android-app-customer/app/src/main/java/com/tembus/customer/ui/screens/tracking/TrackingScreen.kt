@@ -101,23 +101,34 @@ fun TrackingScreen(
         }
     }
 
-    // FOOD-BIKE-060: dialog rating merchant untuk order food (punya merchant_id).
-    // Muncul setelah dialog rating kurir ditutup (submitted ATAU di-skip).
-    LaunchedEffect(ratingState.isSubmitted, uiState.detail?.order?.merchantName) {
+    // FOOD-BIKE-060: merchant rating hanya dibuka setelah alur rating kurir selesai.
+    var lastCourierReminderCount by remember(orderId) { mutableStateOf(0) }
+    var openMerchantRating by remember(orderId) { mutableStateOf(false) }
+
+    LaunchedEffect(ratingState.pendingReminders.size, ratingState.isSubmitted) {
+        val currentReminderCount = ratingState.pendingReminders.size
+        if (ratingState.isSubmitted) {
+            openMerchantRating = true
+        } else if (lastCourierReminderCount > 0 && currentReminderCount == 0) {
+            openMerchantRating = true
+        }
+        lastCourierReminderCount = currentReminderCount
+    }
+
+    LaunchedEffect(openMerchantRating, uiState.detail?.order?.merchantId) {
         val order = uiState.detail?.order
-        if (order != null &&
+        if (openMerchantRating &&
+            order != null &&
             !order.merchantId.isNullOrBlank() &&
             !merchantRatingState.showDialog &&
             !merchantRatingState.isSubmitted
         ) {
-            // Tunggu sampai rating kurir selesai (submitted atau dismiss) sebelum tampil
-            if (ratingState.isSubmitted || ratingState.pendingReminders.isEmpty()) {
-                merchantRatingViewModel.prepare(
-                    orderId = orderId,
-                    orderNumber = order.orderNumber ?: "",
-                    merchantName = order.merchantName ?: "Merchant"
-                )
-            }
+            merchantRatingViewModel.prepare(
+                orderId = orderId,
+                orderNumber = order.orderNumber ?: "",
+                merchantName = order.merchantName ?: "Merchant"
+            )
+            openMerchantRating = false
         }
     }
 

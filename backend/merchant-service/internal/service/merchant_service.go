@@ -707,7 +707,13 @@ func (s *merchantServiceImpl) AcceptOrder(ctx context.Context, userID string, or
 	if err != nil {
 		return err
 	}
-	return s.orderRepo.AcceptOrder(ctx, m.ID, orderID)
+	if err := s.orderRepo.AcceptOrder(ctx, m.ID, orderID); err != nil {
+		return err
+	}
+	// FB-124: customer harus dapat notifikasi inbox saat merchant menerima order.
+	// Non-blocking: accept tetap sukses walau delivery notif gagal.
+	go s.notifyCustomerAccepted(orderID)
+	return nil
 }
 
 // RejectOrder: merchant menolak order food. Status → cancelled + reason.
@@ -779,8 +785,8 @@ func rejectReasonLabel(code string) string {
 // (free window → refund 100%). Pola sama dgn cancel customer di admin-service.
 func (s *merchantServiceImpl) triggerRefundOnMerchantReject(orderID, reason string) {
 	orderServiceURL := strings.TrimSpace(os.Getenv("ORDER_SERVICE_URL"))
-	if orderServiceURL == "" {
-		orderServiceURL = "http://order-service:8080"
+	if orderServiceURL == "" || strings.Contains(orderServiceURL, "localhost") || strings.Contains(orderServiceURL, "127.0.0.1") {
+		orderServiceURL = "http://order-service:8083"
 	}
 	payload, _ := json.Marshal(map[string]interface{}{
 		"order_id":                  orderID,
@@ -813,14 +819,52 @@ func (s *merchantServiceImpl) triggerRefundOnMerchantReject(orderID, reason stri
 	}
 }
 
+// notifyCustomerAccepted — FB-124: kirim notifikasi customer saat merchant
+// menerima order. Panggil order-service internal notifications endpoint.
+// Fire-and-forget, non-blocking; kegagalan hanya di-log, tidak menggagalkan flow.
+func (s *merchantServiceImpl) notifyCustomerAccepted(orderID string) {
+	orderServiceURL := strings.TrimSpace(os.Getenv("ORDER_SERVICE_URL"))
+	if orderServiceURL == "" || strings.Contains(orderServiceURL, "localhost") || strings.Contains(orderServiceURL, "127.0.0.1") {
+		orderServiceURL = "http://order-service:8083"
+	}
+	payload, _ := json.Marshal(map[string]interface{}{
+		"order_id": orderID,
+		"title":    "Merchant menerima pesananmu",
+		"message":  "Merchant menerima pesananmu — makanan sedang disiapkan",
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		orderServiceURL+"/api/v1/internal/notifications/merchant-accepted", bytes.NewReader(payload))
+	if err != nil {
+		log.Printf("[MerchantService] AcceptOrder: gagal buat request notif %s: %v", orderID, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Api-Key", os.Getenv("INTERNAL_API_KEY"))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[MerchantService] AcceptOrder: gagal reach order-service utk notif %s: %v", orderID, err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		log.Printf("[MerchantService] AcceptOrder: notif %s gagal (status %d): %s", orderID, resp.StatusCode, string(body))
+	}
+}
+
 // notifyCustomerRejected — FB-084: kirim push notification ke customer bahwa
 // pesanannya ditolak merchant. Panggil order-service
 // /api/v1/internal/push/order-cancelled (fire-and-forget, non-blocking —
 // dipanggil dari goroutine; kegagalan hanya di-log, tidak menggagalkan flow).
 func (s *merchantServiceImpl) notifyCustomerRejected(orderID, reason string) {
 	orderServiceURL := strings.TrimSpace(os.Getenv("ORDER_SERVICE_URL"))
-	if orderServiceURL == "" {
-		orderServiceURL = "http://order-service:8080"
+	if orderServiceURL == "" || strings.Contains(orderServiceURL, "localhost") || strings.Contains(orderServiceURL, "127.0.0.1") {
+		orderServiceURL = "http://order-service:8083"
 	}
 	message := "Pesanan dibatalkan oleh merchant"
 	if reason != "" {

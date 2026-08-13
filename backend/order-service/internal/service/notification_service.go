@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -48,6 +49,9 @@ func (s *NotificationServiceImpl) Send(ctx context.Context, req domain.Notificat
 		IsRead:     false,
 		PushStatus: ptrString("pending"),
 		Metadata:   &metaStr,
+		// UAT-C-040..044: CreatedAt wajib diisi — zero value tersimpan
+		// sebagai 0001-01-01 di DB (bug terlihat di inbox customer).
+		CreatedAt: time.Now(),
 	}
 
 	// For order updates, link the order_id

@@ -269,9 +269,9 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 				id, order_number, customer_id, model, status, 
 				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, COALESCE(pickup_city, ''), COALESCE(pickup_zip_code, ''),
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''),
-				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
+				COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), COALESCE(item_description, ''), COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no,
+				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), dispatch_expiry, COALESCE(batch_id::text, ''), COALESCE(sequence_no, 0),
 				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
 				COALESCE(awb_number, ''), COALESCE(tracking_url, ''),
 				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
@@ -311,9 +311,9 @@ func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order,
 				id, order_number, customer_id, model, status, 
 				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
-				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
+				COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), COALESCE(item_description, ''), COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no,
+				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), dispatch_expiry, COALESCE(batch_id::text, ''), COALESCE(sequence_no, 0),
 				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
 				COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
 				FROM orders WHERE awb_number = $1`
@@ -346,7 +346,7 @@ func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*dom
 			id, order_number, customer_id, model, status,
 			ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address,
 			ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address,
-			length, width, height, weight, item_description, COALESCE(item_image_url, ''),
+			COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), COALESCE(item_description, ''), COALESCE(item_image_url, ''),
 			distance_km, base_price_idr, volumetric_surcharge_idr,
 			dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no,
 			COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
@@ -389,9 +389,9 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 				id, order_number, customer_id, model, status, 
 				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
-				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
+				COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), COALESCE(item_description, ''), COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no,
+				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), dispatch_expiry, COALESCE(batch_id::text, ''), COALESCE(sequence_no, 0),
 				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
 				created_at, updated_at
 				FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
@@ -528,7 +528,7 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 				id, order_number, customer_id, model, status, 
 				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
-				COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), item_description, COALESCE(item_image_url, ''),
+				COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), COALESCE(item_description, ''), COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), COALESCE(dispatch_expiry, NOW()), COALESCE(batch_id::text, ''), sequence_no, created_at, updated_at
 			  FROM orders 
@@ -1051,7 +1051,6 @@ func (r *postgresRepo) GetDeliveredUnratedOrders(ctx context.Context, customerID
 		SELECT 
 			id, order_number, 
 			COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
-			courier_name, 
 			rating_reminder_count, last_rating_reminder_at 
 		FROM orders 
 		WHERE customer_id = $1 
@@ -1071,21 +1070,16 @@ func (r *postgresRepo) GetDeliveredUnratedOrders(ctx context.Context, customerID
 	var orders []*domain.Order
 	for rows.Next() {
 		var o domain.Order
-		var cID, cName sql.NullString
+		var cID sql.NullString
 		var lra sql.NullTime
 		var rrc sql.NullInt32
 
-		if err := rows.Scan(&o.ID, &o.OrderNumber, &cID, &cName, &rrc, &lra); err != nil {
+		if err := rows.Scan(&o.ID, &o.OrderNumber, &cID, &rrc, &lra); err != nil {
 			return nil, err
 		}
 
 		if cID.Valid {
 			o.CourierID = &cID.String
-		}
-		if cName.Valid {
-			o.Courier = &domain.CourierInfo{
-				FullName: cName.String,
-			}
 		}
 		if lra.Valid {
 			o.LastRatingReminderAt = &lra.Time

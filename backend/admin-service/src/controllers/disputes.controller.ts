@@ -241,10 +241,12 @@ export const createDispute = async (req: Request, res: Response) => {
   // partial refund per item via /internal/refunds/items.
   const FOOD_DISPUTE_CATEGORIES = [
     'makanan_tidak_sesuai', // pesanan tidak sesuai (menu/kuantitas)
+    'kurang_item',          // FB-080: item tidak dikirim / salah jumlah
+    'kualitas_buruk',       // FB-080: makanan basi/rusak/kualitas buruk
+    'terlalu_dingin',       // FB-081: makanan sampai terlalu dingin
+    'other',                // tetap boleh kirim bukti untuk alasan lain
     'driver_ghosting_food', // driver menghilang setelah accept (ghosting)
     'coerced_cancel',       // batal karena paksaan customer/keadaan
-    'kualitas_buruk',       // FB-080: makanan basi/rusak/kualitas buruk
-    'kurang_item',          // FB-080: item tidak dikirim / salah jumlah
   ];
   const isFoodCategory = FOOD_DISPUTE_CATEGORIES.includes(category.toLowerCase());
   if (isFoodCategory && (!evidence_urls || evidence_urls.length === 0)) {

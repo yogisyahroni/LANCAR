@@ -79,7 +79,9 @@ data class TrackingOrder(
     @SerialName("updated_at")
     val updatedAt: String? = null,
     @SerialName("order_notes")
-    val orderNotes: String? = null
+    val orderNotes: String? = null,
+    @SerialName("food_items")
+    val foodItems: List<FoodOrderItem> = emptyList()
 )
 
 @Serializable

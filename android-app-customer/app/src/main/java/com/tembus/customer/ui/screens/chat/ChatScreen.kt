@@ -47,25 +47,31 @@ fun ChatScreen(
     val conversation = uiState.conversation
     val showDeliveryGroupContext = conversation?.isGroup == true ||
         conversation?.phase in setOf("delivery_group", "delivered")
+    val isFoodDeliveryOrder = orderId.isNotBlank() && (uiState.order?.serviceSubType == "food_delivery" || true)
+    val showFoodOrderContext = isFoodDeliveryOrder && (uiState.order != null || uiState.isLoading)
+    val resolvedCourierName = uiState.order?.courierName ?: courierName
     val conversationTitle = when {
         showDeliveryGroupContext -> "Percakapan pengantaran"
-        !courierName.isNullOrBlank() -> courierName
+        !resolvedCourierName.isNullOrBlank() -> resolvedCourierName
         else -> "Kurir Anda"
     }
     val conversationSubtitle = when {
         showDeliveryGroupContext && conversation?.memberType == "recipient" -> "Anda bergabung sebagai penerima"
         showDeliveryGroupContext -> "Customer, kurir, dan penerima"
+        showFoodOrderContext -> "Delivery Driver"
         else -> "Aktif Pengiriman"
     }
     val composerPlaceholder = if (showDeliveryGroupContext) {
         "Ketik pesan di grup pengantaran..."
+    } else if (showFoodOrderContext) {
+        "Ketik pesan ke kurir..."
     } else {
         "Ketik pesan ke kurir..."
     }
 
     LaunchedEffect(orderId) {
-        if (orderId.isBlank()) {
-            Toast.makeText(context, "Order chat tidak valid.", Toast.LENGTH_SHORT).show()
+        if (orderId.isNotBlank()) {
+            // Order sudah di-load via fetchOrderSummary() di ViewModel init
         }
     }
 
@@ -149,6 +155,13 @@ fun ChatScreen(
                 DeliveryGroupContextBanner(
                     memberType = conversation?.memberType,
                     notice = conversation?.visibilityNotice
+                )
+            }
+
+            AnimatedVisibility(visible = showFoodOrderContext) {
+                FoodOrderSummaryCard(
+                    order = uiState.order!!,
+                    onClick = { /* TODO: navigate to order detail */ }
                 )
             }
 
@@ -519,6 +532,164 @@ private fun ChatLoadingSkeleton(modifier: Modifier = Modifier) {
                     .width(if (index % 2 == 0) 220.dp else 180.dp)
                     .height(if (index % 3 == 0) 58.dp else 44.dp)
                     .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFFE5E7EB))
+            )
+        }
+    }
+}
+
+@Composable
+private fun FoodOrderSummaryCard(
+    order: com.tembus.customer.data.model.Order,
+    onClick: () -> Unit
+) {
+    val items = order.foodItems ?: emptyList()
+    val itemCount = items.sumOf { it.quantity }
+    val subtotal = items.sumOf { it.subtotal }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.10f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = Primary.copy(alpha = 0.10f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(10.dp)
+                            .size(22.dp)
+                            .background(Color.LightGray)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = order.merchantName ?: "Merchant",
+                        color = Color(0xFF111827),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = "${itemCount} item${if (itemCount > 1) "s" else ""} · Rp ${subtotal}",
+                        color = Color(0xFF6B7280),
+                        fontSize = 13.sp
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.ArrowForwardIos,
+                    contentDescription = "Detail",
+                    tint = Color(0xFF9CA3AF),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0xFFE5E7EB))
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                items.take(3).forEachIndexed { index, item ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp)
+                            .aspectRatio(1f)
+                            .background(Color(0xFFF5F7FA))
+                            .clip(RoundedCornerShape(10.dp))
+                    ) {
+                        // Placeholder untuk gambar item
+                    }
+                }
+                if (items.size > 3) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp)
+                            .aspectRatio(1f)
+                            .background(Primary.copy(alpha = 0.10f))
+                            .clip(RoundedCornerShape(10.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "+${items.size - 3}",
+                                color = Primary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FoodOrderSummaryCardSkeleton() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.10f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = Primary.copy(alpha = 0.10f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(10.dp)
+                            .size(22.dp)
+                            .background(Color.LightGray)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(18.dp)
+                            .background(Color(0xFFE5E7EB))
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(120.dp)
+                            .height(14.dp)
+                            .background(Color(0xFFE5E7EB))
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(16.dp)
+                    .background(Color(0xFFE5E7EB))
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = Color(0xFFE5E7EB))
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(
+                modifier = Modifier
+                    .width(180.dp)
+                    .height(14.dp)
                     .background(Color(0xFFE5E7EB))
             )
         }

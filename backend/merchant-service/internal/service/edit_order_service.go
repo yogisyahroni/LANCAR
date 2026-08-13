@@ -141,8 +141,8 @@ func (s *merchantServiceImpl) EditOrderItems(ctx context.Context, userID, orderI
 // tidak menggagalkan edit order).
 func (s *merchantServiceImpl) notifyCustomerOrderUpdated(orderID, message string) {
 	orderServiceURL := strings.TrimSpace(os.Getenv("ORDER_SERVICE_URL"))
-	if orderServiceURL == "" {
-		orderServiceURL = "http://order-service:8080"
+	if orderServiceURL == "" || strings.Contains(orderServiceURL, "localhost") || strings.Contains(orderServiceURL, "127.0.0.1") {
+		orderServiceURL = "http://order-service:8083"
 	}
 	payload, _ := json.Marshal(map[string]string{
 		"order_id": orderID,

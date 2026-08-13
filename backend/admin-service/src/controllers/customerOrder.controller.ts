@@ -2195,6 +2195,10 @@ const toMobileCustomerOrderDto = (row: any) => {
     route_provider: row.route_provider || row.route_snapshot?.provider || null,
     route_profile: row.route_profile || row.route_snapshot?.route_profile || null,
     route_polyline: row.route_polyline || row.route_snapshot?.route_polyline || null,
+    service_sub_type: row.service_sub_type || row.serviceSubType || '',
+    merchant_name: row.merchant_name || row.merchantName || '',
+    order_notes: row.order_notes || row.orderNotes || '',
+    food_items: row.food_items || [],
   };
 };
 
@@ -2507,11 +2511,15 @@ export const getMobileCustomerOrders = async (req: Request, res: Response): Prom
              o.scheduled_at,
              o.created_at,
              o.updated_at,
+             COALESCE(o.service_sub_type, '') AS service_sub_type,
+             COALESCE(o.order_notes, '') AS order_notes,
+             COALESCE(m.nama_toko, '') AS merchant_name,
              u.full_name AS courier_name,
              cp.vehicle_type AS courier_vehicle,
              cp.vehicle_plate AS courier_plate,
              NULL::text AS courier_phone
       FROM orders o
+      LEFT JOIN merchants m ON m.id = o.merchant_id
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
       LEFT JOIN courier_profiles cp ON u.id = cp.user_id
@@ -2522,9 +2530,45 @@ export const getMobileCustomerOrders = async (req: Request, res: Response): Prom
       OFFSET $${offsetParam}
     `, params);
 
+    // FB-111: sertakan snapshot food_order_items (harga beku) untuk tiap order
+    // food pada daftar riwayat — C-052 butuh item & varian tetap tampil walau
+    // menu merchant sudah berubah. Satu query batch untuk semua order.
+    const orderIds = rows.map((r: any) => r.id);
+    const foodItemsByOrder: Record<string, any[]> = {};
+    if (orderIds.length > 0) {
+      const { rows: foodRows } = await db.query(`
+        SELECT foi.order_id AS order_id,
+               foi.item_name AS name,
+               foi.quantity,
+               foi.notes,
+               foi.item_price AS price,
+               foi.subtotal,
+               COALESCE((
+                 SELECT jsonb_agg(jsonb_build_object(
+                   'variant_id', foiv.variant_id,
+                   'variant_name', foiv.variant_name,
+                   'option_name', foiv.option_name,
+                   'price_delta', foiv.price_delta
+                 ) ORDER BY foiv.id)
+                 FROM food_order_item_variants foiv
+                 WHERE foiv.order_item_id = foi.id
+               ), '[]'::jsonb) AS variants
+        FROM food_order_items foi
+        WHERE foi.order_id = ANY($1::uuid[])
+        ORDER BY foi.id ASC
+      `, [orderIds]);
+      for (const foodRow of foodRows) {
+        (foodItemsByOrder[foodRow.order_id] = foodItemsByOrder[foodRow.order_id] || []).push(foodRow);
+      }
+    }
+    const enrichedRows = rows.map((row: any) => ({
+      ...row,
+      food_items: foodItemsByOrder[row.id] || [],
+    }));
+
     res.json({
       success: true,
-      data: rows.map(toMobileCustomerOrderDto),
+      data: enrichedRows.map(toMobileCustomerOrderDto),
       message: 'Riwayat pesanan berhasil dimuat'
     });
   } catch (error: any) {
@@ -2657,17 +2701,47 @@ export const getMobileCustomerOrder = async (req: Request, res: Response): Promi
              o.scheduled_at,
              o.created_at,
              o.updated_at,
+             COALESCE(o.service_sub_type, '') AS service_sub_type,
+             COALESCE(o.order_notes, '') AS order_notes,
+             COALESCE(m.nama_toko, '') AS merchant_name,
              u.full_name AS courier_name,
              cp.vehicle_type AS courier_vehicle,
              cp.vehicle_plate AS courier_plate,
              NULL::text AS courier_phone
       FROM orders o
+      LEFT JOIN merchants m ON m.id = o.merchant_id
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
       LEFT JOIN courier_profiles cp ON u.id = cp.user_id
       WHERE o.customer_id = $1 AND o.id = $2
       LIMIT 1
     `, [customer_id, id]);
+
+    const { rows: foodItems } = await db.query(`
+      SELECT foi.item_name AS name,
+             foi.quantity,
+             foi.notes,
+             foi.item_price AS price,
+             foi.subtotal,
+             COALESCE((
+               SELECT jsonb_agg(jsonb_build_object(
+                 'variant_id', foiv.variant_id,
+                 'variant_name', foiv.variant_name,
+                 'option_name', foiv.option_name,
+                 'price_delta', foiv.price_delta
+               ) ORDER BY foiv.id)
+               FROM food_order_item_variants foiv
+               WHERE foiv.order_item_id = foi.id
+             ), '[]'::jsonb) AS variants
+      FROM food_order_items foi
+      WHERE order_id = $1
+      ORDER BY foi.id ASC
+    `, [id]);
+
+    const order = {
+      ...rows[0],
+      food_items: foodItems,
+    };
 
     if (rows.length === 0) {
       res.status(404).json({
@@ -2681,7 +2755,7 @@ export const getMobileCustomerOrder = async (req: Request, res: Response): Promi
 
     res.json({
       success: true,
-      data: toMobileCustomerOrderDto(rows[0]),
+      data: toMobileCustomerOrderDto(order),
       message: 'Detail pesanan berhasil dimuat'
     });
   } catch (error: any) {
@@ -2899,16 +2973,42 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
       ORDER BY COALESCE(scanned_at, created_at) ASC
     `, [id]);
 
+    const { rows: foodItems } = await db.query(`
+      SELECT foi.item_name AS name,
+             foi.quantity,
+             foi.notes,
+             foi.item_price AS price,
+             foi.subtotal,
+             COALESCE((
+               SELECT jsonb_agg(jsonb_build_object(
+                 'variant_id', foiv.variant_id,
+                 'variant_name', foiv.variant_name,
+                 'option_name', foiv.option_name,
+                 'price_delta', foiv.price_delta
+               ) ORDER BY foiv.id)
+               FROM food_order_item_variants foiv
+               WHERE foiv.order_item_id = foi.id
+             ), '[]'::jsonb) AS variants
+      FROM food_order_items foi
+      WHERE order_id = $1
+      ORDER BY foi.id ASC
+    `, [id]);
+
     const tracking = await buildOnDemandTrackingSnapshot(db, {
       orderId: String(id),
       userId: String(customer_id),
       role: req.user?.role,
     });
 
+    const order = {
+      ...rows[0],
+      food_items: foodItems,
+    };
+
     res.json({
       success: true,
       data: {
-        order: rows[0],
+        order,
         events,
         packages,
         proofs,

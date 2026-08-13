@@ -2,29 +2,28 @@ package com.tembus.customer.ui
 
 // CI Retrigger: 2026-05-14T19:59
 
-
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
+import com.tembus.customer.data.model.AppVersion
+import com.tembus.customer.ui.components.UpdateDialog
 import com.tembus.customer.ui.screens.splash.CustomerLaunchSplash
 import com.tembus.customer.ui.theme.TEMBUSCustomerTheme
-import dagger.hilt.android.AndroidEntryPoint
-
-import androidx.compose.runtime.*
 import com.tembus.customer.util.UpdateManager
-import com.tembus.customer.ui.components.UpdateDialog
-import com.tembus.customer.data.model.AppVersion
+import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-import androidx.activity.enableEdgeToEdge
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
@@ -32,23 +31,19 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var updateManager: UpdateManager
 
+    private var pendingDeepLinkUri by mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
+
+        pendingDeepLinkUri = intent?.data
+
         // SECURITY: Validate deep link data before any processing
         intent?.data?.let { uri ->
-            val host = uri.host
-            val orderId = uri.getQueryParameter("id") ?: uri.lastPathSegment
-            // Only allow alphanumeric + hyphen in order IDs (UUID format)
-            if (orderId != null && !orderId.matches(Regex("^[a-zA-Z0-9-]+$"))) {
-                Toast.makeText(this, "Link tidak valid", Toast.LENGTH_SHORT).show()
-                finish()
-                return
-            }
+            validateDeepLinkOrFinish(uri)
         }
-        
+
         // Root detection uses a lightweight Java/Kotlin heuristic here to keep the
         // customer app compatible with Android 15+ 16 KB page-size devices.
         if (isLikelyRootedDevice()) {
@@ -93,7 +88,10 @@ class MainActivity : FragmentActivity() {
                         )
                     } else {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            com.tembus.customer.ui.navigation.RootNavGraph()
+                            com.tembus.customer.ui.navigation.RootNavGraph(
+                                initialDeepLink = pendingDeepLinkUri,
+                                onDeepLinkConsumed = { pendingDeepLinkUri = null }
+                            )
                             updateInfo?.let { info ->
                                 UpdateDialog(
                                     version = info,
@@ -128,8 +126,26 @@ class MainActivity : FragmentActivity() {
                         }
                     }
                 }
-
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingDeepLinkUri = intent.data
+        intent.data?.let { uri ->
+            validateDeepLinkOrFinish(uri)
+        }
+    }
+
+    private fun validateDeepLinkOrFinish(uri: Uri) {
+        val orderId = uri.getQueryParameter("id") ?: uri.lastPathSegment
+        // Only allow alphanumeric + hyphen in order IDs (UUID format)
+        if (orderId != null && !orderId.matches(Regex("^[a-zA-Z0-9-]+$"))) {
+            Toast.makeText(this, "Link tidak valid", Toast.LENGTH_SHORT).show()
+            finish()
+            return
         }
     }
 

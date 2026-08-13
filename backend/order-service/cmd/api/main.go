@@ -327,7 +327,7 @@ func main() {
 	slaHandler := handler.NewSLAHandler(slaSvc)
 	trackingHandler := handler.NewTrackingHandler(trackingSvc)
 	aggregatorFinanceHandler := handler.NewAggregatorFinanceHandler(aggregatorFinanceSvc, aggregatorFinanceRepo)
-	notificationHandler := handler.NewNotificationHandler(notificationSvc)
+	notificationHandler := handler.NewNotificationHandler(notificationSvc, pgRepo)
 	insuranceHandler := handler.NewInsuranceHandler(insuranceSvc)
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
@@ -558,6 +558,12 @@ func main() {
 	mux.HandleFunc("/api/v1/internal/push/order-updated", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			pushHandler.NotifyCustomerOrderUpdated(w, r)
+		}
+	})
+	// FB-124: notifikasi in-app + push saat merchant menerima order (dipanggil merchant-service)
+	mux.HandleFunc("/api/v1/internal/notifications/merchant-accepted", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			notificationHandler.NotifyCustomerMerchantAccepted(w, r)
 		}
 	})
 

@@ -215,6 +215,22 @@ fun OrderCardItem(
             Spacer(Modifier.height(8.dp))
             if (isFood && order.merchantName != null) {
                 Text(order.merchantName!!, fontWeight = FontWeight.Bold, maxLines = 1, fontSize = 15.sp, color = OnSurface)
+                if (order.foodItems.isNotEmpty()) {
+                    val foodSummary = buildString {
+                        order.foodItems.take(2).forEachIndexed { index, item ->
+                            if (index > 0) append(", ")
+                            append("${item.quantity}× ${item.name}")
+                        }
+                        if (order.foodItems.size > 2) append(" +${order.foodItems.size - 2} lainnya")
+                    }
+                    Text(
+                        foodSummary,
+                        color = OnSurfaceVariant,
+                        fontSize = 12.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Spacer(Modifier.height(2.dp))
             }
             Text(

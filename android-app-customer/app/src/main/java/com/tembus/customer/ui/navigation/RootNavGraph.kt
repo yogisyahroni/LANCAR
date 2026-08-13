@@ -54,51 +54,54 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.tembus.customer.data.model.NotificationRealtimeEvent
+import com.tembus.customer.data.session.SessionInvalidationReason
 import com.tembus.customer.ui.MainViewModel
 import com.tembus.customer.ui.screens.auth.AuthNavGraph
 import com.tembus.customer.ui.screens.booking.BookingScreen
 import com.tembus.customer.ui.screens.booking.BookingViewModel
+import com.tembus.customer.ui.screens.call.InAppCallScreen
+import com.tembus.customer.ui.screens.call.InAppCallState
+import com.tembus.customer.ui.screens.chat.ChatScreen
+import com.tembus.customer.ui.screens.chat.ChatViewModel
+import com.tembus.customer.ui.screens.detail.OrderDetailScreen
+import com.tembus.customer.ui.screens.detail.OrderDetailViewModel
 import com.tembus.customer.ui.screens.food.FoodCartScreen
 import com.tembus.customer.ui.screens.food.FoodCheckoutScreen
 import com.tembus.customer.ui.screens.food.FoodHomeScreen
 import com.tembus.customer.ui.screens.food.MerchantDetailScreen
-import com.tembus.customer.ui.screens.main.DashboardScreen
-import com.tembus.customer.ui.screens.tracking.TrackingScreen
-import com.tembus.customer.ui.screens.tracking.TrackingViewModel
-import androidx.navigation.navDeepLink
-
 import com.tembus.customer.ui.screens.history.OrderHistoryScreen
 import com.tembus.customer.ui.screens.history.OrderHistoryViewModel
-import com.tembus.customer.ui.screens.onboarding.OnboardingScreen
+import com.tembus.customer.ui.screens.main.DashboardScreen
 import com.tembus.customer.ui.screens.notifications.NotificationCenterScreen
-import com.tembus.customer.ui.screens.profile.ProfileScreen
-import com.tembus.customer.ui.screens.profile.ProfileViewModel
-import com.tembus.customer.ui.screens.detail.OrderDetailScreen
-import com.tembus.customer.ui.screens.detail.OrderDetailViewModel
-
+import com.tembus.customer.ui.screens.onboarding.OnboardingScreen
 import com.tembus.customer.ui.screens.payment.PaymentScreen
 import com.tembus.customer.ui.screens.payment.PaymentViewModel
-import com.tembus.customer.ui.screens.chat.ChatScreen
-import com.tembus.customer.ui.screens.chat.ChatViewModel
-import com.tembus.customer.ui.screens.call.InAppCallScreen
-import com.tembus.customer.ui.screens.call.InAppCallState
-import com.tembus.customer.ui.screens.service.ServiceCategoryScreen
-import com.tembus.customer.ui.screens.service.SubTypeSelectorScreen
-import com.tembus.customer.ui.screens.service.ServiceBookingScreen
-import com.tembus.customer.ui.screens.service.ServiceTrackingScreen
-import com.tembus.customer.ui.screens.service.ServiceReportScreen
+import com.tembus.customer.ui.screens.profile.ProfileScreen
+import com.tembus.customer.ui.screens.profile.ProfileViewModel
 import com.tembus.customer.ui.screens.service.NearbyCouriersScreen
+import com.tembus.customer.ui.screens.service.ServiceBookingScreen
+import com.tembus.customer.ui.screens.service.ServiceCategoryScreen
+import com.tembus.customer.ui.screens.service.ServiceReportScreen
+import com.tembus.customer.ui.screens.service.ServiceTrackingScreen
+import com.tembus.customer.ui.screens.service.SubTypeSelectorScreen
 import com.tembus.customer.ui.security.SecureScreenEffect
-import com.tembus.customer.data.model.NotificationRealtimeEvent
-import com.tembus.customer.data.session.SessionInvalidationReason
+import com.tembus.customer.ui.screens.rating.CourierRatingViewModel
+import com.tembus.customer.ui.screens.rating.MerchantRatingViewModel
+import com.tembus.customer.ui.screens.tip.TipViewModel
+import com.tembus.customer.ui.screens.tracking.TrackingScreen
+import com.tembus.customer.ui.screens.tracking.TrackingViewModel
 import kotlinx.coroutines.delay
 
 @Composable
 fun RootNavGraph(
     navController: NavHostController = rememberNavController(),
-    viewModel: MainViewModel = hiltViewModel()
+    viewModel: MainViewModel = hiltViewModel(),
+    initialDeepLink: Uri? = null,
+    onDeepLinkConsumed: () -> Unit = {}
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
     val startDestination by viewModel.startDestination.collectAsState()
@@ -107,8 +110,32 @@ fun RootNavGraph(
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
     var foregroundNotification by remember { mutableStateOf<NotificationRealtimeEvent?>(null) }
-    // S2-MA-04: Screens containing PII or financial data must be protected with FLAG_SECURE
-    // to prevent screenshot and screen-recording leaks by malicious apps.
+    val lastHandledDeepLink = remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(initialDeepLink?.toString()) {
+        val deepLink = initialDeepLink ?: return@LaunchedEffect
+        val key = deepLink.toString()
+        if (lastHandledDeepLink.value == key) return@LaunchedEffect
+        lastHandledDeepLink.value = key
+
+        val path = deepLink.pathSegments
+        when {
+            path.size >= 3 && path[0] == "orders" && path[2] == "chat" -> {
+                val orderId = path[1]
+                if (orderId.isNotBlank()) {
+                    navController.navigate(Screen.Chat.createRoute(orderId, null)) { launchSingleTop = true }
+                }
+            }
+            path.size >= 3 && path[0] == "orders" && path[2] == "tracking" -> {
+                val orderId = path[1]
+                if (orderId.isNotBlank()) {
+                    navController.navigate(Screen.Tracking.createRoute(orderId)) { launchSingleTop = true }
+                }
+            }
+        }
+        onDeepLinkConsumed()
+    }
+
     val secureScreenRequired = currentRoute in setOf(
         Screen.AuthGraph.route,
         Screen.Booking.route,
@@ -119,52 +146,33 @@ fun RootNavGraph(
         Screen.Tracking.route,
         Screen.Chat.route,
         Screen.InAppCall.route,
-        Screen.History.route,  // S2-MA-04: contains recipient names, addresses, payment amounts
+        Screen.History.route,
         Screen.ServiceCategory.route,
         Screen.SubTypeSelector.route,
         Screen.ServiceBooking.route,
         Screen.ServiceTracking.route,
         Screen.ServiceReport.route,
     )
-
     SecureScreenEffect(enabled = secureScreenRequired)
 
-    if (isLoading) {
-        // Preload logic here if needed
-        return
-    }
+    if (isLoading) return
 
     LaunchedEffect(startDestination) {
-        if (startDestination == Screen.AuthGraph.route &&
-            navController.currentDestination?.route != Screen.AuthGraph.route
-        ) {
-            navController.navigate(Screen.AuthGraph.route) {
-                popUpTo(0) { inclusive = true }
-            }
+        if (startDestination == Screen.AuthGraph.route && navController.currentDestination?.route != Screen.AuthGraph.route) {
+            navController.navigate(Screen.AuthGraph.route) { popUpTo(0) { inclusive = true } }
         }
     }
 
     LaunchedEffect(sessionInvalidationReason) {
         if (sessionInvalidationReason == SessionInvalidationReason.TOKEN_EXPIRED) {
-            Toast.makeText(
-                context,
-                "Sesi kamu sudah berakhir. Silakan masuk kembali.",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(context, "Sesi kamu sudah berakhir. Silakan masuk kembali.", Toast.LENGTH_LONG).show()
             viewModel.consumeSessionInvalidationNotice()
         }
     }
 
     LaunchedEffect(Unit) {
         viewModel.incomingCallInvites.collect { invite ->
-            navController.navigate(
-                Screen.InAppCall.createRoute(
-                    orderId = invite.orderId,
-                    name = invite.callerName,
-                    state = "incoming",
-                    callId = invite.callId
-                )
-            ) {
+            navController.navigate(Screen.InAppCall.createRoute(invite.orderId, invite.callerName, "incoming", invite.callId)) {
                 launchSingleTop = true
             }
         }
@@ -188,484 +196,268 @@ fun RootNavGraph(
             navController = navController,
             startDestination = startDestination
         ) {
-        composable(Screen.Onboarding.route) {
-            OnboardingScreen(
-                onComplete = {
-                    val nextRoute = viewModel.completeOnboarding()
-                    navController.navigate(nextRoute) {
-                        popUpTo(Screen.Onboarding.route) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
-            )
-        }
-
-        composable(Screen.AuthGraph.route) {
-            AuthNavGraph(
-                onAuthSuccess = {
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.AuthGraph.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-        
-        composable(Screen.Dashboard.route) {
-            DashboardScreen(
-                onNotificationsClick = {
-                    navController.navigate(Screen.Notifications.route)
-                },
-                onBookingClick = { open ->
-                    when (open) {
-                        // Roadside services (tambal ban & towing) → service flow
-                        "tambal_ban_motor", "tambal_ban_mobil", "towing_motor", "towing_mobil" ->
-                            navController.navigate(Screen.ServiceBooking.createRoute(open))
-                        // Category-level entry (jika grid pakai kategori, bukan sub-tipe)
-                        "tambal_ban", "towing" ->
-                            navController.navigate(Screen.ServiceCategory.route)
-                        // FOOD-BIKE-030b: food_delivery → landing page sendiri
-                        "food_delivery" ->
-                            navController.navigate(Screen.FoodHome.route)
-                        else ->
-                            navController.navigate(Screen.Booking.createRoute(open))
-                    }
-                },
-                onTrackingClick = { orderId ->
-                    // Navigate to tracking directly for live tracking
-                    navController.navigate(Screen.Tracking.createRoute(orderId))
-                },
-                onChatClick = { orderId ->
-                    navController.navigate(Screen.Chat.createRoute(orderId, null))
-                },
-                onHistoryClick = {
-                    navController.navigate(Screen.History.route)
-                },
-                onBusinessClick = {
-                    navController.navigate(Screen.Business.route)
-                },
-                onProfileClick = {
-                    navController.navigate(Screen.Profile.route)
-                }
-            )
-        }
-
-        // ── FOOD DELIVERY (FOOD-BIKE-055/056/057/075) ──
-        composable(Screen.FoodHome.route) {
-            val context = LocalContext.current
-            var userLat by remember { mutableStateOf<Double?>(null) }
-            var userLng by remember { mutableStateOf<Double?>(null) }
-            // Ambil lokasi user (fallback: titik Jakarta kalau permission off)
-            LaunchedEffect(Unit) {
-                val fused = LocationServices.getFusedLocationProviderClient(context)
-                try {
-                    fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-                        .addOnSuccessListener { loc ->
-                            if (loc != null) {
-                                userLat = loc.latitude
-                                userLng = loc.longitude
-                            }
+            composable(Screen.Onboarding.route) {
+                OnboardingScreen(
+                    onComplete = {
+                        val nextRoute = viewModel.completeOnboarding()
+                        navController.navigate(nextRoute) {
+                            popUpTo(Screen.Onboarding.route) { inclusive = true }
+                            launchSingleTop = true
                         }
-                        .addOnFailureListener {
-                            userLat = -6.2088
-                            userLng = 106.8456
-                        }
-                } catch (_: Exception) {
-                    userLat = -6.2088
-                    userLng = 106.8456
-                }
+                    }
+                )
             }
-            val lat = userLat ?: -6.2088
-            val lng = userLng ?: 106.8456
-            FoodHomeScreen(
-                initialLat = lat,
-                initialLng = lng,
-                onBack = { navController.popBackStack() },
-                onMerchantClick = { merchantId ->
-                    navController.navigate(Screen.FoodMerchantDetail.createRoute(merchantId))
-                },
-                onCartClick = { navController.navigate(Screen.FoodCart.route) }
-            )
-        }
 
-        composable(
-            route = Screen.FoodMerchantDetail.route,
-            arguments = listOf(navArgument("merchantId") {
-                type = NavType.StringType
-            })
-        ) { backStackEntry ->
-            val merchantId = backStackEntry.arguments?.getString("merchantId").orEmpty()
-            MerchantDetailScreen(
-                merchantId = merchantId,
-                onBack = { navController.popBackStack() },
-                onCartClick = { navController.navigate(Screen.FoodCart.route) }
-            )
-        }
+            composable(Screen.AuthGraph.route) {
+                AuthNavGraph(
+                    onAuthSuccess = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.AuthGraph.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
 
-        composable(Screen.FoodCart.route) {
-            FoodCartScreen(
-                onBack = { navController.popBackStack() },
-                onCheckout = { navController.navigate(Screen.FoodCheckout.route) }
-            )
-        }
+            composable(Screen.Dashboard.route) {
+                DashboardScreen(
+                    onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
+                    onBookingClick = { open ->
+                        when (open) {
+                            "tambal_ban_motor", "tambal_ban_mobil", "towing_motor", "towing_mobil" -> navController.navigate(Screen.ServiceBooking.createRoute(open))
+                            "tambal_ban", "towing" -> navController.navigate(Screen.ServiceCategory.route)
+                            "food_delivery" -> navController.navigate(Screen.FoodHome.route)
+                            else -> navController.navigate(Screen.Booking.createRoute(open))
+                        }
+                    },
+                    onTrackingClick = { orderId -> navController.navigate(Screen.Tracking.createRoute(orderId)) },
+                    onChatClick = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
+                    onHistoryClick = { navController.navigate(Screen.History.route) },
+                    onBusinessClick = { navController.navigate(Screen.Business.route) },
+                    onProfileClick = { navController.navigate(Screen.Profile.route) }
+                )
+            }
 
-        composable(Screen.FoodCheckout.route) {
-            FoodCheckoutScreen(
-                onBack = { navController.popBackStack() },
-                onOrderCreated = { orderId ->
-                    navController.navigate(Screen.Tracking.createRoute(orderId)) {
-                        popUpTo(Screen.Dashboard.route)
+            composable(Screen.FoodHome.route) {
+                val context = LocalContext.current
+                var userLat by remember { mutableStateOf<Double?>(null) }
+                var userLng by remember { mutableStateOf<Double?>(null) }
+                LaunchedEffect(Unit) {
+                    val fused = LocationServices.getFusedLocationProviderClient(context)
+                    try {
+                        fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                            .addOnSuccessListener { loc ->
+                                if (loc != null) {
+                                    userLat = loc.latitude
+                                    userLng = loc.longitude
+                                }
+                            }
+                            .addOnFailureListener {
+                                userLat = -6.2088
+                                userLng = 106.8456
+                            }
+                    } catch (_: Exception) {
+                        userLat = -6.2088
+                        userLng = 106.8456
                     }
                 }
-            )
-        }
+                val lat = userLat ?: -6.2088
+                val lng = userLng ?: 106.8456
+                FoodHomeScreen(
+                    initialLat = lat,
+                    initialLng = lng,
+                    onBack = { navController.popBackStack() },
+                    onMerchantClick = { merchantId -> navController.navigate(Screen.FoodMerchantDetail.createRoute(merchantId)) },
+                    onCartClick = { navController.navigate(Screen.FoodCart.route) }
+                )
+            }
 
-        composable(
-            route = Screen.Booking.route,
-            arguments = listOf(navArgument("open") {
-                type = NavType.StringType
-                nullable = true
-                defaultValue = null
-            }, navArgument("promo") {
-                type = NavType.StringType
-                nullable = true
-                defaultValue = null
-            }),
-            deepLinks = listOf(
-                navDeepLink { uriPattern = "tembus://booking?promo={promo}" }
-            )
-        ) { backStackEntry ->
-            val initialOpen = backStackEntry.arguments?.getString("open")
-            val initialPromoCode = backStackEntry.arguments?.getString("promo")
-            val bookingViewModel: BookingViewModel = hiltViewModel()
-            BookingScreen(
-                viewModel = bookingViewModel,
-                initialOpen = initialOpen,
-                initialPromoCode = initialPromoCode,
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onBookingSuccess = { orderId ->
-                    // Direct to payment right after booking creation successfully
-                    navController.navigate(Screen.Payment.createRoute(orderId)) {
-                        popUpTo(Screen.Dashboard.route)
+            composable(
+                route = Screen.FoodMerchantDetail.route,
+                arguments = listOf(navArgument("merchantId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val merchantId = backStackEntry.arguments?.getString("merchantId").orEmpty()
+                MerchantDetailScreen(
+                    merchantId = merchantId,
+                    onBack = { navController.popBackStack() },
+                    onCartClick = { navController.navigate(Screen.FoodCart.route) }
+                )
+            }
+
+            composable(Screen.FoodCart.route) {
+                FoodCartScreen(
+                    onBack = { navController.popBackStack() },
+                    onCheckout = { navController.navigate(Screen.FoodCheckout.route) }
+                )
+            }
+
+            composable(Screen.FoodCheckout.route) {
+                FoodCheckoutScreen(
+                    onBack = { navController.popBackStack() },
+                    onOrderCreated = { orderId ->
+                        navController.navigate(Screen.Tracking.createRoute(orderId)) {
+                            popUpTo(Screen.Dashboard.route)
+                        }
                     }
-                }
-            )
-        }
+                )
+            }
 
-        composable(Screen.History.route) {
-            val historyViewModel: OrderHistoryViewModel = hiltViewModel()
-            OrderHistoryScreen(
-                viewModel = historyViewModel,
-                onBackClick = { navController.popBackStack() },
-                onOrderClick = { orderId ->
-                    navController.navigate(Screen.OrderDetail.createRoute(orderId))
-                },
-                onReorderNavigate = {
-                    // FB-084: "Pesan Lagi" — cart sudah diisi CartStore, langsung ke keranjang
-                    navController.navigate(Screen.FoodCart.route)
-                }
-            )
-        }
-
-        // ═══ TAMBAL BAN & TOWING — Service Flow ═══
-        composable(Screen.ServiceCategory.route) {
-            ServiceCategoryScreen(
-                onBackClick = { navController.popBackStack() },
-                onCategorySelected = { category ->
-                    navController.navigate(Screen.SubTypeSelector.createRoute(category))
-                }
-            )
-        }
-
-        composable(
-            route = Screen.SubTypeSelector.route,
-            arguments = listOf(navArgument("category") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val category = backStackEntry.arguments?.getString("category") ?: "tambal_ban"
-            SubTypeSelectorScreen(
-                category = category,
-                onBackClick = { navController.popBackStack() },
-                onSubTypeSelected = { subType ->
-                    navController.navigate(Screen.ServiceBooking.createRoute(subType))
-                }
-            )
-        }
-
-        composable(
-            route = Screen.ServiceBooking.route,
-            arguments = listOf(
-                navArgument("serviceSubType") { type = NavType.StringType },
-                navArgument("courierId") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                },
-                navArgument("courierPrice") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                }
-            )
-        ) { backStackEntry ->
-            val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: "tambal_ban_motor"
-            val courierId = backStackEntry.arguments?.getString("courierId")
-            val courierPrice = backStackEntry.arguments?.getString("courierPrice")?.toLongOrNull()
-            ServiceBookingScreen(
-                serviceSubType = serviceSubType,
-                courierId = courierId,
-                courierPrice = courierPrice,
-                onBackClick = { navController.popBackStack() },
-                onSelectCourierClick = { lat, lng ->
-                    navController.navigate(Screen.NearbyCouriers.createRoute(serviceSubType, lat, lng))
-                },
-                onBookingSuccess = { orderId ->
-                    navController.navigate(Screen.ServiceTracking.createRoute(orderId, serviceSubType)) {
-                        popUpTo(Screen.Dashboard.route)
+            composable(
+                route = Screen.Booking.route,
+                arguments = listOf(
+                    navArgument("open") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("promo") { type = NavType.StringType; nullable = true; defaultValue = null }
+                ),
+                deepLinks = listOf(navDeepLink { uriPattern = "tembus://booking?promo={promo}" })
+            ) { backStackEntry ->
+                val initialOpen = backStackEntry.arguments?.getString("open")
+                val initialPromoCode = backStackEntry.arguments?.getString("promo")
+                val bookingViewModel: BookingViewModel = hiltViewModel()
+                BookingScreen(
+                    viewModel = bookingViewModel,
+                    initialOpen = initialOpen,
+                    initialPromoCode = initialPromoCode,
+                    onBackClick = { navController.popBackStack() },
+                    onBookingSuccess = { orderId ->
+                        navController.navigate(Screen.Payment.createRoute(orderId)) {
+                            popUpTo(Screen.Dashboard.route)
+                        }
                     }
-                }
-            )
-        }
+                )
+            }
 
-        composable(
-            route = Screen.NearbyCouriers.route,
-            arguments = listOf(
-                navArgument("serviceSubType") { type = NavType.StringType },
-                navArgument("lat") { type = NavType.StringType },
-                navArgument("lng") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: ""
-            val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 0.0
-            val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 0.0
-            NearbyCouriersScreen(
-                serviceSubType = serviceSubType,
-                customerLat = lat,
-                customerLng = lng,
-                onBackClick = { navController.popBackStack() },
-                onCourierSelected = { courierId, price ->
-                    // Kembali ke booking dengan petugas terpilih (dan harga jasanya)
-                    navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price)) {
-                        popUpTo(Screen.ServiceBooking.route) { inclusive = true }
+            composable(Screen.History.route) {
+                val historyViewModel: OrderHistoryViewModel = hiltViewModel()
+                OrderHistoryScreen(
+                    viewModel = historyViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onOrderClick = { orderId -> navController.navigate(Screen.OrderDetail.createRoute(orderId)) },
+                    onReorderNavigate = { navController.navigate(Screen.FoodCart.route) }
+                )
+            }
+
+            composable(Screen.ServiceCategory.route) {
+                ServiceCategoryScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCategorySelected = { category -> navController.navigate(Screen.SubTypeSelector.createRoute(category)) }
+                )
+            }
+
+            composable(
+                route = Screen.SubTypeSelector.route,
+                arguments = listOf(navArgument("category") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val category = backStackEntry.arguments?.getString("category") ?: "tambal_ban"
+                SubTypeSelectorScreen(
+                    category = category,
+                    onBackClick = { navController.popBackStack() },
+                    onSubTypeSelected = { subType -> navController.navigate(Screen.ServiceBooking.createRoute(subType)) }
+                )
+            }
+
+            composable(
+                route = Screen.ServiceBooking.route,
+                arguments = listOf(
+                    navArgument("serviceSubType") { type = NavType.StringType },
+                    navArgument("courierId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("courierPrice") { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
+            ) { backStackEntry ->
+                val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: "tambal_ban_motor"
+                val courierId = backStackEntry.arguments?.getString("courierId")
+                val courierPrice = backStackEntry.arguments?.getString("courierPrice")?.toLongOrNull()
+                ServiceBookingScreen(
+                    serviceSubType = serviceSubType,
+                    courierId = courierId,
+                    courierPrice = courierPrice,
+                    onBackClick = { navController.popBackStack() },
+                    onSelectCourierClick = { lat, lng -> navController.navigate(Screen.NearbyCouriers.createRoute(serviceSubType, lat, lng)) },
+                    onBookingSuccess = { orderId ->
+                        navController.navigate(Screen.ServiceTracking.createRoute(orderId, serviceSubType)) {
+                            popUpTo(Screen.Dashboard.route)
+                        }
                     }
-                }
-            )
-        }
+                )
+            }
 
-        composable(
-            route = Screen.ServiceTracking.route,
-            arguments = listOf(
-                navArgument("orderId") { type = NavType.StringType },
-                navArgument("serviceSubType") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
-            val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: ""
-            ServiceTrackingScreen(
-                orderId = orderId,
-                serviceSubType = serviceSubType,
-                onBackClick = { navController.popBackStack() },
-                onChatClick = { id ->
-                    navController.navigate(Screen.Chat.createRoute(id, null))
-                },
-                onCallClick = { id ->
-                    navController.navigate(Screen.InAppCall.createRoute(id, null, "outgoing"))
-                }
-            )
-        }
-
-        composable(
-            route = Screen.ServiceReport.route,
-            arguments = listOf(
-                navArgument("orderId") { type = NavType.StringType },
-                navArgument("serviceSubType") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
-            val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: ""
-            ServiceReportScreen(
-                orderId = orderId,
-                serviceSubType = serviceSubType,
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        composable(Screen.Business.route) {
-            com.tembus.customer.ui.screens.business.BusinessScreen(
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        composable(Screen.Profile.route) {
-            val profileViewModel: ProfileViewModel = hiltViewModel()
-            ProfileScreen(
-                viewModel = profileViewModel,
-                onBackClick = { navController.popBackStack() },
-                onLogout = {
-                    viewModel.logout() // ensure cleaning main vm session
-                    navController.navigate(Screen.AuthGraph.route) {
-                        popUpTo(0) { inclusive = true }
+            composable(
+                route = Screen.NearbyCouriers.route,
+                arguments = listOf(
+                    navArgument("serviceSubType") { type = NavType.StringType },
+                    navArgument("lat") { type = NavType.StringType },
+                    navArgument("lng") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: ""
+                val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 0.0
+                val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 0.0
+                NearbyCouriersScreen(
+                    serviceSubType = serviceSubType,
+                    customerLat = lat,
+                    customerLng = lng,
+                    onBackClick = { navController.popBackStack() },
+                    onCourierSelected = { courierId, price ->
+                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price))
                     }
-                }
-            )
-        }
+                )
+            }
 
-        composable(
-            route = Screen.OrderDetail.route,
-            arguments = listOf(navArgument("orderId") { type = NavType.StringType }),
-            deepLinks = listOf(
-                navDeepLink { uriPattern = "tembus://order/{orderId}" }
-            )
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
-            val detailViewModel: OrderDetailViewModel = hiltViewModel()
-            OrderDetailScreen(
-                orderId = orderId,
-                viewModel = detailViewModel,
-                onBackClick = { navController.popBackStack() },
-                onTrackClick = { id ->
-                    navController.navigate(Screen.Tracking.createRoute(id))
-                },
-                onChatClick = { id, name ->
-                    navController.navigate(Screen.Chat.createRoute(id, name))
-                }
-            )
-        }
+            composable(Screen.Notifications.route) {
+                NotificationCenterScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onOpenChat = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
+                    onOpenOrder = { orderId -> navController.navigate(Screen.OrderDetail.createRoute(orderId)) },
+                    onOpenPromo = { promoCode -> navController.navigate(Screen.Booking.createRoute(open = null, promoCode = promoCode)) },
+                    onOpenSupport = { /* handled in screen */ }
+                )
+            }
 
-        composable(Screen.Notifications.route) {
-            NotificationCenterScreen(
-                onBackClick = { navController.popBackStack() },
-                onOpenChat = { orderId ->
-                    navController.navigate(Screen.Chat.createRoute(orderId, null))
-                },
-                onOpenOrder = { orderId ->
-                    navController.navigate(Screen.OrderDetail.createRoute(orderId))
-                },
-                onOpenPromo = { promoCode ->
-                    navController.navigate(Screen.Booking.createRoute(open = null, promoCode = promoCode))
-                },
-                onOpenSupport = {
-                    navController.navigate(Screen.Profile.route)
-                }
-            )
-        }
+            composable(Screen.OrderDetail.route, arguments = listOf(navArgument("orderId") { type = NavType.StringType })) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+                val detailViewModel: OrderDetailViewModel = hiltViewModel()
+                OrderDetailScreen(
+                    orderId = orderId,
+                    viewModel = detailViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onTrackClick = { navController.navigate(Screen.Tracking.createRoute(it)) },
+                    onChatClick = { id, name -> navController.navigate(Screen.Chat.createRoute(id, name)) }
+                )
+            }
 
-        composable(
-            route = Screen.Payment.route,
-            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
-            val payVm: PaymentViewModel = hiltViewModel()
-            PaymentScreen(
-                orderId = orderId,
-                viewModel = payVm,
-                onClose = { navController.popBackStack() },
-                onPaymentSuccess = {
-                    // Redirect to order status/detail on generic success callback detected in url
-                    navController.navigate(Screen.OrderDetail.createRoute(orderId)) {
-                        popUpTo(Screen.Dashboard.route)
-                    }
-                }
-            )
-        }
+            composable(Screen.Tracking.route, arguments = listOf(navArgument("orderId") { type = NavType.StringType }), deepLinks = listOf(navDeepLink { uriPattern = "tembus://orders/{orderId}/tracking" })) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+                val trackingViewModel: TrackingViewModel = hiltViewModel()
+                val courierRatingViewModel: CourierRatingViewModel = hiltViewModel()
+                val merchantRatingViewModel: MerchantRatingViewModel = hiltViewModel()
+                val tipViewModel: TipViewModel = hiltViewModel()
+                TrackingScreen(
+                    orderId = orderId,
+                    viewModel = trackingViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onChatClick = { id, name -> navController.navigate(Screen.Chat.createRoute(id, name)) },
+                    onCallClick = { id, name -> navController.navigate(Screen.InAppCall.createRoute(id, name, "outgoing")) },
+                    ratingViewModel = courierRatingViewModel,
+                    merchantRatingViewModel = merchantRatingViewModel,
+                    tipViewModel = tipViewModel
+                )
+            }
 
-        composable(
-            route = Screen.Tracking.route,
-            arguments = listOf(navArgument("orderId") { type = NavType.StringType }),
-            deepLinks = listOf(
-                navDeepLink { uriPattern = "tembus://orders/{orderId}/tracking" }
-            )
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
-            val trackingViewModel: TrackingViewModel = hiltViewModel()
-            TrackingScreen(
-                orderId = orderId,
-                viewModel = trackingViewModel,
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onChatClick = { id, name ->
-                    // Dynamic launch of full duplex chat view
-                    navController.navigate(Screen.Chat.createRoute(id, name))
-                },
-                onCallClick = { id, name ->
-                    navController.navigate(Screen.InAppCall.createRoute(id, name, "outgoing"))
-                }
-            )
-        }
+            composable(Screen.Chat.route, arguments = listOf(navArgument("orderId") { type = NavType.StringType }, navArgument("name") { type = NavType.StringType; nullable = true; defaultValue = "" }), deepLinks = listOf(navDeepLink { uriPattern = "tembus://orders/{orderId}/chat" })) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+                val rawName = backStackEntry.arguments?.getString("name") ?: ""
+                val courierName = if (rawName.isNotBlank()) java.net.URLDecoder.decode(rawName, "UTF-8") else null
+                val chatVm: ChatViewModel = hiltViewModel()
+                ChatScreen(orderId = orderId, courierName = courierName, onInAppCallClick = { navController.navigate(Screen.InAppCall.createRoute(orderId, courierName, "outgoing")) }, onBackClick = { navController.popBackStack() }, viewModel = chatVm)
+            }
 
-        composable(
-            route = Screen.Chat.route,
-            arguments = listOf(
-                navArgument("orderId") { type = NavType.StringType },
-                navArgument("name") { 
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = ""
-                }
-            ),
-            deepLinks = listOf(
-                navDeepLink { uriPattern = "tembus://orders/{orderId}/chat" }
-            )
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
-            val rawName = backStackEntry.arguments?.getString("name") ?: ""
-            
-            // Decipher URL safety transformations
-            val courierName = if (rawName.isNotBlank()) java.net.URLDecoder.decode(rawName, "UTF-8") else null
-            
-            val chatVm: ChatViewModel = hiltViewModel()
-            ChatScreen(
-                orderId = orderId,
-                courierName = courierName,
-                onInAppCallClick = {
-                    navController.navigate(Screen.InAppCall.createRoute(orderId, courierName, "outgoing"))
-                },
-                onBackClick = { navController.popBackStack() },
-                viewModel = chatVm
-            )
+            composable(Screen.InAppCall.route, arguments = listOf(navArgument("orderId") { type = NavType.StringType }, navArgument("name") { type = NavType.StringType; nullable = true; defaultValue = "" }, navArgument("state") { type = NavType.StringType; nullable = true; defaultValue = "outgoing" }, navArgument("callId") { type = NavType.StringType; nullable = true; defaultValue = "" })) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+                val rawName = backStackEntry.arguments?.getString("name") ?: ""
+                val rawState = backStackEntry.arguments?.getString("state") ?: "outgoing"
+                val rawCallId = backStackEntry.arguments?.getString("callId") ?: ""
+                val targetName = if (rawName.isNotBlank()) java.net.URLDecoder.decode(rawName, "UTF-8") else null
+                InAppCallScreen(orderId = orderId, targetName = targetName, initialState = InAppCallState.fromRoute(rawState), routeCallId = rawCallId.takeIf { it.isNotBlank() }, onBackClick = { navController.popBackStack() }, onOpenChat = { navController.navigate(Screen.Chat.createRoute(orderId, targetName)) { popUpTo(Screen.InAppCall.route) { inclusive = true } } })
+            }
         }
-
-        composable(
-            route = Screen.InAppCall.route,
-            arguments = listOf(
-                navArgument("orderId") { type = NavType.StringType },
-                navArgument("name") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = ""
-                },
-                navArgument("state") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = "outgoing"
-                },
-                navArgument("callId") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = ""
-                }
-            )
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
-            val rawName = backStackEntry.arguments?.getString("name") ?: ""
-            val rawState = backStackEntry.arguments?.getString("state") ?: "outgoing"
-            val rawCallId = backStackEntry.arguments?.getString("callId") ?: ""
-            val targetName = if (rawName.isNotBlank()) java.net.URLDecoder.decode(rawName, "UTF-8") else null
-            InAppCallScreen(
-                orderId = orderId,
-                targetName = targetName,
-                initialState = InAppCallState.fromRoute(rawState),
-                routeCallId = rawCallId.takeIf { it.isNotBlank() },
-                onBackClick = { navController.popBackStack() },
-                onOpenChat = {
-                    navController.navigate(Screen.Chat.createRoute(orderId, targetName)) {
-                        popUpTo(Screen.InAppCall.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-    }
 
         ForegroundNotificationBanner(
             notification = foregroundNotification,
@@ -793,29 +585,19 @@ private fun ForegroundNotificationBanner(
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .clickable {
-                            onOpen(event)
-                        }
-                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .clickable { onOpen(event) }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Tutup notifikasi",
-                    tint = Color(0xFF94A3B8),
+                Box(
                     modifier = Modifier
+                        .size(24.dp)
                         .clip(CircleShape)
-                        .clickable { onDismiss() }
-                        .padding(8.dp)
-                        .size(18.dp)
-                )
+                        .clickable { onDismiss() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null, tint = Color(0xFF94A3B8), modifier = Modifier.size(16.dp))
+                }
             }
         }
-    }
-}
-
-@Composable
-fun PlaceholderScreen(title: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(title)
     }
 }

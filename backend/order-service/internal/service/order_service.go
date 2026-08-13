@@ -2037,11 +2037,23 @@ func (s *orderServiceImpl) AcceptByMerchant(ctx context.Context, orderID string,
 	}
 	s.publishOrderEvent(ctx, orderID, domain.StatusPreparing, "Merchant menerima pesanan — makanan disiapkan")
 
-	// FB-124: notif customer bahwa merchant menerima pesanannya
-	// (fire-and-forget — gagal kirim hanya di-log, tidak menggagalkan accept).
-	if s.pushSvc != nil {
-		if errPush := s.pushSvc.NotifyCustomerMerchantAccepted(ctx, orderID, "Merchant menerima pesananmu — makanan sedang disiapkan"); errPush != nil {
-			log.Printf("[OrderService] FB-124 push merchant_accepted gagal order %s: %v", orderID, errPush)
+	// FB-124: notif customer bahwa merchant menerima pesanannya.
+	// Wajib masuk inbox juga supaya C-041/UI tracking konsisten.
+	// ChannelPush dipakai agar delivery async tetap jalan, tetapi record
+	// in-app sudah tersimpan via notification service.
+	if s.notificationSvc != nil {
+		if errNotif := s.notificationSvc.Send(ctx, domain.NotificationRequest{
+			UserID:  o.CustomerID,
+			Title:   "Merchant menerima pesananmu",
+			Message: "Merchant menerima pesananmu — makanan sedang disiapkan",
+			Channel: domain.ChannelPush,
+			Data: map[string]string{
+				"type":     "merchant_accepted",
+				"order_id": orderID,
+				"order_no": o.OrderNumber,
+			},
+		}); errNotif != nil {
+			log.Printf("[OrderService] FB-124 notif merchant_accepted gagal order %s: %v", orderID, errNotif)
 		}
 	}
 	return nil

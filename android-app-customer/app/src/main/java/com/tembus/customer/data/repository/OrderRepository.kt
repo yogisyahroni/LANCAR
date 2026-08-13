@@ -258,7 +258,8 @@ class OrderRepository @Inject constructor(
                         courierPhone = trackingOrder.courierPhone,
                         serviceSubType = trackingOrder.serviceSubType,
                         merchantName = trackingOrder.merchantName,
-                        orderNotes = trackingOrder.orderNotes // FB-121
+                        orderNotes = trackingOrder.orderNotes, // FB-121
+                        foodItems = trackingOrder.foodItems
                     )
                 ))
             } else {

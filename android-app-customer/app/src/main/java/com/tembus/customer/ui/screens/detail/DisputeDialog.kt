@@ -66,8 +66,7 @@ fun DisputeDialog(
                         "makanan_tidak_sesuai" to "Makanan Tidak Sesuai",
                         "kurang_item" to "Item Kurang/Hilang",
                         "kualitas_buruk" to "Makanan Basi/Rusak",
-                        "driver_ghosting_food" to "Driver Menghilang",
-                        "coerced_cancel" to "Dibatalkan Paksa",
+                        "terlalu_dingin" to "Terlalu Dingin",
                         "other" to "Lainnya"
                     )
                 } else {

@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -12,13 +14,90 @@ import (
 	"tembus/order-service/internal/middleware"
 )
 
+// NotificationHandler menangani inbox publik dan endpoint internal
+// untuk membuat notifikasi in-app dari service lain.
+// Endpoint internal diverifikasi dengan X-Internal-Api-Key.
+
 type NotificationHandler struct {
-	notifSvc domain.NotificationService
+	notifSvc       domain.NotificationService
+	orderRepo      domain.OrderRepository
+	internalAPIKey string
 }
 
-func NewNotificationHandler(svc domain.NotificationService) *NotificationHandler {
-	return &NotificationHandler{notifSvc: svc}
+func NewNotificationHandler(svc domain.NotificationService, orderRepo domain.OrderRepository) *NotificationHandler {
+	return &NotificationHandler{
+		notifSvc:       svc,
+		orderRepo:      orderRepo,
+		internalAPIKey: os.Getenv("INTERNAL_API_KEY"),
+	}
 }
+
+func (h *NotificationHandler) NotifyCustomerMerchantAccepted(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if h.internalAPIKey != "" && r.Header.Get("X-Internal-Api-Key") != h.internalAPIKey {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if h.orderRepo == nil || h.notifSvc == nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "notification handler belum terpasang", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	var req struct {
+		OrderID string `json:"order_id"`
+		Title   string `json:"title"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 64*1024)).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid JSON", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if req.OrderID == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "order_id wajib diisi", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if req.Title == "" {
+		req.Title = "Merchant menerima pesananmu"
+	}
+	if req.Message == "" {
+		req.Message = "Merchant menerima pesananmu — makanan sedang disiapkan"
+	}
+
+	order, err := h.orderRepo.GetByID(r.Context(), req.OrderID)
+	if err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if order == nil {
+		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "order tidak ditemukan", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if order.CustomerID == "" {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "customer_id order kosong", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	if err := h.notifSvc.Send(r.Context(), domain.NotificationRequest{
+		UserID:  order.CustomerID,
+		Title:   req.Title,
+		Message: req.Message,
+		Channel: domain.ChannelPush,
+		Data: map[string]string{
+			"type":     "merchant_accepted",
+			"order_id": order.ID,
+			"order_no": order.OrderNumber,
+		},
+	}); err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	middleware.WriteSuccess(w, http.StatusOK, map[string]string{"status": "success", "message": "Notification sent"})
+}
+
 
 func (h *NotificationHandler) GetInbox(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

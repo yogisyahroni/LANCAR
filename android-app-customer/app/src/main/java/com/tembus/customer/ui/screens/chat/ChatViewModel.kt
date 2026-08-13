@@ -6,7 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.customer.data.model.ChatMessage
 import com.tembus.customer.data.model.ConversationInfo
+import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.repository.ChatRepository
+import com.tembus.customer.data.repository.OrderRepository
 import com.tembus.customer.data.session.AuthSessionManager
 import com.tembus.customer.util.SocketManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,12 +33,14 @@ data class ChatUiState(
     val orderId: String = "",
     val currentUserId: String = "",
     val conversation: ConversationInfo? = null,
-    val failedDraft: String? = null
+    val failedDraft: String? = null,
+    val order: Order? = null
 )
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
+    private val orderRepository: OrderRepository,
     private val socketManager: SocketManager,
     private val sessionManager: AuthSessionManager,
     savedStateHandle: SavedStateHandle
@@ -53,14 +57,17 @@ class ChatViewModel @Inject constructor(
     init {
         val userId = sessionManager.getUserIdSync() ?: ""
         _uiState.update { it.copy(orderId = orderId, currentUserId = userId) }
-        
+
         // 1. Load message history from database/API
         fetchChatHistory()
-        
+
+        // 1b. Load order summary for food context banner & detail button.
+        fetchOrderSummary()
+
         // 2. Establish active Socket.IO connection
         socketManager.connect()
         socketManager.joinOrderRoom(orderId)
-        
+
         // 3. Begin listening to incoming real-time events
         observeSocketMessages()
     }
@@ -71,16 +78,28 @@ class ChatViewModel @Inject constructor(
             chatRepository.getOrderChats(orderId).collectLatest { result ->
                 result.onSuccess { history ->
                     val loadedMessages = history.messages
-                    _uiState.update { 
+                    _uiState.update {
                         it.copy(
-                            isLoading = false, 
+                            isLoading = false,
                             messages = loadedMessages.distinctBy { msg -> msg.id ?: msg.createdAt },
                             conversation = history.conversation
-                        ) 
+                        )
                     }
                     markLastMessageRead(loadedMessages)
                 }.onFailure { exception ->
                     _uiState.update { it.copy(isLoading = false, error = exception.message) }
+                }
+            }
+        }
+    }
+
+    private fun fetchOrderSummary() {
+        viewModelScope.launch {
+            orderRepository.getOrderDetail(orderId).collectLatest { result ->
+                result.onSuccess { order ->
+                    _uiState.update { it.copy(order = order) }
+                }.onFailure { exception ->
+                    Log.w("ChatViewModel", "Order summary unavailable: ${exception.message}")
                 }
             }
         }
@@ -135,7 +154,7 @@ class ChatViewModel @Inject constructor(
                 messages = state.messages + localMessage
             )
         }
-        
+
         viewModelScope.launch {
             chatRepository.sendOrderChat(orderId, cleanedMessage, clientMessageId).collectLatest { result ->
                 result.onSuccess { sentMessage ->
