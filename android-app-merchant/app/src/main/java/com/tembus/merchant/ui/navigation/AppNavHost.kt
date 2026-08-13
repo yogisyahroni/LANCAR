@@ -1,5 +1,8 @@
 package com.tembus.merchant.ui.navigation
 
+import android.content.Intent
+import android.net.Uri
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalContext
@@ -106,6 +109,7 @@ fun AppNavHost() {
         }
 
         composable(MerchantRoutes.MAIN) {
+            val context = LocalContext.current
             MainScreen(
                 onOpenStruk = { orderId ->
                     navController.navigate(MerchantRoutes.struk(orderId))
@@ -113,6 +117,13 @@ fun AppNavHost() {
                 // FB-119: buka chat customer↔merchant.
                 onOpenChat = { orderId, orderNumber ->
                     navController.navigate(MerchantRoutes.chat(orderId, orderNumber))
+                },
+                // FB-124: telepon pelanggan langsung dari order card.
+                onCallCustomer = { phone ->
+                    if (phone.isNotBlank()) {
+                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+                        ContextCompat.startActivity(context, intent, null)
+                    }
                 },
                 // FB-108: editor varian menu item.
                 onOpenVariants = { menuItemId ->

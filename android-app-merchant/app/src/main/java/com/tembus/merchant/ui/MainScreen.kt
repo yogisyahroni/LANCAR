@@ -41,6 +41,7 @@ private val tabs = listOf(
 fun MainScreen(
     onOpenStruk: (String) -> Unit,
     onOpenChat: (String, String) -> Unit, // FB-119
+    onCallCustomer: (String) -> Unit, // FB-124: telepon pelanggan
     onOpenVariants: (String) -> Unit, // FB-108
     onOpenEditOrder: (String) -> Unit, // FB-087
     onGoToRegistration: () -> Unit
@@ -59,6 +60,7 @@ fun MainScreen(
                 1 -> HomeScreen(
                     onOpenStruk = onOpenStruk,
                     onOpenChat = onOpenChat, // FB-119
+                    onCallCustomer = onCallCustomer, // FB-124
                     onOpenEditOrder = onOpenEditOrder, // FB-087
                     onGoToRegistration = onGoToRegistration
                 )

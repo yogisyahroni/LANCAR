@@ -9,11 +9,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storefront
@@ -49,6 +53,7 @@ import java.time.format.DateTimeFormatter
 fun HomeScreen(
     onOpenStruk: (String) -> Unit,
     onOpenChat: (String, String) -> Unit, // FB-119
+    onCallCustomer: (String) -> Unit, // FB-124: telepon pelanggan dari order
     onOpenEditOrder: (String) -> Unit, // FB-087
     onGoToRegistration: () -> Unit,
     viewModel: HomeViewModel = appViewModel { HomeViewModel(it.merchantRepository, it.orderAlertNotifier) }
@@ -162,7 +167,8 @@ fun HomeScreen(
                     onReject = { rejectTarget = order },
                     onOpenEdit = { onOpenEditOrder(order.id) }, // FB-087
                     onOpenStruk = { onOpenStruk(order.id) },
-                    onOpenChat = { onOpenChat(order.id, order.orderNumber) } // FB-119
+                    onOpenChat = { onOpenChat(order.id, order.orderNumber) }, // FB-119
+                    onCallCustomer = { onCallCustomer(order.customerPhone ?: "") } // FB-124
                 )
             }
         }
@@ -408,7 +414,8 @@ private fun OrderCard(
     onReject: () -> Unit,
     onOpenEdit: () -> Unit, // FB-087: edit item order (pending_merchant)
     onOpenStruk: () -> Unit,
-    onOpenChat: () -> Unit // FB-119: chat customer↔merchant
+    onOpenChat: () -> Unit, // FB-119: chat customer↔merchant
+    onCallCustomer: () -> Unit // FB-124: telepon pelanggan
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -561,6 +568,12 @@ private fun OrderCard(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Chat")
                     }
+                    // FB-124: telepon pelanggan langsung dari order.
+                    TextButton(onClick = onCallCustomer) {
+                        Icon(Icons.Filled.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Telp")
+                    }
                     TextButton(onClick = onOpenStruk) {
                         Icon(Icons.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -577,7 +590,7 @@ private fun StatusBadge(status: String) {
     val (label, color, bg) = when (status) {
         "pending_merchant" -> Triple("Baru", Accent, AccentLight)
         "preparing" -> Triple("Diproses", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
-        "searching" -> Triple("Siap", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
+        "searching" -> Triple("Mencari Pengemudi", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         "accepted", "picking_up", "picked_up" -> Triple("Diambil Driver", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         "delivering" -> Triple("Diantar", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         "delivered" -> Triple("Selesai", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
