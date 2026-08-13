@@ -27,9 +27,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.ChatMessage
 import com.tembus.customer.ui.theme.Primary
+import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -96,25 +98,63 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = conversationTitle,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
+                    if (showFoodOrderContext && uiState.order != null) {
+                        // Food order header with driver info
+                        val courierName = uiState.order?.courierName ?: "Kurir Anda"
+                        // TODO: add courierPhotoUrl to Order model when API provides it
+                        val courierPhotoUrl: String? = null
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Driver photo
+                            AsyncImage(
+                                model = courierPhotoUrl,
+                                contentDescription = "Foto kurir",
+                                contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF4CAF50)) // Green dot
+                                    .background(Color(0xFFF3F4F6))
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text(
+                                    text = courierName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = Color(0xFF111827),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Delivery Driver",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF6B7280)
+                                )
+                            }
+                        }
+                    } else {
+                        // Original header for non-food orders
+                        Column {
                             Text(
-                                text = conversationSubtitle,
-                                color = Color.Gray,
-                                fontSize = 12.sp
+                                text = conversationTitle,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
                             )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF4CAF50))
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = conversationSubtitle,
+                                    color = Color.Gray,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
                 },
@@ -124,12 +164,31 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onInAppCallClick) {
-                        Icon(
-                            imageVector = Icons.Default.Call,
-                            contentDescription = "Panggilan dalam aplikasi",
-                            tint = Primary
-                        )
+                    if (showFoodOrderContext && uiState.order != null) {
+                        // Phone call button
+                        IconButton(onClick = { /* TODO: call courier */ }) {
+                            Icon(
+                                imageVector = Icons.Default.Call,
+                                contentDescription = "Telepon kurir",
+                                tint = Primary
+                            )
+                        }
+                        // More options menu
+                        IconButton(onClick = { /* TODO: show menu */ }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Opsi lainnya",
+                                tint = Primary
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = onInAppCallClick) {
+                            Icon(
+                                imageVector = Icons.Default.Call,
+                                contentDescription = "Panggilan dalam aplikasi",
+                                tint = Primary
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -167,7 +226,8 @@ fun ChatScreen(
                     uiState.order?.let { order ->
                         FoodOrderSummaryCard(
                             order = order,
-                            onClick = { /* TODO: navigate to order detail */ }
+                            onClick = { /* TODO: navigate to order detail */ },
+                            onDetailClick = { /* TODO: navigate to order detail */ }
                         )
                     }
                 }
@@ -221,7 +281,73 @@ fun ChatScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
+                    // Quick Replies for food orders
+                    if (showFoodOrderContext && uiState.order != null && !uiState.isSending) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            val quickReplies = listOf(
+                                "Ya, pesanan saya sudah sesuai.",
+                                "Halo! 👋",
+                                "Oke"
+                            )
+                            Text(
+                                text = "Balasan cepat",
+                                fontSize = 11.sp,
+                                color = Color(0xFF9CA3AF),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 4.dp, bottom = 4.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                quickReplies.forEach { reply ->
+                                    TextButton(
+                                        onClick = {
+                                            viewModel.sendMessage(reply)
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(36.dp)
+                                            .padding(horizontal = 8.dp),
+                                        colors = ButtonDefaults.textButtonColors(
+                                            containerColor = Color(0xFFF3F4F6),
+                                            contentColor = Color(0xFF374151)
+                                        ),
+                                        shape = RoundedCornerShape(18.dp)
+                                    ) {
+                                        Text(
+                                            text = reply,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Attachment button for food orders
+                        if (showFoodOrderContext) {
+                            IconButton(
+                                onClick = { /* TODO: open attachment picker */ },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .padding(end = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Tambah lampiran",
+                                    tint = Primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
                         OutlinedTextField(
                             value = textInput,
                             onValueChange = { textInput = it.take(1000) },
@@ -549,166 +675,202 @@ private fun ChatLoadingSkeleton(modifier: Modifier = Modifier) {
 @Composable
 private fun FoodOrderSummaryCard(
     order: com.tembus.customer.data.model.Order,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDetailClick: () -> Unit
 ) {
     val items = order.foodItems ?: emptyList()
     val itemCount = items.sumOf { it.quantity }
     val subtotal = items.sumOf { it.subtotal }
+    val firstItemImageUrl = items.firstOrNull()?.let { /* TODO: add photo field to FoodOrderItem */ null }
 
-    Surface(
+    // Status mapping based on order status
+    val statusText = when (order.status?.lowercase()) {
+        "accepted", "merchant_accepted" -> "Restoran sedang menyiapkan"
+        "picked_up", "courier_picked_up" -> "Kurir sudah mengambil"
+        "on_the_way", "delivering" -> "Kurir dalam perjalanan"
+        "delivered" -> "Pesanan telah sampai"
+        "cancelled" -> "Pesanan dibatalkan"
+        else -> "Menunggu konfirmasi"
+    }
+    val statusColor = when (order.status?.lowercase()) {
+        "accepted", "merchant_accepted" -> Color(0xFFF59E0B) // amber/orange
+        "picked_up", "courier_picked_up" -> Color(0xFF3B82F6) // blue
+        "on_the_way", "delivering" -> Color(0xFF8B5CF6) // purple
+        "delivered" -> Color(0xFF10B981) // green
+        "cancelled" -> Color(0xFFEF4444) // red
+        else -> Color(0xFF6B7280) // gray
+    }
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Primary.copy(alpha = 0.10f))
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = Primary.copy(alpha = 0.10f),
-                    shape = RoundedCornerShape(12.dp)
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Row 1: Thumbnail + Status + Detail button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Food thumbnail (left)
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFF3F4F6))
                 ) {
-                    Box(
+                    // TODO: Load actual food image when API provides photo field
+                    // AsyncImage(model = firstItemImageUrl, contentDescription = "Food thumbnail", ...)
+                    Icon(
+                        imageVector = Icons.Default.Fastfood,
+                        contentDescription = "Food",
+                        tint = Color(0xFF9CA3AF),
                         modifier = Modifier
-                            .padding(10.dp)
-                            .size(22.dp)
-                            .background(Color.LightGray)
+                            .size(28.dp)
+                            .align(Alignment.Center)
                     )
                 }
+
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+
+                // Middle: Status + Merchant + Count + Total + Order Number
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Status badge
+                    Text(
+                        text = statusText,
+                        color = statusColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    // Merchant name
                     Text(
                         text = order.merchantName ?: "Merchant",
                         color = Color(0xFF111827),
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    // Item count + Total
                     Text(
-                        text = "${itemCount} item${if (itemCount > 1) "s" else ""} · Rp ${subtotal}",
-                        color = Color(0xFF6B7280),
+                        text = "${itemCount} produk  •  Rp ${formatPrice(subtotal)}",
+                        color = Color(0xFF374151),
                         fontSize = 13.sp
                     )
-                }
-                Icon(
-                    imageVector = Icons.Default.ArrowForwardIos,
-                    contentDescription = "Detail",
-                    tint = Color(0xFF9CA3AF),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = Color(0xFFE5E7EB))
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                items.take(3).forEachIndexed { index, item ->
-                    val hasVariants = (item.variants ?: emptyList()).isNotEmpty()
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 4.dp)
-                            .aspectRatio(1f)
-                            .background(Color(0xFFF5F7FA))
-                            .clip(RoundedCornerShape(10.dp))
+                    // Order number with copy
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = item.name.take(12),
-                                color = Color(0xFF374151),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center
-                            )
-                            if (hasVariants) {
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                                        .background(Primary.copy(alpha = 0.15f))
-                                        .clip(RoundedCornerShape(4.dp))
-                                ) {
-                                    Text(
-                                        text = "+${item.variants.size} varian",
-                                        color = Primary,
-                                        fontSize = 8.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            text = "No. ${order.orderNumber ?: order.orderId.take(12).uppercase()}",
+                            color = Color(0xFF9CA3AF),
+                            fontSize = 11.sp
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Salin nomor pesanan",
+                            tint = Color(0xFF9CA3AF),
+                            modifier = Modifier
+                                .size(14.dp)
+                                .fillMaxHeight()
+                                .clickable { /* TODO: copy to clipboard */ }
+                        )
                     }
                 }
-                if (items.size > 3) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 4.dp)
-                            .aspectRatio(1f)
-                            .background(Primary.copy(alpha = 0.10f))
-                            .clip(RoundedCornerShape(10.dp))
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "+${items.size - 3}",
-                                color = Primary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
+
+                // Right: Rincian button
+                TextButton(
+                    onClick = onDetailClick,
+                    modifier = Modifier
+                        .height(32.dp)
+                        .padding(horizontal = 12.dp)
+                        .align(Alignment.Top),
+                    colors = ButtonDefaults.textButtonColors(
+                        containerColor = Color(0xFFF3F4F6),
+                        contentColor = Color(0xFF374151)
+                    )
+                ) {
+                    Text(
+                        text = "Rincian",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
     }
 }
 
+private fun formatPrice(price: Long): String {
+    return price.toString().reversed().chunked(3).joinToString(".").reversed()
+}
+
 @Composable
 private fun FoodOrderSummaryCardSkeleton() {
-    Surface(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Primary.copy(alpha = 0.10f))
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = Primary.copy(alpha = 0.10f),
-                    shape = RoundedCornerShape(12.dp)
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Food thumbnail skeleton
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFE5E7EB))
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Middle skeleton content
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // Status badge skeleton
                     Box(
                         modifier = Modifier
-                            .padding(10.dp)
-                            .size(22.dp)
-                            .background(Color.LightGray)
+                            .width(140.dp)
+                            .height(16.dp)
+                            .background(Color(0xFFE5E7EB))
+                            .clip(RoundedCornerShape(8.dp))
                     )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                    // Merchant name skeleton
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(18.dp)
                             .background(Color(0xFFE5E7EB))
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    // Item count + Total skeleton
+                    Box(
+                        modifier = Modifier
+                            .width(160.dp)
+                            .height(16.dp)
+                            .background(Color(0xFFE5E7EB))
+                    )
+                    // Order number skeleton
                     Box(
                         modifier = Modifier
                             .width(120.dp)
@@ -716,23 +878,17 @@ private fun FoodOrderSummaryCardSkeleton() {
                             .background(Color(0xFFE5E7EB))
                     )
                 }
+
+                // Rincian button skeleton
+                Box(
+                    modifier = Modifier
+                        .width(60.dp)
+                        .height(32.dp)
+                        .background(Color(0xFFE5E7EB))
+                        .clip(RoundedCornerShape(8.dp))
+                        .align(Alignment.Top)
+                )
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(16.dp)
-                    .background(Color(0xFFE5E7EB))
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(color = Color(0xFFE5E7EB))
-            Spacer(modifier = Modifier.height(10.dp))
-            Box(
-                modifier = Modifier
-                    .width(180.dp)
-                    .height(14.dp)
-                    .background(Color(0xFFE5E7EB))
-            )
         }
     }
 }
