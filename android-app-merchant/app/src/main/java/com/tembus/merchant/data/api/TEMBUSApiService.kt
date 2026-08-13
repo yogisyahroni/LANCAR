@@ -137,6 +137,12 @@ interface TEMBUSApiService {
         @Path("id") id: String
     ): Response<SuccessResponse>
 
+    // FB-125: tandai pesanan siap (masak selesai) → mulai cari kurir.
+    @POST("api/v1/merchant/orders/{id}/ready")
+    suspend fun markReady(
+        @Path("id") id: String
+    ): Response<SuccessResponse>
+
     @POST("api/v1/merchant/orders/{id}/reject")
     suspend fun rejectOrder(
         @Path("id") id: String,

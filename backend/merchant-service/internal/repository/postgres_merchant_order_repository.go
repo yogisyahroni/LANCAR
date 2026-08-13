@@ -45,6 +45,27 @@ func (r *postgresMerchantOrderRepository) AcceptOrder(ctx context.Context, merch
 	return nil
 }
 
+// MarkReady: merchant menandai order sudah siap (masak selesai). Status
+// preparing → searching (mulai cari kurir). FB-125.
+func (r *postgresMerchantOrderRepository) MarkReady(ctx context.Context, merchantID, orderID string) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE orders
+		SET status = 'searching',
+			food_ready_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $1 AND merchant_id = $2
+		  AND status = 'preparing'
+		  AND service_sub_type = 'food_delivery'`, orderID, merchantID)
+	if err != nil {
+		return fmt.Errorf("mark ready order: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return errors.New("order tidak ditemukan atau bukan milik merchant / tidak dalam status preparing")
+	}
+	return nil
+}
+
 func (r *postgresMerchantOrderRepository) RejectOrder(ctx context.Context, merchantID, orderID, reason, rejectReason string) error {
 	var cancelReason sql.NullString
 	if reason != "" {

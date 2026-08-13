@@ -211,6 +211,7 @@ func main() {
 	// Order action (FOOD-BIKE-017/021)
 	mux.HandleFunc("/api/v1/merchant/orders", middleware.BaseChain(h.ListOrders))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/accept", middleware.BaseChain(h.AcceptOrder))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/ready", middleware.BaseChain(h.MarkReady))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", middleware.BaseChain(h.RejectOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/struk", middleware.BaseChain(h.GetStruk))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/items", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {

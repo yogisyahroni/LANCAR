@@ -53,7 +53,7 @@ import java.time.format.DateTimeFormatter
 fun HomeScreen(
     onOpenStruk: (String) -> Unit,
     onOpenChat: (String, String) -> Unit, // FB-119
-    onCallCustomer: (String) -> Unit, // FB-124: telepon pelanggan dari order
+    onCallCustomer: (String) -> Unit, // FB-124: telepon pelanggan
     onOpenEditOrder: (String) -> Unit, // FB-087
     onGoToRegistration: () -> Unit,
     viewModel: HomeViewModel = appViewModel { HomeViewModel(it.merchantRepository, it.orderAlertNotifier) }
@@ -168,7 +168,8 @@ fun HomeScreen(
                     onOpenEdit = { onOpenEditOrder(order.id) }, // FB-087
                     onOpenStruk = { onOpenStruk(order.id) },
                     onOpenChat = { onOpenChat(order.id, order.orderNumber) }, // FB-119
-                    onCallCustomer = { onCallCustomer(order.customerPhone ?: "") } // FB-124
+                    onCallCustomer = { onCallCustomer(order.customerPhone ?: "") }, // FB-124
+                    onMarkReady = { viewModel.markReady(order.id) } // FB-125
                 )
             }
         }
@@ -415,7 +416,8 @@ private fun OrderCard(
     onOpenEdit: () -> Unit, // FB-087: edit item order (pending_merchant)
     onOpenStruk: () -> Unit,
     onOpenChat: () -> Unit, // FB-119: chat customer↔merchant
-    onCallCustomer: () -> Unit // FB-124: telepon pelanggan
+    onCallCustomer: () -> Unit, // FB-124: telepon pelanggan
+    onMarkReady: () -> Unit // FB-125: tandai pesanan siap
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -552,6 +554,21 @@ private fun OrderCard(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Terima")
                     }
+                }
+            }
+
+            // FB-125: tombol "Pesanan Siap" saat order preparing (masak selesai).
+            // Merchant explicit tandai siap → mulai cari kurir (DoorDash-style).
+            if (order.status == "preparing") {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onMarkReady,
+                    enabled = !isActionLoading,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Pesanan Siap")
                 }
             }
 

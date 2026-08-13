@@ -754,6 +754,44 @@ func (s *merchantServiceImpl) RejectOrder(ctx context.Context, userID string, or
 	return nil
 }
 
+// MarkReady: merchant menandai order sudah siap (masak selesai) → status
+// preparing → searching (mulai cari kurir). FB-125: explicit "Pesanan Siap"
+// button (DoorDash-style Order Ready signal) sesuai best practice industri.
+// Order harus milik merchant & status preparing. Setelah DB update, proxy ke
+// order-service internal matching agar worker segera assign kurir.
+func (s *merchantServiceImpl) MarkReady(ctx context.Context, userID string, orderID string) error {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if err := s.orderRepo.MarkReady(ctx, m.ID, orderID); err != nil {
+		return err
+	}
+	// Jejak order event untuk customer/tracking
+	if evErr := s.orderRepo.RecordOrderEvent(ctx, orderID, "food_ready", "Pesanan sudah siap, mencari kurir"); evErr != nil {
+		log.Printf("[MerchantService] MarkReady: gagal catat order_events utk %s: %v", orderID, evErr)
+	}
+	// Proxy ke order-service agar worker segera mulai matching kurir (non-blocking).
+	go s.triggerOrderMatching(orderID)
+	return nil
+}
+
+// triggerOrderMatching: POST ke order-service internal matching endpoint agar
+// status searching segera diproses worker (cari kurir). Fire-and-forget.
+func (s *merchantServiceImpl) triggerOrderMatching(orderID string) {
+	orderServiceURL := strings.TrimSpace(os.Getenv("ORDER_SERVICE_URL"))
+	if orderServiceURL == "" || strings.Contains(orderServiceURL, "localhost") || strings.Contains(orderServiceURL, "127.0.0.1") {
+		orderServiceURL = "http://order-service:8083"
+	}
+	url := orderServiceURL + "/api/v1/internal/orders/matching?id=" + orderID
+	resp, err := http.Post(url, "application/json", nil)
+	if err != nil {
+		log.Printf("[MerchantService] triggerOrderMatching: gagal POST %s: %v", url, err)
+		return
+	}
+	defer resp.Body.Close()
+}
+
 // rejectReasonEnum — kode enum alasan reject merchant (FB-122).
 var rejectReasonEnum = map[string]string{
 	"stok_habis":    "Stok menu habis",

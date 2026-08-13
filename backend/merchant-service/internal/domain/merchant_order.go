@@ -8,7 +8,8 @@ import "context"
 type MerchantOrderRepository interface {
 	// AcceptOrder: status pending_merchant → preparing, set merchant_accepted_at.
 	AcceptOrder(ctx context.Context, merchantID, orderID string) error
-	// RejectOrder: status pending_merchant → cancelled_by_merchant + reason.
+	// MarkReady (FB-125): status preparing → searching (merchant tandai pesanan siap).
+	MarkReady(ctx context.Context, merchantID, orderID string) error
 	// FB-122: rejectReason adalah enum terstruktur (stok_habis/terlalu_sibuk/
 	// tutup_mendadak/lainnya) untuk analitik; reason label ramah customer.
 	RejectOrder(ctx context.Context, merchantID, orderID, reason, rejectReason string) error

@@ -518,7 +518,25 @@ func (h *MerchantHandler) AcceptOrder(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
-// UpdateBankAccount godoc
+// MarkReady godoc
+// @Summary Tandai pesanan siap (masak selesai) → mulai cari kurir
+// @Description Merchant menekan tombol "Pesanan Siap" (FB-125). Status preparing → searching.
+// @Tags merchant
+// @Param id path string true "Order ID"
+// @Success 200 {object} map[string]bool
+// @Router /merchant/orders/{id}/ready [post]
+func (h *MerchantHandler) MarkReady(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	orderID := r.PathValue("id")
+	if err := h.svc.MarkReady(r.Context(), userID, orderID); err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, map[string]bool{"success": true})
+}
 // @Summary Update rekening bank merchant
 // @Description Update rekening bank untuk payout settlement (FB-114).
 // @Tags merchant

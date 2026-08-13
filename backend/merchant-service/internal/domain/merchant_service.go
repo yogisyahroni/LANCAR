@@ -85,6 +85,10 @@ type MerchantService interface {
 	// FB-122: rejectReason enum terstruktur (stok_habis/terlalu_sibuk/
 	// tutup_mendadak/lainnya) untuk analitik.
 	RejectOrder(ctx context.Context, userID string, orderID string, reason string, rejectReason string) error
+	// MarkReady: merchant menandai order sudah siap (masak selesai) → status
+	// preparing → searching (mulai cari kurir). FB-125: explicit "Pesanan Siap"
+	// button (DoorDash-style Order Ready signal) sesuai best practice industri.
+	MarkReady(ctx context.Context, userID string, orderID string) error
 	// ListOrders list order food milik merchant (belum dikerjakan / riwayat).
 	ListOrders(ctx context.Context, userID string, status string, page, pageSize int) ([]*MerchantOrderView, int, error)
 	// GetStruk ambil data struk pembelian + QR code untuk dicetak (FOOD-BIKE-034).

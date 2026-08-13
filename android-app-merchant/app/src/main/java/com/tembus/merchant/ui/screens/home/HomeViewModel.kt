@@ -207,6 +207,24 @@ class HomeViewModel(
         }
     }
 
+    // FB-125: tandai pesanan siap (masak selesai) → mulai cari kurir.
+    fun markReady(orderId: String) {
+        _uiState.value = _uiState.value.copy(actionOrderId = orderId, actionError = null)
+        viewModelScope.launch {
+            merchantRepository.markReady(orderId)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(actionOrderId = null)
+                    loadOrders()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        actionOrderId = null,
+                        actionError = e.message ?: "Gagal tandai pesanan siap"
+                    )
+                }
+        }
+    }
+
     fun rejectOrder(orderId: String, reason: String, rejectReason: String) {
         _uiState.value = _uiState.value.copy(actionOrderId = orderId, actionError = null)
         viewModelScope.launch {

@@ -82,6 +82,10 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun acceptOrder(orderId: String): Result<Boolean> =
         request { api.acceptOrder(orderId) }.map { it.success }
 
+    // FB-125: tandai pesanan siap (masak selesai) → mulai cari kurir.
+    suspend fun markReady(orderId: String): Result<Boolean> =
+        request { api.markReady(orderId) }.map { it.success }
+
     suspend fun rejectOrder(orderId: String, reason: String, rejectReason: String = "lainnya"): Result<Boolean> =
         request { api.rejectOrder(orderId, RejectOrderRequest(reason, rejectReason)) }.map { it.success }
 
