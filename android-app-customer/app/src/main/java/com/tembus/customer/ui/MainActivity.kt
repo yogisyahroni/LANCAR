@@ -15,6 +15,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
+import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.model.AppVersion
 import com.tembus.customer.ui.components.UpdateDialog
 import com.tembus.customer.ui.screens.splash.CustomerLaunchSplash
@@ -31,11 +33,25 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var updateManager: UpdateManager
 
+    @Inject
+    lateinit var authRepository: com.tembus.customer.data.repository.AuthRepository
+
+    @Inject
+    lateinit var authSessionManager: com.tembus.customer.data.session.AuthSessionManager
+
     private var pendingDeepLinkUri by mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // ---- DEBUG-ONLY UAT harness (BuildConfig.DEBUG) ----
+        // Deep link: tembus://debug/uat/chat/{orderId}
+        // Auto-login with test credentials, then route into the food chat screen.
+        if (BuildConfig.DEBUG) {
+            handleDebugUatDeepLink()
+        }
+        // ---- END DEBUG-ONLY ----
 
         pendingDeepLinkUri = intent?.data
 
@@ -136,6 +152,44 @@ class MainActivity : FragmentActivity() {
         pendingDeepLinkUri = intent.data
         intent.data?.let { uri ->
             validateDeepLinkOrFinish(uri)
+        }
+    }
+
+    private fun handleDebugUatDeepLink() {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "tembus" || uri.host != "debug") return
+        val orderId = uri.lastPathSegment ?: return
+        if (!orderId.matches(Regex("^[a-zA-Z0-9-]+$"))) return
+
+        lifecycleScope.launch {
+            val result = runCatching {
+                authRepository.startPasswordLogin(
+                    email = "customer@tembus.id",
+                    password = "Customer123!"
+                )
+            }.getOrElse { e ->
+                android.util.Log.e("MainActivity", "UAT debug login failed: ${e.message}")
+                return@launch
+            }
+            result.onSuccess { resp ->
+                val token = resp.data?.token ?: resp.accessToken
+                val cid = resp.data?.customerId ?: resp.user?.id
+                if (!token.isNullOrBlank() && !cid.isNullOrBlank()) {
+                    authSessionManager.saveSessionSync(token, cid, resp.data?.name ?: resp.user?.name)
+                    // Rewrite deep link to the real chat route
+                    pendingDeepLinkUri = Uri.parse("tembus://orders/$orderId/chat")
+                    // Re-launch RootNavGraph with the new deep link by recreating the activity intent
+                    val chatIntent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                        data = Uri.parse("tembus://orders/$orderId/chat")
+                        flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }
+                    startActivity(chatIntent)
+                } else {
+                    android.util.Log.e("MainActivity", "UAT debug login: empty token/cid (requireOtp=${resp.requireOtp})")
+                }
+            }.onFailure { e ->
+                android.util.Log.e("MainActivity", "UAT debug login error: ${e.message}")
+            }
         }
     }
 

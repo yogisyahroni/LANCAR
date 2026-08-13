@@ -42,6 +42,7 @@ fun ChatScreen(
     courierName: String?,
     onInAppCallClick: () -> Unit,
     onBackClick: () -> Unit,
+    onOrderDetailClick: (String) -> Unit = {},
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -226,8 +227,8 @@ fun ChatScreen(
                     uiState.order?.let { order ->
                         FoodOrderSummaryCard(
                             order = order,
-                            onClick = { /* TODO: navigate to order detail */ },
-                            onDetailClick = { /* TODO: navigate to order detail */ }
+                            onClick = { onOrderDetailClick(order.orderId.ifBlank { order.orderNumber }) },
+                            onDetailClick = { onOrderDetailClick(order.orderId.ifBlank { order.orderNumber }) }
                         )
                     }
                 }
@@ -679,7 +680,7 @@ private fun FoodOrderSummaryCard(
     onDetailClick: () -> Unit
 ) {
     val items = order.foodItems ?: emptyList()
-    val itemCount = items.sumOf { it.quantity }
+    val itemCount = items.size
     val subtotal = items.sumOf { it.subtotal }
     val firstItemImageUrl = items.firstOrNull()?.let { /* TODO: add photo field to FoodOrderItem */ null }
 

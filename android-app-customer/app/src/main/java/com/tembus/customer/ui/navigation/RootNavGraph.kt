@@ -446,7 +446,7 @@ fun RootNavGraph(
                 val rawName = backStackEntry.arguments?.getString("name") ?: ""
                 val courierName = if (rawName.isNotBlank()) java.net.URLDecoder.decode(rawName, "UTF-8") else null
                 val chatVm: ChatViewModel = hiltViewModel()
-                ChatScreen(orderId = orderId, courierName = courierName, onInAppCallClick = { navController.navigate(Screen.InAppCall.createRoute(orderId, courierName, "outgoing")) }, onBackClick = { navController.popBackStack() }, viewModel = chatVm)
+                ChatScreen(orderId = orderId, courierName = courierName, onInAppCallClick = { navController.navigate(Screen.InAppCall.createRoute(orderId, courierName, "outgoing")) }, onBackClick = { navController.popBackStack() }, onOrderDetailClick = { detailOrderId -> navController.navigate(Screen.OrderDetail.createRoute(detailOrderId)) }, viewModel = chatVm)
             }
 
             composable(Screen.InAppCall.route, arguments = listOf(navArgument("orderId") { type = NavType.StringType }, navArgument("name") { type = NavType.StringType; nullable = true; defaultValue = "" }, navArgument("state") { type = NavType.StringType; nullable = true; defaultValue = "outgoing" }, navArgument("callId") { type = NavType.StringType; nullable = true; defaultValue = "" })) { backStackEntry ->

@@ -83,6 +83,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tembus" android:host="order" />
                 <data android:scheme="tembus" android:host="orders" />
+                <data android:scheme="tembus" android:host="debug" />
             </intent-filter>
         </activity>
 
