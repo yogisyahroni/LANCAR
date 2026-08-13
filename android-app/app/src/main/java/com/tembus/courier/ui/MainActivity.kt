@@ -22,6 +22,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.tembus.courier.data.repository.FCMTokenRepository
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.data.session.AuthSessionManager
+import com.tembus.courier.data.api.TEMBUSApiService
+import com.tembus.courier.data.model.LoginRequest
 import com.tembus.courier.service.LocationTrackerService
 import com.tembus.courier.ui.screens.MainScreen
 import com.tembus.courier.ui.screens.auth.LoginScreen
@@ -30,6 +32,7 @@ import com.tembus.courier.ui.components.UpdateDialog
 import com.tembus.courier.data.model.AppVersion
 import com.tembus.courier.util.FirebaseInitializer
 import com.tembus.courier.util.UpdateManager
+import com.tembus.courier.BuildConfig
 
 
 import dagger.hilt.android.AndroidEntryPoint
@@ -68,11 +71,12 @@ class MainActivity : FragmentActivity() {
     
     @Inject
     lateinit var authSessionManager: AuthSessionManager
-    
+
+    @Inject
+    lateinit var apiService: TEMBUSApiService
+
     @Inject
     lateinit var updateManager: UpdateManager
-
-
     // Reactive state flows for deterministic notification deep-linking
     private val selectedOrderIdFlow = MutableStateFlow<String?>(null)
     private val selectedChatOrderIdFlow = MutableStateFlow<String?>(null)
@@ -89,6 +93,12 @@ class MainActivity : FragmentActivity() {
 
         // Ingest startup deep-links
         processIntentExtras(intent)
+
+        // ---- DEBUG-ONLY UAT harness (BuildConfig.DEBUG) ----
+        if (BuildConfig.DEBUG) {
+            handleDebugUatDeepLink()
+        }
+        // ---- END DEBUG-ONLY ----
 
         // 🎨 VISUAL ELEVATION: Enable transparent edge-to-edge Canvas
         enableEdgeToEdge()
@@ -324,4 +334,38 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+
+    // ---- DEBUG-ONLY UAT harness (BuildConfig.DEBUG) ----
+    private fun handleDebugUatDeepLink() {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "tembus" || uri.host != "debug") return
+        val orderId = uri.lastPathSegment ?: return
+        if (!orderId.matches(Regex("^[a-zA-Z0-9-]+$"))) return
+
+        activityScope.launch {
+            runCatching {
+                val resp = apiService.login(
+                    LoginRequest(
+                        username = "raka.pickup@tembus.id",
+                        password = "kurir123",
+                        deviceId = "android:emu-uat",
+                        deviceInfo = emptyMap()
+                    )
+                )
+                val body = resp.body()
+                val data = body?.data
+                val token = data?.token
+                val cid = data?.courierId
+                if (!token.isNullOrBlank() && !cid.isNullOrBlank()) {
+                    authSessionManager.saveSession(token, cid, data?.name ?: "")
+                    selectedChatOrderIdFlow.value = orderId
+                } else {
+                    Log.e("MainActivity", "UAT debug login: empty token/cid")
+                }
+            }.onFailure { e ->
+                Log.e("MainActivity", "UAT debug login error: ${e.message}")
+            }
+        }
+    }
+    // ---- END DEBUG-ONLY ----
 }

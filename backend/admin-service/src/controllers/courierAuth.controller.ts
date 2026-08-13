@@ -941,11 +941,11 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          LEFT JOIN delivery_service_products dsp ON dsp.code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
          LEFT JOIN users c ON c.id = o.customer_id
          LEFT JOIN driver_tips dt ON dt.order_id = o.id
-       WHERE ol.courier_id = $1
+         WHERE ol.courier_id = $1
        ORDER BY o.id, o.sequence_no ASC NULLS FIRST, o.created_at ASC
        LIMIT 100`,
-      [req.user.id]
-    );
+       [req.user.id]
+       );
 
     res.json({
       success: true,
