@@ -487,6 +487,9 @@ func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, r
 			PlatformFeeIDR:         estimate.PlatformFeeIDR,
 			PlatformFeePct:         estimate.PlatformFeePct,
 			PromoSubsidyIDR:        estimate.PromoSubsidyIDR,
+			// FK tax_rules — set default PPN_11 (valid) supaya insert tidak
+			// melanggar orders_tax_rule_code_fkey (empty string ≠ NULL).
+			TaxRuleCode:            "PPN_11",
 			HandoverToken:          handoverToken,
 			QRCodeURL:              qrURL,
 			BatchID:                &batchID,
