@@ -28,8 +28,12 @@ INSERT INTO feature_flags (key, is_enabled, description, category) VALUES
 ON CONFLICT (key) DO UPDATE SET is_enabled = EXCLUDED.is_enabled;
 
 -- 3) Courier seed untuk nearby-couriers (tambal_ban / towing).
---    Update courier yang sudah ada (451aba68) jadi online + dekat pickup +
---    izinkan tambal_ban & towing. Jika belum ada, insert baru.
+--    Insert dulu user dummy (idempoten) supaya FK user_id terpenuhi di
+--    fresh DB (CI migration test), lalu insert/update courier_profiles.
+INSERT INTO users (id, phone_number, full_name, role, status) VALUES
+  ('00000000-0000-0000-0000-000000000001', '000000000001', 'UAT Courier Seed', 'courier', 'active')
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO courier_profiles (
   id, user_id, vehicle_type, current_lat, current_lng,
   is_online, verification_status, allows_tambal_ban, allows_towing,
