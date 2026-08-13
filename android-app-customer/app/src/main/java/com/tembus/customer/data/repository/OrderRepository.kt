@@ -253,6 +253,7 @@ class OrderRepository @Inject constructor(
                         customerName = trackingOrder.recipientName.orEmpty(),
                         status = trackingOrder.status,
                         courierName = trackingOrder.courierName,
+                        courierPhotoUrl = trackingOrder.courierPhotoUrl,
                         courierVehicle = trackingOrder.courierVehicle,
                         courierPlate = trackingOrder.courierPlate,
                         courierPhone = trackingOrder.courierPhone,

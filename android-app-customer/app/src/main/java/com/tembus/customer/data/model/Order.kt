@@ -99,6 +99,11 @@ data class Order(
     @SerialName("courier_name")
     var courierName: String? = null,
 
+    // FB-113: URL foto profil kurir, untuk header chat food.
+    @ColumnInfo(name = "courier_photo_url")
+    @SerialName("courier_photo_url")
+    var courierPhotoUrl: String? = null,
+
     // FOOD-BIKE-060: nama merchant (food delivery), untuk dialog rating merchant
     @ColumnInfo(name = "merchant_name")
     @SerialName("merchant_name")
@@ -153,6 +158,10 @@ data class FoodOrderItem(
     val price: Long = 0,
     @SerialName("subtotal")
     val subtotal: Long = 0,
+    // FB-113: URL foto menu item (dari merchant_menu_items.foto),
+    // dipakai thumbnail di kartu ringkasan pesanan food.
+    @SerialName("photo_url")
+    val photo: String? = null,
     // FB-108: pilihan varian yang dipilih customer saat order
     // (mis. [Level Pedas → Extra Pedas]).
     @SerialName("variants")

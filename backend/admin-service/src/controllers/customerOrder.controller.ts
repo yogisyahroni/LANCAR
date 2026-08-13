@@ -2894,7 +2894,8 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
              COALESCE(o.service_sub_type, '') AS service_sub_type,
              COALESCE(m.nama_toko, '') AS merchant_name,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate,
-             cp.avg_partner_rating as courier_rating, NULL::text as courier_phone
+             cp.avg_partner_rating as courier_rating, NULL::text as courier_phone,
+             u.photo_url AS courier_photo_url
       FROM orders o
       LEFT JOIN merchants m ON m.id = o.merchant_id
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
@@ -2979,6 +2980,7 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
              foi.notes,
              foi.item_price AS price,
              foi.subtotal,
+             mm.foto AS photo_url,
              COALESCE((
                SELECT jsonb_agg(jsonb_build_object(
                  'variant_id', foiv.variant_id,
@@ -2990,6 +2992,7 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
                WHERE foiv.order_item_id = foi.id
              ), '[]'::jsonb) AS variants
       FROM food_order_items foi
+      LEFT JOIN merchant_menu_items mm ON mm.id = foi.menu_item_id
       WHERE order_id = $1
       ORDER BY foi.id ASC
     `, [id]);

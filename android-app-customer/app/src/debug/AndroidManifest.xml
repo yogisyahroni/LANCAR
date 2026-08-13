@@ -1,16 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <application>
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.updateprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/update_file_paths" />
-        </provider>
-    </application>
+    <!-- DEBUG-ONLY: override network security config supaya foto UAT bisa di-load
+         dari local image server (cleartext http://10.0.2.2:8899). Tidak masuk release. -->
+    <application
+        tools:replace="android:networkSecurityConfig"
+        android:networkSecurityConfig="@xml/network_security_config" />
 </manifest>

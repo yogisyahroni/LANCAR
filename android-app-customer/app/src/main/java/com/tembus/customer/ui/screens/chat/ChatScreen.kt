@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,6 +33,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.ChatMessage
 import com.tembus.customer.ui.theme.Primary
 import coil.compose.AsyncImage
+import com.tembus.customer.R
+import com.tembus.customer.BuildConfig
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -102,22 +105,43 @@ fun ChatScreen(
                     if (showFoodOrderContext && uiState.order != null) {
                         // Food order header with driver info
                         val courierName = uiState.order?.courierName ?: "Kurir Anda"
-                        // TODO: add courierPhotoUrl to Order model when API provides it
-                        val courierPhotoUrl: String? = null
+                        // FB-113: di DEBUG, foto di-serve dari local image server
+                        // (docker nginx :8899) karena emulator staging tdk punya akses
+                        // HTTPS eksternal ke api.bawain.my.id. Produksi tetap URL API.
+                        val courierPhotoUrl = if (BuildConfig.DEBUG)
+                            "http://10.0.2.2:8899/courier.png"
+                        else uiState.order?.courierPhotoUrl
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             // Driver photo
-                            AsyncImage(
-                                model = courierPhotoUrl,
-                                contentDescription = "Foto kurir",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFF3F4F6))
-                            )
+                            if (courierPhotoUrl != null) {
+                                AsyncImage(
+                                    model = courierPhotoUrl,
+                                    contentDescription = "Foto kurir",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF3F4F6))
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF3F4F6)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Kurir",
+                                        tint = Color(0xFF9CA3AF),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
                             Column {
                                 Text(
                                     text = courierName,
@@ -682,7 +706,11 @@ private fun FoodOrderSummaryCard(
     val items = order.foodItems ?: emptyList()
     val itemCount = items.size
     val subtotal = items.sumOf { it.subtotal }
-    val firstItemImageUrl = items.firstOrNull()?.let { /* TODO: add photo field to FoodOrderItem */ null }
+    // FB-113: di DEBUG foto di-serve dari local image server (docker nginx :8899)
+    // karena emulator staging tdk akses HTTPS eksternal. Produksi: URL asli per item.
+    val firstItemImageUrl = if (BuildConfig.DEBUG)
+        "http://10.0.2.2:8899/food.png"
+    else items.firstOrNull()?.photo
 
     // Status mapping based on order status
     val statusText = when (order.status?.lowercase()) {
@@ -724,16 +752,25 @@ private fun FoodOrderSummaryCard(
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFFF3F4F6))
                 ) {
-                    // TODO: Load actual food image when API provides photo field
-                    // AsyncImage(model = firstItemImageUrl, contentDescription = "Food thumbnail", ...)
-                    Icon(
-                        imageVector = Icons.Default.Fastfood,
-                        contentDescription = "Food",
-                        tint = Color(0xFF9CA3AF),
-                        modifier = Modifier
-                            .size(28.dp)
-                            .align(Alignment.Center)
-                    )
+                    if (firstItemImageUrl != null) {
+                        AsyncImage(
+                            model = firstItemImageUrl,
+                            contentDescription = "Foto makanan",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            placeholder = painterResource(R.drawable.ic_food_placeholder),
+                            error = painterResource(R.drawable.ic_food_placeholder)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Fastfood,
+                            contentDescription = "Food",
+                            tint = Color(0xFF9CA3AF),
+                            modifier = Modifier
+                                .size(28.dp)
+                                .align(Alignment.Center)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
