@@ -18,6 +18,10 @@ data class CourierOrderFoodItem(
     val quantity: Int = 1,
     @SerialName("notes")
     val notes: String? = null,
+    @SerialName("photo_url")
+    val photo: String? = null,
+    @SerialName("price")
+    val price: Int = 0,
     // FB-108: pilihan varian yang dipilih customer (mis. "Level Pedas: Extra
     // Pedas") — driver harus tahu persis apa yang diserah terima merchant.
     @SerialName("variants")
@@ -269,6 +273,10 @@ data class Order(
     @ColumnInfo(name = "customer_name")
     @SerialName("customer_name")
     val customerName: String = "",
+
+    @ColumnInfo(name = "customer_photo_url")
+    @SerialName("customer_photo_url")
+    val customerPhotoUrl: String = "",
 
     /**
      * Order status: pending, assigned, picked_up, in_transit, delivered, failed

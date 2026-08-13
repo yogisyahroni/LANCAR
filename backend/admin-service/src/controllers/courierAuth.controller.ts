@@ -884,6 +884,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
              'quantity', foi.quantity,
              'notes', foi.notes,
              'price', foi.item_price,
+             'photo_url', COALESCE(mm.foto, ''),
              'variants', COALESCE((
                SELECT jsonb_agg(jsonb_build_object(
                  'variant_name', foiv.variant_name,
@@ -895,6 +896,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
              ), '[]'::jsonb)
            ) ORDER BY foi.id)
            FROM food_order_items foi
+           LEFT JOIN merchant_menu_items mm ON mm.id = foi.menu_item_id
            WHERE foi.order_id = o.id
          ), '[]'::jsonb) AS food_items,
          NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
@@ -902,6 +904,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          NULLIF(o.package_details->>'height_cm', '')::float8 AS height,
          NULLIF(o.package_details->>'weight_kg', '')::float8 AS weight,
          COALESCE(c.full_name, 'Customer') AS customer_name,
+        COALESCE(c.photo_url, '') AS customer_photo_url,
          COALESCE(ol.status, o.status) AS status,
          (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
          (EXTRACT(EPOCH FROM GREATEST(o.updated_at, ol.updated_at)) * 1000)::bigint AS updated_at,
@@ -1058,6 +1061,7 @@ const mobileOrderSelect = `
       'quantity', foi.quantity,
       'notes', foi.notes,
       'price', foi.item_price,
+      'photo_url', COALESCE(mm.foto, ''),
       'variants', COALESCE((
         SELECT jsonb_agg(jsonb_build_object(
           'variant_name', foiv.variant_name,
@@ -1069,6 +1073,7 @@ const mobileOrderSelect = `
       ), '[]'::jsonb)
     ) ORDER BY foi.id)
     FROM food_order_items foi
+    LEFT JOIN merchant_menu_items mm ON mm.id = foi.menu_item_id
     WHERE foi.order_id = o.id
   ), '[]'::jsonb) AS food_items,
   NULLIF(o.package_details->>'length_cm', '')::float8 AS length,

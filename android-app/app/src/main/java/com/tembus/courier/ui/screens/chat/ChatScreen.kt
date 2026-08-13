@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -29,9 +31,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.tembus.courier.data.model.ChatMessage
+import com.tembus.courier.data.model.Order
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.Secondary
+import com.tembus.courier.BuildConfig
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -45,6 +50,7 @@ fun ChatScreen(
     isDeliveryGroup: Boolean = false,
     onCallClick: () -> Unit = {},
     onBackClick: () -> Unit,
+    order: Order? = null,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -94,18 +100,37 @@ fun ChatScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = effectiveTitle,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = effectiveSubtitle,
-                            fontSize = 12.sp,
-                            color = Color.LightGray
-                        )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // FB-113: foto customer (yang di-chat kurir) — dari API
+                        val customerPhoto = if (BuildConfig.DEBUG)
+                            "http://10.0.2.2:8899/courier.png"
+                        else order?.customerPhotoUrl?.takeIf { it.isNotBlank() }
+                        if (customerPhoto != null) {
+                            AsyncImage(
+                                model = customerPhoto,
+                                contentDescription = "Foto ${order?.customerName ?: "Customer"}",
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(20.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.Start) {
+                            Text(
+                                text = effectiveTitle,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = Color.White
+                            )
+                            Text(
+                                text = effectiveSubtitle,
+                                fontSize = 12.sp,
+                                color = Color.LightGray
+                            )
+                        }
                     }
                 },
                 navigationIcon = {
@@ -142,6 +167,15 @@ fun ChatScreen(
                 DeliveryGroupContextBanner(
                     notice = conversation?.visibilityNotice,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
+
+            // FB-113: food order summary card (parity dgn customer app) saat order food
+            val foodItems = order?.foodItems
+            if (!foodItems.isNullOrEmpty()) {
+                CourierFoodOrderCard(
+                    order = order,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
 
@@ -260,6 +294,88 @@ fun ChatScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * FB-113: Kartu ringkasan pesanan food di chat kurir (parity dgn customer app).
+ * Menampilkan customer, jumlah item, total, dan foto makanan (dari API).
+ */
+@Composable
+private fun CourierFoodOrderCard(
+    order: Order?,
+    modifier: Modifier = Modifier
+) {
+    if (order == null) return
+    val items = order.foodItems
+    val itemCount = items.size
+    val subtotal = items.sumOf { it.price }
+    val firstItemImageUrl = if (BuildConfig.DEBUG)
+        "http://10.0.2.2:8899/food.png"
+    else items.firstOrNull()?.photo
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(modifier = Modifier.padding(12.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFF3F4F6))
+            ) {
+                if (firstItemImageUrl != null) {
+                    AsyncImage(
+                        model = firstItemImageUrl,
+                        contentDescription = "Foto makanan",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Pesanan Food",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+                Text(
+                    text = order.customerName.ifBlank { "Customer" },
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = Color(0xFF111827)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "$itemCount produk • Rp ${String.format("%,d", subtotal)}",
+                    fontSize = 13.sp,
+                    color = Color(0xFF374151)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Primary.copy(alpha = 0.12f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "$itemCount",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Primary
+                )
             }
         }
     }

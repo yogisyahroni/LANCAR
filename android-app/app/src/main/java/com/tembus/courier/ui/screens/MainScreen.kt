@@ -824,7 +824,8 @@ fun MainScreen(
             },
             onBackClick = {
                 backToOrderOrHome()
-            }
+            },
+            order = order
         )
         return
     }
