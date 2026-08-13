@@ -564,3 +564,38 @@ jobs:
             - Commit: ${{ github.sha }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-telegram:
+    name: Notify Telegram (Mobile)
+    needs: [build-android, create-release]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram Notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "⏭️ Telegram credentials not set, skipping notification."
+            exit 0
+          fi
+
+          BUILD="${{ needs.build-android.result }}"
+          RELEASE="${{ needs.create-release.result }}"
+
+          if [ "${BUILD}" == "success" ] && [ "${RELEASE}" == "success" ]; then
+            STATUS="✅ *SUCCESS*"
+            MESSAGE="📱 *Mobile Apps* (Courier, Customer, Merchant) berhasil di-build & di-release ke *Staging*.\n\n🔗 Release: https://github.com/${{ github.repository }}/releases/tag/v1.0.${{ github.run_number }}\nSHA: \`${{ github.sha }}\`"
+          elif [ "${BUILD}" == "failure" ]; then
+            STATUS="🚨 *BUILD FAILED*"
+            MESSAGE="⚠️ Build salah satu Mobile App (Courier/Customer/Merchant) gagal di Staging.\n\nMohon periksa log di GitHub Actions.\nSHA: \`${{ github.sha }}\`"
+          else
+            STATUS="⚠️ *RELEASE FAILED*"
+            MESSAGE="✅ Build sukses, namun GitHub Release gagal. Mohon cek logs.\nSHA: \`${{ github.sha }}\`"
+          fi
+
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "parse_mode=Markdown" \
+            -d "text=${STATUS}%0A${MESSAGE}"
