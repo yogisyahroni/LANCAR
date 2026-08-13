@@ -2,6 +2,8 @@
 
 Aplikasi Android untuk merchant/mitra TEMBUS (FOOD-BIKE-028/036/049).
 
+<!-- ci-trigger: test Telegram notify (android-apps.yml) 2026-08-14 -->
+
 ## Fitur
 - Login (endpoint auth generic)
 - Onboarding 4 halaman
