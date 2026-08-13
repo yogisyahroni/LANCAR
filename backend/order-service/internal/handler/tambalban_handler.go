@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
 	"tembus/order-service/internal/service"
@@ -35,31 +36,44 @@ func NewTambalBanHandler(
 // Find nearby couriers for a specific service
 // ============================================================
 func (h *TambalBanHandler) GetNearbyCouriers(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Lat            float64 `json:"lat"`
-		Lng            float64 `json:"lng"`
-		ServiceSubType string  `json:"service_sub_type"`
-		RadiusKM       float64 `json:"radius_km"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "Invalid request body",
+	var (
+		latStr  = r.URL.Query().Get("lat")
+		lngStr  = r.URL.Query().Get("lng")
+		subType = r.URL.Query().Get("service_sub_type")
+		radius  = r.URL.Query().Get("radius_km")
+	)
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err != nil || lat == 0 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "lat query param wajib (float)",
 			middleware.GetCorrelationID(r.Context()))
 		return
 	}
-
-	if req.RadiusKM == 0 {
-		req.RadiusKM = 5.0
+	lng, err := strconv.ParseFloat(lngStr, 64)
+	if err != nil || lng == 0 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "lng query param wajib (float)",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if subType == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_SERVICE", "service_sub_type query param wajib",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	radiusKM := 5.0
+	if radius != "" {
+		if parsed, perr := strconv.ParseFloat(radius, 64); perr == nil && parsed > 0 {
+			radiusKM = parsed
+		}
 	}
 
 	// Validate service sub type
-	if !service.IsTambalBanOrTowing(req.ServiceSubType) {
+	if !service.IsTambalBanOrTowing(subType) {
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_SERVICE", "Invalid service sub type",
 			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
-	result, err := h.availabilitySvc.FindAvailableCouriers(r.Context(), req.ServiceSubType, req.Lat, req.Lng, req.RadiusKM)
+	result, err := h.availabilitySvc.FindAvailableCouriers(r.Context(), subType, lat, lng, radiusKM)
 	if err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to find couriers",
 			middleware.GetCorrelationID(r.Context()))

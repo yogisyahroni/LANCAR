@@ -324,7 +324,7 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
       ACTIVE_OTP_PROVIDER: ${ACTIVE_OTP_PROVIDER:-zenziva}
       ACTIVE_PAYMENT_PROVIDER: ${ACTIVE_PAYMENT_PROVIDER:-midtrans}
-      ACTIVE_MAPS_PROVIDER: ${ACTIVE_MAPS_PROVIDER:-tomtom}
+      ACTIVE_MAPS_PROVIDER: stub
       ZENZIVA_BASE_URL: ${ZENZIVA_BASE_URL:-}
       ZENZIVA_USER_KEY: ${ZENZIVA_USER_KEY:-}
       ZENZIVA_API_KEY: ${ZENZIVA_API_KEY:-}
@@ -517,6 +517,8 @@ services:
       READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ORDER_PORT: ${ORDER_PORT:-8083}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
+      INTEGRATION_GATEWAY_URL: ${INTEGRATION_GATEWAY_URL:-http://integration-gateway:8085}
       TOMTOM_SERVER_API_KEY: ${TOMTOM_SERVER_API_KEY:-}
       TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
       TOMTOM_ROUTING_API_URL: ${TOMTOM_ROUTING_API_URL:-https://api.tomtom.com/routing/1}

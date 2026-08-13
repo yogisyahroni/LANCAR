@@ -49,6 +49,8 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Data tidak ditemukan", correlationID)
 	case errors.Is(err, domain.ErrForbidden):
 		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Akses ditolak", correlationID)
+	case errors.Is(err, domain.ErrForbiddenItem):
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN_ITEM", "Barang ini tidak dapat dikirim melalui layanan TEMBUS.", correlationID)
 	case errors.Is(err, domain.ErrConflict):
 		middleware.WriteError(w, http.StatusConflict, "ERR_CONFLICT", "Operasi konflik. Coba lagi.", correlationID)
 	case errors.Is(err, domain.ErrInvalidEstimate):

@@ -148,9 +148,9 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		    COALESCE(cp.radius_max_km, 1) as radius_max_km,
 		    (
 		        6371 * acos(
-		            cos(radians($1)) * cos(radians(cp.latitude)) *
-		            cos(radians(cp.longitude) - radians($2)) +
-		            sin(radians($1)) * sin(radians(cp.latitude))
+		            cos(radians($1)) * cos(radians(cp.current_lat)) *
+		            cos(radians(cp.current_lng) - radians($2)) +
+		            sin(radians($1)) * sin(radians(cp.current_lat))
 		        )
 		    ) as distance_km
 		FROM courier_profiles cp
@@ -160,14 +160,14 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		    AND csp.service_code = $3
 		    AND csp.is_active = TRUE
 		WHERE 
-		    cp.status = 'active'
+		    cp.verification_status = 'approved'
 		    AND cp.is_online = TRUE
 		    AND ($4 = ANY(cp.service_categories) OR cp.allows_tambal_ban = TRUE OR cp.allows_towing = TRUE)
 		    AND (
 		        6371 * acos(
-		            cos(radians($1)) * cos(radians(cp.latitude)) *
-		            cos(radians(cp.longitude) - radians($2)) +
-		            sin(radians($1)) * sin(radians(cp.latitude))
+		            cos(radians($1)) * cos(radians(cp.current_lat)) *
+		            cos(radians(cp.current_lng) - radians($2)) +
+		            sin(radians($1)) * sin(radians(cp.current_lat))
 		        )
 		    ) <= $5`
 
@@ -180,9 +180,9 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		    AND cp.radius_max_km IS NOT NULL
 		    AND cp.radius_max_km >= (
 		        6371 * acos(
-		            cos(radians($1)) * cos(radians(cp.latitude)) *
-		            cos(radians(cp.longitude) - radians($2)) +
-		            sin(radians($1)) * sin(radians(cp.latitude))
+		            cos(radians($1)) * cos(radians(cp.current_lat)) *
+		            cos(radians(cp.current_lng) - radians($2)) +
+		            sin(radians($1)) * sin(radians(cp.current_lat))
 		        )
 		    )`
 	}

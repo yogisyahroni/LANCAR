@@ -139,8 +139,11 @@ type CourierInfo struct {
 type CreateOrderRequest struct {
 	EstimateID      string `json:"estimate_id" validate:"required"` // For on-demand, or tariff ID for 3PL
 	ItemDescription string `json:"item_description" validate:"required,min=5"`
-	ItemImageURL    string `json:"item_image_url,omitempty"`
-	IsScheduled     bool   `json:"is_scheduled"`
+	// Category barang: document, electronic, food, fragile, dll.
+	// Nilai terlarang (gas, chemical, weapon, flammable, explosive) dicegah (TC-LOG-005).
+	Category      string `json:"category,omitempty"`
+	ItemImageURL  string `json:"item_image_url,omitempty"`
+	IsScheduled   bool   `json:"is_scheduled"`
 	// Logistics fields (optional if using on-demand)
 	LogisticsProvider    string  `json:"logistics_provider,omitempty"`
 	LogisticsServiceType string  `json:"logistics_service_type,omitempty"`

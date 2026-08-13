@@ -114,6 +114,12 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		return nil, errors.New("logistics_provider is not allowed for on-demand orders. use payment link for 3PL.")
 	}
 
+	// TC-LOG-005: cegah order dengan kategori barang terlarang (gas, chemical,
+	// weapon, flammable, explosive). Validasi case-insensitive.
+	if err := validateItemCategory(req.Category, req.ItemDescription); err != nil {
+		return nil, err
+	}
+
 	// ─────────────────────────────────────────────────────────────────────────
 	// PATH B: On-Demand Order (original flow)
 	// ─────────────────────────────────────────────────────────────────────────
@@ -1920,6 +1926,25 @@ func validateFoodDeliveryDistance(distanceKM float64) error {
 	const foodMaxRadiusKM = 20.0
 	if distanceKM > foodMaxRadiusKM {
 		return fmt.Errorf("jarak pengantaran %.1f km melebihi radius maksimum kurir (%.0f km) — pilih merchant yang lebih dekat atau alamat antar yang lain", distanceKM, foodMaxRadiusKM)
+	}
+	return nil
+}
+
+// validateItemCategory — TC-LOG-005: cegah order dengan kategori/deskripsi
+// barang terlarang (gas, chemical, weapon, flammable, explosive, dll).
+// Case-insensitive. Cek baik field `category` eksplisit maupun kata kunci
+// berbahaya di `item_description` (defense-in-depth).
+func validateItemCategory(category, description string) error {
+	forbidden := []string{
+		"gas", "gas lpg", "elpiji", "chemical", "kimia", "weapon", "senjata",
+		"gun", "pistol", "flammable", "mudah terbakar", "explosive", "peledak",
+		"bahan peledak", "radioactive", "radioaktif", "toxic", "beracun", "drugs", "narkoba",
+	}
+	hay := strings.ToLower(strings.TrimSpace(category)) + " " + strings.ToLower(strings.TrimSpace(description))
+	for _, f := range forbidden {
+		if strings.Contains(hay, f) {
+			return domain.ErrForbiddenItem
+		}
 	}
 	return nil
 }
