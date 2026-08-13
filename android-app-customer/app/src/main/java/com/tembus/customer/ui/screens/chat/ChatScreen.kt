@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -159,10 +161,16 @@ fun ChatScreen(
             }
 
             AnimatedVisibility(visible = showFoodOrderContext) {
-                FoodOrderSummaryCard(
-                    order = uiState.order!!,
-                    onClick = { /* TODO: navigate to order detail */ }
-                )
+                if (uiState.isLoading && uiState.order == null) {
+                    FoodOrderSummaryCardSkeleton()
+                } else {
+                    uiState.order?.let { order ->
+                        FoodOrderSummaryCard(
+                            order = order,
+                            onClick = { /* TODO: navigate to order detail */ }
+                        )
+                    }
+                }
             }
 
             // Layer 1: Main Chat Area
@@ -550,7 +558,9 @@ private fun FoodOrderSummaryCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         color = Color.White,
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.10f))
@@ -597,6 +607,7 @@ private fun FoodOrderSummaryCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 items.take(3).forEachIndexed { index, item ->
+                    val hasVariants = (item.variants ?: emptyList()).isNotEmpty()
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -605,7 +616,37 @@ private fun FoodOrderSummaryCard(
                             .background(Color(0xFFF5F7FA))
                             .clip(RoundedCornerShape(10.dp))
                     ) {
-                        // Placeholder untuk gambar item
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = item.name.take(12),
+                                color = Color(0xFF374151),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center
+                            )
+                            if (hasVariants) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                        .background(Primary.copy(alpha = 0.15f))
+                                        .clip(RoundedCornerShape(4.dp))
+                                ) {
+                                    Text(
+                                        text = "+${item.variants.size} varian",
+                                        color = Primary,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 if (items.size > 3) {
@@ -638,12 +679,12 @@ private fun FoodOrderSummaryCard(
 
 @Composable
 private fun FoodOrderSummaryCardSkeleton() {
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        color = Color.White,
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.10f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
