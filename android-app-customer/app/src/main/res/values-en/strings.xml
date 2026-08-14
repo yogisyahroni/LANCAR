@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">Tembus</string>
     <!-- C7: English (en) -->
     <string name="language">Language</string>
     <string name="language_indonesian">Bahasa Indonesia</string>

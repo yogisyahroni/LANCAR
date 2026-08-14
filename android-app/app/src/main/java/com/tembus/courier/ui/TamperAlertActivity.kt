@@ -43,7 +43,15 @@ class TamperAlertActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+        // SECURITY: anti-tamper screen must not be dismissable via back.
+        // Use a disabled OnBackPressedCallback (modern API) instead of
+        // overriding onBackPressed() without super, which trips MissingSuperCall.
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                // intentionally disabled — back press is swallowed
+            }
+        })
+
         // Play Alarm Sound
         playAlarm()
 
@@ -164,10 +172,6 @@ class TamperAlertActivity : ComponentActivity() {
 
     private fun startGpsPolling() {
         handler.post(gpsCheckRunnable)
-    }
-
-    override fun onBackPressed() {
-        // DO NOTHING to prevent user from closing the screen
     }
 
     override fun onDestroy() {

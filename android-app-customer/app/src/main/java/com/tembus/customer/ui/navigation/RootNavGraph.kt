@@ -2,6 +2,8 @@ package com.tembus.customer.ui.navigation
 
 import android.net.Uri
 import android.widget.Toast
+import androidx.core.content.ContextCompat
+import android.Manifest
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -249,6 +251,15 @@ fun RootNavGraph(
                 var userLng by remember { mutableStateOf<Double?>(null) }
                 LaunchedEffect(Unit) {
                     val fused = LocationServices.getFusedLocationProviderClient(context)
+                    val hasLocationPermission = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    if (!hasLocationPermission) {
+                        userLat = -6.2088
+                        userLng = 106.8456
+                        return@LaunchedEffect
+                    }
                     try {
                         fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                             .addOnSuccessListener { loc ->

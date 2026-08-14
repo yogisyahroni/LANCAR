@@ -171,7 +171,11 @@ fun StrukScreen(
 
 @Composable
 private fun PrinterPickerDialog(onDismiss: () -> Unit, onPick: (BluetoothDevice) -> Unit) {
-    val printers = remember { EscPos.pairedPrinters() }
+    val context = LocalContext.current
+    val hasBt = Build.VERSION.SDK_INT < 31 ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+    val printers = remember { if (hasBt) EscPos.pairedPrinters(context) else emptyList() }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Pilih Printer Bluetooth") },

@@ -3,6 +3,10 @@ package com.tembus.merchant.data.printer
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import com.tembus.merchant.data.model.StrukData
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
@@ -28,33 +32,35 @@ object EscPos {
 
     // ─── Daftar printer paired ──────────────────────────────────────────
     /** Semua perangkat Bluetooth yang sudah di-pairing (filter printer ringan). */
-    fun pairedPrinters(): List<BluetoothDevice> {
+    fun pairedPrinters(context: Context): List<BluetoothDevice> {
+        if (Build.VERSION.SDK_INT >= 31 &&
+            ContextCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return emptyList()
+        }
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return emptyList()
-        val bonded = adapter.bondedDevices ?: return emptyList()
-        return bonded.filter { looksLikePrinter(it) }
-            .sortedBy { it.name ?: "" }
+        return try {
+            val bonded = adapter.bondedDevices ?: return emptyList()
+            bonded.filter { d ->
+                val major = d.bluetoothClass?.majorDeviceClass ?: 0
+                val isPrinterClass = major == 0x700 || major == 0x600
+                if (isPrinterClass) return@filter true
+                val name = d.name ?: ""
+                name.contains("printer") || name.contains("thermal") ||
+                    name.contains("struk") || name.contains("pos") ||
+                    name.contains("58") || name.contains("80")
+            }.sortedBy { it.name ?: "" }
+        } catch (_: SecurityException) {
+            emptyList()
+        }
     }
-
-    /** Heuristik: major class printer/imager ATAU nama mengandung kata printer. */
-    private fun looksLikePrinter(d: BluetoothDevice): Boolean {
-        val major = (d.bluetoothClass?.majorDeviceClass ?: 0)
-        val isPrinterClass = major == BluetoothClassMajor.PRINTER || major == BluetoothClassMajor.IMAGING
-        if (isPrinterClass) return true
-        val name = (d.name ?: "").lowercase()
-        return name.contains("printer") || name.contains("thermal") ||
-            name.contains("struk") || name.contains("pos") || name.contains("58") || name.contains("80")
-    }
-
-    private object BluetoothClassMajor {
-        const val IMAGING = 0x600
-        const val PRINTER = 0x700
-    }
-
     // ─── Kirim byte ke printer ──────────────────────────────────────────
     /**
      * Cetak struk. Blocking (I/O) — panggil dari coroutine/Dispatchers.IO.
      * @return error message kalau gagal, null kalau sukses.
-     */
+     * Akses socket memerlukan BLUETOOTH_CONNECT — sudah di-guard oleh
+     * StrukScreen permission launcher sebelum memanggil print(). */
     suspend fun print(device: BluetoothDevice, struk: StrukData): String? = withContext(Dispatchers.IO) {
         var socket: BluetoothSocket? = null
         try {
