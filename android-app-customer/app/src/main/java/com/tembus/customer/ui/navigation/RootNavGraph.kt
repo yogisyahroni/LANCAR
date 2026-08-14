@@ -237,6 +237,8 @@ fun RootNavGraph(
                             else -> navController.navigate(Screen.Booking.createRoute(open))
                         }
                     },
+                    onFoodClick = { navController.navigate(Screen.FoodHome.route) },
+                    onIncomingClick = { navController.navigate(Screen.History.route) },
                     onTrackingClick = { orderId -> navController.navigate(Screen.Tracking.createRoute(orderId)) },
                     onChatClick = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
                     onHistoryClick = { navController.navigate(Screen.History.route) },
