@@ -3,7 +3,7 @@
 # ============================================================
 
 # Stage 1: Builder
-FROM mirror.gcr.io/golang:1.25.12-alpine AS builder
+FROM mirror.gcr.io/golang:1.25.13-alpine AS builder
 
 RUN apk add --no-cache git ca-certificates tzdata
 
