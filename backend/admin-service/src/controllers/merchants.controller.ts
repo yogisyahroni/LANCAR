@@ -35,7 +35,7 @@ export const listAdminMerchants = async (req: Request, res: Response) => {
     }
     if (search) {
       params.push(`%${search}%`);
-      where.push(`(m.nama_toko ILIKE $${params.length} OR u.phone ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
+      where.push(`(m.nama_toko ILIKE $${params.length} OR u.phone_number ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const offset = (page - 1) * pageSize;
@@ -56,7 +56,7 @@ export const listAdminMerchants = async (req: Request, res: Response) => {
               m.spp_irt_number, to_char(m.spp_irt_expiry_date, 'YYYY-MM-DD') AS spp_irt_expiry_date,
               m.bpom_number, to_char(m.bpom_expiry_date, 'YYYY-MM-DD') AS bpom_expiry_date,
               m.created_at, m.updated_at,
-              u.phone, u.email, u.full_name
+              u.phone_number, u.email, u.full_name
        FROM merchants m
        LEFT JOIN users u ON u.id = m.user_id
        ${whereSql}
@@ -83,7 +83,7 @@ export const listMerchantPerformance = async (req: Request, res: Response) => {
     const params: any[] = [];
     if (search) {
       params.push(`%${search}%`);
-      where.push(`(m.nama_toko ILIKE $${params.length} OR u.phone ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
+      where.push(`(m.nama_toko ILIKE $${params.length} OR u.phone_number ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -131,7 +131,7 @@ export const getAdminMerchantDetail = async (req: Request, res: Response) => {
               m.spp_irt_number, to_char(m.spp_irt_expiry_date, 'YYYY-MM-DD') AS spp_irt_expiry_date,
               m.bpom_number, to_char(m.bpom_expiry_date, 'YYYY-MM-DD') AS bpom_expiry_date,
               m.created_at, m.updated_at,
-              u.phone, u.email, u.full_name
+              u.phone_number, u.email, u.full_name
        FROM merchants m
        LEFT JOIN users u ON u.id = m.user_id
        WHERE m.id = $1`,
