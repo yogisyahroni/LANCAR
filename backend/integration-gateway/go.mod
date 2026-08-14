@@ -1,6 +1,6 @@
 module tembus/integration-gateway
 
-go 1.25.13
+go 1.26.6
 
 require (
 	github.com/getsentry/sentry-go v0.48.0

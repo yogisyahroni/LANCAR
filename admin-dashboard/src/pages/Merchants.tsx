@@ -123,22 +123,21 @@ export default function Merchants() {
               {item}
             </button>
           ))}
-          </div>
         </div>
+      </div>
 
-        {/* A2: filter jenis usaha */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Jenis</span>
-          <select
-            value={businessType}
-            onChange={(e) => { setBusinessType(e.target.value); setSelected(null) }}
-            className="rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 focus:outline-none"
-          >
-            <option value="all">Semua</option>
-            <option value="perorangan">Perorangan</option>
-            <option value="perusahaan">Perusahaan</option>
-          </select>
-        </div>
+      {/* A2: filter jenis usaha merchant (perorangan / perusahaan) */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Jenis</span>
+        <select
+          value={businessType}
+          onChange={(e) => { setBusinessType(e.target.value); setSelected(null) }}
+          className="rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 focus:outline-none"
+        >
+          <option value="all">Semua</option>
+          <option value="perorangan">Perorangan</option>
+          <option value="perusahaan">Perusahaan</option>
+        </select>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
@@ -199,7 +198,6 @@ export default function Merchants() {
                 <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase">
                   <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.verification_status}</span>
                   <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.is_open ? 'Buka' : 'Tutup'}</span>
-                  <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.business_type === 'perusahaan' ? 'Perusahaan' : 'Perorangan'}</span>
                   {/* ADR 003: status halal */}
                   <span className={cn(
                     'rounded-full px-2 py-1',

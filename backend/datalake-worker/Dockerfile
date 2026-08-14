@@ -1,4 +1,4 @@
-FROM mirror.gcr.io/golang:1.25.13-alpine AS builder
+FROM mirror.gcr.io/golang:1.26.6-alpine AS builder
 
 WORKDIR /app
 

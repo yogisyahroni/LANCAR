@@ -4,7 +4,7 @@
 # ============================================================
 
 # Stage 1: Builder
-FROM mirror.gcr.io/golang:1.25.13-alpine AS builder
+FROM mirror.gcr.io/golang:1.26.6-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata

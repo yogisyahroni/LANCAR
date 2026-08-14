@@ -1,6 +1,6 @@
 module github.com/LANCAR/datalake-worker
 
-go 1.25.13
+go 1.26.6
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.43.2

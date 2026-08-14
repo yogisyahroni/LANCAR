@@ -18,6 +18,7 @@ import {
   Map,
   ClipboardCheck,
   LogOut,
+  UserCircle2,
   History,
   Activity,
   ChevronRight,
