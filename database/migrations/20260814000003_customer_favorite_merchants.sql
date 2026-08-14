@@ -1,3 +1,4 @@
+-- +goose Up
 -- C3: Customer Favorite Merchants
 -- Create table for customer to bookmark favorite food merchants
 
@@ -12,8 +13,11 @@ CREATE TABLE IF NOT EXISTS customer_favorite_merchants (
 CREATE INDEX IF NOT EXISTS idx_customer_favorite_merchants_customer ON customer_favorite_merchants(customer_id);
 CREATE INDEX IF NOT EXISTS idx_customer_favorite_merchants_merchant ON customer_favorite_merchants(merchant_id);
 
--- Comment
 COMMENT ON TABLE customer_favorite_merchants IS 'Customer bookmarked favorite food merchants for quick reorder/browse';
 COMMENT ON COLUMN customer_favorite_merchants.customer_id IS 'FK to users (role=customer)';
 COMMENT ON COLUMN customer_favorite_merchants.merchant_id IS 'FK to merchants';
 COMMENT ON COLUMN customer_favorite_merchants.created_at IS 'When customer added to favorites';
+
+-- +goose Down
+
+DROP TABLE IF EXISTS customer_favorite_merchants;

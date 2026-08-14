@@ -1,3 +1,4 @@
+-- +goose Up
 -- M7: Withdrawal request UI merchant (FB-113 lanjutan)
 -- Merchant bisa ajukan pencairan saldo tersedia (total_idr - holding_idr)
 -- dari tabel merchant_settlements. Request disimpan & diproses (manual/otomatis).
@@ -22,3 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_merchant_withdrawal_merchant
     ON merchant_withdrawal_requests(merchant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_merchant_withdrawal_status
     ON merchant_withdrawal_requests(status, created_at DESC);
+
+-- +goose Down
+
+DROP TABLE IF EXISTS merchant_withdrawal_requests;

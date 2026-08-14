@@ -1,3 +1,4 @@
+-- +goose Up
 -- A4: Global banner (pengumuman in-app platform-wide).
 -- Admin super_admin publish banner yang tampil di home customer app.
 CREATE TABLE IF NOT EXISTS global_banners (
@@ -18,3 +19,7 @@ CREATE TABLE IF NOT EXISTS global_banners (
 );
 
 CREATE INDEX IF NOT EXISTS idx_global_banners_status ON global_banners(status, priority DESC);
+
+-- +goose Down
+
+DROP TABLE IF EXISTS global_banners;
