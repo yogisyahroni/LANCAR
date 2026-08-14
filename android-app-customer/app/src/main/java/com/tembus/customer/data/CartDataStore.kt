@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.tembus.customer.data.model.CartItem
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
@@ -23,7 +24,7 @@ private val Context.cartDataStore by preferencesDataStore(name = "food_cart")
  * [CartStore] init; save dilakukan setiap kali cart berubah.
  */
 @Singleton
-class CartDataStore @Inject constructor(private val context: Context) {
+class CartDataStore @Inject constructor(@ApplicationContext private val context: Context) {
 
     private val cartKey = stringPreferencesKey("cart_json")
     private val merchantNameKey = stringPreferencesKey("cart_merchant_name")
