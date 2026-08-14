@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
@@ -202,7 +204,21 @@ fun FoodHomeScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(merchants, key = { it.id }) { merchant ->
-                            FoodMerchantCard(merchant = merchant, onClick = { onMerchantClick(merchant.id) })
+                            // Check if this merchant is in favorites
+                            val favorites = viewModel.favoriteMerchants.collectAsState().value
+                            val isFav = favorites.any { it.merchantId == merchant.id }
+                            FoodMerchantCard(
+                                merchant = merchant,
+                                onClick = { onMerchantClick(merchant.id) },
+                                isFavorite = isFav,
+                                onFavoriteClick = {
+                                    if (isFav) {
+                                        viewModel.removeFavoriteMerchant(merchant.id) { _ -> }
+                                    } else {
+                                        viewModel.addFavoriteMerchant(merchant.id) { _ -> }
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -212,7 +228,12 @@ fun FoodHomeScreen(
 }
 
 @Composable
-private fun FoodMerchantCard(merchant: FoodMerchant, onClick: () -> Unit) {
+private fun FoodMerchantCard(
+    merchant: FoodMerchant,
+    onClick: () -> Unit,
+    isFavorite: Boolean = false,
+    onFavoriteClick: (() -> Unit)? = null
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -282,6 +303,19 @@ private fun FoodMerchantCard(merchant: FoodMerchant, onClick: () -> Unit) {
                         fontWeight = FontWeight.Bold,
                         color = if (merchant.isOpen) Color(0xFF16A34A) else Color(0xFFEF4444)
                     )
+                    // Favorite toggle
+                    if (onFavoriteClick != null) {
+                        IconButton(
+                            onClick = onFavoriteClick,
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                contentDescription = if (isFavorite) "Hapus dari favorit" else "Tambah ke favorit",
+                                tint = if (isFavorite) Color(0xFFEF4444) else Color(0xFF64748B)
+                            )
+                        }
+                    }
                 }
             }
         }

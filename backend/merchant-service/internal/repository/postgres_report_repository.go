@@ -148,6 +148,65 @@ func (r *postgresReportRepository) Settlements(ctx context.Context, merchantID s
 	return records, nil
 }
 
+// CreateWithdrawal — simpan permintaan pencairan saldo merchant (M7).
+func (r *postgresReportRepository) CreateWithdrawal(ctx context.Context, w *domain.MerchantWithdrawalRequest) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO merchant_withdrawal_requests
+			(merchant_id, user_id, amount_idr, bank_name, bank_account_number, bank_account_holder, idempotency_key)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, w.MerchantID, w.UserID, w.AmountIDR, w.BankName, w.BankAccountNumber, w.BankAccountHolder, w.IdempotencyKey)
+	if err != nil {
+		return fmt.Errorf("insert withdrawal: %w", err)
+	}
+	return nil
+}
+
+// ListWithdrawals — riwayat permintaan pencairan merchant (M7), terbaru dulu.
+func (r *postgresReportRepository) ListWithdrawals(ctx context.Context, merchantID string, limit int) ([]*domain.MerchantWithdrawalRecord, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT id, amount_idr, bank_name, bank_account_number, bank_account_holder,
+		       status, rejection_reason, disbursement_ref,
+		       TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM merchant_withdrawal_requests
+		WHERE merchant_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`, merchantID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list withdrawals: %w", err)
+	}
+	defer rows.Close()
+
+	records := []*domain.MerchantWithdrawalRecord{}
+	for rows.Next() {
+		var (
+			rec       domain.MerchantWithdrawalRecord
+			reject    sql.NullString
+			disbRef   sql.NullString
+		)
+		if err := rows.Scan(
+			&rec.ID, &rec.AmountIDR, &rec.BankName, &rec.BankAccountNumber,
+			&rec.BankAccountHolder, &rec.Status, &reject, &disbRef, &rec.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan withdrawal: %w", err)
+		}
+		if reject.Valid {
+			rec.RejectionReason = &reject.String
+		}
+		if disbRef.Valid {
+			rec.DisbursementRef = &disbRef.String
+		}
+		records = append(records, &rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("withdrawals rows: %w", err)
+	}
+	return records, nil
+}
+
 func (r *postgresReportRepository) SalesReportRows(ctx context.Context, merchantID, period string) ([]*domain.SalesReportRow, error) {
 	filter := periodFilter(period)
 

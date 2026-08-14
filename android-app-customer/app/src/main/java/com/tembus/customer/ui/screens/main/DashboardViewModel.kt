@@ -2,8 +2,9 @@ package com.tembus.customer.ui.screens.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tembus.customer.data.model.DeliveryServiceProduct
+import com.tembus.customer.data.model.GlobalBanner
 import com.tembus.customer.data.model.Order
+import com.tembus.customer.data.model.DeliveryServiceProduct
 import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.data.repository.OrderRepository
 import com.tembus.customer.data.session.AuthSessionManager
@@ -44,6 +45,10 @@ class DashboardViewModel @Inject constructor(
 
     private val _dataError = MutableStateFlow<String?>(null)
     val dataError = _dataError.asStateFlow()
+
+    // A4: global banner (pengumuman in-app platform-wide dari super_admin).
+    private val _banners = MutableStateFlow<List<GlobalBanner>>(emptyList())
+    val banners = _banners.asStateFlow()
 
     private val _notificationUnreadCount = MutableStateFlow(0)
     val notificationUnreadCount = _notificationUnreadCount.asStateFlow()
@@ -116,6 +121,14 @@ class DashboardViewModel @Inject constructor(
                     )
                 }
             }
+        }
+        // A4: global banner — failure tidak mengganggu dashboard (non-blokir).
+        viewModelScope.launch {
+            orderRepository.getBanners()
+                .onSuccess { banners ->
+                    _banners.value = banners.sortedByDescending { it.priority }
+                }
+                .onFailure { _banners.value = emptyList() }
         }
     }
 

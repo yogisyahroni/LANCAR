@@ -781,3 +781,86 @@ func (r *foodRepo) UpdateFoodBatchCourier(ctx context.Context, batchID, courierI
 	)
 	return err
 }
+
+// ── FOOD-BIKE-070: Favorite Merchants (C3) ────────────────────────────────
+
+// AddFavoriteMerchant — customer bookmark merchant.
+func (r *foodRepo) AddFavoriteMerchant(ctx context.Context, customerID, merchantID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO customer_favorite_merchants (customer_id, merchant_id)
+		VALUES ($1, $2)
+		ON CONFLICT (customer_id, merchant_id) DO NOTHING`,
+		customerID, merchantID,
+	)
+	return err
+}
+
+// RemoveFavoriteMerchant — customer hapus bookmark.
+func (r *foodRepo) RemoveFavoriteMerchant(ctx context.Context, customerID, merchantID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM customer_favorite_merchants
+		WHERE customer_id = $1 AND merchant_id = $2`,
+		customerID, merchantID,
+	)
+	return err
+}
+
+// ListFavoriteMerchants — customer lihat daftar favorite merchant + detail dasar.
+func (r *foodRepo) ListFavoriteMerchants(ctx context.Context, customerID string) ([]domain.FoodMerchantInfo, error) {
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT
+			m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
+			COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
+			m.jam_buka::text, m.jam_tutup::text, m.halal_status,
+			ROUND(CAST(ST_Distance(m.lokasi, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) / 1000 AS NUMERIC), 2)::float AS distance_km,
+			COALESCE(AVG(r.stars), 0)::float AS avg_rating,
+			COUNT(r.id) AS rating_count
+		FROM customer_favorite_merchants cfm
+		JOIN merchants m ON m.id = cfm.merchant_id
+		LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
+		WHERE cfm.customer_id = $3
+		GROUP BY m.id
+		ORDER BY cfm.created_at DESC`,
+		0, 0, customerID, // lat/lng = 0,0 for favorites (no distance sort needed)
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []domain.FoodMerchantInfo{}
+	for rows.Next() {
+		var m domain.FoodMerchantInfo
+		var jamBuka, jamTutup, halalStatus sql.NullString
+		if err := rows.Scan(
+			&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
+			&m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus, &m.DistanceKM, &m.AvgRating, &m.RatingCount,
+		); err != nil {
+			return nil, err
+		}
+		if jamBuka.Valid {
+			m.JamBuka = &jamBuka.String
+		}
+		if jamTutup.Valid {
+			m.JamTutup = &jamTutup.String
+		}
+		if halalStatus.Valid {
+			m.HalalStatus = halalStatus.String
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+// CheckIsFavoriteMerchant — cek apakah merchant sudah di-favorite customer.
+func (r *foodRepo) CheckIsFavoriteMerchant(ctx context.Context, customerID, merchantID string) (bool, error) {
+	var exists bool
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT EXISTS(SELECT 1 FROM customer_favorite_merchants WHERE customer_id = $1 AND merchant_id = $2)`,
+		customerID, merchantID,
+	).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}

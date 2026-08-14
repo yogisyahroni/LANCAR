@@ -19,6 +19,11 @@ import com.tembus.merchant.ui.screens.chat.ChatScreen
 import com.tembus.merchant.ui.screens.chat.ChatViewModel
 import com.tembus.merchant.ui.screens.onboarding.OnboardingScreen
 import com.tembus.merchant.ui.screens.registration.RegistrationScreen
+import com.tembus.merchant.ui.screens.staff.StaffAcceptScreen
+import com.tembus.merchant.ui.screens.staff.StaffAcceptViewModel
+import com.tembus.merchant.ui.screens.staff.StaffScreen
+import com.tembus.merchant.ui.screens.staff.StaffViewModel
+import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.ui.screens.menu.VariantEditorScreen
 import com.tembus.merchant.ui.screens.menu.VariantEditorViewModel
 import com.tembus.merchant.ui.screens.struk.StrukScreen
@@ -37,6 +42,8 @@ object MerchantRoutes {
     const val VARIANTS = "variants/{menuItemId}"
     // FB-087: edit item order food (pending_merchant).
     const val EDIT_ORDER = "edit_order/{orderId}"
+    // M1: staff accept invite via token (query param).
+    const val STAFF_ACCEPT = "staff/accept"
 
     fun struk(orderId: String) = "struk/$orderId"
     fun chat(orderId: String, orderNumber: String) = "chat/$orderId/$orderNumber"
@@ -111,6 +118,7 @@ fun AppNavHost() {
         composable(MerchantRoutes.MAIN) {
             val context = LocalContext.current
             MainScreen(
+                merchantRepository = app.container.merchantRepository,
                 onOpenStruk = { orderId ->
                     navController.navigate(MerchantRoutes.struk(orderId))
                 },
@@ -164,13 +172,28 @@ fun AppNavHost() {
         }
 
         composable(MerchantRoutes.REGISTRATION) {
-            RegistrationScreen(
-                onBack = { navController.popBackStack() },
-                onRegistered = { navController.popBackStack() }
-            )
-        }
+                    RegistrationScreen(
+                        onBack = { navController.popBackStack() },
+                        onRegistered = { navController.popBackStack() }
+                    )
+                }
 
-        // FB-119: chat customer↔merchant per order.
+                // M1: staff accept invite via token (query param ?token=xxx).
+                composable(
+                    route = MerchantRoutes.STAFF_ACCEPT,
+                    arguments = listOf(
+                        navArgument("token") { type = NavType.StringType; defaultValue = "" }
+                    )
+                ) { backStackEntry ->
+                    val token = backStackEntry.arguments?.getString("token")?.trim() ?: ""
+                    StaffAcceptScreen(
+                        merchantRepository = app.container.merchantRepository,
+                        onDone = { navController.popBackStack() },
+                        initialToken = token
+                    )
+                }
+
+                // FB-119: chat customer���merchant per order.
         composable(
             route = MerchantRoutes.CHAT,
             arguments = listOf(

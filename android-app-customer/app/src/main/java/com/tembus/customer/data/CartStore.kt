@@ -28,7 +28,9 @@ import javax.inject.Singleton
  * ditolak (return Conflict) supaya checkout tidak campur 2 toko.
  */
 @Singleton
-class CartStore @Inject constructor() {
+class CartStore @Inject constructor(
+    private val cartDataStore: CartDataStore
+) {
 
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
@@ -44,13 +46,32 @@ class CartStore @Inject constructor() {
     private val _cartMerchantName = MutableStateFlow<String?>(null)
     val cartMerchantName: StateFlow<String?> = _cartMerchantName.asStateFlow()
 
+    // C6: cart sudah di-restore dari disk?
+    private val _restored = MutableStateFlow(false)
+    val restored: StateFlow<Boolean> = _restored.asStateFlow()
+
     init {
+        // C6: restore cart persisten dari DataStore saat app start.
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            val (items, merchantName) = cartDataStore.loadCart()
+            _cart.value = items
+            _cartMerchantName.value = merchantName
+            _restored.value = true
+        }
         // Keep derived flows in sync with the cart whenever it changes.
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default).launch {
             _cart.collect { list ->
                 _cartSize.value = list.sumOf { it.quantity }
                 _cartTotal.value = list.sumOf { it.subtotal }
                 if (list.isEmpty()) _cartMerchantName.value = null
+            }
+        }
+        // C6: persist setiap perubahan cart (debounce ringan lewat collect).
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            _cart.collect { list ->
+                if (_restored.value) {
+                    cartDataStore.saveCart(list, _cartMerchantName.value)
+                }
             }
         }
     }

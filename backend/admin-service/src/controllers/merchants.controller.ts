@@ -15,6 +15,7 @@ export const listAdminMerchants = async (req: Request, res: Response) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(req.query.page_size) || 20));
   const search = String(req.query.search ?? '').trim();
+  const businessType = String(req.query.business_type ?? '').trim();
 
   if (!VALID_STATUS.includes(status)) {
     res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUS.join(', ')}` });
@@ -27,6 +28,10 @@ export const listAdminMerchants = async (req: Request, res: Response) => {
     if (status !== 'all') {
       params.push(status);
       where.push(`m.verification_status = $${params.length}`);
+    }
+    if (businessType) {
+      params.push(businessType);
+      where.push(`COALESCE(m.business_type, 'perorangan') = $${params.length}`);
     }
     if (search) {
       params.push(`%${search}%`);
@@ -46,6 +51,7 @@ export const listAdminMerchants = async (req: Request, res: Response) => {
               to_char(m.jam_buka, 'HH24:MI') AS jam_buka,
               to_char(m.jam_tutup, 'HH24:MI') AS jam_tutup,
               m.is_open, m.completion_rate_pct, m.verification_status,
+              m.business_type, m.nib_url,
               m.halal_cert_number, to_char(m.halal_expiry_date, 'YYYY-MM-DD') AS halal_expiry_date,
               m.spp_irt_number, to_char(m.spp_irt_expiry_date, 'YYYY-MM-DD') AS spp_irt_expiry_date,
               m.bpom_number, to_char(m.bpom_expiry_date, 'YYYY-MM-DD') AS bpom_expiry_date,
@@ -120,6 +126,7 @@ export const getAdminMerchantDetail = async (req: Request, res: Response) => {
               to_char(m.jam_buka, 'HH24:MI') AS jam_buka,
               to_char(m.jam_tutup, 'HH24:MI') AS jam_tutup,
               m.is_open, m.completion_rate_pct, m.verification_status,
+              m.business_type, m.nib_url,
               m.halal_cert_number, to_char(m.halal_expiry_date, 'YYYY-MM-DD') AS halal_expiry_date,
               m.spp_irt_number, to_char(m.spp_irt_expiry_date, 'YYYY-MM-DD') AS spp_irt_expiry_date,
               m.bpom_number, to_char(m.bpom_expiry_date, 'YYYY-MM-DD') AS bpom_expiry_date,
@@ -161,7 +168,9 @@ export const approveAdminMerchant = async (req: Request, res: Response) => {
     const locCheck = await readDb.query(
       `SELECT id, nama_toko,
               COALESCE(ST_Y(lokasi::geometry), 0) AS lat,
-              COALESCE(ST_X(lokasi::geometry), 0) AS lng
+              COALESCE(ST_X(lokasi::geometry), 0) AS lng,
+              COALESCE(business_type, 'perorangan') AS business_type,
+              nib_url
        FROM merchants WHERE id = $1`,
       [id]
     );
@@ -169,9 +178,16 @@ export const approveAdminMerchant = async (req: Request, res: Response) => {
       res.status(404).json({ error: 'Merchant not found' });
       return;
     }
-    const { lat, lng } = locCheck.rows[0] as { lat: number; lng: number };
+    const { lat, lng, business_type, nib_url } = locCheck.rows[0] as {
+      lat: number; lng: number; business_type: string; nib_url: string | null;
+    };
     if (!lat || !lng) {
       res.status(409).json({ error: 'Merchant belum mengisi lokasi toko (pin di peta). Minta merchant melengkapi lokasi dulu sebelum di-approve.' });
+      return;
+    }
+    // A1: perusahaan WAJIB punya NIB; perorangan tidak.
+    if (business_type === 'perusahaan' && !nib_url) {
+      res.status(409).json({ error: 'Merchant berbadan hukum (perusahaan) wajib melengkapi NIB sebelum di-approve.' });
       return;
     }
 

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- C7: English (en) -->
+    <string name="language">Language</string>
+    <string name="language_indonesian">Bahasa Indonesia</string>
+    <string name="language_english">English</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_wallet_balance">Wallet Balance</string>
+    <string name="profile_withdraw">Withdraw</string>
+    <string name="profile_status_account">Account Status</string>
+    <string name="profile_edit">Edit Profile</string>
+    <string name="profile_addresses">Saved Addresses</string>
+    <string name="profile_settings">App Settings</string>
+    <string name="profile_security">Security</string>
+    <string name="profile_help">Help Center</string>
+    <string name="profile_sync">Sync Profile</string>
+    <string name="profile_logout">Log Out</string>
+    <string name="profile_version">App Version</string>
+    <string name="profile_status_identity">Identity</string>
+    <string name="profile_status_contact">Primary contact</string>
+    <string name="profile_status_phone">Phone number</string>
+    <string name="profile_status_session">Session protection</string>
+    <string name="profile_status_complete">Complete</string>
+    <string name="profile_status_need">Needs completion</string>
+    <string name="profile_status_encrypted">Encrypted session active</string>
+
+    <!-- Address Book -->
+    <string name="address_book_title">Saved Addresses</string>
+    <string name="address_book_empty">No saved addresses yet</string>
+    <string name="address_book_empty_hint">Add an address for faster checkout</string>
+    <string name="address_book_add">Add Address</string>
+    <string name="address_book_edit">Edit</string>
+    <string name="address_book_delete">Delete</string>
+    <string name="address_book_loading_failed">Failed to load addresses</string>
+    <string name="address_book_retry">Retry</string>
+    <string name="address_dialog_add_title">Add Address</string>
+    <string name="address_dialog_edit_title">Edit Address</string>
+    <string name="address_label_hint">Label (Home/Office/etc)</string>
+    <string name="address_contact_name_hint">Contact Name (optional)</string>
+    <string name="address_contact_phone_hint">Phone (optional)</string>
+    <string name="address_street_hint">Full Address</string>
+    <string name="address_notes_hint">Notes (landmarks, etc)</string>
+    <string name="address_favorite">Set as favorite address</string>
+    <string name="address_save">Save</string>
+    <string name="address_cancel">Cancel</string>
+
+    <!-- Food -->
+    <string name="food_favorites_title">Favorite Merchants</string>
+    <string name="food_favorites_empty">No favorite merchants yet</string>
+    <string name="food_favorites_empty_hint">Tap the heart icon on a merchant to save it</string>
+    <string name="food_cart_title">Cart</string>
+    <string name="food_cart_empty">Your cart is empty</string>
+    <string name="food_cart_total">Total</string>
+    <string name="food_checkout">Checkout</string>
+</resources>

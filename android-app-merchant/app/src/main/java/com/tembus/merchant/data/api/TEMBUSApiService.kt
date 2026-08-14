@@ -177,6 +177,16 @@ interface TEMBUSApiService {
     @GET("api/v1/merchant/settlements")
     suspend fun getSettlements(): Response<SettlementSummary>
 
+    // M7: ajukan pencairan saldo merchant.
+    @POST("api/v1/merchant/withdraw")
+    suspend fun requestWithdrawal(
+        @Body request: MerchantWithdrawalRequest
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    // M7: riwayat permintaan pencairan merchant.
+    @GET("api/v1/merchant/withdrawals")
+    suspend fun getWithdrawals(): Response<List<MerchantWithdrawalRecord>>
+
     // ── Promo merchant (FB-099/100): self-serve, tanpa approval admin ──
     @GET("api/v1/merchant/promos")
     suspend fun listPromos(
@@ -225,4 +235,29 @@ interface TEMBUSApiService {
         @Path("id") orderId: String,
         @Body request: ReadReceiptRequest
     ): Response<SuccessResponse>
+
+    // ── M1: Staff Management (CORPORATE ONLY) ──
+    // NOTE: path diubah ke /merchant/staff/{id} (Go 1.22+ ServeMux conflict fix).
+    @POST("api/v1/merchant/staff/{id}")
+    suspend fun inviteStaff(
+        @Path("id") merchantId: String,
+        @Body request: InviteStaffRequest
+    ): Response<InviteStaffResponse>
+
+    @GET("api/v1/merchant/staff/{id}")
+    suspend fun listStaff(
+        @Path("id") merchantId: String
+    ): Response<StaffListResponse>
+
+    @POST("api/v1/merchant/staff/accept")
+    suspend fun acceptStaffInvite(
+        @Body request: AcceptStaffInviteRequest
+    ): Response<SuccessResponse>
+
+    @PATCH("api/v1/merchant/staff/{id}/{staffId}")
+    suspend fun updateStaff(
+        @Path("id") merchantId: String,
+        @Path("staffId") staffId: String,
+        @Body request: UpdateStaffRequest
+    ): Response<StaffListResponse>
 }

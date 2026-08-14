@@ -103,6 +103,11 @@ type MerchantService interface {
 	// ListSettlements riwayat pencairan/payout merchant (FB-113):
 	// total cair, total ditahan, + daftar settlement terbaru.
 	ListSettlements(ctx context.Context, userID string) (*SettlementSummary, error)
+	// RequestWithdrawal ajukan pencairan saldo merchant (M7).
+	// Mengembalikan record request + saldo tersedia terkini.
+	RequestWithdrawal(ctx context.Context, userID string, input CreateMerchantWithdrawalInput) (*MerchantWithdrawalRecord, int64, error)
+	// ListWithdrawals riwayat permintaan pencairan merchant (M7).
+	ListWithdrawals(ctx context.Context, userID string, limit int) ([]*MerchantWithdrawalRecord, error)
 
 	// Edit order (FB-087)
 	// GetOrderEdit mengambil data order untuk layar edit merchant (status

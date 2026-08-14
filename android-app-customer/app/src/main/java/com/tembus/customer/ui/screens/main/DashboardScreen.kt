@@ -135,6 +135,8 @@ fun DashboardScreen(
     val dataError by viewModel.dataError.collectAsState()
     val notificationUnreadCount by viewModel.notificationUnreadCount.collectAsState()
     val notificationUnreadByCategory by viewModel.notificationUnreadByCategory.collectAsState()
+    // A4: global banner (pengumuman in-app platform-wide dari super_admin).
+    val banners by viewModel.banners.collectAsState()
     val hasUnreadMessages = (notificationUnreadByCategory["message"] ?: 0) > 0
     val notificationPermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
@@ -212,6 +214,12 @@ fun DashboardScreen(
                     onDestinationClick = { onBookingClick("dropoff") }
                 )
             }
+            // A4: global banner (pengumuman in-app platform-wide dari super_admin).
+            if (banners.isNotEmpty()) {
+                item {
+                    GlobalBannerCard(banners = banners)
+                }
+            }
             if (shouldShowNotificationPermissionPrompt) {
                 item {
                     NotificationPermissionPromptCard(
@@ -257,7 +265,7 @@ fun DashboardScreen(
                 LocationRequestCard(onBookingClick = { onBookingClick("dropoff") })
             }
             item {
-                ServiceOverview(services = services, onBookingClick = onBookingClick, onHistoryClick = onHistoryClick)
+                ServiceOverview(services = services, onBookingClick = onBookingClick, onHistoryClick = onHistoryClick, onFavoritesClick = { onBookingClick("food_favorites") })
             }
             item {
                 TrustCard()
@@ -946,12 +954,14 @@ private fun LocationRequestCard(onBookingClick: () -> Unit) {
 private fun ServiceOverview(
     services: List<DeliveryServiceProduct>,
     onBookingClick: (String?) -> Unit,
-    onHistoryClick: () -> Unit
+    onHistoryClick: () -> Unit,
+    onFavoritesClick: () -> Unit = {}
 ) {
     ServiceGridMenu(
         services = services,
         onServiceClick = { serviceCode -> onBookingClick(serviceCode) },
-        onHistoryClick = onHistoryClick
+        onHistoryClick = onHistoryClick,
+        onFavoritesClick = onFavoritesClick
     )
 }
 
@@ -1056,6 +1066,57 @@ private fun TrustRow(icon: ImageVector, title: String, body: String) {
             Text(body, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Muted, modifier = Modifier.size(18.dp))
+    }
+}
+
+// A4: global banner (pengumuman in-app platform-wide dari super_admin).
+// Tampil sebagai LazyRow kartu, prioritas tertinggi dulu (sudah diurutkan VM).
+@Composable
+private fun GlobalBannerCard(
+    banners: List<com.tembus.customer.data.model.GlobalBanner>,
+    onBannerClick: (String) -> Unit = {}
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(banners, key = { it.id }) { banner ->
+            Card(
+                modifier = Modifier
+                    .width(300.dp)
+                    .clickable(enabled = !banner.actionUrl.isNullOrBlank()) {
+                        banner.actionUrl?.let { onBannerClick(it) }
+                    },
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        banner.title,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 15.sp,
+                        letterSpacing = (-0.4).sp
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        banner.message,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                    if (!banner.actionLabel.isNullOrBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            banner.actionLabel,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

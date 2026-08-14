@@ -35,11 +35,15 @@ export default function Merchants() {
   const [showReject, setShowReject] = useState(false)
   // FB-125: text search cari merchant by nama/telepon/email.
   const [search, setSearch] = useState('')
+  // A2: filter jenis usaha merchant (perorangan / perusahaan).
+  const [businessType, setBusinessType] = useState('all')
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-merchants', status],
+    queryKey: ['admin-merchants', status, businessType],
     queryFn: async () => {
-      const res = await api.get('/admin/merchants', { params: { status } })
+      const params: any = { status }
+      if (businessType !== 'all') params.business_type = businessType
+      const res = await api.get('/admin/merchants', { params })
       return res.data.merchants || []
     }
   })
@@ -119,6 +123,21 @@ export default function Merchants() {
               {item}
             </button>
           ))}
+          </div>
+        </div>
+
+        {/* A2: filter jenis usaha */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Jenis</span>
+          <select
+            value={businessType}
+            onChange={(e) => { setBusinessType(e.target.value); setSelected(null) }}
+            className="rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 focus:outline-none"
+          >
+            <option value="all">Semua</option>
+            <option value="perorangan">Perorangan</option>
+            <option value="perusahaan">Perusahaan</option>
+          </select>
         </div>
       </div>
 
@@ -180,6 +199,7 @@ export default function Merchants() {
                 <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase">
                   <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.verification_status}</span>
                   <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.is_open ? 'Buka' : 'Tutup'}</span>
+                  <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.business_type === 'perusahaan' ? 'Perusahaan' : 'Perorangan'}</span>
                   {/* ADR 003: status halal */}
                   <span className={cn(
                     'rounded-full px-2 py-1',

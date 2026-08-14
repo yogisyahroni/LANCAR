@@ -30,6 +30,7 @@ import com.tembus.merchant.data.model.UpdateBankAccountRequest
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.screens.promo.PromoScreen
+import com.tembus.merchant.ui.screens.home.OperatingHoursDialog
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
@@ -51,6 +52,7 @@ fun ProfileScreen(
     val state by viewModel.uiState.collectAsState()
     var showPromo by remember { mutableStateOf(false) }
     var showMinOrderDialog by remember { mutableStateOf(false) } // FB-109
+    var showOperatingHoursDialog by remember { mutableStateOf(false) } // M5
 
     if (showPromo) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -167,9 +169,17 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Info tambahan
-                    m.jamBuka?.let { b ->
-                        m.jamTutup?.let { t ->
-                            ProfileInfoRow("Jam Operasional", "$b - $t")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ProfileInfoRow(
+                            "Jam Operasional",
+                            if (m.jamBuka != null && m.jamTutup != null) "${m.jamBuka} - ${m.jamTutup}" else "Belum diatur"
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        TextButton(onClick = { showOperatingHoursDialog = true }) {
+                            Text("Atur", color = Primary)
                         }
                     }
                     ProfileInfoRow("Status Toko", if (m.isOpen) "Buka" else "Tutup")
@@ -406,6 +416,19 @@ fun ProfileScreen(
                 }
             }
         }
+    }
+
+    // M5: dialog atur jam operasional (buka/tutup)
+    if (showOperatingHoursDialog) {
+        OperatingHoursDialog(
+            currentBuka = state.merchant?.jamBuka,
+            currentTutup = state.merchant?.jamTutup,
+            onDismiss = { showOperatingHoursDialog = false },
+            onSave = { buka, tutup ->
+                viewModel.updateOperatingHours(buka, tutup)
+                showOperatingHoursDialog = false
+            }
+        )
     }
 }
 

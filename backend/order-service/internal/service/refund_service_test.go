@@ -394,6 +394,20 @@ func (m *mockFoodRepo) ActivateScheduledFoodOrder(ctx context.Context, orderID s
 	return nil
 }
 
+// ── FOOD-BIKE-070: Favorite Merchants (C3) ──
+func (m *mockFoodRepo) AddFavoriteMerchant(ctx context.Context, customerID, merchantID string) error {
+	return nil
+}
+func (m *mockFoodRepo) RemoveFavoriteMerchant(ctx context.Context, customerID, merchantID string) error {
+	return nil
+}
+func (m *mockFoodRepo) ListFavoriteMerchants(ctx context.Context, customerID string) ([]domain.FoodMerchantInfo, error) {
+	return nil, nil
+}
+func (m *mockFoodRepo) CheckIsFavoriteMerchant(ctx context.Context, customerID, merchantID string) (bool, error) {
+	return false, nil
+}
+
 // FB-080: partial refund per item — refund = Σ(snapshot item_price × qty),
 // ongkir TIDAK direfund kecuali IncludeDeliveryFee.
 func TestRefundService_CalculateItemRefund_ItemsOnly(t *testing.T) {

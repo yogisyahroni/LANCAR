@@ -111,6 +111,14 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun getSettlements(): Result<SettlementSummary> =
         request { api.getSettlements() }
 
+    // M7: ajukan pencairan saldo.
+    suspend fun requestWithdrawal(req: MerchantWithdrawalRequest): Result<Long> =
+        request { api.requestWithdrawal(req) }.map { (it["available_idr"] as? Number)?.toLong() ?: 0L }
+
+    // M7: riwayat permintaan pencairan.
+    suspend fun getWithdrawals(): Result<List<MerchantWithdrawalRecord>> =
+        request { api.getWithdrawals() }
+
     // ── Promo merchant (FB-099/100) ──
     suspend fun listPromos(page: Int = 1, pageSize: Int = 50): Result<List<MerchantPromo>> =
         request { api.listPromos(page, pageSize) }.map { it.items }
@@ -126,6 +134,19 @@ class MerchantRepository(private val api: TEMBUSApiService) {
 
     suspend fun setPromoActive(id: String, active: Boolean): Result<Boolean> =
         request { api.setPromoActive(id, PromoActiveRequest(active)) }.map { it.success }
+
+    // ── M1: Staff Management (CORPORATE ONLY) ──
+    suspend fun inviteStaff(merchantId: String, req: InviteStaffRequest): Result<InviteStaffResponse> =
+        request { api.inviteStaff(merchantId, req) }
+
+    suspend fun listStaff(merchantId: String): Result<List<MerchantStaff>> =
+        request { api.listStaff(merchantId) }.map { it.data }
+
+    suspend fun acceptStaffInvite(token: String): Result<Boolean> =
+        request { api.acceptStaffInvite(AcceptStaffInviteRequest(token)) }.map { it.success }
+
+    suspend fun updateStaff(merchantId: String, staffId: String, req: UpdateStaffRequest): Result<List<MerchantStaff>> =
+        request { api.updateStaff(merchantId, staffId, req) }.map { it.data }
 
     private suspend fun <T> request(block: suspend () -> retrofit2.Response<T>): Result<T> {
         return runCatching {

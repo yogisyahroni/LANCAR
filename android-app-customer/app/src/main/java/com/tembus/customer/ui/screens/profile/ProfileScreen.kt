@@ -22,12 +22,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Help
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
@@ -35,7 +37,11 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -113,7 +119,10 @@ private fun profileTextFieldColors() = OutlinedTextFieldDefaults.colors(
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     onBackClick: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onLanguageClick: () -> Unit = {},
+    onReferralClick: () -> Unit = {},
+    onLoyaltyClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -168,6 +177,10 @@ fun ProfileScreen(
                     isUpdating = currentState.isUpdating,
                     onRefresh = viewModel::fetchProfile,
                     onEditClick = { activeDialog = ProfileDialog.Edit },
+                    onAddressesClick = { activeDialog = ProfileDialog.Addresses },
+                    onLanguageClick = onLanguageClick,
+                    onReferralClick = onReferralClick,
+                    onLoyaltyClick = onLoyaltyClick,
                     onSettingsClick = { activeDialog = ProfileDialog.Settings },
                     onSecurityClick = { activeDialog = ProfileDialog.Security },
                     onHelpClick = { activeDialog = ProfileDialog.Help },
@@ -220,6 +233,12 @@ fun ProfileScreen(
                 }
             )
         }
+        ProfileDialog.Addresses -> {
+            AddressBookScreen(
+                onBack = { activeDialog = null },
+                onSelectAddress = null
+            )
+        }
         null -> Unit
     }
 }
@@ -230,6 +249,10 @@ private fun ProfileContent(
     isUpdating: Boolean,
     onRefresh: () -> Unit,
     onEditClick: () -> Unit,
+    onAddressesClick: () -> Unit,
+    onLanguageClick: () -> Unit,
+    onReferralClick: () -> Unit,
+    onLoyaltyClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onSecurityClick: () -> Unit,
     onHelpClick: () -> Unit,
@@ -283,6 +306,10 @@ private fun ProfileContent(
         ) {
             Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)) {
                 MenuRow(icon = Icons.Default.Edit, label = "Ubah Profil", onClick = onEditClick)
+                MenuRow(icon = Icons.Default.LocationOn, label = "Alamat Tersimpan", onClick = onAddressesClick)
+                MenuRow(icon = Icons.Default.People, label = "Ajak Teman", onClick = onReferralClick)
+                MenuRow(icon = Icons.Default.Star, label = "Keanggotaan", onClick = onLoyaltyClick)
+                MenuRow(icon = Icons.Default.Language, label = "Bahasa", onClick = onLanguageClick)
                 MenuRow(icon = Icons.Default.Settings, label = "Pengaturan Aplikasi", onClick = onSettingsClick)
                 MenuRow(icon = Icons.Default.Shield, label = "Keamanan", onClick = onSecurityClick)
                     MenuRow(icon = Icons.AutoMirrored.Filled.Help, label = "Pusat Bantuan", onClick = onHelpClick, showDivider = false)
@@ -769,6 +796,7 @@ private fun String.asPhoneDisplay(): String {
 
 private enum class ProfileDialog {
     Edit,
+    Addresses,
     Settings,
     Security,
     Help,

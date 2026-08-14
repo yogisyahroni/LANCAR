@@ -11,6 +11,7 @@ import (
 	"tembus/merchant-service/internal/featureflags"
 	"tembus/merchant-service/internal/handler"
 	_ "tembus/merchant-service/internal/handler/docs"
+	"tembus/merchant-service/internal/infrastructure"
 	"tembus/merchant-service/internal/middleware"
 	"tembus/merchant-service/internal/repository"
 	"tembus/merchant-service/internal/service"
@@ -103,8 +104,11 @@ func main() {
 	menuRepo := repository.NewPostgresMenuItemRepository(db, db)
 	orderRepo := repository.NewPostgresMerchantOrderRepository(db, db)
 	reportRepo := repository.NewPostgresReportRepository(db, db)
+	staffRepo := repository.NewPostgresMerchantStaffRepository(db, db)
 	svc := service.NewMerchantService(merchantRepo, menuRepo, orderRepo, reportRepo)
+	staffSvc := service.NewStaffService(merchantRepo, staffRepo, infrastructure.NewStaffNotifier())
 	h := handler.NewMerchantHandler(svc, uploadSvc)
+	staffH := handler.NewStaffHandler(h, staffSvc)
 
 	// FB-099: promo merchant self-serve (dibiayai merchant, bukan duit PT)
 	promoRepo := repository.NewPostgresMerchantPromoRepository(db, db)
@@ -226,6 +230,38 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/reports", middleware.BaseChain(h.GetSalesReport))
 	mux.HandleFunc("/api/v1/merchant/reports/export", middleware.BaseChain(h.ExportSalesReport))
 	mux.HandleFunc("/api/v1/merchant/settlements", middleware.BaseChain(h.GetSettlements))
+	mux.HandleFunc("/api/v1/merchant/withdraw", middleware.BaseChain(h.RequestWithdrawal))
+	mux.HandleFunc("/api/v1/merchant/withdrawals", middleware.BaseChain(h.ListWithdrawals))
+
+	// ── Staff Management (M1, CORPORATE ONLY) ──
+	// NOTE: route di-namespaced ke /merchant/staff/{id} (bukan /merchant/{id}/staff)
+	// karena Go 1.22+ ServeMux panic: /merchant/{id}/staff bentrok dg /merchant/menu/{id}
+	// (path /merchant/menu/staff ambigu). Handler tetap baca PathValue("id")/"staffId".
+	// Owner invite / list: /merchant/staff/{id}
+	mux.HandleFunc("/api/v1/merchant/staff/{id}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			staffH.Invite(w, r)
+		case http.MethodGet:
+			staffH.List(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	// Staff accept invite (token): /merchant/staff/accept
+	mux.HandleFunc("/api/v1/merchant/staff/accept", middleware.BaseChain(staffH.AcceptInvite))
+	// Owner update role/status: /merchant/staff/{id}/{staffId}
+	mux.HandleFunc("/api/v1/merchant/staff/{id}/{staffId}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPatch:
+			staffH.Update(w, r)
+		case http.MethodDelete:
+			// Delete = revoke (soft, status revoked).
+			staffH.Update(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
 
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

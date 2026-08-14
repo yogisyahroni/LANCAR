@@ -127,6 +127,26 @@ class ProfileViewModel(
         }
     }
 
+    // M5: update jam operasional (buka/tutup)
+    fun updateOperatingHours(jamBuka: String, jamTutup: String) {
+        _uiState.value = _uiState.value.copy(isSavingMinOrder = true, minOrderSaveError = null)
+        viewModelScope.launch {
+            merchantRepository.updateProfile(UpdateProfileRequest(jamBuka = jamBuka, jamTutup = jamTutup))
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isSavingMinOrder = false
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSavingMinOrder = false,
+                        minOrderSaveError = e.message ?: "Gagal menyimpan jam operasional"
+                    )
+                }
+        }
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }

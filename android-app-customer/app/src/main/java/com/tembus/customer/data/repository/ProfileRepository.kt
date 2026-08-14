@@ -42,6 +42,50 @@ class ProfileRepository @Inject constructor(
         }
     }
 
+    // C8: Referral
+    suspend fun getReferralInfo(): Result<ReferralInfo> {
+        return try {
+            val response = apiService.getReferralInfo()
+            val data = response.body()?.data
+            if (response.isSuccessful && response.body()?.success == true && data != null) {
+                Result.success(data)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Gagal memuat referral")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun applyReferralCode(code: String): Result<String> {
+        return try {
+            val response = apiService.applyReferralCode(ApplyReferralRequest(code = code.trim().uppercase()))
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.message ?: "Kode referral berhasil diterapkan")
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal menerapkan kode referral")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // C9: Loyalty
+    suspend fun getLoyaltyInfo(): Result<LoyaltyInfo> {
+        return try {
+            val response = apiService.getLoyaltyInfo()
+            val data = response.body()?.data
+            if (response.isSuccessful && response.body()?.success == true && data != null) {
+                Result.success(data)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Gagal memuat loyalty")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun <T> Response<T>.readErrorMessage(fallback: String): String {
         return try {
             val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback.withRequestReference(this)

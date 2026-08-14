@@ -1,30 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tembus</string>
-    
-    <!-- Notification channels -->
-    <string name="channel_orders_name">Order Assignments</string>
-    <string name="channel_orders_description">Notifications for new order assignments and updates</string>
-    <string name="channel_general_name">General Updates</string>
-    <string name="channel_general_description">General announcements and system updates</string>
-    
-    <!-- Permissions -->
-    <string name="permission_notification_title">Enable Notifications</string>
-    <string name="permission_notification_message">Allow TEMBUS to send you notifications about new orders and updates?</string>
-    
-    <!-- Actions -->
-    <string name="action_accept">Accept</string>
-    <string name="action_decline">Decline</string>
-    <string name="action_dismiss">Dismiss</string>
-    <string name="action_view">View</string>
-    
-    <!-- Order notifications -->
-    <string name="notification_new_order_title">New Order Assigned!</string>
-    <string name="notification_new_order_body">You have a new delivery order. Tap to view details.</string>
-    <string name="notification_order_update_title">Order Update</string>
-    
-    <!-- Status -->
-    <string name="status_online">Online</string>
-    <string name="status_offline">Offline</string>
-    <string name="status_busy">Busy</string>
+
+    <!-- C7: Bahasa -->
+    <string name="language">Bahasa</string>
+    <string name="language_indonesian">Bahasa Indonesia</string>
+    <string name="language_english">English</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profil</string>
+    <string name="profile_wallet_balance">Saldo Dompet</string>
+    <string name="profile_withdraw">Tarik Dana</string>
+    <string name="profile_status_account">Status Akun</string>
+    <string name="profile_edit">Ubah Profil</string>
+    <string name="profile_addresses">Alamat Tersimpan</string>
+    <string name="profile_settings">Pengaturan Aplikasi</string>
+    <string name="profile_security">Keamanan</string>
+    <string name="profile_help">Pusat Bantuan</string>
+    <string name="profile_sync">Sinkronkan Profil</string>
+    <string name="profile_logout">Keluar Akun</string>
+    <string name="profile_version">Versi Aplikasi</string>
+    <string name="profile_status_identity">Identitas</string>
+    <string name="profile_status_contact">Kontak utama</string>
+    <string name="profile_status_phone">Nomor handphone</string>
+    <string name="profile_status_session">Proteksi sesi</string>
+    <string name="profile_status_complete">Lengkap</string>
+    <string name="profile_status_need">Perlu dilengkapi</string>
+    <string name="profile_status_encrypted">Encrypted session aktif</string>
+
+    <!-- Address Book -->
+    <string name="address_book_title">Alamat Tersimpan</string>
+    <string name="address_book_empty">Belum ada alamat tersimpan</string>
+    <string name="address_book_empty_hint">Tambah alamat untuk checkout lebih cepat</string>
+    <string name="address_book_add">Tambah Alamat</string>
+    <string name="address_book_edit">Edit</string>
+    <string name="address_book_delete">Hapus</string>
+    <string name="address_book_loading_failed">Gagal memuat alamat</string>
+    <string name="address_book_retry">Coba lagi</string>
+    <string name="address_dialog_add_title">Tambah Alamat</string>
+    <string name="address_dialog_edit_title">Edit Alamat</string>
+    <string name="address_label_hint">Label (Rumah/Kantor/dll)</string>
+    <string name="address_contact_name_hint">Nama Kontak (opsional)</string>
+    <string name="address_contact_phone_hint">No. HP (opsional)</string>
+    <string name="address_street_hint">Alamat Lengkap</string>
+    <string name="address_notes_hint">Catatan (patokan, dll)</string>
+    <string name="address_favorite">Jadikan alamat favorit</string>
+    <string name="address_save">Simpan</string>
+    <string name="address_cancel">Batal</string>
+
+    <!-- Food -->
+    <string name="food_favorites_title">Merchant Favorit</string>
+    <string name="food_favorites_empty">Belum ada merchant favorit</string>
+    <string name="food_favorites_empty_hint">Tekan ikon hati di merchant untuk menyimpannya</string>
+    <string name="food_cart_title">Keranjang</string>
+    <string name="food_cart_empty">Keranjang masih kosong</string>
+    <string name="food_cart_total">Total</string>
+    <string name="food_checkout">Checkout</string>
 </resources>

@@ -192,6 +192,35 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun updateCustomerAddress(id: String, request: CustomerAddressRequest): Result<CustomerAddress> {
+        return try {
+            val response = apiService.updateCustomerAddress(id, request)
+            val body = response.body()
+            val address = body?.data
+            if (response.isSuccessful && body?.success == true && address != null) {
+                Result.success(address)
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal memperbarui alamat")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteCustomerAddress(id: String): Result<Unit> {
+        return try {
+            val response = apiService.deleteCustomerAddress(id)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal menghapus alamat")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun createReceiverLocationRequest(request: ReceiverLocationCreateRequest): Result<ReceiverLocationLink> {
         return try {
             val response = apiService.createReceiverLocationRequest(request)
@@ -544,39 +573,113 @@ class OrderRepository @Inject constructor(
     // ============================================================
     
     suspend fun calculateSettlement(
-        orderId: String,
-        serviceCode: String,
-        grossTotal: Long,
-        distanceKm: Double,
-        baseFare: Long,
-        perKmRate: Long,
-        courierServicePrice: Long,
-        tollCost: Long,
-        insuranceFee: Long
-    ): Result<SettlementResult> {
-        return try {
-            val response = apiService.calculateSettlement(
-                orderId,
-                mapOf(
-                    "order_id" to orderId,
-                    "service_code" to serviceCode,
-                    "gross_total" to grossTotal,
-                    "distance_km" to distanceKm,
-                    "base_fare" to baseFare,
-                    "per_km_rate" to perKmRate,
-                    "courier_service_price" to courierServicePrice,
-                    "toll_cost" to tollCost,
-                    "insurance_fee" to insuranceFee
+            orderId: String,
+            serviceCode: String,
+            grossTotal: Long,
+            distanceKm: Double,
+            baseFare: Long,
+            perKmRate: Long,
+            courierServicePrice: Long,
+            tollCost: Long,
+            insuranceFee: Long
+        ): Result<SettlementResult> {
+            return try {
+                val response = apiService.calculateSettlement(
+                    orderId,
+                    mapOf(
+                        "order_id" to orderId,
+                        "service_code" to serviceCode,
+                        "gross_total" to grossTotal,
+                        "distance_km" to distanceKm,
+                        "base_fare" to baseFare,
+                        "per_km_rate" to perKmRate,
+                        "courier_service_price" to courierServicePrice,
+                        "toll_cost" to tollCost,
+                        "insurance_fee" to insuranceFee
+                    )
                 )
-            )
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Gagal menghitung settlement"))
+                if (response.isSuccessful && response.body() != null) {
+                    Result.success(response.body()!!)
+                } else {
+                    Result.failure(Exception("Gagal menghitung settlement"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+        }
+
+        // ============================================================
+        // FOOD-BIKE-070: Favorite Merchants (C3)
+        // ============================================================
+
+        suspend fun addFavoriteMerchant(merchantId: String): Result<FavoriteActionResponse> {
+            return try {
+                val response = apiService.addFavoriteMerchant(merchantId)
+                val body = response.body()
+                if (response.isSuccessful && body?.success == true) {
+                    Result.success(body)
+                } else {
+                    Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal menambahkan favorit")))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+        suspend fun removeFavoriteMerchant(merchantId: String): Result<FavoriteActionResponse> {
+            return try {
+                val response = apiService.removeFavoriteMerchant(merchantId)
+                val body = response.body()
+                if (response.isSuccessful && body?.success == true) {
+                    Result.success(body)
+                } else {
+                    Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal menghapus favorit")))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+        suspend fun listFavoriteMerchants(): Result<List<FavoriteMerchant>> {
+            return try {
+                val response = apiService.listFavoriteMerchants()
+                val body = response.body()
+                if (response.isSuccessful && body?.merchants != null) {
+                    Result.success(body.merchants)
+                } else {
+                    Result.failure(Exception(response.readErrorMessage("Gagal memuat daftar favorit")))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+        suspend fun getBanners(): Result<List<GlobalBanner>> {
+            return try {
+                val response = apiService.getBanners()
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    Result.success(body.banners)
+                } else {
+                    Result.failure(Exception(response.readErrorMessage("Gagal memuat banner")))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+        suspend fun checkIsFavoriteMerchant(merchantId: String): Result<Boolean> {
+            return try {
+                val response = apiService.checkIsFavoriteMerchant(merchantId)
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    Result.success(body.isFavorite)
+                } else {
+                    Result.failure(Exception(response.readErrorMessage("Gagal cek status favorit")))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
         }
     }
-}
 

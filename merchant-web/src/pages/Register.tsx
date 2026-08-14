@@ -182,6 +182,7 @@ export default function Register() {
         ktp_pemilik_url: form.ktpPemilikUrl,
         foto_tempat_usaha_url: form.fotoTempatUsahaUrl,
         rekening_bank_url: form.rekeningBankUrl,
+        business_type: form.businessType,
       }
       if (form.latitude !== null && form.longitude !== null) {
         payload.lokasi_lat = form.latitude

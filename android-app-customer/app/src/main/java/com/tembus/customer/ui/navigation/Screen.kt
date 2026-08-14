@@ -93,6 +93,16 @@ sealed class Screen(val route: String) {
     }
     object FoodCart : Screen("food-cart")
     object FoodCheckout : Screen("food-checkout")
+    object FoodFavorites : Screen("food-favorites")
+
+    // C7: Multi-bahasa
+    object Language : Screen("language")
+
+    // C8: Referral
+    object Referral : Screen("referral")
+
+    // C9: Loyalty
+    object Loyalty : Screen("loyalty")
 }
 
 

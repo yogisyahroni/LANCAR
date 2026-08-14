@@ -84,6 +84,7 @@ const merchantColumns = `id, user_id, nama_toko, alamat,
 	bpom_number, to_char(bpom_expiry_date, 'YYYY-MM-DD'),
 	halal_status,
 	bank_name, bank_account_number, bank_account_holder, bank_account_verified,
+	business_type,
 	created_at, updated_at`
 
 func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error) {
@@ -96,6 +97,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp sql.NullString
 	var halalStatus sql.NullString
 	var bankName, bankAccountNumber, bankAccountHolder sql.NullString
+	var businessType sql.NullString
 	err := row.Scan(
 		&m.ID, &m.UserID, &m.NamaToko, &m.Alamat,
 		&lat, &lng,
@@ -105,6 +107,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&halalNo, &halalExp, &sppNo, &sppExp, &bpomNo, &bpomExp,
 		&halalStatus,
 		&bankName, &bankAccountNumber, &bankAccountHolder, &m.BankAccountVerified,
+		&businessType,
 		&m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
@@ -171,6 +174,9 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	if bankAccountHolder.Valid {
 		v := bankAccountHolder.String
 		m.BankAccountHolder = &v
+	}
+	if businessType.Valid {
+		m.BusinessType = businessType.String
 	}
 	return &m, nil
 }

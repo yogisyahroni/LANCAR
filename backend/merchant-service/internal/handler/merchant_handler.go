@@ -731,8 +731,63 @@ func (h *MerchantHandler) GetSettlements(w http.ResponseWriter, r *http.Request)
 	h.respondJSON(w, http.StatusOK, summary)
 }
 
-// GetOrderEdit godoc
-// @Summary Ambil data order untuk edit item (FB-087)
+// RequestWithdrawal godoc
+// @Summary Ajukan pencairan saldo merchant (M7)
+// @Description Merchant ajukan penarikan saldo tersedia ke rekening.
+// @Tags merchant
+// @Accept json
+// @Param request body domain.CreateMerchantWithdrawalInput true "detail penarikan"
+// @Success 202 {object} object
+// @Router /merchant/withdraw [post]
+func (h *MerchantHandler) RequestWithdrawal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var body domain.CreateMerchantWithdrawalInput
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	rec, available, err := h.svc.RequestWithdrawal(r.Context(), userID, body)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusAccepted, map[string]interface{}{
+		"message":          "Permintaan pencairan diterima",
+		"withdrawal":       rec,
+		"available_idr":    available,
+	})
+}
+
+// ListWithdrawals godoc
+// @Summary Riwayat permintaan pencairan merchant (M7)
+// @Tags merchant
+// @Produce json
+// @Success 200 {array} domain.MerchantWithdrawalRecord
+// @Router /merchant/withdrawals [get]
+func (h *MerchantHandler) ListWithdrawals(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	records, err := h.svc.ListWithdrawals(r.Context(), userID, 50)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, records)
+}
+
 // @Description Return items + harga lama order food status pending_merchant milik merchant.
 // @Tags merchant
 // @Produce json

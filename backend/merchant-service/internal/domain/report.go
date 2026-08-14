@@ -47,6 +47,10 @@ type MerchantReportRepository interface {
 	// Settlements ambil riwayat pencairan/payout merchant (FB-113),
 	// terbaru dulu, dibatasi [limit] baris.
 	Settlements(ctx context.Context, merchantID string, limit int) ([]*SettlementRecord, error)
+	// CreateWithdrawal buat permintaan pencairan saldo merchant (M7).
+	CreateWithdrawal(ctx context.Context, w *MerchantWithdrawalRequest) error
+	// ListWithdrawals riwayat permintaan pencairan merchant (M7), terbaru dulu.
+	ListWithdrawals(ctx context.Context, merchantID string, limit int) ([]*MerchantWithdrawalRecord, error)
 }
 
 // ─────────────────────────────────────────────
@@ -75,8 +79,43 @@ type SettlementRecord struct {
 // SettlementSummary — ringkasan + riwayat (respons endpoint settlements).
 type SettlementSummary struct {
 	// TotalIDR total yang sudah CAIR (COMPLETED).
-	TotalIDR int64               `json:"total_idr"`
+	TotalIDR int64 `json:"total_idr"`
 	// HoldingIDR total yang masih ditahan (HOLDING/PROCESSING).
-	HoldingIDR int64             `json:"holding_idr"`
-	Records    []*SettlementRecord `json:"records"`
+	HoldingIDR int64 `json:"holding_idr"`
+	// AvailableIDR saldo yang bisa ditarik = TotalIDR - HoldingIDR (M7).
+	AvailableIDR int64 `json:"available_idr"`
+	Records      []*SettlementRecord `json:"records"`
+}
+
+// MerchantWithdrawalRequest — input ajukan pencairan saldo merchant (M7).
+type MerchantWithdrawalRequest struct {
+	MerchantID       string
+	UserID           string
+	AmountIDR        int64  `json:"amount_idr"`
+	BankName         string `json:"bank_name"`
+	BankAccountNumber string `json:"bank_account_number"`
+	BankAccountHolder string `json:"bank_account_holder"`
+	IdempotencyKey   string `json:"-"`
+}
+
+// MerchantWithdrawalRecord — record permintaan pencairan (response/riwayat).
+type MerchantWithdrawalRecord struct {
+	ID               string `json:"id"`
+	AmountIDR        int64  `json:"amount_idr"`
+	BankName         string `json:"bank_name"`
+	BankAccountNumber string `json:"bank_account_number"`
+	BankAccountHolder string `json:"bank_account_holder"`
+	Status           string `json:"status"`
+	RejectionReason  *string `json:"rejection_reason,omitempty"`
+	DisbursementRef  *string `json:"disbursement_ref,omitempty"`
+	CreatedAt        string `json:"created_at"`
+}
+
+// CreateMerchantWithdrawalInput — payload dari handler (validasi di service).
+type CreateMerchantWithdrawalInput struct {
+	AmountIDR         int64  `json:"amount_idr"`
+	BankName          string `json:"bank_name"`
+	BankAccountNumber string `json:"bank_account_number"`
+	BankAccountHolder string `json:"bank_account_holder"`
+	IdempotencyKey    string `json:"idempotency_key"`
 }

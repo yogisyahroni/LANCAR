@@ -130,9 +130,51 @@ data class FoodOrderCreateResponse(
 )
 
 // ============================================================
+// FOOD-BIKE-070: Favorite Merchants (C3)
+// ============================================================
+
+@Serializable
+data class FavoriteMerchant(
+    @SerialName("merchant_id") val merchantId: String,
+    @SerialName("merchant_name") val merchantName: String,
+    @SerialName("merchant_address") val merchantAddress: String,
+    @SerialName("is_open") val isOpen: Boolean,
+    @SerialName("lat") val lat: Double,
+    @SerialName("lng") val lng: Double,
+    @SerialName("avg_rating") val avgRating: Double,
+    @SerialName("rating_count") val ratingCount: Int,
+    @SerialName("halal_status") val halalStatus: String,
+    @SerialName("distance_km") val distanceKm: Double? = null,
+    @SerialName("added_at") val addedAt: String
+) {
+    // Mirror FoodMerchant computed properties for UI consistency
+    val isHalalCertified: Boolean get() = halalStatus == "halal_certified"
+    val isNonHalal: Boolean get() = halalStatus == "non_halal"
+    val name: String get() = merchantName
+    val address: String get() = merchantAddress
+}
+
+@Serializable
+data class FavoriteMerchantsResponse(
+    @SerialName("merchants") val merchants: List<FavoriteMerchant>
+)
+
+@Serializable
+data class FavoriteCheckResponse(
+    @SerialName("is_favorite") val isFavorite: Boolean
+)
+
+@Serializable
+data class FavoriteActionResponse(
+    @SerialName("success") val success: Boolean,
+    @SerialName("message") val message: String? = null
+)
+
+// ============================================================
 // CART STATE — dipegang in-memory di ViewModel (belum ada tabel cart)
 // ============================================================
 
+@Serializable
 data class CartItem(
     val menuItem: FoodMenuItem,
     val quantity: Int = 1,

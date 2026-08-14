@@ -460,6 +460,12 @@ func main() {
 	mux.HandleFunc("/api/v1/food/merchants", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFoodMerchants)))
 	mux.HandleFunc("/api/v1/food/merchants/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetFoodMerchantDetail)))
 
+	// FOOD-BIKE-070: Favorite Merchants (C3)
+	mux.HandleFunc("/api/v1/food/favorites/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AddFavoriteMerchant)))
+	mux.HandleFunc("/api/v1/food/favorites/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.RemoveFavoriteMerchant)))
+	mux.HandleFunc("/api/v1/food/favorites", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFavoriteMerchants)))
+	mux.HandleFunc("/api/v1/food/favorites/check/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CheckIsFavoriteMerchant)))
+
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
 	mux.HandleFunc("/api/v1/orders/reorder-info", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.ReorderCheck))))
 	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateBulkOrderRequest{})(orderHandler.CreateBulkOrder)))))

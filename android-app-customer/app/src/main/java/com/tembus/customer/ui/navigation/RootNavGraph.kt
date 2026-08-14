@@ -61,6 +61,9 @@ import com.tembus.customer.data.model.NotificationRealtimeEvent
 import com.tembus.customer.data.session.SessionInvalidationReason
 import com.tembus.customer.ui.MainViewModel
 import com.tembus.customer.ui.screens.auth.AuthNavGraph
+import com.tembus.customer.ui.localization.LanguageScreen
+import com.tembus.customer.ui.screens.profile.LoyaltyScreen
+import com.tembus.customer.ui.screens.profile.ReferralScreen
 import com.tembus.customer.ui.screens.booking.BookingScreen
 import com.tembus.customer.ui.screens.booking.BookingViewModel
 import com.tembus.customer.ui.screens.call.InAppCallScreen
@@ -71,6 +74,7 @@ import com.tembus.customer.ui.screens.detail.OrderDetailScreen
 import com.tembus.customer.ui.screens.detail.OrderDetailViewModel
 import com.tembus.customer.ui.screens.food.FoodCartScreen
 import com.tembus.customer.ui.screens.food.FoodCheckoutScreen
+import com.tembus.customer.ui.screens.food.FoodFavoritesScreen
 import com.tembus.customer.ui.screens.food.FoodHomeScreen
 import com.tembus.customer.ui.screens.food.MerchantDetailScreen
 import com.tembus.customer.ui.screens.history.OrderHistoryScreen
@@ -101,7 +105,8 @@ fun RootNavGraph(
     navController: NavHostController = rememberNavController(),
     viewModel: MainViewModel = hiltViewModel(),
     initialDeepLink: Uri? = null,
-    onDeepLinkConsumed: () -> Unit = {}
+    onDeepLinkConsumed: () -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
     val startDestination by viewModel.startDestination.collectAsState()
@@ -226,6 +231,7 @@ fun RootNavGraph(
                             "tambal_ban_motor", "tambal_ban_mobil", "towing_motor", "towing_mobil" -> navController.navigate(Screen.ServiceBooking.createRoute(open))
                             "tambal_ban", "towing" -> navController.navigate(Screen.ServiceCategory.route)
                             "food_delivery" -> navController.navigate(Screen.FoodHome.route)
+                            "food_favorites" -> navController.navigate(Screen.FoodFavorites.route)
                             else -> navController.navigate(Screen.Booking.createRoute(open))
                         }
                     },
@@ -299,6 +305,35 @@ fun RootNavGraph(
                         }
                     }
                 )
+            }
+
+            composable(Screen.FoodFavorites.route) {
+                FoodFavoritesScreen(
+                    onBack = { navController.popBackStack() },
+                    onMerchantClick = { merchantId -> navController.navigate(Screen.FoodMerchantDetail.createRoute(merchantId)) }
+                )
+            }
+
+            composable(Screen.Profile.route) {
+                ProfileScreen(
+                    onLogout = onLogout,
+                    onBackClick = { navController.popBackStack() },
+                    onLanguageClick = { navController.navigate(Screen.Language.route) },
+                    onReferralClick = { navController.navigate(Screen.Referral.route) },
+                    onLoyaltyClick = { navController.navigate(Screen.Loyalty.route) }
+                )
+            }
+
+            composable(Screen.Language.route) {
+                LanguageScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Screen.Referral.route) {
+                ReferralScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Screen.Loyalty.route) {
+                LoyaltyScreen(onBack = { navController.popBackStack() })
             }
 
             composable(

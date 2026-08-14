@@ -354,7 +354,74 @@ data class CreateDisputeRequest(
     @SerialName("is_customer") val isCustomer: Boolean = true
 )
 
+// ============================================================
+// C8: Referral / invite reward
+// ============================================================
+
 @Serializable
+data class ReferralInfoResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("data") val data: ReferralInfo? = null,
+    @SerialName("message") val message: String? = null
+)
+
+@Serializable
+data class ReferralInfo(
+    @SerialName("referral_code") val referralCode: String? = null,
+    @SerialName("referral_link") val referralLink: String = "",
+    @SerialName("total_referred") val totalReferred: Int = 0,
+    @SerialName("completed_referred") val completedReferred: Int = 0,
+    @SerialName("pending_rewards") val pendingRewards: Int = 0,
+    @SerialName("earned_rewards") val earnedRewards: Int = 0,
+    @SerialName("rewards") val rewards: List<ReferralReward> = emptyList()
+)
+
+@Serializable
+data class ReferralReward(
+    @SerialName("id") val id: String = "",
+    @SerialName("referred_name") val referredName: String? = null,
+    @SerialName("status") val status: String = "",
+    @SerialName("reward_type") val rewardType: String? = null,
+    @SerialName("reward_value") val rewardValue: Int? = null,
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("completed_at") val completedAt: String? = null
+)
+
+@Serializable
+data class ApplyReferralRequest(
+    @SerialName("code") val code: String
+)
+
+@Serializable
+data class ApplyReferralResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("message") val message: String? = null
+)
+
+// ============================================================
+// C9: Loyalty / membership tier
+// ============================================================
+
+@Serializable
+data class LoyaltyInfoResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("data") val data: LoyaltyInfo? = null,
+    @SerialName("message") val message: String? = null
+)
+
+@Serializable
+data class LoyaltyInfo(
+    @SerialName("tier") val tier: String = "Bronze",
+    @SerialName("monthly_orders") val monthlyOrders: Int = 0,
+    @SerialName("discount_pct") val discountPct: Int = 0,
+    @SerialName("benefits") val benefits: List<String> = emptyList(),
+    @SerialName("next_tier") val nextTier: String? = null,
+    @SerialName("next_tier_discount_pct") val nextTierDiscountPct: Int? = null,
+    @SerialName("orders_to_next_tier") val ordersToNextTier: Int = 0,
+    @SerialName("progress_pct") val progressPct: Int = 0
+)
+
+ @Serializable
 data class UploadResponse(
     @SerialName("success") val success: Boolean,
     @SerialName("url") val url: String? = null,
@@ -374,4 +441,21 @@ data class CustomerDisputeResponse(
     @SerialName("type") val type: String,
     @SerialName("status") val status: String,
     @SerialName("created_at") val createdAt: String
+)
+
+// A4: global banner (pengumuman in-app platform-wide dari super_admin).
+@Serializable
+data class GlobalBanner(
+    @SerialName("id") val id: String = "",
+    @SerialName("title") val title: String = "",
+    @SerialName("message") val message: String = "",
+    @SerialName("image_url") val imageUrl: String? = null,
+    @SerialName("action_url") val actionUrl: String? = null,
+    @SerialName("action_label") val actionLabel: String? = null,
+    @SerialName("priority") val priority: Int = 0
+)
+
+@Serializable
+data class GlobalBannerListResponse(
+    @SerialName("banners") val banners: List<GlobalBanner> = emptyList()
 )

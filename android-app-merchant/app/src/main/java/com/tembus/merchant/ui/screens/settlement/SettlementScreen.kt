@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +37,7 @@ fun SettlementScreen(
     viewModel: SettlementViewModel = appViewModel { SettlementViewModel(it.merchantRepository) }
 ) {
     val state by viewModel.uiState.collectAsState()
+    var showWithdrawDialog by remember { mutableStateOf(false) } // M7
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Header hijau
@@ -95,6 +97,21 @@ fun SettlementScreen(
                 ) {
                     if (summary != null) {
                         item { SummaryCards(summary = summary) }
+                        item {
+                            Button(
+                                onClick = { showWithdrawDialog = true },
+                                enabled = summary.availableIdr > 0 && !state.isRequesting,
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                            ) {
+                                if (state.isRequesting) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                                } else {
+                                    Text("Ajukan Pencairan", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                     item {
                         Text(
@@ -114,9 +131,53 @@ fun SettlementScreen(
                             SettlementRow(record = record)
                         }
                     }
+                    // M7: riwayat permintaan pencairan manual
+                    if (state.withdrawals.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Permintaan Pencairan",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = GreenText,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                        items(state.withdrawals, key = { it.id }) { w ->
+                            WithdrawalRow(record = w)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    // M7: snackbar sukses/gagal
+    if (state.requestSuccess) {
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(2500)
+            viewModel.clearRequestState()
+        }
+    }
+    state.requestError?.let { err ->
+        Snackbar(
+            modifier = Modifier.padding(16.dp),
+            action = { TextButton(onClick = viewModel::clearRequestState) { Text("OK") } }
+        ) { Text(err) }
+    }
+    // M7: dialog ajukan pencairan
+    if (showWithdrawDialog) {
+        WithdrawalDialog(
+            availableIdr = state.summary?.availableIdr ?: 0,
+            prefillBankName = state.merchant?.bankName ?: "",
+            prefillAccount = state.merchant?.bankAccountNumber ?: "",
+            prefillHolder = state.merchant?.bankAccountHolder ?: "",
+            isRequesting = state.isRequesting,
+            onDismiss = { showWithdrawDialog = false },
+            onConfirm = { amount, bank, acc, holder ->
+                viewModel.requestWithdrawal(amount, bank, acc, holder)
+                showWithdrawDialog = false
+            }
+        )
     }
 }
 

@@ -362,6 +362,15 @@ type FoodRepository interface {
 	// FOOD-BIKE-055: browse merchant terdekat (is_open + approved) + menu
 	ListFoodMerchants(ctx context.Context, lat, lng float64, search, halal string, limit int) ([]FoodMerchantInfo, error)
 	GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]FoodMenuItemInfo, error)
+	// ── FOOD-BIKE-070: Favorite Merchants (C3) ──
+	// AddFavoriteMerchant: customer bookmark merchant.
+	AddFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
+	// RemoveFavoriteMerchant: customer hapus bookmark.
+	RemoveFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
+	// ListFavoriteMerchants: customer lihat daftar favorite merchant + detail dasar.
+	ListFavoriteMerchants(ctx context.Context, customerID string) ([]FoodMerchantInfo, error)
+	// CheckIsFavoriteMerchant: cek apakah merchant sudah di-favorite customer.
+	CheckIsFavoriteMerchant(ctx context.Context, customerID, merchantID string) (bool, error)
 	// ── FB-088: batching driver food ──
 	// GetSearchingFoodOrdersForBatch: order food `searching` tanpa batch_id
 	// yang siap dipairing (sudah searching ≤ 2 menit, service food_delivery).
@@ -491,8 +500,17 @@ type OrderService interface {
 	SubmitRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
 	// SubmitMerchantRating menilai makanan dari merchant (FOOD-BIKE-059/060),
 	// terpisah dari rating driver. Validasi sama: order milik customer & delivered.
-	SubmitMerchantRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
-	// ── FOOD-BIKE-021: accept/reject order oleh merchant ──
+		SubmitMerchantRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
+		// ── FOOD-BIKE-070: Favorite Merchants (C3) ──
+		// AddFavoriteMerchant: customer bookmark merchant untuk quick access.
+		AddFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
+		// RemoveFavoriteMerchant: customer hapus bookmark.
+		RemoveFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
+		// ListFavoriteMerchants: customer lihat daftar favorite merchant + detail dasar.
+		ListFavoriteMerchants(ctx context.Context, customerID string) ([]FoodMerchantInfo, error)
+		// CheckIsFavoriteMerchant: cek apakah merchant sudah di-favorite customer.
+		CheckIsFavoriteMerchant(ctx context.Context, customerID, merchantID string) (bool, error)
+		// ── FOOD-BIKE-021: accept/reject order oleh merchant ──
 	// AcceptByMerchant: pending_merchant → preparing (merchant terima).
 	// Validasi kepemilikan merchant via foodRepo.GetFoodOrderForMerchant.
 	AcceptByMerchant(ctx context.Context, orderID string, merchantID string) error

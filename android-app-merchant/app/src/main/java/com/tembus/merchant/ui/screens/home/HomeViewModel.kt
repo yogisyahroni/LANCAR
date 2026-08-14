@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.model.MerchantOrder
+import com.tembus.merchant.data.model.UpdateProfileRequest
 import com.tembus.merchant.data.notifications.OrderAlertNotifier
 import com.tembus.merchant.data.repository.MerchantRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -145,6 +146,23 @@ class HomeViewModel(
                     _uiState.value = _uiState.value.copy(
                         isToggleOpenLoading = false,
                         actionError = e.message ?: "Gagal ubah status toko"
+                    )
+                }
+        }
+    }
+
+    // M5: update jam operasional (buka/tutup)
+    fun updateOperatingHours(jamBuka: String, jamTutup: String) {
+        _uiState.value = _uiState.value.copy(isToggleOpenLoading = true, actionError = null)
+        viewModelScope.launch {
+            merchantRepository.updateProfile(UpdateProfileRequest(jamBuka = jamBuka, jamTutup = jamTutup))
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(merchant = updated, isToggleOpenLoading = false)
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isToggleOpenLoading = false,
+                        actionError = e.message ?: "Gagal menyimpan jam operasional"
                     )
                 }
         }

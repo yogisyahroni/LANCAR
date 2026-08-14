@@ -38,6 +38,8 @@ data class Merchant(
     @SerializedName("bank_account_number") val bankAccountNumber: String? = null,
     @SerializedName("bank_account_holder") val bankAccountHolder: String? = null,
     @SerializedName("bank_account_verified") val bankAccountVerified: Boolean = false,
+    // X1/M1: jenis usaha — 'perorangan' (tanpa staff) | 'perusahaan' (wajib staff mgmt).
+    @SerializedName("business_type") val businessType: String = "perorangan",
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null
 ) {
@@ -47,6 +49,8 @@ data class Merchant(
     /** ADR 003: status halal untuk UI merchant (pilih di form dokumen pangan). */
     val isHalalCertified: Boolean get() = halalStatus == "halal_certified"
     val isNonHalal: Boolean get() = halalStatus == "non_halal"
+    // X1/M1: corporate = perusahaan (punya staff management); individual = perorangan.
+    val isCorporate: Boolean get() = businessType == "perusahaan"
 }
 
 /** Menu item — CRUD /api/v1/merchant/menu. */
@@ -129,7 +133,9 @@ data class PauseRequest(
 
 /** FB-109: body PATCH /merchant/profile — update minimal order (IDR). */
 data class UpdateProfileRequest(
-    @SerializedName("min_order_idr") val minOrderIdr: Long? = null
+    @SerializedName("min_order_idr") val minOrderIdr: Long? = null,
+    @SerializedName("jam_buka") val jamBuka: String? = null,
+    @SerializedName("jam_tutup") val jamTutup: String? = null
 )
 
 /** Reject order food — reason wajib (FOOD-BIKE-017/021). FB-122: reject_reason enum. */
@@ -313,7 +319,30 @@ data class SettlementRecord(
 data class SettlementSummary(
     @SerializedName("total_idr") val totalIdr: Long = 0,
     @SerializedName("holding_idr") val holdingIdr: Long = 0,
+    @SerializedName("available_idr") val availableIdr: Long = 0,
     @SerializedName("records") val records: List<SettlementRecord> = emptyList()
+)
+
+/** M7: permintaan pencairan saldo merchant. */
+data class MerchantWithdrawalRequest(
+    @SerializedName("amount_idr") val amountIdr: Long,
+    @SerializedName("bank_name") val bankName: String,
+    @SerializedName("bank_account_number") val bankAccountNumber: String,
+    @SerializedName("bank_account_holder") val bankAccountHolder: String,
+    @SerializedName("idempotency_key") val idempotencyKey: String
+)
+
+/** M7: record riwayat pencairan merchant. */
+data class MerchantWithdrawalRecord(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("amount_idr") val amountIdr: Long = 0,
+    @SerializedName("bank_name") val bankName: String = "",
+    @SerializedName("bank_account_number") val bankAccountNumber: String = "",
+    @SerializedName("bank_account_holder") val bankAccountHolder: String = "",
+    @SerializedName("status") val status: String = "",
+    @SerializedName("rejection_reason") val rejectionReason: String? = null,
+    @SerializedName("disbursement_ref") val disbursementRef: String? = null,
+    @SerializedName("created_at") val createdAt: String = ""
 )
 
 /** Pendaftaran merchant — POST /api/v1/merchant/register. */
@@ -328,6 +357,8 @@ data class RegisterMerchantRequest(
     @SerializedName("foto_tempat_usaha_url") val fotoTempatUsahaUrl: String,
     @SerializedName("rekening_bank_url") val rekeningBankUrl: String,
     @SerializedName("nib_url") val nibUrl: String? = null,
+    // X1/M1: jenis usaha — 'perorangan' (default) | 'perusahaan' (wajib staff).
+    @SerializedName("business_type") val businessType: String = "perorangan",
     // FB-092/ADR 003: dokumen pangan opsional saat daftar (soft-gate)
     @SerializedName("halal_status") val halalStatus: String? = null,
     @SerializedName("halal_cert_number") val halalCertNumber: String? = null,

@@ -33,7 +33,8 @@ import {
   Receipt,
   Store,
   ShieldOff,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Megaphone
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -207,6 +208,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Truck, label: "Couriers", path: "/couriers" },
         { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
         { icon: Store, label: "Merchants", path: "/merchants" },
+        { icon: UserCircle2, label: "Staff Oversight", path: "/merchant-staff", allowedRoles: ['super_admin'] }, // A3
         { icon: TrendingUp, label: "Courier Performance", path: "/courier-performance" },
         { icon: Store, label: "Merchant Performance", path: "/merchant-performance" }, // FOOD-BIKE-051
         { icon: ShieldOff, label: "Driver Wallet Hold", path: "/driver-wallet-holds" }, // FOOD-BIKE-054
@@ -235,6 +237,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Ticket, label: "Vouchers", path: "/vouchers" },
         { icon: BadgePercent, label: "Promos", path: "/promos" },
         { icon: Newspaper, label: "Berita & Artikel", path: "/news", restrictedRoles: ['cs_agent'] },
+        { icon: Megaphone, label: "Global Banner", path: "/banners", allowedRoles: ['super_admin'] }, // A4
         { icon: FileText, label: "Resi Templates", path: "/resi-templates", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
       ]
     },

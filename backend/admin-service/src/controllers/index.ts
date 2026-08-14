@@ -44,6 +44,8 @@ export * from './notifications.controller';
 // Vouchers
 export * from './vouchers.controller';
 export * from './promos.controller';
+export * as referral from './referral.controller';
+export * as loyalty from './loyalty.controller';
 
 // Logistics (Zones, Pricing, SLA Configs)
 export * from './logistics.controller';

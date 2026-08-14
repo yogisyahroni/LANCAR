@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Restaurant
@@ -46,6 +47,7 @@ fun ServiceGridMenu(
     services: List<DeliveryServiceProduct>,
     onServiceClick: (String) -> Unit,
     onHistoryClick: () -> Unit,
+    onFavoritesClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -146,7 +148,7 @@ fun ServiceGridMenu(
                 )
             }
 
-            // Row 3: Food Delivery (FOOD-BIKE-030/030b)
+            // Row 3: Food Delivery (FOOD-BIKE-030/030b), Favorit (C3)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -161,7 +163,16 @@ fun ServiceGridMenu(
                         modifier = Modifier.weight(1f)
                     )
                 } ?: Spacer(Modifier.weight(1f))
-                Spacer(Modifier.weight(1f))
+                
+                // Favorit (C3)
+                ServiceGridItemFixed(
+                    label = "Favorit",
+                    icon = Icons.Default.Favorite,
+                    color = Color(0xFFFCE4EC), // Light pink
+                    onClick = onFavoritesClick,
+                    modifier = Modifier.weight(1f)
+                )
+                
                 Spacer(Modifier.weight(1f))
             }
         }

@@ -251,6 +251,117 @@ func (h *OrderHandler) GetFoodMerchantDetail(w http.ResponseWriter, r *http.Requ
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"merchant": merchant})
 }
 
+// ─────────────────────────────────────────────────────────────
+// FOOD-BIKE-070: Favorite Merchants (C3)
+// POST /api/v1/food/favorites/{merchant_id} — add favorite
+// DELETE /api/v1/food/favorites/{merchant_id} — remove favorite
+// GET /api/v1/food/favorites — list favorites
+// GET /api/v1/food/favorites/check/{merchant_id} — check if favorite
+// ─────────────────────────────────────────────────────────────
+
+func (h *OrderHandler) AddFavoriteMerchant(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+	merchantID := r.PathValue("id")
+	if merchantID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ID", "merchant id wajib dikirim", correlationID)
+		return
+	}
+
+	err := h.orderSvc.AddFavoriteMerchant(r.Context(), userID, merchantID)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func (h *OrderHandler) RemoveFavoriteMerchant(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+	merchantID := r.PathValue("id")
+	if merchantID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ID", "merchant id wajib dikirim", correlationID)
+		return
+	}
+
+	err := h.orderSvc.RemoveFavoriteMerchant(r.Context(), userID, merchantID)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func (h *OrderHandler) ListFavoriteMerchants(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+
+	merchants, err := h.orderSvc.ListFavoriteMerchants(r.Context(), userID)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"merchants": merchants})
+}
+
+func (h *OrderHandler) CheckIsFavoriteMerchant(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+	merchantID := r.PathValue("id")
+	if merchantID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ID", "merchant id wajib dikirim", correlationID)
+		return
+	}
+
+	isFav, err := h.orderSvc.CheckIsFavoriteMerchant(r.Context(), userID, merchantID)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"is_favorite": isFav})
+}
+
 // GetOrder godoc
 // CreateBulkOrder godoc
 // @Summary Create bulk order (multidrop)

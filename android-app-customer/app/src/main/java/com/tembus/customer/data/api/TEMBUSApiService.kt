@@ -210,6 +210,11 @@ interface TEMBUSApiService {
         @Body request: CustomerAddressRequest
     ): Response<CustomerAddressResponse>
 
+    @DELETE("api/v1/customer/addresses/{id}")
+    suspend fun deleteCustomerAddress(
+        @Path("id") id: String
+    ): Response<CustomerAddressResponse>
+
     @POST("api/v1/customer/location-requests")
     suspend fun createReceiverLocationRequest(
         @Body request: ReceiverLocationCreateRequest
@@ -243,6 +248,17 @@ interface TEMBUSApiService {
     ): Response<CustomerPaymentSessionResponse>
 
     // Profile Endpoints
+    @GET("api/v1/customer/referral")
+    suspend fun getReferralInfo(): Response<ReferralInfoResponse>
+
+    @POST("api/v1/customer/referral/apply")
+    suspend fun applyReferralCode(
+        @Body request: ApplyReferralRequest
+    ): Response<ApplyReferralResponse>
+
+    @GET("api/v1/customer/loyalty")
+    suspend fun getLoyaltyInfo(): Response<LoyaltyInfoResponse>
+
     @GET("api/v1/customer/profile")
     suspend fun getProfile(): Response<ApiResponse<ProfileResponse>>
 
@@ -417,6 +433,32 @@ interface TEMBUSApiService {
     suspend fun getReorderInfo(
         @Query("id") orderId: String
     ): Response<ReorderInfoResponse>
+
+    // ============================================================
+    // FOOD-BIKE-070: Favorite Merchants (C3)
+    // ============================================================
+
+    @POST("api/v1/food/favorites/{id}")
+    suspend fun addFavoriteMerchant(
+        @Path("id") merchantId: String
+    ): Response<FavoriteActionResponse>
+
+    @DELETE("api/v1/food/favorites/{id}")
+    suspend fun removeFavoriteMerchant(
+        @Path("id") merchantId: String
+    ): Response<FavoriteActionResponse>
+
+    @GET("api/v1/food/favorites")
+    suspend fun listFavoriteMerchants(): Response<FavoriteMerchantsResponse>
+
+    @GET("api/v1/food/favorites/check/{id}")
+    suspend fun checkIsFavoriteMerchant(
+        @Path("id") merchantId: String
+    ): Response<FavoriteCheckResponse>
+
+    // A4: global banner (pengumuman in-app platform-wide).
+    @GET("api/v1/customer/banners")
+    suspend fun getBanners(): Response<GlobalBannerListResponse>
 }
 
 

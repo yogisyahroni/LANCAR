@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -25,6 +26,9 @@ type Merchant struct {
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa batas minimum.
 	MinOrderIDR        int64      `json:"min_order_idr"`
 	CompletionRatePct  float64    `json:"completion_rate_pct"`
+	// Staffing (X1/M1): jenis usaha. 'perorangan' = owner langsung tanpa
+	// staff; 'perusahaan' = WAJIB punya staff management (merchant_staff).
+	BusinessType string `json:"business_type"`
 	VerificationStatus string     `json:"verification_status"`
 	// Rating restoran (FOOD-BIKE-059/060): di-update order-service tiap
 	// customer submit rating setelah order delivered.
@@ -145,3 +149,32 @@ type MerchantRepository interface {
 
 // Ensure sql import is used (tx helper di repository).
 var _ = sql.ErrNoRows
+
+// ── Staffing (X1/M1): business_type ──────────────────────────
+
+// BusinessTypePerorangan / BusinessTypePerusahaan — nilai business_type.
+const (
+	BusinessTypePerorangan = "perorangan"
+	BusinessTypePerusahaan = "perusahaan"
+)
+
+// ValidBusinessType — true kalau t valid ('perorangan'|'perusahaan').
+func ValidBusinessType(t string) bool {
+	return t == BusinessTypePerorangan || t == BusinessTypePerusahaan
+}
+
+// NormalizeBusinessType — default 'perorangan' kalau kosong, error kalau invalid.
+func NormalizeBusinessType(t string) (string, error) {
+	if t == "" {
+		return BusinessTypePerorangan, nil
+	}
+	if !ValidBusinessType(t) {
+		return "", errors.New("business_type tidak valid (perorangan|perusahaan)")
+	}
+	return t, nil
+}
+
+// IsCorporate — true kalau merchant bertipe perusahaan (wajib staff mgmt).
+func (m *Merchant) IsCorporate() bool {
+	return m.BusinessType == BusinessTypePerusahaan
+}

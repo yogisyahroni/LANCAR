@@ -161,7 +161,14 @@ routes.delete('/api/v1/customer/addresses/:id', requireMobileOrWebAuth, (req, re
 routes.post('/api/v1/customer/location-requests', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createReceiverLocationRequest(req, res));
 routes.get('/api/v1/customer/location-requests/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getReceiverLocationRequestForCustomer(req, res));
 routes.delete('/api/v1/customer/location-requests/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.revokeReceiverLocationRequest(req, res));
-routes.post('/api/v1/customer/notifications/register-token', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
+routes.get('/api/v1/customer/referral', requireMobileOrWebAuth, (req, res) => controllers.referral.getReferralInfo(req, res));
+routes.post('/api/v1/customer/referral/apply', requireMobileOrWebAuth, (req, res) => controllers.referral.applyReferralCode(req, res));
+routes.get('/api/v1/customer/banners', requireMobileOrWebAuth, (req, res) => controllers.listCustomerBanners(req, res));
+routes.get('/api/v1/customer/loyalty', requireMobileOrWebAuth, (req, res) => controllers.loyalty.getLoyaltyInfo(req, res));
+// NOTE: /api/v1/merchant/promos ditangani Go merchant-service (lihat promo_handler.go),
+// gateway proxy /api/v1/merchant → MERCHANT_SERVICE_URL. Route promo di admin-service
+// tidak reachable → dihapus agar tidak membingungkan.
+routes.get('/api/v1/customer/notifications/register-token', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
 routes.get('/api/v1/customer/promos/eligible', requireMobileOrWebAuth, promoReadRateLimiter, (req, res) => controllers.listCustomerEligiblePromos(req, res));
 routes.post('/api/v1/customer/promos/validate', requireMobileOrWebAuth, promoReadRateLimiter, (req, res) => controllers.validateCustomerPromo(req, res));
 routes.post('/api/v1/customer/promos/reserve', requireMobileOrWebAuth, promoMutationRateLimiter, requireIdempotencyKey('customer.promo.reserve'), (req, res) => controllers.reserveCustomerPromo(req, res));
@@ -252,6 +259,13 @@ routes.post('/webhooks/courier-payout-provider', (req, res) => controllers.handl
 // Admin routes - Protected by Admin Auth and Role requirement
 routes.use('/admin', requireAuth, requireRole(['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'finance', 'cs_agent', 'zone_manager']));
 routes.get('/admin/courier-safety-events', (req, res) => controllers.listAdminCourierSafetyEvents(req, res));
+// A3: super-admin staff oversight (lintas merchant)
+routes.get('/admin/merchant-staff', requireRole(['super_admin']), (req, res) => controllers.listAdminMerchantStaff(req, res));
+// A4: super-admin global banner management
+routes.get('/admin/banners', requireRole(['super_admin']), (req, res) => controllers.listAdminBanners(req, res));
+routes.post('/admin/banners', requireRole(['super_admin']), (req, res) => controllers.createAdminBanner(req, res));
+routes.patch('/admin/banners/:id', requireRole(['super_admin']), (req, res) => controllers.updateAdminBanner(req, res));
+routes.delete('/admin/banners/:id', requireRole(['super_admin']), (req, res) => controllers.deleteAdminBanner(req, res));
 routes.get('/admin/courier-growth-configs', (req, res) => controllers.listAdminCourierGrowthConfigs(req, res));
 routes.patch('/admin/courier-tier-configs/:id', (req, res) => controllers.updateAdminCourierTierConfig(req, res));
 routes.patch('/admin/courier-incentive-campaigns/:id', (req, res) => controllers.updateAdminCourierIncentive(req, res));

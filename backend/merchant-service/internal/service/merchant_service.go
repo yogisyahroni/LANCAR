@@ -46,6 +46,11 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 	if req.KtpPemilikURL == "" || req.FotoTokoURL == "" || req.RekeningURL == "" {
 		return nil, errors.New("dokumen wajib: ktp_pemilik_url, foto_tempat_usaha_url, rekening_bank_url")
 	}
+	// X1: business_type wajib valid kalau dikirim (default 'perorangan').
+	bt, err := domain.NormalizeBusinessType(req.BusinessType)
+	if err != nil {
+		return nil, err
+	}
 	// FB-094: lokasi toko WAJIB saat daftar (pin di peta di web/Android).
 	// Tanpa lokasi: ongkir food salah, "resto terdekat" tidak muncul, approve ditolak admin.
 	if req.LokasiLat == nil || req.LokasiLng == nil {
@@ -74,6 +79,7 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 		VerificationStatus: "pending", // default — wajib admin approve dulu (FOOD-BIKE-046)
 		JamBuka:            req.JamBuka,
 		JamTutup:           req.JamTutup,
+		BusinessType:       bt, // X1: 'perorangan'|'perusahaan'
 	}
 	if req.LokasiLat != nil {
 		m.LokasiLat = req.LokasiLat

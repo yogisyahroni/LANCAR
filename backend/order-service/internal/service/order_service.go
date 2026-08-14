@@ -2398,6 +2398,38 @@ func (s *orderServiceImpl) GetFoodMerchantDetail(ctx context.Context, merchantID
 }
 
 // ─────────────────────────────────────────────────────────────
+// FOOD-BIKE-070: Favorite Merchants (C3)
+// ─────────────────────────────────────────────────────────────
+
+func (s *orderServiceImpl) AddFavoriteMerchant(ctx context.Context, customerID, merchantID string) error {
+	if s.foodRepo == nil {
+		return fmt.Errorf("food repository not wired")
+	}
+	return s.foodRepo.AddFavoriteMerchant(ctx, customerID, merchantID)
+}
+
+func (s *orderServiceImpl) RemoveFavoriteMerchant(ctx context.Context, customerID, merchantID string) error {
+	if s.foodRepo == nil {
+		return fmt.Errorf("food repository not wired")
+	}
+	return s.foodRepo.RemoveFavoriteMerchant(ctx, customerID, merchantID)
+}
+
+func (s *orderServiceImpl) ListFavoriteMerchants(ctx context.Context, customerID string) ([]domain.FoodMerchantInfo, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+	return s.foodRepo.ListFavoriteMerchants(ctx, customerID)
+}
+
+func (s *orderServiceImpl) CheckIsFavoriteMerchant(ctx context.Context, customerID, merchantID string) (bool, error) {
+	if s.foodRepo == nil {
+		return false, fmt.Errorf("food repository not wired")
+	}
+	return s.foodRepo.CheckIsFavoriteMerchant(ctx, customerID, merchantID)
+}
+
+// ─────────────────────────────────────────────────────────────
 // FB-084 REORDER — validasi ulang item order food lama
 // ─────────────────────────────────────────────────────────────
 // CheckReorder membandingkan snapshot food_order_items (harga beku saat

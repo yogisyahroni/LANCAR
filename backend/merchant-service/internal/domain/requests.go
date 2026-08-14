@@ -14,6 +14,9 @@ type RegisterMerchantRequest struct {
 	RekeningURL   string   `json:"rekening_bank_url"`
 	// NIB opsional
 	NibURL *string `json:"nib_url,omitempty"`
+	// Staffing (X1): jenis usaha. Diperlukan untuk conditional staff management.
+	// 'perorangan' (default) | 'perusahaan'. Perusahaan wajib punya staff.
+	BusinessType string `json:"business_type,omitempty"`
 
 	// Dokumen pangan (FB-092 / ADR 003) — SEMUA OPSIONAL, bukan gate buka toko.
 	// Nomor + tanggal kedaluwarsa; URL bukti dokumen.

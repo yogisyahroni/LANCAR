@@ -11,6 +11,10 @@ import com.tembus.customer.data.model.FoodMenuItem
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.FoodOrderCreateResponse
 import com.tembus.customer.data.model.FoodOrderItemVariantRequest
+import com.tembus.customer.data.model.FavoriteMerchant
+import com.tembus.customer.data.model.FavoriteActionResponse
+import com.tembus.customer.data.model.FavoriteMerchantsResponse
+import com.tembus.customer.data.model.FavoriteCheckResponse
 import com.tembus.customer.data.model.VoucherValidateRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,6 +72,16 @@ class FoodViewModel @Inject constructor(
     // ── FB-090: Saved addresses — reuse alamat favorit customer di checkout food ──
     private val _addressBook = MutableStateFlow<List<CustomerAddress>>(emptyList())
     val addressBook: StateFlow<List<CustomerAddress>> = _addressBook.asStateFlow()
+
+    // ── FOOD-BIKE-070: Favorite Merchants (C3) ──
+    private val _favoriteMerchants = MutableStateFlow<List<FavoriteMerchant>>(emptyList())
+    val favoriteMerchants: StateFlow<List<FavoriteMerchant>> = _favoriteMerchants.asStateFlow()
+
+    private val _favoritesLoading = MutableStateFlow(false)
+    val favoritesLoading: StateFlow<Boolean> = _favoritesLoading.asStateFlow()
+
+    private val _favoritesError = MutableStateFlow<String?>(null)
+    val favoritesError: StateFlow<String?> = _favoritesError.asStateFlow()
 
     fun loadSavedAddresses() {
         viewModelScope.launch {
@@ -292,6 +306,82 @@ class FoodViewModel @Inject constructor(
 
     fun clearVoucher() {
         _voucherState.value = VoucherState.Idle
+    }
+
+    // ============================================================
+    // FOOD-BIKE-070: Favorite Merchants (C3)
+    // ============================================================
+
+    fun loadFavoriteMerchants() {
+        viewModelScope.launch {
+            _favoritesLoading.value = true
+            _favoritesError.value = null
+            try {
+                val res = apiService.listFavoriteMerchants()
+                if (res.isSuccessful) {
+                    _favoriteMerchants.value = res.body()?.merchants ?: emptyList()
+                } else {
+                    _favoritesError.value = "Gagal memuat favorit (${res.code()})"
+                }
+            } catch (e: Exception) {
+                _favoritesError.value = e.message ?: "Gagal memuat favorit"
+            } finally {
+                _favoritesLoading.value = false
+            }
+        }
+    }
+
+    fun addFavoriteMerchant(merchantId: String, onResult: (Result<FavoriteActionResponse>) -> Unit) {
+        viewModelScope.launch {
+            _favoritesLoading.value = true
+            try {
+                val res = apiService.addFavoriteMerchant(merchantId)
+                if (res.isSuccessful && res.body()?.success == true) {
+                    onResult(Result.success(res.body()!!))
+                    loadFavoriteMerchants() // Refresh list
+                } else {
+                    onResult(Result.failure(Exception(res.body()?.message ?: "Gagal menambahkan favorit")))
+                }
+            } catch (e: Exception) {
+                onResult(Result.failure(e))
+            } finally {
+                _favoritesLoading.value = false
+            }
+        }
+    }
+
+    fun removeFavoriteMerchant(merchantId: String, onResult: (Result<FavoriteActionResponse>) -> Unit) {
+        viewModelScope.launch {
+            _favoritesLoading.value = true
+            try {
+                val res = apiService.removeFavoriteMerchant(merchantId)
+                if (res.isSuccessful && res.body()?.success == true) {
+                    onResult(Result.success(res.body()!!))
+                    loadFavoriteMerchants() // Refresh list
+                } else {
+                    onResult(Result.failure(Exception(res.body()?.message ?: "Gagal menghapus favorit")))
+                }
+            } catch (e: Exception) {
+                onResult(Result.failure(e))
+            } finally {
+                _favoritesLoading.value = false
+            }
+        }
+    }
+
+    fun checkIsFavoriteMerchant(merchantId: String, onResult: (Result<Boolean>) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val res = apiService.checkIsFavoriteMerchant(merchantId)
+                if (res.isSuccessful) {
+                    onResult(Result.success(res.body()?.isFavorite ?: false))
+                } else {
+                    onResult(Result.failure(Exception("Gagal cek status favorit")))
+                }
+            } catch (e: Exception) {
+                onResult(Result.failure(e))
+            }
+        }
     }
 }
 

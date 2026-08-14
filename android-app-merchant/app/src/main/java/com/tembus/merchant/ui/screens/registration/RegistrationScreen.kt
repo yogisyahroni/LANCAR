@@ -66,6 +66,8 @@ fun RegistrationScreen(
     var sppIrtExpiry by remember { mutableStateOf("") }
     var bpomNumber by remember { mutableStateOf("") }
     var bpomExpiry by remember { mutableStateOf("") }
+    // X1/M1: jenis usaha — perorangan (tanpa staff) | perusahaan (wajib staff mgmt).
+    var businessType by remember { mutableStateOf("perorangan") }
 
     // FB-045: upload dokumen dari galeri — target field yang lagi di-upload
     var docUploading by remember { mutableStateOf<String?>(null) } // "ktp"|"toko"|"rekening"
@@ -189,6 +191,33 @@ fun RegistrationScreen(
                     label = { Text("Jam Tutup") },
                     singleLine = true,
                     modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // X1/M1: pilihan jenis usaha (conditional staff management).
+            Text(
+                text = "Jenis Usaha",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Perusahaan wajib punya manajemen staff (kasir/dapur). Perorangan dikerjakan langsung oleh pemilik.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = businessType == "perorangan",
+                    onClick = { businessType = "perorangan" },
+                    label = { Text("Perorangan") }
+                )
+                FilterChip(
+                    selected = businessType == "perusahaan",
+                    onClick = { businessType = "perusahaan" },
+                    label = { Text("Perusahaan") }
                 )
             }
 
@@ -384,7 +413,9 @@ fun RegistrationScreen(
                             sppIrtNumber = sppIrtNumber.trim().ifBlank { null },
                             sppIrtExpiryDate = sppIrtExpiry.trim().ifBlank { null },
                             bpomNumber = bpomNumber.trim().ifBlank { null },
-                            bpomExpiryDate = bpomExpiry.trim().ifBlank { null }
+                            bpomExpiryDate = bpomExpiry.trim().ifBlank { null },
+                            // X1/M1: jenis usaha (conditional staff mgmt).
+                            businessType = businessType
                         )
                     )
                 },
