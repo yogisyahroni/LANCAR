@@ -799,13 +799,15 @@ const calculateCustomerPriceBreakdown = async ({
         // tetap dikenakan sebagai ONGKOS LAYANAN 0-1 km (included_distance_km),
         // lalu +per_km utk km berikutnya.
               const courierPrice = isHomeService && courierId
-                ? await db.query(
-                    `SELECT price_amount FROM courier_service_prices
-                     WHERE courier_id = $1 AND service_code = $2 AND is_active = TRUE
-                     LIMIT 1`,
-                    [courierId, service.code]
-                  )
-                : null;
+                              ? await db.query(
+                                  `SELECT price_amount FROM courier_service_prices
+                                                                     WHERE (courier_id = $1
+                                                                        OR courier_id = (SELECT id FROM courier_profiles WHERE user_id = $1))
+                                                                       AND service_code = $2 AND is_active = TRUE
+                                                                     LIMIT 1`,
+                                  [courierId, service.code]
+                                )
+                              : null;
               const serviceFee = (isHomeService && courierId && courierPrice && courierPrice.rows.length > 0)
                 ? toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0))
                 : toNumber(service.base_fare_idr, 0);
