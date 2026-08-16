@@ -84,8 +84,14 @@ sealed class Screen(val route: String) {
     }
 
     // Tambal Ban & Towing — Booking
-    object ServiceBooking : Screen("service-booking/{serviceSubType}?courierId={courierId}&courierPrice={courierPrice}") {
-        fun createRoute(serviceSubType: String, courierId: String? = null, courierPrice: Long? = null): String {
+    object ServiceBooking : Screen("service-booking/{serviceSubType}?courierId={courierId}&courierPrice={courierPrice}&courierName={courierName}&courierRating={courierRating}") {
+        fun createRoute(
+            serviceSubType: String,
+            courierId: String? = null,
+            courierPrice: Long? = null,
+            courierName: String? = null,
+            courierRating: Double? = null
+        ): String {
             val base = "service-booking/$serviceSubType"
             val query = mutableListOf<String>()
             if (!courierId.isNullOrBlank()) {
@@ -93,6 +99,12 @@ sealed class Screen(val route: String) {
             }
             if (courierPrice != null && courierPrice > 0) {
                 query += "courierPrice=$courierPrice"
+            }
+            if (!courierName.isNullOrBlank()) {
+                query += "courierName=${java.net.URLEncoder.encode(courierName, "UTF-8")}"
+            }
+            if (courierRating != null && courierRating > 0) {
+                query += "courierRating=$courierRating"
             }
             return if (query.isEmpty()) base else "$base?${query.joinToString("&")}"
         }

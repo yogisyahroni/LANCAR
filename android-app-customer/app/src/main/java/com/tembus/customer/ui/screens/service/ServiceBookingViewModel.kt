@@ -35,6 +35,9 @@ data class ServicePriceEstimate(
     val perKmRate: Long = 0,
     val distanceKm: Double = 0.0,
     val baseFare: Long = 0,
+    val distanceBase: Long = 0,
+    val platformFee: Long = 0,
+    val dynamicPrice: Long = 0,
     val totalPrice: Long = 0
 )
 
@@ -76,7 +79,7 @@ class ServiceBookingViewModel @Inject constructor(
         }
     }
 
-    fun fetchEstimate(serviceSubType: String, lat: Double, lng: Double) {
+    fun fetchEstimate(serviceSubType: String, lat: Double, lng: Double, courierId: String? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val req = CustomerPriceEstimateRequest(
@@ -84,7 +87,8 @@ class ServiceBookingViewModel @Inject constructor(
                 dropoff = LocationPayload(lat, lng),
                 dimensions = DimensionsPayload(0, 0, 0),
                 weightKg = 0.0,
-                serviceCode = serviceSubType
+                serviceCode = serviceSubType,
+                courierId = courierId
             )
             orderRepository.calculateCustomerOrderPrice(req)
                 .onSuccess { breakdown ->
@@ -95,7 +99,12 @@ class ServiceBookingViewModel @Inject constructor(
                             priceEstimate = ServicePriceEstimate(
                                 totalPrice = breakdown.totalPriceIdr,
                                 baseFare = breakdown.basePriceIdr,
-                                distanceKm = breakdown.distanceKm
+                                distanceKm = breakdown.distanceKm,
+                                platformFee = breakdown.platformFeeIdr,
+                                dynamicPrice = breakdown.dynamicPriceIdr,
+                                perKmRate = breakdown.serviceSnapshot?.perKmIdr ?: 0,
+                                // 0-1km = base fare produk (sudah termasuk di basePrice server)
+                                distanceBase = breakdown.serviceSnapshot?.baseFareIdr ?: 0
                             )
                         )
                     }

@@ -411,16 +411,22 @@ fun RootNavGraph(
                 arguments = listOf(
                     navArgument("serviceSubType") { type = NavType.StringType },
                     navArgument("courierId") { type = NavType.StringType; nullable = true; defaultValue = null },
-                    navArgument("courierPrice") { type = NavType.StringType; nullable = true; defaultValue = null }
+                    navArgument("courierPrice") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("courierName") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("courierRating") { type = NavType.StringType; nullable = true; defaultValue = null }
                 )
             ) { backStackEntry ->
                 val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: "tambal_ban_motor"
                 val courierId = backStackEntry.arguments?.getString("courierId")
                 val courierPrice = backStackEntry.arguments?.getString("courierPrice")?.toLongOrNull()
+                val courierName = backStackEntry.arguments?.getString("courierName")
+                val courierRating = backStackEntry.arguments?.getString("courierRating")?.toDoubleOrNull()
                 ServiceBookingScreen(
                     serviceSubType = serviceSubType,
                     courierId = courierId,
                     courierPrice = courierPrice,
+                    courierName = courierName ?: "",
+                    courierRating = courierRating ?: 0.0,
                     onBackClick = { navController.popBackStack() },
                     onSelectCourierClick = { lat, lng -> navController.navigate(Screen.NearbyCouriers.createRoute(serviceSubType, lat, lng)) },
                     onBookingSuccess = { orderId ->
@@ -447,8 +453,8 @@ fun RootNavGraph(
                     customerLat = lat,
                     customerLng = lng,
                     onBackClick = { navController.popBackStack() },
-                    onCourierSelected = { courierId, price ->
-                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price))
+                    onCourierSelected = { courierId, price, name, rating ->
+                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price, name, rating))
                     }
                 )
             }
@@ -495,8 +501,8 @@ fun RootNavGraph(
                     lat = lat,
                     lng = lng,
                     onBackClick = { navController.popBackStack() },
-                    onBookClick = { courierId, price ->
-                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price))
+                    onBookClick = { courierId, price, name, rating ->
+                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price, name, rating))
                     }
                 )
             }

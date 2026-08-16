@@ -2759,8 +2759,20 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
        metadata
      )
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + ($10::text || ' seconds')::interval, $11)
-     ON CONFLICT (order_id, courier_id) DO NOTHING
-     RETURNING id, expires_at`,
+         ON CONFLICT (order_id, courier_id) DO UPDATE SET
+           status = 'offered',
+           responded_at = NULL,
+           response_reason = NULL,
+           rank_number = EXCLUDED.rank_number,
+           score = EXCLUDED.score,
+           distance_m = EXCLUDED.distance_m,
+           rating_snapshot = EXCLUDED.rating_snapshot,
+           acceptance_rate_snapshot = EXCLUDED.acceptance_rate_snapshot,
+           completion_rate_snapshot = EXCLUDED.completion_rate_snapshot,
+           expires_at = EXCLUDED.expires_at,
+           metadata = EXCLUDED.metadata,
+           updated_at = NOW()
+         RETURNING id, expires_at`,
     [
       orderId,
       nextCourier.courier_id,
@@ -2931,8 +2943,14 @@ export const dispatchToPreferredCourier = async (
        metadata
      )
      VALUES ($1, $2, $3, $4, 9999, $5, $6, $7, $8, NOW() + ($9::text || ' seconds')::interval, $10)
-     ON CONFLICT (order_id, courier_id) DO NOTHING
-     RETURNING id, expires_at`,
+         ON CONFLICT (order_id, courier_id) DO UPDATE SET
+           status = 'offered',
+           responded_at = NULL,
+           response_reason = NULL,
+           expires_at = EXCLUDED.expires_at,
+           metadata = EXCLUDED.metadata,
+           updated_at = NOW()
+         RETURNING id, expires_at`,
     [
       orderId,
       nextCourier.courier_id,

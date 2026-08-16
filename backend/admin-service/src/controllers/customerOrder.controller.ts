@@ -658,6 +658,7 @@ type CustomerPriceCalculationInput = {
   itemValue?: any;
   sizeTier?: string | null;
   routeSnapshotOverride?: RouteEtaSnapshot;
+  courierId?: string | null;
 };
 
 const calculateCustomerPriceBreakdown = async ({
@@ -669,9 +670,10 @@ const calculateCustomerPriceBreakdown = async ({
   packages,
   hasInsurance,
   itemValue,
-  sizeTier,
-  routeSnapshotOverride,
-}: CustomerPriceCalculationInput) => {
+    sizeTier,
+    routeSnapshotOverride,
+    courierId,
+  }: CustomerPriceCalculationInput) => {
   // ─── Quote-based pricing (aggregator/3PL) ────────────────────
   // These services don't use internal distance × multiplier pricing.
   // The price comes from the logistics provider's tariff, stored as
@@ -788,11 +790,31 @@ const calculateCustomerPriceBreakdown = async ({
     throw error;
   }
 
-  const distanceChargeKm = Math.max(0, Math.ceil(distance - service.included_distance_km));
-  const tierMultiplier = toNumber(selectedTier?.multiplier, 1);
-  const tierDelta = toNumber(selectedTier?.price_delta_idr, 0);
-  const baseBeforeMultiplier = service.base_fare_idr + (distanceChargeKm * service.per_km_idr) + tierDelta;
-  const basePrice = roundRupiah(baseBeforeMultiplier * service.service_multiplier * tierMultiplier);
+  const includedKm = toNumber(service.included_distance_km, 1);
+    const distanceChargeKm = Math.max(0, Math.ceil(distance - includedKm));
+      const tierMultiplier = toNumber(selectedTier?.multiplier, 1);
+      const tierDelta = toNumber(selectedTier?.price_delta_idr, 0);
+      // Home services (tambal ban / towing): biaya jasa = harga jasa petugas
+        // (courier_service_prices), bukan base_fare produk. Base fare produk
+        // tetap dikenakan sebagai ONGKOS LAYANAN 0-1 km (included_distance_km),
+        // lalu +per_km utk km berikutnya.
+              const courierPrice = isHomeService && courierId
+                ? await db.query(
+                    `SELECT price_amount FROM courier_service_prices
+                     WHERE courier_id = $1 AND service_code = $2 AND is_active = TRUE
+                     LIMIT 1`,
+                    [courierId, service.code]
+                  )
+                : null;
+              const serviceFee = (isHomeService && courierId && courierPrice && courierPrice.rows.length > 0)
+                ? toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0))
+                : toNumber(service.base_fare_idr, 0);
+        const distanceLeg = includedKm; // 0-1km = base fare penuh (bukan gratis)
+        const baseBeforeMultiplier = serviceFee
+          + (distanceChargeKm * service.per_km_idr)
+          + (toNumber(service.base_fare_idr, 0) * distanceLeg)
+          + tierDelta;
+        const basePrice = roundRupiah(baseBeforeMultiplier * service.service_multiplier * tierMultiplier);
   const volumetricSurcharge = chargeableWeight > surchargeThreshold
     ? Math.ceil(chargeableWeight - surchargeThreshold) * surchargePerKg
     : 0;
@@ -830,8 +852,16 @@ const calculateCustomerPriceBreakdown = async ({
   const routeEta = routeSnapshot.eta_minutes || Math.ceil(20 + (distance * 3.5) + (service.batching_allowed ? 120 : 0));
   const etaMinutes = Math.min(service.max_eta_minutes, Math.max(20, routeEta));
   const priceAfterSurge = basePrice + dynamicPrice;
-  const platformFee = Math.ceil(service.platform_fee_idr + (priceAfterSurge * service.platform_fee_pct));
-  const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee;
+    // Home services: fee platform dihitung dari komponen JARAK (base fare
+    // produk + per_km) saja — harga jasa petugas TIDAK kena fee platform.
+    // Total utk demo: 15.000 (jasa) + 5.000 (base 0-1km) + 2.650 (fee) = 22.650.
+    let platformFeeBase = basePrice;
+    if (isHomeService && courierId && courierPrice && courierPrice.rows.length > 0) {
+      platformFeeBase = (toNumber(service.base_fare_idr, 0) * includedKm)
+        + (distanceChargeKm * service.per_km_idr);
+    }
+    const platformFee = Math.ceil(service.platform_fee_idr + (platformFeeBase * service.platform_fee_pct));
+    const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee;
 
   return {
     service_code: service.code,
@@ -867,9 +897,10 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       has_insurance,
       item_value,
       dimension_scan_verified,
-      service_code,
-      size_tier
-    } = req.body;
+            service_code,
+            size_tier,
+            courier_id
+          } = req.body;
 
     const service = await findDeliveryServiceByCode(service_code);
     if (!service) {
@@ -916,6 +947,7 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       hasInsurance: has_insurance,
       itemValue: item_value,
       sizeTier: size_tier,
+      courierId: courier_id,
     });
 
     res.json(breakdown);
@@ -939,7 +971,8 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
       has_insurance,
       item_value,
       dimension_scan_verified,
-      size_tier
+      size_tier,
+      courier_id
     } = req.body;
 
     const pickupPoint = normalizeCoordinatePayload(pickup);
@@ -1004,6 +1037,7 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
           itemValue: item_value,
           sizeTier: size_tier,
           routeSnapshotOverride: routeSnapshot,
+          courierId: courier_id,
         });
         return { ok: true as const, service_code: service.code, breakdown };
       } catch (error: any) {
@@ -1087,6 +1121,9 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       preferred_courier_id
     } = req.body;
 
+    // Home services: harga jasa petugas dipakai utk hitung breakdown server-side
+    const courierIdForPricing = preferred_courier_id || null;
+
     const service = await findDeliveryServiceByCode(price_breakdown?.service_code || service_code);
     if (!service) {
       client.release();
@@ -1144,6 +1181,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       hasInsurance: has_insurance,
       itemValue: item_value,
       sizeTier: package_details?.size_tier || normalizedPackages[0]?.size_tier,
+      courierId: courierIdForPricing,
     });
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
 

@@ -55,7 +55,7 @@ fun CourierDetailScreen(
     lat: Double,
     lng: Double,
     onBackClick: () -> Unit,
-    onBookClick: (String, Long) -> Unit,
+    onBookClick: (String, Long, String, Double) -> Unit,
     viewModel: CourierDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -179,7 +179,7 @@ fun CourierDetailScreen(
                     Spacer(Modifier.height(20.dp))
 
                     Button(
-                        onClick = { onBookClick(d.courierId, d.courierServicePrice) },
+                        onClick = { onBookClick(d.courierId, d.courierServicePrice, d.courierName, d.rating) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AED6)),
                         shape = RoundedCornerShape(14.dp)

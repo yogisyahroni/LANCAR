@@ -42,7 +42,7 @@ fun NearbyCouriersScreen(
     customerLat: Double,
     customerLng: Double,
     onBackClick: () -> Unit,
-    onCourierSelected: (String, Long) -> Unit,
+    onCourierSelected: (String, Long, String, Double) -> Unit,
     viewModel: NearbyCouriersViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -84,7 +84,7 @@ fun NearbyCouriersScreen(
                 uiState.couriers.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tidak ada petugas tersedia di sekitar Anda", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(uiState.couriers) { courier ->
-                        CourierPriceCard(courier = courier, isSelected = courier.courierId == selectedCourierId, onSelect = { selectedCourierId = courier.courierId; onCourierSelected(courier.courierId, courier.courierServicePrice) })
+                        CourierPriceCard(courier = courier, isSelected = courier.courierId == selectedCourierId, onSelect = { selectedCourierId = courier.courierId; onCourierSelected(courier.courierId, courier.courierServicePrice, courier.courierName, courier.rating) })
                     }
                 }
             }

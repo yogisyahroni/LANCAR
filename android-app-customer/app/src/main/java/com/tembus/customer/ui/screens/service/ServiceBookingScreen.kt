@@ -54,6 +54,8 @@ fun ServiceBookingScreen(
     onSelectCourierClick: (lat: Double, lng: Double) -> Unit = { _, _ -> },
     courierId: String? = null,
     courierPrice: Long? = null,
+    courierName: String = "",
+    courierRating: Double = 0.0,
     viewModel: ServiceBookingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -208,6 +210,20 @@ fun ServiceBookingScreen(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
+                        if (courierName.isNotBlank()) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                courierName,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (courierRating > 0) {
+                                Text(
+                                    "⭐ ${"%.1f".format(courierRating)}",
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
                         if (courierPrice != null && courierPrice > 0) {
                             Spacer(Modifier.height(4.dp))
                             Text(
@@ -245,15 +261,32 @@ fun ServiceBookingScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                Text(
-                    "Jarak: ${estimate.distanceKm} km",
-                    fontSize = 14.sp
-                )
-
-                Text(
-                    "Base Fare: Rp ${formatRupiah(estimate.baseFare)}",
-                    fontSize = 14.sp
-                )
+                // Rincian transparan: jasa + perjalanan (dinamis) + fee platform + surge
+                                                val displayServiceFee = if (courierPrice != null && courierPrice > 0) {
+                                                    courierPrice
+                                                } else {
+                                                    estimate.baseFare - estimate.distanceBase
+                                                }
+                                                val travelFee = estimate.distanceBase +
+                                                    (estimate.perKmRate * kotlin.math.max(0.0, kotlin.math.ceil(estimate.distanceKm - 1))).toLong()
+                                                Text(
+                                                    "Biaya jasa petugas: Rp ${formatRupiah(displayServiceFee)}",
+                                                    fontSize = 14.sp
+                                                )
+                                                Text(
+                                                    "Biaya perjalanan: Rp ${formatRupiah(travelFee)} (${"%.1f".format(estimate.distanceKm)} km)",
+                                                    fontSize = 14.sp
+                                                )
+                                                if (estimate.dynamicPrice > 0) {
+                                                    Text(
+                                                        "Biaya dinamis: Rp ${formatRupiah(estimate.dynamicPrice)}",
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+                                                Text(
+                                                    "Biaya layanan platform: Rp ${formatRupiah(estimate.platformFee)}",
+                                                    fontSize = 14.sp
+                                                )
 
                 Spacer(Modifier.height(8.dp))
 
@@ -300,7 +333,8 @@ fun ServiceBookingScreen(
                             viewModel.fetchEstimate(
                                 serviceSubType = serviceSubType,
                                 lat = uiState.customerLat,
-                                lng = uiState.customerLng
+                                lng = uiState.customerLng,
+                                courierId = courierId
                             )
                         }
                     },
