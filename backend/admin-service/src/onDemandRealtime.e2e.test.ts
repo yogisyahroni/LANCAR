@@ -325,7 +325,7 @@ describe('on-demand realtime lifecycle contract', () => {
       metadata: expect.objectContaining({
         dispatch_id: 'dispatch-1',
         pickup_address: 'Monas, Jakarta Pusat',
-        offer_ttl_seconds: 15,
+        offer_ttl_seconds: 90,
         route_snapshot_hash: 'route-hash-1',
         route_distance_meters: 2400,
         eta_minutes: 15,
@@ -342,7 +342,7 @@ describe('on-demand realtime lifecycle contract', () => {
       order_id: '22222222-2222-4222-8222-222222222222',
       metadata: expect.objectContaining({
         dispatch_id: 'dispatch-1',
-        offer_ttl_seconds: '15',
+        offer_ttl_seconds: '90',
         route_snapshot_hash: 'route-hash-1',
         route_distance_meters: '2400',
         eta_minutes: '15',
