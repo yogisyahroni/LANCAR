@@ -30,6 +30,7 @@ data class EarningsData(
     val baseFee: Long = 0,
     val perKmRate: Long = 0,
     val distanceKm: Double = 0.0,
+    val travelFee: Long = 0,
     val tollCost: Long = 0,
     val platformCommissionPct: Double = 20.0,
     val platformCommissionAmt: Long = 0,
@@ -89,20 +90,12 @@ fun EarningsBreakdown(
         
         Spacer(Modifier.height(12.dp))
         
-        // Base fee
-        EarningRow(
-            label = "Base Fee",
-            amount = data.baseFee,
-            icon = "🏠"
-        )
-        
-        // Per KM
-        val perKmTotal = data.perKmRate * data.distanceKm.toLong()
-        EarningRow(
-            label = "Per KM × ${data.distanceKm} km",
-            amount = perKmTotal,
-            icon = "🛣️"
-        )
+        // Biaya perjalanan (base fare + per km) — pakai travel fee dari backend snapshot
+                EarningRow(
+                    label = "Perjalanan ${data.distanceKm} km",
+                    amount = data.travelFee,
+                    icon = "🛵"
+                )
         
         // Toll (100% reimbursement)
         if (data.tollCost > 0) {
@@ -196,7 +189,7 @@ fun EarningsBreakdown(
         ) {
             Text(
                 if (data.settlementModel == "per_km") {
-                    "💡 Harga jasa yang Anda tentukan 100% masuk ke penghasilan Anda. Komisi platform hanya dari biaya per-km, tidak dari harga jasa."
+                    "💡 Harga jasa yang Anda tentukan 100% masuk ke penghasilan Anda. Komisi platform hanya dari biaya perjalanan, tidak dari harga jasa."
                 } else {
                     "💡 Komisi platform dihitung dari seluruh pool (setelah PPN & MDR)."
                 },

@@ -9,6 +9,7 @@ import com.tembus.courier.data.model.CourierOrderFoodItem
 import com.tembus.courier.data.model.CourierOrderPackage
 import com.tembus.courier.data.model.Location
 import com.tembus.courier.data.model.Order
+import com.tembus.courier.data.model.PricingBreakdown
 import com.tembus.courier.data.model.TambalBanReport
 import com.tembus.courier.data.model.TowingReport
 import kotlinx.serialization.builtins.ListSerializer
@@ -22,7 +23,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -240,6 +241,16 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addOrderColumnIfMissing(
+                    db,
+                    "pricing_breakdown",
+                    "ALTER TABLE `orders` ADD COLUMN `pricing_breakdown` TEXT"
+                )
+            }
+        }
+
         val MIGRATION_10_13 = object : Migration(10, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addVersion11Columns(db)
@@ -272,6 +283,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_15_16,
             MIGRATION_16_17,
             MIGRATION_17_18,
+            MIGRATION_18_19,
             MIGRATION_10_13,
             MIGRATION_11_13
         )
@@ -364,6 +376,20 @@ class Converters {
         if (value.isNullOrBlank()) return null
         return runCatching {
             json.decodeFromString(TowingReport.serializer(), value)
+        }.getOrNull()
+    }
+
+    @TypeConverter
+    fun pricingBreakdownToString(pb: PricingBreakdown?): String? {
+        if (pb == null) return null
+        return json.encodeToString(PricingBreakdown.serializer(), pb)
+    }
+
+    @TypeConverter
+    fun stringToPricingBreakdown(value: String?): PricingBreakdown? {
+        if (value.isNullOrBlank()) return null
+        return runCatching {
+            json.decodeFromString(PricingBreakdown.serializer(), value)
         }.getOrNull()
     }
 }

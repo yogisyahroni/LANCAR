@@ -50,6 +50,13 @@ class TowingFlowViewModel @Inject constructor(
                     val flowState = TowingFlowResolver.resolve(order)
                     val distKm = order.distanceKmValue()
                     val payout = order.cleanPayoutIdr().toLong()
+                    val pb = order.pricingBreakdown
+                    val serviceFee = (pb?.serviceFeeIdr ?: 0).toLong()
+                    val travelFee = (pb?.travelFeeIdr ?: 0).toLong()
+                    val platformFee = (pb?.platformFeeIdr ?: 0).toLong()
+                    val platformPct = pb?.platformFeePct ?: 20.0
+                    val baseFare = (pb?.baseFareIdr ?: 0).toLong()
+                    val perKmRate = (pb?.perKmIdr ?: 0).toLong()
 
                     _uiState.update {
                         it.copy(
@@ -61,14 +68,15 @@ class TowingFlowViewModel @Inject constructor(
                             nextActionLabel = flowState.nextAction.label,
                             nextActionType = flowState.nextAction.type,
                             earnings = EarningsData(
-                                serviceFee = payout,
-                                baseFee = 0,
-                                perKmRate = if (distKm > 0) (payout / distKm.toLong()).coerceAtLeast(0) else 0,
+                                serviceFee = serviceFee,
+                                baseFee = baseFare,
+                                perKmRate = perKmRate,
                                 distanceKm = distKm,
+                                travelFee = travelFee,
                                 tollCost = 0,
-                                platformCommissionPct = 20.0,
-                                platformCommissionAmt = (payout * 20 / 100),
-                                estimatedNetEarnings = payout - (payout * 20 / 100),
+                                platformCommissionPct = platformPct,
+                                platformCommissionAmt = platformFee,
+                                estimatedNetEarnings = serviceFee + travelFee - platformFee,
                                 settlementModel = "per_km"
                             )
                         )

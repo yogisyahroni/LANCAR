@@ -1175,7 +1175,15 @@ fun MainScreen(
                 isOnline = isOnline,
                 onOnlineToggle = { online -> requestDutyToggle(online) },
                 onOpenDelivery = { order ->
-                    openOrderDetail(order)
+                    if (order.isMaintenanceService()) {
+                        routeState = if (order.serviceCode?.startsWith("towing") == true) {
+                            CourierRouteReducer.towingFlow(order.orderId)
+                        } else {
+                            CourierRouteReducer.tambalBanFlow(order.orderId)
+                        }
+                    } else {
+                        openOrderDetail(order)
+                    }
                 },
                 onViewOrders = { selectedTab = 1 }
             )
@@ -1224,7 +1232,15 @@ fun MainScreen(
                         openProof(order, CourierProofTypes.DELIVERY_POD_PHOTO)
                     },
                     onOpenDelivery = { order ->
-                        openOrderDetail(order)
+                        if (order.isMaintenanceService()) {
+                            routeState = if (order.serviceCode?.startsWith("towing") == true) {
+                                CourierRouteReducer.towingFlow(order.orderId)
+                            } else {
+                                CourierRouteReducer.tambalBanFlow(order.orderId)
+                            }
+                        } else {
+                            openOrderDetail(order)
+                        }
                     },
                     onViewOrders = { selectedTab = 1 },
                     onScanPackage = {
@@ -2380,6 +2396,7 @@ private fun OnDemandNavigationModeCard(
         }
     }
     val routeDistanceText = when {
+        isMaintenanceService && order.distance.isNotBlank() -> order.distance
         activeRoutePlan != null && activeRoutePlan.totalDistanceKm > 0.0 -> String.format("%.1f km", activeRoutePlan.totalDistanceKm)
         routePreview != null && routePreview.distanceKm > 0.0 -> String.format("%.1f km", routePreview.distanceKm)
         order.distance.isNotBlank() -> order.distance
@@ -4201,13 +4218,13 @@ private fun OnDemandOfferQueueItem(
                     if (order.isMaintenanceService()) "Alamat lokasi layanan sedang disinkronkan" else "Alamat pickup sedang disinkronkan"
                 }
             )
-            OfferRouteRow(
-                icon = Icons.Default.Place,
-                label = if (order.isMaintenanceService()) "Lokasi selesai" else "Tujuan",
-                value = order.dropAddress.ifBlank {
-                    if (order.isMaintenanceService()) "Alamat lokasi selesai dibuka setelah diterima" else "Alamat tujuan dibuka setelah diterima"
-                }
-            )
+            if (!order.isMaintenanceService()) {
+                OfferRouteRow(
+                    icon = Icons.Default.Place,
+                    label = "Tujuan",
+                    value = order.dropAddress.ifBlank { "Alamat tujuan dibuka setelah diterima" }
+                )
+            }
 
             if (promoted && (pickupPoint != null || dropPoint != null)) {
                 Surface(
@@ -4219,12 +4236,16 @@ private fun OnDemandOfferQueueItem(
                         modifier = Modifier.fillMaxSize(),
                         providerConfig = mapsProviderConfig,
                         markers = buildList {
-                            pickupPoint?.let { add(RuntimeMapMarker("pickup-${order.orderId}", it, "Pickup", order.pickupAddress)) }
-                            dropPoint?.let { add(RuntimeMapMarker("dropoff-${order.orderId}", it, "Tujuan", order.dropAddress)) }
+                            pickupPoint?.let { add(RuntimeMapMarker("pickup-${order.orderId}", it, if (order.isMaintenanceService()) "Lokasi layanan" else "Pickup", order.pickupAddress)) }
+                            if (!order.isMaintenanceService()) {
+                                dropPoint?.let { add(RuntimeMapMarker("dropoff-${order.orderId}", it, "Tujuan", order.dropAddress)) }
+                            }
                         },
                         routePoints = buildList {
                             pickupPoint?.let { add(it) }
-                            dropPoint?.let { add(it) }
+                            if (!order.isMaintenanceService()) {
+                                dropPoint?.let { add(it) }
+                            }
                         },
                         followLocation = pickupPoint ?: dropPoint,
                         mapUiSettings = MapUiSettings(
@@ -4369,15 +4390,19 @@ private fun OnDemandOfferDialog(
                         OfferRouteRowDark(
                             icon = Icons.Default.LocationOn,
                             tint = Primary,
-                            label = "Titik Jemput",
-                            value = order.pickupAddress.ifBlank { "Alamat jemput sedang disinkronkan" }
+                            label = if (order.isMaintenanceService()) "Lokasi layanan" else "Titik Jemput",
+                            value = order.pickupAddress.ifBlank {
+                                if (order.isMaintenanceService()) "Alamat lokasi layanan sedang disinkronkan" else "Alamat jemput sedang disinkronkan"
+                            }
                         )
-                        OfferRouteRowDark(
-                            icon = Icons.Default.Place,
-                            tint = Color(0xFFFF3B30),
-                            label = "Tujuan",
-                            value = order.dropAddress.ifBlank { "Alamat tujuan dibuka setelah diterima" }
-                        )
+                        if (!order.isMaintenanceService()) {
+                            OfferRouteRowDark(
+                                icon = Icons.Default.Place,
+                                tint = Color(0xFFFF3B30),
+                                label = "Tujuan",
+                                value = order.dropAddress.ifBlank { "Alamat tujuan dibuka setelah diterima" }
+                            )
+                        }
                     }
                 }
 
@@ -4393,12 +4418,16 @@ private fun OnDemandOfferDialog(
                             modifier = Modifier.fillMaxSize(),
                             providerConfig = mapsProviderConfig,
                             markers = buildList {
-                                pickupPoint?.let { add(RuntimeMapMarker("pickup", it, "Titik Jemput", order.pickupAddress)) }
-                                dropPoint?.let { add(RuntimeMapMarker("dropoff", it, "Tujuan", order.dropAddress)) }
+                                pickupPoint?.let { add(RuntimeMapMarker("pickup", it, if (order.isMaintenanceService()) "Lokasi layanan" else "Titik Jemput", order.pickupAddress)) }
+                                if (!order.isMaintenanceService()) {
+                                    dropPoint?.let { add(RuntimeMapMarker("dropoff", it, "Tujuan", order.dropAddress)) }
+                                }
                             },
                             routePoints = buildList {
                                 pickupPoint?.let { add(it) }
-                                dropPoint?.let { add(it) }
+                                if (!order.isMaintenanceService()) {
+                                    dropPoint?.let { add(it) }
+                                }
                             },
                             followLocation = pickupPoint ?: dropPoint,
                             mapUiSettings = MapUiSettings(

@@ -866,14 +866,27 @@ const calculateCustomerPriceBreakdown = async ({
     const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee;
 
   return {
-    service_code: service.code,
-    service_name: service.name,
-    service_snapshot: publicServiceSnapshot(service),
-    selected_size_tier: selectedTier,
-    distance_km: distance,
-    route_snapshot: publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` }),
-    base_price_idr: basePrice,
-    actual_weight_kg: Number(actualWeight.toFixed(2)),
+      service_code: service.code,
+      service_name: service.name,
+      service_snapshot: publicServiceSnapshot(service),
+      selected_size_tier: selectedTier,
+      distance_km: distance,
+      route_snapshot: publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` }),
+      base_price_idr: basePrice,
+      service_fee_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
+        ? toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0))
+        : 0,
+      travel_fee_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
+        ? Math.ceil(toNumber(service.base_fare_idr, 0) * includedKm) + Math.ceil(distanceChargeKm * service.per_km_idr)
+        : 0,
+      platform_fee_breakdown_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
+        ? platformFee
+        : 0,
+      base_fare_idr: toNumber(service.base_fare_idr, 0),
+      per_km_idr: toNumber(service.per_km_idr, 0),
+      included_distance_km: includedKm,
+      platform_fee_pct: toNumber(service.platform_fee_pct, 0),
+      actual_weight_kg: Number(actualWeight.toFixed(2)),
     dimensional_weight_kg: Number(volumetricWeight.toFixed(2)),
     chargeable_weight_kg: Number(chargeableWeight.toFixed(2)),
     package_count: packageSummary.package_count,
@@ -1247,17 +1260,26 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     let totalPrice = Math.max(0, grossTotalPrice - promoDiscountIdr);
     let settlement = {
-      ...grossSettlement,
-      platform_commission_idr: Math.max(0, grossSettlement.platform_commission_idr - promoDiscountIdr),
-      settlement_snapshot: {
-        ...grossSettlement.settlement_snapshot,
-        gross_total_price_idr: grossTotalPrice,
-        final_total_price_idr: totalPrice,
-        promo_discount_idr: promoDiscountIdr,
-        promo_campaign_id: promoCampaignId,
-        promo_code: appliedPromoCode,
-      }
-    };
+          ...grossSettlement,
+          platform_commission_idr: Math.max(0, grossSettlement.platform_commission_idr - promoDiscountIdr),
+          settlement_snapshot: {
+            ...grossSettlement.settlement_snapshot,
+            gross_total_price_idr: grossTotalPrice,
+            final_total_price_idr: totalPrice,
+            promo_discount_idr: promoDiscountIdr,
+            promo_campaign_id: promoCampaignId,
+            promo_code: appliedPromoCode,
+            pricing_breakdown: {
+              service_fee_idr: trustedPriceBreakdown.service_fee_idr || 0,
+              travel_fee_idr: trustedPriceBreakdown.travel_fee_idr || 0,
+              platform_fee_idr: trustedPriceBreakdown.platform_fee_breakdown_idr || 0,
+              base_fare_idr: trustedPriceBreakdown.base_fare_idr || 0,
+              per_km_idr: trustedPriceBreakdown.per_km_idr || 0,
+              included_distance_km: trustedPriceBreakdown.included_distance_km || 0,
+              platform_fee_pct: trustedPriceBreakdown.platform_fee_pct || 0,
+            }
+          }
+        };
 
     await client.query('BEGIN');
 

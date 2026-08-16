@@ -817,26 +817,40 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          o.dropoff_address AS drop_address,
          ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
          ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
-          COALESCE(
-            NULLIF(o.route_snapshot->>'distance_km', '')::numeric,
-            CASE
-              WHEN COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0) > 0
-              THEN ROUND(COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int)::numeric / 1000.0, 2)
-              ELSE NULL
-            END,
-            o.distance_km,
-            0
-          )::text AS distance,
-          COALESCE(ol.assigned_fee_idr, o.total_price_idr, 0)::text AS fee,
+         CASE
+           WHEN COALESCE(dsp.service_category, '') IN ('tambal_ban', 'towing')
+           THEN COALESCE(
+             (SELECT ROUND(ST_Distance(cp.current_location, o.pickup_location)::numeric / 1000.0, 2)
+              FROM courier_profiles cp
+             WHERE cp.user_id = COALESCE(ol.courier_id, (
+               SELECT d2.courier_id FROM courier_offer_dispatches d2
+               WHERE d2.order_id = o.id AND d2.status = 'offered' LIMIT 1
+             ))
+             LIMIT 1),
+             0
+           )
+           ELSE COALESCE(
+             NULLIF(o.route_snapshot->>'distance_km', '')::numeric,
+             CASE
+               WHEN COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0) > 0
+               THEN ROUND(COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int)::numeric / 1000.0, 2)
+               ELSE NULL
+             END,
+             o.distance_km,
+             0
+           )
+         END::text AS distance,
+         COALESCE(ol.assigned_fee_idr, o.total_price_idr, 0)::text AS fee,
           COALESCE(o.courier_payout_estimate_idr, 0)::int AS courier_payout_estimate_idr,
           COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
           COALESCE(o.platform_commission_idr, 0)::int AS platform_commission_idr,
           o.service_code,
-          o.route_snapshot,
-          o.route_provider,
-          o.route_profile,
-          COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
-          COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
+                   o.route_snapshot,
+                   o.route_provider,
+                   o.route_profile,
+                   o.settlement_snapshot,
+                   COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
+                   COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
           o.route_polyline,
           o.route_fallback_reason,
           NULLIF(o.route_snapshot->>'vehicle_type', '') AS route_vehicle_type,
@@ -989,16 +1003,29 @@ const mobileOrderSelect = `
   o.dropoff_address AS drop_address,
   ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
   ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
-  COALESCE(
-    NULLIF(o.route_snapshot->>'distance_km', '')::numeric,
-    CASE
-      WHEN COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0) > 0
-      THEN ROUND(COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int)::numeric / 1000.0, 2)
-      ELSE NULL
-    END,
-    o.distance_km,
-    0
-  )::text AS distance,
+  CASE
+    WHEN COALESCE(dsp.service_category, '') IN ('tambal_ban', 'towing')
+    THEN COALESCE(
+      (SELECT ROUND(ST_Distance(cp.current_location, o.pickup_location)::numeric / 1000.0, 2)
+       FROM courier_profiles cp
+       WHERE cp.user_id = COALESCE(ol.courier_id, (
+         SELECT d.courier_id FROM courier_offer_dispatches d
+         WHERE d.order_id = o.id AND d.status = 'offered' LIMIT 1
+       ))
+       LIMIT 1),
+      0
+    )
+    ELSE COALESCE(
+      NULLIF(o.route_snapshot->>'distance_km', '')::numeric,
+      CASE
+        WHEN COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0) > 0
+        THEN ROUND(COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int)::numeric / 1000.0, 2)
+        ELSE NULL
+      END,
+      o.distance_km,
+      0
+    )
+  END::text AS distance,
   COALESCE(
     NULLIF(ol.assigned_fee_idr, 0),
     NULLIF(o.courier_payout_estimate_idr, 0),
@@ -1012,6 +1039,7 @@ const mobileOrderSelect = `
   o.route_snapshot,
   o.route_provider,
   o.route_profile,
+  o.settlement_snapshot,
   COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
   COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
   o.route_polyline,
@@ -1114,9 +1142,13 @@ const mobileOrderSelect = `
 
 const normalizeMobileOrder = (order: any) => {
   const routeContract = routeContractFromOrder(order);
+  const isMaintenance = ['tambal_ban', 'towing'].includes(String(order.service_category || '')) ||
+    String(order.service_code || '').startsWith('tambal_ban') ||
+    String(order.service_code || '').startsWith('towing');
   return {
     ...order,
-    distance: routeContract.distance_km > 0 ? String(routeContract.distance_km) : order.distance,
+    distance: isMaintenance && order.distance ? String(order.distance) : (routeContract.distance_km > 0 ? String(routeContract.distance_km) : order.distance),
+    pricing_breakdown: order.settlement_snapshot?.pricing_breakdown || null,
     route_snapshot: routeContract.snapshot,
     route_provider: routeContract.provider,
     route_profile: routeContract.route_profile,
@@ -2584,23 +2616,28 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
      candidate AS (
        SELECT
          cp.user_id AS courier_id,
-         cp.current_zone_id AS zone_id,
-         COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0) AS distance_m,
+                 cp.current_zone_id AS zone_id,
+                 COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0) AS distance_m,
+                 COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0) AS travel_distance_m,
          COALESCE(cp.avg_partner_rating, cp.relay_score, 5.00)::numeric(3,2) AS rating_snapshot,
          COALESCE(cp.acceptance_rate_pct, 100)::int AS acceptance_rate_snapshot,
           COALESCE(cp.completion_rate_pct, 100)::int AS completion_rate_snapshot,
           o.pickup_address,
-          o.dropoff_address,
-          COALESCE(
-            NULLIF(o.route_snapshot->>'distance_km', '')::numeric,
-            CASE
-              WHEN COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0) > 0
-              THEN ROUND(COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int)::numeric / 1000.0, 2)
-              ELSE NULL
-            END,
-            o.distance_km,
-            0
-          )::text AS distance,
+                   o.dropoff_address,
+                   CASE
+                     WHEN dsp.service_category IN ('tambal_ban', 'towing')
+                     THEN ROUND((COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0))::numeric / 1000.0, 2)
+                     ELSE COALESCE(
+                       NULLIF(o.route_snapshot->>'distance_km', '')::numeric,
+                       CASE
+                         WHEN COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0) > 0
+                         THEN ROUND(COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int)::numeric / 1000.0, 2)
+                         ELSE NULL
+                       END,
+                       o.distance_km,
+                       0
+                     )
+                   END::text AS distance,
           COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::text AS fee,
           COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::int AS courier_payout_estimate_idr,
           COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
@@ -2824,7 +2861,11 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
     courier_id: nextCourier.courier_id,
     pickup_address: nextCourier.pickup_address,
     dropoff_address: nextCourier.dropoff_address,
-    distance: routeContract.distance_km > 0 ? String(routeContract.distance_km) : nextCourier.distance,
+    distance: ['tambal_ban', 'towing'].includes(nextCourier.service_code?.split('_')[0] ?? '')
+      ? (nextCourier.travel_distance_m != null && nextCourier.travel_distance_m > 0
+          ? String(Number((nextCourier.travel_distance_m / 1000).toFixed(2)))
+          : (routeContract.distance_km > 0 ? String(routeContract.distance_km) : nextCourier.distance))
+      : (routeContract.distance_km > 0 ? String(routeContract.distance_km) : nextCourier.distance),
     fee: nextCourier.fee,
     customer_name: nextCourier.customer_name,
     expires_at: dispatch.expires_at,
@@ -2878,14 +2919,19 @@ export const dispatchToPreferredCourier = async (
   const courier = await client.query(
     `SELECT
        cp.user_id AS courier_id,
-       cp.current_zone_id AS zone_id,
-       COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0) AS distance_m,
+               cp.current_zone_id AS zone_id,
+               COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0) AS distance_m,
+               COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0) AS travel_distance_m,
        COALESCE(cp.avg_partner_rating, cp.relay_score, 5.00)::numeric(3,2) AS rating_snapshot,
        COALESCE(cp.acceptance_rate_pct, 100)::int AS acceptance_rate_snapshot,
        COALESCE(cp.completion_rate_pct, 100)::int AS completion_rate_snapshot,
        o.pickup_address,
-       o.dropoff_address,
-       COALESCE(NULLIF(o.route_snapshot->>'distance_km', '')::numeric, o.distance_km, 0)::text AS distance,
+             o.dropoff_address,
+             CASE
+               WHEN dsp.service_category IN ('tambal_ban', 'towing')
+               THEN ROUND((COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0))::numeric / 1000.0, 2)
+               ELSE COALESCE(NULLIF(o.route_snapshot->>'distance_km', '')::numeric, o.distance_km, 0)
+             END::text AS distance,
        COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::text AS fee,
        COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::int AS courier_payout_estimate_idr,
        COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
@@ -3000,7 +3046,11 @@ export const dispatchToPreferredCourier = async (
     courier_id: nextCourier.courier_id,
     pickup_address: nextCourier.pickup_address,
     dropoff_address: nextCourier.dropoff_address,
-    distance: nextCourier.distance,
+    distance: ['tambal_ban', 'towing'].includes((nextCourier.service_code ?? '').split('_')[0])
+      ? (nextCourier.travel_distance_m != null && nextCourier.travel_distance_m > 0
+          ? String(Number((nextCourier.travel_distance_m / 1000).toFixed(2)))
+          : nextCourier.distance)
+      : nextCourier.distance,
     fee: nextCourier.fee,
     customer_name: nextCourier.customer_name,
     expires_at: dispatch.expires_at,

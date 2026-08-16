@@ -177,6 +177,10 @@ data class Order(
     @SerialName("platform_commission_idr")
     val platformCommissionIdr: Int = 0,
 
+    @ColumnInfo(name = "pricing_breakdown")
+    @SerialName("pricing_breakdown")
+    val pricingBreakdown: PricingBreakdown? = null,
+
     @ColumnInfo(name = "service_code")
     @SerialName("service_code")
     val serviceCode: String? = null,
