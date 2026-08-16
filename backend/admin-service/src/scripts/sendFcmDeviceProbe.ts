@@ -29,21 +29,19 @@ const parseArgs = (): ProbeArgs => {
 };
 
 const findLatestRegisteredUser = async (role: ProbeRole): Promise<string> => {
-  const roleJoin =
-    role === 'customer'
-      ? 'INNER JOIN customers c ON c.id = ud.user_id'
-      : 'INNER JOIN couriers cr ON cr.id = ud.user_id';
-
+  // NOTE: tabel `customers`/`couriers` legacy tidak ada di schema staging —
+  // deteksi role via users.role.
   const result = await db.query<{ user_id: string }>(
     `
     SELECT ud.user_id
     FROM user_devices ud
-    ${roleJoin}
+    JOIN users u ON u.id = ud.user_id AND u.role = $1
     WHERE ud.device_token IS NOT NULL
       AND length(trim(ud.device_token)) > 0
     ORDER BY ud.last_active_at DESC NULLS LAST, ud.created_at DESC
     LIMIT 1
-    `
+    `,
+    [role]
   );
 
   const userId = result.rows[0]?.user_id;

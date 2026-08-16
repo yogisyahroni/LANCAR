@@ -272,22 +272,16 @@ export const createNotification = async (payload: NotificationPayload) => {
       try {
         // Fetch user devices
         const deviceResult = await db.query<DeviceRecipient>(
-          `
-          SELECT
-            ud.device_token,
-            CASE
-              WHEN c.id IS NOT NULL THEN 'customer'
-              WHEN cr.id IS NOT NULL THEN 'courier'
-              ELSE COALESCE(u.role, 'unknown')
-            END AS user_type
-          FROM user_devices ud
-          LEFT JOIN customers c ON c.id = ud.user_id
-          LEFT JOIN couriers cr ON cr.id = ud.user_id
-          LEFT JOIN users u ON u.id = ud.user_id
-          WHERE ud.user_id = $1
-          `,
-          [user_id]
-        );
+                  `
+                  SELECT
+                    ud.device_token,
+                    COALESCE(u.role, 'unknown') AS user_type
+                  FROM user_devices ud
+                  JOIN users u ON u.id = ud.user_id
+                  WHERE ud.user_id = $1
+                  `,
+                  [user_id]
+                );
 
         const devices = deviceResult.rows;
         

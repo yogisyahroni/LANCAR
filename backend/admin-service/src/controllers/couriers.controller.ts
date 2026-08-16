@@ -872,7 +872,7 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
   try {
     await client.query('BEGIN');
 
-    await client.query(
+       await client.query(
       `UPDATE users u
        SET status = CASE 
          WHEN $1 = 'Active' THEN 'active'
@@ -886,17 +886,17 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
       [status, id]
     );
 
+    // (legacy `couriers` table removed — update courier_profiles langsung)
     await client.query(
-      `UPDATE couriers c
-       SET status = CASE
-         WHEN $1 = 'Active' THEN 'active'
+      `UPDATE courier_profiles cp
+       SET verification_status = CASE
+         WHEN $1 = 'Active' THEN 'approved'
          WHEN $1 = 'Suspended' THEN 'suspended'
-         WHEN $1 = 'Rejected' THEN 'inactive'
-         ELSE c.status
+         WHEN $1 = 'Rejected' THEN 'rejected'
+         ELSE cp.verification_status
        END,
        updated_at = NOW()
-       FROM courier_profiles cp
-       WHERE cp.user_id = c.id AND cp.id = $2`,
+       WHERE cp.id = $2`,
       [status, id]
     );
 
