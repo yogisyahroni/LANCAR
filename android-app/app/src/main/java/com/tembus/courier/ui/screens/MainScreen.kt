@@ -95,6 +95,7 @@ import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.displayServiceName
+import com.tembus.courier.data.model.isMaintenanceService
 import com.tembus.courier.data.model.normalizedWorkflowRole
 import com.tembus.courier.data.model.toRupiahCompact
 import com.tembus.courier.domain.CourierProofTypes
@@ -2342,28 +2343,41 @@ private fun OnDemandNavigationModeCard(
         ?.let { stop -> latLngOrNull(stop.latitude, stop.longitude) }
         ?: targetPoint
     val hasMultiStopPlan = activeStops.size > 1 && activeStopIndex >= 0
+    val isMaintenanceService = order.serviceCategory == "tambal_ban" || order.serviceCategory == "towing"
     val targetLabel = when {
         hasMultiStopPlan -> "Stop ${activeStopIndex + 1}/${activeStops.size}"
-        targetIsPickup -> "Pickup"
-        else -> "Penerima"
+        targetIsPickup -> if (isMaintenanceService) "Lokasi layanan" else "Pickup"
+        else -> if (isMaintenanceService) "Lokasi layanan" else "Penerima"
     }
-    val navigationTitle = when {
-        navigationModeActive -> "Navigasi TEMBUS aktif"
-        hasMultiStopPlan -> "Stop berikutnya"
-        targetIsPickup -> "Mode jemput paket"
+    val pickupModeTitle = when {
+        isMaintenanceService -> "Mode menuju lokasi ${order.serviceName ?: "layanan"}"
+        else -> "Mode jemput paket"
+    }
+    val deliveryModeTitle = when {
+        isMaintenanceService -> "Mode menuju lokasi ${order.serviceName ?: "layanan"}"
         else -> "Mode antar ke penerima"
     }
+    val navigationTitleDynamic = when {
+        navigationModeActive -> "Navigasi TEMBUS aktif"
+        hasMultiStopPlan -> "Stop berikutnya"
+        targetIsPickup -> pickupModeTitle
+        else -> deliveryModeTitle
+    }
     val primaryActionText = when {
-        navigationModeActive && targetIsPickup -> "Saya di pickup"
-        navigationModeActive -> "Saya di tujuan"
+        navigationModeActive && targetIsPickup -> if (isMaintenanceService) "Saya di lokasi" else "Saya di pickup"
+        navigationModeActive -> if (isMaintenanceService) "Saya di lokasi tujuan" else "Saya di tujuan"
         hasMultiStopPlan -> "Mulai stop"
-        targetIsPickup -> "Mulai ke pickup"
-        else -> "Mulai ke penerima"
+        targetIsPickup -> if (isMaintenanceService) "Mulai ke lokasi" else "Mulai ke pickup"
+        else -> if (isMaintenanceService) "Mulai ke lokasi tujuan" else "Mulai ke penerima"
     }
     val supportCopy = if (navigationModeActive) {
         "TEMBUS menjaga rute dan stop aktif di layar ini. Gunakan Maps hanya jika butuh panduan suara."
     } else {
-        "Mulai navigasi di TEMBUS supaya pickup, pengantaran, dan bukti kerja tetap dalam satu alur."
+        if (isMaintenanceService) {
+            "Mulai navigasi di TEMBUS supaya perjalanan ke lokasi layanan dan bukti kerja tetap dalam satu alur."
+        } else {
+            "Mulai navigasi di TEMBUS supaya pickup, pengantaran, dan bukti kerja tetap dalam satu alur."
+        }
     }
     val routeDistanceText = when {
         activeRoutePlan != null && activeRoutePlan.totalDistanceKm > 0.0 -> String.format("%.1f km", activeRoutePlan.totalDistanceKm)
@@ -2403,13 +2417,14 @@ private fun OnDemandNavigationModeCard(
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        navigationTitle,
+                        navigationTitleDynamic,
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White,
                         fontWeight = FontWeight.Black
                     )
                     Text(
-                        "${order.displayServiceName()} • ${order.packageCount.coerceAtLeast(1)} paket",
+                        if (isMaintenanceService) order.displayServiceName()
+                        else "${order.displayServiceName()} • ${order.packageCount.coerceAtLeast(1)} paket",
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = 0.68f),
                         maxLines = 1,
@@ -4181,13 +4196,17 @@ private fun OnDemandOfferQueueItem(
 
             OfferRouteRow(
                 icon = Icons.Default.Storefront,
-                label = "Pickup",
-                value = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }
+                label = if (order.isMaintenanceService()) "Lokasi layanan" else "Pickup",
+                value = order.pickupAddress.ifBlank {
+                    if (order.isMaintenanceService()) "Alamat lokasi layanan sedang disinkronkan" else "Alamat pickup sedang disinkronkan"
+                }
             )
             OfferRouteRow(
                 icon = Icons.Default.Place,
-                label = "Tujuan",
-                value = order.dropAddress.ifBlank { "Alamat tujuan dibuka setelah diterima" }
+                label = if (order.isMaintenanceService()) "Lokasi selesai" else "Tujuan",
+                value = order.dropAddress.ifBlank {
+                    if (order.isMaintenanceService()) "Alamat lokasi selesai dibuka setelah diterima" else "Alamat tujuan dibuka setelah diterima"
+                }
             )
 
             if (promoted && (pickupPoint != null || dropPoint != null)) {

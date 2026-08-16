@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Soto Ayam Siti - TEMBUS Food Delivery</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "error-container": "#ffdad6",
+                      "on-error": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "primary": "#006d38",
+                      "tertiary-container": "#ff5680",
+                      "on-secondary-fixed": "#291800",
+                      "surface-container-high": "#e7e8ea",
+                      "primary-container": "#00aa5b",
+                      "on-error-container": "#93000a",
+                      "on-tertiary": "#ffffff",
+                      "outline": "#6d7b6e",
+                      "inverse-on-surface": "#f0f1f3",
+                      "on-primary-fixed": "#00210d",
+                      "outline-variant": "#bccabc",
+                      "on-secondary-fixed-variant": "#624000",
+                      "inverse-primary": "#57df89",
+                      "secondary-container": "#feaa00",
+                      "surface-dim": "#d9dadc",
+                      "surface-container": "#edeef0",
+                      "primary-fixed": "#76fca3",
+                      "background": "#f8f9fb",
+                      "primary-fixed-dim": "#57df89",
+                      "on-primary-container": "#003518",
+                      "surface-tint": "#006d38",
+                      "on-primary": "#ffffff",
+                      "tertiary": "#bc004b",
+                      "on-tertiary-fixed-variant": "#900038",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary": "#825500",
+                      "error": "#ba1a1a",
+                      "tertiary-fixed": "#ffd9de",
+                      "on-surface-variant": "#3d4a3f",
+                      "on-primary-fixed-variant": "#005229",
+                      "surface-container-highest": "#e1e2e4",
+                      "on-secondary-container": "#684300",
+                      "inverse-surface": "#2e3132",
+                      "secondary-fixed": "#ffddb3",
+                      "surface": "#f8f9fb",
+                      "surface-container-low": "#f2f4f6",
+                      "on-tertiary-container": "#5f0022",
+                      "on-background": "#191c1e",
+                      "surface-bright": "#f8f9fb",
+                      "surface-variant": "#e1e2e4",
+                      "tertiary-fixed-dim": "#ffb2be",
+                      "on-surface": "#191c1e",
+                      "secondary-fixed-dim": "#ffb950",
+                      "on-tertiary-fixed": "#400014"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xs": "4px",
+                      "gutter": "12px",
+                      "xl": "32px",
+                      "lg": "24px",
+                      "md": "16px",
+                      "container-margin": "16px",
+                      "base": "8px",
+                      "sm": "8px"
+              },
+              "fontFamily": {
+                      "label-lg": ["Inter"],
+                      "label-sm": ["Inter"],
+                      "title-md": ["Inter"],
+                      "headline-sm": ["Inter"],
+                      "title-lg": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "body-md": ["Inter"],
+                      "display-lg": ["Inter"],
+                      "headline-md": ["Inter"]
+              },
+              "fontSize": {
+                      "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500"}],
+                      "label-sm": ["11px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500"}],
+                      "title-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "600"}],
+                      "headline-sm": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "title-lg": ["22px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                      "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400"}],
+                      "display-lg": ["57px", {"lineHeight": "64px", "letterSpacing": "-0.25px", "fontWeight": "700"}],
+                      "headline-md": ["28px", {"lineHeight": "36px", "fontWeight": "600"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface font-label-lg text-on-surface antialiased min-h-screen pb-safe">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 sticky z-50 bg-surface dark:bg-surface-container-high shadow-sm">
+<div class="flex justify-between items-center px-container-margin h-14 w-full max-w-7xl mx-auto">
+<button aria-label="Go back" class="text-primary dark:text-inverse-primary hover:bg-surface-container-low transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-title-lg text-title-lg text-primary font-bold">Soto Ayam Siti</h1>
+<button aria-label="Shopping cart" class="relative text-primary dark:text-inverse-primary hover:bg-surface-container-low transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+<span class="absolute top-1 right-1 bg-error text-on-error text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">2</span>
+</button>
+</div>
+</header>
+<main class="w-full max-w-3xl mx-auto px-container-margin pt-md pb-xl">
+<!-- Info Merchant Card -->
+<section class="bg-surface-container-lowest rounded-[18px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-md mb-lg">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h2 class="font-title-lg text-[18px] font-bold text-on-surface mb-1">Soto Ayam Siti</h2>
+<p class="text-[13px] text-on-surface-variant mb-2">Jl. Melati No. 12, Jakarta Barat</p>
+</div>
+<span class="bg-primary-container/10 text-primary-container text-xs font-bold px-2 py-1 rounded-md">Halal</span>
+</div>
+<div class="flex flex-wrap items-center gap-y-2 text-sm text-on-surface-variant divide-x divide-outline-variant/30">
+<div class="flex items-center gap-1 pr-3">
+<span class="text-[#FFAB00]">⭐</span>
+<span class="font-medium">4.8</span>
+<span class="text-xs">(200+)</span>
+</div>
+<div class="px-3">1.2 km</div>
+<div class="px-3 font-medium text-primary-container">Buka (08.00 - 22.00)</div>
+</div>
+<div class="mt-3 inline-flex items-center gap-1.5 bg-surface-container-low px-2 py-1 rounded-md">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">directions_bike</span>
+<span class="text-xs text-on-surface-variant font-medium">Ramah Sepeda</span>
+</div>
+</section>
+<!-- Daftar Menu -->
+<section class="flex flex-col gap-md">
+<!-- Menu 1 -->
+<article class="bg-surface-container-lowest rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-md flex justify-between items-start gap-md">
+<div class="flex-1 flex flex-col justify-between h-full">
+<div>
+<h3 class="font-title-md text-on-surface mb-1">Soto Ayam Lamongan</h3>
+<p class="text-body-md text-on-surface-variant line-clamp-2 mb-3">Soto ayam khas Lamongan dengan koya gurih dan telur.</p>
+</div>
+<div class="flex items-center justify-between mt-auto">
+<span class="font-bold text-[14px] text-primary-container">Rp 25.000</span>
+<button aria-label="Add Soto Ayam Lamongan" class="bg-primary-container text-on-primary w-8 h-8 rounded-full flex items-center justify-center shadow-sm hover:bg-primary transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-primary-container">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+<div class="w-[80px] h-[80px] shrink-0">
+<img alt="Soto Ayam Lamongan in a bowl" class="w-full h-full object-cover rounded-[12px]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrsh5cRszOHrjJMc9JtJOuWHNupkp-QobXGIOnUODOPV-Au5T-9m603HKvHgh8JmjHvABajQUIIAXRkSW1cArcbvMt2B60u0XrbnEgmgrZlAu2G2vyapXl4vAutuOldDdz9BT4KtO5GsqGAT6MdsbBjPh7iPyAhHNsN5cp8VOADAnGkFBZ6bpfsiyJj69CWjnZn-ylVKvQoC1dmls4y7EVbRWNcmkVTKfzIBv7-5evmbk_K12E7qqEDecWQPPXiyO9pxe7Cy9OiV7F"/>
+</div>
+</article>
+<!-- Menu 2 -->
+<article class="bg-surface-container-lowest rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-md flex justify-between items-start gap-md">
+<div class="flex-1 flex flex-col justify-between h-full">
+<div>
+<h3 class="font-title-md text-on-surface mb-1">Nasi Goreng Spesial</h3>
+<p class="text-body-md text-on-surface-variant line-clamp-2 mb-2">Nasi goreng dengan bumbu rahasia, ayam, dan telur ceplok.</p>
+<p class="text-xs text-on-surface-variant bg-surface-container px-2 py-1 rounded inline-block mb-3">Level Pedas: Level 1/2/3</p>
+</div>
+<div class="flex items-center justify-between mt-auto">
+<span class="font-bold text-[14px] text-primary-container">Rp 30.000</span>
+<button aria-label="Add Nasi Goreng Spesial" class="bg-primary-container text-on-primary w-8 h-8 rounded-full flex items-center justify-center shadow-sm hover:bg-primary transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-primary-container">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+<div class="w-[80px] h-[80px] shrink-0">
+<img alt="Nasi Goreng Spesial with fried egg" class="w-full h-full object-cover rounded-[12px]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBj_zq50ZQIJTFJ_Zo3t4UJ8TcHncTF_5liAZRB_zayocAL-36J9XGc4C2tdWdE5Ag5ET-wZVg6OV_Pt9IMsWviYBknhpnRRYAnWL5iI6hlfVWO0Ikxof2FXFTNrsh0366g0fvQyUwZ6r0f29JdkGSiCWWiILUc5FvNfvkx4bXmroksOyq8qRq554vgK9Q30SgbDMXN08m15Wi0MUQRWP7UVMqyYzsX0oCmoRwQlEBX1g4_c1-OZja8OE0_vURgziVoNhoA3iUbvNb9"/>
+</div>
+</article>
+<!-- Menu 3 -->
+<article class="bg-surface-container-lowest rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-md flex justify-between items-start gap-md">
+<div class="flex-1 flex flex-col justify-between h-full">
+<div>
+<h3 class="font-title-md text-on-surface mb-1">Es Teh Manis</h3>
+<p class="text-body-md text-on-surface-variant line-clamp-2 mb-3">Teh seduh segar dengan gula asli.</p>
+</div>
+<div class="flex items-center justify-between mt-auto">
+<span class="font-bold text-[14px] text-primary-container">Rp 5.000</span>
+<button aria-label="Add Es Teh Manis" class="bg-primary-container text-on-primary w-8 h-8 rounded-full flex items-center justify-center shadow-sm hover:bg-primary transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-primary-container">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+<div class="w-[80px] h-[80px] shrink-0">
+<img alt="Es Teh Manis in a glass" class="w-full h-full object-cover rounded-[12px]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxbmaZus-UvoK-jdz6DLH6nAg4gGladEEWxYKjbx7AmJqtDa8NONozds0rLUKkErkQfmTCTF7XpkM8pbBdMpKH2kAKnRfmdjU7q39dZn08KCvRO_FS0p9f7Ipl0tarf-v50-N7fNs5DnOmOJwl5Pdtmw0SXLmd2otzMU4jgTxaOJZ-1NpqBjxwUp7Tk-Y3aA3jFhgpIijOt3enmXjpyaPlYPllDFx1a5yMpPYOeqp1xSFFeYFTKc35l9cS2DObRjlgEul3Uvb1Gqif"/>
+</div>
+</article>
+<!-- Menu 4 (Habis) -->
+<article class="bg-surface-container-lowest rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-md flex justify-between items-start gap-md opacity-60 grayscale-[50%]">
+<div class="flex-1 flex flex-col justify-between h-full">
+<div>
+<h3 class="font-title-md text-on-surface mb-1">Ayam Geprek + Nasi</h3>
+<p class="text-body-md text-on-surface-variant line-clamp-2 mb-3">Ayam krispi digeprek dengan sambal bawang pedas.</p>
+</div>
+<div class="flex items-center justify-between mt-auto">
+<span class="font-bold text-[14px] text-on-surface-variant">Rp 22.000</span>
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Habis</span>
+<button aria-label="Ayam Geprek out of stock" class="bg-surface-variant text-on-surface-variant w-8 h-8 rounded-full flex items-center justify-center cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<div class="w-[80px] h-[80px] shrink-0">
+<img alt="Ayam Geprek with rice" class="w-full h-full object-cover rounded-[12px]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBg_pKamYFn2vhm7y0zDkERORW19hymjPwJsMDByem6Zbhi_m0mo_JUhCNn-0A4YMzaMq_U-lYrBPZINTx2gM0YNqBoydz3Y3cIeL-Of02FECxXcgDSklVcX5JsEjHMerjFtTDb-9DYiWAJBpE-e4qh6h5a7rAbnJWrTEKJLKCdkM1IB4zNl0xi7RcIwGvLNpAOah4sFgZp1QkLuncTnOa2zrNI9XomaFRH2EcVCZy3I_ANBzV_iLqBDNDVXSVNxNElj-xlly1ICH_"/>
+</div>
+</article>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-4 px-container-margin text-center border-t border-outline-variant bg-surface-container-low dark:bg-surface-dim mt-auto">
+<p class="font-label-sm text-label-sm text-on-surface-variant dark:text-outline-variant">Diantar kurir sepeda • Harga dihitung ulang server</p>
+</footer>
+</body></html>

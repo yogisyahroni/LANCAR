@@ -460,9 +460,17 @@ func main() {
 	mux.HandleFunc("/api/v1/food/merchants", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFoodMerchants)))
 	mux.HandleFunc("/api/v1/food/merchants/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetFoodMerchantDetail)))
 
-	// FOOD-BIKE-070: Favorite Merchants (C3)
-	mux.HandleFunc("/api/v1/food/favorites/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AddFavoriteMerchant)))
-	mux.HandleFunc("/api/v1/food/favorites/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.RemoveFavoriteMerchant)))
+	// FOOD-BIKE-070: Favorite Merchants (C3) — POST add, DELETE remove, GET list, GET check
+	mux.HandleFunc("/api/v1/food/favorites/{id}", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			orderHandler.AddFavoriteMerchant(w, r)
+		case http.MethodDelete:
+			orderHandler.RemoveFavoriteMerchant(w, r)
+		default:
+			middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+		}
+	})))
 	mux.HandleFunc("/api/v1/food/favorites", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFavoriteMerchants)))
 	mux.HandleFunc("/api/v1/food/favorites/check/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CheckIsFavoriteMerchant)))
 
@@ -506,6 +514,10 @@ func main() {
 
 	// Tambal Ban & Towing Routes
 	mux.HandleFunc("/api/v1/customer/nearby-couriers", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetNearbyCouriers)))
+	// UI/UX tambal ban: home + detail teknisi + search (design Stitch → implementasi end-to-end)
+	mux.HandleFunc("/api/v1/customer/tambal-ban/home", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetTambalBanHome)))
+	mux.HandleFunc("/api/v1/customer/couriers/", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetCourierDetail)))
+	mux.HandleFunc("/api/v1/customer/tambal-ban/search", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.SearchTambalBanCouriers)))
 	mux.HandleFunc("/api/v1/order/settlement", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CalculateSettlement)))
 	mux.HandleFunc("/api/v1/courier/availability-state", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {

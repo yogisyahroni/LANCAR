@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,14 +49,14 @@ fun ChatScreen(
     onOrderDetailClick: (String) -> Unit = {},
     viewModel: ChatViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var textInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val conversation = uiState.conversation
     val showDeliveryGroupContext = conversation?.isGroup == true ||
         conversation?.phase in setOf("delivery_group", "delivered")
-    val isFoodDeliveryOrder = orderId.isNotBlank() && (uiState.order?.serviceSubType == "food_delivery" || true)
+    val isFoodDeliveryOrder = orderId.isNotBlank() && uiState.order?.serviceSubType == "food_delivery"
     val showFoodOrderContext = isFoodDeliveryOrder && (uiState.order != null || uiState.isLoading)
     val resolvedCourierName = uiState.order?.courierName ?: courierName
     val conversationTitle = when {

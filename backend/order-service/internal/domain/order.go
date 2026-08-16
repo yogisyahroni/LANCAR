@@ -113,6 +113,7 @@ type Order struct {
 	LastRatingReminderAt   *time.Time   `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
 	// Food delivery (FOOD-BIKE-006): service_sub_type + merchant fields
 	ServiceSubType     string     `json:"service_sub_type,omitempty" db:"service_sub_type"`
+	ServiceCode        string     `json:"service_code,omitempty" db:"service_code"`
 	MerchantID         *string    `json:"merchant_id,omitempty" db:"merchant_id"`
 	MerchantName       *string    `json:"merchant_name,omitempty" db:"merchant_name"` // LEFT JOIN merchants (FOOD-BIKE-060)
 	MerchantAcceptedAt *time.Time `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
@@ -542,6 +543,8 @@ type OrderRepository interface {
 	GetByBatchID(ctx context.Context, batchID string) ([]*Order, error)
 	ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, id string, status OrderStatus) error
+	// UpdateLegsStatus — FB-121: tandai leg aktif order sbg final (delivered/cancelled).
+	UpdateLegsStatus(ctx context.Context, orderID string, status OrderStatus) error
 	// GetCourierIDByUserID — AUDIT-FIX m5: courier_profiles.id milik user.
 	GetCourierIDByUserID(ctx context.Context, userID string) (string, error)
 	// UpdateOrderAWB menyimpan nomor AWB dan tracking URL ke order setelah AWB berhasil dibuat.

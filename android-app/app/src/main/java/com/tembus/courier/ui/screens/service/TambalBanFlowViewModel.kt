@@ -26,7 +26,10 @@ data class TambalBanFlowUiState(
     val nextActionLabel: String = "",
     val nextActionType: TambalBanNextActionType = TambalBanNextActionType.NONE,
     val earnings: EarningsData? = null,
-    val error: String? = null
+    val error: String? = null,
+    // Jenis kerusakan ban (design Stitch: Tubeless/Standar/Ganti/Isi Angin
+    // → mekanisme existing: dipilih kurir saat inspeksi, dikirim di report)
+    val damageType: String? = null
 )
 
 @HiltViewModel
@@ -125,12 +128,15 @@ class TambalBanFlowViewModel @Inject constructor(
                         orderRepository.updateOrderStatus(orderId, "service_complete")
                     }
                     TambalBanNextActionType.CAPTURE_COMPLETION -> {
-                        // Submit tambal ban report
-                        val reportRequest = mapOf(
+                        // Submit tambal ban report — termasuk jenis kerusakan (jika dipilih)
+                        val reportRequest = mutableMapOf<String, Any>(
                             "order_id" to orderId,
                             "service_type" to "tambal_ban",
                             "completed_at" to System.currentTimeMillis().toString()
                         )
+                        _uiState.value.damageType?.let {
+                            reportRequest["tire_damage_type"] = it
+                        }
                         orderRepository.createTambalBanReport(orderId, reportRequest)
                             .onSuccess {
                                 orderRepository.updateOrderStatus(orderId, "completed")
@@ -150,5 +156,9 @@ class TambalBanFlowViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun setDamageType(damageType: String) {
+        _uiState.update { it.copy(damageType = damageType) }
     }
 }

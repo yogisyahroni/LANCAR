@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detail Armada - Rudi Hartono</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface": "#fcf9f8",
+                        "inverse-surface": "#313030",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#e5e2e1",
+                        "on-background": "#1c1b1b",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "primary-fixed-dim": "#57df89",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#ffdad7",
+                        "surface-container": "#f0edec",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#ebe7e7",
+                        "background": "#fcf9f8",
+                        "primary": "#006d38",
+                        "surface-tint": "#006d38",
+                        "on-surface-variant": "#3d4a3f",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "surface-dim": "#dcd9d9",
+                        "on-error-container": "#93000a",
+                        "outline-variant": "#bccabc",
+                        "secondary-container": "#e41e31",
+                        "on-primary-fixed-variant": "#005229",
+                        "outline": "#6d7b6e",
+                        "on-tertiary-fixed": "#001f28",
+                        "on-surface": "#1c1b1b",
+                        "on-tertiary-container": "#00313f",
+                        "on-primary-fixed": "#00210d",
+                        "primary-fixed": "#76fca3",
+                        "tertiary-container": "#00a1c6",
+                        "surface-container-highest": "#e5e2e1",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "surface-container-low": "#f6f3f2",
+                        "primary-container": "#00aa5b",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#bb0020",
+                        "tertiary": "#006780",
+                        "on-secondary-fixed": "#410005",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#f3f0ef",
+                        "surface-bright": "#fcf9f8",
+                        "on-primary-container": "#003518",
+                        "tertiary-fixed": "#b8eaff",
+                        "on-secondary-container": "#fffbff",
+                        "inverse-primary": "#57df89",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "on-secondary-fixed-variant": "#930017"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "unit": "8px",
+                        "md": "16px",
+                        "margin-mobile": "16px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "gutter-mobile": "12px",
+                        "xs": "4px"
+                    },
+                    fontFamily: {
+                        "headline-md": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    fontSize: {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #F5F7F6; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
+        .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.4); }
+    </style>
+</head>
+<body class="font-body-md text-on-surface antialiased min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-50 bg-surface shadow-sm">
+<div class="flex items-center justify-between px-margin-mobile h-14 w-full">
+<button class="p-2 -ml-2 rounded-full hover:bg-surface-container-high transition-colors text-on-surface">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">Detail Armada</h1>
+<button class="p-2 -mr-2 rounded-full hover:bg-surface-container-high transition-colors text-on-surface">
+<span class="material-symbols-outlined">share</span>
+</button>
+</div>
+</header>
+<main class="max-w-3xl mx-auto px-margin-mobile pt-lg pb-xl space-y-lg">
+<!-- Profile Section -->
+<section class="flex flex-col items-center text-center">
+<div class="w-20 h-20 rounded-full overflow-hidden mb-sm border-2 border-surface shadow-md">
+<img alt="Avatar 3D Pengguna" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AP1WRLvUdPXQ27cTa3MCBM7k8gRVxSnjBkCx1T-AlLlKqeOWAT8zBexrEHAsaXgzpu3Iq_jgTnWmpkyHwgf324FoULcoo7Zw5fstS_Bvtcovk1uR4b4z-FmlWJKiZCNm7Q2GoZTRugHoSF8_TNmYEA0lU5gesdkORo-iR4Koecnh0NcvKmxwMBP2gNGfYm1UyMQAXDifFy7jicVmzQN-V7VZCVbToE5ci-0jqJSlLbPPyNoMOHlRcAmsnjOnjMqA"/>
+</div>
+<h2 class="font-headline-md text-headline-md">Rudi Hartono</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-unit">Driver Towing Mobil</p>
+<div class="flex items-center gap-xs bg-surface-container-lowest px-md py-xs rounded-full shadow-sm border border-surface-variant">
+<span class="material-symbols-outlined text-[#FFC107] text-lg">star</span>
+<span class="font-label-lg text-label-lg">4.8</span>
+<span class="font-body-sm text-on-surface-variant ml-xs">(180+ order)</span>
+</div>
+</section>
+<!-- Info Row -->
+<section class="grid grid-cols-2 gap-md">
+<div class="glass-card rounded-xl p-md flex items-center gap-sm shadow-sm">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">location_on</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Jarak</p>
+<p class="font-label-lg text-label-lg">2.1 km</p>
+</div>
+</div>
+<div class="glass-card rounded-xl p-md flex items-center gap-sm shadow-sm">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">schedule</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Est. Tiba</p>
+<p class="font-label-lg text-label-lg">±35 mnt</p>
+</div>
+</div>
+</section>
+<!-- Secondary Info -->
+<section class="flex justify-center gap-md items-center font-body-sm text-on-surface-variant bg-surface-container-low rounded-lg py-sm px-md border border-surface-variant">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+<span>Bergabung 2022</span>
+</div>
+<div class="w-1 h-1 rounded-full bg-outline-variant"></div>
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+<span>1.400+ layanan selesai</span>
+</div>
+</section>
+<!-- Vehicle Card -->
+<section class="bg-surface rounded-xl p-md shadow-sm border border-surface-variant relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-container/5 rounded-bl-full -z-10"></div>
+<div class="flex items-center gap-md">
+<div class="w-20 h-20 rounded-lg overflow-hidden bg-surface-container-lowest shadow-inner border border-surface-variant flex-shrink-0">
+<img alt="Towing Truck Icon" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AP1WRLu4zyAgQsAr4R_mkaJIJuUTXw-fCMDVq_W95Qf3l_8jngVFjzYwsuVQRgi1_18QW-N1ohs8TiGkM5dfgeZVSlVERm7Qvb-tgf5C5RWROcZkTLSNtIEY6xk8OdEkjyiiGMnoyCKWcRRi7bisZcRu9dMhN_TS1kPqyVsrlS1n7oBAqD71EXy5ONf9lLOuCvWc9e7T3fp31TFl0QBrVpwxvErkAlEM-nT8uLnsBlxOGe_g4o49FIXQd4nYwd5m"/>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-sm text-headline-sm font-semibold mb-xs">Derek Towing Mobil</h3>
+<p class="font-body-sm text-on-surface-variant mb-sm">Kapasitas 2 ton</p>
+<div class="inline-block bg-surface-container-high border border-outline-variant px-sm py-xs rounded font-label-sm text-label-sm font-bold tracking-wider">
+                        B 5678 ABC
+                    </div>
+</div>
+</div>
+</section>
+<!-- Specialization -->
+<section>
+<h3 class="font-label-lg text-label-lg mb-sm text-on-surface-variant">Spesialisasi</h3>
+<div class="flex flex-wrap gap-sm">
+<div class="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-md py-xs rounded-full">Towing Mobil</div>
+<div class="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-md py-xs rounded-full">Towing Motor</div>
+<div class="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-md py-xs rounded-full">Jump Start</div>
+</div>
+</section>
+</main>
+<!-- Bottom Actions (Fixed) -->
+<div class="fixed bottom-0 left-0 w-full bg-surface shadow-[0_-4px_16px_rgba(0,0,0,0.05)] rounded-t-xl z-50">
+<div class="w-12 h-1 bg-surface-variant rounded-full mx-auto mt-sm mb-xs"></div>
+<div class="p-margin-mobile flex flex-col gap-sm">
+<button class="w-full bg-primary-container text-on-primary-container hover:bg-primary-container/90 transition-colors rounded-full py-md font-label-lg text-label-lg flex items-center justify-center gap-sm shadow-md">
+<span class="material-symbols-outlined">call</span>
+                Panggil Armada Ini
+            </button>
+<button class="w-full border-2 border-primary-container text-primary-container hover:bg-primary-container/5 transition-colors rounded-full py-md font-label-lg text-label-lg flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined">chat</span>
+                Chat Driver
+            </button>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,21 @@
+Halaman Keranjang (Cart) aplikasi TEMBUS customer app, bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter.
+
+1. TOP BAR: back arrow + judul "Keranjang" bold 18px hijau.
+
+2. DAFTAR ITEM (kartu putih rounded 18px, padding 14px):
+   Tiap item: 
+   - Nama item bold 14px (max 2 baris)
+   - Catatan item 11px grey (jika ada) "Catatan: ..."
+   - Pilihan varian 11px grey "Level Pedas: Extra Pedas · Ukuran: Besar" (jika ada)
+   - Harga subtotal bold 13px hijau "Rp 50.000"
+   - Kanan: qty stepper pill abu (#F1F5F9, rounded 999): tombol "−" hijau, angka qty bold, tombol "+" oranye
+   Item contoh:
+   a. "Soto Ayam Lamongan" x2 — Rp 50.000 — varian "Level Pedas: Level 2"
+   b. "Nasi Goreng Spesial" x1 — Rp 30.000 — catatan "Pisah sambal"
+   c. "Es Teh Manis" x3 — Rp 15.000
+
+3. BOTTOM BAR (putih, jika cart tidak kosong):
+   - Baris: "Total (6 item)" grey 13px + "Rp 95.000" bold 17px hijau
+   - Tombol penuh hijau rounded 14px tinggi 48px: "Lanjut ke Pembayaran" bold 15px
+
+4. EMPTY STATE (cart kosong): ikon keranjang besar abu + "Keranjang masih kosong" grey.

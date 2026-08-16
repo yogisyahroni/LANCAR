@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math"
 	"tembus/order-service/internal/domain"
@@ -215,6 +216,105 @@ func (r *availabilityRepo) FindCouriersByCapability(
 	return couriers, nil
 }
 
+// GetCourierByID — detail satu teknisi (tanpa filter radius; jarak dihitung
+// dari lat/lng user bila valid, fallback 0). Fix 404: sebelumnya detail
+// memakai FindCouriersByCapability dengan lat/lng 0 → haversine dari (0,0)
+// ≈ 11.000 km > radius 50 km → courier selalu terfilter.
+func (r *availabilityRepo) GetCourierByID(ctx context.Context, courierID, serviceSubType string, lat, lng float64) (*domain.NearbyCourier, error) {
+	if lat == 0 && lng == 0 {
+		lat, lng = -6.2, 106.816666 // fallback Jakarta (home default)
+	}
+	query := `
+		SELECT
+		    cp.id as courier_id,
+		    u.full_name as courier_name,
+		    COALESCE(cp.avg_rating, 0) as avg_rating,
+		    cp.vehicle_type,
+		    cp.vehicle_type_car,
+		    COALESCE(csp.price_amount, 0) as courier_service_price,
+		    COALESCE(cp.radius_max_km, 1) as radius_max_km,
+		    (
+		        6371 * acos(
+		            cos(radians($2)) * cos(radians(cp.current_lat)) *
+		            cos(radians(cp.current_lng) - radians($3)) +
+		            sin(radians($2)) * sin(radians(cp.current_lat))
+		        )
+		    ) as distance_km
+		FROM courier_profiles cp
+		JOIN users u ON cp.user_id = u.id
+		LEFT JOIN courier_service_prices csp
+		    ON cp.id = csp.courier_id
+		    AND csp.service_code = $4
+		    AND csp.is_active = TRUE
+		WHERE cp.id = $1
+		  AND cp.verification_status = 'approved'
+		  AND ($4 = ANY(cp.service_categories) OR cp.allows_tambal_ban = TRUE OR cp.allows_towing = TRUE)`
+
+	c := &domain.NearbyCourier{}
+	err := r.db.QueryRowContext(ctx, query, courierID, lat, lng, serviceSubType).Scan(
+		&c.CourierID, &c.CourierName, &c.Rating,
+		&c.VehicleType, &c.VehicleTypeCar, &c.CourierServicePrice,
+		&c.RadiusMaxKM, &c.DistanceKM,
+	)
+	if err != nil {
+		return nil, err
+	}
+	c.ServiceSubType = serviceSubType
+	c.ETAMinutes = int(math.Ceil(c.DistanceKM * 2.5)) // rough estimate
+	return c, nil
+}
+
+func (r *availabilityRepo) GetDeliveryServiceByCode(ctx context.Context, code string) (*domain.DeliveryServiceProduct, error) {
+	if code == "" {
+		return nil, fmt.Errorf("delivery service code is required")
+	}
+
+	query := `
+		SELECT
+			code,
+			name,
+			base_fare_idr,
+			per_km_idr,
+			included_distance_km,
+			uses_size_tier,
+			max_distance_km,
+			max_weight_kg,
+			platform_fee_idr,
+			platform_fee_pct,
+			COALESCE(search_radii_km::text, '[3, 5, 10]') AS search_radii_km
+		FROM delivery_service_products
+		WHERE code = $1
+		LIMIT 1
+	`
+
+	service := &domain.DeliveryServiceProduct{}
+	var searchRadiiJSON string
+	err := r.db.QueryRowContext(ctx, query, code).Scan(
+		&service.Code,
+		&service.Name,
+		&service.BaseFareIDR,
+		&service.PerKmIDR,
+		&service.IncludedDistanceKM,
+		&service.UsesSizeTier,
+		&service.MaxDistanceKM,
+		&service.MaxWeightKG,
+		&service.PlatformFeeIDR,
+		&service.PlatformFeePct,
+		&searchRadiiJSON,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("active delivery service not found for code %s", code)
+		}
+		return nil, err
+	}
+
+	if err := json.Unmarshal([]byte(searchRadiiJSON), &service.SearchRadiiKM); err != nil || len(service.SearchRadiiKM) == 0 {
+		service.SearchRadiiKM = []float64{3, 5, 10}
+	}
+	return service, nil
+}
+
 func (r *availabilityRepo) GetCourierServicePrice(ctx context.Context, courierID, serviceCode string) (int64, error) {
 	query := `SELECT price_amount FROM courier_service_prices WHERE courier_id = $1 AND service_code = $2 AND is_active = TRUE`
 	var price int64
@@ -323,7 +423,7 @@ func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *d
 		    (order_id, courier_id, tire_condition_before, tire_photo_before_url,
 		     service_duration_minutes, materials_used, notes,
 		     tire_condition_after, tire_photo_after_url, completed_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, (SELECT id FROM courier_profiles WHERE user_id = $2), $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, created_at`
 	return r.db.QueryRowContext(ctx, query,
 		report.OrderID, report.CourierID,

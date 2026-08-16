@@ -1,0 +1,9 @@
+Halaman Rating Merchant — State Sukses (modal dialog) aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter.
+
+1. MODAL PUTIH rounded 28px:
+   - Center: ikon centang hijau #00AA5B besar 56px dalam lingkaran
+   - "Terima kasih!" bold 18px
+   - "Penilaian untuk Soto Ayam Siti berhasil dikirim." 13px grey center
+   - Tombol hijau rounded 14px full width: "Selesai" bold
+
+2. (state sukses — setelah user submit rating)

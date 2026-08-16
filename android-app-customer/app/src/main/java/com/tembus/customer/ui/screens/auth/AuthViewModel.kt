@@ -149,8 +149,12 @@ class AuthViewModel @Inject constructor(
                     }
                 }
                 .onFailure { exception ->
+                    val isNetworkError = exception is java.net.SocketTimeoutException || 
+                                         exception is java.net.UnknownHostException || 
+                                         exception is java.net.ConnectException
+                    val fallbackMsg = if (isNetworkError) "Koneksi ke server terputus. Periksa jaringan Anda dan coba lagi." else "Email atau password tidak sesuai."
                     _authState.value = AuthState.Error(
-                        userSafeMessage(exception.localizedMessage, "Email atau password tidak sesuai.")
+                        userSafeMessage(exception.localizedMessage, fallbackMsg)
                     )
                 }
         }

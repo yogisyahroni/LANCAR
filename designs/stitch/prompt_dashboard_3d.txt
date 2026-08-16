@@ -1,0 +1,29 @@
+Redesign the TEMBUS super-app mobile home dashboard for the Indonesian market (an on-demand delivery super-app like Gojek/GoFood, brand color green #00AA5B). Incorporate the best UI/UX patterns proven by Gojek and Grab: global search bar, prominent wallet card, colorful service grid with RICH GLOSSY 3D ICONS, promo/coupon with urgency, personalized merchant feed with trust signals (rating + distance), and clean bottom navigation. EVERY icon in this design must be a premium, glossy, 3D-style app icon with depth, lighting, highlights and soft shadows (like modern Gojek 3D icons) — no flat line icons anywhere.
+
+Screen layout top to bottom (Android, portrait):
+
+1. STATUS BAR: time, battery, signal, dark icons on light background.
+
+2. HEADER: sticky green gradient bar (#00AA5B -> #008A45) with rounded bottom corners. Left: circular profile avatar with a smiling person icon (3D) on a white circle. Center-left: greeting text 'Halo, Siti!' in bold white + subtitle 'Mau kirim paket atau pesan makanan hari ini?' in soft white. Right: a white notification bell icon with glossy 3D depth showing a small red badge counting '3'.
+
+3. GLOBAL SEARCH BAR: a white rounded-full pill floating over the header bottom (like Gojek & Grab). Contains a green magnifying-glass 3D icon + placeholder text 'Cari layanan, makanan, & tujuan' in grey + a solid green 'Cari' button pill on the right.
+
+4. WALLET CARD: a prominent gradient card (green #00AA5B to teal #00AED6, rounded 24dp, soft drop shadow) sitting on the white background #F7F9FB. Inside: label 'Saldo' small white, big 'Rp50.000' in extra-bold white, a gold coin 3D icon with '183 coins' in white, and two white pill action buttons 'Bayar' and 'Top Up' each with a small 3D icon (wallet / plus).
+
+5. SERVICE GRID — EXACTLY ONE ROW of 4 large colorful tiles (Gojek-style colored tiles + 3D icons + gradient backgrounds, rounded 22dp, soft shadows). Each tile: a frosted-glass circle containing a big glossy 3D icon above the service label in white bold + tiny subtitle. Tiles:
+   - Kirim Paket — green gradient #00AA5B — glossy 3D cardboard box/parcel icon — subtitle 'Antar & ambil'
+   - Food — red-orange gradient #EE2737 — glossy 3D burger-in-bowl icon — subtitle 'Makanan'
+   - Tambal Ban — cyan gradient #00AED6 — glossy 3D tire + wrench icon — subtitle 'Bantuan jalan'
+   - Towing — purple gradient #93328E — glossy 3D tow-truck icon — subtitle 'Derek mobil'
+
+6. QUICK ACTIONS ROW: two small pill buttons side by side (white, light border, small 3D icons): 'Lacak Pesanan' with a glossy 3D navigation/location-pin icon, and 'Chat CS' with a glossy 3D chat-bubble icon.
+
+7. ACTIVE ORDER CARD: a light-green tinted rounded card with a small glossy 3D food-bowl icon, title 'Pesanan makanan aktif', subtitle 'Jl Test 1 • Status: ACCEPTED' with a green filled status chip 'ACCEPTED', and two buttons: 'Lacak' (solid green) and 'Chat' (outline green).
+
+8. PROMO SECTION: section header 'Promo untuk kamu' with a glossy 3D lightning-bolt tag icon in orange + 'Lihat semua' link on the right. Below: one horizontal promo banner card in orange-to-yellow gradient (like Grab's coupon carousel): huge 'Diskon 50%' text, caption 'Kode TEMBUS50 • Ongkir murah', a dashed coupon cut-out edge, a glossy 3D percent/coupon icon, and a white CTA pill 'Gunakan sekarang'.
+
+9. RECOMMENDED MERCHANTS feed: section header 'Mau makan apa hari ini?' with 'Lihat semua' link (like Gojek's 'Pilihan buat kamu' / Grab restaurant feed). A horizontal scroll row of 4 merchant cards, each: square photo thumbnail, merchant name (Warung UAT UI, Soto Siti, Bakmi Tembus, Kopi Nusantara), a Grab-style trust badge '★ 4.8 • 0.3km' overlay on the thumbnail, and a green/red promo tag 'Diskon 25%'.
+
+10. BOTTOM NAVIGATION: white rounded-top bar with 4 items, active item highlighted with a green pill + filled icon: Beranda (active, glossy 3D home icon), Riwayat (glossy 3D receipt icon), Bisnis (glossy 3D storefront icon), Profil (glossy 3D person icon).
+
+Overall style: Material Design 3, strict 8px grid, 16px side margins, modern Indonesian super-app aesthetic, clean white background #F7F9FB, subtle gradients, soft diffused shadows, consistent rounded corners (16-24dp), high polish. All Indonesian language labels. Mobile portrait, 1080x2400, high fidelity.

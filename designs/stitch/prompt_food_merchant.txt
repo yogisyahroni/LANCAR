@@ -1,0 +1,25 @@
+Halaman Detail Merchant aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter.
+
+1. TOP BAR: back arrow + nama merchant bold 18px hijau + ikon keranjang dengan badge jumlah item.
+
+2. INFO MERCHANT CARD putih rounded 18px:
+   - Nama merchant bold 18px + badge halal (hijau "Halal" / abu "Non-Halal")
+   - Alamat 13px grey
+   - Baris info: ⭐ rating (1 desimal) + jumlah ulasan • jarak km • status "Buka"/"Tutup" hijau/merah + jam buka-tutup (mis. 08.00 - 22.00)
+   - Badge kecil "Ramah Sepeda" (karena food delivery khusus kurir sepeda)
+
+3. DAFTAR MENU (LazyColumn, tiap item kartu putih rounded 16px):
+   Tiap item: 
+   - Nama menu bold 14px + deskripsi/singkat 12px grey
+   - Harga "Rp 25.000" bold hijau 14px
+   - Tanda varian: teks kecil "Level Pedas / Ukuran / Tambahan" (kalau ada varian FB-108)
+   - Status "Habis" abu kalau tidak tersedia
+   - Kanan: tombol bulat "+" hijau untuk tambah ke keranjang (atau qty stepper jika sudah di cart)
+   - Foto menu kecil kanan atas (rounded 12px) — placeholder foto makanan
+   Item contoh:
+   a. Soto Ayam Lamongan — Rp 25.000 — (+)
+   b. Nasi Goreng Spesial — Rp 30.000 — Level Pedas: Level 1/2/3 — (+)
+   c. Es Teh Manis — Rp 5.000 — (+)
+   d. Ayam Geprek + Nasi — Rp 22.000 — "Habis" (disabled)
+
+4. CATATAN KECIL footer: "Diantar kurir sepeda • Harga dihitung ulang server".

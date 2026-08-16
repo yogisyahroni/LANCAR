@@ -1,0 +1,24 @@
+Halaman Checkout Food aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter.
+
+1. TOP BAR: back arrow + judul "Checkout" bold 18px hijau.
+
+2. RINGKASAN PESANAN (kartu putih rounded 18px):
+   - Tiap item: "2x Soto Ayam Lamongan" 13px + harga kanan "Rp 50.000" bold
+   - Total bold 15px hijau "Rp 95.000"
+
+3. WAKTU PESANAN (kartu putih rounded 14px):
+   - Toggle 2 segmen: "Pesan Sekarang" (aktif hijau) / "Jadwalkan"
+   - Jika Jadwalkan: tombol outline "Pilih waktu jadwal (min 30 menit lagi)" + teks kecil grey "Pesanan akan mulai diproses merchant mendekati waktu pilihan. Minimal 30 menit dari sekarang, hanya untuk hari ini."
+
+4. KODE VOUCHER:
+   - Jika belum: input "Masukkan kode (mis. HEMAT10)" + tombol "Pakai" hijau
+   - Jika sudah: kartu hijau muda (#EAF7EC) "HEMAT10 — Diskon Rp 10.000" + tombol "Hapus" merah
+
+5. ALAMAT PENGANTARAN:
+   - Chip alamat tersimpan horizontal (mis. "Rumah • Jl. Melati No. 12") — bisa diklik pilih
+   - Textarea "Contoh: Jl. Sudirman No. 12, Jakarta" (min 2 baris)
+   - Input "Nama penerima (opsional)" + "No. HP penerima (opsional)"
+   - Textarea "Catatan untuk merchant (mis. pisahin sambal semua)"
+
+6. TOMBOL UTAMA: hijau penuh rounded 14px tinggi 50px "Buat Pesanan • Rp 95.000" bold 15px.
+   Teks kecil center: "Harga dihitung ulang oleh server — biaya antar dihitung otomatis."

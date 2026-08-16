@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Keranjang - TEMBUS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#410005",
+                        "primary-fixed": "#76fca3",
+                        "surface-variant": "#e5e2e1",
+                        "primary": "#00aa5b", /* Overridden per prompt to match #00AA5B */
+                        "on-primary-container": "#003518",
+                        "tertiary-fixed": "#b8eaff",
+                        "on-primary": "#ffffff",
+                        "surface-container-high": "#ebe7e7",
+                        "surface-tint": "#006d38",
+                        "secondary-container": "#e41e31",
+                        "on-secondary-container": "#fffbff",
+                        "tertiary": "#006780",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "on-surface": "#1c1b1b",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "on-surface-variant": "#64748b", /* Mapped for grey text */
+                        "error-container": "#ffdad6",
+                        "on-error-container": "#93000a",
+                        "surface": "#f7f8fa", /* Adjusted to #F7F8FA */
+                        "secondary-fixed": "#ffdad7",
+                        "inverse-surface": "#313030",
+                        "inverse-primary": "#57df89",
+                        "inverse-on-surface": "#f3f0ef",
+                        "outline-variant": "#bccabc",
+                        "on-tertiary-fixed": "#001f28",
+                        "tertiary-container": "#00a1c6",
+                        "surface-dim": "#dcd9d9",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#00210d",
+                        "secondary": "#bb0020",
+                        "surface-container-highest": "#e5e2e1",
+                        "primary-fixed-dim": "#57df89",
+                        "on-secondary-fixed-variant": "#930017",
+                        "background": "#f7f8fa", /* Adjusted to #F7F8FA */
+                        "surface-container": "#f1f5f9", /* Mapped for pill grey #F1F5F9 */
+                        "primary-container": "#00aa5b",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#00313f",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "outline": "#6d7b6e",
+                        "surface-container-low": "#f6f3f2",
+                        "on-primary-fixed-variant": "#005229",
+                        "surface-bright": "#fcf9f8",
+                        "on-background": "#1c1b1b",
+                        "on-secondary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "accent-orange": "#f97316" /* Added for plus button */
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "0.875rem", /* 14px */
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "unit": "8px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "gutter-mobile": "12px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-sm": ["11px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "title-sm": ["13px", {"lineHeight": "18px", "fontWeight": "700"}],
+                        "app-bar-title": ["18px", {"lineHeight": "24px", "fontWeight": "700"}],
+                        "bottom-bar-title": ["17px", {"lineHeight": "24px", "fontWeight": "700"}],
+                        "bottom-bar-btn": ["15px", {"lineHeight": "24px", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col items-center">
+<div class="w-full max-w-md bg-background min-h-screen relative pb-32 shadow-xl">
+<!-- TopAppBar -->
+<header class="bg-surface-container-lowest sticky top-0 flex items-center justify-between px-margin-mobile h-[56px] w-full z-50 shadow-[0px_2px_8px_rgba(0,0,0,0.05)]">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container-high transition-colors text-on-surface">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-app-bar-title text-primary">Keranjang</h1>
+<div class="w-10"></div> <!-- Spacer -->
+</header>
+<!-- Main Content (Daftar Item) -->
+<main class="px-margin-mobile pt-lg flex flex-col gap-md">
+<!-- Kartu 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_2px_8px_rgba(0,0,0,0.05)] border border-[#EEEEEE] flex justify-between items-center">
+<div class="flex flex-col gap-xs">
+<h2 class="font-label-lg text-label-lg text-on-surface">Soto Ayam Lamongan</h2>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Level Pedas: Level 2</p>
+<p class="text-title-sm text-primary mt-1">Rp 50.000</p>
+</div>
+<div class="bg-surface-container rounded-full flex items-center h-8 px-1">
+<button class="w-6 h-6 flex items-center justify-center rounded-full text-primary hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<span class="w-6 text-center font-bold text-sm text-on-surface">2</span>
+<button class="w-6 h-6 flex items-center justify-center rounded-full text-accent-orange hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</div>
+<!-- Kartu 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_2px_8px_rgba(0,0,0,0.05)] border border-[#EEEEEE] flex justify-between items-center">
+<div class="flex flex-col gap-xs">
+<h2 class="font-label-lg text-label-lg text-on-surface">Nasi Goreng Spesial</h2>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Catatan: Pisah sambal</p>
+<p class="text-title-sm text-primary mt-1">Rp 30.000</p>
+</div>
+<div class="bg-surface-container rounded-full flex items-center h-8 px-1">
+<button class="w-6 h-6 flex items-center justify-center rounded-full text-primary hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<span class="w-6 text-center font-bold text-sm text-on-surface">1</span>
+<button class="w-6 h-6 flex items-center justify-center rounded-full text-accent-orange hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</div>
+<!-- Kartu 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_2px_8px_rgba(0,0,0,0.05)] border border-[#EEEEEE] flex justify-between items-center">
+<div class="flex flex-col gap-xs">
+<h2 class="font-label-lg text-label-lg text-on-surface">Es Teh Manis</h2>
+<p class="text-title-sm text-primary mt-1">Rp 15.000</p>
+</div>
+<div class="bg-surface-container rounded-full flex items-center h-8 px-1">
+<button class="w-6 h-6 flex items-center justify-center rounded-full text-primary hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<span class="w-6 text-center font-bold text-sm text-on-surface">3</span>
+<button class="w-6 h-6 flex items-center justify-center rounded-full text-accent-orange hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Bottom Bar -->
+<div class="fixed bottom-0 w-full max-w-md bg-surface-container-lowest rounded-t-[16px] shadow-[0px_-4px_12px_rgba(0,0,0,0.05)] p-margin-mobile z-50 flex flex-col gap-unit">
+<div class="flex justify-between items-center mb-xs">
+<span class="text-[13px] text-on-surface-variant">Total (6 item)</span>
+<span class="text-bottom-bar-title text-primary">Rp 95.000</span>
+</div>
+<button class="w-full bg-primary-container text-on-primary h-[48px] rounded-2xl text-bottom-bar-btn flex items-center justify-center active:scale-[0.98] transition-transform shadow-sm">
+                Lanjut ke Pembayaran
+            </button>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Favorit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#003518",
+                    "on-primary-fixed": "#00210d",
+                    "on-tertiary-fixed-variant": "#3f484f",
+                    "tertiary-fixed": "#dbe4ed",
+                    "secondary-fixed-dim": "#c1c8ca",
+                    "tertiary": "#575f67",
+                    "secondary-container": "#dae1e3",
+                    "primary-fixed-dim": "#57df89",
+                    "primary": "#006d38",
+                    "on-error": "#ffffff",
+                    "surface-container": "#edeef0",
+                    "tertiary-container": "#8c959d",
+                    "background": "#f8f9fb",
+                    "secondary": "#586062",
+                    "on-error-container": "#93000a",
+                    "primary-container": "#00aa5b",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed": "#dde4e6",
+                    "primary-fixed": "#76fca3",
+                    "surface-dim": "#d9dadc",
+                    "on-secondary-container": "#5d6466",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed": "#161d1f",
+                    "on-primary": "#ffffff",
+                    "on-secondary-fixed-variant": "#41484a",
+                    "inverse-on-surface": "#f0f1f3",
+                    "inverse-primary": "#57df89",
+                    "outline-variant": "#bccabc",
+                    "on-primary-fixed-variant": "#005229",
+                    "surface-tint": "#006d38",
+                    "surface-container-highest": "#e1e2e4",
+                    "surface-container-high": "#e7e8ea",
+                    "on-surface": "#191c1e",
+                    "inverse-surface": "#2e3132",
+                    "error": "#ba1a1a",
+                    "tertiary-fixed-dim": "#bfc8d0",
+                    "surface": "#f8f9fb",
+                    "surface-bright": "#f8f9fb",
+                    "surface-container-low": "#f2f4f6",
+                    "on-tertiary-fixed": "#141d23",
+                    "on-background": "#191c1e",
+                    "error-container": "#ffdad6",
+                    "surface-variant": "#e1e2e4",
+                    "on-tertiary-container": "#252e35",
+                    "on-tertiary": "#ffffff",
+                    "outline": "#6d7b6e",
+                    "on-surface-variant": "#3d4a3f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "24px",
+                    "gutter": "16px",
+                    "xl": "32px",
+                    "xs": "4px",
+                    "margin-mobile": "16px",
+                    "xxl": "48px",
+                    "base": "8px",
+                    "sm": "8px",
+                    "md": "16px",
+                    "lg": "24px"
+            },
+            "fontFamily": {
+                    "label-md": ["Inter"],
+                    "title-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "title-lg": ["Inter"],
+                    "label-lg": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500"}],
+                    "title-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                    "title-lg": ["22px", {"lineHeight": "28px", "fontWeight": "500"}],
+                    "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500"}],
+                    "display-lg": ["57px", {"lineHeight": "64px", "letterSpacing": "-0.25px", "fontWeight": "400"}],
+                    "headline-sm": ["24px", {"lineHeight": "32px", "fontWeight": "500"}],
+                    "headline-md": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}]
+            }
+          },
+        }
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fb;
+        }
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="w-full sticky top-0 z-50 bg-surface dark:bg-surface flex items-center justify-between px-margin-mobile h-16 w-full">
+<div class="flex items-center">
+<button class="mr-4 text-on-surface-variant hover:bg-primary/10 transition-colors duration-200 rounded-full p-2">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<div class="flex flex-col">
+<h1 class="text-[20px] font-bold text-primary-container">Favorit</h1>
+<span class="text-[12px] text-on-surface-variant">3 merchant</span>
+</div>
+</div>
+<button class="text-on-surface-variant hover:bg-primary/10 transition-colors duration-200 rounded-full p-2">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow px-margin-mobile pt-4 pb-[100px] max-w-3xl mx-auto w-full">
+<div class="grid grid-cols-1 gap-md">
+<!-- Merchant 1 -->
+<div class="bg-surface-container-lowest rounded-[20px] p-4 flex gap-4 items-start shadow-[0_4px_16px_rgba(0,0,0,0.04)] border border-outline-variant/50 relative overflow-hidden group cursor-pointer hover:bg-primary/5 transition-colors duration-200">
+<div class="w-12 h-12 rounded-lg bg-primary-fixed/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-container text-[24px]" data-icon="storefront">storefront</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h2 class="font-title-md text-title-md text-on-surface">Soto Ayam Siti</h2>
+<button aria-label="Remove from favorites" class="text-error z-10">
+<span class="material-symbols-outlined" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</button>
+</div>
+<div class="flex flex-wrap items-center gap-2 mt-xs text-on-surface-variant font-label-md text-label-md">
+<span class="bg-primary/10 text-primary px-2 py-0.5 rounded-sm">Halal</span>
+<div class="flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+<span>4.8</span>
+</div>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span>1.2 km</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="text-primary-container font-medium">Buka</span>
+</div>
+</div>
+</div>
+<!-- Merchant 2 -->
+<div class="bg-surface-container-lowest rounded-[20px] p-4 flex gap-4 items-start shadow-[0_4px_16px_rgba(0,0,0,0.04)] border border-outline-variant/50 relative overflow-hidden group cursor-pointer hover:bg-primary/5 transition-colors duration-200">
+<div class="w-12 h-12 rounded-lg bg-primary-fixed/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-container text-[24px]" data-icon="storefront">storefront</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h2 class="font-title-md text-title-md text-on-surface">Bakmi GM</h2>
+<button aria-label="Remove from favorites" class="text-error z-10">
+<span class="material-symbols-outlined" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</button>
+</div>
+<div class="flex flex-wrap items-center gap-2 mt-xs text-on-surface-variant font-label-md text-label-md">
+<span class="bg-primary/10 text-primary px-2 py-0.5 rounded-sm">Halal</span>
+<div class="flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+<span>4.9</span>
+</div>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span>2.3 km</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="text-primary-container font-medium">Buka</span>
+</div>
+</div>
+</div>
+<!-- Merchant 3 -->
+<div class="bg-surface-container-lowest rounded-[20px] p-4 flex gap-4 items-start shadow-[0_4px_16px_rgba(0,0,0,0.04)] border border-outline-variant/50 relative overflow-hidden group cursor-pointer hover:bg-primary/5 transition-colors duration-200">
+<div class="w-12 h-12 rounded-lg bg-primary-fixed/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-container text-[24px]" data-icon="storefront">storefront</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h2 class="font-title-md text-title-md text-on-surface">Mie Gacoan</h2>
+<button aria-label="Remove from favorites" class="text-error z-10">
+<span class="material-symbols-outlined" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</button>
+</div>
+<div class="flex flex-wrap items-center gap-2 mt-xs text-on-surface-variant font-label-md text-label-md">
+<span class="bg-error-container text-on-error-container px-2 py-0.5 rounded-sm">Non-Halal</span>
+<div class="flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+<span>4.7</span>
+</div>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span>0.8 km</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="text-primary-container font-medium">Buka</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 bg-surface dark:bg-surface-container-low border-t border-outline-variant dark:border-outline-variant shadow-sm flex justify-around items-center h-20 px-4 pb-safe w-full md:hidden">
+<button class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim hover:bg-secondary-container/50 dark:hover:bg-secondary-container/20 scale-95 active:scale-90 transition-transform duration-150 px-5 py-1 rounded-full">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-md text-label-md mt-1">Beranda</span>
+</button>
+<button class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim hover:bg-secondary-container/50 dark:hover:bg-secondary-container/20 scale-95 active:scale-90 transition-transform duration-150 px-5 py-1 rounded-full">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="font-label-md text-label-md mt-1">Pesanan</span>
+</button>
+<!-- Active State -->
+<button class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary-container text-on-primary-container dark:text-on-primary-container rounded-full px-5 py-1 scale-95 active:scale-90 transition-transform duration-150">
+<span class="material-symbols-outlined" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
+<span class="font-label-md text-label-md mt-1 font-semibold">Favorit</span>
+</button>
+<button class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim hover:bg-secondary-container/50 dark:hover:bg-secondary-container/20 scale-95 active:scale-90 transition-transform duration-150 px-5 py-1 rounded-full">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-md text-label-md mt-1">Profil</span>
+</button>
+</nav>
+</body></html>

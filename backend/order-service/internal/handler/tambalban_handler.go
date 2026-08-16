@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
 	"tembus/order-service/internal/service"
@@ -206,6 +207,96 @@ func (h *TambalBanHandler) GetAvailabilityState(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(state)
+}
+
+// ============================================================
+// GET /api/v1/customer/tambal-ban/home
+// Home tambal ban: service products + nearby couriers + price range
+// ============================================================
+func (h *TambalBanHandler) GetTambalBanHome(w http.ResponseWriter, r *http.Request) {
+	latStr := r.URL.Query().Get("lat")
+	lngStr := r.URL.Query().Get("lng")
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err != nil || lat == 0 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "lat query param wajib (float)",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	lng, err := strconv.ParseFloat(lngStr, 64)
+	if err != nil || lng == 0 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "lng query param wajib (float)",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	result, err := h.availabilitySvc.GetTambalBanHome(r.Context(), lat, lng)
+	if err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to load tambal ban home",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+// ============================================================
+// GET /api/v1/customer/couriers/{id}?service_sub_type=
+// Detail teknisi (rating, vehicle, radius, harga jasa)
+// ============================================================
+func (h *TambalBanHandler) GetCourierDetail(w http.ResponseWriter, r *http.Request) {
+	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(pathParts) < 4 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_PATH", "courier id wajib",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	courierID := pathParts[len(pathParts)-1]
+	subType := r.URL.Query().Get("service_sub_type")
+
+	detail, err := h.availabilitySvc.GetCourierDetail(r.Context(), courierID, subType)
+	if err != nil {
+		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Courier tidak ditemukan",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(detail)
+}
+
+// ============================================================
+// GET /api/v1/customer/tambal-ban/search?lat=&lng=&q=&service_sub_type=
+// Search teknisi tambal ban by name
+// ============================================================
+func (h *TambalBanHandler) SearchTambalBanCouriers(w http.ResponseWriter, r *http.Request) {
+	latStr := r.URL.Query().Get("lat")
+	lngStr := r.URL.Query().Get("lng")
+	q := r.URL.Query().Get("q")
+	subType := r.URL.Query().Get("service_sub_type")
+
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err != nil || lat == 0 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "lat query param wajib (float)",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	lng, err := strconv.ParseFloat(lngStr, 64)
+	if err != nil || lng == 0 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "lng query param wajib (float)",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	result, err := h.availabilitySvc.SearchTambalBanCouriers(r.Context(), q, lat, lng, subType)
+	if err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to search couriers",
+			middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // ============================================================

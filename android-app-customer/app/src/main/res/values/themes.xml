@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.TEMBUSCustomer" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Legacy windowBackground removed to prevent double splash screen on Android 12+ -->
         <item name="android:statusBarColor">@color/splash_background</item>
         <item name="android:navigationBarColor">@color/splash_background</item>
-        <item name="android:windowBackground">@drawable/bg_customer_launch_window</item>
+    </style>
+
+    <!-- Splash Screen Theme for Android 12+ (Core Splash Screen API) -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_round</item>
+        <item name="postSplashScreenTheme">@style/Theme.TEMBUSCustomer</item>
     </style>
 </resources>

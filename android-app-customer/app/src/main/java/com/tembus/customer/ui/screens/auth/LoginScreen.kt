@@ -100,7 +100,7 @@ fun LoginScreen(
     onNavigateToOtp: (String) -> Unit,
     onGoogleRequiresOtp: (maskedRecipient: String, channel: String) -> Unit = { _, _ -> },
     onGoogleRequiresPhone: (email: String, fullName: String, transactionId: String) -> Unit = { _, _, _ -> },
-    onGoogleAuthSuccess: () -> Unit = {}
+    onAuthSuccess: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val googleAuthState by googleViewModel.googleAuthState.collectAsState()
@@ -147,13 +147,16 @@ fun LoginScreen(
         if (authState is AuthState.OtpSent) {
             onNavigateToOtp(phoneNumber)
             viewModel.resetState()
+        } else if (authState is AuthState.Success) {
+            onAuthSuccess()
+            viewModel.resetState()
         }
     }
 
     // Handle Google auth state changes
     LaunchedEffect(googleAuthState) {
         when (val state = googleAuthState) {
-            is GoogleAuthUiState.Authenticated -> onGoogleAuthSuccess()
+            is GoogleAuthUiState.Authenticated -> onAuthSuccess()
             is GoogleAuthUiState.RequiresOtp -> {
                 onGoogleRequiresOtp(state.maskedRecipient, state.channel)
             }

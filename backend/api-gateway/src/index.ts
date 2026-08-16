@@ -806,6 +806,43 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Order Service — tambal ban & towing domain routes owned by order-service but NOT covered by
+// the broad /api/v1/orders|/api/v1/couriers|/api/v1/tracking prefix proxies above.
+// Registered BEFORE the broad /api/v1/customer -> admin-service proxy so the customer-owned
+// order-domain routes (nearby-couriers, tambal-ban, couriers/{id}) resolve to order-service.
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string) =>
+    pathname.startsWith('/api/v1/customer/nearby-couriers') ||
+    pathname.startsWith('/api/v1/customer/tambal-ban') ||
+    pathname.startsWith('/api/v1/customer/rating-reminders') ||
+    pathname.startsWith('/api/v1/courier/service-report') ||
+    (pathname.startsWith('/api/v1/customer/couriers/')),
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('orders_extra', req, ORDER_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        orderBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      orderBreaker.fire(null);
+      logProxyError('orders_extra', ORDER_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Order service is currently unavailable',
+        });
+      }
+    }
+  }
+}));
+
 // Public Maps Runtime Routes (provider config, geocode, reverse geocode, routes, and OSM tile proxy)
 // These endpoints must stay unauthenticated because customer/courier apps need map runtime config
 // before a booking flow can safely complete, while the admin-service owns provider policy.

@@ -1,0 +1,19 @@
+Halaman Status Pesanan Food — Mencari Kurir aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter. Warna brand food oranye-merah #EE2737.
+
+1. TOP BAR: back arrow + judul "Detail Pesanan" bold.
+
+2. STATUS CARD: label "Status Saat Ini" + bold "Mencari Kurir" + sub "Mencari kurir sepeda terdekat di sekitarmu..." + spinner/loading animated.
+
+3. INFO ORDER: merchant Soto Ayam Siti + rincian item + total Rp95.000.
+
+4. TIMELINE HORIZONTAL 4 STEP (langkah 3 aktif):
+   1 ✓ Pesanan Dibuat
+   2 ✓ Disiapkan
+   3 ● Mencari Kurir (aktif oranye, spinner)
+   4 ○ Sedang Diantar
+
+5. TOMBOL: 
+   - Primary oranye "Cari Kurir Lagi" (refresh)
+   - Outline merah "Batalkan Pesanan"
+   - info: "Gratis jika kurir belum ditugaskan. Jika kurir sudah menerima pesanan, biaya layanan ditahan."
+   - Timer red "Menunggu lebih dari 5 menit? Coba batalkan atau hubungi kami"

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TEMBUS Food Delivery</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline": "#6d7b6e",
+                    "on-background": "#1c1b1b",
+                    "inverse-on-surface": "#f3f0ef",
+                    "inverse-primary": "#57df89",
+                    "tertiary-container": "#00a1c6",
+                    "primary-fixed": "#76fca3",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-fixed-dim": "#52d5ff",
+                    "on-tertiary-container": "#00313f",
+                    "on-surface": "#1c1b1b",
+                    "primary-container": "#00aa5b",
+                    "on-secondary-fixed": "#410005",
+                    "tertiary": "#006780",
+                    "secondary-container": "#e41e31",
+                    "on-error": "#ffffff",
+                    "surface-container-low": "#f6f3f2",
+                    "outline-variant": "#bccabc",
+                    "tertiary-fixed": "#b8eaff",
+                    "on-tertiary": "#ffffff",
+                    "surface-container": "#f0edec",
+                    "on-error-container": "#93000a",
+                    "secondary-fixed-dim": "#ffb3af",
+                    "secondary": "#bb0020",
+                    "secondary-fixed": "#ffdad7",
+                    "primary-fixed-dim": "#57df89",
+                    "surface-container-high": "#ebe7e7",
+                    "on-surface-variant": "#3d4a3f",
+                    "surface-bright": "#fcf9f8",
+                    "error": "#ba1a1a",
+                    "background": "#fcf9f8",
+                    "surface": "#fcf9f8",
+                    "on-secondary-container": "#fffbff",
+                    "on-primary-fixed": "#00210d",
+                    "surface-variant": "#e5e2e1",
+                    "surface-tint": "#006d38",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed-variant": "#930017",
+                    "surface-container-highest": "#e5e2e1",
+                    "on-tertiary-fixed-variant": "#004d61",
+                    "on-primary": "#ffffff",
+                    "inverse-surface": "#313030",
+                    "on-primary-container": "#003518",
+                    "primary": "#006d38",
+                    "surface-dim": "#dcd9d9",
+                    "on-tertiary-fixed": "#001f28",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed-variant": "#005229"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "xl": "32px",
+                    "unit": "8px",
+                    "sm": "8px",
+                    "margin-mobile": "16px",
+                    "xs": "4px",
+                    "md": "16px",
+                    "lg": "24px",
+                    "gutter-mobile": "12px"
+            },
+            "fontFamily": {
+                    "label-lg": [
+                            "Inter"
+                    ],
+                    "label-sm": [
+                            "Inter"
+                    ],
+                    "body-lg": [
+                            "Inter"
+                    ],
+                    "headline-lg": [
+                            "Inter"
+                    ],
+                    "body-md": [
+                            "Inter"
+                    ],
+                    "headline-md": [
+                            "Inter"
+                    ],
+                    "headline-lg-mobile": [
+                            "Inter"
+                    ]
+            },
+            "fontSize": {
+                    "label-lg": [
+                            "14px",
+                            {
+                                    "lineHeight": "20px",
+                                    "letterSpacing": "0.1px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "label-sm": [
+                            "11px",
+                            {
+                                    "lineHeight": "16px",
+                                    "letterSpacing": "0.5px",
+                                    "fontWeight": "500"
+                            }
+                    ],
+                    "body-lg": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "40px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "body-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "20px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-md": [
+                            "20px",
+                            {
+                                    "lineHeight": "28px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg-mobile": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "letterSpacing": "-0.01em",
+                                    "fontWeight": "700"
+                            }
+                    ]
+            }
+    },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-[80px]">
+<!-- TopAppBar -->
+<header class="bg-primary dark:bg-primary flex justify-between items-center px-margin-mobile py-sm w-full fixed top-0 z-50 flat no shadows">
+<div class="flex items-center gap-xs text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm opacity-80">Lokasi Anda</span>
+<span class="font-label-lg text-label-lg font-bold">Jl. Pintu Air 3 No.91 G</span>
+</div>
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative text-on-primary">
+<span class="material-symbols-outlined hover:bg-primary-container/20 rounded-full p-1 transition-colors cursor-pointer">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full border border-primary"></span>
+</div>
+<img class="w-8 h-8 rounded-full border-2 border-primary-container object-cover" data-alt="Glossy 3D profile avatar with vibrant colors and soft lighting, set against a solid #00aa5b green background, capturing a clean, modern aesthetic." src="https://lh3.googleusercontent.com/aida/AP1WRLvUdPXQ27cTa3MCBM7k8gRVxSnjBkCx1T-AlLlKqeOWAT8zBexrEHAsaXgzpu3Iq_jgTnWmpkyHwgf324FoULcoo7Zw5fstS_Bvtcovk1uR4b4z-FmlWJKiZCNm7Q2GoZTRugHoSF8_TNmYEA0lU5gesdkORo-iR4Koecnh0NcvKmxwMBP2gNGfYm1UyMQAXDifFy7jicVmzQN-V7VZCVbToE5ci-0jqJSlLbPPyNoMOHlRcAmsnjOnjMqA"/>
+</div>
+</header>
+<main class="pt-[72px] px-margin-mobile">
+<!-- Search Bar -->
+<div class="mt-md mb-lg">
+<div class="flex items-center bg-surface-container-high rounded-full px-4 py-2 border border-surface-variant focus-within:border-primary transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant mr-2">search</span>
+<input class="bg-transparent border-none outline-none w-full font-body-md text-on-surface placeholder:text-on-surface-variant/70 focus:ring-0 px-0" placeholder="Lagi mau mamam apa?" type="text"/>
+</div>
+</div>
+<!-- Promo Carousel -->
+<div class="mb-lg relative rounded-2xl overflow-hidden shadow-sm h-40" style="background: linear-gradient(135deg, #FF6B6B 0%, #EE2737 100%);">
+<!-- Using placeholder for banner image if needed, or pure CSS gradient as requested -->
+<div class="absolute inset-0 z-0 opacity-20">
+<div class="w-full h-full bg-cover bg-center mix-blend-overlay" data-alt="A vivid, appetizing layout of Indonesian food floating abstractly in the air, dynamically lit with bright, high-key studio lighting against a warm background." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAFq0VstUyIFoMf5kY-TfuGqsslBaBP83uJ1HboGQOrpFARDIyOm5eIqq3lTI9-UaRYbrp1r84Rc8t0l4AE6fkPhXxTqxB2L3dsF_pfgCYqmhZiCD0pUKPHBIghpMtNMpaJDVI41vlHqDKb4t-fw6enbYbrYGyto0ZMfmW13bOYirkh9AzuN_40_Tz03-ITi18T6B3uBkVzSjGV78U_rr-shCU3OO-inG1vj2lAH1QE-5WXpL54Vn9m1zgRw6kd4jMDuJzj2nz7Ov3V')"></div>
+</div>
+<div class="relative z-10 p-md flex flex-col justify-center h-full text-white">
+<span class="inline-block bg-white/20 backdrop-blur-sm text-white font-label-sm text-label-sm px-2 py-1 rounded-md mb-2 w-max border border-white/30">Persediaan terbatas</span>
+<h2 class="font-headline-md text-headline-md font-bold mb-1 shadow-sm">Diskon makanan 50%</h2>
+<p class="font-label-sm text-label-sm opacity-90">maks. 15rb • Min. pembelian 20rb</p>
+</div>
+</div>
+<!-- Horizontal Category Chips -->
+<div class="flex gap-unit overflow-x-auto hide-scrollbar mb-lg pb-1">
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full font-label-lg text-label-lg bg-primary text-on-primary shadow-sm border border-primary">Dibawah 5rb</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full font-label-lg text-label-lg bg-surface-container text-on-surface border border-outline-variant hover:bg-surface-variant transition-colors">Menu 30rb</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full font-label-lg text-label-lg bg-surface-container text-on-surface border border-outline-variant hover:bg-surface-variant transition-colors">Bakmie</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full font-label-lg text-label-lg bg-surface-container text-on-surface border border-outline-variant hover:bg-surface-variant transition-colors">Ayam</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full font-label-lg text-label-lg bg-surface-container text-on-surface border border-outline-variant hover:bg-surface-variant transition-colors">Nasi</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full font-label-lg text-label-lg bg-surface-container text-on-surface border border-outline-variant hover:bg-surface-variant transition-colors">Mie</button>
+</div>
+<!-- Section: Rating Jempolan -->
+<div class="mb-xl">
+<div class="mb-md">
+<h3 class="font-headline-md text-headline-md font-bold text-on-background">Resto dengan rating jempolan</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Rasa-rasa yang dicap enak sama warga.</p>
+</div>
+<div class="flex flex-col gap-md">
+<!-- Card 1 -->
+<div class="bg-surface rounded-2xl border border-surface-variant shadow-[0px_2px_8px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col relative group hover:shadow-md transition-shadow">
+<div class="absolute top-2 left-2 z-10 bg-surface/90 backdrop-blur-sm rounded-md px-1.5 py-0.5 border border-surface-variant/50 font-label-sm text-label-sm font-bold flex items-center gap-1 shadow-sm">
+<span>Ad</span>
+</div>
+<div class="relative h-48 w-full bg-surface-variant">
+<div class="w-full h-full bg-cover bg-center" data-alt="A highly appetizing top-down view of Indonesian Bakmi (noodles) with chicken, crisp vegetables, and dumplings, beautifully styled on a dark stone texture with warm ambient lighting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAXpPzor6gyjIGSgotErkUR6t5AyRb_b55_sxUOmae7NzsP88uMcEWDbUXjtuzEQjMyE2yiYC5nqCOGWmW5HbPGP8wNeuK3xqgXV4_oq5_JfEupPeO7A_4P9EZjhjy797TwOP-odlKdcMxmTgC_MkVb8bNCs3We-wqQY6cLAqK8q7vaRsvdogf8azrVu681q8cTy7RydLg5NPE7Wv9CC685iaVvojOWeGcUWhyMAuiUJApwX-IqNDhHVtn5A_uaFv3RocY0oypPyuij')"></div>
+<div class="absolute bottom-2 left-2 bg-primary/90 text-on-primary font-label-sm text-label-sm px-2 py-1 rounded-md backdrop-blur-sm shadow-sm">
+                            -25% maks. 32rb
+                        </div>
+</div>
+<div class="p-md">
+<div class="flex justify-between items-start mb-1">
+<h4 class="font-label-lg text-label-lg font-bold text-on-surface w-[80%] line-clamp-1">Mie Gacoan, Mangga Besar</h4>
+<div class="flex items-center gap-1 text-primary-container font-label-sm text-label-sm font-bold">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                4.8 <span class="text-on-surface-variant font-normal">(18rb+)</span>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-on-surface-variant font-body-md text-body-md text-sm mb-2">
+<span>20rb-30rb</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+<span>1.2 km</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+<span>25-35 min</span>
+</div>
+<div class="flex items-center text-error font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px] mr-1">schedule</span>
+                            Kelar jam 22:00
+                        </div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface rounded-2xl border border-surface-variant shadow-[0px_2px_8px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col relative group hover:shadow-md transition-shadow">
+<div class="relative h-48 w-full bg-surface-variant">
+<div class="w-full h-full bg-cover bg-center" data-alt="A macro shot of crispy golden fried chicken ayam geprek with vibrant red chili sambal smeared on top, resting on white rice, illuminated by bright directional light." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAPjth7W3IwkVO4DpxGQL9nBt3DN5Z3IbvVcJEq54rfIR1hKD-DXUS94iFiLm68Bti52fFDoMqPafigpbKoLjBsrUhD9jkxGI2OqD2MFBQeUGgeuadJqoKUqI68rtK4a-ztH2i3Mm1zZ5gDtpxJ_ddTAPXdkXNeUnwgdOd35oxEfSriD9M8_LI2sn927VPvtUEU4c7pHLp7UU1VZx9T4tE_C34Jg0goSsoQty7VOdcXnWYpP6bhu76iXu4JJAKMOF2ebPcvkhnBMw6C')"></div>
+<div class="absolute bottom-2 left-2 bg-primary/90 text-on-primary font-label-sm text-label-sm px-2 py-1 rounded-md backdrop-blur-sm shadow-sm">
+                            -20% maks. 20rb
+                        </div>
+</div>
+<div class="p-md">
+<div class="flex justify-between items-start mb-1">
+<h4 class="font-label-lg text-label-lg font-bold text-on-surface w-[80%] line-clamp-1">Ayam Geprek Gold Chick, Karang Anyar</h4>
+<div class="flex items-center gap-1 text-primary-container font-label-sm text-label-sm font-bold">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                4.9 <span class="text-on-surface-variant font-normal">(10rb+)</span>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-on-surface-variant font-body-md text-body-md text-sm mb-2">
+<span>15rb-25rb</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+<span>0.8 km</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+<span>15-25 min</span>
+</div>
+<div class="flex items-center text-error font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px] mr-1">schedule</span>
+                            Kelar jam 21:30
+                        </div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-surface border-t border-outline-variant dark:border-outline shadow-sm rounded-t-xl docked full-width">
+<!-- Active: Beranda -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary-fixed-dim text-on-primary-container dark:text-on-primary-fixed rounded-full px-4 py-1 Active: scale-90 duration-150 group" href="#">
+<span class="material-symbols-outlined font-headline-md" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-sm text-label-sm mt-1">Beranda</span>
+</a>
+<!-- Inactive: Riwayat -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-surface-container-high rounded-lg px-3 py-1 transition-colors" href="#">
+<span class="material-symbols-outlined font-headline-md">history</span>
+<span class="font-label-sm text-label-sm mt-1">Riwayat</span>
+</a>
+<!-- Inactive: Bisnis -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-surface-container-high rounded-lg px-3 py-1 transition-colors" href="#">
+<span class="material-symbols-outlined font-headline-md">business_center</span>
+<span class="font-label-sm text-label-sm mt-1">Bisnis</span>
+</a>
+<!-- Inactive: Profil -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-surface-container-high rounded-lg px-3 py-1 transition-colors" href="#">
+<span class="material-symbols-outlined font-headline-md">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profil</span>
+</a>
+</nav>
+</body></html>

@@ -562,12 +562,17 @@ func (s *orderServiceImpl) GetOrder(ctx context.Context, orderID string) (*domai
 
 	// Fetch Service Reports for Tambal Ban or Towing
 	if s.reportSvc != nil {
-		if order.Model == "tambal_ban" {
+		serviceCode := strings.ToLower(order.ServiceSubType)
+		if serviceCode == "" {
+			serviceCode = order.ServiceCode
+		}
+		switch {
+		case strings.HasPrefix(serviceCode, "tambal_ban"):
 			report, err := s.reportSvc.GetTambalBanReport(ctx, orderID)
 			if err == nil && report != nil {
 				order.TambalBanReport = report
 			}
-		} else if order.Model == "towing" {
+		case strings.HasPrefix(serviceCode, "towing"):
 			report, err := s.reportSvc.GetTowingReport(ctx, orderID)
 			if err == nil && report != nil {
 				order.TowingReport = report
@@ -616,6 +621,13 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 	err := s.orderRepo.UpdateStatus(ctx, orderID, status)
 	if err != nil {
 		return err
+	}
+
+	// FB-121: order selesai → leg aktif ikut final. Kalau tidak, leg status
+	// (`accepted`) tidak pernah settle → gate active_jobs dispatch menghitung
+	// courier masih punya pekerjaan → courier tak dapat offer baru.
+	if status == domain.StatusDelivered || status == domain.StatusCancelled {
+		_ = s.orderRepo.UpdateLegsStatus(ctx, orderID, status)
 	}
 
 	// Fetch order to get UserID for the event

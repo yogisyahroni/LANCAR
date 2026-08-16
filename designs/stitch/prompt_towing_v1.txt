@@ -1,0 +1,24 @@
+Halaman layanan Towing aplikasi TEMBUS, bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F5F7F6, font Inter. HANYA konten towing berdiri sendiri — TANPA grid layanan lain (tanpa tile Kirim Paket/Food/Tambal Ban, tanpa shortcut service lain).
+
+1. HEADER: kiri ikon pin ungu #93328E + teks kecil "Lokasi Anda" grey-12px + "Jl. Pintu Air 3 No.91 G" bold-16px #141414; kanan ikon notifikasi badge ungu + avatar glossy 3D 32px bulat.
+
+2. SEARCH BAR: pill 48px bg #FFFFFF border #E5E5E5, ikon kaca pembesar ungu, placeholder "Cari layanan towing..." grey-14px.
+
+3. HERO CARD: rounded-2xl gradient ungu #93328E ke #752671, foto glossy truk derek flatbed mengangkut mobil di jalan tol, badge putih translusen "Buka 24 jam" + badge kuning "Armada Siap", teks putih bold 22px "Derek Kendaraanmu Sekarang" + sub putih 13px "Armada datang ±20-40 menit • Towing motor & mobil", tombol putih rounded-full px-6 py-3 teks ungu bold "Panggil Sekarang" + ikon telepon.
+
+4. HOW IT WORKS: judul bold 18px "Cara kerja" + 3 langkah sejajar: (1) ikon glossy 3D roda + label "Pilih kendaraan" teks 12px #333, (2) ikon glossy 3D truk derek + "Armada datang", (3) ikon glossy 3D peta + "Diantar ke tujuan"; tiap langkah teks sub grey 10px "±1 menit" / "±20-40 menit" / "Sampai tujuan".
+
+5. "Jenis Layanan": 5 kartu layanan list rounded-xl white shadow-sm, tiap kartu: ikon glossy 3D kecil kiri, nama bold 15px + sub grey 12px, kanan harga ungu bold + ETA 11px + badge diskon + tombol "Pilih" outline ungu rounded-full px-4:
+   a. Towing Motor — ikon motor — "Mulai 35rb" — "±20 menit"
+   b. Towing Mobil — ikon mobil — "Mulai 75rb" — "±30 menit"
+   c. Derek Flatbed — ikon truk — "Mulai 150rb" — "±40 menit" badge "Populer"
+   d. Jump Start Aki — ikon aki — "Mulai 40rb" — "±15 menit"
+   e. Kunci Tertinggal — ikon kunci — "Mulai 50rb" — "±20 menit"
+
+6. ESTIMASI HARGA: kartu ungu muda bg #F3E8F5 rounded-xl: "Mulai Rp8.000/km" bold ungu 18px + sub "Gratis 3km pertama • Tarif flat untuk jarak <10km" + ikon info.
+
+7. "Armada Terdekat": 2 kartu driver: avatar glossy 3D 48px + nama bold 14px + star kuning 4.9 (300+ order) + kanan "1.5 km" grey "±30 menit" + tombol "Panggil" filled ungu rounded-full; badge kecil "Top Rated".
+   a. Fernando Wijaya — truk flatbed — 4.9 (300+)
+   b. Rudi Hartono — towing mobil — 4.8 (180+)
+
+8. BOTTOM NAV 4 item: Beranda active ungu #93328E, Riwayat, Bisnis, Profil; ikon glossy 3D teks 10px.

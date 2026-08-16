@@ -1,0 +1,19 @@
+Halaman Status Pesanan Food — Disiapkan (Preparing) aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter. Warna brand food oranye-merah #EE2737.
+
+1. TOP BAR: back arrow + judul "Detail Pesanan" bold + ikon chat.
+
+2. STATUS CARD ORANYE-MERAH: label "Status Saat Ini" + bold besar "Disiapkan" + sub "Restoran sedang memasak pesananmu • Kurir akan menuju restoran saat makanan siap".
+
+3. MERCHANT INFO: ikon restoran + "Soto Ayam Siti" + alamat + jam buka.
+
+4. RINCIAN ITEM + TOTAL: "2x Soto Ayam Lamongan Rp50.000", "1x Nasi Goreng Spesial Rp30.000" → Total Rp95.000 (dibayar sebelum antar).
+
+5. RUTE CARD: Penjemputan (Soto Ayam Siti) → Tujuan (Jl. Melati No. 12).
+
+6. TIMELINE HORIZONTAL 4 STEP (progress aktif langkah 2 "Disiapkan"):
+   1 ✓ Pesanan Dibuat
+   2 ● Disiapkan (aktif oranye)
+   3 ○ Mencari Kurir
+   4 ○ Sedang Diantar
+
+7. TOMBOL: "Lacak Pesanan" oranye + "Batalkan Pesanan" outline merah + info "Pembatalan gratis jika kurir belum ditugaskan".

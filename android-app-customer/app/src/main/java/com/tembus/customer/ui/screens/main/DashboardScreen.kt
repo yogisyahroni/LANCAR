@@ -32,6 +32,11 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Navigation
@@ -184,39 +189,41 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 30.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                item {
-                    HomeTopBar(
-                        customerName = customerName.orEmpty().ifBlank { "Pelanggan" },
-                        notificationUnreadCount = notificationUnreadCount,
-                        onNotificationsClick = onNotificationsClick
-                    )
-                }
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Background hijau ala Gojek di bagian atas
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .background(LcGreen)
+                )
+                
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 30.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    item {
+                        GojekTopBar(
+                            customerName = customerName.orEmpty().ifBlank { "Pelanggan" },
+                            notificationUnreadCount = notificationUnreadCount,
+                            onNotificationsClick = onNotificationsClick,
+                            onProfileClick = onProfileClick
+                        )
+                    }
 
-                // Featured TEMBUS services — main entry points
-                item {
-                    FeaturedServices(
-                        onPickupClick = { onBookingClick("pickup") },
-                        onDropoffClick = { onBookingClick("dropoff") }
-                    )
-                }
+                    item {
+                        WalletCard()
+                    }
 
-                // Service grid (2 columns): active + coming soon
-                item {
-                    ServiceGrid(
-                        incomingCount = incomingPackages.size,
-                        hasUnreadMessages = hasUnreadMessages,
-                        onPickupClick = { onBookingClick("pickup") },
-                        onDropoffClick = { onBookingClick("dropoff") },
-                        onFoodClick = onFoodClick,
-                        onIncomingClick = onIncomingClick,
-                        onHistoryClick = onHistoryClick
-                    )
-                }
+                    item {
+                        GojekServiceGrid(
+                            onPickupClick = { onBookingClick("pickup") }, // Gabung ambil/kirim
+                            onFoodClick = onFoodClick,
+                            onTambalBanClick = { onBookingClick("tambal_ban") },
+                            onTowingClick = { onBookingClick("towing") }
+                        )
+                    }
 
                 // A4: global banner (pengumuman in-app platform-wide dari super_admin).
                 if (banners.isNotEmpty()) {
@@ -268,6 +275,7 @@ fun DashboardScreen(
                     }
                 }
             }
+            }
         }
     }
 }
@@ -302,315 +310,169 @@ private fun TembusBrandMark(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun HomeTopBar(
+private fun GojekTopBar(
     customerName: String,
     notificationUnreadCount: Int,
-    onNotificationsClick: () -> Unit
+    onNotificationsClick: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                "TEMBUS",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = (-0.5).sp,
-                color = LcGreen
-            )
-            Text(
-                "Halo, $customerName",
-                fontSize = 13.sp,
-                color = Muted
-            )
+        Surface(
+            modifier = Modifier.weight(1f).height(42.dp),
+            shape = RoundedCornerShape(21.dp),
+            color = Color.White
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                Icon(Icons.Default.Search, contentDescription = "Search", tint = Muted, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Cari layanan, makanan...", color = Muted, fontSize = 14.sp)
+            }
         }
+        Spacer(Modifier.width(12.dp))
         Box(contentAlignment = Alignment.TopEnd) {
             IconButton(
                 onClick = onNotificationsClick,
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(LcGreen.copy(alpha = 0.1f))
+                modifier = Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f))
             ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = "Notifikasi", tint = LcGreen)
+                Icon(Icons.Default.NotificationsActive, contentDescription = "Notifikasi", tint = Color.White)
             }
             if (notificationUnreadCount > 0) {
                 Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(Accent),
+                    modifier = Modifier.size(18.dp).clip(CircleShape).background(Accent),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        notificationUnreadCount.coerceAtMost(99).toString(),
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                    Text(notificationUnreadCount.coerceAtMost(99).toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun FeaturedServices(
-    onPickupClick: () -> Unit,
-    onDropoffClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-    ) {
-        Column(Modifier.padding(20.dp)) {
-            Text(
-                "Kirim Paket TEMBUS",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = (-0.5).sp
-            )
-            Text(
-                "Ambil di tempatmu, sampai ke tujuan dengan aman.",
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 13.sp,
-                lineHeight = 18.sp
-            )
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FeaturedButton(
-                    label = "Ambil Paket",
-                    icon = Icons.Default.LocalShipping,
-                    onClick = onPickupClick,
-                    modifier = Modifier.weight(1f)
-                )
-                FeaturedButton(
-                    label = "Kirim Paket",
-                    icon = Icons.Default.Navigation,
-                    onClick = onDropoffClick,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+        Spacer(Modifier.width(8.dp))
+        IconButton(
+            onClick = onProfileClick,
+            modifier = Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f))
+        ) {
+            Icon(Icons.Default.Person, contentDescription = "Profil", tint = Color.White)
         }
     }
 }
 
 @Composable
-private fun FeaturedButton(
-    label: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onClick() },
-        color = Color.White
+private fun WalletCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
-            modifier = Modifier.padding(vertical = 14.dp, horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = LcGreen, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(label, color = LcGreen, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+            Box(
+                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(SoftBlue),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LcGreen)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Rp50.000", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Ink)
+                Text("183 coins", color = Muted, fontSize = 12.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                WalletAction(Icons.Default.ArrowUpward, "Bayar")
+                WalletAction(Icons.Default.Add, "Top Up")
+                WalletAction(Icons.Default.MoreHoriz, "Lainnya")
+            }
         }
     }
 }
 
 @Composable
-private fun ServiceGrid(
-    incomingCount: Int,
-    hasUnreadMessages: Boolean,
+private fun WalletAction(icon: ImageVector, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(LcGreen),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Ink)
+    }
+}
+
+@Composable
+private fun GojekServiceGrid(
     onPickupClick: () -> Unit,
-    onDropoffClick: () -> Unit,
     onFoodClick: () -> Unit,
-    onIncomingClick: () -> Unit,
-    onHistoryClick: () -> Unit
+    onTambalBanClick: () -> Unit,
+    onTowingClick: () -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
     ) {
-        Text(
-            "Layanan",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = (-0.5).sp,
-            color = Ink
-        )
-        Spacer(Modifier.height(14.dp))
-        // Row 1: Ambil Paket | Kirim Paket
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ServiceTile(
-                label = "Ambil Paket",
-                icon = Icons.Default.LocalShipping,
-                color = SoftGreen,
-                onClick = onPickupClick,
-                modifier = Modifier.weight(1f)
-            )
-            ServiceTile(
-                label = "Kirim Paket",
-                icon = Icons.Default.Navigation,
-                color = SoftBlue,
-                onClick = onDropoffClick,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        // Row 2: Makanan | Paket Masuk
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ServiceTile(
-                label = "Makanan",
-                icon = Icons.Default.Restaurant,
-                color = SoftOrange,
-                onClick = onFoodClick,
-                modifier = Modifier.weight(1f)
-            )
-            ServiceTile(
-                label = "Paket Masuk",
-                icon = Icons.Default.History,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                badge = if (incomingCount > 0) incomingCount.toString() else null,
-                onClick = onIncomingClick,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        // Row 3: Riwayat | Tambal Ban (Segera Hadir)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ServiceTile(
-                label = "Riwayat",
-                icon = Icons.Default.History,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                onClick = onHistoryClick,
-                modifier = Modifier.weight(1f)
-            )
-            ServiceTile(
-                label = "Tambal Ban",
-                icon = Icons.Default.Build,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                comingSoon = true,
-                onClick = {},
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        // Row 4: Towing (Segera Hadir) | placeholder
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ServiceTile(
-                label = "Towing",
-                icon = Icons.Default.DirectionsCar,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                comingSoon = true,
-                onClick = {},
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(Modifier.weight(1f))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            GojekServiceTile("Kirim Paket", Icons.Default.LocalShipping, Color(0xFF00AA5B), Color.White, onPickupClick, modifier = Modifier.weight(1f))
+            GojekServiceTile("Food", Icons.Default.Restaurant, Color(0xFFEE2737), Color.White, onFoodClick, modifier = Modifier.weight(1f))
+            GojekServiceTile("Tambal Ban", Icons.Default.Build, Color(0xFF00AED6), Color.White, onTambalBanClick, modifier = Modifier.weight(1f))
+            GojekServiceTile("Towing", Icons.Default.DirectionsCar, Color(0xFF93328E), Color.White, onTowingClick, modifier = Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun ServiceTile(
+private fun GojekServiceTile(
     label: String,
     icon: ImageVector,
-    color: Color,
+    bgColor: Color,
+    iconColor: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
     badge: String? = null,
-    comingSoon: Boolean = false
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier
-            .height(104.dp)
-            .then(if (!comingSoon) Modifier.clickable { onClick() } else Modifier),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (comingSoon) MaterialTheme.colorScheme.surface else color
-        ),
-        border = if (comingSoon) BorderStroke(1.dp, SurfaceLine) else null,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    Column(
+        modifier = modifier.clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(Modifier.fillMaxSize()) {
-            Column(
+        Box {
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.Center
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(bgColor),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(13.dp))
-                        .background(
-                            if (comingSoon) MaterialTheme.colorScheme.surfaceVariant
-                            else Color.White.copy(alpha = 0.75f)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = null,
-                        tint = if (comingSoon) Muted else LcGreen,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    label,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (comingSoon) Muted else Ink,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Icon(icon, contentDescription = label, tint = iconColor, modifier = Modifier.size(28.dp))
             }
             if (badge != null) {
                 Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(10.dp)
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(Accent),
+                    modifier = Modifier.align(Alignment.TopEnd).size(22.dp).clip(CircleShape).background(Color(0xFFEE2737)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(badge, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 }
             }
-            if (comingSoon) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(10.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(PrimaryLight)
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        "Segera Hadir",
-                        color = LcGreenDark,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
         }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF1C2126),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

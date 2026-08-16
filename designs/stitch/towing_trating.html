@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TEMBUS - Beri Nilai Armada</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#00aa5b",
+                        "primary": "#006d38",
+                        "on-tertiary-fixed": "#001f28",
+                        "surface-variant": "#e5e2e1",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e5e2e1",
+                        "surface-dim": "#dcd9d9",
+                        "primary-fixed-dim": "#57df89",
+                        "secondary-container": "#e41e31",
+                        "primary-fixed": "#76fca3",
+                        "on-primary-fixed-variant": "#005229",
+                        "surface-container-low": "#f6f3f2",
+                        "on-secondary-fixed": "#410005",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "tertiary": "#006780",
+                        "outline": "#6d7b6e",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-container": "#003518",
+                        "surface-bright": "#fcf9f8",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-container": "#00313f",
+                        "on-surface-variant": "#3d4a3f",
+                        "background": "#F5F7F6",
+                        "surface": "#ffffff",
+                        "tertiary-container": "#00a1c6",
+                        "on-background": "#1c1b1b",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "secondary": "#bb0020",
+                        "on-error": "#ffffff",
+                        "on-secondary-container": "#fffbff",
+                        "tertiary-fixed": "#b8eaff",
+                        "inverse-surface": "#313030",
+                        "on-surface": "#1c1b1b",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-variant": "#bccabc",
+                        "surface-container-high": "#ebe7e7",
+                        "inverse-primary": "#57df89",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "on-secondary-fixed-variant": "#930017",
+                        "surface-tint": "#006d38",
+                        "surface-container": "#f0edec",
+                        "secondary-fixed": "#ffdad7",
+                        "on-primary-fixed": "#00210d",
+                        "error": "#ba1a1a",
+                        "tembus-purple": "#93328E"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "gutter-mobile": "12px",
+                        "unit": "8px",
+                        "xs": "4px",
+                        "xl": "32px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background min-h-screen flex items-end md:items-center justify-center font-sans antialiased text-on-background">
+<!-- Modal Container simulating mobile bottom sheet -->
+<main class="w-full max-w-[390px] bg-surface rounded-t-[24px] md:rounded-[24px] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:shadow-2xl overflow-hidden flex flex-col relative h-[844px] md:h-auto md:max-h-[85vh]">
+<!-- Bottom Sheet Handle (Mobile only indicator) -->
+<div class="w-full flex justify-center pt-3 pb-1 md:hidden">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full"></div>
+</div>
+<!-- Header -->
+<header class="px-margin-mobile py-md flex items-center justify-center relative">
+<h1 class="text-[18px] font-bold text-on-surface">Beri Nilai Armada</h1>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto px-margin-mobile pb-[100px]">
+<!-- Success Section -->
+<section class="flex flex-col items-center mt-xl mb-xl">
+<div class="w-20 h-20 mb-md">
+<img alt="Green Glossy Check Icon" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLt4bzjoq57XNAv2C6QaUn91lp7bprxNLsbgCl1QWyGeuSerH9efgf-VylWE6Fc8rKh8wlNJ5z6-PmDTzEqTpqRy0_lBFib4jjv94KjCTw5C2Wq16npHkBMjk-K236seRT3QD_m8jj6TVPcn8zRhjXMdoy6SWjoTawcmm432ig4ZmhqcQY_w_X2xguUIPtKGF2SmvlWxXVIcCKBMlp4DgLK7yIjqMCrwtBlKnQQV-j9IlBXfuqFwF0BPMFMy"/>
+</div>
+<h2 class="text-[18px] font-bold text-on-surface mb-xs">Selesai! Terima kasih</h2>
+<p class="text-[13px] text-on-surface-variant">Bantu kami menjaga kualitas armada</p>
+</section>
+<!-- Driver Profile Card -->
+<section class="bg-surface border border-surface-variant rounded-xl p-md flex items-center gap-md mb-xl shadow-sm">
+<div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 bg-surface-container-low">
+<img alt="Fernando Wijaya 3D Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AP1WRLvwXM7TXjxEit1y0Vzb-KfLLLwYz_oRzi35gEdR2jJx3bdWPpfSvuLkA3JOEfebXz0qlx75m7wnFeT5OlQn_IwuPVvGa0BDyRQTa33jC60rQE3UITgmcY6GmGetzN7mz0wFXdWD0pX1_884xYkK2iqnwTG13CujbFErbnCf-5F-1ZirrR4QKgoSQbo3Z8V8KIU5LUOCv3x4WBa2KVJM-Mqn5Bu8sPWchV0Q42muR74WMp3e1yENssIIFpk"/>
+</div>
+<div class="flex-1">
+<h3 class="font-bold text-[16px] text-on-surface mb-xs">Fernando Wijaya</h3>
+<p class="text-[13px] text-on-surface-variant mb-sm">Derek Flatbed 2.5 ton</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-primary-container text-on-primary-container">
+                        Selesai
+                    </span>
+</div>
+</section>
+<!-- Rating Section -->
+<section class="flex flex-col items-center mb-xl">
+<div class="flex gap-2 mb-md justify-center w-full">
+<!-- 5 Stars -->
+<img alt="Star 1" class="w-10 h-10 object-contain cursor-pointer transition-transform hover:scale-110" src="https://lh3.googleusercontent.com/aida/AP1WRLubBeNtgflx2nVIJBuCg2Ciq53LipoowpkHCoh7r_OJ05KdNS7R7hcBa_1b5WAGncYYt2l903L_A9R3E_xCdmJXnF0JwGqW0O-WDfWf6tu6sPwNLvVnFBOdkvNw42rsfgRt_piIQOE8TndwOEug_qYJxWu1_d9JnqB8vT6XXc64uJNB8i7U5P59poWvv9Gs4KS2cXvGO90SWiCTOJ1Hh5QJmAp1kQ-_fyI-EGppIfOUOCnVUrg5QvdpgGij"/>
+<img alt="Star 2" class="w-10 h-10 object-contain cursor-pointer transition-transform hover:scale-110" src="https://lh3.googleusercontent.com/aida/AP1WRLubBeNtgflx2nVIJBuCg2Ciq53LipoowpkHCoh7r_OJ05KdNS7R7hcBa_1b5WAGncYYt2l903L_A9R3E_xCdmJXnF0JwGqW0O-WDfWf6tu6sPwNLvVnFBOdkvNw42rsfgRt_piIQOE8TndwOEug_qYJxWu1_d9JnqB8vT6XXc64uJNB8i7U5P59poWvv9Gs4KS2cXvGO90SWiCTOJ1Hh5QJmAp1kQ-_fyI-EGppIfOUOCnVUrg5QvdpgGij"/>
+<img alt="Star 3" class="w-10 h-10 object-contain cursor-pointer transition-transform hover:scale-110" src="https://lh3.googleusercontent.com/aida/AP1WRLubBeNtgflx2nVIJBuCg2Ciq53LipoowpkHCoh7r_OJ05KdNS7R7hcBa_1b5WAGncYYt2l903L_A9R3E_xCdmJXnF0JwGqW0O-WDfWf6tu6sPwNLvVnFBOdkvNw42rsfgRt_piIQOE8TndwOEug_qYJxWu1_d9JnqB8vT6XXc64uJNB8i7U5P59poWvv9Gs4KS2cXvGO90SWiCTOJ1Hh5QJmAp1kQ-_fyI-EGppIfOUOCnVUrg5QvdpgGij"/>
+<img alt="Star 4" class="w-10 h-10 object-contain cursor-pointer transition-transform hover:scale-110" src="https://lh3.googleusercontent.com/aida/AP1WRLubBeNtgflx2nVIJBuCg2Ciq53LipoowpkHCoh7r_OJ05KdNS7R7hcBa_1b5WAGncYYt2l903L_A9R3E_xCdmJXnF0JwGqW0O-WDfWf6tu6sPwNLvVnFBOdkvNw42rsfgRt_piIQOE8TndwOEug_qYJxWu1_d9JnqB8vT6XXc64uJNB8i7U5P59poWvv9Gs4KS2cXvGO90SWiCTOJ1Hh5QJmAp1kQ-_fyI-EGppIfOUOCnVUrg5QvdpgGij"/>
+<img alt="Star 5" class="w-10 h-10 object-contain cursor-pointer transition-transform hover:scale-110" src="https://lh3.googleusercontent.com/aida/AP1WRLubBeNtgflx2nVIJBuCg2Ciq53LipoowpkHCoh7r_OJ05KdNS7R7hcBa_1b5WAGncYYt2l903L_A9R3E_xCdmJXnF0JwGqW0O-WDfWf6tu6sPwNLvVnFBOdkvNw42rsfgRt_piIQOE8TndwOEug_qYJxWu1_d9JnqB8vT6XXc64uJNB8i7U5P59poWvv9Gs4KS2cXvGO90SWiCTOJ1Hh5QJmAp1kQ-_fyI-EGppIfOUOCnVUrg5QvdpgGij"/>
+</div>
+<span class="text-[14px] font-bold text-tembus-purple">Sangat memuaskan</span>
+</section>
+<!-- Feedback Chips -->
+<section class="mb-xl">
+<div class="flex flex-wrap gap-sm justify-center">
+<button class="px-4 py-2 rounded-full border border-outline-variant text-[13px] text-on-surface-variant font-medium bg-surface hover:bg-surface-container-low transition-colors">Tepat waktu</button>
+<button class="px-4 py-2 rounded-full border border-outline-variant text-[13px] text-on-surface-variant font-medium bg-surface hover:bg-surface-container-low transition-colors">Ramah</button>
+<button class="px-4 py-2 rounded-full border border-tembus-purple bg-tembus-purple/10 text-tembus-purple font-semibold transition-colors">Alat lengkap</button>
+<button class="px-4 py-2 rounded-full border border-outline-variant text-[13px] text-on-surface-variant font-medium bg-surface hover:bg-surface-container-low transition-colors">Harga sesuai</button>
+<button class="px-4 py-2 rounded-full border border-outline-variant text-[13px] text-on-surface-variant font-medium bg-surface hover:bg-surface-container-low transition-colors">Patuh protokol</button>
+</div>
+</section>
+<!-- Comment Input -->
+<section class="mb-xl">
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-[14px] text-on-surface placeholder:text-on-surface-variant focus:ring-2 focus:ring-tembus-purple focus:border-tembus-purple resize-none" placeholder="Tambahkan komentar (opsional)" rows="3"></textarea>
+</section>
+</div>
+<!-- Fixed Bottom Actions -->
+<div class="absolute bottom-0 left-0 w-full p-margin-mobile bg-surface/90 backdrop-blur-md border-t border-surface-variant flex flex-col gap-sm">
+<button class="w-full h-12 rounded-full bg-tembus-purple text-white font-semibold text-[16px] flex items-center justify-center gap-2 shadow-md hover:bg-tembus-purple/90 transition-colors">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">send</span>
+                Kirim Nilai
+            </button>
+<button class="w-full h-12 rounded-full bg-transparent text-on-surface-variant font-medium text-[14px] hover:bg-surface-container-low transition-colors">
+                Nanti Saja
+            </button>
+</div>
+</main>
+</body></html>

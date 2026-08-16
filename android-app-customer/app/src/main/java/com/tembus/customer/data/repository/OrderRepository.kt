@@ -537,6 +537,49 @@ class OrderRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    // ============================================================
+    // TAMBAL BAN — Home + Detail Teknisi + Search (design Stitch UI/UX)
+    // ============================================================
+
+    suspend fun getTambalBanHome(lat: Double, lng: Double): Result<TambalBanHomeResponse> {
+        return try {
+            val response = apiService.getTambalBanHome(lat, lng)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Gagal memuat halaman tambal ban"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getCourierDetail(courierId: String, serviceSubType: String): Result<CourierDetail> {
+        return try {
+            val response = apiService.getCourierDetail(courierId, serviceSubType)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Gagal memuat detail petugas"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun searchTambalBanCouriers(query: String, lat: Double, lng: Double, serviceSubType: String): Result<NearbyCouriersResponse> {
+        return try {
+            val response = apiService.searchTambalBanCouriers(lat, lng, query, serviceSubType)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Gagal mencari petugas"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
     
     // ============================================================
     // TAMBAL BAN & TOWING — Service Reports

@@ -1,0 +1,12 @@
+Design a FOOD DELIVERY home page for the TEMBUS super-app (Indonesian delivery startup, brand green #00aa5b, like Gojek/GoFood & GrabFood). Mobile vertical 780px wide. Full Indonesian language. Keep it premium with subtle 3D/glossy icon assets.
+
+Layout top to bottom:
+1. Top bar: location pin icon + address "Jl. Pintu Air 3 No.91 G" (small) on left, notification bell + circular profile avatar on right. White/light green background.
+2. Search bar (rounded, light gray bg, search icon + placeholder "Lagi mau mamam apa?") — the signature food-app search.
+3. Promo banner carousel (one 16:9 banner visible, rounded-2xl, vibrant orange gradient #EE2737 background with food photography like fried chicken/burger, big white text "Diskon makanan 50%", subtitle "maks. 15rb • Min. pembelian 20rb", small tag "Persediaan terbatas" in a chip, dots indicator at bottom). Industry-standard like GoFood/GrabFood coupons.
+4. Section "Resto dengan rating jempolan" (title + subtitle "Rasa-rasa yang dicap enak sama warga.").
+5. Horizontal food category chips row: "Dibawah 5rb", "Menu 30rb", "Bakmie", "Ayam", "Nasi", "Mie" (pill-shaped, first one filled green).
+6. Merchant cards list (2 cards): each = circular food image 72px, name bold + location, rating badge (star icon + "4.8 (18rb+)"), price range "20rb-30rb", distance • ETA "1.2 km • 25-35 min", discount chip green "-25% maks. 32rb", small tag "Ad" top-right, "Kelar jam 22:00" timestamp. Use Indonesian merchant names: "Mie Gacoan, Mangga Besar" and "Ayam Geprek Gold Chick, Karang Anyar".
+7. Bottom navigation bar: Beranda / Riwayat / Bisnis / Profil, active Beranda green pill.
+
+Colors: brand green #00aa5b accent, text dark #1a1a1a, background #f5f7f6. Rounded-2xl cards, soft shadows.

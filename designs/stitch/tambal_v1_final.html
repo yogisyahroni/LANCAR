@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+
+<html class="light" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tambal Ban Online - Beranda</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "surface-dim": "#dcd9d9",
+                        "on-surface-variant": "#3d4a3f",
+                        "primary": "#006d38",
+                        "on-tertiary-fixed": "#001f28",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-variant": "#e5e2e1",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#00210d",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "tertiary-container": "#00a1c6",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "on-secondary-fixed-variant": "#930017",
+                        "surface-container-low": "#f6f3f2",
+                        "primary-fixed-dim": "#57df89",
+                        "tertiary": "#006780",
+                        "primary-container": "#00aa5b",
+                        "surface-container-high": "#ebe7e7",
+                        "primary-fixed": "#76fca3",
+                        "secondary-container": "#e41e31",
+                        "background": "#fcf9f8",
+                        "on-error-container": "#93000a",
+                        "surface-container": "#f0edec",
+                        "on-secondary-container": "#fffbff",
+                        "on-tertiary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "on-surface": "#1c1b1b",
+                        "inverse-primary": "#57df89",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-secondary-fixed": "#410005",
+                        "secondary": "#bb0020",
+                        "surface": "#fcf9f8",
+                        "surface-bright": "#fcf9f8",
+                        "secondary-fixed": "#ffdad7",
+                        "outline": "#6d7b6e",
+                        "on-tertiary-container": "#00313f",
+                        "on-background": "#1c1b1b",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#005229",
+                        "tertiary-fixed": "#b8eaff",
+                        "outline-variant": "#bccabc",
+                        "surface-tint": "#006d38",
+                        "surface-container-highest": "#e5e2e1",
+                        "inverse-surface": "#313030",
+                        "on-primary-container": "#003518",
+                        "on-primary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "cyan-brand": "#00AED6",
+                        "cyan-brand-dark": "#008EB0"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "8px",
+                        "sm": "8px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "gutter-mobile": "12px",
+                        "xl": "32px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Hide scrollbar for horizontal scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#F5F7F6] font-body-md text-on-surface pb-[80px] min-h-screen relative w-full max-w-[390px] mx-auto overflow-x-hidden shadow-lg border border-surface-variant">
+<!-- Header -->
+<header class="flex justify-between items-center px-margin-mobile pt-lg pb-sm w-full bg-[#F5F7F6] z-40 sticky top-0">
+<div class="flex items-center gap-2">
+<div class="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-brand/10 text-cyan-brand">
+<span class="material-symbols-outlined" data-weight="fill" style="font-size: 20px;">location_on</span>
+</div>
+<div>
+<p class="text-[12px] text-on-surface-variant font-medium">Lokasi Anda</p>
+<p class="text-[16px] text-[#141414] font-bold truncate max-w-[200px]">Jl. Pintu Air 3 No.91 G</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant" style="font-size: 16px;">expand_more</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="relative">
+<span class="material-symbols-outlined text-on-surface-variant" style="font-size: 24px;">notifications</span>
+<span class="absolute top-0 right-0 w-2.5 h-2.5 bg-cyan-brand rounded-full border border-white"></span>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high border-2 border-white shadow-sm overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A 3D glossy style illustration of an Indonesian young man smiling, wearing a simple t-shirt. The avatar has smooth, plastic-like features, bright lighting, high contrast, clean white background, digital art style, vibrant and friendly expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwTxrroQ2iwKFYQfoA9cghiT6ErMBmkFc3V-80eILmg6Gi3rTGScEL_O_CFpFnO1sdOlb2SwPAsAJKH2yWsXugTziS7f8_Dya12ltqy3dUXRF6CbpE_YXlWOmdCBIP-QNcCiwbfbYt4eGprIlzCfdZOOgWVgt5R5eaVMBYKMlC-Q_Lmz82uVmx_TM8Jfi-3ghIMN8Zq1ZBO61ffmYnsgS6t0-baoPtvTyf4rnu32TgCjgAPtpVLLWl5xLCgKMAXY91LhV1IWSSaanp"/>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex flex-col gap-lg px-margin-mobile mt-sm">
+<!-- Search Bar -->
+<div class="w-full h-[48px] bg-white rounded-full border border-[#E5E5E5] flex items-center px-4 shadow-sm">
+<span class="material-symbols-outlined text-cyan-brand mr-2" style="font-size: 20px;">search</span>
+<input class="w-full h-full bg-transparent border-none outline-none focus:ring-0 text-[14px] text-on-surface placeholder:text-on-surface-variant/60 font-medium" placeholder="Cari layanan tambal ban..." type="text"/>
+</div>
+<!-- Hero Card -->
+<div class="w-full rounded-2xl bg-gradient-to-br from-cyan-brand to-cyan-brand-dark p-lg relative overflow-hidden shadow-md">
+<!-- Background Elements -->
+<div class="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
+<div class="absolute right-0 bottom-0 w-1/2 h-full opacity-40">
+<img alt="Mechanic Background" class="w-full h-full object-cover object-left" data-alt="A dynamic, high-quality photograph of a mechanic's hands expertly repairing a motorcycle tire using professional tools. The scene is brightly lit with a cinematic depth of field, focused tightly on the tire and tools, emphasizing precision, speed, and dependability. The background is a slightly blurred out-of-focus street scene." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5xrYfUd0-M4Nir-kNs71URInBb1kHSaVyiGvOfxMi5NMx-7ayEXYXIxl9rkCjtvV5BsqoZWyUhxzRM6cw-VOSwP-tq4vh793vL91Ohx3HsKHH-m3pZN83b5nufDd17N3U3rH16RR_zOt6HXlQN_J9MjXUHBR1S8K8a0Ippbhf0MabQEekrjqPWEzNFxJ1nIfyfsxtv0bgKPEHA5zt0MeHysEjS-sQ7Cg9bRv6C0clZbqYCMloBzkfoa3J12qvRyxi2wk4jY89pskm"/>
+</div>
+<div class="absolute inset-0 bg-gradient-to-r from-cyan-brand-dark/90 via-cyan-brand-dark/70 to-transparent"></div>
+<!-- Content -->
+<div class="relative z-10 flex flex-col gap-md">
+<div class="flex items-center gap-2">
+<span class="bg-white/20 text-white text-[11px] font-semibold px-2 py-1 rounded border border-white/30 backdrop-blur-sm">Buka 24 jam</span>
+<span class="bg-[#FFC107] text-[#5C4600] text-[11px] font-bold px-2 py-1 rounded">Teknisi Siap</span>
+</div>
+<div>
+<h2 class="text-[22px] font-bold text-white leading-tight mb-1">Tambal Ban di Lokasimu</h2>
+<p class="text-[13px] text-white/90">Teknisi datang ke lokasi • 15-30 menit sampai</p>
+</div>
+<button class="bg-white text-cyan-brand font-bold text-[14px] rounded-full py-2.5 px-4 w-max flex items-center gap-2 shadow-sm hover:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-weight="fill" style="font-size: 18px;">call</span>
+                    Panggil Sekarang
+                </button>
+</div>
+</div>
+<!-- How It Works -->
+<div class="w-full flex flex-col gap-sm">
+<h3 class="text-[18px] font-bold text-on-surface">Cara kerja</h3>
+<div class="flex items-start justify-between mt-xs px-2 relative">
+<!-- Connecting Line -->
+<div class="absolute top-[20px] left-[15%] right-[15%] h-[2px] bg-surface-variant -z-10"></div>
+<!-- Step 1 -->
+<div class="flex flex-col items-center gap-1 w-1/3 z-10">
+<div class="w-[40px] h-[40px] bg-white rounded-full flex items-center justify-center shadow-sm border border-surface-variant">
+<img alt="Wheel Icon" class="w-6 h-6 object-contain" data-alt="A small, isolated 3D rendering of an automobile wheel/tire. The wheel is highly detailed, glossy, with realistic rubber textures and a shiny metallic rim. Lighting is bright studio setup, soft shadows, clean white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVjZBFYSf-o3UEDIqWb-0WbYrtO9J_b4qPot_Z3fItLbGeCpTz9wxNzhR6ciEqhSzmuAqAbAav_DvBQ4v22LlFSLWOywsZ8QtVstzC1aTQHWisalFJH4eQfazACHwhEcXLHSNmfV0xcfc-ZQPoh6NgkUL7fcRJIk1Tt1wR3W5Hg2nqmQZXZcZ4vXHp1FJ031NiaPsng8PlX5GamVOXTAI8aSHlhPDSx-UjvGmKAkySowmR9DYvF6JBk0vh-gtpHD2nxvU-LUu4VSM6"/>
+</div>
+<p class="text-[12px] font-semibold text-[#333333] text-center leading-tight mt-1">Pilih layanan</p>
+<p class="text-[10px] text-on-surface-variant text-center">±1 menit</p>
+</div>
+<!-- Step 2 -->
+<div class="flex flex-col items-center gap-1 w-1/3 z-10">
+<div class="w-[40px] h-[40px] bg-white rounded-full flex items-center justify-center shadow-sm border border-surface-variant">
+<img alt="Motorcycle Icon" class="w-6 h-6 object-contain" data-alt="A small, isolated 3D rendering of a generic scooter or motorcycle. Glossy finish, bright cyan accents, cute and friendly proportions. High-end rendering, studio lighting, clean white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtAjNlB-2YNjpvHjdwgaCILgpjQtI6hM2ZPUAsChQkJjif51IHaHWlqym_-a_SqRiXb3bcoqosolM8GSuUKLgyXb1-qgUAGxCfcLiWXsYH4I7CdRsQDIMkLYjrOqs0rg4dCDzItF7ob-ICZDj0n_z5XAfvCY5N3r2jvOSbdkG5Cgs9g9dwYTtePZzLKkoHZ0Nw8QBSvYCNO7ar1hKIqnK9xsneeCjTLzgXRK6-638grJOhlysWnke7pSq91TqQxWwxAoEKaovyKxJU"/>
+</div>
+<p class="text-[12px] font-semibold text-[#333333] text-center leading-tight mt-1">Teknisi datang</p>
+<p class="text-[10px] text-on-surface-variant text-center">±30 menit</p>
+</div>
+<!-- Step 3 -->
+<div class="flex flex-col items-center gap-1 w-1/3 z-10">
+<div class="w-[40px] h-[40px] bg-white rounded-full flex items-center justify-center shadow-sm border border-surface-variant">
+<img alt="Wallet Icon" class="w-6 h-6 object-contain" data-alt="A small, isolated 3D rendering of a brown leather wallet with some green bills popping out. Glossy, tactile texture, soft lighting, clean white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVPKnNgne_XavhxxUr3v4nCBCfSQ_kXdi-cOL6HQke92mhe5CK6bfI7__YFLVOBbsNqc82zTMTtf4hMqvU0sLFtdMlNodscZB7W4zqd5Zc_Fn8OtcktzGc1J1V6CmMg_lFwPh2lnn5RVsQhasQmTa1dqiQS09F05LGoeCmb8RsVWByE6uY79QEIAYwqQif6J7K6NmEV4lEfaai9of4mUIAHn5ddGzok-opDkprbqc5Vk9oLmlxA2lsIJSyiidpM4y-vqW-A-2njY37"/>
+</div>
+<p class="text-[12px] font-semibold text-[#333333] text-center leading-tight mt-1">Bayar di tempat</p>
+<p class="text-[10px] text-on-surface-variant text-center">Cash/QRIS</p>
+</div>
+</div>
+</div>
+<!-- Layanan Populer -->
+<div class="w-full flex flex-col gap-sm">
+<h3 class="text-[18px] font-bold text-on-surface flex justify-between items-end">
+                Layanan Populer
+                <span class="text-[12px] text-cyan-brand font-medium cursor-pointer">Lihat Semua</span>
+</h3>
+<div class="flex flex-col gap-2">
+<!-- Service Card 1 -->
+<div class="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm border border-surface-variant/50">
+<div class="flex items-center gap-3">
+<div class="w-[44px] h-[44px] bg-surface-container-low rounded-lg flex items-center justify-center p-1">
+<img alt="Tire Icon" class="w-full h-full object-contain" data-alt="A small 3D icon of a bare motorcycle tire, glossy black rubber texture, clean, bright lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCS6pC3uMJVfon-l6IWUscxddj3_Z4Q-gm0icl5HsqAg18JDAeRrDBE7i09wsWXDPT2CUTrT3UA3ogJEP1NuUBO88ch0v7cH-KktquUToM2qM0I1x_CalN5JcE5brohjSwDRx0RSQz395CLRwIq2NMyFElYWFibQ-6yFA7qrujnEu_ASd-yQHwC5kI0-8NXrRA9IqR2R5nzUed-rfhhpKXBXsvUSePRoDrQpxwPDFrgQnDXODSIxItBb9yfbKa_R_BiOITpfwtKnFKd"/>
+</div>
+<div class="flex flex-col">
+<h4 class="text-[15px] font-bold text-on-surface leading-tight">Tambal Ban Tubeless</h4>
+<p class="text-[12px] text-on-surface-variant">±30 menit • Motor/Mobil</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<p class="text-[14px] font-bold text-cyan-brand">Mulai 15rb</p>
+<button class="border border-cyan-brand text-cyan-brand text-[12px] font-semibold rounded-full px-3 py-1 hover:bg-cyan-brand/5 active:scale-95 transition-all">Pilih</button>
+</div>
+</div>
+<!-- Service Card 2 -->
+<div class="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm border border-surface-variant/50">
+<div class="flex items-center gap-3">
+<div class="w-[44px] h-[44px] bg-surface-container-low rounded-lg flex items-center justify-center p-1 relative">
+<img alt="Tire Speed Icon" class="w-full h-full object-contain" data-alt="A small 3D icon of a motorcycle tire with motion lines behind it indicating speed, glossy finish, high quality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtIZ8RUQowO5L4oJW04Ji-4By6XYoYf-LcTVQW67CXw1LAd8e0zemQj6Xebdqm9e0YppOYcmO-WLs3j9WNEwotnun9K_nNctB9I_tNBErBkyfwL6lSO0gnj_n-zzxAskhTbPiWqEWAN3kiaowpvvpscBasmP12sC0R5tvMx_wUe3BoODyJ3avYKZlD3KsbxV4Rv3qpruiM88KtOxATCld67AN7a12g803iiL6nF-17gjNuPJXXQC2hpTbA5VfrzBaG_4QE7j7DfLMO"/>
+</div>
+<div class="flex flex-col">
+<h4 class="text-[15px] font-bold text-on-surface leading-tight">Tambal Ban Standar</h4>
+<p class="text-[12px] text-on-surface-variant">±20 menit • Motor</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<p class="text-[14px] font-bold text-cyan-brand">Mulai 10rb</p>
+<button class="border border-cyan-brand text-cyan-brand text-[12px] font-semibold rounded-full px-3 py-1 hover:bg-cyan-brand/5 active:scale-95 transition-all">Pilih</button>
+</div>
+</div>
+<!-- Service Card 3 -->
+<div class="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm border border-surface-variant/50 relative overflow-hidden">
+<div class="absolute top-2 right-2 bg-[#E41E31] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">-10%</div>
+<div class="flex items-center gap-3">
+<div class="w-[44px] h-[44px] bg-surface-container-low rounded-lg flex items-center justify-center p-1">
+<img alt="New Tire Icon" class="w-full h-full object-contain" data-alt="A small 3D icon of a brand new tire wrapped in subtle clear plastic or with a sparkle effect indicating it's new. Glossy, studio lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbVOTf_H4X6DpGoNkhKl1Txyc5RSVaz6-iVglXs7CMI-chycH0M-HWCVZXK5iasR2pPROuiuxmQtmDkxfsKbCiQEKN7TcheCLmMOJ-BoHnZC-7wuOnUYVwTBUgQCvI7ZsCfrH9nQ7jqEDZdpbf6ns4IYGmchH0pVLdgooXjpFoPxgGTf_paLw31aEq2nw8TxoXrDzsM9rhBmPfZESAhuRm6DJ4cFabwB736SNCxJ-3AAVb8ZQ6X6sRD-kYQO5WCuSpdIwJ9k2y19wA"/>
+</div>
+<div class="flex flex-col">
+<h4 class="text-[15px] font-bold text-on-surface leading-tight pr-6">Ganti Ban Luar</h4>
+<p class="text-[12px] text-on-surface-variant">±45 menit • Stok tersedia</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1 mt-2">
+<div class="flex items-center gap-1">
+<span class="text-[10px] text-on-surface-variant line-through">135rb</span>
+<p class="text-[14px] font-bold text-cyan-brand">Mulai 120rb</p>
+</div>
+<button class="border border-cyan-brand text-cyan-brand text-[12px] font-semibold rounded-full px-3 py-1 hover:bg-cyan-brand/5 active:scale-95 transition-all">Pilih</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Teknisi Terdekat -->
+<div class="w-full flex flex-col gap-sm pb-md">
+<h3 class="text-[18px] font-bold text-on-surface">Teknisi Terdekat</h3>
+<div class="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-margin-mobile px-margin-mobile">
+<!-- Tech Card 1 -->
+<div class="min-w-[240px] bg-white rounded-xl p-3 flex flex-col gap-2 shadow-sm border border-surface-variant/50 relative">
+<div class="absolute top-0 right-0 bg-[#FFC107] text-[#5C4600] text-[10px] font-bold px-2 py-0.5 rounded-bl-lg rounded-tr-xl">Top Rated</div>
+<div class="flex items-center gap-3">
+<div class="w-[48px] h-[48px] rounded-full overflow-hidden bg-surface-container border border-surface-variant">
+<img alt="Mechanic Profile" class="w-full h-full object-cover" data-alt="A 3D glossy style illustration of an Indonesian mechanic wearing a casual uniform, smiling. Plastic-like texture, vibrant lighting, clean background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvM4oLDrWOJBNljsNON8JxiyH1DRKw23x0qZdLxUr4BFiwX5KmRFANdyEqvFyAGjR0IVCzc7j5Gu6oikU1QsFd2gpkKa86SOT5Kb0aBCgf12xuCOPtD10S9WsUGkPsSPKoAdi5XEnCVvldr3iFGLBYb6ySicdqR-dr0Pa3rd6IwZhzZoj8QOvK6HF5Pk3ZeyQ9mO75axTYXJyse22ilmihW723Avc62fYG0RHT3UyZ_ENjHnJus8LVoXQ4UpGaKmrDPBN9ODwviRlm"/>
+</div>
+<div class="flex flex-col">
+<h4 class="text-[14px] font-bold text-on-surface">Budi Santoso</h4>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[#FFC107]" data-weight="fill" style="font-size: 14px;">star</span>
+<span class="text-[12px] font-bold text-on-surface">4.9</span>
+<span class="text-[10px] text-on-surface-variant">(200+ order)</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-1 pt-2 border-t border-surface-variant/50">
+<div class="flex flex-col">
+<p class="text-[12px] font-semibold text-on-surface">1.2 km</p>
+<p class="text-[10px] text-on-surface-variant">Est. tiba ±25 menit</p>
+</div>
+<button class="bg-cyan-brand text-white text-[12px] font-bold rounded-full px-4 py-1.5 shadow-sm active:scale-95 transition-all">Panggil</button>
+</div>
+</div>
+<!-- Tech Card 2 -->
+<div class="min-w-[240px] bg-white rounded-xl p-3 flex flex-col gap-2 shadow-sm border border-surface-variant/50">
+<div class="flex items-center gap-3">
+<div class="w-[48px] h-[48px] rounded-full overflow-hidden bg-surface-container border border-surface-variant">
+<img alt="Mechanic Profile" class="w-full h-full object-cover" data-alt="A 3D glossy style illustration of an older Indonesian mechanic with a slight beard, wearing a cap. Friendly expression, smooth rendering, bright lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIVUF8Y7RBcLnXamcJ8tffxLlEZwdBierfvJnV5-8YcJounW4KL4GXiyRxoWK_6GpwGOFB5e69-mifUze88vb0ueuHwii6ERYHFqzIxNUPpwmSgvR60Nx9-yDXhFpF_tqDtU0Klf0x3YkFg5YTYjE-O5UXZ5XL4Bb9lh3bQmrg90RLOgsjgoP4txjZgxWsYe1Q59PCnQ0Zx6C5Hec3AG09IVhjXMgfnUvno0QhX6Km7K4noubw4_JqljFNh6oNXzChfRlaQm5kp8nx"/>
+</div>
+<div class="flex flex-col">
+<h4 class="text-[14px] font-bold text-on-surface">Agus Tirta</h4>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[#FFC107]" data-weight="fill" style="font-size: 14px;">star</span>
+<span class="text-[12px] font-bold text-on-surface">4.8</span>
+<span class="text-[10px] text-on-surface-variant">(150+ order)</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-1 pt-2 border-t border-surface-variant/50">
+<div class="flex flex-col">
+<p class="text-[12px] font-semibold text-on-surface">2.5 km</p>
+<p class="text-[10px] text-on-surface-variant">Est. tiba ±35 menit</p>
+</div>
+<button class="bg-cyan-brand text-white text-[12px] font-bold rounded-full px-4 py-1.5 shadow-sm active:scale-95 transition-all">Panggil</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Component based on JSON schema -->
+<nav class="fixed bottom-0 w-full max-w-[390px] mx-auto z-50 rounded-t-xl bg-surface dark:bg-surface-container-low shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t border-outline-variant dark:border-outline flex justify-around items-center px-2 py-2 pb-safe">
+<!-- Item 1: Beranda (Active) -->
+<div class="flex flex-col items-center justify-center px-4 py-1 rounded-full cursor-pointer transition-all duration-300 ease-in-out active:scale-90" style="background-color: rgba(0, 174, 214, 0.1);">
+<!-- Emulating active state with brand cyan instead of default primary green to match prompt requirements -->
+<span class="material-symbols-outlined" data-weight="fill" style="color: #00AED6;">home_app_logo</span>
+<span class="font-label-sm text-label-sm font-semibold mt-1" style="color: #00AED6;">Beranda</span>
+</div>
+<!-- Item 2: Pesanan (Mapped to Riwayat based on prompt intent, but keeping JSON label/icon structure as base, adapting content per user prompt where strictly necessary, though JSON says "Pesanan")
+             WAIT: JSON says: "Pesanan" but user requested "Riwayat". Rule says "Use exact labels... from JSON". So I MUST use "Pesanan".
+        -->
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant p-2 cursor-pointer transition-all duration-300 ease-in-out active:scale-90 hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-lg">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-sm text-label-sm mt-1">Pesanan</span>
+</div>
+<!-- Item 3: Promo (Mapped to 'Bisnis' in prompt, but JSON strictly says "Promo") -->
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant p-2 cursor-pointer transition-all duration-300 ease-in-out active:scale-90 hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-lg">
+<span class="material-symbols-outlined">local_offer</span>
+<span class="font-label-sm text-label-sm mt-1">Promo</span>
+</div>
+<!-- Item 4: Profil -->
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant p-2 cursor-pointer transition-all duration-300 ease-in-out active:scale-90 hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-lg">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profil</span>
+</div>
+</nav>
+</body></html>

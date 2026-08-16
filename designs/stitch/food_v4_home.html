@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Food Delivery</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#2b322c",
+                        "on-tertiary-fixed": "#40000f",
+                        "outline": "#6d7b6e",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#891931",
+                        "primary-fixed-dim": "#57df89",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f4fcf1",
+                        "primary-fixed": "#76fca3",
+                        "on-primary": "#ffffff",
+                        "on-background": "#161d17",
+                        "secondary-container": "#d0e1fb",
+                        "background": "#f4fcf1",
+                        "on-surface": "#161d17",
+                        "on-primary-fixed": "#00210d",
+                        "tertiary-fixed-dim": "#ffb2b8",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#dde5db",
+                        "on-primary-fixed-variant": "#005229",
+                        "on-surface-variant": "#3d4a3f",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#dde5db",
+                        "surface-dim": "#d4dcd2",
+                        "primary-container": "#00aa5b",
+                        "inverse-on-surface": "#ebf3e9",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "inverse-primary": "#57df89",
+                        "surface-tint": "#006d38",
+                        "tertiary-fixed": "#ffdadb",
+                        "outline-variant": "#bccabc",
+                        "error-container": "#ffdad6",
+                        "primary": "#006d38",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "surface-container-low": "#eef6ec",
+                        "secondary": "#505f76",
+                        "surface-container": "#e8f0e6",
+                        "secondary-fixed": "#d3e4fe",
+                        "tertiary": "#a93347",
+                        "surface-bright": "#f4fcf1",
+                        "on-secondary-container": "#54647a",
+                        "on-tertiary-container": "#60001b",
+                        "surface-container-high": "#e3eae0",
+                        "on-primary-container": "#003518",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#0b1c30",
+                        "on-error": "#ffffff",
+                        "tertiary-container": "#ef6779"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "md": "16px",
+                        "margin-mobile": "16px",
+                        "base": "8px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "xl": "32px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "700" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #F7F8FA; }
+        .merchant-card { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.04); }
+        .search-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04); }
+        .text-subtle { color: #64748B; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased min-h-screen text-on-surface">
+<!-- Top App Bar -->
+<header class="bg-surface sticky top-0 z-50 shadow-sm w-full max-w-screen-xl mx-auto flex items-center justify-between px-4 h-16">
+<button aria-label="Go back" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-primary">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<div class="flex flex-col items-center flex-1">
+<h1 class="text-headline-md font-headline-md font-bold text-on-surface text-center m-0 leading-tight">Food Delivery</h1>
+<p class="text-[12px] text-subtle m-0 leading-tight mt-0.5">Merchant terdekat</p>
+</div>
+<button aria-label="Shopping cart" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-primary relative">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+<span class="absolute top-2 right-2 w-2.5 h-2.5 bg-error rounded-full border-2 border-surface"></span>
+</button>
+</header>
+<main class="max-w-screen-xl mx-auto pb-lg">
+<!-- Search Section -->
+<div class="px-md py-base sticky top-16 bg-[#F7F8FA] z-40">
+<div class="relative w-full h-12 bg-white rounded-[16px] search-shadow flex items-center px-4">
+<span class="material-symbols-outlined text-subtle mr-2" data-icon="search">search</span>
+<input class="w-full h-full bg-transparent border-none focus:ring-0 text-[14px] text-on-surface placeholder:text-[#64748B] p-0" placeholder="Cari makanan atau merchant..." type="text"/>
+</div>
+</div>
+<!-- Filter Chips -->
+<div class="px-md py-sm overflow-x-auto no-scrollbar flex items-center gap-2">
+<button class="h-12 px-5 rounded-full bg-primary-container text-white text-[12px] font-medium whitespace-nowrap transition-colors flex-shrink-0">
+                Semua
+            </button>
+<button class="h-12 px-5 rounded-full bg-white border border-outline-variant text-on-surface-variant text-[12px] font-medium whitespace-nowrap hover:bg-surface-container-low transition-colors flex-shrink-0">
+                Halal
+            </button>
+<button class="h-12 px-5 rounded-full bg-white border border-outline-variant text-on-surface-variant text-[12px] font-medium whitespace-nowrap hover:bg-surface-container-low transition-colors flex-shrink-0">
+                Non-Halal
+            </button>
+</div>
+<!-- Merchant List -->
+<div class="px-md py-base flex flex-col gap-4">
+<!-- Merchant 1 -->
+<div class="merchant-card bg-white rounded-[20px] p-md flex gap-4 w-full">
+<div class="w-12 h-12 bg-surface-container-low rounded-[12px] flex-shrink-0 relative overflow-hidden flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container opacity-50" data-icon="restaurant">restaurant</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-2 flex-wrap">
+<h2 class="text-[16px] font-bold text-on-surface leading-tight truncate">Soto Ayam Siti</h2>
+<span class="bg-primary-container/10 text-primary-container text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Halal</span>
+</div>
+<button aria-label="Favorite" class="text-error">
+<span class="material-symbols-outlined" data-icon="favorite" data-weight="fill">favorite</span>
+</button>
+</div>
+<p class="text-[12px] text-subtle truncate mb-2">Jl. Melati No. 12, Jakarta Barat</p>
+<div class="flex items-center gap-1.5 text-[12px] text-subtle">
+<span class="text-amber-400 text-[14px]">⭐</span>
+<span class="font-medium text-on-surface">4.8</span>
+<span>•</span>
+<span>1.2 km</span>
+<span>•</span>
+<span class="text-primary-container font-medium">Buka</span>
+</div>
+</div>
+</div>
+<!-- Merchant 2 -->
+<div class="merchant-card bg-white rounded-[20px] p-md flex gap-4 w-full">
+<div class="w-12 h-12 bg-surface-container-low rounded-[12px] flex-shrink-0 relative overflow-hidden flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container opacity-50" data-icon="ramen_dining">ramen_dining</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-2 flex-wrap">
+<h2 class="text-[16px] font-bold text-on-surface leading-tight truncate">Mie Gacoan</h2>
+<span class="bg-surface-variant text-on-surface-variant text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Non-Halal</span>
+</div>
+<button aria-label="Favorite" class="text-outline-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+</button>
+</div>
+<p class="text-[12px] text-subtle truncate mb-2">Jl. Pintu Air 3 No. 91</p>
+<div class="flex items-center gap-1.5 text-[12px] text-subtle">
+<span class="text-amber-400 text-[14px]">⭐</span>
+<span class="font-medium text-on-surface">4.7</span>
+<span>•</span>
+<span>0.8 km</span>
+<span>•</span>
+<span class="text-primary-container font-medium">Buka</span>
+</div>
+</div>
+</div>
+<!-- Merchant 3 -->
+<div class="merchant-card bg-white rounded-[20px] p-md flex gap-4 w-full">
+<div class="w-12 h-12 bg-surface-container-low rounded-[12px] flex-shrink-0 relative overflow-hidden flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container opacity-50" data-icon="lunch_dining">lunch_dining</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-2 flex-wrap">
+<h2 class="text-[16px] font-bold text-on-surface leading-tight truncate">Bakmi GM</h2>
+<span class="bg-primary-container/10 text-primary-container text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Halal</span>
+</div>
+<button aria-label="Favorite" class="text-outline-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+</button>
+</div>
+<p class="text-[12px] text-subtle truncate mb-2">Jl. Sudirman No. 45</p>
+<div class="flex items-center gap-1.5 text-[12px] text-subtle">
+<span class="text-amber-400 text-[14px]">⭐</span>
+<span class="font-medium text-on-surface">4.9</span>
+<span>•</span>
+<span>2.3 km</span>
+<span>•</span>
+<span class="text-primary-container font-medium">Buka</span>
+</div>
+</div>
+</div>
+<!-- Merchant 4 -->
+<div class="merchant-card bg-white rounded-[20px] p-md flex gap-4 w-full opacity-75">
+<div class="w-12 h-12 bg-surface-container-low rounded-[12px] flex-shrink-0 relative overflow-hidden flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container opacity-50" data-icon="kebab_dining">kebab_dining</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-2 flex-wrap">
+<h2 class="text-[16px] font-bold text-on-surface leading-tight truncate text-on-surface-variant">Ayam Geprek Mamah</h2>
+<span class="bg-primary-container/10 text-primary-container text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Halal</span>
+</div>
+<button aria-label="Favorite" class="text-outline-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+</button>
+</div>
+<p class="text-[12px] text-subtle truncate mb-2">Jl. Palmerah No. 7</p>
+<div class="flex items-center gap-1.5 text-[12px] text-subtle">
+<span class="text-amber-400 text-[14px]">⭐</span>
+<span class="font-medium text-on-surface">4.6</span>
+<span>•</span>
+<span>3.1 km</span>
+<span>•</span>
+<span class="text-error font-medium">Tutup</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

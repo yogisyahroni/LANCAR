@@ -1,0 +1,25 @@
+Halaman Pesanan Selesai (Delivered) aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter. Warna brand food oranye-merah #EE2737.
+
+1. TOP BAR: back arrow + judul "Detail Pesanan" bold.
+
+2. HEADER SUKSES: ikon centang hijau besar dalam lingkaran + "Pesanan Selesai" bold hijau + sub "Soto Ayam Siti • Terima kasih!"
+
+3. KURIR CARD: Budi ⭐4.9 • sepeda B 1234 • foto + tombol "Chat Kurir" kecil.
+
+4. TIMELINE 4 STEP SEMUA CENTANG HIJAU (✓): 1 Pesanan Dibuat • 2 Disiapkan • 3 Mencari Kurir • 4 Sedang Diantar — semua check hijau = selesai.
+
+5. RINCIAN PESANAN (putih rounded 20px):
+   - 2x Soto Ayam Lamongan Rp50.000
+   - 1x Nasi Goreng Spesial Rp30.000
+   - 3x Es Teh Manis Rp15.000
+   - Divider
+   - Subtotal: Rp95.000 • Voucher HEMAT10: -Rp10.000 • Biaya Antar: Rp12.000
+   - **Total dibayar: Rp97.000** bold oranye
+   - Status: "Dibayar Sebelum Antar (QRIS/DANA)" hijau
+
+6. TOMBOL:
+   - "Beri Rating" primary oranye (buka modal rating)
+   - "Lihat Invoice" outline
+   - "Pesan Lagi" outline (isi ulang cart item sama)
+
+7. QUESTION: "Pesanan kamu selesai? Beri rating untuk bantu kurir & merchant ya!"

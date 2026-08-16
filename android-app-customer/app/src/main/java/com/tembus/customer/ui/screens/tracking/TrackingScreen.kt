@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,15 +71,18 @@ fun TrackingScreen(
     merchantRatingViewModel: MerchantRatingViewModel = hiltViewModel(),
     tipViewModel: TipViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val ratingState by ratingViewModel.uiState.collectAsState()
-    val merchantRatingState by merchantRatingViewModel.uiState.collectAsState()
-    val tipState by tipViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val ratingState by ratingViewModel.uiState.collectAsStateWithLifecycle()
+    val merchantRatingState by merchantRatingViewModel.uiState.collectAsStateWithLifecycle()
+    val tipState by tipViewModel.uiState.collectAsStateWithLifecycle()
 
-    // Tracking start
-    LaunchedEffect(orderId) {
+    // Tracking lifecycle management
+    DisposableEffect(orderId) {
         viewModel.startTracking(orderId)
         tipViewModel.checkTipStatus(orderId)
+        onDispose {
+            viewModel.stopTracking()
+        }
     }
 
     // Tampilkan dialog rating otomatis ketika order DELIVERED dan belum di-rating
@@ -148,17 +152,22 @@ fun TrackingScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         
         // LAYER 1: MAP VIEW
+        val mapProps = remember { MapProperties(isMyLocationEnabled = true) }
+        val mapUi = remember { 
+            MapUiSettings(
+                zoomControlsEnabled = false,
+                myLocationButtonEnabled = false,
+                compassEnabled = true
+            )
+        }
+        
         RuntimeMapRenderer(
             providerConfig = uiState.mapsProviderConfig,
             markers = mapMarkers,
             routePoints = uiState.routePoints,
             followLocation = uiState.courierLocation,
-            mapProperties = MapProperties(isMyLocationEnabled = true),
-            mapUiSettings = MapUiSettings(
-                zoomControlsEnabled = false,
-                myLocationButtonEnabled = false,
-                compassEnabled = true
-            ),
+            mapProperties = mapProps,
+            mapUiSettings = mapUi,
             routeColor = Primary,
             fallbackTitle = "Tracking tetap aktif",
             fallbackMessage = "Posisi kurir dan ETA tetap diperbarui otomatis.",

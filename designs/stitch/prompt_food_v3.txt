@@ -1,0 +1,19 @@
+Halaman Food Delivery aplikasi TEMBUS, bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar putih #FFFFFF, font Inter. HANYA konten food berdiri sendiri — TANPA grid layanan lain (tanpa tile Kirim Paket/Tambal Ban/Towing, tanpa shortcut service lain).
+
+1. HEADER: kiri ikon pin merah #EE2737 + teks kecil "Lokasi Anda" grey-12px + "Jl. Pintu Air 3 No.91 G" bold-16px #141414; kanan ikon notifikasi badge merah + avatar glossy 3D 32px bulat.
+
+2. SEARCH BAR: pill 48px bg #F2F2F2, ikon kaca pembesar, placeholder "Lagi mau mamam apa?" grey-14px, kanan ikon feed 2 baris.
+
+3. HERO BANNER 16:9 rounded-2xl: gradient merah #EE2737 ke #C91F2C, foto glossy ayam goreng + kentang, badge putih translusen "IKLAN", teks putih bold "Spesial HUT RI", sub besar "18 Ayam 181rb" + kecil "harga normal 372rb", chip kuning "Persediaan terbatas", 3 dots indikator.
+
+4. KATEGORI ICON TILES horizontal scroll 8 item: tile rounded-2xl bg #F2F2F2 56px dengan ikon glossy 3D + label 11px #333: Viral (ikon api), Jajanan (camilan), Minuman (gelas), Ayam & bebek (ayam), Aneka nasi (nasi), Cepat saji (burger), Sweets (donat), Bakso & soto (mangkok). Tile pertama "Viral" badge mini oranye "Baru".
+
+5. FILTER BAR: teks "Terdekat" bold hijau #00AA5B + chevron, "Rating", "Terlaris", "Buka sekarang" grey-13px, kanan ikon tune.
+
+6. SECTION "Promo buat kamu": judul bold 18px; kartu bg #F0FFF5 border hijau tipis rounded-xl: ikon voucher, "Free ongkir s/d 10rb", sub "Min. 30rb", tombol "Pakai" hijau #00AA5B.
+
+7. SECTION "Resto dengan rating jempolan" + sub grey "Rasa-rasa yang dicap enak sama warga.": 2 kartu merchant VERTIKAL full-width rounded-2xl white shadow-sm:
+   Card A: foto mie gacoan besar 16:9 rounded-xl, badge kiri bawah hijau "-25% maks 32rb", badge "Ad" abu tipis kanan atas; "Mie Gacoan - Mangga Besar" bold 16px, star kuning 4.8 (18rb+) 1.2 km 25-35 min, chip "20rb-30rb", baris ongkir hijau "Ongkir 4.5rb" coret 7.5rb, teks merah "Kelar jam 22:00".
+   Card B: foto ayam geprek sambal besar, badge "-20% maks 20rb", "Ayam Geprek Gold Chick - Karang Anyar", star 4.9 (10rb+) 0.8 km 15-25 min, "15rb-25rb", ongkir "3rb" coret 6rb, "Kelar jam 21:30".
+
+8. BOTTOM NAV 4 item: Beranda active hijau #00AA5B, Riwayat, Bisnis, Profil; ikon glossy 3D teks 10px; di tengah floating pill oranye #EE2737 ikon troli + badge 2.

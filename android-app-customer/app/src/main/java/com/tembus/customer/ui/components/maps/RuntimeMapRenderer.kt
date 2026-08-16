@@ -204,6 +204,7 @@ private fun TomTomSdkMapRenderer(
     var tomTomMap by remember { mutableStateOf<TomTomMap?>(null) }
     val mapKey = remember { BuildConfig.TOMTOM_API_KEY.trim() }
     val routeColorArgb = routeColor.toArgb()
+    val lastState = remember { mutableMapOf<String, Any?>() }
 
         val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     Box(modifier = modifier) {
@@ -267,15 +268,20 @@ private fun TomTomSdkMapRenderer(
                 }
             },
             update = { _ ->
-                // Called on recomposition. We use the saved tomTomMap instance.
-                tomTomMap?.let { map ->
-                    renderTomTomMapContent(
-                        tomTomMap = map,
-                        markers = markers,
-                        routePoints = routePoints,
-                        viewport = viewport,
-                        routeColorArgb = routeColorArgb
-                    )
+                if (lastState["markers"] != markers || lastState["routePoints"] != routePoints || lastState["viewport"] != viewport) {
+                    lastState["markers"] = markers
+                    lastState["routePoints"] = routePoints
+                    lastState["viewport"] = viewport
+                    
+                    tomTomMap?.let { map ->
+                        renderTomTomMapContent(
+                            tomTomMap = map,
+                            markers = markers,
+                            routePoints = routePoints,
+                            viewport = viewport,
+                            routeColorArgb = routeColorArgb
+                        )
+                    }
                 }
             }
         )

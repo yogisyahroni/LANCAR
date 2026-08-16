@@ -204,18 +204,18 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				o.id, o.order_number, o.customer_id, o.model, o.status, 
 				ST_Y(o.pickup_location::geometry), ST_X(o.pickup_location::geometry), o.pickup_address, COALESCE(o.pickup_city, ''), COALESCE(o.pickup_zip_code, ''),
 				ST_Y(o.dropoff_location::geometry), ST_X(o.dropoff_location::geometry), o.dropoff_address, COALESCE(o.dropoff_city, ''), COALESCE(o.dropoff_zip_code, ''),
-				o.length, o.width, o.height, o.weight, o.item_description, COALESCE(o.item_image_url, ''),
+				COALESCE(o.length, 0), COALESCE(o.width, 0), COALESCE(o.height, 0), COALESCE(o.weight, 0), COALESCE(o.item_description, ''), COALESCE(o.item_image_url, ''),
 				o.distance_km, COALESCE(o.included_distance_km, 0), COALESCE(o.distance_fee_idr, 0), COALESCE(o.volumetric_weight_kg, 0),
 				o.base_price_idr, o.volumetric_surcharge_idr, 
 				o.dynamic_price_idr, COALESCE(o.surge_fee_idr, 0), COALESCE(o.discount_idr, 0), COALESCE(o.promo_code, ''), COALESCE(o.promo_sponsor, 'platform'),
 				COALESCE(o.surge_multiplier, 1), COALESCE(o.weather_multiplier, 1), COALESCE(o.traffic_multiplier, 1), COALESCE(o.pricing_snapshot::text, ''),
-				o.total_price_idr, o.handover_token, o.dispatch_expiry, o.batch_id, o.sequence_no,
+				o.total_price_idr, COALESCE(o.handover_token, ''), o.dispatch_expiry, o.batch_id, o.sequence_no,
 				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = o.id AND ol.leg_number = 1 LIMIT 1), ''),
 				COALESCE(o.awb_number, ''), COALESCE(o.tracking_url, ''),
 				COALESCE(o.receiver_name, ''), COALESCE(o.receiver_phone, ''), COALESCE(o.routing_code, ''),
 				COALESCE(o.tax_rule_code, ''), COALESCE(o.ppn_rate_effective_pct, 0), COALESCE(o.ppn_rate_statutory_pct, 0), COALESCE(o.dpp_idr, 0), COALESCE(o.ppn_idr, 0),
 				COALESCE(o.tax_invoice_required, false), COALESCE(o.tax_invoice_status, ''), COALESCE(o.platform_fee_idr, 0), COALESCE(o.platform_fee_pct, 0), COALESCE(o.promo_subsidy_idr, 0),
-				COALESCE(o.service_sub_type, ''), COALESCE(o.merchant_id::text, ''), o.merchant_accepted_at, o.prep_time_minutes, o.food_ready_at,
+				COALESCE(o.service_sub_type, ''), COALESCE(o.service_code, ''), COALESCE(o.merchant_id::text, ''), o.merchant_accepted_at, o.prep_time_minutes, o.food_ready_at,
 				COALESCE(o.contactless, false),
 				COALESCE(o.order_notes, ''),
 				o.scheduled_at,
@@ -240,7 +240,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
 		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
 		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
-		&o.ServiceSubType, &merchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
+		&o.ServiceSubType, &o.ServiceCode, &merchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
 		&o.Contactless,
 		&o.OrderNotes,
 		&o.ScheduledAt, // FB-123: NULL = pesan langsung
@@ -428,6 +428,16 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
 	query := `UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3`
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
+	return err
+}
+
+// UpdateLegsStatus — FB-121: tandai semua leg aktif order sebagai final.
+// Dipakai saat order delivered/cancelled supaya gate active_jobs dispatcher
+// tidak menghitung courier masih punya pekerjaan yang sudah selesai.
+func (r *postgresRepo) UpdateLegsStatus(ctx context.Context, orderID string, status domain.OrderStatus) error {
+	query := `UPDATE order_legs SET status = $1, updated_at = NOW()
+	          WHERE order_id = $2 AND status NOT IN ('delivered', 'completed', 'cancelled', 'failed', 'rejected')`
+	_, err := r.db.ExecContext(ctx, query, status, orderID)
 	return err
 }
 

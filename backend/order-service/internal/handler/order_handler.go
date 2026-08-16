@@ -814,19 +814,16 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 				"Hanya kurir yang dapat mengubah status pengiriman ini", correlationID)
 			return
 		}
-		// AUDIT-FIX m5: kurir wajib punya order ini (courier_id = profil dia).
+		// AUDIT-FIX m5: kurir wajib punya order ini.
+		// order_legs.courier_id DAN JWT userID sama-sama user_id (FK -> users.id),
+		// jadi bandingkan langsung dengan userID — jangan resolve ke
+		// courier_profiles.id (mismatch domain -> ERR_FORBIDDEN palsu).
 		if isCourier {
-			courierID, errC := h.orderSvc.GetCourierIDByUserID(r.Context(), userID)
-			if errC != nil || courierID == "" {
-				middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN",
-					"Profil kurir tidak ditemukan", correlationID)
-				return
-			}
-			if targetOrder == nil || targetOrder.CourierID == nil || *targetOrder.CourierID != courierID {
+			if targetOrder == nil || targetOrder.CourierID == nil || *targetOrder.CourierID != userID {
 				middleware.LogJSON("warn", "courier_not_assigned", middleware.StructuredFields{
 					"correlation_id": correlationID,
 					"order_id":       orderID,
-					"courier_id":     courierID,
+					"courier_id":     userID,
 					"status":         string(status),
 				})
 				middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN",
@@ -845,13 +842,8 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if isCourier {
-			courierID, errC := h.orderSvc.GetCourierIDByUserID(r.Context(), userID)
-			if errC != nil || courierID == "" {
-				middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN",
-					"Profil kurir tidak ditemukan", correlationID)
-				return
-			}
-			if targetOrder.CourierID == nil || *targetOrder.CourierID != courierID {
+			// order_legs.courier_id = user_id (sama domain dgn JWT) — bandingkan langsung.
+			if targetOrder.CourierID == nil || *targetOrder.CourierID != userID {
 				middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN",
 					"Order ini bukan tugas kurir kamu", correlationID)
 				return

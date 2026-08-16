@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detail Armada - Fernando Wijaya</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#fcf9f8",
+                        "surface-dim": "#dcd9d9",
+                        "primary-container": "#00aa5b",
+                        "surface-container-high": "#ebe7e7",
+                        "error-container": "#ffdad6",
+                        "primary-fixed-dim": "#57df89",
+                        "on-surface-variant": "#3d4a3f",
+                        "primary": "#006d38",
+                        "on-primary-container": "#003518",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#b8eaff",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed": "#001f28",
+                        "background": "#F5F7F6", // Changed to match prompt request for #F5F7F6
+                        "tertiary": "#006780",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-primary-fixed-variant": "#005229",
+                        "inverse-primary": "#57df89",
+                        "secondary-fixed": "#ffdad7",
+                        "surface-container": "#f0edec",
+                        "surface-variant": "#e5e2e1",
+                        "on-primary-fixed": "#00210d",
+                        "secondary": "#bb0020",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "surface-container-low": "#f6f3f2",
+                        "inverse-surface": "#313030",
+                        "on-secondary-fixed-variant": "#930017",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#410005",
+                        "on-background": "#1c1b1b",
+                        "surface-tint": "#006d38",
+                        "on-tertiary-container": "#00313f",
+                        "tertiary-container": "#00a1c6",
+                        "secondary-container": "#e41e31",
+                        "primary-fixed": "#76fca3",
+                        "outline-variant": "#bccabc",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#1c1b1b",
+                        "on-secondary-container": "#fffbff",
+                        "surface-container-highest": "#e5e2e1",
+                        "on-tertiary": "#ffffff",
+                        "outline": "#6d7b6e",
+                        "surface-bright": "#fcf9f8",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "on-error": "#ffffff",
+                        "purple-custom": "#93328E",
+                        "purple-light": "#E9D5FF"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "margin-mobile": "16px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "gutter-mobile": "12px",
+                        "unit": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F5F7F6; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .purple-gradient { background: linear-gradient(135deg, #93328E 0%, #6B21A8 100%); }
+    </style>
+</head>
+<body class="text-on-background pb-32">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-margin-mobile py-sm w-full fixed top-0 z-50 bg-background/90 backdrop-blur-md border-b border-outline-variant/30">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">Detail Armada</h1>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface" data-icon="share">share</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 px-margin-mobile space-y-lg max-w-md mx-auto">
+<!-- Decorative Handle (for bottom sheet illusion) -->
+<div class="flex justify-center -mb-sm pt-xs">
+<div class="w-12 h-1.5 bg-outline-variant/50 rounded-full"></div>
+</div>
+<!-- Driver Profile Section -->
+<section class="glass-card rounded-2xl p-md shadow-[0_2px_8px_rgba(0,0,0,0.05)] flex flex-col items-center text-center">
+<div class="relative mb-unit">
+<img alt="Driver Avatar" class="w-20 h-20 rounded-full object-cover border-2 border-purple-light shadow-sm" src="https://lh3.googleusercontent.com/aida/AP1WRLvoSbGit9rVa26H_gkoqE6Q31lMyox21KB92iJfa6MVpfw8tA_ri03F3aWy-zbjpTaAhK5fmXVp0wHeYDR6txqwLJ_WWnmfXiK2u6x-WZ39iwxgVaxgnEHCKqyY6rDwx8zaOWmSV7BKY3zlmcedID-eUbJQY0zSlYOTsaXdHQm6r6tOHsW52Nfd7WOnflNst_VWTT0tmC4X3OzVBOIwPSmDkfBRS0D_jvl8HjvpEfbeElCFJHo9AWD6kGEc"/>
+<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-purple-custom text-white px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border border-white whitespace-nowrap shadow-sm">
+                    TOP RATED
+                </div>
+</div>
+<h2 class="font-headline-md text-headline-md mt-sm">Fernando Wijaya</h2>
+<p class="text-on-surface-variant font-body-md text-sm mt-0.5">Driver Truk Flatbed</p>
+<div class="flex items-center gap-1 mt-2 bg-surface-container rounded-full px-3 py-1">
+<span class="material-symbols-outlined text-yellow-400 text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-bold text-sm">4.9</span>
+<span class="text-on-surface-variant text-xs ml-1">(300+ order)</span>
+</div>
+<div class="grid grid-cols-2 gap-y-2 gap-x-4 w-full mt-4 text-left border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-purple-custom text-lg" style="font-variation-settings: 'FILL' 0;">near_me</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Jarak</span>
+<span class="text-sm font-semibold text-on-surface">1.5 km</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-purple-custom text-lg" style="font-variation-settings: 'FILL' 0;">schedule</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Est. Tiba</span>
+<span class="text-sm font-semibold text-on-surface">±30 mnt</span>
+</div>
+</div>
+<div class="col-span-2 flex items-center gap-2 mt-1">
+<span class="material-symbols-outlined text-purple-custom text-lg" style="font-variation-settings: 'FILL' 0;">verified</span>
+<span class="text-xs text-on-surface-variant">Bergabung 2021 • 2.500+ layanan diselesaikan</span>
+</div>
+</div>
+</section>
+<!-- Fleet Details -->
+<section class="glass-card rounded-2xl p-md shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+<h3 class="font-label-lg text-label-lg mb-3 text-on-surface">Detail Kendaraan</h3>
+<div class="flex items-center gap-md">
+<div class="w-16 h-16 rounded-xl bg-surface-container-low flex-shrink-0 flex items-center justify-center p-1">
+<img alt="Flatbed Truck" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLu4zyAgQsAr4R_mkaJIJuUTXw-fCMDVq_W95Qf3l_8jngVFjzYwsuVQRgi1_18QW-N1ohs8TiGkM5dfgeZVSlVERm7Qvb-tgf5C5RWROcZkTLSNtIEY6xk8OdEkjyiiGMnoyCKWcRRi7bisZcRu9dMhN_TS1kPqyVsrlS1n7oBAqD71EXy5ONf9lLOuCvWc9e7T3fp31TFl0QBrVpwxvErkAlEM-nT8uLnsBlxOGe_g4o49FIXQd4nYwd5m"/>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Flatbed Standar</h4>
+<p class="text-sm text-on-surface-variant mt-0.5 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">weight</span> Kapasitas 2.5 ton
+                    </p>
+<div class="mt-1.5 inline-block border border-outline-variant rounded-md px-2 py-0.5 bg-surface font-mono font-bold text-xs text-on-surface shadow-sm">
+                        B 1234 XYZ
+                    </div>
+</div>
+</div>
+</section>
+<!-- Specialties Chips -->
+<section>
+<h3 class="font-label-lg text-label-lg mb-2 text-on-surface">Spesialisasi</h3>
+<div class="flex flex-wrap gap-2">
+<div class="bg-purple-light/30 border border-purple-custom/20 text-purple-custom px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">local_shipping</span> Derek Flatbed
+                </div>
+<div class="bg-purple-light/30 border border-purple-custom/20 text-purple-custom px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">directions_car</span> Towing Mobil
+                </div>
+<div class="bg-purple-light/30 border border-purple-custom/20 text-purple-custom px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">two_wheeler</span> Towing Motor
+                </div>
+</div>
+</section>
+<!-- Map Snippet -->
+<section class="rounded-2xl overflow-hidden border border-outline-variant/30 shadow-[0_2px_8px_rgba(0,0,0,0.05)] relative bg-white">
+<div class="bg-cover bg-center w-full h-32 opacity-80" data-alt="A stylized, clean vector map snippet of an urban area in light mode. Soft greys, whites, and subtle greens. Minimalist modern UI aesthetic. A semi-transparent purple circle indicating a radius over the center. High quality digital asset." data-location="Jakarta" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB2zdTVj57_z_ZZc2S3wTYO2EXU_nd5g5ujmCoTRHJq_J5rek4N9vogrKR9g_ZTbBb_WYjNU73a1HD_49Xmlw4SUM4wlWCYRPBqL2j73Cpwc1CCaqJvSaSTQVG7woiuatZZUQKguXoXTlci6LYNEKPMF6PZEr6EOT6yEPO651NG1jsBnoTFzrGPtcltgM7QRbg-J-y8S9BXMmhfEjR2hdmlvXh15BnMLnEoY6Whut2MEt9Tq_Z_npMKVJzoIznjW_N2QSlEvUOwhD_s')"></div>
+<!-- Map Overlay UI -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<!-- Center Dot -->
+<div class="w-4 h-4 bg-purple-custom rounded-full border-2 border-white shadow-md relative z-10"></div>
+<!-- Radius Circle -->
+<div class="absolute w-24 h-24 bg-purple-custom/20 rounded-full border border-purple-custom/40"></div>
+</div>
+<div class="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-xs" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+<span class="text-[10px] font-bold text-on-surface">Gratis ongkir &lt;5km</span>
+</div>
+<div class="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-1 rounded-md shadow-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">open_in_new</span>
+</div>
+</section>
+<!-- Ratings & Reviews -->
+<section class="glass-card rounded-2xl p-md shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+<div class="flex justify-between items-end mb-4">
+<h3 class="font-label-lg text-label-lg text-on-surface">Rating &amp; Ulasan</h3>
+<span class="text-sm font-medium text-purple-custom hover:underline cursor-pointer">Lihat Semua</span>
+</div>
+<!-- Visual Bar Rating Simplified -->
+<div class="flex items-center gap-4 mb-5">
+<div class="flex flex-col items-center">
+<span class="text-3xl font-bold text-on-surface">4.9</span>
+<div class="flex text-yellow-400 text-xs">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star_half</span>
+</div>
+</div>
+<div class="flex-1 space-y-1">
+<!-- Rating Bars -->
+<div class="flex items-center gap-2 text-xs text-on-surface-variant"><span class="w-2">5</span><div class="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="bg-yellow-400 h-full w-[90%]"></div></div></div>
+<div class="flex items-center gap-2 text-xs text-on-surface-variant"><span class="w-2">4</span><div class="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="bg-yellow-400 h-full w-[8%]"></div></div></div>
+<div class="flex items-center gap-2 text-xs text-on-surface-variant"><span class="w-2">3</span><div class="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="bg-yellow-400 h-full w-[2%]"></div></div></div>
+</div>
+</div>
+<!-- Review Cards -->
+<div class="space-y-3">
+<!-- Review 1 -->
+<div class="bg-surface rounded-xl p-3 border border-outline-variant/20">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center text-xs font-bold text-on-surface-variant">A</div>
+<span class="text-sm font-semibold">Andi M.</span>
+</div>
+<span class="text-[10px] text-on-surface-variant">2 hari lalu</span>
+</div>
+<div class="flex text-yellow-400 text-[10px] mb-1">
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<p class="text-xs text-on-surface-variant line-clamp-2">"Truk datang tepat waktu, supir ramah dan proses muat mobil mogok saya aman banget. Mantap mas Fernando!"</p>
+</div>
+<!-- Review 2 -->
+<div class="bg-surface rounded-xl p-3 border border-outline-variant/20">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center text-xs font-bold text-on-surface-variant">B</div>
+<span class="text-sm font-semibold">Budi S.</span>
+</div>
+<span class="text-[10px] text-on-surface-variant">1 mgg lalu</span>
+</div>
+<div class="flex text-yellow-400 text-[10px] mb-1">
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<p class="text-xs text-on-surface-variant line-clamp-2">"Harga transparan, pelayanan profesional. Armada terawat bersih."</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Sticky Bottom Actions -->
+<div class="fixed bottom-0 left-0 w-full bg-surface border-t border-outline-variant/30 shadow-[0_-4px_16px_rgba(0,0,0,0.05)] p-margin-mobile pb-safe z-50 flex gap-3">
+<button class="flex-shrink-0 w-12 h-12 rounded-xl border-2 border-purple-custom text-purple-custom flex items-center justify-center hover:bg-purple-custom/5 transition-colors">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+</button>
+<button class="flex-1 h-12 rounded-xl purple-gradient text-white font-label-lg text-label-lg flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-shadow active:scale-[0.98]">
+<span class="material-symbols-outlined text-lg" data-icon="call">call</span>
+            Panggil Armada Ini
+        </button>
+</div>
+</body></html>

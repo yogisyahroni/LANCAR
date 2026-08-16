@@ -454,6 +454,13 @@ fun Order.displayServiceName(): String {
         ?: "TEMBUS On Demand"
 }
 
+fun Order.isMaintenanceService(): Boolean {
+    val code = serviceCategory.orEmpty().lowercase()
+    val sc = serviceCode.orEmpty().lowercase()
+    return code in setOf("tambal_ban", "towing") ||
+        sc.startsWith("tambal_ban") || sc.startsWith("towing")
+}
+
 fun Order.distanceKmValue(): Double {
     return distance
         .replace(",", ".")

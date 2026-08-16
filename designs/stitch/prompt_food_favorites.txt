@@ -1,0 +1,12 @@
+Halaman Favorit Merchant aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter.
+
+1. TOP BAR: back arrow + judul "Favorit" bold 20px hijau + sub "3 merchant" 12px grey.
+
+2. DAFTAR FAVORIT (kartu putih rounded 20px, sama dengan card merchant):
+   Tiap card: ikon store hijau muda 48px + nama bold 16px + badge halal + alamat 12px + ⭐ rating • jarak km • Buka/Tutup + ikon hati merah (sudah favorit, bisa tap untuk hapus).
+   Contoh:
+   a. "Soto Ayam Siti" — Halal — ⭐4.8 • 1.2 km • Buka — ❤️
+   b. "Bakmi GM" — Halal — ⭐4.9 • 2.3 km • Buka — ❤️
+   c. "Mie Gacoan" — Non-Halal — ⭐4.7 • 0.8 km • Buka — ❤️
+
+3. EMPTY STATE: ikon hati outline abu besar + "Belum ada merchant favorit" + sub "Tekan ikon hati di merchant untuk menambahkannya".

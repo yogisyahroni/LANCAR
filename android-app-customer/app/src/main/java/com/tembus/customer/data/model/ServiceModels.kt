@@ -56,6 +56,51 @@ data class PriceRange(
 )
 
 // ============================================================
+// TAMBAL BAN HOME — Payload halaman utama (design Stitch)
+// ============================================================
+
+@Serializable
+data class TambalBanServiceProduct(
+    @SerialName("code") val code: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("description") val description: String = "",
+    @SerialName("base_fare_idr") val baseFareIdr: Long = 0,
+    @SerialName("per_km_idr") val perKmIdr: Long = 0,
+    @SerialName("platform_fee_idr") val platformFeeIdr: Long = 0,
+    @SerialName("platform_fee_pct") val platformFeePct: Double = 0.0,
+    @SerialName("is_enabled") val isEnabled: Boolean = true,
+    @SerialName("vehicle_label") val vehicleLabel: String = ""
+)
+
+@Serializable
+data class TambalBanHomeResponse(
+    @SerialName("services") val services: List<TambalBanServiceProduct> = emptyList(),
+    @SerialName("couriers") val couriers: List<NearbyCourier> = emptyList(),
+    @SerialName("count") val count: Int = 0,
+    @SerialName("price_range") val priceRange: PriceRange = PriceRange()
+)
+
+@Serializable
+data class CourierDetail(
+    @SerialName("courier_id") val courierId: String = "",
+    @SerialName("courier_name") val courierName: String = "",
+    @SerialName("rating") val rating: Double = 0.0,
+    @SerialName("rating_count") val ratingCount: Int = 0,
+    @SerialName("vehicle_type") val vehicleType: String = "",
+    @SerialName("vehicle_type_car") val vehicleTypeCar: String? = null,
+    @SerialName("distance_km") val distanceKm: Double = 0.0,
+    @SerialName("eta_minutes") val etaMinutes: Int = 0,
+    @SerialName("courier_service_price") val courierServicePrice: Long = 0,
+    @SerialName("min_price") val minPrice: Long = 0,
+    @SerialName("max_price") val maxPrice: Long = 0,
+    @SerialName("radius_max_km") val radiusMaxKm: Int = 0,
+    @SerialName("service_sub_type") val serviceSubType: String = "",
+    @SerialName("status") val status: String = "",
+    @SerialName("status_text") val statusText: String = "",
+    @SerialName("is_online") val isOnline: Boolean = true
+)
+
+// ============================================================
 // SETTLEMENT — Response
 // ============================================================
 

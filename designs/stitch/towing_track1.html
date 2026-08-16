@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html class="light" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TEMBUS - Lacak Armada</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary": "#006780",
+                      "surface-bright": "#fcf9f8",
+                      "primary-container": "#00aa5b",
+                      "on-secondary-fixed-variant": "#930017",
+                      "error": "#ba1a1a",
+                      "secondary-fixed-dim": "#ffb3af",
+                      "on-tertiary-fixed": "#001f28",
+                      "on-primary-fixed-variant": "#005229",
+                      "on-surface": "#1c1b1b",
+                      "inverse-primary": "#57df89",
+                      "inverse-on-surface": "#f3f0ef",
+                      "primary-fixed-dim": "#57df89",
+                      "secondary-fixed": "#ffdad7",
+                      "outline-variant": "#bccabc",
+                      "error-container": "#ffdad6",
+                      "on-surface-variant": "#3d4a3f",
+                      "on-background": "#1c1b1b",
+                      "on-primary-container": "#003518",
+                      "on-error": "#ffffff",
+                      "outline": "#6d7b6e",
+                      "surface-container": "#f0edec",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-container": "#fffbff",
+                      "on-tertiary-container": "#00313f",
+                      "surface": "#fcf9f8",
+                      "tertiary-fixed-dim": "#52d5ff",
+                      "surface-container-highest": "#e5e2e1",
+                      "on-error-container": "#93000a",
+                      "secondary": "#bb0020",
+                      "surface-tint": "#006d38",
+                      "on-secondary-fixed": "#410005",
+                      "background": "#fcf9f8",
+                      "surface-dim": "#dcd9d9",
+                      "primary": "#006d38",
+                      "surface-container-lowest": "#ffffff",
+                      "on-tertiary-fixed-variant": "#004d61",
+                      "surface-variant": "#e5e2e1",
+                      "secondary-container": "#e41e31",
+                      "on-primary": "#ffffff",
+                      "tertiary-container": "#00a1c6",
+                      "inverse-surface": "#313030",
+                      "on-primary-fixed": "#00210d",
+                      "on-secondary": "#ffffff",
+                      "tertiary-fixed": "#b8eaff",
+                      "surface-container-high": "#ebe7e7",
+                      "surface-container-low": "#f6f3f2",
+                      "primary-fixed": "#76fca3"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "2xl": "1rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xl": "32px",
+                      "md": "16px",
+                      "gutter-mobile": "12px",
+                      "xs": "4px",
+                      "unit": "8px",
+                      "sm": "8px",
+                      "margin-mobile": "16px",
+                      "lg": "24px"
+              },
+              "fontFamily": {
+                      "headline-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "label-lg": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "body-md": ["Inter"],
+                      "label-sm": ["Inter"],
+                      "headline-lg-mobile": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "label-sm": ["11px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .radar-ping {
+            animation: radar 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes radar {
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+        .spin-loader {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .pulse-dot {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 109, 56, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 109, 56, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 109, 56, 0); }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-headline-md text-on-surface antialiased w-full max-w-[390px] mx-auto min-h-screen flex flex-col relative overflow-hidden">
+<!-- HEADER (TopAppBar) -->
+<header class="fixed top-0 w-full max-w-[390px] z-50 bg-surface flex items-center justify-between px-margin-mobile h-14">
+<button aria-label="Kembali" class="text-primary active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">Lacak Armada</h1>
+<button aria-label="Chat" class="text-primary active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[24px]">chat</span>
+</button>
+</header>
+<!-- MAIN CANVAS -->
+<main class="flex-1 mt-14 px-margin-mobile pb-[140px] flex flex-col gap-lg overflow-y-auto">
+<!-- STATUS CARD -->
+<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-surface-container-highest flex flex-col items-center text-center gap-unit mt-md">
+<div class="relative w-12 h-12 flex items-center justify-center mb-xs">
+<span class="material-symbols-outlined text-primary text-[32px] absolute">local_shipping</span>
+<svg class="spin-loader absolute w-full h-full text-primary" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="10" stroke-opacity="0.2"></circle>
+<path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
+</svg>
+</div>
+<h2 class="font-label-lg text-label-lg text-on-surface">Mencari armada terdekat...</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Biasanya ±1 menit • 5 armada di radius 5km</p>
+<button class="mt-xs font-label-sm text-label-sm text-primary border border-primary rounded-full px-md py-sm hover:bg-primary-container/10 active:scale-95 transition-all">
+                Perluas radius
+            </button>
+</div>
+<!-- PROGRESS STEPPER -->
+<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-surface-container-highest">
+<div class="flex justify-between items-center relative">
+<!-- Line background -->
+<div class="absolute top-[10px] left-[10%] right-[10%] h-[2px] bg-surface-container-highest -z-10"></div>
+<!-- Line active -->
+<div class="absolute top-[10px] left-[10%] right-[50%] h-[2px] bg-primary -z-10"></div>
+<!-- Step 1 -->
+<div class="flex flex-col items-center gap-xs z-10 w-1/4">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">Pembayaran</span>
+</div>
+<!-- Step 2 -->
+<div class="flex flex-col items-center gap-xs z-10 w-1/4">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center pulse-dot relative">
+<div class="w-2 h-2 rounded-full bg-on-primary"></div>
+</div>
+<span class="font-label-sm text-label-sm text-primary font-bold">Cari Armada</span>
+</div>
+<!-- Step 3 -->
+<div class="flex flex-col items-center gap-xs z-10 w-1/4">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center">
+<div class="w-2 h-2 rounded-full bg-surface-dim"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Menuju Lokasi</span>
+</div>
+<!-- Step 4 -->
+<div class="flex flex-col items-center gap-xs z-10 w-1/4">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center">
+<div class="w-2 h-2 rounded-full bg-surface-dim"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Selesai</span>
+</div>
+</div>
+</div>
+<!-- MAP ILLUSTRATION -->
+<div class="relative h-64 rounded-2xl overflow-hidden bg-primary-container/10 border border-outline-variant/30 flex items-center justify-center">
+<!-- Placeholder Map Map -->
+<img class="absolute inset-0 w-full h-full object-cover opacity-50" data-alt="A stylized vector map of Jakarta city streets from a top-down perspective, using light green and very soft grey tones for roads and blocks, modern minimalist material design style, brightly lit, clean lines." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkfRQZS9cmLYZ7t1Fruke59bEXALBZ1e_x9teNLps9WKmNhiMKpVcHE5dRuKFE2uS4pB0MHvnOWszQyCY2NQWsCXF2-XHb0SiYf1wNdE9pEcP3M2TYYaslARTlLYOYvw7ydIy0BgpGHpzu1ZwmJ2NBIogPge5-kFFwva0Cy64QALCSkpEn3ZD7DeZfU4gCR5Ml8GfU5RKY9_ni28Qa0hrSUhMVDoUzFxnYrhqG8-EfWb1H6QxoViE9XGG9ZX0LvdJ1Uoviw0XRUniM"/>
+<!-- Center Pin -->
+<div class="relative z-10 flex flex-col items-center">
+<div class="bg-surface px-sm py-[2px] rounded-full shadow-sm mb-xs border border-outline-variant/50">
+<span class="font-label-sm text-label-sm text-on-surface">Lokasi Anda</span>
+</div>
+<div class="relative w-8 h-8 flex justify-center">
+<span class="material-symbols-outlined text-primary text-[32px] z-10" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<div class="absolute top-[8px] w-4 h-4 bg-primary rounded-full radar-ping opacity-75"></div>
+<div class="absolute top-[8px] w-4 h-4 bg-primary rounded-full radar-ping opacity-50" style="animation-delay: 0.5s"></div>
+</div>
+</div>
+</div>
+</main>
+<!-- BOTTOM ACTIONS (Bottom Sheet style) -->
+<div class="fixed bottom-0 w-full max-w-[390px] bg-surface rounded-t-2xl shadow-[0_-4px_16px_rgba(0,0,0,0.05)] border-t border-surface-container-highest z-50 flex flex-col items-center pb-safe pt-unit px-margin-mobile">
+<div class="w-12 h-1 bg-surface-container-highest rounded-full mb-md"></div>
+<button class="w-full h-12 rounded-lg border-2 border-error text-error font-label-lg text-label-lg flex items-center justify-center hover:bg-error/5 active:scale-[0.98] transition-all">
+            Batalkan Pesanan
+        </button>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-sm mb-md text-center">
+            Batal gratis sebelum armada ditemukan
+        </p>
+</div>
+</body></html>

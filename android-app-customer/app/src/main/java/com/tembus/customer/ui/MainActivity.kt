@@ -19,13 +19,15 @@ import androidx.lifecycle.lifecycleScope
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.model.AppVersion
 import com.tembus.customer.ui.components.UpdateDialog
-import com.tembus.customer.ui.screens.splash.CustomerLaunchSplash
 import com.tembus.customer.ui.theme.TEMBUSCustomerTheme
 import com.tembus.customer.util.UpdateManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.activity.viewModels
+import com.tembus.customer.ui.MainViewModel
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
@@ -41,9 +43,16 @@ class MainActivity : FragmentActivity() {
 
     private var pendingDeepLinkUri by mutableStateOf<Uri?>(null)
 
+    private val viewModel: MainViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        splashScreen.setKeepOnScreenCondition {
+            viewModel.isLoading.value
+        }
 
         // ---- DEBUG-ONLY UAT harness (BuildConfig.DEBUG) ----
         // Deep link: tembus://debug/uat/chat/{orderId}
@@ -74,71 +83,51 @@ class MainActivity : FragmentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var showLaunchSplash by remember { mutableStateOf(true) }
-                    var launchSplashPresented by remember { mutableStateOf(false) }
-
-                    LaunchedEffect(launchSplashPresented) {
-                        if (launchSplashPresented) {
-                            delay(3_000L)
-                            showLaunchSplash = false
-                        }
-                    }
-
-                    // App update logic runs after the launch splash finishes so
-                    // the first Compose frame is always the branded splash image.
+                    // App update logic runs immediately since we no longer have a custom splash
                     var updateInfo by remember { mutableStateOf<AppVersion?>(null) }
                     var isUpdating by remember { mutableStateOf(false) }
                     var updateError by remember { mutableStateOf<String?>(null) }
                     val updateScope = rememberCoroutineScope()
-                    LaunchedEffect(showLaunchSplash) {
-                        if (!showLaunchSplash) {
-                            updateInfo = updateManager.checkUpdate()
-                        }
+                    
+                    LaunchedEffect(Unit) {
+                        updateInfo = updateManager.checkUpdate()
                     }
 
-                    if (showLaunchSplash) {
-                        CustomerLaunchSplash(
-                            onPresented = {
-                                launchSplashPresented = true
-                            }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        com.tembus.customer.ui.navigation.RootNavGraph(
+                            initialDeepLink = pendingDeepLinkUri,
+                            onDeepLinkConsumed = { pendingDeepLinkUri = null }
                         )
-                    } else {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            com.tembus.customer.ui.navigation.RootNavGraph(
-                                initialDeepLink = pendingDeepLinkUri,
-                                onDeepLinkConsumed = { pendingDeepLinkUri = null }
-                            )
-                            updateInfo?.let { info ->
-                                UpdateDialog(
-                                    version = info,
-                                    isUpdating = isUpdating,
-                                    errorMessage = updateError,
-                                    onUpdateNow = {
-                                        updateError = null
-                                        isUpdating = true
-                                        updateScope.launch {
-                                            val result = updateManager.downloadAndOpenInstaller(info)
-                                            isUpdating = false
-                                            result.onFailure { error ->
-                                                if (error is UpdateManager.InstallPermissionRequiredException) {
-                                                    updateError = "Aktifkan izin instalasi update untuk TEMBUS, lalu tekan Update sekarang lagi."
-                                                    updateManager.openInstallPermissionSettings(this@MainActivity)
-                                                        .onFailure { permissionError ->
-                                                            updateError = permissionError.message
-                                                                ?: "Halaman izin install tidak bisa dibuka."
-                                                        }
-                                                } else {
-                                                    updateError = error.message ?: "Gagal menyiapkan update."
-                                                }
+                        updateInfo?.let { info ->
+                            UpdateDialog(
+                                version = info,
+                                isUpdating = isUpdating,
+                                errorMessage = updateError,
+                                onUpdateNow = {
+                                    updateError = null
+                                    isUpdating = true
+                                    updateScope.launch {
+                                        val result = updateManager.downloadAndOpenInstaller(info)
+                                        isUpdating = false
+                                        result.onFailure { error ->
+                                            if (error is UpdateManager.InstallPermissionRequiredException) {
+                                                updateError = "Aktifkan izin instalasi update untuk TEMBUS, lalu tekan Update sekarang lagi."
+                                                updateManager.openInstallPermissionSettings(this@MainActivity)
+                                                    .onFailure { permissionError ->
+                                                        updateError = permissionError.message
+                                                            ?: "Halaman izin install tidak bisa dibuka."
+                                                    }
+                                            } else {
+                                                updateError = error.message ?: "Gagal menyiapkan update."
                                             }
                                         }
-                                    },
-                                    onDismiss = {
-                                        updateError = null
-                                        updateInfo = null
                                     }
-                                )
-                            }
+                                },
+                                onDismiss = {
+                                    updateError = null
+                                    updateInfo = null
+                                }
+                            )
                         }
                     }
                 }

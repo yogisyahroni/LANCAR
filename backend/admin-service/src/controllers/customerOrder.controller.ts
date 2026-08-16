@@ -576,6 +576,12 @@ const routeVehicleTypeForService = (service: DeliveryServiceProduct) => {
   return vehicles.includes('car') || vehicles.includes('mobil') ? 'car' : 'motorcycle';
 };
 
+// Home services: kurir DATANG ke lokasi customer (tambal ban, towing).
+// pickup == dropoff adalah kejadian normal — rute 0 km TIDAK boleh ditolak.
+const HOME_SERVICE_CATEGORIES = new Set(['tambal_ban', 'towing']);
+const isHomeServiceCategory = (service: DeliveryServiceProduct): boolean =>
+  HOME_SERVICE_CATEGORIES.has(String(service.service_category || '').toLowerCase());
+
 const ROUTE_SNAPSHOT_CONTRACT_VERSION = 1;
 
 const routeSnapshotHash = (snapshot: Record<string, unknown>) =>
@@ -672,26 +678,26 @@ const calculateCustomerPriceBreakdown = async ({
   // logistics_tariff_idr in the order. We return placeholder values
   // so the order INSERT has valid route_snapshot and zero-cost components.
   if (service.price_mode === 'quote') {
-    const routeSnapshot = {
-      ...(routeSnapshotOverride || await buildMapsRouteEtaSnapshot(
-        { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
-        { latitude: dropoffPoint.lat, longitude: dropoffPoint.lng },
-        'customer_mobile',
-        {
-          serviceCode: service.code,
-          vehicleType: routeVehicleTypeForService(service),
-          routeProfile: routeVehicleTypeForService(service),
-          requireRoadRoute: true,
-        }
-      )),
-      service_code: service.code,
-    };
-    const distance = Math.max(0, Number(routeSnapshot.distance_km || 0));
-    const routeEta = routeSnapshot.eta_minutes || 120;
-    const etaMinutes = Math.min(service.max_eta_minutes, Math.max(20, routeEta));
-    const normalizedPkgs = packages && packages.length > 0
-      ? packages
-      : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
+      const routeSnapshot = {
+        ...(routeSnapshotOverride || await buildMapsRouteEtaSnapshot(
+          { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
+          { latitude: dropoffPoint.lat, longitude: dropoffPoint.lng },
+          'customer_mobile',
+          {
+            serviceCode: service.code,
+            vehicleType: routeVehicleTypeForService(service),
+            routeProfile: routeVehicleTypeForService(service),
+            requireRoadRoute: true,
+          }
+        )),
+        service_code: service.code,
+      };
+      const distance = Math.max(0, Number(routeSnapshot.distance_km || 0));
+      const routeEta = routeSnapshot.eta_minutes || 120;
+      const etaMinutes = Math.min(service.max_eta_minutes, Math.max(20, routeEta));
+      const normalizedPkgs = packages && packages.length > 0
+        ? packages
+        : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
     const pkgSummary = summarizePackages(service, normalizedPkgs);
 
     return {
@@ -718,27 +724,34 @@ const calculateCustomerPriceBreakdown = async ({
   }
 
   const routeSnapshot = {
-    ...(routeSnapshotOverride || await buildMapsRouteEtaSnapshot(
-      { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
-      { latitude: dropoffPoint.lat, longitude: dropoffPoint.lng },
-      'customer_mobile',
-      {
-        serviceCode: service.code,
-        vehicleType: routeVehicleTypeForService(service),
-        routeProfile: routeVehicleTypeForService(service),
-        requireRoadRoute: true,
-      }
-    )),
-    service_code: service.code,
-  };
+      ...(routeSnapshotOverride || await buildMapsRouteEtaSnapshot(
+        { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
+        { latitude: dropoffPoint.lat, longitude: dropoffPoint.lng },
+        'customer_mobile',
+        {
+          serviceCode: service.code,
+          vehicleType: routeVehicleTypeForService(service),
+          routeProfile: routeVehicleTypeForService(service),
+          requireRoadRoute: !isHomeServiceCategory(service),
+        }
+      )),
+      service_code: service.code,
+    };
 
-  const distance = Math.max(0, Number(routeSnapshot.distance_km || 0));
-  if (distance <= 0) {
-    const error = new Error('Rute pickup dan tujuan belum bisa dihitung. Coba pilih alamat yang lebih lengkap.');
-    (error as any).statusCode = 422;
-    (error as any).code = 'ERR_ROUTE_UNAVAILABLE';
-    throw error;
-  }
+    const isHomeService = isHomeServiceCategory(service);
+    // Home services (tambal ban / towing): kurir DATANG ke lokasi customer —
+    // pickup == dropoff adalah keadaan normal, bukan rute 0 km yang salah.
+    // Jarak minimum = included_distance_km supaya base_fare tetap valid.
+    const rawDistance = Math.max(0, Number(routeSnapshot.distance_km || 0));
+    const distance = isHomeService
+      ? Math.max(rawDistance, toNumber(service.included_distance_km, 1))
+      : rawDistance;
+    if (distance <= 0) {
+      const error = new Error('Rute pickup dan tujuan belum bisa dihitung. Coba pilih alamat yang lebih lengkap.');
+      (error as any).statusCode = 422;
+      (error as any).code = 'ERR_ROUTE_UNAVAILABLE';
+      throw error;
+    }
 
   if (service.max_distance_km && distance > service.max_distance_km) {
     const error = new Error(`${service.name} maksimal ${service.max_distance_km} km. Jarak order ini ${distance} km.`);
@@ -1363,61 +1376,75 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
-    const values = [
-      customer_id,
-      order_number,
-      pickup_address.trim(),
-      pickupPoint.lng,
-      pickupPoint.lat,
-      dropoff_address.trim(),
-      dropoffPoint.lng,
-      dropoffPoint.lat,
-      recipient_name,
-      maskPhone(recipient_phone) || '*****',
-      service.route_model,
-      service.code,
-      JSON.stringify(trustedPriceBreakdown.service_snapshot || publicServiceSnapshot(service)),
-      isPaymentBypassed ? 'pending' : 'pending_payment',
-      trustedPriceBreakdown.distance_km || 0,
-      trustedPriceBreakdown.base_price_idr || 0,
-      trustedPriceBreakdown.volumetric_surcharge_idr || 0,
-      trustedPriceBreakdown.insurance_premium_idr || 0,
-      trustedPriceBreakdown.dynamic_price_idr || 0,
-      promoDiscountIdr + voucherDiscountIdr, // total diskon (promo + voucher FB-078)
-      totalPrice,
-      settlement.ppn_idr,
-      settlement.mdr_idr,
-      settlement.platform_commission_idr,
-      settlement.courier_payout_estimate_idr,
-      JSON.stringify(settlement.settlement_snapshot),
-      has_insurance || false,
-      item_value || 0,
-      JSON.stringify(normalizePackageDetailsForOrder(package_details || {}, service, selectedTier, packageChargeableWeight, normalizedPackages)),
-      customer_notes || '',
-      schedule_type || 'now',
-      scheduled_at ? new Date(scheduled_at) : null,
-      JSON.stringify(trustedRouteSnapshot),
-      trustedRouteSnapshot.provider,
-      trustedRouteSnapshot.route_profile,
-      trustedRouteSnapshot.distance_meters,
-      trustedRouteSnapshot.duration_seconds,
-      trustedRouteSnapshot.route_polyline,
-      trustedRouteSnapshot.fallback_reason,
-      hashPhoneForPrivateLookup(recipient_phone),
-      package_details?.item_description || '',
-      logistics_provider || null,
-      logistics_service_type || null,
-      logistics_tariff_idr || null,
-      logistics_net_cost_idr || null,
-      pickup_city || null,
-      dropoff_city || null,
-      preferred_courier_id || null
-    ];
+    // FK orders_preferred_courier_id_fkey → users(id), TAPI app kirim
+        // courier_profiles.id (UUID berbeda — home API mengembalikan cp.id).
+        // Resolve ke user_id sebelum insert supaya FK valid + dispatch benar.
+        let resolvedPreferredCourierUserId: string | null = null;
+        if (preferred_courier_id && service.service_category !== 'aggregator') {
+          const profile = await client.query(
+            `SELECT user_id FROM courier_profiles WHERE id = $1`,
+            [preferred_courier_id]
+          );
+          resolvedPreferredCourierUserId = profile.rows[0]?.user_id
+            ? String(profile.rows[0].user_id)
+            : preferred_courier_id;
+        }
 
-    const result = await client.query(insertQuery, values);
-    const newOrder = result.rows[0];
+        const values = [
+          customer_id,
+          order_number,
+          pickup_address.trim(),
+          pickupPoint.lng,
+          pickupPoint.lat,
+          dropoff_address.trim(),
+          dropoffPoint.lng,
+          dropoffPoint.lat,
+          recipient_name,
+          maskPhone(recipient_phone) || '*****',
+          service.route_model,
+          service.code,
+          JSON.stringify(trustedPriceBreakdown.service_snapshot || publicServiceSnapshot(service)),
+          isPaymentBypassed ? 'pending' : 'pending_payment',
+          trustedPriceBreakdown.distance_km || 0,
+          trustedPriceBreakdown.base_price_idr || 0,
+          trustedPriceBreakdown.volumetric_surcharge_idr || 0,
+          trustedPriceBreakdown.insurance_premium_idr || 0,
+          trustedPriceBreakdown.dynamic_price_idr || 0,
+          promoDiscountIdr + voucherDiscountIdr, // total diskon (promo + voucher FB-078)
+          totalPrice,
+          settlement.ppn_idr,
+          settlement.mdr_idr,
+          settlement.platform_commission_idr,
+          settlement.courier_payout_estimate_idr,
+          JSON.stringify(settlement.settlement_snapshot),
+          has_insurance || false,
+          item_value || 0,
+          JSON.stringify(normalizePackageDetailsForOrder(package_details || {}, service, selectedTier, packageChargeableWeight, normalizedPackages)),
+          customer_notes || '',
+          schedule_type || 'now',
+          scheduled_at ? new Date(scheduled_at) : null,
+          JSON.stringify(trustedRouteSnapshot),
+          trustedRouteSnapshot.provider,
+          trustedRouteSnapshot.route_profile,
+          trustedRouteSnapshot.distance_meters,
+          trustedRouteSnapshot.duration_seconds,
+          trustedRouteSnapshot.route_polyline,
+          trustedRouteSnapshot.fallback_reason,
+          hashPhoneForPrivateLookup(recipient_phone),
+          package_details?.item_description || '',
+          logistics_provider || null,
+          logistics_service_type || null,
+          logistics_tariff_idr || null,
+          logistics_net_cost_idr || null,
+          pickup_city || null,
+          dropoff_city || null,
+          resolvedPreferredCourierUserId
+        ];
 
-    if (voucherId) {
+        const result = await client.query(insertQuery, values);
+        const newOrder = result.rows[0];
+
+        if (voucherId) {
       await client.query(
         `INSERT INTO voucher_usages (voucher_id, order_id, user_id, discount_idr)
          VALUES ($1, $2, $3, $4)
@@ -1555,18 +1582,22 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       const dispatchClient = await db.connect();
       try {
         let createdOffers: Awaited<ReturnType<typeof advanceOnDemandDispatchQueue>> = [];
-        if (preferred_courier_id) {
-          // "Pilih Petugas" flow: dispatch langsung ke courier yang dipilih customer
-          const offer = await dispatchToPreferredCourier(dispatchClient, newOrder.id, preferred_courier_id);
-          if (offer) createdOffers.push(offer);
-          if (!offer) {
-            securityLog.warn(`[WARN] Preferred courier ${preferred_courier_id} tidak bisa di-dispatch untuk order ${newOrder.id}; fallback ke queue normal`);
-            createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
-          }
-        } else {
-          createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
-        }
-        await notifyOnDemandOffers(createdOffers);
+                if (preferred_courier_id) {
+                  // "Pilih Petugas" flow: dispatch langsung ke courier yang dipilih customer.
+                  // WAJIB pakai resolvedPreferredCourierUserId (user_id) — dispatchToPreferredCourier
+                  // mencocokkan cp.user_id, sedangkan req.body.preferred_courier_id adalah
+                  // courier_profiles.id (yang TIDAK match FK orders).
+                  const dispatchTarget = resolvedPreferredCourierUserId || preferred_courier_id;
+                  const offer = await dispatchToPreferredCourier(dispatchClient, newOrder.id, dispatchTarget);
+                  if (offer) createdOffers.push(offer);
+                  if (!offer) {
+                    securityLog.warn(`[WARN] Preferred courier ${dispatchTarget} tidak bisa di-dispatch untuk order ${newOrder.id}; fallback ke queue normal`);
+                    createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+                  }
+                } else {
+                  createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+                }
+                await notifyOnDemandOffers(createdOffers);
       } catch (dispatchErr) {
         securityLog.error('[WARN] dispatch after bypass failed:', dispatchErr);
       } finally {

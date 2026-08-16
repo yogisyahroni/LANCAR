@@ -1,0 +1,19 @@
+Halaman layanan Tambal Ban aplikasi TEMBUS, bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F5F7F6, font Inter. HANYA konten tambal ban berdiri sendiri — TANPA grid layanan lain (tanpa tile Kirim Paket/Food/Towing, tanpa shortcut service lain).
+
+1. HEADER: kiri ikon pin cyan #00AED6 + teks kecil "Lokasi Anda" grey-12px + "Jl. Pintu Air 3 No.91 G" bold-16px #141414; kanan ikon notifikasi badge cyan + avatar glossy 3D 32px bulat.
+
+2. SEARCH BAR: pill 48px bg #FFFFFF border #E5E5E5, ikon kaca pembesar cyan, placeholder "Cari layanan tambal ban..." grey-14px.
+
+3. HERO CARD: rounded-2xl gradient cyan #00AED6 ke #008EB0, foto glossy montir sedang membetulkan ban motor di pinggir jalan, badge putih translusen "Buka 24 jam" + badge kuning "Teknisi Siap", teks putih bold 22px "Tambal Ban di Lokasimu" + sub putih 13px "Teknisi datang ke lokasi • 15-30 menit sampai", tombol putih rounded-full px-6 py-3 teks cyan bold "Panggil Sekarang" + ikon telepon.
+
+4. HOW IT WORKS: judul bold 18px "Cara kerja" + 3 langkah sejajar: (1) ikon glossy 3D roda + label "Pilih layanan" teks 12px #333, (2) ikon glossy 3D motor + "Teknisi datang", (3) ikon glossy 3D dompet + "Bayar di tempat"; tiap langkah teks sub grey 10px "±1 menit" / "±30 menit" / "Cash/QRIS".
+
+5. "Layanan Populer": 4 kartu layanan list rounded-xl white shadow-sm, tiap kartu: ikon glossy 3D kecil kiri, nama bold 15px + sub grey 12px, kanan harga cyan bold + ETA 11px + tombol "Pilih" outline cyan rounded-full px-4:
+   a. Tambal Ban Tubeless — ikon ban — "Mulai 15rb" — "±30 menit"
+   b. Tambal Ban Standar — ikon ban speed — "Mulai 10rb" — "±20 menit"
+   c. Ganti Ban Luar — ikon ban baru — "Mulai 120rb" — "±45 menit" badge diskon "-10%"
+   d. Isi Angin Nitrogen — ikon angin — "Rp5rb" — "±5 menit"
+
+6. "Teknisi Terdekat": 2 kartu teknisi: foto avatar glossy 3D 48px + nama bold 14px + star kuning 4.9 (200+ order) + kanan "1.2 km" grey "±25 menit" + tombol "Panggil" filled cyan rounded-full; badge kecil "Top Rated".
+
+7. BOTTOM NAV 4 item: Beranda active cyan #00AED6, Riwayat, Bisnis, Profil; ikon glossy 3D teks 10px.

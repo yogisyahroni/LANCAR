@@ -64,6 +64,7 @@ func (m *mockOrderRepo) ListByUserID(ctx context.Context, userID string, filter 
 	return nil, nil
 }
 func (m *mockOrderRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order, error) { return nil, nil }
+func (m *mockOrderRepo) UpdateLegsStatus(ctx context.Context, orderID string, status domain.OrderStatus) error { return nil }
 func (m *mockOrderRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
 	if m.order != nil && m.order.ID == id {
 		m.order.Status = status

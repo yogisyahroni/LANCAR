@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TEMBUS - Food Delivery</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#f6f3f2",
+                        "surface-dim": "#dcd9d9",
+                        "on-primary-container": "#003518",
+                        "tertiary": "#006780",
+                        "secondary-container": "#e41e31",
+                        "surface-variant": "#e5e2e1",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "surface-container": "#f0edec",
+                        "primary": "#00aa5b", /* Updated primary to match app context */
+                        "on-surface-variant": "#3d4a3f",
+                        "on-secondary-fixed-variant": "#930017",
+                        "inverse-on-surface": "#f3f0ef",
+                        "primary-fixed": "#76fca3",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "on-primary-fixed-variant": "#005229",
+                        "inverse-surface": "#313030",
+                        "on-tertiary-container": "#00313f",
+                        "on-background": "#1c1b1b",
+                        "tertiary-fixed": "#b8eaff",
+                        "on-tertiary-fixed": "#001f28",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "primary-fixed-dim": "#57df89",
+                        "on-primary-fixed": "#00210d",
+                        "surface-container-high": "#ebe7e7",
+                        "on-secondary-container": "#fffbff",
+                        "on-primary": "#ffffff",
+                        "outline": "#6d7b6e",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "surface": "#ffffff", /* Updated surface to match specs */
+                        "background": "#ffffff", /* Updated background to match specs */
+                        "on-surface": "#1c1b1b",
+                        "surface-tint": "#006d38",
+                        "surface-container-highest": "#e5e2e1",
+                        "on-secondary-fixed": "#410005",
+                        "on-error-container": "#93000a",
+                        "tertiary-container": "#00a1c6",
+                        "surface-bright": "#fcf9f8",
+                        "secondary-fixed": "#ffdad7",
+                        "inverse-primary": "#57df89",
+                        "secondary": "#bb0020",
+                        "primary-container": "#00aa5b",
+                        "outline-variant": "#e5e5e5", /* Updated to match specs */
+                        "error-container": "#ffdad6",
+                        "brand-red": "#EE2737",
+                        "brand-red-dark": "#C91F2C",
+                        "promo-bg": "#F0FFF5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "xl": "32px",
+                        "sm": "8px",
+                        "margin-mobile": "16px",
+                        "unit": "8px",
+                        "gutter-mobile": "12px",
+                        "md": "16px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter", "sans-serif"],
+                        "headline-lg": ["Inter", "sans-serif"],
+                        "label-sm": ["Inter", "sans-serif"],
+                        "label-lg": ["Inter", "sans-serif"],
+                        "headline-md": ["Inter", "sans-serif"],
+                        "body-md": ["Inter", "sans-serif"],
+                        "body-lg": ["Inter", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-sm": ["11px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500"}],
+                        "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background font-body-md text-on-surface antialiased max-w-[390px] mx-auto relative pb-24">
+<!-- 1. HEADER (TopAppBar) -->
+<header class="flex items-center justify-between px-margin-mobile h-14 w-full bg-surface sticky top-0 z-40" data-name="TopAppBar" data-type="small">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-brand-red" data-icon="location_on" data-weight="fill" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<div class="flex flex-col">
+<span class="text-[12px] text-on-surface-variant font-medium">Lokasi Anda</span>
+<span class="font-bold text-[16px] text-[#141414] flex items-center">
+                    Jl. Pintu Air 3 No.91 G
+                    <span class="material-symbols-outlined text-[16px] ml-1" data-icon="expand_more">expand_more</span>
+</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative">
+<span class="material-symbols-outlined text-on-surface" data-icon="notifications">notifications</span>
+<div class="absolute top-0 right-0 w-2 h-2 bg-brand-red rounded-full border border-white"></div>
+</div>
+<img class="w-8 h-8 rounded-full object-cover shadow-sm" data-alt="Glossy 3D person profile icon, primary green color, high-quality 3D render, depth, bright lighting, light mode UI element." src="https://lh3.googleusercontent.com/aida/AP1WRLvUdPXQ27cTa3MCBM7k8gRVxSnjBkCx1T-AlLlKqeOWAT8zBexrEHAsaXgzpu3Iq_jgTnWmpkyHwgf324FoULcoo7Zw5fstS_Bvtcovk1uR4b4z-FmlWJKiZCNm7Q2GoZTRugHoSF8_TNmYEA0lU5gesdkORo-iR4Koecnh0NcvKmxwMBP2gNGfYm1UyMQAXDifFy7jicVmzQN-V7VZCVbToE5ci-0jqJSlLbPPyNoMOHlRcAmsnjOnjMqA"/>
+</div>
+</header>
+<!-- 2. SEARCH BAR -->
+<div class="px-margin-mobile pt-sm pb-md flex items-center gap-sm">
+<div class="flex-1 bg-[#F2F2F2] h-[48px] rounded-full flex items-center px-4">
+<span class="material-symbols-outlined text-on-surface-variant mr-2" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-[14px] w-full text-on-surface-variant placeholder:text-on-surface-variant/70 p-0" placeholder="Lagi mau mamam apa?" type="text"/>
+</div>
+<div class="w-10 h-10 flex items-center justify-center bg-surface-container-low rounded-full">
+<span class="material-symbols-outlined text-on-surface" data-icon="feed">feed</span>
+</div>
+</div>
+<main class="px-margin-mobile pb-lg space-y-lg">
+<!-- 3. HERO BANNER -->
+<div class="relative w-full aspect-video rounded-2xl overflow-hidden shadow-md">
+<div class="absolute inset-0 bg-gradient-to-r from-brand-red to-brand-dark z-10 opacity-90 mix-blend-multiply"></div>
+<img class="absolute inset-0 w-full h-full object-cover" data-alt="A mouth-watering, close-up shot of an Indonesian spicy noodle dish with fried wontons, vibrant warm lighting, professional food photography style, dark rustic background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQoAa0fe7IdTC5ODj6gVGbsa6ZKM5bvIaULaUticE1sZBXV5s6C5iKDWzrNWlB371cHGXMPcHTWaO896-2SjkpqstgDdvJWyonXpQexuA349lEQrdj_AIQCGQ7rT4pOkNuiH8DUkG2RtKx0h78FWfh4khCyf7reUWq1uEJZR0l7u1q7oGaV15HoVbI1Y5cBhS8bZL9yPrByiu-4kDvL0hcJCRAi5-wklyrAiNHSTcY91Wog_yyJdWuVQBHpsbkne3K71jQG7jmljMg"/>
+<div class="absolute inset-0 z-20 p-md flex flex-col justify-center">
+<span class="bg-[#FFD100] text-[#141414] text-[10px] font-bold px-2 py-1 rounded w-max mb-2 uppercase tracking-wide">Persediaan terbatas</span>
+<h2 class="text-white font-bold text-[22px] leading-tight mb-1">Diskon 50% maks 15rb</h2>
+<p class="text-white/90 text-[12px]">Min. pembelian 20rb</p>
+</div>
+<div class="absolute bottom-3 left-0 w-full flex justify-center gap-1 z-20">
+<div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-white/50"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-white/50"></div>
+</div>
+</div>
+<!-- 4. KATEGORI -->
+<div class="flex overflow-x-auto hide-scrollbar gap-gutter-mobile pb-2 -mx-margin-mobile px-margin-mobile">
+<button class="flex flex-col items-center min-w-[64px] gap-2">
+<div class="w-[48px] h-[48px] rounded-2xl bg-primary flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-white" data-icon="restaurant">restaurant</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">Semua</span>
+</button>
+<button class="flex flex-col items-center min-w-[64px] gap-2">
+<div class="w-[48px] h-[48px] rounded-2xl bg-surface border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="savings">savings</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">Dibawah 5rb</span>
+</button>
+<button class="flex flex-col items-center min-w-[64px] gap-2">
+<div class="w-[48px] h-[48px] rounded-2xl bg-surface border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-orange-500" data-icon="local_mall">local_mall</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">Menu 30rb</span>
+</button>
+<button class="flex flex-col items-center min-w-[64px] gap-2">
+<div class="w-[48px] h-[48px] rounded-2xl bg-surface border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-yellow-600" data-icon="ramen_dining">ramen_dining</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">Bakmie</span>
+</button>
+<button class="flex flex-col items-center min-w-[64px] gap-2">
+<div class="w-[48px] h-[48px] rounded-2xl bg-surface border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-red-500" data-icon="kebab_dining">kebab_dining</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">Ayam</span>
+</button>
+</div>
+<!-- 5. FILTER BAR -->
+<div class="flex overflow-x-auto hide-scrollbar gap-2 pb-1 -mx-margin-mobile px-margin-mobile items-center">
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-full border border-outline-variant whitespace-nowrap bg-surface">
+<span class="text-[13px] font-medium text-on-surface">Terdekat</span>
+<span class="material-symbols-outlined text-[16px]" data-icon="expand_more">expand_more</span>
+</button>
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-full border border-outline-variant whitespace-nowrap bg-surface">
+<span class="material-symbols-outlined text-[14px] text-yellow-500" data-icon="star" data-weight="fill" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[13px] font-medium text-on-surface">Rating</span>
+</button>
+<button class="flex items-center px-3 py-1.5 rounded-full border border-outline-variant whitespace-nowrap bg-surface">
+<span class="text-[13px] font-medium text-on-surface">Terlaris</span>
+</button>
+<button class="flex items-center px-3 py-1.5 rounded-full border border-outline-variant whitespace-nowrap bg-surface">
+<span class="text-[13px] font-medium text-on-surface">Buka sekarang</span>
+</button>
+<div class="sticky right-0 bg-gradient-to-l from-surface via-surface to-transparent pl-4 pr-1">
+<button class="w-8 h-8 rounded-full border border-outline-variant flex items-center justify-center bg-surface">
+<span class="material-symbols-outlined text-[18px] text-primary" data-icon="tune">tune</span>
+</button>
+</div>
+</div>
+<!-- 6. PROMO SECTION -->
+<section class="space-y-sm">
+<h3 class="font-bold text-[18px] text-on-surface">Promo buat kamu</h3>
+<div class="bg-promo-bg border border-primary/20 rounded-xl p-md flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-primary" data-icon="local_offer">local_offer</span>
+</div>
+<div>
+<h4 class="font-bold text-[14px] text-on-surface">Free ongkir s/d 10rb</h4>
+<p class="text-[12px] text-on-surface-variant">Min. 30rb</p>
+</div>
+</div>
+<button class="bg-primary text-white text-[12px] font-bold px-4 py-2 rounded-full hover:bg-surface-tint transition-colors">
+                    Pakai
+                </button>
+</div>
+</section>
+<!-- 7. MERCHANT LIST -->
+<section class="space-y-md">
+<div>
+<h3 class="font-bold text-[18px] text-on-surface">Resto dengan rating jempolan</h3>
+<p class="text-[12px] text-on-surface-variant">Rasa-rasa yang dicap enak sama warga.</p>
+</div>
+<div class="grid grid-cols-1 gap-lg">
+<!-- Card A -->
+<div class="space-y-sm">
+<div class="relative w-full aspect-video rounded-xl overflow-hidden shadow-sm">
+<img class="w-full h-full object-cover" data-alt="A delicious looking double cheeseburger with bacon and a side of golden french fries, warm lighting, styled for a food delivery app menu." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSTpTQwrcuAw6SM_289PaOfuo0NH3-VkT2j5SDYYKk30cyQTjsp2hNtlMUu50dXNmxkNm_mBlnUlHdYftTuZt1c3QKaAqb3zjF-Azrz5ArMfWyosNlyYLGrEHfBU1okCooBa4N-eiixcDzKFLAJ5ldSFVXkM5kEhlnHs_4Vh9Mmpkj_q5Vdjl80i07KYxxEsAuvmLbMmGA3WuUlcGUv_EwMIdO5kJzwek9E5LCphXPlRPlOLGu0J_se7DVPW_S-swLtgv0Am2gkVJn"/>
+<div class="absolute bottom-2 left-2 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">
+                            -25% maks 32rb
+                        </div>
+<div class="absolute top-2 right-2 bg-black/40 backdrop-blur-sm text-white text-[10px] px-1.5 py-0.5 rounded">
+                            Ad
+                        </div>
+</div>
+<div>
+<h4 class="font-bold text-[16px] text-on-surface truncate">Mie Gacoan - Mangga Besar</h4>
+<div class="flex flex-wrap items-center gap-2 mt-1 text-[12px] text-on-surface-variant">
+<div class="flex items-center text-yellow-500">
+<span class="material-symbols-outlined text-[14px]" data-icon="star" data-weight="fill" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-medium ml-0.5">4.8</span>
+</div>
+<span>(18rb+)</span>
+<span class="w-1 h-1 rounded-full bg-surface-dim"></span>
+<span>1.2 km</span>
+<span class="w-1 h-1 rounded-full bg-surface-dim"></span>
+<span>25-35 min</span>
+</div>
+<div class="flex items-center gap-2 mt-2">
+<span class="text-[10px] px-2 py-1 bg-surface-container-low rounded text-on-surface-variant">20rb-30rb</span>
+<div class="text-[12px]">
+<span class="text-primary font-medium">Ongkir 4.5rb</span>
+<span class="text-on-surface-variant/50 line-through ml-1">7.5rb</span>
+</div>
+</div>
+<p class="text-brand-red text-[11px] font-medium mt-1">Kelar jam 22:00</p>
+</div>
+</div>
+<!-- Card B -->
+<div class="space-y-sm">
+<div class="relative w-full aspect-video rounded-xl overflow-hidden shadow-sm">
+<img class="w-full h-full object-cover" data-alt="Indonesian Ayam Geprek, crispy fried chicken smashed with vibrant red chili sambal, served with white rice and cucumber, rustic wooden table setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNAL0tvDF-46hv3JzrJigIMJobSDchbKIXtLlTvWh2UF3L_G_8S-77JCT9WTA9PiHHk1Te6ueeGdRX7MGyyHxrtLx13_P6Il38goiRAxjRHf7uqelbXK0y0Xwusq2wqLvy6ysdBnZJbW3G-saHCO6NXGvO_KEvim1R-GYpcZwB9IujOATUXT7Yy-MKDePBdP-7mqOTqLcsxInz_s9JbR3X_E-MJMx5RnMlJVQ2dnesoh6CMgvnVbRBuiFCCRXaKY_6AboQnjOOrIj5"/>
+<div class="absolute bottom-2 left-2 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">
+                            -20% maks 20rb
+                        </div>
+</div>
+<div>
+<h4 class="font-bold text-[16px] text-on-surface truncate">Ayam Geprek Gold Chick - Karang Anyar</h4>
+<div class="flex flex-wrap items-center gap-2 mt-1 text-[12px] text-on-surface-variant">
+<div class="flex items-center text-yellow-500">
+<span class="material-symbols-outlined text-[14px]" data-icon="star" data-weight="fill" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-medium ml-0.5">4.9</span>
+</div>
+<span>(10rb+)</span>
+<span class="w-1 h-1 rounded-full bg-surface-dim"></span>
+<span>0.8 km</span>
+<span class="w-1 h-1 rounded-full bg-surface-dim"></span>
+<span>15-25 min</span>
+</div>
+<div class="flex items-center gap-2 mt-2">
+<span class="text-[10px] px-2 py-1 bg-surface-container-low rounded text-on-surface-variant">15rb-25rb</span>
+<div class="text-[12px]">
+<span class="text-primary font-medium">Ongkir 3rb</span>
+<span class="text-on-surface-variant/50 line-through ml-1">6rb</span>
+</div>
+</div>
+<p class="text-brand-red text-[11px] font-medium mt-1">Kelar jam 21:30</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- FLOATING ACTION BUTTON (CART) -->
+<div class="fixed bottom-24 right-4 z-50">
+<button class="relative bg-brand-red text-white p-3 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform">
+<img class="w-8 h-8 object-contain" data-alt="Glossy 3D icon of a grocery trolley with a small notification badge '2', vibrant orange color #EE2737, high-quality 3D render, soft shadows, floating pill button style context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUu4fSo7v54sUuN-Pvuocf8G-pXJDBzy-I8lDHZpxXnAidmbWAb8xuur0dI75fEpXFxPxXve_JErabcE2eJ3l86OUwimFlJte7of7-06fFqDd-1AEN-ZRTd2sGfYYzK-cNVkC5zCjYc1b0506NtJ3HtcSIiB7q3Fq2I5C7Taa1pJLjYId4DHCJvpkwL5o1h6DhRVdSYngMN9JUEG_Vp0s0czsKlgkYhm_QPq7cBe4IUe2P_XqkA7Q0b9G9mxTo6kB4n4FoeT4C5e9d"/>
+</button>
+</div>
+<!-- 8. BOTTOM NAV -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-3 bg-surface border-t border-outline-variant shadow-[0_-4px_16px_rgba(0,0,0,0.05)]" data-name="BottomNavBar" data-type="label_icon">
+<div class="flex flex-col items-center justify-center text-primary transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-[24px] mb-1" data-icon="home" data-weight="fill" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-sm text-[10px] font-medium">Beranda</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-[24px] mb-1" data-icon="receipt_long">receipt_long</span>
+<span class="font-label-sm text-[10px] font-medium">Riwayat</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-[24px] mb-1" data-icon="storefront">storefront</span>
+<span class="font-label-sm text-[10px] font-medium">Bisnis</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-[24px] mb-1" data-icon="person">person</span>
+<span class="font-label-sm text-[10px] font-medium">Profil</span>
+</div>
+</nav>
+</body></html>

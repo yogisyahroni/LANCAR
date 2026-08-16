@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Invoice Towing - TEMBUS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary-container": "#00a1c6",
+                        "on-primary-fixed": "#00210d",
+                        "secondary-fixed": "#ffdad7",
+                        "outline-variant": "#bccabc",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "primary": "#006d38",
+                        "surface": "#fcf9f8",
+                        "surface-tint": "#006d38",
+                        "secondary-container": "#e41e31",
+                        "tertiary": "#006780",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#b8eaff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#f3f0ef",
+                        "surface-container-low": "#f6f3f2",
+                        "on-secondary-container": "#fffbff",
+                        "background": "#F5F7F6", /* Custom per instructions */
+                        "on-tertiary-fixed": "#001f28",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-container": "#00313f",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "surface-container-highest": "#e5e2e1",
+                        "inverse-surface": "#313030",
+                        "on-primary-container": "#003518",
+                        "on-background": "#1c1b1b",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "primary-fixed-dim": "#57df89",
+                        "primary-fixed": "#76fca3",
+                        "primary-container": "#00aa5b",
+                        "surface-container-high": "#ebe7e7",
+                        "on-surface-variant": "#3d4a3f",
+                        "on-surface": "#1c1b1b",
+                        "surface-container": "#f0edec",
+                        "secondary": "#bb0020",
+                        "on-secondary-fixed": "#410005",
+                        "surface-bright": "#fcf9f8",
+                        "outline": "#6d7b6e",
+                        "surface-variant": "#e5e2e1",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "surface-dim": "#dcd9d9",
+                        "on-secondary-fixed-variant": "#930017",
+                        "inverse-primary": "#57df89",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed-variant": "#005229",
+                        "error": "#ba1a1a",
+                        "tembus-purple": "#6b21a8" /* Custom per prompt */
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "xl": "32px",
+                        "margin-mobile": "16px",
+                        "unit": "8px",
+                        "sm": "8px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "gutter-mobile": "12px",
+                        "md": "16px"
+                    },
+                    fontFamily: {
+                        "label-sm": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    fontSize: {
+                        "label-sm": ["11px", { lineHeight: "16px", letterSpacing: "0.5px", fontWeight: "500" }],
+                        "label-lg": ["14px", { lineHeight: "20px", letterSpacing: "0.1px", fontWeight: "600" }],
+                        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                        "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "headline-md": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+                        "headline-lg-mobile": ["24px", { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill-icon {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased flex justify-center">
+<!-- Mobile Container (390x844) -->
+<div class="w-full max-w-[390px] min-h-[844px] bg-background relative shadow-2xl overflow-y-auto overflow-x-hidden flex flex-col pb-6">
+<!-- TopAppBar (from JSON) -->
+<header class="docked full-width top-0 bg-surface flex items-center justify-between px-margin-mobile w-full h-14 z-50">
+<button class="text-on-surface hover:bg-surface-container-low transition-colors duration-200 active:scale-95 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-primary truncate flex-1 text-center font-bold">Invoice</h1>
+<div class="flex items-center gap-xs">
+<button class="text-on-surface hover:bg-surface-container-low transition-colors duration-200 active:scale-95 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+</button>
+<button class="text-on-surface hover:bg-surface-container-low transition-colors duration-200 active:scale-95 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="share">share</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col px-margin-mobile pt-lg pb-xl gap-lg">
+<!-- Invoice Header Card -->
+<section class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-variant p-lg flex flex-col items-center text-center relative overflow-hidden">
+<!-- Bottom sheet handle mock at the very top (per prompt, though typically these are on actual bottom sheets, we'll place it at the top of this card as requested) -->
+<div class="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-surface-dim rounded-full"></div>
+<!-- Towing Icon -->
+<div class="w-16 h-16 bg-tembus-purple/10 rounded-full flex items-center justify-center mt-sm mb-md">
+<span class="material-symbols-outlined text-tembus-purple text-3xl" data-icon="local_shipping">local_shipping</span>
+</div>
+<!-- Identity -->
+<h2 class="font-headline-md text-[18px] font-bold text-on-surface mb-xs">TEMBUS — Layanan Towing</h2>
+<p class="text-on-surface-variant text-[13px] mb-md">Invoice #INV-20260815-0831</p>
+<!-- Status Badge -->
+<div class="bg-primary-container text-on-primary-container px-3 py-1 rounded-md font-label-sm font-bold tracking-wide uppercase mb-sm">
+                    LUNAS
+                </div>
+<p class="text-on-surface-variant text-sm">15 Agustus 2026 08:31 WIB</p>
+</section>
+<!-- Delivery Details Card -->
+<section class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-variant p-md flex flex-col gap-md">
+<h3 class="font-bold text-[15px] text-on-surface border-b border-surface-variant pb-sm">Towing Motor — 1.5 km</h3>
+<div class="flex flex-col gap-sm relative">
+<!-- Route Visualizer Line -->
+<div class="absolute left-3 top-5 bottom-8 w-0.5 bg-surface-dim border-l border-dashed border-outline-variant"></div>
+<!-- Pickup -->
+<div class="flex items-start gap-md">
+<div class="w-6 h-6 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 z-10 mt-1">
+<span class="material-symbols-outlined text-sm text-outline" data-icon="radio_button_checked">radio_button_checked</span>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant font-medium">Dari</p>
+<p class="text-sm text-on-surface">Jl. Pintu Air 3 No.91 G</p>
+</div>
+</div>
+<!-- Dropoff -->
+<div class="flex items-start gap-md">
+<div class="w-6 h-6 rounded-full bg-error-container text-on-error-container flex items-center justify-center shrink-0 z-10 mt-1">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant font-medium">Ke</p>
+<p class="text-sm text-on-surface font-medium">Bengkel Jaya Motor, Jakarta Barat</p>
+</div>
+</div>
+</div>
+<!-- Driver Info -->
+<div class="mt-xs pt-sm border-t border-surface-variant flex items-center gap-sm">
+<img alt="Armada Avatar" class="w-10 h-10 rounded-full object-cover border border-surface-variant shadow-sm" src="https://lh3.googleusercontent.com/aida/AP1WRLvwXM7TXjxEit1y0Vzb-KfLLLwYz_oRzi35gEdR2jJx3bdWPpfSvuLkA3JOEfebXz0qlx75m7wnFeT5OlQn_IwuPVvGa0BDyRQTa33jC60rQE3UITgmcY6GmGetzN7mz0wFXdWD0pX1_884xYkK2iqnwTG13CujbFErbnCf-5F-1ZirrR4QKgoSQbo3Z8V8KIU5LUOCv3x4WBa2KVJM-Mqn5Bu8sPWchV0Q42muR74WMp3e1yENssIIFpk"/>
+<div>
+<p class="text-xs text-on-surface-variant">Armada</p>
+<p class="text-sm font-medium text-on-surface flex items-center gap-1">
+                            Fernando Wijaya
+                            <span class="text-xs text-on-surface-variant font-normal flex items-center"><span class="material-symbols-outlined text-[14px] text-yellow-500 fill-icon" data-icon="star" data-weight="fill">star</span> 4.9</span>
+</p>
+</div>
+</div>
+</section>
+<!-- Cost Details Card -->
+<section class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-variant p-md flex flex-col gap-sm">
+<div class="flex justify-between items-start gap-md">
+<p class="text-sm text-on-surface-variant leading-tight">Jasa Armada (diset driver)</p>
+<p class="text-sm text-on-surface font-medium whitespace-nowrap">Rp150.000</p>
+</div>
+<div class="flex justify-between items-start gap-md">
+<p class="text-sm text-on-surface-variant leading-tight">Biaya Platform (20% × jarak 5km @Rp8.000)</p>
+<p class="text-sm text-on-surface font-medium whitespace-nowrap">Rp8.000</p>
+</div>
+<hr class="border-t border-dashed border-outline-variant my-sm"/>
+<div class="flex justify-between items-center">
+<p class="font-bold text-[18px] text-on-surface">Total Pembayaran</p>
+<p class="font-bold text-[18px] text-on-surface">Rp158.000</p>
+</div>
+<div class="mt-sm bg-surface p-sm rounded-lg">
+<p class="text-[11px] text-outline leading-tight">Biaya platform dihitung 20% dari tarif jarak armada • Bagian armada: Rp150.000</p>
+</div>
+</section>
+<!-- Payment Method -->
+<section class="flex items-center gap-sm px-sm">
+<img alt="Payment Success" class="w-8 h-8 object-contain drop-shadow-sm" src="https://lh3.googleusercontent.com/aida/AP1WRLvAq2HTdc0JqZxIT8GEXARzlEMXFOFfF2Bn5AFYw8Tjl8Ql5bRM8u-BGY7mD_15kaIgWo709yyeRl9BLBF_bP4FFHhODSST1CWd3wBZVvnKJ7iN9B5heVRw2Rby9Ja84DM-tRmB6X4xg52mD0jx8J8Y8BoK1PIUZcKcajAQJW5xN8_IfCu1O7Mp5LJdvmV5gxwWjPlQpKDf5pXDzoUat4OXwZjcPQ80KkX-a8gM_vZ3O3jQmQe-0d1nZw_B"/>
+<p class="text-[13px] text-on-surface-variant font-medium">QRIS — DANA • 14:32 WIB</p>
+</section>
+<!-- Actions -->
+<section class="flex flex-col gap-sm mt-auto pt-lg">
+<button class="w-full bg-tembus-purple hover:bg-purple-900 text-white font-label-lg py-3 rounded-full shadow-md transition-transform active:scale-95 flex items-center justify-center gap-2 h-12">
+                    Buat Pesanan Baru
+                </button>
+<div class="flex gap-sm">
+<button class="flex-1 border border-tembus-purple text-tembus-purple hover:bg-tembus-purple/5 font-label-lg py-2.5 rounded-full transition-colors flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="file_download">file_download</span>
+                        Unduh PDF
+                    </button>
+<button class="flex-1 border border-tembus-purple text-tembus-purple hover:bg-tembus-purple/5 font-label-lg py-2.5 rounded-full transition-colors flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="share">share</span>
+                        Bagikan
+                    </button>
+</div>
+</section>
+</main>
+</div>
+</body></html>

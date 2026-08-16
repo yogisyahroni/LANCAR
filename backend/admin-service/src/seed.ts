@@ -414,7 +414,7 @@ const upsertDevelopmentCourierCapabilities = async (
        NOW(),
        NOW()
      FROM delivery_service_products
-     WHERE service_category = $3::varchar
+     WHERE service_category IN ('on_demand', 'food_delivery', 'tambal_ban', 'towing')
      ON CONFLICT (courier_profile_id, service_code)
      DO UPDATE SET
        vehicle_id = EXCLUDED.vehicle_id,

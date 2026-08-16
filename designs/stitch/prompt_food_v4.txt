@@ -1,0 +1,23 @@
+Halaman Food Delivery utama aplikasi TEMBUS (Android customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter. HANYA konten food berdiri sendiri — TANPA grid layanan lain, TANPA banner promo besar, TANPA kategori ikon makanan.
+
+1. TOP BAR: kiri tombol back arrow (kembali ke beranda utama) + judul "Food Delivery" bold 20px + sub "Merchant terdekat" 12px grey #64748B; kanan ikon keranjang dengan badge jumlah item merah/oranye.
+
+2. SEARCH BAR: rounded 16px, ikon search grey, placeholder "Cari makanan atau merchant..." 14px.
+
+3. FILTER CHIP: 3 chip horizontal: "Semua" / "Halal" / "Non-Halal" (Material FilterChip, yang aktif filled hijau #00AA5B, teks 12px). Ini filter halal merchant.
+
+4. DAFTAR MERCHANT (card horizontal putih rounded 20px, padding 16px):
+   Tiap card: ikon/store rounded 12px hijau muda kiri 48px + kanan:
+   - Baris 1: nama merchant bold 16px + badge kecil "Halal" (hijau) atau "Non-Halal" (abu)
+   - Baris 2: alamat 12px grey, 1 baris ellipsis
+   - Baris 3: bintang kuning + rating (1 desimal) • jarak km • status "Buka" hijau / "Tutup" merah
+   - Kanan atas: ikon hati favorit (❤️ merah / outline abu)
+   Card contoh:
+   a. "Soto Ayam Siti" — Halal badge — Jl. Melati No. 12, Jakarta Barat — ⭐4.8 • 1.2 km • Buka
+   b. "Mie Gacoan" — Non-Halal badge — Jl. Pintu Air 3 No. 91 — ⭐4.7 • 0.8 km • Buka
+   c. "Bakmi GM" — Halal badge — Jl. Sudirman No. 45 — ⭐4.9 • 2.3 km • Buka
+   d. "Ayam Geprek Mamah" — Halal badge — Jl. Palmerah No. 7 — ⭐4.6 • 3.1 km • Tutup (teks merah)
+
+5. EMPTY STATE (kalau tidak ada merchant): ikon store besar abu + "Belum ada merchant di sekitarmu" + sub grey.
+
+6. TANPA bottom nav — halaman ini sub-halaman dari beranda utama (back ke beranda).

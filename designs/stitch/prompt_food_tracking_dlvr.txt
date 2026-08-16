@@ -1,0 +1,16 @@
+Halaman Lacak Pesanan Food — Kurir Menuju Lokasimu aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter. Warna brand food oranye-merah #EE2737.
+
+1. TOP BAR: back arrow + judul "Lacak Pesanan" bold.
+
+2. PETA: latar peta ilustrasi abu muda, ikon kurir sepeda di rute + titik restaurant (merchant) dan titik tujuan (rumah), garis rute oranye putus-putus dari merchant → tujuan. Label pin merchant: ikon restoran; pin tujuan: ikon rumah.
+
+3. KURIR CARD BAWAH (putih rounded 20px):
+   - Avatar bulat + "Budi" bold + ⭐4.9 + badge sepeda + plat B 1234 XYZ
+   - Status besar bold oranye "Sedang Mengantar"
+   - "Pesanan dari Soto Ayam Siti • sedang dalam perjalanan"
+   - Bar: "Sampai ±10 menit" besar + "0.8 km lagi"
+   - Tombol: "Chat Kurir" outline + "Hubungi" (telpon)
+
+4. TIMELINE 4 STEP: 1 ✓ Pesanan Dibuat • 2 ✓ Disiapkan • 3 ✓ Mencari Kurir • 4 ● Sedang Diantar (aktif, pulsing)
+
+5. TOMBOL BAWAH: "Konfirmasi Diterima" hijau primary (saat makanan diterima) / "Batalkan" outline merah + info biaya layanan ditahan.

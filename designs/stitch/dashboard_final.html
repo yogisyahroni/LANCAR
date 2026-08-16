@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TEMBUS Super-app - Beranda</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#bb0020",
+                        "surface-variant": "#e5e2e1",
+                        "secondary-fixed": "#ffdad7",
+                        "on-secondary-fixed-variant": "#930017",
+                        "surface-container-highest": "#e5e2e1",
+                        "inverse-primary": "#57df89",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#dcd9d9",
+                        "on-primary": "#ffffff",
+                        "on-background": "#1c1b1b",
+                        "tertiary-container": "#00a1c6",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "on-secondary-fixed": "#410005",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#ebe7e7",
+                        "outline": "#6d7b6e",
+                        "primary-fixed": "#76fca3",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "surface-bright": "#fcf9f8",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#006d38",
+                        "on-surface": "#1c1b1b",
+                        "on-primary-container": "#003518",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "primary": "#006d38",
+                        "tertiary": "#006780",
+                        "surface-container-low": "#f6f3f2",
+                        "primary-container": "#00aa5b",
+                        "inverse-on-surface": "#f3f0ef",
+                        "primary-fixed-dim": "#57df89",
+                        "secondary-container": "#e41e31",
+                        "outline-variant": "#bccabc",
+                        "on-secondary-container": "#fffbff",
+                        "on-error-container": "#93000a",
+                        "surface": "#fcf9f8",
+                        "on-tertiary-container": "#00313f",
+                        "on-tertiary-fixed": "#001f28",
+                        "tertiary-fixed": "#b8eaff",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#3d4a3f",
+                        "inverse-surface": "#313030",
+                        "on-primary-fixed": "#00210d",
+                        "error": "#ba1a1a",
+                        "background": "#F7F9FB",
+                        "on-primary-fixed-variant": "#005229",
+                        "surface-container": "#f0edec"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "margin-mobile": "16px",
+                        "unit": "8px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "gutter-mobile": "12px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+        .hide-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-[100px] pt-[132px] font-body-md antialiased md:max-w-md md:mx-auto md:border md:border-outline-variant md:shadow-lg md:relative">
+<!-- TopAppBar & Search -->
+<header class="bg-primary flex flex-col px-margin-mobile py-sm w-full fixed top-0 z-50 md:absolute md:w-[446px] md:max-w-full rounded-b-3xl shadow-sm">
+<div class="flex justify-between items-center mb-md">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden border-2 border-white/20">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A close-up portrait of a friendly Indonesian man in a casual green shirt, smiling warmly against a bright, well-lit urban background. The image style is modern, approachable, and high-quality, fitting for a super-app user profile avatar. The lighting is soft and natural, emphasizing trust and reliability." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVKQp-KnUZRovufFUl2iM61mQafbO1yih5NQefmjU1huNafVSsk_LYrjZezK8aMu3aArBQp4YKIm302l179_FFv-EXnV8zaZZdPAakNcjgVdDpBzwkaxpAEOpf5AW6Q7_mnDivct_vd6f3tkrgQsLIQ_0XwWgSUdao8lKwYqOqJ3ojzI1Xs7fI-IgKlRaH3l6Or70UCil1zfh2SxoqorZIdNqr49lQFQMkobKqvp4kj-l24cXYI0V0UcvDzYC3_zi_k58Ieuhnx6BG"/>
+</div>
+<div>
+<h1 class="text-on-primary font-headline-lg-mobile text-headline-lg-mobile font-black tracking-tight">TEMBUS</h1>
+<p class="text-on-primary/90 font-body-md text-sm">Halo, Budi</p>
+</div>
+</div>
+<button class="text-on-primary hover:bg-white/10 p-2 rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</div>
+<!-- Global Search -->
+<div class="bg-white rounded-full px-4 py-2 flex items-center gap-2 shadow-sm mb-2">
+<span class="material-symbols-outlined text-outline" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md text-on-surface w-full p-0 placeholder:text-outline-variant" placeholder="Cari layanan, makanan, &amp; tujuan" type="text"/>
+</div>
+</header>
+<main class="px-margin-mobile py-md flex flex-col gap-lg">
+<!-- Promo Banner Carousel -->
+<section class="relative">
+<div class="flex gap-4 overflow-x-auto snap-x snap-mandatory hide-scroll pb-2 -mx-margin-mobile px-margin-mobile">
+<!-- Banner 1 -->
+<div class="min-w-full w-full snap-center relative rounded-3xl overflow-hidden aspect-[16/7] shadow-sm flex-shrink-0">
+<img alt="Food promo" class="absolute inset-0 w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AP1WRLs3e07s_h4rL-TSqVC5AJH3xaNNRsU8fQubW9Y1NBnpEn5xw8vcC3gw_9XqoF-TjJ4kUajuLXqfwigYjTlrW8RLQQ1Cy6_YpOFg61fuG1BmlRIgas-J8V2CA1lP-IkddcCwHWqbPAketdzhFHBc0N0tnsMfl0KMRbUXbhk2Pl_cdPgTddrgpW7PxYJD3B8xOnTTV-HrEC8l2Aau8Ak-S20iBdM5p2OgtH1cWdEbJofcey5JoHFCQFM1OCvp"/>
+<div class="absolute inset-0 bg-gradient-to-r from-[#EE2737]/90 to-[#EE2737]/10"></div>
+<div class="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-white tracking-wider">IKLAN</div>
+<div class="relative h-full flex flex-col justify-center p-5 text-white w-2/3">
+<h3 class="font-headline-lg-mobile text-[18px] font-bold leading-tight mb-1">Diskon 50% Makanan</h3>
+<p class="font-body-md text-[12px] opacity-90 mb-3">Kode FOOD50 • Berlaku hari ini</p>
+<button class="bg-white text-[#EE2737] font-label-lg text-[12px] px-4 py-1.5 rounded-full w-fit shadow-sm">Pesan Sekarang</button>
+</div>
+</div>
+<!-- Banner 2 -->
+<div class="min-w-full w-full snap-center relative rounded-3xl overflow-hidden aspect-[16/7] shadow-sm flex-shrink-0">
+<img alt="Package promo" class="absolute inset-0 w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AP1WRLtnR9TIWDvnNQaZa-nMZn_hnj57zJ21p35NaQBUPZdpkWij7nj-tS9z5VfWCtOD_MV-d2mdXEoWUTVYwdDacvKWdDM-B7KJMr6NT8u25tsq84KmlbQPewuBu9ymARh5-E6wOrBR1DNitVhFeqwnzM2fdhvh76YqjehZQ-lMJVSJXwM06ij3qhEAG0BMAqatx3z34T4840OlwtM7-JiDnO_wRflSMI5qa2pYG8QTJoLZ698KTAiZXUYiiZcX"/>
+<div class="absolute inset-0 bg-gradient-to-r from-[#00AA5B]/90 to-[#00AA5B]/10"></div>
+<div class="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-white tracking-wider">IKLAN</div>
+<div class="relative h-full flex flex-col justify-center p-5 text-white w-2/3">
+<h3 class="font-headline-lg-mobile text-[18px] font-bold leading-tight mb-1">Kirim Paket Hemat</h3>
+<p class="font-body-md text-[12px] opacity-90 mb-3">Mulai Rp 8.000 • Antar sampai tujuan</p>
+<button class="bg-white text-[#00AA5B] font-label-lg text-[12px] px-4 py-1.5 rounded-full w-fit shadow-sm">Kirim Sekarang</button>
+</div>
+</div>
+<!-- Banner 3 -->
+<div class="min-w-full w-full snap-center relative rounded-3xl overflow-hidden aspect-[16/7] shadow-sm flex-shrink-0">
+<img alt="Towing promo" class="absolute inset-0 w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AP1WRLtGef-cY3j1Yvr6vP9cwoZTQ_Yweukh7G0okRjnvv7w0mpBbKAg5J904rWR-Tk5zzIbSXGmBwDyed8wnNwkHWDj_mR-F2A1jc2mZ-QjJSJjZbAY1TNuJZRY7JklFSbEtNIOxozCqbfMkbF3H5bJ3H39QMYzkBHl3rkqkQm5Ht3rb3uXJYCWCIWj2-ZXrA0Mj7My4V7IH_EbE7jhTyFWljic7YL0IKUN9p6nZtTIpE0GxWkXT_1UWRKme_y5"/>
+<div class="absolute inset-0 bg-gradient-to-r from-[#93328E]/90 to-[#93328E]/10"></div>
+<div class="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-white tracking-wider">IKLAN</div>
+<div class="relative h-full flex flex-col justify-center p-5 text-white w-2/3">
+<h3 class="font-headline-lg-mobile text-[18px] font-bold leading-tight mb-1">Bantuan Jalan 24 Jam</h3>
+<p class="font-body-md text-[12px] opacity-90 mb-3">Towing &amp; tambal ban • Respon cepat</p>
+<button class="bg-white text-[#93328E] font-label-lg text-[12px] px-4 py-1.5 rounded-full w-fit shadow-sm">Minta Bantuan</button>
+</div>
+</div>
+</div>
+<!-- Indicators -->
+<div class="flex justify-center gap-1.5 mt-2">
+<div class="w-4 h-1.5 bg-primary rounded-full"></div>
+<div class="w-1.5 h-1.5 bg-outline-variant rounded-full"></div>
+<div class="w-1.5 h-1.5 bg-outline-variant rounded-full"></div>
+</div>
+</section>
+<!-- Wallet Card -->
+<section class="bg-surface rounded-2xl shadow-sm border border-surface-variant p-md flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-on-surface-variant font-body-md text-sm mb-1">Saldo</p>
+<p class="font-headline-lg-mobile text-[24px] text-on-surface font-bold">Rp 50.000</p>
+</div>
+<div class="bg-surface-container px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-surface-variant">
+<span class="material-symbols-outlined text-primary text-[16px]" data-icon="monetization_on" style="font-variation-settings: 'FILL' 1;">monetization_on</span>
+<span class="font-label-lg text-sm text-on-surface">183 Koin</span>
+</div>
+</div>
+<div class="flex gap-md mt-sm">
+<button class="flex-1 bg-primary-container text-white font-label-lg py-3 rounded-xl flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="qr_code_scanner">qr_code_scanner</span>
+                    Bayar
+                </button>
+<button class="flex-1 border border-outline-variant bg-surface-container-lowest text-primary font-label-lg py-3 rounded-xl flex justify-center items-center gap-2 active:scale-95 transition-transform shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="add_circle">add_circle</span>
+                    Isi Saldo
+                </button>
+</div>
+</section>
+<!-- Service Grid -->
+<section class="grid grid-cols-4 gap-gutter-mobile px-2">
+<!-- Parcel -->
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-[60px] h-[60px] rounded-[20px] bg-gradient-to-br from-[#00AA5B] to-[#008A4A] flex justify-center items-center shadow-md group-active:scale-95 transition-transform relative overflow-hidden">
+<div class="absolute inset-2 bg-white/20 backdrop-blur-md rounded-full"></div>
+<img alt="Kirim Paket" class="w-10 h-10 object-contain relative z-10 drop-shadow-md" src="https://lh3.googleusercontent.com/aida/AP1WRLsPLRArCIKakj86dJsJ4I_ZrADPVVQ-0Fj2TRL8DktYNsI65ioxWv5FxUOUnoV3oVMjl8VBDfCC-Yg3hfiVFWidOQHzKktSm8zpoxlYy9zT6ceDJQQdVvgsyGucwExGKHY_YzGLcf9vbYrkkqdBBYExyKqVAiaCt8wzjetZHmwXgWW5CFipyjQi0YIOLAltMv0DnezchuZPG4gB_Hd81r_LO93XkdxbtiSHuHTBb6H5BV0GGPaHritNAJwC"/>
+</div>
+<span class="font-label-sm text-[12px] text-center text-on-surface font-semibold">Kirim Paket</span>
+</button>
+<!-- Food -->
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-[60px] h-[60px] rounded-[20px] bg-gradient-to-br from-[#EE2737] to-[#C91F2C] flex justify-center items-center shadow-md group-active:scale-95 transition-transform relative overflow-hidden">
+<div class="absolute inset-2 bg-white/20 backdrop-blur-md rounded-full"></div>
+<img alt="Food" class="w-10 h-10 object-contain relative z-10 drop-shadow-md" src="https://lh3.googleusercontent.com/aida/AP1WRLtW5sRdakaOEIgP6F8FI6m4TlmVzM_lnn32PmEM0ZorUwMSPyfNwtcmRVbPgFzaQdzpNtKL4AkEI4tlyIAlZ1_1DZ-T85G4-MY3GDinq_7PJlpLlW0OnvHe3-0gnPVlQscZH8-mS59KHU8kbqgM6b37dwB2HaLfwKhAt1vcgUlAhF9c8Do6TYOjYO8awVEctCp4cnllD40LQGs76330YVncF9-vYBAUANtAsnB0b7Q8IEQF8HEayUO0KcI"/>
+</div>
+<span class="font-label-sm text-[12px] text-center text-on-surface font-semibold">Food</span>
+</button>
+<!-- Tire -->
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-[60px] h-[60px] rounded-[20px] bg-gradient-to-br from-[#00AED6] to-[#008EB0] flex justify-center items-center shadow-md group-active:scale-95 transition-transform relative overflow-hidden">
+<div class="absolute inset-2 bg-white/20 backdrop-blur-md rounded-full"></div>
+<img alt="Tambal Ban" class="w-10 h-10 object-contain relative z-10 drop-shadow-md" src="https://lh3.googleusercontent.com/aida/AP1WRLvxr-AG_g3ZLINR8SQOm_DoCvx-GRQX7g853TvD9qFfoScnZDBp7ntm2-1AxVMaykTckM8OTBctRqxw7kJbmdrUnctTjnIewfGnUtcS2Q_sAX0s1OqJ_e4XjHGJubHyjyJ5f1WnsGB3B_b1uSR_jytPTU-bbVvo5mJKVEhVU7q1PHALjfZeXSg5rgZzJxxeHXuQ0ZFj8tcKne61z47zkAhPVgklbZL-58foAxhoE75ikaE01XRYlw7Q4dUf"/>
+</div>
+<span class="font-label-sm text-[12px] text-center text-on-surface font-semibold">Tambal Ban</span>
+</button>
+<!-- Towing -->
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-[60px] h-[60px] rounded-[20px] bg-gradient-to-br from-[#93328E] to-[#752671] flex justify-center items-center shadow-md group-active:scale-95 transition-transform relative overflow-hidden">
+<div class="absolute inset-2 bg-white/20 backdrop-blur-md rounded-full"></div>
+<img alt="Towing" class="w-10 h-10 object-contain relative z-10 drop-shadow-md" src="https://lh3.googleusercontent.com/aida/AP1WRLtXRZmHd9yfo3V6DIuYp3_9qjqncoqx71BD3KrRhoBsZNIsDOKbjdQwFUHzMUwYWAgol1sJcHNmFTOvvQz732SsJbDsfu4Ju4VTWLi7FZmKrb5T4gvQFxsw4wRRO1cliP8oufcFsBS7JEiAS-isVZEB98_EL4zleh1O91LClLkLh_jQtVXIm5DHTAuUJfYSLNxKpKx7qeiEimK-u0PF5VgOOiHyeK_R21DG3hflCE3MQq4cvq-li-IcxMVX"/>
+</div>
+<span class="font-label-sm text-[12px] text-center text-on-surface font-semibold">Towing</span>
+</button>
+</section>
+<!-- Active Order Card -->
+<section>
+<h2 class="font-headline-md text-lg text-on-surface mb-sm">Pesanan Aktif</h2>
+<div class="bg-surface rounded-2xl shadow-sm border border-surface-variant p-md flex flex-col gap-sm relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary-container"></div>
+<div class="flex justify-between items-center mb-xs pl-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-[18px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-lg text-sm text-primary-container">Pesanan Diterima</span>
+</div>
+<span class="font-label-sm text-xs text-on-surface-variant">14:30</span>
+</div>
+<div class="flex gap-md items-center pl-2">
+<div class="w-12 h-12 bg-[#EE2737]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[#EE2737]" data-icon="restaurant">restaurant</span>
+</div>
+<div>
+<p class="font-headline-md text-[15px] leading-tight text-on-surface mb-1">Food: Nasi Goreng Spesial</p>
+<p class="font-body-md text-sm text-on-surface-variant line-clamp-1">Driver sedang menuju restoran</p>
+</div>
+</div>
+<div class="flex gap-sm mt-sm pl-2">
+<button class="flex-1 bg-primary-container/10 text-primary-container font-label-lg text-sm py-2 px-md rounded-xl flex justify-center items-center gap-2 min-h-[40px] active:scale-95 transition-transform border border-primary-container/20">
+<span class="material-symbols-outlined text-[18px]" data-icon="map">map</span>
+                        Lacak
+                    </button>
+<button class="flex-1 bg-surface-container text-on-surface font-label-lg text-sm py-2 px-md rounded-xl flex justify-center items-center gap-2 min-h-[40px] active:scale-95 transition-transform border border-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="chat">chat</span>
+                        Chat
+                    </button>
+</div>
+</div>
+</section>
+<!-- Merchant Feed -->
+<section>
+<h2 class="font-headline-md text-lg text-on-surface mb-md">Mau makan apa hari ini?</h2>
+<div class="flex gap-4 overflow-x-auto hide-scroll pb-4 -mx-margin-mobile px-margin-mobile">
+<!-- Card 1 -->
+<div class="min-w-[160px] w-[160px] bg-surface rounded-2xl shadow-sm border border-surface-variant overflow-hidden flex flex-col">
+<div class="h-24 bg-surface-variant w-full relative">
+<div class="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[#FFB300] text-[14px]" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[12px] font-bold">4.8</span>
+</div>
+</div>
+<div class="p-3 flex flex-col gap-1">
+<h3 class="font-label-lg text-[14px] leading-tight line-clamp-1 text-on-surface">Warung UAT UI</h3>
+<p class="font-body-md text-[12px] text-on-surface-variant">Nasi Goreng, Ayam...</p>
+<div class="flex items-center gap-1 mt-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]" data-icon="location_on">location_on</span>
+<span class="text-[12px]">0.3 km</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="min-w-[160px] w-[160px] bg-surface rounded-2xl shadow-sm border border-surface-variant overflow-hidden flex flex-col">
+<div class="h-24 bg-surface-variant w-full relative">
+<div class="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[#FFB300] text-[14px]" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[12px] font-bold">4.9</span>
+</div>
+</div>
+<div class="p-3 flex flex-col gap-1">
+<h3 class="font-label-lg text-[14px] leading-tight line-clamp-1 text-on-surface">Kopi Kenangan</h3>
+<p class="font-body-md text-[12px] text-on-surface-variant">Minuman, Roti</p>
+<div class="flex items-center gap-1 mt-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]" data-icon="location_on">location_on</span>
+<span class="text-[12px]">1.2 km</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-3 pb-safe bg-surface shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-3xl md:absolute md:w-[446px] md:max-w-full border-t border-surface-variant">
+<!-- Active Tab: Beranda -->
+<button class="flex flex-col items-center justify-center bg-primary-container text-white rounded-full px-5 py-1.5 active:scale-95 transition-transform group shadow-sm">
+<span class="material-symbols-outlined text-[24px]" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-sm text-[11px] font-bold mt-1">Beranda</span>
+</button>
+<!-- Inactive Tab: Riwayat -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary px-3 py-1.5 active:scale-95 transition-transform group">
+<span class="material-symbols-outlined text-[24px]" data-icon="history">history</span>
+<span class="font-label-sm text-[11px] mt-1">Riwayat</span>
+</button>
+<!-- Inactive Tab: Bisnis -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary px-3 py-1.5 active:scale-95 transition-transform group">
+<span class="material-symbols-outlined text-[24px]" data-icon="business_center">business_center</span>
+<span class="font-label-sm text-[11px] mt-1">Bisnis</span>
+</button>
+<!-- Inactive Tab: Profil -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary px-3 py-1.5 active:scale-95 transition-transform group">
+<span class="material-symbols-outlined text-[24px]" data-icon="person">person</span>
+<span class="font-label-sm text-[11px] mt-1">Profil</span>
+</button>
+</nav>
+</body></html>

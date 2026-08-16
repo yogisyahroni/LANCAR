@@ -53,7 +53,7 @@ fun AuthNavGraph(
                         "google_phone/${Uri.encode(email)}/${Uri.encode(fullName)}/${Uri.encode(transactionId)}"
                     ) { launchSingleTop = true }
                 },
-                onGoogleAuthSuccess = {
+                onAuthSuccess = {
                     onAuthSuccess()
                 }
             )

@@ -71,7 +71,7 @@ class DashboardViewModel @Inject constructor(
                     // FB-126: kumpulkan SEMUA order yang masih berjalan
                     // (food + parcel), bukan firstOrNull. Customer bisa
                     // punya >1 order aktif sekaligus.
-                    val terminal = setOf("delivered", "completed", "cancelled", "canceled", "failed", "rejected", "payment_failed")
+                    val terminal = setOf("delivered", "completed", "cancelled", "canceled", "failed", "rejected", "payment_failed", "no courier found", "no_courier_found")
                     val ongoing = orders.filter {
                         val s = it.status.lowercase()
                         s !in terminal && !s.contains("cancel")
@@ -96,7 +96,7 @@ class DashboardViewModel @Inject constructor(
             orderRepository.getIncomingPackages().collectLatest { result ->
                 result.onSuccess { packages ->
                     _incomingPackages.value = packages
-                        .filter { it.status.lowercase() !in setOf("cancelled", "payment_failed") }
+                        .filter { it.status.lowercase() !in setOf("cancelled", "payment_failed", "no courier found", "no_courier_found") }
                         .take(5)
                 }.onFailure { error ->
                     _incomingPackages.value = emptyList()

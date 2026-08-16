@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pembayaran Berhasil</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#00aa5b",
+                        "on-secondary-container": "#fffbff",
+                        "outline": "#6d7b6e",
+                        "on-primary-fixed": "#00210d",
+                        "tertiary-container": "#00a1c6",
+                        "secondary-fixed": "#ffdad7",
+                        "on-tertiary": "#ffffff",
+                        "outline-variant": "#bccabc",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#b8eaff",
+                        "primary-fixed": "#76fca3",
+                        "surface-tint": "#006d38",
+                        "surface-container-high": "#ebe7e7",
+                        "surface-variant": "#e5e2e1",
+                        "on-error-container": "#93000a",
+                        "surface": "#fcf9f8",
+                        "on-tertiary-fixed": "#001f28",
+                        "on-background": "#1c1b1b",
+                        "background": "#fcf9f8",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-low": "#f6f3f2",
+                        "on-surface": "#1c1b1b",
+                        "surface-container": "#f0edec",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "on-primary-fixed-variant": "#005229",
+                        "on-secondary-fixed-variant": "#930017",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#313030",
+                        "on-tertiary-container": "#00313f",
+                        "inverse-primary": "#57df89",
+                        "error-container": "#ffdad6",
+                        "surface-dim": "#dcd9d9",
+                        "secondary": "#bb0020",
+                        "surface-container-highest": "#e5e2e1",
+                        "tertiary": "#006780",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "surface-bright": "#fcf9f8",
+                        "on-surface-variant": "#3d4a3f",
+                        "on-secondary-fixed": "#410005",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#57df89",
+                        "on-primary-container": "#003518",
+                        "primary": "#006d38",
+                        "secondary-container": "#e41e31",
+                        "inverse-on-surface": "#f3f0ef"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "8px",
+                        "md": "16px",
+                        "gutter-mobile": "12px",
+                        "margin-mobile": "16px",
+                        "xl": "32px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "lg": "24px",
+                        "safe": "env(safe-area-inset-bottom, 24px)"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface-container-low text-on-surface min-h-screen flex flex-col max-w-[390px] mx-auto relative overflow-hidden">
+<!-- Bottom Sheet Handle (Mockup detail) -->
+<div class="w-full flex justify-center pt-unit pb-md">
+<div class="w-12 h-1.5 bg-outline-variant rounded-full"></div>
+</div>
+<!-- Header Section -->
+<main class="flex-1 flex flex-col items-center pt-lg px-margin-mobile">
+<!-- Success Icon -->
+<div class="w-24 h-24 bg-surface rounded-full shadow-sm flex items-center justify-center mb-md border border-surface-variant">
+<img alt="Payment Success Checkmark" class="w-16 h-16 object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLvAq2HTdc0JqZxIT8GEXARzlEMXFOFfF2Bn5AFYw8Tjl8Ql5bRM8u-BGY7mD_15kaIgWo709yyeRl9BLBF_bP4FFHhODSST1CWd3wBZVvnKJ7iN9B5heVRw2Rby9Ja84DM-tRmB6X4xg52mD0jx8J8Y8BoK1PIUZcKcajAQJW5xN8_IfCu1O7Mp5LJdvmV5gxwWjPlQpKDf5pXDzoUat4OXwZjcPQ80KkX-a8gM_vZ3O3jQmQe-0d1nZw_B"/>
+</div>
+<!-- Title & Subtitle -->
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-center mb-unit">
+            Pembayaran Berhasil
+        </h1>
+<p class="font-body-md text-body-md text-on-surface-variant text-center mb-xl">
+            Rp158.000 • QRIS • 14:32
+        </p>
+<!-- Order Detail Card -->
+<div class="w-full bg-surface rounded-xl p-md shadow-sm border border-surface-variant mb-xl relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary-container"></div>
+<div class="flex justify-between items-start mb-sm">
+<span class="font-label-lg text-label-lg text-on-surface">No. Order TB-20260815-0831</span>
+<span class="font-label-sm text-label-sm bg-primary-container/10 text-primary-container px-2 py-1 rounded">
+                    LUNAS
+                </span>
+</div>
+<div class="flex flex-col gap-xs font-body-md text-body-md text-on-surface-variant">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px]">local_shipping</span>
+<span>Towing Motor — 1.5 km</span>
+</div>
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px]">person</span>
+<span>Armada: Fernando Wijaya (4.9)</span>
+</div>
+</div>
+</div>
+<!-- Progress Stepper -->
+<div class="w-full mb-lg">
+<div class="relative flex justify-between items-start w-full">
+<!-- Background Line -->
+<div class="absolute top-3 left-4 right-4 h-[2px] bg-outline-variant z-0"></div>
+<!-- Step 1: Done -->
+<div class="flex flex-col items-center relative z-10 w-1/4">
+<div class="w-6 h-6 rounded-full bg-primary-container text-white flex items-center justify-center mb-sm outline outline-4 outline-surface-container-low">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-label-sm text-label-sm text-center text-primary-container">Pembayaran</span>
+</div>
+<!-- Step 2: Active -->
+<div class="flex flex-col items-center relative z-10 w-1/4">
+<div class="w-6 h-6 rounded-full bg-primary-container text-white flex items-center justify-center mb-sm outline outline-4 outline-surface-container-low">
+<div class="w-2 h-2 bg-white rounded-full"></div>
+</div>
+<span class="font-label-sm text-label-sm text-center text-on-surface font-bold">Cari<br/>Armada</span>
+</div>
+<!-- Step 3: Inactive -->
+<div class="flex flex-col items-center relative z-10 w-1/4">
+<div class="w-6 h-6 rounded-full bg-surface border-2 border-outline-variant flex items-center justify-center mb-sm outline outline-4 outline-surface-container-low">
+</div>
+<span class="font-label-sm text-label-sm text-center text-outline">Menuju<br/>Lokasi</span>
+</div>
+<!-- Step 4: Inactive -->
+<div class="flex flex-col items-center relative z-10 w-1/4">
+<div class="w-6 h-6 rounded-full bg-surface border-2 border-outline-variant flex items-center justify-center mb-sm outline outline-4 outline-surface-container-low">
+</div>
+<span class="font-label-sm text-label-sm text-center text-outline">Selesai</span>
+</div>
+</div>
+</div>
+<!-- Status Message -->
+<div class="text-center mt-md">
+<p class="font-body-md text-body-md text-on-surface mb-xs">
+                Kami sedang mencari armada terdekat...
+            </p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">
+                Biasanya memakan waktu ±1 menit
+            </p>
+</div>
+</main>
+<!-- Bottom Actions -->
+<footer class="w-full px-margin-mobile pb-safe pt-md bg-surface-container-low mt-auto">
+<button class="w-full bg-primary-container hover:bg-primary text-white font-label-lg text-label-lg h-12 rounded-full flex items-center justify-center gap-sm transition-colors active:scale-95 duration-200 shadow-sm mb-md">
+<span class="material-symbols-outlined text-[20px]">explore</span>
+            Lacak Armada Sekarang
+        </button>
+<button class="w-full text-center py-sm">
+<span class="font-label-lg text-label-lg text-primary-container hover:text-primary transition-colors">
+                Lihat Invoice
+            </span>
+</button>
+</footer>
+</body></html>

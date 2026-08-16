@@ -805,7 +805,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          o.sequence_no,
          ol.leg_number,
          CASE
-           WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
+           WHEN COALESCE(dsp.service_category, '') IN ('on_demand', 'tambal_ban', 'towing') THEN 'on_demand'
            WHEN LOWER(o.model) = 'p2p' THEN 'regular'
            WHEN ol.leg_number = 1 THEN 'pickup'
            ELSE 'delivery'
@@ -977,7 +977,7 @@ const mobileOrderSelect = `
   o.sequence_no,
   ol.leg_number,
   CASE
-    WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
+    WHEN COALESCE(dsp.service_category, '') IN ('on_demand', 'tambal_ban', 'towing') THEN 'on_demand'
     WHEN LOWER(o.model) = 'p2p' THEN 'regular'
     WHEN ol.leg_number = 1 THEN 'pickup'
     ELSE 'delivery'
@@ -2495,7 +2495,7 @@ export const updateAdminCourierIncentive = async (req: Request, res: Response) =
   }
 };
 
-const ON_DEMAND_OFFER_TTL_SECONDS = 15;
+const ON_DEMAND_OFFER_TTL_SECONDS = 90;
 const ON_DEMAND_OPEN_ORDER_STATUSES = ['pending', 'pending_payment', 'paid', 'matched', 'offered', 'dispatching', 'pending_assignment', 'searching'];
 
 type CreatedDispatchOffer = {
@@ -2634,7 +2634,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
        FROM orders o
        JOIN delivery_service_products dsp ON dsp.code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
         AND dsp.is_enabled = TRUE
-        AND dsp.service_category IN ('on_demand', 'food_delivery')
+        AND dsp.service_category IN ('on_demand', 'food_delivery', 'tambal_ban', 'towing')
        JOIN courier_profiles cp ON cp.application_channel = 'on_demand'
         AND cp.verification_status = 'approved'
         AND cp.is_online = TRUE
@@ -2645,9 +2645,12 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
         AND csc.service_code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
         AND csc.application_channel = 'on_demand'
         AND csc.status = 'enabled'
-       JOIN courier_vehicles cv ON cv.id = csc.vehicle_id
-        AND cv.courier_profile_id = cp.id
+       JOIN courier_vehicles cv ON cv.courier_profile_id = cp.id
         AND cv.verification_status = 'approved'
+        AND (
+          csc.vehicle_id IS NULL
+          OR cv.id = csc.vehicle_id
+        )
         AND (
           COALESCE(array_length(dsp.vehicle_types, 1), 0) = 0
           OR cv.vehicle_type = ANY(dsp.vehicle_types)
@@ -2683,6 +2686,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           FROM courier_offer_dispatches d
           WHERE d.order_id = o.id
             AND d.courier_id = cp.user_id
+            AND d.status IN ('offered', 'accepted')
         )
      ),
      scored AS (
@@ -2778,7 +2782,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
   await client.query(
     `UPDATE orders
      SET status = CASE
-           WHEN status IN ('pending', 'pending_payment', 'paid', 'matched', 'offered') THEN 'dispatching'
+           WHEN status IN ('pending', 'pending_payment', 'paid', 'matched', 'dispatching', 'offered') THEN 'offered'
            ELSE status
          END,
          updated_at = NOW()
@@ -2948,7 +2952,7 @@ export const dispatchToPreferredCourier = async (
   await client.query(
     `UPDATE orders
      SET status = CASE
-           WHEN status IN ('pending', 'pending_payment', 'paid', 'matched', 'offered') THEN 'dispatching'
+           WHEN status IN ('pending', 'pending_payment', 'paid', 'matched', 'dispatching', 'offered') THEN 'offered'
            ELSE status
          END,
          updated_at = NOW()
@@ -3258,7 +3262,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
         AND csc.status = 'enabled'
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code
         AND dsp.is_enabled = TRUE
-        AND dsp.service_category IN ('on_demand', 'food_delivery')
+        AND dsp.service_category IN ('on_demand', 'food_delivery', 'tambal_ban', 'towing')
        CROSS JOIN active_jobs aj
        WHERE cp.user_id = $1
          AND cp.application_channel = 'on_demand'
@@ -4703,7 +4707,7 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
           COALESCE(dsp.failed_delivery_policy, CASE WHEN COALESCE(dsp.service_category, '') = 'regular' THEN 'reschedule_then_return' ELSE 'must_deliver' END) AS failed_delivery_policy,
           COALESCE(dsp.regular_max_reschedule_attempts, 3)::int AS regular_max_reschedule_attempts,
           CASE
-            WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
+            WHEN COALESCE(dsp.service_category, '') IN ('on_demand', 'tambal_ban', 'towing') THEN 'on_demand'
             WHEN COALESCE(dsp.service_category, '') = 'food_delivery' THEN 'food_delivery'
             WHEN LOWER(o.model) = 'p2p' THEN 'regular'
             WHEN ol.leg_number = 1 THEN 'pickup'

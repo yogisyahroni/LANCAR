@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Search Towing - TEMBUS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#fcf9f8",
+                        "on-surface-variant": "#3d4a3f",
+                        "surface-bright": "#fcf9f8",
+                        "tertiary": "#006780",
+                        "primary-fixed": "#76fca3",
+                        "error-container": "#ffdad6",
+                        "background": "#F5F7F6",
+                        "primary": "#93328E",
+                        "on-primary-container": "#FFFFFF",
+                        "secondary-container": "#e41e31",
+                        "on-background": "#1c1b1b",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e5e2e1",
+                        "secondary-fixed": "#ffdad7",
+                        "on-primary-fixed": "#00210d",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed-variant": "#005229",
+                        "surface-tint": "#93328E",
+                        "on-secondary-container": "#fffbff",
+                        "inverse-primary": "#57df89",
+                        "inverse-on-surface": "#f3f0ef",
+                        "surface-container-high": "#ebe7e7",
+                        "inverse-surface": "#313030",
+                        "surface-container-highest": "#e5e2e1",
+                        "surface-container": "#f0edec",
+                        "on-secondary-fixed-variant": "#930017",
+                        "surface-dim": "#dcd9d9",
+                        "on-secondary-fixed": "#410005",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f6f3f2",
+                        "on-surface": "#1c1b1b",
+                        "tertiary-fixed": "#b8eaff",
+                        "on-tertiary-fixed": "#001f28",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-variant": "#bccabc",
+                        "primary-fixed-dim": "#57df89",
+                        "secondary": "#bb0020",
+                        "tertiary-container": "#00a1c6",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#93328E",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "outline": "#6d7b6e",
+                        "on-tertiary-container": "#00313f",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "1rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "unit": "8px",
+                        "md": "16px",
+                        "gutter-mobile": "12px",
+                        "xl": "32px",
+                        "sm": "8px",
+                        "margin-mobile": "16px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-sm": ["11px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen w-full flex justify-center items-start">
+<div class="w-full max-w-[390px] min-h-[844px] bg-background relative flex flex-col shadow-2xl overflow-hidden">
+<!-- Header Section -->
+<header class="bg-surface-container-lowest px-margin-mobile pt-12 pb-md sticky top-0 z-50">
+<div class="flex items-center gap-sm">
+<button class="w-[48px] h-[48px] flex items-center justify-center rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-on-surface">arrow_back</span>
+</button>
+<div class="flex-1 flex items-center bg-surface-container-low rounded-full px-4 h-[48px] border border-outline-variant focus-within:border-primary transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant mr-2">search</span>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-body-md text-on-surface p-0" placeholder="Cari armada..." type="text" value="towing mobil"/>
+<button class="ml-2 w-[24px] h-[24px] flex items-center justify-center rounded-full bg-surface-dim hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">close</span>
+</button>
+</div>
+<button class="w-[48px] h-[48px] flex items-center justify-center rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-on-surface">tune</span>
+</button>
+</div>
+<!-- Filter Bar -->
+<div class="mt-md flex gap-gutter-mobile overflow-x-auto no-scrollbar pb-xs">
+<button class="whitespace-nowrap px-4 h-[32px] rounded-full bg-primary-container text-on-primary-container font-label-lg flex items-center shadow-[0_2px_8px_rgba(147,50,142,0.2)]">Semua</button>
+<button class="whitespace-nowrap px-4 h-[32px] rounded-full bg-surface-container-lowest border border-outline-variant text-on-surface-variant font-label-lg flex items-center">Terdekat</button>
+<button class="whitespace-nowrap px-4 h-[32px] rounded-full bg-surface-container-lowest border border-outline-variant text-on-surface-variant font-label-lg flex items-center">Termurah</button>
+<button class="whitespace-nowrap px-4 h-[32px] rounded-full bg-surface-container-lowest border border-outline-variant text-on-surface-variant font-label-lg flex items-center">Rating</button>
+<button class="whitespace-nowrap px-4 h-[32px] rounded-full bg-surface-container-lowest border border-outline-variant text-on-surface-variant font-label-lg flex items-center">Buka 24jam</button>
+</div>
+</header>
+<!-- Main Content (Search Results) -->
+<main class="flex-1 overflow-y-auto px-margin-mobile pt-md pb-[100px] flex flex-col gap-md">
+<!-- Result Item 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-[0_2px_8px_rgba(0,0,0,0.05)] relative overflow-hidden">
+<div class="absolute top-0 right-0 bg-primary-container text-on-primary-container px-3 py-1 rounded-bl-lg font-label-sm flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[14px]">local_fire_department</span> Populer
+                </div>
+<div class="flex gap-md mb-md">
+<div class="w-[64px] h-[64px] bg-surface-container rounded-lg overflow-hidden shrink-0 flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-[32px] text-primary">local_shipping</span>
+</div>
+<div class="flex-1">
+<h3 class="font-label-lg text-on-surface line-clamp-1 pr-16">Fernando Wijaya</h3>
+<p class="font-body-md text-on-surface-variant mt-1">Derek Flatbed</p>
+<div class="flex items-center gap-xs mt-2 text-label-sm">
+<span class="material-symbols-outlined text-[14px] text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-lg text-on-surface">4.9</span>
+<span class="text-on-surface-variant">(300+)</span>
+<span class="text-on-surface-variant mx-1">•</span>
+<span class="text-on-surface-variant">1.5 km</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-sm pt-sm border-t border-surface-variant">
+<div>
+<div class="font-label-sm text-on-surface-variant">Estimasi tiba</div>
+<div class="font-label-lg text-on-surface flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span> ±30 min
+                        </div>
+</div>
+<div class="text-right">
+<div class="font-label-sm text-on-surface-variant">Mulai dari</div>
+<div class="font-headline-md text-on-surface">Rp150rb</div>
+</div>
+</div>
+<button class="w-full mt-md h-[48px] rounded-lg bg-primary text-on-primary font-label-lg flex items-center justify-center hover:bg-[#7A2A75] transition-colors shadow-md">
+                    Pilih
+                </button>
+</div>
+<!-- Result Item 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+<div class="flex gap-md mb-md">
+<div class="w-[64px] h-[64px] bg-surface-container rounded-lg overflow-hidden shrink-0 flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-[32px] text-primary">rv_hookup</span>
+</div>
+<div class="flex-1">
+<h3 class="font-label-lg text-on-surface line-clamp-1">Rudi Hartono</h3>
+<p class="font-body-md text-on-surface-variant mt-1">Towing Mobil</p>
+<div class="flex items-center gap-xs mt-2 text-label-sm">
+<span class="material-symbols-outlined text-[14px] text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-lg text-on-surface">4.8</span>
+<span class="text-on-surface-variant">(180+)</span>
+<span class="text-on-surface-variant mx-1">•</span>
+<span class="text-on-surface-variant">2.1 km</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-sm pt-sm border-t border-surface-variant">
+<div>
+<div class="font-label-sm text-on-surface-variant">Estimasi tiba</div>
+<div class="font-label-lg text-on-surface flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span> ±35 min
+                        </div>
+</div>
+<div class="text-right">
+<div class="font-label-sm text-on-surface-variant">Mulai dari</div>
+<div class="font-headline-md text-on-surface">Rp75rb</div>
+</div>
+</div>
+<button class="w-full mt-md h-[48px] rounded-lg bg-surface-container-lowest border border-primary text-primary font-label-lg flex items-center justify-center hover:bg-surface-container-low transition-colors">
+                    Pilih
+                </button>
+</div>
+</main>
+</div>
+</body></html>

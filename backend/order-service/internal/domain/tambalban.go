@@ -204,6 +204,9 @@ type AvailabilityRepository interface {
 	GetAvailabilityState(ctx context.Context, courierID string) (*CourierAvailabilityState, error)
 	UpsertAvailabilityState(ctx context.Context, state *CourierAvailabilityState) error
 	FindCouriersByCapability(ctx context.Context, serviceSubType string, radiusKM float64, lat, lng float64) ([]*NearbyCourier, error)
+	// GetCourierByID — detail teknisi by ID: tanpa filter radius (detail harus
+	// selalu bisa dibuka untuk kurir valid); jarak/ETA tetap dihitung dari lat/lng user.
+	GetCourierByID(ctx context.Context, courierID, serviceSubType string, lat, lng float64) (*NearbyCourier, error)
 	GetCourierServicePrice(ctx context.Context, courierID, serviceCode string) (int64, error)
 	EstimateDistanceKM(ctx context.Context, lat1, lng1, lat2, lng2 float64) (float64, error)
 	GetCourierVehicleType(ctx context.Context, courierID string) (vehicleType string, vehicleTypeCar *string, err error)
@@ -212,6 +215,8 @@ type AvailabilityRepository interface {
 	// (dropdown 1-20 km, CHECK constraint di DB). driver food delivery
 	// mengatur radius jangkauan sendiri.
 	UpdateCourierRadius(ctx context.Context, courierID string, radiusKM int) error
+	// GetDeliveryServiceByCode — ambil service product untuk home tambal ban.
+	GetDeliveryServiceByCode(ctx context.Context, code string) (*DeliveryServiceProduct, error)
 }
 
 type ServiceReportRepository interface {
@@ -219,6 +224,48 @@ type ServiceReportRepository interface {
 	GetTambalBanReportByOrderID(ctx context.Context, orderID string) (*TambalBanReport, error)
 	CreateTowingReport(ctx context.Context, report *TowingReport) error
 	GetTowingReportByOrderID(ctx context.Context, orderID string) (*TowingReport, error)
+}
+
+// ============================================================
+// TAMBAL BAN HOME — Payload halaman utama (design Stitch)
+// ============================================================
+
+type TambalBanServiceProduct struct {
+	Code           string  `json:"code"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	BaseFareIDR    int64   `json:"base_fare_idr"`
+	PerKmIDR       int64   `json:"per_km_idr"`
+	PlatformFeeIDR int64   `json:"platform_fee_idr"`
+	PlatformFeePct float64 `json:"platform_fee_pct"`
+	IsEnabled      bool    `json:"is_enabled"`
+	VehicleLabel   string  `json:"vehicle_label"`
+}
+
+type TambalBanHomeResponse struct {
+	Services   []TambalBanServiceProduct `json:"services"`
+	Couriers   []NearbyCourier           `json:"couriers"`
+	Count      int                       `json:"count"`
+	PriceRange PriceRange                `json:"price_range"`
+}
+
+type CourierDetail struct {
+	CourierID           string  `json:"courier_id"`
+	CourierName         string  `json:"courier_name"`
+	Rating              float64 `json:"rating"`
+	RatingCount         int     `json:"rating_count"`
+	VehicleType         string  `json:"vehicle_type"`
+	VehicleTypeCar      *string `json:"vehicle_type_car,omitempty"`
+	DistanceKM          float64 `json:"distance_km"`
+	ETAMinutes          int     `json:"eta_minutes"`
+	CourierServicePrice int64   `json:"courier_service_price"`
+	MinPrice            int64   `json:"min_price"`
+	MaxPrice            int64   `json:"max_price"`
+	RadiusMaxKM         int     `json:"radius_max_km"`
+	ServiceSubType      string  `json:"service_sub_type"`
+	Status              string  `json:"status"`
+	StatusText          string  `json:"status_text"`
+	IsOnline            bool    `json:"is_online"`
 }
 
 // ============================================================
@@ -236,6 +283,12 @@ type AvailabilityService interface {
 	GetCourierAvailability(ctx context.Context, courierID string) (*CourierAvailabilityState, error)
 	// UpdateRadius — FOOD-BIKE-029: set radius_max_km driver food delivery.
 	UpdateRadius(ctx context.Context, courierID string, radiusKM int) error
+	// GetTambalBanHome — home tambal ban: service products + nearby couriers + price range.
+	GetTambalBanHome(ctx context.Context, customerLat, customerLng float64) (*TambalBanHomeResponse, error)
+	// GetCourierDetail — detail teknisi untuk screen detail (rating, ulasan, radius, harga).
+	GetCourierDetail(ctx context.Context, courierID, serviceSubType string) (*CourierDetail, error)
+	// SearchTambalBanCouriers — search teknisi tambal ban by name (fallback ke nearby).
+	SearchTambalBanCouriers(ctx context.Context, query string, customerLat, customerLng float64, serviceSubType string) (*NearbyCouriersResponse, error)
 }
 
 type VehicleValidator interface {

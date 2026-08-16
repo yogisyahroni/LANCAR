@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"tembus/order-service/internal/domain"
 )
 
@@ -144,6 +145,146 @@ func (s *availabilityServiceImpl) FindAvailableCouriers(
 	return &domain.NearbyCouriersResponse{
 		Couriers: available,
 		Count:    len(available),
+		PriceRange: domain.PriceRange{
+			Min: minPrice,
+			Max: maxPrice,
+			Avg: avgPrice,
+		},
+	}, nil
+}
+
+// GetTambalBanHome — home tambal ban: 2 service products (motor/mobil) + nearby couriers.
+func (s *availabilityServiceImpl) GetTambalBanHome(ctx context.Context, customerLat, customerLng float64) (*domain.TambalBanHomeResponse, error) {
+	// Dua layanan tambal ban: motor & mobil
+	codes := []struct {
+		code         string
+		vehicleLabel string
+	}{
+		{"tambal_ban_motor", "Motor"},
+		{"tambal_ban_mobil", "Mobil"},
+	}
+
+	resp := &domain.TambalBanHomeResponse{Services: []domain.TambalBanServiceProduct{}}
+
+	for _, c := range codes {
+		prod, err := s.repo.GetDeliveryServiceByCode(ctx, c.code)
+		if err != nil {
+			// service product tidak ada — skip (jangan gagal total)
+			continue
+		}
+		resp.Services = append(resp.Services, domain.TambalBanServiceProduct{
+			Code:           prod.Code,
+			Name:           prod.Name,
+			Description:    prod.Name,
+			BaseFareIDR:    prod.BaseFareIDR,
+			PerKmIDR:       prod.PerKmIDR,
+			PlatformFeeIDR: prod.PlatformFeeIDR,
+			PlatformFeePct: prod.PlatformFeePct,
+			IsEnabled:      true,
+			VehicleLabel:   c.vehicleLabel,
+		})
+	}
+
+	// Nearby couriers (default radius 5 km — sama seperti GetNearbyCouriers)
+	nearby, err := s.FindAvailableCouriers(ctx, "tambal_ban_motor", customerLat, customerLng, 5.0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find couriers: %w", err)
+	}
+
+	resp.Couriers = nearby.Couriers
+	resp.Count = nearby.Count
+	resp.PriceRange = nearby.PriceRange
+
+	return resp, nil
+}
+
+// GetCourierDetail — detail teknisi by ID (tanpa filter radius).
+// Fix 404 (2026-08-16): sebelumnya nyari lewat FindCouriersByCapability
+// dengan lat/lng 0,0 → haversine dari (0,0) ≈ 11.000 km > radius 50 km
+// → courier selalu terfilter.
+func (s *availabilityServiceImpl) GetCourierDetail(ctx context.Context, courierID, serviceSubType string) (*domain.CourierDetail, error) {
+	if serviceSubType == "" {
+		serviceSubType = "tambal_ban_motor"
+	}
+
+	target, err := s.repo.GetCourierByID(ctx, courierID, serviceSubType, 0, 0)
+	if err != nil {
+		return nil, fmt.Errorf("courier not found: %w", err)
+	}
+
+	detail := &domain.CourierDetail{
+		CourierID:           target.CourierID,
+		CourierName:         target.CourierName,
+		Rating:              target.Rating,
+		VehicleType:         target.VehicleType,
+		VehicleTypeCar:      target.VehicleTypeCar,
+		DistanceKM:          target.DistanceKM,
+		ETAMinutes:          target.ETAMinutes,
+		CourierServicePrice: target.CourierServicePrice,
+		RadiusMaxKM:         target.RadiusMaxKM,
+		ServiceSubType:      serviceSubType,
+		Status:              target.Status,
+		StatusText:          target.StatusText,
+		IsOnline:            true,
+	}
+
+	// Harga bounds (min/max dari courier_service_prices)
+	if target.CourierServicePrice > 0 {
+		detail.MinPrice = target.CourierServicePrice
+		detail.MaxPrice = target.CourierServicePrice
+	}
+
+	return detail, nil
+}
+
+// SearchTambalBanCouriers — search teknisi by name; fallback ke nearby list.
+func (s *availabilityServiceImpl) SearchTambalBanCouriers(ctx context.Context, query string, customerLat, customerLng float64, serviceSubType string) (*domain.NearbyCouriersResponse, error) {
+	if serviceSubType == "" {
+		serviceSubType = "tambal_ban_motor"
+	}
+
+	// Ambil semua courier di radius 50 km (semua jenis tambal ban) lalu filter by name
+	nearby, err := s.FindAvailableCouriers(ctx, serviceSubType, customerLat, customerLng, 50.0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find couriers: %w", err)
+	}
+
+	if query == "" {
+		return nearby, nil
+	}
+
+	// Filter by name (case-insensitive)
+	q := strings.ToLower(strings.TrimSpace(query))
+	var filtered []domain.NearbyCourier
+	for _, c := range nearby.Couriers {
+		if strings.Contains(strings.ToLower(c.CourierName), q) {
+			filtered = append(filtered, c)
+		}
+	}
+
+	// Recompute price range
+	var minPrice, maxPrice, totalPrice int64
+	var count int
+	for _, c := range filtered {
+		if c.CourierServicePrice > 0 {
+			if minPrice == 0 || c.CourierServicePrice < minPrice {
+				minPrice = c.CourierServicePrice
+			}
+			if c.CourierServicePrice > maxPrice {
+				maxPrice = c.CourierServicePrice
+			}
+			totalPrice += c.CourierServicePrice
+			count++
+		}
+	}
+	var avgPrice int64
+	if count > 0 {
+		avgPrice = totalPrice / int64(count)
+	}
+
+	return &domain.NearbyCouriersResponse{
+		Couriers: filtered,
+		Count:    len(filtered),
 		PriceRange: domain.PriceRange{
 			Min: minPrice,
 			Max: maxPrice,

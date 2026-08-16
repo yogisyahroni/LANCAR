@@ -1,0 +1,21 @@
+Halaman Status Pesanan Food — Kurir Menuju Merchant aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter. Warna brand food oranye-merah #EE2737.
+
+1. TOP BAR: back arrow + judul "Detail Pesanan" bold + icon chat.
+
+2. STATUS CARD: label "Status Saat Ini" + bold "Kurir Menuju Merchant" + sub "Kurir budi • sepeda • sedang menuju Soto Ayam Siti untuk mengambil pesananmu".
+
+3. KURIR CARD PUTIH: 
+   - Avatar bulat hijau + nama "Budi" bold + ⭐4.9 (200) 
+   - Badge "Sepeda" + plat "B 1234 XYZ"
+   - Sub: "Menuju Soto Ayam Siti • 1.2 km • ETA ±5 menit"
+   - Tombol kecil "Chat Kurir" outline + "Hubungi" (telpon)
+
+4. MERCHANT INFO: Soto Ayam Siti + alamat.
+
+5. RINCIAN ITEM + TOTAL.
+
+6. TIMELINE 4 STEP: 1 ✓ Pesanan Dibuat • 2 ✓ Disiapkan • 3 ✓ Mencari Kurir • 4 ● Kurir Menuju Merchant (aktif)
+
+7. RUTE: Penjemputan (Soto Ayam Siti) → Tujuan (Jl. Melati No. 12) + garis putus-putus + ikon sepeda.
+
+8. TOMBOL: "Lacak Pesanan" oranye (full) + "Batalkan Pesanan" outline merah + info "Pembatalan dikenakan biaya layanan (biaya jasa tidak dikembalikan)".

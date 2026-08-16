@@ -91,6 +91,9 @@ import com.tembus.customer.ui.screens.profile.ProfileViewModel
 import com.tembus.customer.ui.screens.service.NearbyCouriersScreen
 import com.tembus.customer.ui.screens.service.ServiceBookingScreen
 import com.tembus.customer.ui.screens.service.ServiceCategoryScreen
+import com.tembus.customer.ui.screens.service.TambalBanHomeScreen
+import com.tembus.customer.ui.screens.service.CourierDetailScreen
+import com.tembus.customer.ui.screens.service.TambalBanSearchScreen
 import com.tembus.customer.ui.screens.service.ServiceReportScreen
 import com.tembus.customer.ui.screens.service.ServiceTrackingScreen
 import com.tembus.customer.ui.screens.service.SubTypeSelectorScreen
@@ -231,7 +234,8 @@ fun RootNavGraph(
                     onBookingClick = { open ->
                         when (open) {
                             "tambal_ban_motor", "tambal_ban_mobil", "towing_motor", "towing_mobil" -> navController.navigate(Screen.ServiceBooking.createRoute(open))
-                            "tambal_ban", "towing" -> navController.navigate(Screen.ServiceCategory.route)
+                            "tambal_ban" -> navController.navigate(Screen.TambalBanHome.route)
+                            "towing" -> navController.navigate(Screen.ServiceCategory.route)
                             "food_delivery" -> navController.navigate(Screen.FoodHome.route)
                             "food_favorites" -> navController.navigate(Screen.FoodFavorites.route)
                             else -> navController.navigate(Screen.Booking.createRoute(open))
@@ -442,6 +446,76 @@ fun RootNavGraph(
                     serviceSubType = serviceSubType,
                     customerLat = lat,
                     customerLng = lng,
+                    onBackClick = { navController.popBackStack() },
+                    onCourierSelected = { courierId, price ->
+                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price))
+                    }
+                )
+            }
+
+            // ============================================================
+            // TAMBAL BAN HOME + DETAIL + SEARCH (design Stitch UI/UX)
+            // ============================================================
+            composable(Screen.TambalBanHome.route) {
+                TambalBanHomeScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onServiceSelected = { serviceSubType ->
+                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType))
+                    },
+                    onCourierSelected = { courier ->
+                        navController.navigate(
+                            Screen.CourierDetail.createRoute(
+                                courier.courierId,
+                                courier.serviceSubType
+                            )
+                        )
+                    },
+                    onSearchClick = { lat, lng ->
+                        navController.navigate(Screen.TambalBanSearch.createRoute(lat, lng))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.CourierDetail.route,
+                arguments = listOf(
+                    navArgument("courierId") { type = NavType.StringType },
+                    navArgument("serviceSubType") { type = NavType.StringType; defaultValue = "tambal_ban_motor" },
+                    navArgument("lat") { type = NavType.StringType; defaultValue = "0" },
+                    navArgument("lng") { type = NavType.StringType; defaultValue = "0" }
+                )
+            ) { backStackEntry ->
+                val courierId = backStackEntry.arguments?.getString("courierId") ?: ""
+                val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: "tambal_ban_motor"
+                val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 0.0
+                val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 0.0
+                CourierDetailScreen(
+                    courierId = courierId,
+                    serviceSubType = serviceSubType,
+                    lat = lat,
+                    lng = lng,
+                    onBackClick = { navController.popBackStack() },
+                    onBookClick = { courierId, price ->
+                        navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.TambalBanSearch.route,
+                arguments = listOf(
+                    navArgument("lat") { type = NavType.StringType },
+                    navArgument("lng") { type = NavType.StringType },
+                    navArgument("serviceSubType") { type = NavType.StringType; defaultValue = "tambal_ban_motor" }
+                )
+            ) { backStackEntry ->
+                val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 0.0
+                val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 0.0
+                val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: "tambal_ban_motor"
+                TambalBanSearchScreen(
+                    lat = lat,
+                    lng = lng,
+                    serviceSubType = serviceSubType,
                     onBackClick = { navController.popBackStack() },
                     onCourierSelected = { courierId, price ->
                         navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price))

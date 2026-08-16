@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+
+<html class="light" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Konfirmasi Pesanan - TEMBUS</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS with custom config -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#006d38",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#3d4a3f",
+                        "secondary": "#bb0020",
+                        "surface-container-highest": "#e5e2e1",
+                        "on-secondary-fixed-variant": "#930017",
+                        "on-primary-fixed-variant": "#005229",
+                        "error-container": "#ffdad6",
+                        "primary-fixed-dim": "#57df89",
+                        "tertiary-container": "#00a1c6",
+                        "surface-bright": "#fcf9f8",
+                        "on-error-container": "#93000a",
+                        "tertiary": "#006780",
+                        "secondary-fixed": "#ffdad7",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "background": "#fcf9f8",
+                        "on-primary-container": "#003518",
+                        "outline-variant": "#bccabc",
+                        "secondary-container": "#e41e31",
+                        "inverse-surface": "#313030",
+                        "secondary-fixed-dim": "#ffb3af",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#006d38",
+                        "on-tertiary-fixed": "#001f28",
+                        "outline": "#6d7b6e",
+                        "on-surface": "#1c1b1b",
+                        "on-secondary-fixed": "#410005",
+                        "primary-fixed": "#76fca3",
+                        "surface": "#fcf9f8",
+                        "surface-container": "#f0edec",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#dcd9d9",
+                        "primary-container": "#00aa5b",
+                        "on-primary-fixed": "#00210d",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e5e2e1",
+                        "on-background": "#1c1b1b",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "surface-container-high": "#ebe7e7",
+                        "on-secondary-container": "#fffbff",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-primary": "#57df89",
+                        "tertiary-fixed": "#b8eaff",
+                        "surface-container-low": "#f6f3f2",
+                        "on-tertiary-container": "#00313f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "gutter-mobile": "12px",
+                        "xl": "32px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "margin-mobile": "16px",
+                        "unit": "8px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Smooth scrolling and base font settings */
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Custom scrollbar hiding for horizontal lists */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-container-low text-on-surface font-sans selection:bg-primary-container selection:text-on-primary-container">
+<!-- Mobile Container (Max-W-MD for app simulation) -->
+<div class="max-w-md mx-auto min-h-screen bg-surface-container-low flex flex-col relative pb-[140px]">
+<!-- Transactional Header (Suppressed global Nav per design logic) -->
+<header class="sticky top-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-surface-variant flex items-center justify-between px-margin-mobile py-sm h-[64px]">
+<button class="w-10 h-10 flex items-center justify-center rounded-full active:bg-surface-container transition-colors text-on-surface">
+<span class="material-symbols-outlined" style="font-variation-settings: 'wght' 300;">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface absolute left-1/2 -translate-x-1/2">
+                Konfirmasi Pesanan
+            </h1>
+<button class="w-10 h-10 flex items-center justify-center rounded-full active:bg-surface-container transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined" style="font-variation-settings: 'wght' 300;">close</span>
+</button>
+</header>
+<!-- Main Scrollable Canvas -->
+<main class="flex-1 flex flex-col p-margin-mobile gap-md">
+<!-- Service Summary Card -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-sm border border-outline-variant/30 flex flex-col gap-sm">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-sm">
+<div class="w-12 h-12 rounded-lg bg-tertiary-container/20 text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">car_repair</span>
+</div>
+<div>
+<h2 class="font-label-lg text-label-lg text-on-surface">Towing Motor</h2>
+<p class="font-body-md text-body-md text-primary font-medium">Mulai Rp35.000</p>
+</div>
+</div>
+</div>
+<hr class="border-t border-surface-variant my-xs"/>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">person</span>
+<span class="font-body-md text-body-md text-sm">Armada: Fernando Wijaya</span>
+</div>
+<div class="flex items-center gap-xs bg-surface-container px-2 py-1 rounded">
+<span class="material-symbols-outlined text-[14px] text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-sm text-label-sm">4.9</span>
+</div>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant mt-xs">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-sm text-label-sm text-sm">1.5 km • ±30 menit</span>
+</div>
+</section>
+<!-- Pickup Location Card -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-sm border border-outline-variant/30 flex flex-col gap-sm relative overflow-hidden">
+<h3 class="font-label-lg text-label-lg text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px] text-primary">my_location</span>
+                    Lokasi Penjemputan
+                </h3>
+<!-- Mini Map Placeholder -->
+<div class="relative w-full h-32 rounded-lg overflow-hidden border border-outline-variant/30 mb-sm">
+<img class="w-full h-full object-cover" data-alt="A detailed, vibrant mobile map interface showing an urban neighborhood in Jakarta with clean white roads, soft grey buildings, and a clear primary green location pin. The lighting is bright and evenly distributed, suggesting a clear day layout in a modern transportation app." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgcLJDa-OlGoTL2suQr1ZCXrxgKAkwoDxXgGL_Zkw6c8dcAeraKeQ9A-xstFeBD0mFlBdIf-QaCsLbiSeA1pZKc-gXmpt23VR-EyEk01FQUhTxlrtM-j26MxvLMnF9bAST5AjKLOnUtxN84Iz6LQCinWwRPQ6rWyjDKDpSivNuwKKzVh62DoZwH7KbH1QzzYVzIydfaOzhbM2-tqdZ-6SC9e-yViwFibCOk2Jzf3oCrxGYyVFS5yJLY8HUTIO0prm6CWECgwTcCkyU"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/80 to-transparent flex items-end p-sm">
+<!-- Pin in center via absolute positioning simulating map behavior -->
+<span class="material-symbols-outlined absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[32px] text-primary drop-shadow-md" style="font-variation-settings: 'FILL' 1;">location_on</span>
+</div>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface leading-tight">
+                    Jl. Pintu Air 3 No.91 G
+                </p>
+<button class="mt-xs w-full py-2 px-4 rounded-lg border border-primary text-primary font-label-lg text-label-lg flex items-center justify-center gap-xs active:bg-primary-container/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">edit_location</span>
+                    Ubah Lokasi
+                </button>
+</section>
+<!-- Destination Card -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-sm border border-outline-variant/30 flex flex-col gap-sm">
+<h3 class="font-label-lg text-label-lg text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px] text-error">flag</span>
+                    Tujuan Penurunan Kendaraan
+                </h3>
+<div class="bg-surface-container-low p-sm rounded-lg min-h-[48px] flex items-center">
+<p class="font-body-md text-body-md text-on-surface-variant/70 italic">Belum ada tujuan yang dipilih</p>
+</div>
+<button class="w-full py-2 px-4 rounded-lg border border-primary text-primary font-label-lg text-label-lg flex items-center justify-center gap-xs active:bg-primary-container/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">add_location_alt</span>
+                    Pilih Tujuan
+                </button>
+</section>
+<!-- Payment Methods -->
+<section class="flex flex-col gap-sm">
+<h3 class="font-label-lg text-label-lg text-on-surface pl-xs">Metode Pembayaran</h3>
+<div class="flex overflow-x-auto hide-scrollbar gap-sm pb-sm -mx-margin-mobile px-margin-mobile">
+<!-- Selected Option: Cash -->
+<label class="flex-shrink-0 w-[140px] relative cursor-pointer group">
+<input checked="" class="peer sr-only" name="payment" type="radio" value="cash"/>
+<div class="h-full bg-surface-container-lowest border-2 border-primary rounded-xl p-md flex flex-col gap-sm items-start peer-checked:bg-primary-container/10 transition-all">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-label-lg text-label-lg text-on-surface">Cash</span>
+</div>
+<div class="absolute top-sm right-sm w-5 h-5 rounded-full border-2 border-primary bg-primary flex items-center justify-center opacity-100">
+<span class="material-symbols-outlined text-on-primary text-[14px]" style="font-variation-settings: 'wght' 700;">check</span>
+</div>
+</label>
+<!-- Unselected Option: QRIS -->
+<label class="flex-shrink-0 w-[140px] relative cursor-pointer group">
+<input class="peer sr-only" name="payment" type="radio" value="qris"/>
+<div class="h-full bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-sm items-start peer-checked:border-primary peer-checked:border-2 peer-checked:bg-primary-container/10 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant">qr_code_scanner</span>
+<span class="font-label-lg text-label-lg text-on-surface">QRIS</span>
+</div>
+<div class="absolute top-sm right-sm w-5 h-5 rounded-full border-2 border-outline-variant bg-transparent flex items-center justify-center opacity-0 group-hover:opacity-50">
+</div>
+</label>
+<!-- Unselected Option: Transfer -->
+<label class="flex-shrink-0 w-[140px] relative cursor-pointer group">
+<input class="peer sr-only" name="payment" type="radio" value="transfer"/>
+<div class="h-full bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-sm items-start peer-checked:border-primary peer-checked:border-2 peer-checked:bg-primary-container/10 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant">account_balance</span>
+<span class="font-label-lg text-label-lg text-on-surface">Transfer Bank</span>
+</div>
+<div class="absolute top-sm right-sm w-5 h-5 rounded-full border-2 border-outline-variant bg-transparent flex items-center justify-center opacity-0 group-hover:opacity-50">
+</div>
+</label>
+</div>
+</section>
+<!-- Notes -->
+<section class="flex flex-col gap-xs">
+<h3 class="font-label-lg text-label-lg text-on-surface pl-xs">Catatan untuk Pengemudi</h3>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-xl p-sm font-body-md text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none transition-shadow" placeholder="Tambahkan detail lokasi atau kondisi kendaraan..." rows="2">Motor mati di depan Indomaret, Jaket hitam</textarea>
+</section>
+<!-- Price Summary -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-sm border border-outline-variant/30 flex flex-col gap-xs mt-sm">
+<h3 class="font-label-lg text-label-lg text-on-surface mb-xs border-b border-surface-variant pb-xs">Ringkasan Harga</h3>
+<div class="flex justify-between items-center py-1">
+<span class="font-body-md text-body-md text-on-surface-variant">Layanan Towing</span>
+<span class="font-body-md text-body-md text-on-surface">Rp35.000</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="font-body-md text-body-md text-on-surface-variant">Estimasi Jarak (5km)</span>
+<span class="font-body-md text-body-md text-on-surface">Rp40.000</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="font-body-md text-body-md text-tertiary">Promo: Gratis 3km pertama</span>
+<span class="font-body-md text-body-md text-tertiary">-Rp24.000</span>
+</div>
+<hr class="border-t border-surface-variant my-xs"/>
+<div class="flex justify-between items-end pt-1">
+<span class="font-label-lg text-label-lg text-on-surface">Total Pembayaran</span>
+<span class="font-headline-md text-headline-md text-primary font-bold">Rp51.000</span>
+</div>
+</section>
+</main>
+<!-- Fixed Bottom Action Bar -->
+<div class="fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-outline-variant/30 px-margin-mobile py-md pb-safe z-50 flex flex-col gap-sm items-center">
+<div class="w-full max-w-md mx-auto flex flex-col gap-sm">
+<button class="w-full bg-primary hover:bg-surface-tint text-on-primary rounded-full h-[56px] flex items-center justify-center gap-sm font-headline-md text-[16px] active:scale-[0.98] transition-transform shadow-md">
+                    Konfirmasi &amp; Pesan
+                    <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'wght' 600;">check_circle</span>
+</button>
+<button class="w-full h-[40px] flex items-center justify-center font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface active:bg-surface-container rounded-full transition-colors">
+                    Batalkan
+                </button>
+</div>
+</div>
+</div>
+</body></html>

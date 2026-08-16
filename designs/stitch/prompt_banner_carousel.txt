@@ -1,0 +1,12 @@
+Update the TEMBUS dashboard design (keep everything that exists: green gradient header, search bar 'Cari layanan, makanan, & tujuan', wallet card Rp50.000 + 183 coins with Bayar/Top Up, 4 service tiles with glossy 3D icons, active order card, promo section, merchant feed, bottom nav).
+
+NEW REQUIREMENT — ADD AN ADVERTISING BANNER CAROUSEL in the header area (right below the search bar / above the wallet card), like Gojek's promo banner carousel and Grab's coupon carousel:
+
+1. IMAGE BANNER CAROUSEL: a large horizontal carousel (16:7 ratio, full-width rounded-24dp cards with soft shadows) that auto-rotates between 3 different advertising banners. Each banner is a RICH IMAGE with gradient overlay:
+   - Banner 1: food delivery promo — appetizing burger/food photography image, orange-red gradient overlay (#EE2737), big white text 'Diskon 50% Makanan', subtitle 'Kode FOOD50 • Berlaku hari ini', small white CTA chip 'Pesan Sekarang', a white 'IKLAN' tag in the corner (small, semi-transparent, like Gojek/Grab ad labels).
+   - Banner 2: package delivery promo — courier/box photography image, green gradient overlay (#00AA5B), big white text 'Kirim Paket Hemat', subtitle 'Mulai Rp 8.000 • Antar sampai tujuan', white CTA chip 'Kirim Sekarang', 'IKLAN' tag.
+   - Banner 3: towing/roadside assistance promo — tow-truck/road photography, purple-blue gradient overlay (#93328E), big white text 'Bantuan Jalan 24 Jam', subtitle 'Towing & tambal ban • Respon cepat', white CTA chip 'Minta Bantuan', 'IKLAN' tag.
+2. CAROUSEL INDICATOR: 3 small white dots at the bottom-center of the banner (active dot wider/longer — modern pill indicator), with subtle auto-rotate.
+3. The banner carousel is FULL-WIDTH (16px side margins) and sits prominently under the search bar, above the wallet card — this is the ad space that an admin can change remotely (each banner = one image from admin web).
+
+Keep: Material 3, 8px grid, clean white #F7F9FB background, Indonesian labels, mobile portrait, glossy 3D icons everywhere, high polish.

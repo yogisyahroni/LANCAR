@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pembayaran Towing - TEMBUS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#dcd9d9",
+                        "on-surface-variant": "#3d4a3f",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-bright": "#fcf9f8",
+                        "surface": "#fcf9f8",
+                        "on-primary-container": "#003518",
+                        "outline-variant": "#bccabc",
+                        "primary-fixed-dim": "#57df89",
+                        "surface-container-high": "#ebe7e7",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-secondary-fixed-variant": "#930017",
+                        "primary-container": "#00aa5b",
+                        "tertiary-container": "#00a1c6",
+                        "surface-tint": "#006d38",
+                        "on-error": "#ffffff",
+                        "tertiary": "#006780",
+                        "on-primary-fixed-variant": "#005229",
+                        "on-secondary-container": "#fffbff",
+                        "surface-container-low": "#f6f3f2",
+                        "outline": "#6d7b6e",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e5e2e1",
+                        "on-tertiary-fixed-variant": "#004d61",
+                        "on-tertiary-fixed": "#001f28",
+                        "surface-container-highest": "#e5e2e1",
+                        "secondary-container": "#e41e31",
+                        "on-surface": "#1c1b1b",
+                        "on-background": "#1c1b1b",
+                        "inverse-primary": "#57df89",
+                        "inverse-surface": "#313030",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#00313f",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#b8eaff",
+                        "background": "#F5F7F6", /* Override for specific prompt requirement */
+                        "secondary-fixed-dim": "#ffb3af",
+                        "secondary-fixed": "#ffdad7",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#76fca3",
+                        "surface-container": "#f0edec",
+                        "tertiary-fixed-dim": "#52d5ff",
+                        "secondary": "#bb0020",
+                        "primary": "#93328E", /* Set primary to the requested purple */
+                        "on-secondary-fixed": "#410005",
+                        "on-primary-fixed": "#00210d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "gutter-mobile": "12px",
+                        "xs": "4px",
+                        "margin-mobile": "16px",
+                        "lg": "24px",
+                        "unit": "8px",
+                        "sm": "8px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-sm": ["11px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500"}],
+                        "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Mobile container constraints */
+        .mobile-container {
+            max-width: 390px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background-color: #F5F7F6; /* Fallback */
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-container-highest antialiased text-on-background">
+<div class="mobile-container bg-background shadow-xl overflow-hidden">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-margin-mobile py-sm w-full fixed top-0 z-50 bg-background">
+<button class="p-2 -ml-2 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-on-surface">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">Pembayaran</h1>
+<button class="p-2 -mr-2 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-on-surface">close</span>
+</button>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 mt-[56px] pb-[100px] px-margin-mobile overflow-y-auto">
+<!-- Bottom Sheet Handle (Decorative) -->
+<div class="flex justify-center py-sm mb-sm">
+<div class="w-10 h-1 bg-outline-variant rounded-full"></div>
+</div>
+<!-- Kartu Tagihan -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-sm mb-lg">
+<div class="flex justify-between items-start mb-xs">
+<h2 class="font-body-lg text-body-lg font-bold text-on-surface">Towing Motor</h2>
+<div class="flex items-center text-on-surface-variant">
+<span class="material-symbols-outlined fill text-[16px] text-yellow-500 mr-1">star</span>
+<span class="font-label-sm text-label-sm">4.9</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md text-[13px]">Armada: Fernando Wijaya</p>
+<div class="space-y-sm mb-md">
+<div class="flex justify-between items-center">
+<span class="font-body-md text-body-md text-on-surface-variant">Jasa Armada (diset driver)</span>
+<span class="font-body-md text-body-md font-medium text-on-surface">Rp150.000</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-md text-body-md text-on-surface-variant">Biaya Platform (20% × jarak 5km)</span>
+<span class="font-body-md text-body-md font-medium text-on-surface">Rp8.000</span>
+</div>
+</div>
+<hr class="border-t border-dashed border-outline-variant mb-md"/>
+<div class="flex justify-between items-center mb-md">
+<span class="font-headline-md text-headline-md text-on-surface">Total</span>
+<span class="font-headline-md text-headline-md text-primary">Rp158.000</span>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant text-center">
+                Harga final diset armada setelah pengecekan • Perbedaan ≤20% dari estimasi
+            </p>
+</section>
+<!-- Metode Pembayaran -->
+<section class="mb-lg">
+<h3 class="font-label-lg text-label-lg text-on-surface mb-sm">Metode Pembayaran</h3>
+<div class="space-y-sm">
+<!-- QRIS (Active) -->
+<label class="flex items-center p-md bg-surface-container-lowest rounded-xl shadow-sm border border-primary/20 relative cursor-pointer hover:bg-surface-container-low transition-colors">
+<div class="flex-1">
+<span class="block font-body-lg text-body-lg font-medium text-on-surface">QRIS</span>
+<span class="block font-body-md text-body-md text-on-surface-variant text-[13px]">DANA/OVO/GoPay/ShopeePay</span>
+</div>
+<div class="absolute top-md right-md bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider mb-2">
+                        Non-tunai
+                    </div>
+<div class="mt-4 flex items-center justify-end w-full absolute bottom-md right-md pointer-events-none">
+<input checked="" class="h-5 w-5 text-primary border-outline-variant focus:ring-primary focus:ring-offset-surface-container-lowest" name="payment_method" type="radio"/>
+</div>
+</label>
+<!-- Transfer Bank -->
+<label class="flex items-center p-md bg-surface-container-lowest rounded-xl shadow-sm border border-transparent cursor-pointer hover:bg-surface-container-low transition-colors">
+<div class="flex-1">
+<span class="block font-body-lg text-body-lg font-medium text-on-surface">Transfer Bank</span>
+<span class="block font-body-md text-body-md text-on-surface-variant text-[13px]">BCA/Mandiri/BRI/BNI</span>
+</div>
+<input class="h-5 w-5 text-primary border-outline-variant focus:ring-primary focus:ring-offset-surface-container-lowest" name="payment_method" type="radio"/>
+</label>
+<!-- DANA -->
+<label class="flex items-center p-md bg-surface-container-lowest rounded-xl shadow-sm border border-transparent cursor-pointer hover:bg-surface-container-low transition-colors">
+<div class="flex-1">
+<span class="block font-body-lg text-body-lg font-medium text-on-surface">DANA</span>
+</div>
+<input class="h-5 w-5 text-primary border-outline-variant focus:ring-primary focus:ring-offset-surface-container-lowest" name="payment_method" type="radio"/>
+</label>
+<!-- OVO -->
+<label class="flex items-center p-md bg-surface-container-lowest rounded-xl shadow-sm border border-transparent cursor-pointer hover:bg-surface-container-low transition-colors">
+<div class="flex-1">
+<span class="block font-body-lg text-body-lg font-medium text-on-surface">OVO</span>
+</div>
+<input class="h-5 w-5 text-primary border-outline-variant focus:ring-primary focus:ring-offset-surface-container-lowest" name="payment_method" type="radio"/>
+</label>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant text-center mt-md">
+                Pembayaran langsung ke TEMBUS • Refund otomatis jika armada batal
+            </p>
+</section>
+</main>
+<!-- Tombol Utama (Fixed Bottom) -->
+<div class="fixed bottom-0 left-0 w-full z-50 bg-background/90 backdrop-blur-sm p-margin-mobile flex justify-center max-w-[390px] mx-auto right-0">
+<button class="w-full bg-primary hover:bg-primary/90 text-on-primary font-label-lg text-label-lg py-md px-lg rounded-full flex items-center justify-center shadow-md transition-transform active:scale-95">
+<span class="material-symbols-outlined mr-2">lock</span>
+            Bayar Rp158.000
+        </button>
+</div>
+</div>
+</body></html>

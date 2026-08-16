@@ -1,0 +1,17 @@
+Halaman Rating Merchant (modal dialog) aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter. Warna brand food oranye-merah #EE2737. Ini DIALOG/modal persis dari MerchantRatingDialog.kt.
+
+1. MODAL PUTIH rounded 28px tonal elevation:
+   - Kanan atas: ikon X tutup grey
+   - Center: ikon restoran dalam kotak rounded hijau muda (56px) + "Beri penilaian untuk Soto Ayam Siti" bold 16px
+   - Sub: "Order #FOD-2026-0815 • Makanan kamu sudah sampai?" 12px grey
+
+2. BINTANG RATING: 5 bintang besar (40px) horizontal — kuning #F59E0B terisi (mis. 4 terisi), abu outline yang belum
+   - Label di bawah: "Bagus" 12px (sesuai jumlah: 0=Ketuk bintang untuk menilai, 1=Sangat buruk, 2=Buruk, 3=Cukup, 4=Bagus, 5=Sangat bagus!)
+
+3. KOMENTAR: textarea rounded 14px min 2 baris placeholder "Komentar (opsional) — rasa, porsi, kemasan..." 13px
+
+4. TOMBOL: 
+   - Primary oranye-merah full width tinggi 48px rounded 14px: "Kirim Penilaian" bold
+   - TextButton abu di bawah: "Nanti Saja" 13px
+
+5. (tampilkan state default — belum submit)

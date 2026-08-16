@@ -1,0 +1,19 @@
+Halaman Status Pesanan Food — Menunggu Merchant aplikasi TEMBUS (customer app), bahasa Indonesia, mobile 390x844, Material 3, 8px grid, latar #F7F8FA, font Inter. Warna brand food oranye-merah #EE2737.
+
+1. TOP BAR: back arrow + judul "Detail Pesanan" bold + kanan ikon chat.
+
+2. STATUS CARD ORANYE-MERAH: label "Status Saat Ini" kecil + teks bold besar "Menunggu Merchant" + sub "Restoran sedang menyiapkan pesananmu".
+
+3. INFO ORDER PUTIH rounded 20px:
+   - Row: ikon restoran + "Soto Ayam Siti" + "Jl. Melati No. 12" + badge kecil
+   - Row: ikon motor + "Kurir sepeda akan dihubungkan setelah merchant menerima"
+   - Divider
+   - Rincian item (dari food_order_items snapshot): "2x Soto Ayam Lamongan Rp50.000", "1x Nasi Goreng Spesial Rp30.000"
+   - Total bold: "Total Rp95.000" + status "Dibayar sebelum antar" (kode voucher HEMAT10 jika ada)
+
+4. RUTE: Penjemputan (restaurant location) → Tujuan (Jl. Melati No. 12) dengan garis putus-putus.
+
+5. TOMBOL: 
+   - Primary oranye "Lacak Pesanan" (terbuka tracking)
+   - Outline merah "Batalkan Pesanan" (muncul dialog alasan)
+   - info kecil "Pembatalan gratis jika kurir belum ditugaskan"

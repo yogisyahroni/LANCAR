@@ -52,6 +52,18 @@ sealed class Screen(val route: String) {
             return "nearby-couriers/$serviceSubType/$lat/$lng"
         }
     }
+    // UI/UX tambal ban — home + detail layanan + detail teknisi + search (design Stitch)
+    object TambalBanHome : Screen("tambal-ban-home")
+    object TambalBanSearch : Screen("tambal-ban-search/{lat}/{lng}?serviceSubType={serviceSubType}") {
+        fun createRoute(lat: Double, lng: Double, serviceSubType: String = "tambal_ban_motor"): String {
+            return "tambal-ban-search/$lat/$lng?serviceSubType=${java.net.URLEncoder.encode(serviceSubType, "UTF-8")}"
+        }
+    }
+    object CourierDetail : Screen("courier-detail/{courierId}?serviceSubType={serviceSubType}&lat={lat}&lng={lng}") {
+        fun createRoute(courierId: String, serviceSubType: String = "tambal_ban_motor", lat: Double = 0.0, lng: Double = 0.0): String {
+            return "courier-detail/$courierId?serviceSubType=${java.net.URLEncoder.encode(serviceSubType, "UTF-8")}&lat=$lat&lng=$lng"
+        }
+    }
     object ServiceTracking : Screen("service-tracking/{orderId}/{serviceSubType}") {
         fun createRoute(orderId: String, serviceSubType: String): String {
             return "service-tracking/$orderId/$serviceSubType"

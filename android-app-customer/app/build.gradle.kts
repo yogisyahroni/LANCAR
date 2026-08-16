@@ -18,13 +18,15 @@ fun getConfigValue(key: String): String {
     val envFile = rootProject.file("../.env")
     if (!envFile.exists()) return ""
     
-    envFile.readLines().forEach { line ->
+    val lines = try { envFile.readLines() } catch (e: Exception) { return "" }
+    lines.forEach { line ->
         val trimmed = line.trim()
-        if (!trimmed.startsWith("#") && trimmed.contains("=")) {
-            val parts = trimmed.split("=", limit = 2)
-            if (parts[0].trim() == key) {
-                return parts[1].trim().removeSurrounding("\"").removeSurrounding("'")
+        if (trimmed.startsWith("$key=")) {
+            var value = trimmed.substringAfter("=").trim()
+            if (value.startsWith("\"") && value.endsWith("\"")) {
+                value = value.substring(1, value.length - 1)
             }
+            return value
         }
     }
     return ""
@@ -391,4 +393,7 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
     implementation("androidx.hilt:hilt-work:1.1.0")
     ksp("androidx.hilt:hilt-compiler:1.1.0")
+
+    // AndroidX Core Splashscreen
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }
