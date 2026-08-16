@@ -34,6 +34,7 @@ data class EarningsData(
     val tollCost: Long = 0,
     val platformCommissionPct: Double = 20.0,
     val platformCommissionAmt: Long = 0,
+    val platformServiceFee: Long = 0,
     val estimatedNetEarnings: Long = 0,
     val settlementModel: String = "per_km" // pool or per_km
 )
@@ -91,11 +92,11 @@ fun EarningsBreakdown(
         Spacer(Modifier.height(12.dp))
         
         // Biaya perjalanan (base fare + per km) — pakai travel fee dari backend snapshot
-                EarningRow(
-                    label = "Perjalanan ${data.distanceKm} km",
-                    amount = data.travelFee,
-                    icon = "🛵"
-                )
+        EarningRow(
+            label = "Perjalanan ${data.distanceKm} km",
+            amount = data.travelFee,
+            icon = "🛵"
+        )
         
         // Toll (100% reimbursement)
         if (data.tollCost > 0) {
@@ -108,49 +109,46 @@ fun EarningsBreakdown(
         
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         
-        // Platform commission
-        if (data.settlementModel == "per_km") {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        "Komisi Platform ${data.platformCommissionPct.toInt()}%",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        "dari biaya per-km saja",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
+        // Komisi platform (pct dinamis dari admin)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
                 Text(
-                    "-${formatRupiah(data.platformCommissionAmt)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        } else {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    "Komisi Platform ${data.platformCommissionPct.toInt()}%",
+                    "Komisi Platform ${platformCommissionPctLabel(data.platformCommissionPct)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    "-${formatRupiah(data.platformCommissionAmt)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error
-                )
+                                    "dari biaya perjalanan saja",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
             }
+            Text(
+                "-${formatRupiah(data.platformCommissionAmt)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
         }
         
         HorizontalDivider(Modifier.padding(vertical = 12.dp), thickness = 2.dp)
+        
+        // Biaya layanan platform (fixed, dibayar customer — bukan pendapatan kurir)
+        if (data.platformServiceFee > 0) {
+            EarningRow(
+                label = "Biaya Layanan Platform",
+                amount = data.platformServiceFee,
+                icon = "🧾"
+            )
+            Text(
+                "Ditanggung customer, bukan bagian pendapatan Anda.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+            Spacer(Modifier.height(8.dp))
+        }
         
         // Net earnings — BIG
         Surface(
@@ -189,8 +187,8 @@ fun EarningsBreakdown(
         ) {
             Text(
                 if (data.settlementModel == "per_km") {
-                    "💡 Harga jasa yang Anda tentukan 100% masuk ke penghasilan Anda. Komisi platform hanya dari biaya perjalanan, tidak dari harga jasa."
-                } else {
+                                    "💡 Harga jasa yang Anda tentukan 100% masuk ke penghasilan Anda. Komisi platform dihitung dari biaya perjalanan saja, tidak dari harga jasa. Biaya layanan platform ditanggung customer."
+                                } else {
                     "💡 Komisi platform dihitung dari seluruh pool (setelah PPN & MDR)."
                 },
                 modifier = Modifier.padding(12.dp),
@@ -199,6 +197,11 @@ fun EarningsBreakdown(
             )
         }
     }
+}
+
+/** Label persentase komisi: tampilkan tanpa desimal utk angka bulat (20), dgn desimal bila perlu (0.5). */
+private fun platformCommissionPctLabel(pct: Double): String {
+    return if (pct % 1.0 == 0.0) pct.toInt().toString() else pct.toString()
 }
 
 @Composable

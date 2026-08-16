@@ -54,12 +54,17 @@ class TambalBanFlowViewModel @Inject constructor(
                     val distKm = order.distanceKmValue()
                     val payout = order.cleanPayoutIdr().toLong()
                     val pb = order.pricingBreakdown
-                    val serviceFee = (pb?.serviceFeeIdr ?: 0).toLong()
-                    val travelFee = (pb?.travelFeeIdr ?: 0).toLong()
-                    val platformFee = (pb?.platformFeeIdr ?: 0).toLong()
-                    val platformPct = pb?.platformFeePct ?: 20.0
-                    val baseFare = (pb?.baseFareIdr ?: 0).toLong()
-                    val perKmRate = (pb?.perKmIdr ?: 0).toLong()
+                                        val serviceFee = (pb?.serviceFeeIdr ?: 0).toLong()
+                                        val travelFee = (pb?.travelFeeIdr ?: 0).toLong()
+                                        // Komisi platform: pct dinamis dari admin (platform_commission_percent).
+                                                            // Order lama tanpa field -> fallback 20 (default bisnis).
+                                                            val platformPct = pb?.platformCommissionPct?.takeIf { it > 0 } ?: 20.0
+                                        val platformCommissionAmt = Math.ceil(travelFee * platformPct / 100)
+                                            .toLong()
+                                        // Biaya layanan platform (fixed, dibayar customer — bukan pendapatan kurir)
+                                        val platformServiceFee = (pb?.platformFeeIdr ?: 0).toLong()
+                                        val baseFare = (pb?.baseFareIdr ?: 0).toLong()
+                                        val perKmRate = (pb?.perKmIdr ?: 0).toLong()
 
                     _uiState.update {
                         it.copy(
@@ -71,17 +76,18 @@ class TambalBanFlowViewModel @Inject constructor(
                             nextActionLabel = flowState.nextAction.label,
                             nextActionType = flowState.nextAction.type,
                             earnings = EarningsData(
-                                serviceFee = serviceFee,
-                                baseFee = baseFare,
-                                perKmRate = perKmRate,
-                                distanceKm = distKm,
-                                travelFee = travelFee,
-                                tollCost = 0,
-                                platformCommissionPct = platformPct,
-                                platformCommissionAmt = platformFee,
-                                estimatedNetEarnings = serviceFee + travelFee - platformFee,
-                                settlementModel = "per_km"
-                            )
+                                                            serviceFee = serviceFee,
+                                                            baseFee = baseFare,
+                                                            perKmRate = perKmRate,
+                                                            distanceKm = distKm,
+                                                            travelFee = travelFee,
+                                                            tollCost = 0,
+                                                            platformCommissionPct = platformPct,
+                                                            platformCommissionAmt = platformCommissionAmt,
+                                                            platformServiceFee = platformServiceFee,
+                                                            estimatedNetEarnings = serviceFee + travelFee - platformCommissionAmt,
+                                                            settlementModel = "per_km"
+                                                        )
                         )
                     }
                 } else {

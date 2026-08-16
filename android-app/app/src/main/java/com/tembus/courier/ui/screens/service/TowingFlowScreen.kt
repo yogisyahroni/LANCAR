@@ -23,6 +23,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,8 +55,15 @@ fun TowingFlowScreen(
         }
     }
 
-    LaunchedEffect(orderId) {
-        viewModel.loadOrder(orderId)
+    // Observe Room live: polling backend upsert → re-render earnings realtime.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(orderId, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                viewModel.loadOrder(orderId)
+                delay(5_000)
+            }
+        }
     }
 
     Scaffold(

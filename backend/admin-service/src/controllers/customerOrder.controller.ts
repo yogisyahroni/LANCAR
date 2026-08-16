@@ -791,7 +791,8 @@ const calculateCustomerPriceBreakdown = async ({
   }
 
   const includedKm = toNumber(service.included_distance_km, 1);
-    const distanceChargeKm = Math.max(0, Math.ceil(distance - includedKm));
+    // Aturan pembulatan jarak: <0.5 dibulatkan ke bawah, >=0.5 ke atas (Math.round)
+    const distanceChargeKm = Math.max(0, Math.round(distance - includedKm));
       const tierMultiplier = toNumber(selectedTier?.multiplier, 1);
       const tierDelta = toNumber(selectedTier?.price_delta_idr, 0);
       // Home services (tambal ban / towing): biaya jasa = harga jasa petugas
@@ -877,11 +878,12 @@ const calculateCustomerPriceBreakdown = async ({
         ? toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0))
         : 0,
       travel_fee_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
-        ? Math.ceil(toNumber(service.base_fare_idr, 0) * includedKm) + Math.ceil(distanceChargeKm * service.per_km_idr)
-        : 0,
-      platform_fee_breakdown_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
-        ? platformFee
-        : 0,
+              ? Math.ceil(toNumber(service.base_fare_idr, 0) * includedKm) + Math.round(distanceChargeKm * service.per_km_idr)
+              : 0,
+            platform_fee_breakdown_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
+              ? platformFee
+              : 0,
+            platform_commission_pct: toNumber(service.platform_commission_percent, 0),
       base_fare_idr: toNumber(service.base_fare_idr, 0),
       per_km_idr: toNumber(service.per_km_idr, 0),
       included_distance_km: includedKm,
@@ -1270,15 +1272,16 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
             promo_campaign_id: promoCampaignId,
             promo_code: appliedPromoCode,
             pricing_breakdown: {
-              service_fee_idr: trustedPriceBreakdown.service_fee_idr || 0,
-              travel_fee_idr: trustedPriceBreakdown.travel_fee_idr || 0,
-              platform_fee_idr: trustedPriceBreakdown.platform_fee_breakdown_idr || 0,
-              base_fare_idr: trustedPriceBreakdown.base_fare_idr || 0,
-              per_km_idr: trustedPriceBreakdown.per_km_idr || 0,
-              included_distance_km: trustedPriceBreakdown.included_distance_km || 0,
-              platform_fee_pct: trustedPriceBreakdown.platform_fee_pct || 0,
-            }
-          }
+                          service_fee_idr: trustedPriceBreakdown.service_fee_idr || 0,
+                          travel_fee_idr: trustedPriceBreakdown.travel_fee_idr || 0,
+                          platform_fee_idr: trustedPriceBreakdown.platform_fee_breakdown_idr || 0,
+                          base_fare_idr: trustedPriceBreakdown.base_fare_idr || 0,
+                          per_km_idr: trustedPriceBreakdown.per_km_idr || 0,
+                          included_distance_km: trustedPriceBreakdown.included_distance_km || 0,
+                          platform_fee_pct: trustedPriceBreakdown.platform_fee_pct || 0,
+                          platform_commission_pct: trustedPriceBreakdown.platform_commission_pct || 0,
+                        }
+                      }
         };
 
     await client.query('BEGIN');

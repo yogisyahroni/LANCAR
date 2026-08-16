@@ -16,5 +16,7 @@ data class PricingBreakdown(
     @SerialName("base_fare_idr") val baseFareIdr: Int = 0,
     @SerialName("per_km_idr") val perKmIdr: Int = 0,
     @SerialName("included_distance_km") val includedDistanceKm: Int = 1,
-    @SerialName("platform_fee_pct") val platformFeePct: Double = 0.0
+    @SerialName("platform_fee_pct") val platformFeePct: Double = 0.0,
+    @SerialName("platform_commission_pct") val platformCommissionPct: Double = 0.0,
+    @SerialName("live_distance_km") val liveDistanceKm: Double = 0.0
 )

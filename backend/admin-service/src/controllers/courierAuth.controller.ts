@@ -1145,10 +1145,29 @@ const normalizeMobileOrder = (order: any) => {
   const isMaintenance = ['tambal_ban', 'towing'].includes(String(order.service_category || '')) ||
     String(order.service_code || '').startsWith('tambal_ban') ||
     String(order.service_code || '').startsWith('towing');
+  // Travel fee realtime utk maintenance: base fare + per_km utk km berikutnya,
+  // pembulatan 0.5 ke atas (Math.round) — override snapshot yang beku.
+  const rawPb = order.settlement_snapshot?.pricing_breakdown || null;
+  let livePricingBreakdown = rawPb;
+  if (isMaintenance && rawPb) {
+    const liveDistanceKm = Number(order.distance || 0);
+    const baseFare = Number(rawPb.base_fare_idr || 0);
+    const perKm = Number(rawPb.per_km_idr || 0);
+    const includedKm = Number(rawPb.included_distance_km || 1);
+    if (liveDistanceKm > 0) {
+      const chargeableKm = Math.max(0, Math.round(liveDistanceKm - includedKm));
+      const liveTravelFee = Math.ceil(baseFare * includedKm) + Math.round(chargeableKm * perKm);
+      livePricingBreakdown = {
+        ...rawPb,
+        travel_fee_idr: liveTravelFee,
+        live_distance_km: liveDistanceKm,
+      };
+    }
+  }
   return {
     ...order,
     distance: isMaintenance && order.distance ? String(order.distance) : (routeContract.distance_km > 0 ? String(routeContract.distance_km) : order.distance),
-    pricing_breakdown: order.settlement_snapshot?.pricing_breakdown || null,
+    pricing_breakdown: livePricingBreakdown,
     route_snapshot: routeContract.snapshot,
     route_provider: routeContract.provider,
     route_profile: routeContract.route_profile,
