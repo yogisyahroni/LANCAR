@@ -465,7 +465,9 @@ fun Order.cleanPayoutIdr(): Int {
 fun Order.estimatedNetEarningsIdr(): Int {
     val pb = pricingBreakdown
     if (isMaintenanceService() && pb != null && pb.serviceFeeIdr > 0 && pb.travelFeeIdr >= 0) {
-        val commission = Math.ceil(pb.travelFeeIdr * (pb.platformCommissionPct / 100.0)).toInt()
+        // backend mengirim pct di settlement_snapshot, TIDAK di pricing_breakdown → fallback 20 (default bisnis, sama dgn FlowViewModel)
+        val commissionPct = pb.platformCommissionPct.takeIf { it > 0 } ?: 20.0
+        val commission = Math.ceil(pb.travelFeeIdr * (commissionPct / 100.0)).toInt()
         return pb.serviceFeeIdr + pb.travelFeeIdr - commission
     }
     return cleanPayoutIdr()
