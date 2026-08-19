@@ -126,9 +126,7 @@ fun TambalBanFlowScreen(
         },
         bottomBar = {
             // ===== STICKY CTA (standar industri: tombol aksi selalu terlihat) =====
-                        if (uiState.nextActionType != TambalBanNextActionType.NONE &&
-                            uiState.nextActionType != TambalBanNextActionType.CAPTURE_COMPLETION
-                        ) {
+                        if (uiState.nextActionType != TambalBanNextActionType.NONE) {
                             // Soft-gate: tombol "Saya di lokasi" butuh jarak ≤100m, kecuali override
                             val isArriveAction = uiState.nextActionType == TambalBanNextActionType.ARRIVED_AT_LOCATION
                             val withinRadius = distanceM != null && distanceM!! <= ARRIVAL_RADIUS_M
