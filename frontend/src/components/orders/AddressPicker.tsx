@@ -390,17 +390,16 @@ export function AddressPicker({
             {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
           </div>
           <div className="flex flex-wrap gap-2">
-            {isPickup && (
-              <button
-                type="button"
-                data-testid={`${mode}-current-location-button`}
-                onClick={() => handleUseCurrentLocation()}
-                className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
-              >
-                {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
-                Lokasi Saya
-              </button>
-            )}
+            {/* Tombol lokasi saat ini — tersedia untuk pickup DAN dropoff (UX Gojek/Grab) */}
+            <button
+              type="button"
+              data-testid={`${mode}-current-location-button`}
+              onClick={() => handleUseCurrentLocation()}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
+            >
+              {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+              Lokasi Saya
+            </button>
             <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
               Pilih hasil pencarian atau gunakan lokasi saat ini.
             </span>
@@ -541,4 +540,4 @@ export function AddressPicker({
   );
 }
 
-
+

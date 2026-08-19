@@ -28,7 +28,7 @@ test.use({
 
 const loginCustomer = async (page: import('@playwright/test').Page) => {
   await page.goto('/login');
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 
   await page.fill('input[name="email"]', TEST_EMAIL);
   await page.fill('input[name="password"]', TEST_PASSWORD);
@@ -47,19 +47,19 @@ const loginCustomer = async (page: import('@playwright/test').Page) => {
     throw new Error(`Customer login failed for ${TEST_EMAIL}: ${result.message}`);
   }
 
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 };
 
 const openOrderForm = async (page: import('@playwright/test').Page) => {
   await page.goto('/dashboard');
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 
   const createOrderLink = page.getByRole('link', { name: /Kirim Paket/i }).first();
   await expect(createOrderLink).toBeVisible({ timeout: 15000 });
   await createOrderLink.click();
 
   await page.waitForURL('**/orders/new', { timeout: 20000 });
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
   await expect(page.getByTestId('pickup-address-input')).toBeVisible({ timeout: 15000 });
 };
 

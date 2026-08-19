@@ -811,7 +811,7 @@ jobs:
       - name: Run E2E against Staging URL
         if: steps.check_url.outputs.skip == 'false'
         working-directory: ./frontend
-        run: npx playwright test
+        run: npx playwright test --project=chromium
         env:
           BASE_URL: ${{ vars.STAGING_URL }}
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
