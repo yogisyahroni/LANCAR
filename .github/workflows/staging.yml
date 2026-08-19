@@ -731,15 +731,50 @@ jobs:
           echo "🎉 Staging deployment complete!"
           EOF
 
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 5: REGRESSION TESTING (setiap push ke staging)
+  # API + E2E browser — hard gate, bukan continue-on-error
+  # ═══════════════════════════════════════════════════════════
+
+  regression-api:
+    name: API Regression (k6)
+    needs: [deploy]
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check staging API availability
+        id: check_api
+        run: |
+          if [ -z "${{ secrets.TEST_USER_EMAIL }}" ] || [ -z "${{ secrets.TEST_USER_PASSWORD }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️  TEST_USER_EMAIL/TEST_USER_PASSWORD belum di-set. API regression di-skip."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run k6 API regression
+        if: steps.check_api.outputs.skip == 'false'
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: scripts/ci/k6/smoke-test.js
+          flags: --vus 1 --duration 10s
+        env:
+          K6_BASE_URL: ${{ env.STAGING_SERVER_API_URL }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          K6_DEVICE_ID: "gha-regression-20260820"
+
   e2e-browser-validation:
     name: E2E Browser Validation
     needs: [deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: github.ref == 'refs/heads/staging'
-    continue-on-error: true
-    # NOTE: continue-on-error=true karena staging server belum live.
-    # Hapus baris ini setelah server staging aktif dan STAGING_URL di-set.
+    # HARD GATE: regression E2E wajib hijau sebelum deploy dinyatakan sukses.
+    # Staging sudah live (bawain.my.id) — kegagalan E2E = merah, bukan skip.
     steps:
       - uses: actions/checkout@v4
 
@@ -804,7 +839,7 @@ jobs:
 
   notify:
     name: Notification
-    needs: [deploy, e2e-browser-validation]
+    needs: [deploy, e2e-browser-validation, regression-api]
     runs-on: ubuntu-latest
     if: always() && github.ref == 'refs/heads/staging'
     steps:
@@ -829,6 +864,11 @@ jobs:
           if [ "${{ needs.e2e-browser-validation.result }}" == "failure" ]; then
              STATUS="⚠️ *E2E TEST FAILED*"
              MESSAGE="✅ Deploy sukses, namun E2E Test gagal di Staging. Mohon cek fungsionalitas."
+          fi
+
+          if [ "${{ needs.e2e-browser-validation.result }}" == "skipped" ] && [ "${{ needs.regression-api.result }}" == "skipped" ]; then
+             STATUS="✅ *SUCCESS (Regression skip)*"
+             MESSAGE="🚀 Deploy sukses. Regression testing di-skip (secret/STAGING_URL belum lengkap)."
           fi
 
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
