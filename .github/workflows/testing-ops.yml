@@ -17,11 +17,43 @@ concurrency:
 
 jobs:
   # ─────────────────────────────────────────────
+  # PRE-FLIGHT — cek ketersediaan staging (tunnel)
+  # Kalau cloudflared/tunnel mati, semua job di-skip (bukan gagal palsu).
+  # ─────────────────────────────────────────────
+  preflight:
+    name: Preflight Staging Reachability
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      api_ok: ${{ steps.check.outputs.api_ok }}
+      web_ok: ${{ steps.check.outputs.web_ok }}
+    steps:
+      - name: Cek API + Web reachable
+        id: check
+        run: |
+          set +e
+          http_code_api=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://api.bawain.my.id/health 2>/dev/null)
+          http_code_web=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://app.bawain.my.id/login 2>/dev/null)
+          echo "api_http=$http_code_api"
+          echo "web_http=$http_code_web"
+          if [ "$http_code_api" != "000" ] && [ "$http_code_web" != "000" ]; then
+            echo "✅ Staging reachable (api=$http_code_api, web=$http_code_web)"
+            echo "api_ok=true" >> $GITHUB_OUTPUT
+            echo "web_ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Tunnel/Staging tidak reachable (api=$http_code_api, web=$http_code_web)"
+            echo "   Job akan di-skip otomatis. Nyalakan tunnel lalu jalankan ulang."
+            echo "api_ok=false" >> $GITHUB_OUTPUT
+            echo "web_ok=false" >> $GITHUB_OUTPUT
+          fi
+  # ─────────────────────────────────────────────
   # PERFORMANCE — k6 (jadwal, bukan blocker PR)
   # ─────────────────────────────────────────────
   performance-load:
     name: Performance (k6)
     runs-on: ubuntu-latest
+    needs: [preflight]
+    if: needs.preflight.outputs.api_ok == 'true'
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -42,6 +74,8 @@ jobs:
   compatibility-browsers:
     name: Compatibility (${{ matrix.browser }})
     runs-on: ${{ matrix.os }}
+    needs: [preflight]
+    if: needs.preflight.outputs.web_ok == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -68,6 +102,8 @@ jobs:
   accessibility:
     name: Accessibility (axe/Lighthouse)
     runs-on: ubuntu-latest
+    needs: [preflight]
+    if: needs.preflight.outputs.web_ok == 'true'
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -87,7 +123,8 @@ jobs:
   visual-regression:
     name: Visual Regression (Percy)
     runs-on: ubuntu-latest
-    if: ${{ secrets.PERCY_TOKEN != '' }}
+    needs: [preflight]
+    if: needs.preflight.outputs.web_ok == 'true'
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -107,6 +144,8 @@ jobs:
   e2e-smoke-critical:
     name: E2E Critical Paths (Playwright)
     runs-on: ubuntu-latest
+    needs: [preflight]
+    if: needs.preflight.outputs.web_ok == 'true'
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
