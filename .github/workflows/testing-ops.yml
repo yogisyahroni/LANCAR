@@ -31,8 +31,9 @@ jobs:
           filename: scripts/ci/k6/smoke-test.js
           flags: --vus 20 --duration 60s
         env:
-          K6_BASE_URL: https://staging-api.tembus.id
-          K6_API_TOKEN: ${{ secrets.STAGING_API_TOKEN }}
+          K6_BASE_URL: https://api.bawain.my.id
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
   # ─────────────────────────────────────────────
   # COMPATIBILITY — Playwright matrix (gratis; pengganti BrowserStack)
@@ -59,7 +60,7 @@ jobs:
       - name: Cross-browser smoke
         run: npm run test:e2e:compat -- --grep "@compat"
         env:
-          BASE_URL: https://staging-web.tembus.id
+          BASE_URL: https://app.bawain.my.id
 
   # ─────────────────────────────────────────────
   # ACCESSIBILITY — axe-core + Lighthouse CI
@@ -118,4 +119,4 @@ jobs:
           npx playwright install --with-deps chromium
           npm run test:e2e -- --grep "@critical"
         env:
-          BASE_URL: https://staging-web.tembus.id
+          BASE_URL: https://app.bawain.my.id
