@@ -35,23 +35,31 @@ jobs:
           K6_API_TOKEN: ${{ secrets.STAGING_API_TOKEN }}
 
   # ─────────────────────────────────────────────
-  # COMPATIBILITY — BrowserStack (cloud, jadwal)
+  # COMPATIBILITY — Playwright matrix (gratis; pengganti BrowserStack)
+  # Cross-browser web: chromium, firefox, webkit di OS runner.
   # ─────────────────────────────────────────────
   compatibility-browsers:
-    name: Compatibility (BrowserStack)
-    runs-on: ubuntu-latest
-    if: ${{ secrets.BROWSERSTACK_ACCESS_KEY != '' }}
-    timeout-minutes: 45
+    name: Compatibility (${{ matrix.browser }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        browser: [chromium, firefox, webkit]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: BrowserStack compatibility run
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright browsers
         run: |
           npm ci --prefix frontend
-          npx browserstack-sdk run-app --config scripts/ci/browserstack.conf.json \
-            --app frontend/build/compatibility.apk
+          npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Cross-browser smoke
+        run: npm run test:e2e -- --project=${{ matrix.browser }} --grep "@compat"
         env:
-          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
-          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BASE_URL: https://staging-web.tembus.id
 
   # ─────────────────────────────────────────────
   # ACCESSIBILITY — axe-core + Lighthouse CI
