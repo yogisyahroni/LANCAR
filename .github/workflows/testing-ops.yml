@@ -1,0 +1,113 @@
+name: Testing Ops (Scheduled)
+
+# Testing yang Boleh di CI tetapi butuh jadwal/kondisi khusus:
+# - Performance, Compatibility, Accessibility, Visual → schedule (cron)
+# - Smoke → post-deploy push main
+# - E2E → push main (subset)
+
+on:
+  schedule:
+    # Setiap Senin 02:00 WIB (19:00 UTC) — performance/compat/accessibility/visual
+    - cron: '0 19 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: testing-ops-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────
+  # PERFORMANCE — k6 (jadwal, bukan blocker PR)
+  # ─────────────────────────────────────────────
+  performance-load:
+    name: Performance (k6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: k6 smoke-load on staging
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: scripts/ci/k6/smoke-test.js
+          flags: --vus 20 --duration 60s
+        env:
+          K6_BASE_URL: https://staging-api.tembus.id
+          K6_API_TOKEN: ${{ secrets.STAGING_API_TOKEN }}
+
+  # ─────────────────────────────────────────────
+  # COMPATIBILITY — BrowserStack (cloud, jadwal)
+  # ─────────────────────────────────────────────
+  compatibility-browsers:
+    name: Compatibility (BrowserStack)
+    runs-on: ubuntu-latest
+    if: ${{ secrets.BROWSERSTACK_ACCESS_KEY != '' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: BrowserStack compatibility run
+        run: |
+          npm ci --prefix frontend
+          npx browserstack-sdk run-app --config scripts/ci/browserstack.conf.json \
+            --app frontend/build/compatibility.apk
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+  # ─────────────────────────────────────────────
+  # ACCESSIBILITY — axe-core + Lighthouse CI
+  # ─────────────────────────────────────────────
+  accessibility:
+    name: Accessibility (axe/Lighthouse)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Lighthouse CI accessibility
+        run: |
+          npm ci --prefix frontend
+          npx lhci autorun --config=scripts/ci/lighthouserc.json
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_TOKEN }}
+
+  # ─────────────────────────────────────────────
+  # VISUAL — Percy (jadwal; screenshot diff)
+  # ─────────────────────────────────────────────
+  visual-regression:
+    name: Visual Regression (Percy)
+    runs-on: ubuntu-latest
+    if: ${{ secrets.PERCY_TOKEN != '' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Percy snapshot
+        run: |
+          npm ci --prefix frontend
+          npx percy exec --config scripts/ci/percy.yml -- npm run build
+        env:
+          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
+
+  # ─────────────────────────────────────────────
+  # E2E SUBSET — smoke alur kritis (push main)
+  # ─────────────────────────────────────────────
+  e2e-smoke-critical:
+    name: E2E Critical Paths (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Playwright critical E2E
+        run: |
+          npm ci --prefix frontend
+          npx playwright install --with-deps chromium
+          npm run test:e2e -- --grep "@critical"
+        env:
+          BASE_URL: https://staging-web.tembus.id
