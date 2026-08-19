@@ -57,7 +57,7 @@ jobs:
           npm ci --prefix frontend
           npx playwright install --with-deps ${{ matrix.browser }}
       - name: Cross-browser smoke
-        run: npm run test:e2e -- --project=${{ matrix.browser }} --grep "@compat"
+        run: npm run test:e2e:compat -- --grep "@compat"
         env:
           BASE_URL: https://staging-web.tembus.id
 
