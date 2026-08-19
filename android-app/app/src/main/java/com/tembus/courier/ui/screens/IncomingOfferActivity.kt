@@ -54,7 +54,13 @@ class IncomingOfferActivity : ComponentActivity() {
                     ?: if (isMaintenance) "Lokasi layanan" else "Titik Jemput"
                 val dropAddress = intent.getStringExtra(NotificationReceiver.EXTRA_DROP_ADDRESS) ?: if (isMaintenance) "" else "Titik Tujuan"
                 val fee = intent.getStringExtra(NotificationReceiver.EXTRA_FEE) ?: "Rp -"
-                val distance = intent.getStringExtra(NotificationReceiver.EXTRA_DISTANCE) ?: "- km"
+                                val estimatedNet = intent.getStringExtra(NotificationReceiver.EXTRA_ESTIMATED_NET_EARNINGS)
+                                val feeDisplay = if (!estimatedNet.isNullOrBlank() && estimatedNet != fee) {
+                                    estimatedNet
+                                } else {
+                                    fee
+                                }
+                                val distance = intent.getStringExtra(NotificationReceiver.EXTRA_DISTANCE) ?: "- km"
 
         setContent {
             TEMBUSCourierTheme {
@@ -78,7 +84,7 @@ class IncomingOfferActivity : ComponentActivity() {
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "$fee • $distance",
+                            text = "$feeDisplay • $distance",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary

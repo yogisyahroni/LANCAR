@@ -149,6 +149,7 @@ class NotificationReceiver : BroadcastReceiver() {
         const val EXTRA_DROP_ADDRESS = "drop_address"
         const val EXTRA_DISTANCE = "distance"
         const val EXTRA_FEE = "fee"
+        const val EXTRA_ESTIMATED_NET_EARNINGS = "estimated_net_earnings"
         const val EXTRA_MODEL = "model"
         const val EXTRA_LEG_NUMBER = "leg_number"
         const val EXTRA_WORKFLOW_ROLE = "workflow_role"

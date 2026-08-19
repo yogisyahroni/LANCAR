@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.data.model.distanceKmValue
 import com.tembus.courier.data.model.cleanPayoutIdr
+import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.domain.TambalBanFlowResolver
 import com.tembus.courier.domain.TambalBanStage
 import com.tembus.courier.domain.TambalBanNextActionType
@@ -62,7 +63,7 @@ class TambalBanFlowViewModel @Inject constructor(
                 if (order != null) {
                     val flowState = TambalBanFlowResolver.resolve(order)
                     val distKm = order.distanceKmValue()
-                    val payout = order.cleanPayoutIdr().toLong()
+                    val payout = order.estimatedNetEarningsIdr().toLong()
                     val pb = order.pricingBreakdown
                                         val serviceFee = (pb?.serviceFeeIdr ?: 0).toLong()
                                         val travelFee = (pb?.travelFeeIdr ?: 0).toLong()

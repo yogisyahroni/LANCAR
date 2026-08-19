@@ -63,6 +63,7 @@ import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.CancelPickupReason
 import com.tembus.courier.data.model.OrderStatusTransition
 import com.tembus.courier.data.model.cleanPayoutIdr
+import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.data.model.displayServiceName
 import com.tembus.courier.data.model.normalizedWorkflowRole
 import com.tembus.courier.data.model.toRupiahCompact
@@ -658,7 +659,7 @@ private fun OnDemandJobHeader(order: Order, phaseTitle: String, phaseInstruction
             }
             Surface(color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
                 Text(
-                    order.cleanPayoutIdr().toRupiahCompact(),
+                    order.estimatedNetEarningsIdr().toRupiahCompact(),
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                     color = Color.White,
                     fontWeight = FontWeight.Black,
@@ -1842,7 +1843,7 @@ private fun OrderInfoCard(order: Order) {
             InfoRow(label = "Jarak", value = order.distance)
 
             // FB-115: breakdown pendapatan — ongkir dasar + tip + total.
-            val basePayout = order.cleanPayoutIdr()
+            val basePayout = order.estimatedNetEarningsIdr()
             val tipAmount = order.tipAmountIdr
             InfoRow(label = "Ongkir Dasar", value = "Rp${formatRp(basePayout.toLong())}")
             if (tipAmount > 0) {

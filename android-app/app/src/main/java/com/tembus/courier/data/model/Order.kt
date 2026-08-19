@@ -455,6 +455,22 @@ fun Order.cleanPayoutIdr(): Int {
     return maxOf(customerPriceIdr - platformCommissionIdr, 0)
 }
 
+/**
+ * Estimasi pendapatan bersih kurir (standar Gojek/Grab — tampil di halaman
+ * offer & navigasi). Untuk home service (tambal_ban/towing) pendapatan =
+ * jasa + travel − komisi platform (dari travel fee saja), sesuai
+ * settlement_snapshot.pricing_breakdown yang dikirim backend.
+ * Fallback: cleanPayoutIdr() (payout lump-sum) utk non-maintenance.
+ */
+fun Order.estimatedNetEarningsIdr(): Int {
+    val pb = pricingBreakdown
+    if (isMaintenanceService() && pb != null && pb.serviceFeeIdr > 0 && pb.travelFeeIdr >= 0) {
+        val commission = Math.ceil(pb.travelFeeIdr * (pb.platformCommissionPct / 100.0)).toInt()
+        return pb.serviceFeeIdr + pb.travelFeeIdr - commission
+    }
+    return cleanPayoutIdr()
+}
+
 fun Order.displayServiceName(): String {
     return serviceName?.takeIf { it.isNotBlank() }
         ?: serviceCode?.replace("_", " ")?.split(" ")?.joinToString(" ") { word ->

@@ -97,6 +97,7 @@ import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.displayServiceName
+import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.data.model.isMaintenanceService
 import com.tembus.courier.data.model.normalizedWorkflowRole
 import com.tembus.courier.data.model.toRupiahCompact
@@ -2304,7 +2305,7 @@ private fun OnDemandIncomingOfferSwipePanel(order: Order, onAccept: () -> Unit, 
                         style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest
                     )
                     Text(
-                        "${order.displayServiceName()} • ${order.cleanPayoutIdr().toRupiahCompact()}",
+                        "${order.displayServiceName()} • ${order.estimatedNetEarningsIdr().toRupiahCompact()}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2477,13 +2478,23 @@ private fun OnDemandNavigationModeCard(
                     )
                 }
                 Surface(color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp)) {
-                    Text(
-                        order.cleanPayoutIdr().toRupiahCompact(),
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                        color = LogisticsOrange,
-                        fontWeight = FontWeight.Black,
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            order.estimatedNetEarningsIdr().toRupiahCompact(),
+                            modifier = Modifier.padding(start = 9.dp, top = 5.dp, end = 9.dp),
+                            color = LogisticsOrange,
+                            fontWeight = FontWeight.Black,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        if (order.isMaintenanceService()) {
+                            Text(
+                                "Pendapatan bersih",
+                                modifier = Modifier.padding(start = 9.dp, bottom = 5.dp, end = 9.dp),
+                                color = Color.White.copy(alpha = 0.50f),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
                 }
             }
 
@@ -2732,7 +2743,7 @@ private fun OnDemandActiveOrderCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text("Order aktif", color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.labelMedium)
                 Text(order.pickupAddress.ifBlank { order.displayServiceName() }, color = Color.White, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(order.cleanPayoutIdr().toRupiahCompact(), color = LogisticsOrange, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(order.estimatedNetEarningsIdr().toRupiahCompact(), color = LogisticsOrange, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
             Button(
                 onClick = { onOpenDelivery(order) },
@@ -3399,7 +3410,7 @@ private fun OnDemandHomeHubEnterprise(
                                 Text("Pekerjaan aktif", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.72f), fontWeight = FontWeight.Bold)
                                 Text(activeOrder.displayServiceName(), style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Black)
                             }
-                            Text(activeOrder.cleanPayoutIdr().toRupiahCompact(), style = MaterialTheme.typography.titleLarge, color = LogisticsOrange, fontWeight = FontWeight.Black)
+                            Text(activeOrder.estimatedNetEarningsIdr().toRupiahCompact(), style = MaterialTheme.typography.titleLarge, color = LogisticsOrange, fontWeight = FontWeight.Black)
                         }
                         RouteSummary(activeOrder)
                         Button(
@@ -4260,7 +4271,7 @@ private fun OnDemandOfferQueueItem(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak dihitung" })
-                InfoPill(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
+                InfoPill(icon = Icons.Default.Payments, text = order.estimatedNetEarningsIdr().toRupiahCompact())
             }
 
             OfferRouteRow(
@@ -4429,7 +4440,7 @@ private fun OnDemandOfferDialog(
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Pendapatan", color = Color.White.copy(alpha = 0.82f), style = MaterialTheme.typography.titleSmall)
-                    Text(order.cleanPayoutIdr().toRupiahCompact(), color = Primary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                    Text(order.estimatedNetEarningsIdr().toRupiahCompact(), color = Primary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
                 }
 
                 Surface(
@@ -4765,7 +4776,7 @@ private fun RouteSummary(order: Order) {
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak dihitung" })
-            InfoPill(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
+            InfoPill(icon = Icons.Default.Payments, text = order.estimatedNetEarningsIdr().toRupiahCompact())
         }
     }
 }

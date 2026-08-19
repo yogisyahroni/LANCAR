@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.cleanPayoutIdr
+import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.data.model.normalizedWorkflowRole
 import com.tembus.courier.data.model.toRupiahCompact
 import com.tembus.courier.ui.theme.Primary
@@ -179,7 +180,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                CompactInfo(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
+                CompactInfo(icon = Icons.Default.Payments, text = order.estimatedNetEarningsIdr().toRupiahCompact())
                 CompactInfo(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak dihitung" })
                 val pickupTime = order.pickupTime.takeIf { it.isNotBlank() }?.take(16)
                 if (pickupTime != null) {
