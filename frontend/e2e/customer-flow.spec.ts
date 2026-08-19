@@ -72,6 +72,7 @@ const applyBrowserLocation = async (
   await page.context().grantPermissions(['geolocation']);
   await page.getByTestId(`${mode}-address-input`).fill(address);
   await page.context().setGeolocation(geolocation);
+  await expect(page.getByTestId(`${mode}-current-location-button`)).toBeVisible({ timeout: 15000 });
   await page.getByTestId(`${mode}-current-location-button`).click();
   await expect(page.getByTestId(`${mode}-coordinate-label`)).not.toContainText('Titik belum dipilih', { timeout: 10000 });
 };
