@@ -143,12 +143,15 @@ fun TowingFlowScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Order number
-            Text(
-                "Order #$orderId",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // Resi publik — prefer order_number (TMBSxxxxxx), fallback UUID pendek
+                        val resi = uiState.orderNumber
+                            .ifBlank { orderId.take(8).uppercase() }
+                        Text(
+                            "Resi: $resi",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
             Spacer(Modifier.height(16.dp))
 

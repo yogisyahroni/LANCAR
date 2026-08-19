@@ -32,6 +32,8 @@ data class TambalBanFlowUiState(
     val customerName: String = "",
     val customerPhone: String = "",
     val activeAddress: String = "",
+    // Resi publik (TMBSxxxxxx) — tampil utk kurir/customer, bukan UUID panjang
+    val orderNumber: String = "",
     // Jenis kerusakan ban (design Stitch: Tubeless/Standar/Ganti/Isi Angin
     // → mekanisme existing: dipilih kurir saat inspeksi, dikirim di report)
     val damageType: String? = null
@@ -83,7 +85,8 @@ class TambalBanFlowViewModel @Inject constructor(
                                                 stage = flowState.stage,
                                                 customerName = order.customerName,
                                                                             customerPhone = order.phoneNumber.orEmpty(),
-                                                activeAddress = flowState.activeAddress,
+                                                                            activeAddress = flowState.activeAddress,
+                                                                            orderNumber = order.orderNumber.orEmpty(),
                                                 earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,

@@ -30,9 +30,11 @@ data class TowingFlowUiState(
     val error: String? = null,
     // Info pelanggan (standar industri: nama, telepon, alamat di halaman arrived)
     val customerName: String = "",
-    val customerPhone: String = "",
-    val activeAddress: String = ""
-)
+        val customerPhone: String = "",
+        val activeAddress: String = "",
+        // Resi publik (TMBSxxxxxx) — tampil utk kurir/customer, bukan UUID panjang
+        val orderNumber: String = ""
+    )
 
 @HiltViewModel
 class TowingFlowViewModel @Inject constructor(
@@ -79,8 +81,9 @@ class TowingFlowViewModel @Inject constructor(
                                                 nextActionType = flowState.nextAction.type,
                                                 stage = flowState.stage,
                                                 customerName = order.customerName,
-                                                customerPhone = order.phoneNumber.orEmpty(),
-                                                activeAddress = flowState.pickupAddress,
+                                                                            customerPhone = order.phoneNumber.orEmpty(),
+                                                                            activeAddress = flowState.pickupAddress,
+                                                                            orderNumber = order.orderNumber.orEmpty(),
                                                 earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,

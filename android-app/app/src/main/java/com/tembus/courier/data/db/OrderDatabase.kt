@@ -23,7 +23,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 19,
+    version = 20,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -251,6 +251,17 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        /** Version 20: resi publik order_number (TMBSxxxxxx) — backend sudah mengirim; simpan lokal utk tampil di UI. */
+        val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addOrderColumnIfMissing(
+                    db,
+                    "order_number",
+                    "ALTER TABLE `orders` ADD COLUMN `order_number` TEXT"
+                )
+            }
+        }
+
         val MIGRATION_10_13 = object : Migration(10, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addVersion11Columns(db)
@@ -284,6 +295,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_16_17,
             MIGRATION_17_18,
             MIGRATION_18_19,
+            MIGRATION_19_20,
             MIGRATION_10_13,
             MIGRATION_11_13
         )

@@ -116,6 +116,11 @@ data class Order(
     @SerialName("order_id")
     val orderId: String = "",
 
+    /** Resi publik (TMBSxxxxxx) — backend sudah generate; fallback UUID pendek di UI */
+    @ColumnInfo(name = "order_number")
+    @SerialName("order_number")
+    val orderNumber: String? = null,
+
     @ColumnInfo(name = "batch_id")
     @SerialName("batch_id")
     val batchId: String? = null,
