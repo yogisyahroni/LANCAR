@@ -308,7 +308,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     // DB lokal = cache offline queue (data order di server).
                     // Kolom lama (v152/v229) tak punya DEFAULT vs entity baru → migrasi
                     // SQLite tak bisa ALTER default; recreate aman & hindari crash upgrade.
-                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
