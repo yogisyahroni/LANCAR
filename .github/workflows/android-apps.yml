@@ -559,7 +559,10 @@ jobs:
     name: Android Regression (${{ matrix.app_name }})
     needs: build-android
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/staging'
-    runs-on: ubuntu-latest
+    # macOS runner: hardware acceleration (Hypervisor.framework) selalu tersedia.
+    # ubuntu-latest tidak bisa diandalkan — KVM group runner kosong di sebagian fleet
+    # → emulator jatuh ke -accel off → API 34 tak pernah boot dalam 600s (adb error).
+    runs-on: macos-14
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -604,12 +607,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Enable KVM (emulator hardware acceleration)
-        if: steps.check_secrets.outputs.skip == 'false'
-        run: |
-          echo "KVM check:"
-          ls -l /dev/kvm || echo "no /dev/kvm"
-
       - name: Set up Gradle
         if: steps.check_secrets.outputs.skip == 'false'
         uses: gradle/actions/setup-gradle@v4
@@ -619,7 +616,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
-          arch: x86_64
+          arch: arm64-v8a
           profile: pixel_6
           script: |
             ./gradlew connectedDebugAndroidTest
