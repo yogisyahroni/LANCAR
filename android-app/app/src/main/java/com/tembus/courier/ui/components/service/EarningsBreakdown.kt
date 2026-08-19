@@ -199,9 +199,9 @@ fun EarningsBreakdown(
     }
 }
 
-/** Label persentase komisi: tampilkan tanpa desimal utk angka bulat (20), dgn desimal bila perlu (0.5). */
+/** Label persentase komisi: tampilkan tanpa desimal utk angka bulat (20%), dgn desimal bila perlu (0.5%). Wajib suffix % — angka mentah (mis. "20") membingungkan user. */
 private fun platformCommissionPctLabel(pct: Double): String {
-    return if (pct % 1.0 == 0.0) pct.toInt().toString() else pct.toString()
+    return (if (pct % 1.0 == 0.0) pct.toInt().toString() else pct.toString()) + "%"
 }
 
 @Composable

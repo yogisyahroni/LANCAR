@@ -45,7 +45,7 @@ import java.util.*
 fun ChatScreen(
     orderId: String,
     conversationTitle: String = "Hubungi Pelanggan",
-    conversationSubtitle: String = "Kirim pesan jika Anda butuh arahan jalan atau konfirmasi paket.",
+    conversationSubtitle: String = "Kirim pesan jika Anda butuh arahan atau konfirmasi pekerjaan.",
     inputPlaceholder: String = "Tulis pesan untuk pelanggan...",
     isDeliveryGroup: Boolean = false,
     onCallClick: () -> Unit = {},

@@ -46,12 +46,15 @@ class IncomingOfferActivity : ComponentActivity() {
         }
 
         // Parse order data from intent
-        val orderId = intent.getStringExtra(NotificationReceiver.EXTRA_ORDER_ID) ?: ""
-        val dispatchId = intent.getStringExtra(NotificationReceiver.EXTRA_DISPATCH_ID) ?: ""
-        val pickupAddress = intent.getStringExtra(NotificationReceiver.EXTRA_PICKUP_ADDRESS) ?: "Titik Jemput"
-        val dropAddress = intent.getStringExtra(NotificationReceiver.EXTRA_DROP_ADDRESS) ?: "Titik Tujuan"
-        val fee = intent.getStringExtra(NotificationReceiver.EXTRA_FEE) ?: "Rp -"
-        val distance = intent.getStringExtra(NotificationReceiver.EXTRA_DISTANCE) ?: "- km"
+                val orderId = intent.getStringExtra(NotificationReceiver.EXTRA_ORDER_ID) ?: ""
+                val dispatchId = intent.getStringExtra(NotificationReceiver.EXTRA_DISPATCH_ID) ?: ""
+                val serviceCode = intent.getStringExtra("service_code") ?: ""
+                val isMaintenance = serviceCode.startsWith("tambal_ban") || serviceCode.startsWith("towing")
+                val pickupAddress = intent.getStringExtra(NotificationReceiver.EXTRA_PICKUP_ADDRESS)
+                    ?: if (isMaintenance) "Lokasi layanan" else "Titik Jemput"
+                val dropAddress = intent.getStringExtra(NotificationReceiver.EXTRA_DROP_ADDRESS) ?: if (isMaintenance) "" else "Titik Tujuan"
+                val fee = intent.getStringExtra(NotificationReceiver.EXTRA_FEE) ?: "Rp -"
+                val distance = intent.getStringExtra(NotificationReceiver.EXTRA_DISTANCE) ?: "- km"
 
         setContent {
             TEMBUSCourierTheme {
@@ -90,12 +93,14 @@ class IncomingOfferActivity : ComponentActivity() {
                             shape = MaterialTheme.shapes.medium
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Jemput:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(pickupAddress, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text("Antar:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(dropAddress, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                            }
+                                                            Text(if (isMaintenance) "Lokasi layanan:" else "Jemput:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                            Text(pickupAddress, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                                                            if (dropAddress.isNotBlank()) {
+                                                                Spacer(modifier = Modifier.height(12.dp))
+                                                                Text(if (isMaintenance) "Detail:" else "Antar:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                                Text(dropAddress, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                                                            }
+                                                        }
                         }
 
                         Spacer(modifier = Modifier.height(48.dp))

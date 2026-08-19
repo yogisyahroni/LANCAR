@@ -7,9 +7,11 @@
     </base-config>
 
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">10.0.2.2</domain>
-        <domain includeSubdomains="true">localhost</domain>
-    </domain-config>
+            <domain includeSubdomains="true">10.0.2.2</domain>
+            <domain includeSubdomains="true">localhost</domain>
+            <domain includeSubdomains="true">192.168.18.231</domain>
+            <domain includeSubdomains="true">192.168.18.212</domain>
+        </domain-config>
 
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.bawain.my.id</domain>

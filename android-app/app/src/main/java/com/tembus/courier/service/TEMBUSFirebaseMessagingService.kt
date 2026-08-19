@@ -97,11 +97,13 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
         
         when (type) {
             "on_demand_offer" -> {
-                signalOrderRefresh()
-                val title = data["title"] ?: "Pekerjaan On Demand Baru"
-                val body = data["body"] ?: "Terima pekerjaan untuk mulai navigasi ke pickup."
-                showNotification(title, body, data)
-            }
+                            signalOrderRefresh()
+                            val sc = data["service_code"] ?: ""
+                            val isMaintenance = sc.startsWith("tambal_ban") || sc.startsWith("towing")
+                            val title = data["title"] ?: if (isMaintenance) "Pekerjaan Baru" else "Pekerjaan On Demand Baru"
+                            val body = data["body"] ?: if (isMaintenance) "Terima pekerjaan untuk mulai menuju lokasi layanan." else "Terima pekerjaan untuk mulai navigasi ke pickup."
+                            showNotification(title, body, data)
+                        }
             "order_assignment" -> {
                 signalOrderRefresh()
                 val title = data["title"] ?: "New Order Assignment"

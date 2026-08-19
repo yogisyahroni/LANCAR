@@ -2163,7 +2163,9 @@ private fun OnDemandMapDispatchCockpit(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.TwoWheeler,
                     title = "Layanan",
-                    value = if (serviceCount <= 0) "$vehicleLabel tersinkron" else "$activeServiceCount/$serviceCount $vehicleLabel"
+                    value = if (serviceCount <= 0) {
+                        if (vehicleLabel == "belum tersinkron") "Belum sync" else "$vehicleLabel tersinkron"
+                    } else "$activeServiceCount/$serviceCount $vehicleLabel"
                 )
                 OnDemandCompactStatusItem(
                     modifier = Modifier.weight(1f),
@@ -2295,7 +2297,10 @@ private fun OnDemandIncomingOfferSwipePanel(order: Order, onAccept: () -> Unit, 
                     Icon(Icons.Default.Bolt, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(12.dp).size(24.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Pekerjaan On-Demand Baru!", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
+                    Text(
+                        if (order.isMaintenanceService()) "Pekerjaan ${order.displayServiceName()} Baru!" else "Pekerjaan On-Demand Baru!",
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest
+                    )
                     Text(
                         "${order.displayServiceName()} • ${order.cleanPayoutIdr().toRupiahCompact()}",
                         style = MaterialTheme.typography.bodyMedium,
@@ -2345,9 +2350,9 @@ private fun OnDemandNavigationModeCard(
         latLngOrNull(order.dropLatitude, order.dropLongitude)
     }
     val targetAddressFallback = if (targetIsPickup) {
-        order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }
+        if (order.isMaintenanceService()) "Alamat lokasi layanan sedang disinkronkan" else "Alamat pickup sedang disinkronkan"
     } else {
-        order.dropAddress.ifBlank { "Alamat penerima sedang disinkronkan" }
+        if (order.isMaintenanceService()) "Alamat lokasi layanan sedang disinkronkan" else "Alamat penerima sedang disinkronkan"
     }
     val activeStops = activeRoutePlan?.stops.orEmpty()
     val activeStopIndex = activeStops.indexOfFirst { stop ->
@@ -2359,7 +2364,7 @@ private fun OnDemandNavigationModeCard(
         ?.let { stop -> latLngOrNull(stop.latitude, stop.longitude) }
         ?: targetPoint
     val hasMultiStopPlan = activeStops.size > 1 && activeStopIndex >= 0
-    val isMaintenanceService = order.serviceCategory == "tambal_ban" || order.serviceCategory == "towing"
+    val isMaintenanceService = order.isMaintenanceService()
     val targetLabel = when {
         hasMultiStopPlan -> "Stop ${activeStopIndex + 1}/${activeStops.size}"
         targetIsPickup -> if (isMaintenanceService) "Lokasi layanan" else "Pickup"
@@ -6503,13 +6508,15 @@ private fun Order.communicationShouldCallRecipient(): Boolean {
 
 private fun Order.communicationCallTargetLabel(): String {
     return when (communicationCallTargetType()) {
-        "recipient" -> "Penerima"
+        "recipient" -> if (isMaintenanceService()) "Customer" else "Penerima"
         else -> customerName.takeIf { it.isNotBlank() } ?: "Pelanggan"
     }
 }
 
 private fun Order.communicationChatTitle(): String {
-    return if (communicationIsDeliveryGroup()) {
+    return if (isMaintenanceService()) {
+        "Percakapan Layanan"
+    } else if (communicationIsDeliveryGroup()) {
         "Percakapan Pengantaran"
     } else {
         "Hubungi Pelanggan"
@@ -6519,6 +6526,8 @@ private fun Order.communicationChatTitle(): String {
 private fun Order.communicationChatSubtitle(): String {
     return if (communicationIsDeliveryGroup()) {
         "Koordinasi customer, kurir, dan penerima tetap di satu percakapan order."
+    } else if (isMaintenanceService()) {
+        "Kirim pesan jika Anda butuh arahan lokasi layanan atau konfirmasi pekerjaan."
     } else {
         "Kirim pesan jika Anda butuh arahan pickup atau konfirmasi paket."
     }

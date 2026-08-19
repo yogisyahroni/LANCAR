@@ -161,7 +161,7 @@ data class Order(
     val fee: String = "",
 
     // FB-077: tip dari customer (Rp). 0 = belum di-tip.
-    @ColumnInfo(name = "tip_amount_idr")
+    @ColumnInfo(name = "tip_amount_idr", defaultValue = "0")
     @SerialName("tip_amount_idr")
     val tipAmountIdr: Long = 0,
 
@@ -209,31 +209,31 @@ data class Order(
     @SerialName("package_count")
     val packageCount: Int = 1,
 
-    @ColumnInfo(name = "packages")
+    @ColumnInfo(name = "packages", defaultValue = "[]")
     @SerialName("packages")
     val packages: List<CourierOrderPackage> = emptyList(),
 
-    @ColumnInfo(name = "service_max_packages_per_order")
+    @ColumnInfo(name = "service_max_packages_per_order", defaultValue = "1")
     @SerialName("service_max_packages_per_order")
     val serviceMaxPackagesPerOrder: Int = 1,
 
-    @ColumnInfo(name = "service_max_active_orders_on_demand")
+    @ColumnInfo(name = "service_max_active_orders_on_demand", defaultValue = "1")
     @SerialName("service_max_active_orders_on_demand")
     val serviceMaxActiveOrdersOnDemand: Int = 1,
 
-    @ColumnInfo(name = "service_face_verification_required")
+    @ColumnInfo(name = "service_face_verification_required", defaultValue = "1")
     @SerialName("service_face_verification_required")
     val serviceFaceVerificationRequired: Boolean = true,
 
-    @ColumnInfo(name = "service_proof_geofence_radius_m")
+    @ColumnInfo(name = "service_proof_geofence_radius_m", defaultValue = "10")
     @SerialName("service_proof_geofence_radius_m")
     val serviceProofGeofenceRadiusM: Int = 10,
 
-    @ColumnInfo(name = "service_proof_min_accuracy_m")
+    @ColumnInfo(name = "service_proof_min_accuracy_m", defaultValue = "50")
     @SerialName("service_proof_min_accuracy_m")
     val serviceProofMinAccuracyM: Int = 50,
 
-    @ColumnInfo(name = "service_failed_delivery_policy")
+    @ColumnInfo(name = "service_failed_delivery_policy", defaultValue = "must_deliver")
     @SerialName("service_failed_delivery_policy")
     val serviceFailedDeliveryPolicy: String = "must_deliver",
 
@@ -243,7 +243,7 @@ data class Order(
 
     // FB-105: rincian item food (snapshot food_order_items dari backend).
     // Kosong [] untuk order parcel biasa. Dipakai OrderDetailScreen.
-    @ColumnInfo(name = "food_items")
+    @ColumnInfo(name = "food_items", defaultValue = "[]")
     @SerialName("food_items")
     val foodItems: List<CourierOrderFoodItem> = emptyList(),
 
@@ -251,15 +251,15 @@ data class Order(
     @SerialName("item_image_url")
     val itemImageUrl: String? = null,
 
-    @ColumnInfo(name = "model")
+    @ColumnInfo(name = "model", defaultValue = "P2P")
     @SerialName("model")
     val model: String = "P2P",
 
-    @ColumnInfo(name = "leg_number")
+    @ColumnInfo(name = "leg_number", defaultValue = "1")
     @SerialName("leg_number")
     val legNumber: Int = 1,
 
-    @ColumnInfo(name = "workflow_role")
+    @ColumnInfo(name = "workflow_role", defaultValue = "on_demand")
     @SerialName("workflow_role")
     val workflowRole: String = "on_demand",
     @ColumnInfo(name = "dispatch_id")
@@ -400,7 +400,7 @@ data class Order(
      * FB-089: contactless delivery — antar tanpa kontak fisik
      * (letakkan paket di lokasi). POD foto tetap wajib.
      */
-    @ColumnInfo(name = "contactless")
+    @ColumnInfo(name = "contactless", defaultValue = "0")
     @SerialName("contactless")
     val contactless: Boolean = false,
 
