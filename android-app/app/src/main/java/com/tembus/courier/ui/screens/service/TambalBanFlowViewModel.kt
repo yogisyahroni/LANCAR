@@ -25,8 +25,13 @@ data class TambalBanFlowUiState(
     val isCompleted: Boolean = false,
     val nextActionLabel: String = "",
     val nextActionType: TambalBanNextActionType = TambalBanNextActionType.NONE,
+    val stage: TambalBanStage = TambalBanStage.NAVIGATING_TO_LOCATION,
     val earnings: EarningsData? = null,
     val error: String? = null,
+    // Info pelanggan (standar industri: nama, telepon, alamat di halaman arrived)
+    val customerName: String = "",
+    val customerPhone: String = "",
+    val activeAddress: String = "",
     // Jenis kerusakan ban (design Stitch: Tubeless/Standar/Ganti/Isi Angin
     // → mekanisme existing: dipilih kurir saat inspeksi, dikirim di report)
     val damageType: String? = null
@@ -67,15 +72,19 @@ class TambalBanFlowViewModel @Inject constructor(
                                         val perKmRate = (pb?.perKmIdr ?: 0).toLong()
 
                     _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            currentStepIndex = flowState.currentStepIndex,
-                            title = flowState.title,
-                            instruction = flowState.instruction,
-                            isCompleted = flowState.stage == TambalBanStage.COMPLETED,
-                            nextActionLabel = flowState.nextAction.label,
-                            nextActionType = flowState.nextAction.type,
-                            earnings = EarningsData(
+                                            it.copy(
+                                                isLoading = false,
+                                                currentStepIndex = flowState.currentStepIndex,
+                                                title = flowState.title,
+                                                instruction = flowState.instruction,
+                                                isCompleted = flowState.stage == TambalBanStage.COMPLETED,
+                                                nextActionLabel = flowState.nextAction.label,
+                                                nextActionType = flowState.nextAction.type,
+                                                stage = flowState.stage,
+                                                customerName = order.customerName,
+                                                                            customerPhone = order.phoneNumber.orEmpty(),
+                                                activeAddress = flowState.activeAddress,
+                                                earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,
                                                             perKmRate = perKmRate,

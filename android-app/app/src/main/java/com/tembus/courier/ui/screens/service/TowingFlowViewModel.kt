@@ -25,8 +25,13 @@ data class TowingFlowUiState(
     val isCompleted: Boolean = false,
     val nextActionLabel: String = "",
     val nextActionType: TowingNextActionType = TowingNextActionType.NONE,
+    val stage: TowingStage = TowingStage.NAVIGATING_TO_PICKUP,
     val earnings: EarningsData? = null,
-    val error: String? = null
+    val error: String? = null,
+    // Info pelanggan (standar industri: nama, telepon, alamat di halaman arrived)
+    val customerName: String = "",
+    val customerPhone: String = "",
+    val activeAddress: String = ""
 )
 
 @HiltViewModel
@@ -64,15 +69,19 @@ class TowingFlowViewModel @Inject constructor(
                                                         val perKmRate = (pb?.perKmIdr ?: 0).toLong()
 
                     _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            currentStepIndex = flowState.currentStepIndex,
-                            title = flowState.title,
-                            instruction = flowState.instruction,
-                            isCompleted = flowState.stage == TowingStage.COMPLETED,
-                            nextActionLabel = flowState.nextAction.label,
-                            nextActionType = flowState.nextAction.type,
-                            earnings = EarningsData(
+                                            it.copy(
+                                                isLoading = false,
+                                                currentStepIndex = flowState.currentStepIndex,
+                                                title = flowState.title,
+                                                instruction = flowState.instruction,
+                                                isCompleted = flowState.stage == TowingStage.COMPLETED,
+                                                nextActionLabel = flowState.nextAction.label,
+                                                nextActionType = flowState.nextAction.type,
+                                                stage = flowState.stage,
+                                                customerName = order.customerName,
+                                                customerPhone = order.phoneNumber.orEmpty(),
+                                                activeAddress = flowState.pickupAddress,
+                                                earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,
                                                             perKmRate = perKmRate,

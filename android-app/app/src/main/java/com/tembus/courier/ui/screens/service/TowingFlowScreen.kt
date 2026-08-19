@@ -1,20 +1,33 @@
 package com.tembus.courier.ui.screens.service
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -23,19 +36,21 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.tembus.courier.domain.TowingNextActionType
+import com.tembus.courier.domain.TowingStage
 import com.tembus.courier.ui.components.service.EarningsBreakdown
 import com.tembus.courier.ui.components.service.ServiceProgressBar
 import com.tembus.courier.ui.components.service.TowingProgressSteps
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,12 +91,55 @@ fun TowingFlowScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            // ===== STICKY CTA (standar industri: tombol aksi selalu terlihat) =====
+            if (uiState.nextActionType != TowingNextActionType.NONE &&
+                uiState.nextActionType != TowingNextActionType.CAPTURE_COMPLETION
+            ) {
+                Surface(shadowElevation = 8.dp) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        if (uiState.error != null) {
+                            Text(
+                                uiState.error!!,
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                if (uiState.nextActionType == TowingNextActionType.CAPTURE_COMPLETION) {
+                                    onOpenCompletion(orderId, "towing")
+                                } else {
+                                    viewModel.handleNextAction(uiState.nextActionType)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !uiState.isLoading,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            if (uiState.isLoading) {
+                                Text("Memproses...", fontWeight = FontWeight.Bold)
+                            } else {
+                                Text(
+                                    uiState.nextActionLabel,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -120,46 +178,115 @@ fun TowingFlowScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Earnings breakdown
-            uiState.earnings?.let { earnings ->
+            // ===== KARTU PELANGGAN (standar industri: nama, telepon, alamat) =====
+            CustomerInfoCard(
+                customerName = uiState.customerName,
+                customerPhone = uiState.customerPhone,
+                address = uiState.activeAddress
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            // Earnings breakdown — TIDAK tampil saat Menuju Lokasi (fokus aksi),
+            // hanya muncul saat sudah mengerjakan/selesai (transparansi di momen tepat)
+            val earnings = uiState.earnings
+            if (earnings != null && uiState.stage in setOf(
+                                TowingStage.LOADING,
+                                TowingStage.IN_TRANSIT,
+                                TowingStage.ARRIVED_AT_DROPOFF,
+                                TowingStage.UNLOADING,
+                                TowingStage.COMPLETED
+                            )
+                        ) {
                 EarningsBreakdown(data = earnings)
+                Spacer(Modifier.height(16.dp))
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
 
-            // Error message
-            if (uiState.error != null) {
+/**
+ * Kartu info pelanggan — standar industri ride-hailing/delivery:
+ * nama + telepon (tap utk call) + alamat lokasi layanan.
+ * Vocab maintenance: label "lokasi layanan", bukan "pickup".
+ */
+@Composable
+private fun CustomerInfoCard(
+    customerName: String,
+    customerPhone: String,
+    address: String
+) {
+    val context = LocalContext.current
+    val phone = customerPhone.trim().replace(Regex("[^0-9+]"), "")
+    val canCall = phone.isNotEmpty()
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(
+                "Informasi Pelanggan",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(8.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    uiState.error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    if (customerName.isNotBlank()) customerName else "Pelanggan",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
                 )
+                if (canCall) {
+                    IconButton(onClick = {
+                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+                        context.startActivity(intent)
+                    }) {
+                        Icon(
+                            Icons.Default.Phone,
+                            contentDescription = "Telepon pelanggan",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
 
-            // Action button
-            Button(
-                onClick = {
-                    if (uiState.nextActionType == TowingNextActionType.CAPTURE_COMPLETION) {
-                        onOpenCompletion(orderId, "towing")
-                    } else {
-                        viewModel.handleNextAction(uiState.nextActionType)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+            Spacer(Modifier.height(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
-                if (uiState.isLoading) {
-                    Text("Memproses...", fontWeight = FontWeight.Bold)
-                } else {
-                    Text(
-                        uiState.nextActionLabel,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    "Lokasi layanan",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                address.ifBlank { "Alamat lokasi layanan sedang disinkronkan" },
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (canCall) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Telepon: $customerPhone",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
