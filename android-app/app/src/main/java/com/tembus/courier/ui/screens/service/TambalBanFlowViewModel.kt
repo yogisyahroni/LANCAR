@@ -33,11 +33,14 @@ data class TambalBanFlowUiState(
     val customerPhone: String = "",
     val activeAddress: String = "",
     // Resi publik (TMBSxxxxxx) — tampil utk kurir/customer, bukan UUID panjang
-    val orderNumber: String = "",
-    // Jenis kerusakan ban (design Stitch: Tubeless/Standar/Ganti/Isi Angin
-    // → mekanisme existing: dipilih kurir saat inspeksi, dikirim di report)
-    val damageType: String? = null
-)
+        val orderNumber: String = "",
+        // Titik lokasi layanan (soft-gate arrival 100m)
+        val pickupLatitude: Double? = null,
+        val pickupLongitude: Double? = null,
+        // Jenis kerusakan ban (design Stitch: Tubeless/Standar/Ganti/Isi Angin
+        // → mekanisme existing: dipilih kurir saat inspeksi, dikirim di report)
+        val damageType: String? = null
+    )
 
 @HiltViewModel
 class TambalBanFlowViewModel @Inject constructor(
@@ -86,7 +89,9 @@ class TambalBanFlowViewModel @Inject constructor(
                                                 customerName = order.customerName,
                                                                             customerPhone = order.phoneNumber.orEmpty(),
                                                                             activeAddress = flowState.activeAddress,
-                                                                            orderNumber = order.orderNumber.orEmpty(),
+                                                                                                        orderNumber = order.orderNumber.orEmpty(),
+                                                                                                        pickupLatitude = order.pickupLatitude,
+                                                                                                        pickupLongitude = order.pickupLongitude,
                                                 earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,

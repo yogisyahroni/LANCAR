@@ -5,6 +5,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import android.Manifest
 import android.content.Context
+import android.location.Location
+import android.location.LocationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -2344,6 +2346,27 @@ private fun OnDemandNavigationModeCard(
     onOpenDelivery: (Order) -> Unit
 ) {
     val targetStopType = if (targetIsPickup) "pickup" else "dropoff"
+
+    // ===== SOFT-GATE ARRIVAL (maintenance service only, standar industri 100m) =====
+    val context = LocalContext.current
+    val isArriveAction = navigationModeActive && targetIsPickup && order.isMaintenanceService()
+    val targetGatePoint = if (isArriveAction) {
+        latLngOrNull(order.pickupLatitude, order.pickupLongitude)
+    } else null
+    var distanceM by remember(order.orderId) { mutableStateOf<Int?>(null) }
+    var overrideArrival by remember(order.orderId) { mutableStateOf(false) }
+    LaunchedEffect(order.orderId, targetGatePoint) {
+        if (targetGatePoint != null) {
+            while (isActive) {
+                distanceM = currentDistanceMeters(context, targetGatePoint.latitude, targetGatePoint.longitude)
+                delay(3_000)
+            }
+        }
+    }
+    val withinArrivalRadius = distanceM != null && distanceM!! <= ARRIVAL_RADIUS_M
+    val arrivalGateBlocked = isArriveAction && !overrideArrival && !withinArrivalRadius
+    // ===== END SOFT-GATE =====
+
     val targetPoint = if (targetIsPickup) {
         latLngOrNull(order.pickupLatitude, order.pickupLongitude)
     } else {
@@ -2525,6 +2548,7 @@ private fun OnDemandNavigationModeCard(
                     },
                     modifier = Modifier.weight(1.18f).height(50.dp),
                     shape = RoundedCornerShape(12.dp),
+                    enabled = !arrivalGateBlocked,
                     colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White),
                     contentPadding = PaddingValues(horizontal = 10.dp)
                 ) {
@@ -2547,6 +2571,29 @@ private fun OnDemandNavigationModeCard(
                     Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(7.dp))
                     Text("Buka Maps", fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+
+            if (arrivalGateBlocked) {
+                Spacer(Modifier.height(6.dp))
+                if (distanceM == null) {
+                    Text(
+                        "Mengecek jarak ke lokasi layanan...",
+                        fontSize = 13.sp,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                } else {
+                    Text(
+                        "Kamu masih ${distanceM}m dari lokasi layanan. Dekati titik (maks. 100m) atau konfirmasi manual.",
+                        fontSize = 13.sp,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+                TextButton(
+                    onClick = { overrideArrival = true },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Konfirmasi manual", color = LogisticsOrange, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -6605,6 +6652,32 @@ private const val FOREGROUND_SYNC_MAX_BACKOFF_MS = 120_000L
 private const val PUSH_SYNC_MIN_INTERVAL_MS = 2_000L
 private const val ON_DEMAND_OFFER_TTL_SECONDS = 15
 private val ACTIVE_ON_DEMAND_STATUSES = setOf("assigned", "accepted", "picked_up", "in_transit")
+
+/** Radius soft-gate arrival maintenance service (standar industri: 100m). */
+private const val ARRIVAL_RADIUS_M = 100
+
+/**
+ * Jarak horizontal (meter) dari last known location ke titik layanan.
+ * null jika lokasi belum tersedia / izin belum diberikan.
+ */
+private fun currentDistanceMeters(context: Context, lat: Double, lng: Double): Int? {
+    val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        ?: return null
+    val provider = if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER))
+        LocationManager.GPS_PROVIDER
+    else LocationManager.NETWORK_PROVIDER
+    val loc = try {
+        lm.getLastKnownLocation(provider)
+    } catch (_: SecurityException) {
+        null
+    }
+    if (loc == null) return null
+    val target = Location(provider).apply {
+        latitude = lat
+        longitude = lng
+    }
+    return loc.distanceTo(target).toInt()
+}
 
 private data class DutyLocation(
     val latitude: Double,

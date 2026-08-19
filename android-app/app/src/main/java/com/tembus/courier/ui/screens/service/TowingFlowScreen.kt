@@ -29,11 +29,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -71,17 +75,34 @@ fun TowingFlowScreen(
     }
 
     // Observe Room live: polling backend upsert → re-render earnings realtime.
-    val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(orderId, lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (isActive) {
-                viewModel.loadOrder(orderId)
-                delay(5_000)
+        val lifecycleOwner = LocalLifecycleOwner.current
+        LaunchedEffect(orderId, lifecycleOwner) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (isActive) {
+                    viewModel.loadOrder(orderId)
+                    delay(5_000)
+                }
             }
         }
-    }
 
-    Scaffold(
+        // ===== SOFT-GATE ARRIVAL: jarak ke titik layanan (standar industri 100m) =====
+        val context = LocalContext.current
+        var distanceM by remember(orderId) { mutableStateOf<Int?>(null) }
+        var overrideArrival by remember(orderId) { mutableStateOf(false) }
+
+        // Loop monitor jarak: hitung ulang tiap 3 detik dari last known location.
+        LaunchedEffect(orderId, uiState.pickupLatitude, uiState.pickupLongitude) {
+            while (isActive) {
+                val lat = uiState.pickupLatitude
+                val lng = uiState.pickupLongitude
+                distanceM = if (lat != null && lng != null) {
+                    currentDistanceMeters(context, lat, lng)
+                } else null
+                delay(3_000)
+            }
+        }
+
+        Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Towing", fontWeight = FontWeight.Bold) },
@@ -94,33 +115,67 @@ fun TowingFlowScreen(
         },
         bottomBar = {
             // ===== STICKY CTA (standar industri: tombol aksi selalu terlihat) =====
-            if (uiState.nextActionType != TowingNextActionType.NONE &&
-                uiState.nextActionType != TowingNextActionType.CAPTURE_COMPLETION
-            ) {
-                Surface(shadowElevation = 8.dp) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        if (uiState.error != null) {
-                            Text(
-                                uiState.error!!,
-                                color = MaterialTheme.colorScheme.error,
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                        }
-                        Button(
-                            onClick = {
-                                if (uiState.nextActionType == TowingNextActionType.CAPTURE_COMPLETION) {
-                                    onOpenCompletion(orderId, "towing")
-                                } else {
-                                    viewModel.handleNextAction(uiState.nextActionType)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !uiState.isLoading,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
+                        if (uiState.nextActionType != TowingNextActionType.NONE &&
+                            uiState.nextActionType != TowingNextActionType.CAPTURE_COMPLETION
                         ) {
+                            // Soft-gate: tombol "Saya di lokasi" butuh jarak ≤100m, kecuali override
+                            val isArriveAction = uiState.nextActionType == TowingNextActionType.ARRIVED_AT_PICKUP
+                            val withinRadius = distanceM != null && distanceM!! <= ARRIVAL_RADIUS_M
+                            val gateBlocked = isArriveAction && !overrideArrival && !withinRadius
+                            Surface(shadowElevation = 8.dp) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                    if (uiState.error != null) {
+                                        Text(
+                                            uiState.error!!,
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontSize = 14.sp,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                    }
+                                    if (gateBlocked) {
+                                        if (distanceM == null) {
+                                            Text(
+                                                "Mengecek jarak ke lokasi layanan...",
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(bottom = 8.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                "Kamu masih ${distanceM!!}m dari lokasi layanan. Dekati titik layanan (maks. 100m) atau konfirmasi manual.",
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(bottom = 8.dp)
+                                            )
+                                        }
+                                        TextButton(
+                                            onClick = { overrideArrival = true },
+                                            modifier = Modifier.align(Alignment.End)
+                                        ) {
+                                            Text("Konfirmasi manual", fontWeight = FontWeight.Medium)
+                                        }
+                                    } else if (isArriveAction && distanceM != null && !overrideArrival) {
+                                        Text(
+                                            "Kamu ${distanceM!!}m dari lokasi layanan — siap mengonfirmasi kedatangan.",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                    }
+                                    Button(
+                                        onClick = {
+                                            if (uiState.nextActionType == TowingNextActionType.CAPTURE_COMPLETION) {
+                                                onOpenCompletion(orderId, "towing")
+                                            } else {
+                                                viewModel.handleNextAction(uiState.nextActionType)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = !uiState.isLoading && !gateBlocked,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    ) {
                             if (uiState.isLoading) {
                                 Text("Memproses...", fontWeight = FontWeight.Bold)
                             } else {
@@ -284,13 +339,37 @@ private fun CustomerInfoCard(
             )
 
             if (canCall) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Telepon: $customerPhone",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Telepon: $customerPhone",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
-        }
-    }
-}
+
+            /** Radius soft-gate arrival (standar industri: 100m sebelum tombol aktif). */
+            private const val ARRIVAL_RADIUS_M = 100
+
+            /**
+             * Jarak horizontal (meter) dari last known location ke titik layanan.
+             * null jika lokasi belum tersedia / izin belum diberikan.
+             */
+            private fun currentDistanceMeters(context: android.content.Context, lat: Double, lng: Double): Int? {
+                val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+                    ?: return null
+                val provider = if (lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER))
+                    android.location.LocationManager.GPS_PROVIDER
+                else android.location.LocationManager.NETWORK_PROVIDER
+                val loc = try {
+                    lm.getLastKnownLocation(provider)
+                } catch (_: SecurityException) { null }
+                if (loc == null) return null
+                val target = android.location.Location(provider).apply {
+                    latitude = lat
+                    longitude = lng
+                }
+                return loc.distanceTo(target).toInt()
+            }

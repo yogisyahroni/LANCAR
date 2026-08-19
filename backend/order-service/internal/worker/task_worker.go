@@ -24,6 +24,7 @@ type TaskWorker struct {
 	insuranceSvc     domain.InsuranceService
 	relayScoreSvc    domain.RelayScoreService
 	analyticsSvc     service.AnalyticsService
+	chatSvc          service.ChatService
 }
 
 type NotificationDeliveryProvider interface {
@@ -44,6 +45,12 @@ func NewTaskWorker(q queue.Queue, or domain.OrderRepository, ns domain.Notificat
 
 func (w *TaskWorker) SetNotificationDeliveryProvider(provider NotificationDeliveryProvider) {
 	w.deliveryProvider = provider
+}
+
+// SetChatService inject chat service — dipakai utk auto-message sistem
+// (mis. "Kurir sudah tiba di lokasi layanan") ke thread chat order.
+func (w *TaskWorker) SetChatService(cs service.ChatService) {
+	w.chatSvc = cs
 }
 
 func (w *TaskWorker) Start(ctx context.Context) error {
@@ -197,12 +204,60 @@ func (w *TaskWorker) handleOrderStatusUpdated(task queue.Task) error {
 
 	log.Printf("[TaskWorker] Status Updated: %v to %s", orderID, status)
 
-	return w.notificationSvc.Send(context.Background(), domain.NotificationRequest{
-		UserID:  userID,
-		Title:   "Order Update",
-		Message: fmt.Sprintf("Your order %s status changed to %s", orderID, status),
-		Channel: domain.ChannelPush,
-	})
+	// 💬 Notifikasi kontekstual per status (standar industri: informatif,
+	// bukan template generik). Status arrived → kurir sudah tiba.
+	switch status {
+		case "arrived":
+			// 💬 Auto-chat ke thread order (sistem): kurir sudah tiba
+			if w.chatSvc != nil {
+				_, errChat := w.chatSvc.SendMessage(
+					context.Background(),
+					orderID,
+					"system",
+					"TEMBUS",
+					"system",
+					"Kurir kamu sudah tiba di lokasi layanan 🛠️ Mohon bersiap ya.",
+					"text",
+				)
+				if errChat != nil {
+					log.Printf("[TaskWorker] Auto-chat arrived gagal utk order %s: %v", orderID, errChat)
+				}
+			}
+			return w.notificationSvc.Send(context.Background(), domain.NotificationRequest{
+			UserID:  userID,
+			Title:   "Kurir sudah tiba 🛠️",
+			Message: "Kurir kamu sudah tiba di lokasi layanan. Bantuan akan segera dikerjakan.",
+			Channel: domain.ChannelPush,
+		})
+	case "arriving":
+		return w.notificationSvc.Send(context.Background(), domain.NotificationRequest{
+			UserID:  userID,
+			Title:   "Kurir menuju lokasi 🚗",
+			Message: "Kurir kamu sedang menuju lokasi layanan. Mohon bersiap.",
+			Channel: domain.ChannelPush,
+		})
+	case "in_progress":
+		return w.notificationSvc.Send(context.Background(), domain.NotificationRequest{
+			UserID:  userID,
+			Title:   "Layanan sedang dikerjakan 🔧",
+			Message: "Kurir sedang mengerjakan layanan di lokasi kamu.",
+			Channel: domain.ChannelPush,
+		})
+	case "service_complete", "completed", "delivered":
+		return w.notificationSvc.Send(context.Background(), domain.NotificationRequest{
+			UserID:  userID,
+			Title:   "Layanan selesai ✅",
+			Message: "Pekerjaan sudah selesai. Terima kasih sudah menggunakan TEMBUS!",
+			Channel: domain.ChannelPush,
+		})
+	default:
+		return w.notificationSvc.Send(context.Background(), domain.NotificationRequest{
+			UserID:  userID,
+			Title:   "Order Update",
+			Message: fmt.Sprintf("Your order %s status changed to %s", orderID, status),
+			Channel: domain.ChannelPush,
+		})
+	}
 }
 
 func (w *TaskWorker) handleOrderCancelled(task queue.Task) error {

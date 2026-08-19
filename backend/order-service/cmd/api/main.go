@@ -398,6 +398,8 @@ func main() {
 
 	if tq != nil {
 		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc, notifRepo, insuranceSvc, relayScoreSvc, analyticsSvc)
+		// 💬 Chat service untuk auto-message sistem (mis. "Kurir sudah tiba")
+		taskWorker.SetChatService(chatSvc)
 		taskWorker.SetNotificationDeliveryProvider(notificationinfra.NewHTTPDeliveryProvider(notifRepo))
 		go func() {
 			if err := taskWorker.Start(context.Background()); err != nil {

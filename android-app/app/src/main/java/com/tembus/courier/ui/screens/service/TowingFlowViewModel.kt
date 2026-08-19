@@ -33,8 +33,11 @@ data class TowingFlowUiState(
         val customerPhone: String = "",
         val activeAddress: String = "",
         // Resi publik (TMBSxxxxxx) — tampil utk kurir/customer, bukan UUID panjang
-        val orderNumber: String = ""
-    )
+                val orderNumber: String = "",
+                // Titik lokasi layanan (soft-gate arrival 100m)
+                val pickupLatitude: Double? = null,
+                val pickupLongitude: Double? = null
+            )
 
 @HiltViewModel
 class TowingFlowViewModel @Inject constructor(
@@ -83,7 +86,9 @@ class TowingFlowViewModel @Inject constructor(
                                                 customerName = order.customerName,
                                                                             customerPhone = order.phoneNumber.orEmpty(),
                                                                             activeAddress = flowState.pickupAddress,
-                                                                            orderNumber = order.orderNumber.orEmpty(),
+                                                                                                                                                        orderNumber = order.orderNumber.orEmpty(),
+                                                                                                                                                        pickupLatitude = order.pickupLatitude,
+                                                                                                                                                        pickupLongitude = order.pickupLongitude,
                                                 earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,

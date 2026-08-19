@@ -134,11 +134,11 @@ data class Order(
     val pickupAddress: String = "",
 
     @ColumnInfo(name = "pickup_latitude")
-    @SerialName("pickup_latitude")
+    @SerialName("pickup_lat")
     val pickupLatitude: Double? = null,
 
     @ColumnInfo(name = "pickup_longitude")
-    @SerialName("pickup_longitude")
+    @SerialName("pickup_lng")
     val pickupLongitude: Double? = null,
 
     @ColumnInfo(name = "pickup_time")
@@ -150,11 +150,11 @@ data class Order(
     val dropAddress: String = "",
 
     @ColumnInfo(name = "drop_latitude")
-    @SerialName("drop_latitude")
+    @SerialName("dropoff_lat")
     val dropLatitude: Double? = null,
 
     @ColumnInfo(name = "drop_longitude")
-    @SerialName("drop_longitude")
+    @SerialName("dropoff_lng")
     val dropLongitude: Double? = null,
 
     @ColumnInfo(name = "distance")
