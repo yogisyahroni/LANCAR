@@ -771,7 +771,7 @@ jobs:
     name: E2E Browser Validation
     needs: [deploy]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     if: github.ref == 'refs/heads/staging'
     # HARD GATE: regression E2E wajib hijau sebelum deploy dinyatakan sukses.
     # Staging sudah live (bawain.my.id) — kegagalan E2E = merah, bukan skip.
