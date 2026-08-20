@@ -496,16 +496,16 @@ private fun DeliveryMapCard(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (order.isMaintenanceService()) {
-                    Text("Lokasi Layanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Lokasi Layanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     DeliveryStop(
                         icon = Icons.Default.Build,
                         label = "Alamat",
                         value = order.pickupAddress.ifBlank { order.dropAddress }.ifBlank { "Alamat lokasi sedang disinkronkan" },
-                        color = Primary
+                        color = if (isSystemInDarkTheme()) DarkAccentLight else Primary
                     )
                 } else {
-                    Text(if (order.normalizedWorkflowRole() == "on_demand") "Rute On Demand" else "Rute Pengantaran", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    DeliveryStop(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }, color = Primary)
+                    Text(if (order.normalizedWorkflowRole() == "on_demand") "Rute On Demand" else "Rute Pengantaran", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    DeliveryStop(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }, color = if (isSystemInDarkTheme()) DarkAccentLight else Primary)
                     DeliveryStop(icon = Icons.Default.LocationOn, label = "Tujuan", value = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }, color = Secondary)
                 }
             }
@@ -828,7 +828,7 @@ private fun OnDemandCurrentStopCard(
                 Icon(icon, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(9.dp).size(20.dp))
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
                 Text(
                     address,
                     style = MaterialTheme.typography.titleMedium,
@@ -837,7 +837,7 @@ private fun OnDemandCurrentStopCard(
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(gateLabel, style = MaterialTheme.typography.labelMedium, color = Primary, fontWeight = FontWeight.Bold)
+                Text(gateLabel, style = MaterialTheme.typography.labelMedium, color = if (isSystemInDarkTheme()) DarkAccentLight else Primary, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -856,13 +856,13 @@ private fun OnDemandProofPanel(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
+        color = if (isSystemInDarkTheme()) DarkSurfaceVariant else Color.White,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.18f))
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -870,7 +870,7 @@ private fun OnDemandProofPanel(
                     onClick = onPrimary,
                     modifier = Modifier.weight(1f).height(52.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black)
+                    colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White)
                 ) {
                     Icon(primaryIcon, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -1217,7 +1217,7 @@ private fun FoodItemsCard(order: Order) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        color = Color.White,
+        color = if (isSystemInDarkTheme()) DarkSurfaceVariant else Color.White,
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.16f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1289,7 +1289,7 @@ private fun PackageChecklistCard(order: Order, deliveryDone: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        color = Color.White,
+        color = if (isSystemInDarkTheme()) DarkSurfaceVariant else Color.White,
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.16f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1626,8 +1626,9 @@ private fun saveCancellationPhoto(context: android.content.Context, orderId: Str
 @Composable
 private fun RouteStateStrip(routePreview: CourierRoutePreview?) {
     if (routePreview == null) {
+        val isDark = isSystemInDarkTheme()
         Surface(
-            color = LogisticsOrange.copy(alpha = 0.10f),
+            color = if (isDark) DarkSurfaceVariant else LogisticsOrange.copy(alpha = 0.10f),
             shape = RoundedCornerShape(8.dp),
             border = BorderStroke(1.dp, LogisticsOrange.copy(alpha = 0.34f)),
             modifier = Modifier.fillMaxWidth()
@@ -1639,7 +1640,7 @@ private fun RouteStateStrip(routePreview: CourierRoutePreview?) {
             ) {
                 Icon(Icons.Default.Route, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(18.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Rute sedang dimuat", fontWeight = FontWeight.Bold, color = DeepForest)
+                    Text("Rute sedang dimuat", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text(
                         "Jika peta belum siap, gunakan tombol navigasi eksternal. Estimasi garis lurus tidak dianggap rute resmi.",
                         style = MaterialTheme.typography.bodySmall,
@@ -2320,7 +2321,7 @@ private fun CourierIssueReportDialog(
                         )
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black)
+                colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White)
             ) {
                 Text("Kirim laporan", fontWeight = FontWeight.Black)
             }
