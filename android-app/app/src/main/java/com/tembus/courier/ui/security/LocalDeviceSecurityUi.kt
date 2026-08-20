@@ -65,106 +65,106 @@ fun LocalSecuritySettingsPanel(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val isDark = isSystemInDarkTheme()
-        Card(
-            modifier = modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isDark) MaterialTheme.colorScheme.surface else Color(0xFFF8FAFF)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f) else Color(0xFFE1E7F0))
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDark) MaterialTheme.colorScheme.surface else Color(0xFFF8FAFF)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f) else Color(0xFFE1E7F0))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(shape = RoundedCornerShape(14.dp), color = if (isDark) SecureBlue.copy(alpha = 0.16f) else SecureBlue.copy(alpha = 0.12f)) {
-                        Icon(
-                            imageVector = Icons.Default.Security,
-                            contentDescription = null,
-                            tint = if (isDark) Color(0xFF93B4FF) else SecureBlue,
-                            modifier = Modifier.padding(10.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Proteksi perangkat", fontWeight = FontWeight.Bold, color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF1A2233))
-                        Text(
-                            "PIN dan biometrik diproses lokal di HP ini.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF5D6B82)
-                        )
-                    }
-                Switch(
-                    checked = settings.enabled,
-                    onCheckedChange = { enabled ->
-                        runCatching {
-                            if (enabled && !settings.pinConfigured) {
-                                showPinSetup = true
-                            } else {
-                                securityManager.setEnabled(enabled)
-                                onNotice(if (enabled) "Proteksi perangkat aktif." else "Proteksi perangkat nonaktif.")
-                            }
-                        }.onFailure { errorMessage = it.message }
-                    }
-                )
-            }
-
-            HorizontalDivider(color = if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f) else Color(0xFFE1E7F0))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = if (isDark) Color(0xFF7DD99B) else SecureGreen)
+                Surface(shape = RoundedCornerShape(14.dp), color = if (isDark) SecureBlue.copy(alpha = 0.16f) else SecureBlue.copy(alpha = 0.12f)) {
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = null,
+                        tint = if (isDark) Color(0xFF93B4FF) else SecureBlue,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(if (settings.pinConfigured) "PIN 6 digit sudah aktif" else "PIN 6 digit belum dibuat", color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF1A2233))
+                    Text("Proteksi perangkat", fontWeight = FontWeight.Bold, color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF1A2233))
                     Text(
-                        "Dipakai sebagai fallback saat biometrik tidak tersedia.",
+                        "PIN dan biometrik diproses lokal di HP ini.",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF5D6B82)
                     )
                 }
-                OutlinedButton(onClick = { showPinSetup = true }) {
-                    Text(if (settings.pinConfigured) "Ubah" else "Atur")
+            Switch(
+                checked = settings.enabled,
+                onCheckedChange = { enabled ->
+                    runCatching {
+                        if (enabled && !settings.pinConfigured) {
+                            showPinSetup = true
+                        } else {
+                            securityManager.setEnabled(enabled)
+                            onNotice(if (enabled) "Proteksi perangkat aktif." else "Proteksi perangkat nonaktif.")
+                        }
+                    }.onFailure { errorMessage = it.message }
                 }
-            }
+            )
+        }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = if (isDark) Color(0xFF93B4FF) else SecureBlue)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(if (settings.biometricSupported) "Biometrik perangkat" else "Biometrik perangkat tidak aktif", color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF1A2233))
-                    Text(
-                        if (settings.biometricSupported) "Sidik jari atau Face Unlock sesuai dukungan perangkat." else "Tambahkan biometric di pengaturan HP untuk mengaktifkan.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF5D6B82)
-                    )
-                }
-                Switch(
-                    checked = settings.biometricEnabled,
-                    enabled = settings.pinConfigured && settings.enabled && settings.biometricSupported,
-                    onCheckedChange = { enabled ->
-                        runCatching {
-                            securityManager.setBiometricEnabled(enabled)
-                            onNotice(if (enabled) "Biometrik lokal aktif." else "Biometrik lokal nonaktif.")
-                        }.onFailure { errorMessage = it.message }
-                    }
+        HorizontalDivider(color = if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f) else Color(0xFFE1E7F0))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(Icons.Default.Lock, contentDescription = null, tint = if (isDark) Color(0xFF7DD99B) else SecureGreen)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(if (settings.pinConfigured) "PIN 6 digit sudah aktif" else "PIN 6 digit belum dibuat", color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF1A2233))
+                Text(
+                    "Dipakai sebagai fallback saat biometrik tidak tersedia.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF5D6B82)
                 )
             }
-
-            errorMessage?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            OutlinedButton(onClick = { showPinSetup = true }) {
+                Text(if (settings.pinConfigured) "Ubah" else "Atur")
             }
         }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(Icons.Default.Fingerprint, contentDescription = null, tint = if (isDark) Color(0xFF93B4FF) else SecureBlue)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(if (settings.biometricSupported) "Biometrik perangkat" else "Biometrik perangkat tidak aktif", color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF1A2233))
+                Text(
+                    if (settings.biometricSupported) "Sidik jari atau Face Unlock sesuai dukungan perangkat." else "Tambahkan biometric di pengaturan HP untuk mengaktifkan.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF5D6B82)
+                )
+            }
+            Switch(
+                checked = settings.biometricEnabled,
+                enabled = settings.pinConfigured && settings.enabled && settings.biometricSupported,
+                onCheckedChange = { enabled ->
+                    runCatching {
+                        securityManager.setBiometricEnabled(enabled)
+                        onNotice(if (enabled) "Biometrik lokal aktif." else "Biometrik lokal nonaktif.")
+                    }.onFailure { errorMessage = it.message }
+                }
+            )
+        }
+
+        errorMessage?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+    }
     }
 
     if (showPinSetup) {

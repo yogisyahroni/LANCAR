@@ -608,13 +608,13 @@ jobs:
 
           if [ "${BUILD}" == "success" ] && [ "${RELEASE}" == "success" ]; then
             STATUS="✅ *SUCCESS*"
-            MESSAGE="📱 *Mobile Apps* (Courier, Customer, Merchant) berhasil di-build & di-release ke *Staging*.\\n\\n🔗 Release: https://github.com/${{ github.repository }}/releases/tag/v1.0.${{ github.run_number }}\\nSHA: \\`${{ github.sha }}\\`"
+            MESSAGE="📱 *Mobile Apps* (Courier, Customer, Merchant) berhasil di-build & di-release ke *Staging*.\n\n🔗 Release: https://github.com/${{ github.repository }}/releases/tag/v1.0.${{ github.run_number }}\nSHA: \`${{ github.sha }}\`"
           elif [ "${BUILD}" == "failure" ]; then
             STATUS="🚨 *BUILD FAILED*"
-            MESSAGE="⚠️ Build salah satu Mobile App (Courier/Customer/Merchant) gagal di Staging.\\n\\nMohon periksa log di GitHub Actions.\\nSHA: \\`${{ github.sha }}\\`"
+            MESSAGE="⚠️ Build salah satu Mobile App (Courier/Customer/Merchant) gagal di Staging.\n\nMohon periksa log di GitHub Actions.\nSHA: \`${{ github.sha }}\`"
           else
             STATUS="⚠️ *RELEASE FAILED*"
-            MESSAGE="✅ Build sukses, namun GitHub Release gagal. Mohon cek logs.\\nSHA: \\`${{ github.sha }}\\`"
+            MESSAGE="✅ Build sukses, namun GitHub Release gagal. Mohon cek logs.\nSHA: \`${{ github.sha }}\`"
           fi
 
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
