@@ -134,6 +134,7 @@ import com.tembus.courier.ui.security.LocalSecuritySettingsPanel
 import com.tembus.courier.ui.security.SecureScreenEffect
 import com.tembus.courier.ui.components.BidirectionalSwipeSlider
 import com.tembus.courier.ui.theme.Accent
+import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
 import com.tembus.courier.ui.theme.CourierMapBase
@@ -156,7 +157,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import kotlin.math.min
 
-private val LogisticsOrange = Accent
+private val LogisticsOrange = AccentDark // 5.18:1 utk badge putih (WCAG AA)
 private val SageBase = Background
 private val DeepForest = PrimaryDark
 

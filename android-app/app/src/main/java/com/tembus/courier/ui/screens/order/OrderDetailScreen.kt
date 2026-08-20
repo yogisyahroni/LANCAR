@@ -75,6 +75,7 @@ import com.tembus.courier.domain.CourierFlowState
 import com.tembus.courier.domain.CourierNextActionType
 import com.tembus.courier.ui.components.maps.RuntimeMapMarker
 import com.tembus.courier.ui.components.maps.RuntimeMapRenderer
+import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryLight
 import com.tembus.courier.ui.theme.Secondary
@@ -95,7 +96,7 @@ import com.tembus.courier.data.security.LocalDeviceSecurityManager
 import com.tembus.courier.ui.screens.face.FaceVerificationScreen
 import com.tembus.courier.util.NavigationHelper
 
-private val LogisticsOrange = Color(0xFFFF6D00)
+private val LogisticsOrange = AccentDark // #C2410C — CTA/ikon oranye dgn teks putih 5.18:1 (WCAG AA)
 private val DeepForest = Color(0xFF0A2F20)
 private val OnDemandSurface = Color(0xFFF2F5F0)
 
@@ -1827,7 +1828,9 @@ private fun CompactActionButton(
     modifier: Modifier = Modifier,
     strong: Boolean = false
 ) {
-    val container = if (strong) DeepForest else Color.White
+    // strong = tombol utama hijau: pakai Primary (#005C32, putih 8.15:1 PASS)
+    // bukan DeepForest (#0A2F20) yang nyaris menyatu dgn bg gelap (vision 5/10).
+    val container = if (strong) Primary else Color.White
     val content = if (strong) Color.White else DeepForest
     Button(
         onClick = onClick,

@@ -73,7 +73,7 @@ import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.SecondaryLight
 
-private val PromoOrange = Color(0xFFFF7A00)
+private val PromoOrange = Color(0xFFF97316) // palet TEMBUS 2026
 
 private data class NotificationCategoryTab(
     val key: String?,
