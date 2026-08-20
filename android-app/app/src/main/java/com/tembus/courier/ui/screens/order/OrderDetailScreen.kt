@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -267,9 +268,9 @@ fun OrderDetailScreen(
                     Column {
                         Text(if (order.isMaintenanceService()) serviceTitle(order) else "Pengantaran", fontWeight = FontWeight.Bold)
                         Text(
-                            order.orderId.ifBlank { "Order aktif" },
+                            shortOrderId(order.orderId.ifBlank { "Order aktif" }),
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color.White.copy(alpha = 0.72f)
                         )
                     }
                 },
@@ -1421,7 +1422,7 @@ private fun OnDemandSupportActions(
         if (showCancelPickup && !pickupDone) {
             OutlinedButton(
                 onClick = onCancelPickupClick,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
@@ -1431,9 +1432,10 @@ private fun OnDemandSupportActions(
                 Text("Batalkan pickup", fontWeight = FontWeight.Bold)
             }
         }
+        // Sekunder: outline kecil (bukan full-width 52dp) — kurangi kompetisi dengan CTA utama.
         OutlinedButton(
             onClick = onIssueClick,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Primary),
             border = BorderStroke(1.dp, Primary.copy(alpha = 0.55f))
@@ -1442,15 +1444,18 @@ private fun OnDemandSupportActions(
             Spacer(modifier = Modifier.width(8.dp))
             Text("Laporkan kendala pekerjaan", fontWeight = FontWeight.Bold)
         }
-        OutlinedButton(
+        // SOS: text button merah tegas (ikon + label) — penting, tapi bukan blok merah
+        // yang mendominasi & berisiko salah tekan (standar Gojek/Grab).
+        TextButton(
             onClick = onSosClick,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+            modifier = Modifier.fillMaxWidth().height(44.dp),
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = MaterialTheme.colorScheme.error,
+                disabledContentColor = MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+            )
         ) {
-            Icon(Icons.Default.ReportProblem, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
+            Icon(Icons.Default.ReportProblem, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text("SOS bantuan operasional", fontWeight = FontWeight.Bold)
         }
     }
@@ -1884,19 +1889,21 @@ private fun OrderInfoCard(order: Order) {
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            InfoRow(label = "Order ID", value = order.orderId)
+            InfoRow(label = "Order ID", value = shortOrderId(order.orderId))
             InfoRow(label = "Pelanggan", value = order.customerName)
 
             if (order.isMaintenanceService()) {
                 // Service (tambal ban / towing): satu titik lokasi layanan + rincian biaya jasa.
+                // Angka harus konsisten dgn OnDemandJobHeader: total = ESTIMASI BERSIH
+                // (jasa + travel − komisi platform), bukan gross.
                 val pb = order.pricingBreakdown
                 InfoRow(label = "Lokasi Layanan", value = order.pickupAddress.ifBlank { order.dropAddress })
                 InfoRow(label = "Waktu Pemesanan", value = order.pickupTime)
                 InfoRow(label = "Biaya Jasa", value = "Rp${formatRp(pb?.serviceFeeIdr?.toLong() ?: 0L)}")
                 InfoRow(label = "Biaya Perjalanan", value = "Rp${formatRp(pb?.travelFeeIdr?.toLong() ?: 0L)}")
                 InfoRow(
-                    label = "Total Pendapatan",
-                    value = "Rp${formatRp(((pb?.serviceFeeIdr ?: 0) + (pb?.travelFeeIdr ?: 0)).toLong())}",
+                    label = "Estimasi Pendapatan Bersih",
+                    value = "Rp${formatRp(order.estimatedNetEarningsIdr().toLong())}",
                     valueColor = Color(0xFF7BC043)
                 )
             } else {
@@ -1940,18 +1947,30 @@ private fun OrderInfoCard(order: Order) {
 private fun InfoRow(label: String, value: String, valueColor: Color = Color.Unspecified) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
     ) {
-        Text(text = "$label:", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(0.42f)
+        )
         Text(
             text = value.ifBlank { "Data sedang disinkronkan" },
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
-            color = valueColor
+            color = if (valueColor == Color.Unspecified) MaterialTheme.colorScheme.onSurface else valueColor,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(0.58f)
         )
     }
     Spacer(modifier = Modifier.height(8.dp))
 }
+
+/** Potong UUID jadi 8 karakter pertama untuk tampilan kompak: f779a9c4… */
+private fun shortOrderId(orderId: String): String =
+    orderId.take(8).ifBlank { orderId }
 
 /** Format angka ke rupiah tanpa desimal: 10000 → "10.000". */
 private fun formatRp(value: Long): String {
