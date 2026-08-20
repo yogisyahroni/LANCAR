@@ -63,6 +63,7 @@ import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.CancelPickupReason
 import com.tembus.courier.data.model.OrderStatusTransition
 import com.tembus.courier.data.model.isMaintenanceService
+import com.tembus.courier.BuildConfig
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.data.model.displayServiceName
@@ -169,10 +170,14 @@ fun OrderDetailScreen(
 ) {
     val context = LocalContext.current
     
-    // 🛡️ SECURITY: Prevent customer PII screenshots and background system captures
+    // 🛡️ SECURITY: Prevent customer PII screenshots and background system captures.
+    // Debug build dibuka (pola sama dengan SecureScreenEffect) agar UAT/QA bisa
+    // screencap — release build tetap FLAG_SECURE penuh.
     val activity = remember(context) { context as? Activity }
     DisposableEffect(activity) {
-        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        if (!BuildConfig.DEBUG) {
+            activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
         onDispose {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
@@ -484,9 +489,19 @@ private fun DeliveryMapCard(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(if (order.normalizedWorkflowRole() == "on_demand") "Rute On Demand" else "Rute Pengantaran", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                DeliveryStop(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }, color = Primary)
-                DeliveryStop(icon = Icons.Default.LocationOn, label = "Tujuan", value = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }, color = Secondary)
+                if (order.isMaintenanceService()) {
+                    Text("Lokasi Layanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    DeliveryStop(
+                        icon = Icons.Default.Build,
+                        label = "Alamat",
+                        value = order.pickupAddress.ifBlank { order.dropAddress }.ifBlank { "Alamat lokasi sedang disinkronkan" },
+                        color = Primary
+                    )
+                } else {
+                    Text(if (order.normalizedWorkflowRole() == "on_demand") "Rute On Demand" else "Rute Pengantaran", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    DeliveryStop(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }, color = Primary)
+                    DeliveryStop(icon = Icons.Default.LocationOn, label = "Tujuan", value = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }, color = Secondary)
+                }
             }
         }
     }
