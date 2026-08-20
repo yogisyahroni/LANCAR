@@ -78,6 +78,7 @@ import com.tembus.courier.ui.components.maps.RuntimeMapMarker
 import com.tembus.courier.ui.components.maps.RuntimeMapRenderer
 import com.tembus.courier.ui.theme.AccentDark
 import com.tembus.courier.ui.theme.DarkAccentLight
+import com.tembus.courier.ui.theme.DarkSurface
 import com.tembus.courier.ui.theme.DarkSurfaceVariant
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryLight
@@ -808,9 +809,13 @@ private fun OnDemandCurrentStopCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     gateLabel: String
 ) {
+    // bg adaptif: OnDemandSurface terang utk LIGHT; DarkSurface utk DARK
+    // (teks onSurface = putih di dark — harus di atas bg gelap, bukan kartu terang).
+    val isDark = isSystemInDarkTheme()
+    val cardBg = if (isDark) DarkSurface else OnDemandSurface
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = OnDemandSurface,
+        color = cardBg,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
     ) {
@@ -824,7 +829,14 @@ private fun OnDemandCurrentStopCard(
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = DeepForest)
-                Text(address, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text(
+                    address,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Text(gateLabel, style = MaterialTheme.typography.labelMedium, color = Primary, fontWeight = FontWeight.Bold)
             }
         }
@@ -1092,11 +1104,13 @@ private fun SyncStateNotice(order: Order) {
         )
     }
 
+    val isDark = isSystemInDarkTheme()
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = color.copy(alpha = 0.10f),
+        // bg solid adaptif — jangan success 10% transparan di dark (jadi gelap, teks DeepForest samar).
+        color = if (isDark) color.copy(alpha = 0.18f) else color.copy(alpha = 0.10f),
         shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.32f))
+        border = BorderStroke(1.dp, color.copy(alpha = 0.45f))
     ) {
         Row(
             modifier = Modifier.padding(10.dp),
@@ -1104,7 +1118,7 @@ private fun SyncStateNotice(order: Order) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
-            Text(text, style = MaterialTheme.typography.bodySmall, color = DeepForest, fontWeight = FontWeight.Medium)
+            Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -1160,10 +1174,13 @@ private fun MandatoryPickupChecklist(
     scanDone: Boolean,
     photoDone: Boolean
 ) {
+    // bg adaptif: PrimaryLight transparan di dark = hijau gelap → teks DeepForest samar.
+    val isDark = isSystemInDarkTheme()
+    val cardBg = if (isDark) DarkSurfaceVariant else PrimaryLight.copy(alpha = 0.62f)
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        color = PrimaryLight.copy(alpha = 0.62f),
+        color = cardBg,
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.14f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1171,7 +1188,7 @@ private fun MandatoryPickupChecklist(
                 "Syarat mulai pengantaran",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Black,
-                color = DeepForest
+                color = MaterialTheme.colorScheme.onSurface
             )
             VerificationRequirementRow(
                 done = faceDone,
@@ -1748,9 +1765,10 @@ private fun LocationGateStatus(order: Order, targetPickup: Boolean) {
         else -> "Belum di titik ${if (targetPickup) "pickup" else "tujuan"}: ${distanceM}m dari radius ${radiusM}m."
     }
     val color = if (ready) Success else LogisticsOrange
+    val isDark = isSystemInDarkTheme()
 
     Surface(
-        color = color.copy(alpha = 0.12f),
+        color = if (isDark) color.copy(alpha = 0.20f) else color.copy(alpha = 0.12f),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, color.copy(alpha = 0.45f))
     ) {
@@ -1761,7 +1779,7 @@ private fun LocationGateStatus(order: Order, targetPickup: Boolean) {
         ) {
             Icon(if (ready) Icons.Default.GpsFixed else Icons.Default.LocationSearching, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(copy, style = MaterialTheme.typography.bodySmall, color = DeepForest, fontWeight = FontWeight.Medium)
+                Text(copy, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                 Text(
                     "Aturan bukti: radius maksimal ${radiusM}m dan akurasi maksimal ${minAccuracyM}m. GPS buruk harus retry atau override terkendali dari server.",
                     style = MaterialTheme.typography.labelSmall,
@@ -1871,7 +1889,14 @@ private fun DeliveryStop(
         }
         Column {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2)
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                // eksplisit: hindari LocalContentColor yang bisa salah (putih-on-putih)
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
