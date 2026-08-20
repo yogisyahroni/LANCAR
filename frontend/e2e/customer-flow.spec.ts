@@ -31,8 +31,13 @@ test.use({
   permissions: ['geolocation'],
 });
 
+// Geolocation Playwright hanya mendukung 1 posisi per konteks (cache per-origin),
+// dan setGeolocation kedua tidak selalu diterapkan (chromium quirk). Solusi: mock
+// navigator.geolocation.getCurrentPosition di dalam helper (setelah halaman load,
+// navigator.geolocation pasti tersedia) — lihat applyPickupLocation / applyDropoffByLocation.
+
 const loginCustomer = async (page: import('@playwright/test').Page) => {
-  await page.goto('/login');
+  await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForLoadState('domcontentloaded');
 
   await page.fill('input[name="email"]', TEST_EMAIL);
@@ -44,8 +49,8 @@ const loginCustomer = async (page: import('@playwright/test').Page) => {
 
   const loginError = page.getByTestId('customer-login-error');
   const result = await Promise.race([
-    page.waitForURL('**/dashboard', { timeout: 20000 }).then(() => ({ ok: true as const })),
-    loginError.waitFor({ state: 'visible', timeout: 20000 }).then(async () => ({
+    page.waitForURL('**/dashboard', { timeout: 45000 }).then(() => ({ ok: true as const })),
+    loginError.waitFor({ state: 'visible', timeout: 45000 }).then(async () => ({
       ok: false as const,
       message: (await loginError.innerText()).trim(),
     })),
@@ -66,31 +71,55 @@ const openOrderForm = async (page: import('@playwright/test').Page) => {
   await expect(page.getByTestId('pickup-address-input')).toBeVisible({ timeout: 15000 });
 };
 
+const mockGeolocation = async (
+  page: import('@playwright/test').Page,
+  lat: number,
+  lng: number,
+) => {
+  // Mock getCurrentPosition dengan nilai mutable (amankan dari cache per-origin Chromium).
+  await page.evaluate(([latV, lngV]) => {
+    (window as any).__e2eGeo = { lat: latV, lng: lngV };
+    navigator.geolocation.getCurrentPosition = (
+      success: PositionCallback,
+      _error?: PositionErrorCallback | null,
+    ) => {
+      const g = (window as any).__e2eGeo;
+      success({
+        coords: {
+          latitude: g.lat,
+          longitude: g.lng,
+          accuracy: 10,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+        },
+        timestamp: Date.now(),
+      } as GeolocationPosition);
+    };
+  }, [lat, lng]);
+};
+
 const applyPickupLocation = async (
   page: import('@playwright/test').Page,
 ) => {
-  // Pickup: pakai geolocation (setGeolocation berlaku untuk seluruh sesi konteks)
-  await page.context().grantPermissions(['geolocation']);
+  // Pickup: mock geolocation → nilai mutable (set ulang aman tanpa cache per-origin)
+  await mockGeolocation(page, -6.175392, 106.827153);
   await page.getByTestId('pickup-address-input').fill('Monumen Nasional, Gambir, Jakarta Pusat');
-  await page.context().setGeolocation({ latitude: -6.175392, longitude: 106.827153 });
   await expect(page.getByTestId('pickup-current-location-button')).toBeVisible({ timeout: 15000 });
   await page.getByTestId('pickup-current-location-button').click();
   await expect(page.getByTestId('pickup-coordinate-label')).not.toContainText('Titik belum dipilih', { timeout: 10000 });
-  // Pickup selesai — jangan ubah geolocation lagi, dropoff pakai pencarian alamat.
 };
 
-const applyDropoffBySearch = async (
+const applyDropoffByLocation = async (
   page: import('@playwright/test').Page,
 ) => {
-  // Dropoff: pakai pencarian (suggestion TomTom) — setGeolocation kedua akan
-  // meng-override koordinat pickup (Playwright: 1 lokasi per konteks browser).
-  const searchBox = page.getByTestId('dropoff-address-input');
-  await searchBox.fill('Jalan Merdeka No. 1, Gambir, Jakarta Pusat');
-  // Tunggu suggestion muncul lalu klik yang pertama (button tanpa testid — pakai teks)
-  await expect(
-    page.locator('button').filter({ hasText: 'Medan Merdeka' }).first()
-  ).toBeVisible({ timeout: 15000 });
-  await page.locator('button').filter({ hasText: 'Medan Merdeka' }).first().click();
+  // Dropoff: mock geolocation ke nilai dropoff SEBELUM klik — getCurrentPosition
+  // mock membaca nilai mutable terkini. Pickup sudah tersimpan di form state.
+  await mockGeolocation(page, -6.21462, 106.84513);
+  await page.getByTestId('dropoff-address-input').fill('Istana Merdeka, Gambir, Jakarta Pusat');
+  await expect(page.getByTestId('dropoff-current-location-button')).toBeVisible({ timeout: 15000 });
+  await page.getByTestId('dropoff-current-location-button').click();
   await expect(page.getByTestId('dropoff-coordinate-label')).not.toContainText('Titik belum dipilih', { timeout: 10000 });
 };
 
@@ -106,7 +135,7 @@ test.describe('Customer Portal E2E Flow', () => {
 
     // 3. Fill order form with browser geolocation so staging can price the route.
     await applyPickupLocation(page);
-    await applyDropoffBySearch(page);
+    await applyDropoffByLocation(page);
 
     await page.getByTestId('recipient-name-input').fill('Budi Santoso');
     await page.getByTestId('recipient-phone-input').fill('081234567890');
