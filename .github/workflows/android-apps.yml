@@ -555,90 +555,6 @@ jobs:
       #   env:
       #     FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-  regression-android:
-    name: Android Regression (${{ matrix.app_name }})
-    needs: build-android
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/staging'
-    # Emulator CI di-runner GitHub TIDAK bisa boot: ubuntu → KVM group kosong
-    # (-accel off → API 34 tak boot, "Unable to connect to adb daemon 5037"),
-    # macos-14 → "HVF error: HV_UNSUPPORTED" (nested virtualization tidak tersedia).
-    # UAT emulator = lokal/user (skill lancar-*): smoke androidTest + lint + unit
-    # test sudah di-cover job build-android. Job ini di-disable permanen.
-    runs-on: macos-14
-    timeout-minutes: 45
-    if: false
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - app_name: "Courier-App"
-            app_slug: "courier"
-            working_dir: "android-app"
-            package: "com.tembus.courier"
-            needs_maps: "true"
-          - app_name: "Customer-App"
-            app_slug: "customer"
-            working_dir: "android-app-customer"
-            package: "com.tembus.customer"
-            needs_maps: "true"
-          - app_name: "Merchant-App"
-            app_slug: "merchant"
-            working_dir: "android-app-merchant"
-            package: "com.tembus.merchant"
-            needs_maps: "false"
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check secrets (maps keys for courier/customer)
-        id: check_secrets
-        shell: bash
-        run: |
-          if [[ "${{ matrix.needs_maps }}" == "true" ]]; then
-            if [[ -z "${{ secrets.TOMTOM_ANDROID_COURIER_API_KEY }}" && -z "${{ secrets.TOMTOM_ANDROID_CUSTOMER_API_KEY }}" ]]; then
-              echo "skip=true" >> $GITHUB_OUTPUT
-              echo "Maps keys belum di-set - Android regression di-skip (hanya unit test di build job)."
-            else
-              echo "skip=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
-      - uses: actions/setup-java@v4
-        if: steps.check_secrets.outputs.skip == 'false'
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Set up Gradle
-        if: steps.check_secrets.outputs.skip == 'false'
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Android Emulator Runner
-        if: steps.check_secrets.outputs.skip == 'false'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: arm64-v8a
-          profile: pixel_6
-          script: |
-            ./gradlew connectedDebugAndroidTest
-          working-directory: ./${{ matrix.working_dir }}
-        env:
-          TOMTOM_ANDROID_COURIER_API_KEY: ${{ secrets.TOMTOM_ANDROID_COURIER_API_KEY || secrets.TOMTOM_ANDROID_CUSTOMER_API_KEY }}
-          TOMTOM_ANDROID_CUSTOMER_API_KEY: ${{ secrets.TOMTOM_ANDROID_CUSTOMER_API_KEY || secrets.TOMTOM_ANDROID_COURIER_API_KEY }}
-
-      - name: Upload Android Regression Report
-        if: always() && steps.check_secrets.outputs.skip == 'false'
-        uses: actions/upload-artifact@v4
-        continue-on-error: true
-        with:
-          name: android-regression-report-${{ matrix.app_slug }}
-          path: |
-            ${{ matrix.working_dir }}/app/build/outputs/androidTest-results/
-            ${{ matrix.working_dir }}/app/build/reports/androidTests/
-          if-no-files-found: ignore
-          retention-days: 7
 
   create-release:
     name: Create Combined Release
@@ -673,7 +589,7 @@ jobs:
 
   notify-telegram:
     name: Notify Telegram (Mobile)
-    needs: [build-android, regression-android, create-release]
+    needs: [build-android, create-release]
     if: always() && github.event_name == 'push' && github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
     steps:
@@ -689,27 +605,16 @@ jobs:
 
           BUILD="${{ needs.build-android.result }}"
           RELEASE="${{ needs.create-release.result }}"
-          REGRESSION="${{ needs.regression-android.result }}"
 
           if [ "${BUILD}" == "success" ] && [ "${RELEASE}" == "success" ]; then
             STATUS="✅ *SUCCESS*"
-            MESSAGE="📱 *Mobile Apps* (Courier, Customer, Merchant) berhasil di-build & di-release ke *Staging*.\n\n🔗 Release: https://github.com/${{ github.repository }}/releases/tag/v1.0.${{ github.run_number }}\nSHA: \`${{ github.sha }}\`"
-            if [ "${REGRESSION}" == "success" ]; then
-              MESSAGE="${MESSAGE}
-              ✅ *Android Regression*: emulator smoke test PASS"
-            elif [ "${REGRESSION}" == "skipped" ]; then
-              MESSAGE="${MESSAGE}
-              ⏭️ *Android Regression*: di-skip (maps keys belum lengkap)"
-            else
-              MESSAGE="${MESSAGE}
-              ❌ *Android Regression*: GAGAL - cek log"
-            fi
+            MESSAGE="📱 *Mobile Apps* (Courier, Customer, Merchant) berhasil di-build & di-release ke *Staging*.\\n\\n🔗 Release: https://github.com/${{ github.repository }}/releases/tag/v1.0.${{ github.run_number }}\\nSHA: \\`${{ github.sha }}\\`"
           elif [ "${BUILD}" == "failure" ]; then
             STATUS="🚨 *BUILD FAILED*"
-            MESSAGE="⚠️ Build salah satu Mobile App (Courier/Customer/Merchant) gagal di Staging.\n\nMohon periksa log di GitHub Actions.\nSHA: \`${{ github.sha }}\`"
+            MESSAGE="⚠️ Build salah satu Mobile App (Courier/Customer/Merchant) gagal di Staging.\\n\\nMohon periksa log di GitHub Actions.\\nSHA: \\`${{ github.sha }}\\`"
           else
             STATUS="⚠️ *RELEASE FAILED*"
-            MESSAGE="✅ Build sukses, namun GitHub Release gagal. Mohon cek logs.\nSHA: \`${{ github.sha }}\`"
+            MESSAGE="✅ Build sukses, namun GitHub Release gagal. Mohon cek logs.\\nSHA: \\`${{ github.sha }}\\`"
           fi
 
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
