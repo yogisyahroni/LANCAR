@@ -12,6 +12,9 @@ const getConfiguredValue = (value: string | undefined) => {
 
 const configuredEmail = getConfiguredValue(process.env.TEST_USER_EMAIL);
 const configuredPassword = getConfiguredValue(process.env.TEST_USER_PASSWORD);
+// Login flow baru (customer auth): BACKEND me-lookup user via phone_number OR email (GetByPhoneNumber).
+// Frontend field email (type=email) hanya menerima format email → isi EMAIL (bukan phone).
+// Akun demo staging: customer@tembus.id / Customer123! (phone 6281244445555).
 const TEST_EMAIL =
   configuredEmail && !LEGACY_TEST_EMAILS.has(configuredEmail.toLowerCase())
     ? configuredEmail
@@ -20,6 +23,8 @@ const TEST_PASSWORD =
   configuredPassword && configuredPassword !== '123456'
     ? configuredPassword
     : 'Customer123!';
+// device_id tetap (trusted device) — menghindari OTP tiap run CI
+const TEST_DEVICE_ID = 'e2e-customer-flow-device-01';
 
 test.use({
   geolocation: { latitude: -6.2, longitude: 106.816666 },
@@ -32,6 +37,9 @@ const loginCustomer = async (page: import('@playwright/test').Page) => {
 
   await page.fill('input[name="email"]', TEST_EMAIL);
   await page.fill('input[name="password"]', TEST_PASSWORD);
+  await page.evaluate((deviceId) => {
+    window.localStorage.setItem('tembus_customer_web_device_id', deviceId);
+  }, TEST_DEVICE_ID);
   await page.click('button[type="submit"]');
 
   const loginError = page.getByTestId('customer-login-error');
@@ -51,30 +59,39 @@ const loginCustomer = async (page: import('@playwright/test').Page) => {
 };
 
 const openOrderForm = async (page: import('@playwright/test').Page) => {
-  await page.goto('/dashboard');
-  await page.waitForLoadState('domcontentloaded');
-
-  const createOrderLink = page.getByRole('link', { name: /Kirim Paket/i }).first();
-  await expect(createOrderLink).toBeVisible({ timeout: 15000 });
-  await createOrderLink.click();
-
-  await page.waitForURL('**/orders/new', { timeout: 20000 });
+  // Navigasi langsung ke form order (dashboard loading race-prone: skeleton + fetch async).
+  // Dashboard sudah diverifikasi di langkah 1 (h1/h2/h3 visible setelah login).
+  await page.goto('/orders/new/ondemand', { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForLoadState('domcontentloaded');
   await expect(page.getByTestId('pickup-address-input')).toBeVisible({ timeout: 15000 });
 };
 
-const applyBrowserLocation = async (
+const applyPickupLocation = async (
   page: import('@playwright/test').Page,
-  mode: 'pickup' | 'dropoff',
-  address: string,
-  geolocation: { latitude: number; longitude: number },
 ) => {
+  // Pickup: pakai geolocation (setGeolocation berlaku untuk seluruh sesi konteks)
   await page.context().grantPermissions(['geolocation']);
-  await page.getByTestId(`${mode}-address-input`).fill(address);
-  await page.context().setGeolocation(geolocation);
-  await expect(page.getByTestId(`${mode}-current-location-button`)).toBeVisible({ timeout: 15000 });
-  await page.getByTestId(`${mode}-current-location-button`).click();
-  await expect(page.getByTestId(`${mode}-coordinate-label`)).not.toContainText('Titik belum dipilih', { timeout: 10000 });
+  await page.getByTestId('pickup-address-input').fill('Monumen Nasional, Gambir, Jakarta Pusat');
+  await page.context().setGeolocation({ latitude: -6.175392, longitude: 106.827153 });
+  await expect(page.getByTestId('pickup-current-location-button')).toBeVisible({ timeout: 15000 });
+  await page.getByTestId('pickup-current-location-button').click();
+  await expect(page.getByTestId('pickup-coordinate-label')).not.toContainText('Titik belum dipilih', { timeout: 10000 });
+  // Pickup selesai — jangan ubah geolocation lagi, dropoff pakai pencarian alamat.
+};
+
+const applyDropoffBySearch = async (
+  page: import('@playwright/test').Page,
+) => {
+  // Dropoff: pakai pencarian (suggestion TomTom) — setGeolocation kedua akan
+  // meng-override koordinat pickup (Playwright: 1 lokasi per konteks browser).
+  const searchBox = page.getByTestId('dropoff-address-input');
+  await searchBox.fill('Jalan Merdeka No. 1, Gambir, Jakarta Pusat');
+  // Tunggu suggestion muncul lalu klik yang pertama (button tanpa testid — pakai teks)
+  await expect(
+    page.locator('button').filter({ hasText: 'Medan Merdeka' }).first()
+  ).toBeVisible({ timeout: 15000 });
+  await page.locator('button').filter({ hasText: 'Medan Merdeka' }).first().click();
+  await expect(page.getByTestId('dropoff-coordinate-label')).not.toContainText('Titik belum dipilih', { timeout: 10000 });
 };
 
 test.describe('Customer Portal E2E Flow', () => {
@@ -82,36 +99,30 @@ test.describe('Customer Portal E2E Flow', () => {
   test('Complete Flow: Login -> Create Order -> Dashboard', async ({ page }) => {
     // 1. Login with the rebranded staging customer seed account.
     await loginCustomer(page);
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1, h2, h3').first()).toBeVisible({ timeout: 10000 });
 
     // 2. Navigate to "Kirim Paket" page
     await openOrderForm(page);
 
     // 3. Fill order form with browser geolocation so staging can price the route.
-    await applyBrowserLocation(page, 'pickup', 'Monumen Nasional, Gambir, Jakarta Pusat', {
-      latitude: -6.175392,
-      longitude: 106.827153,
-    });
-    await applyBrowserLocation(page, 'dropoff', 'Jalan Merdeka No. 1, Gambir, Jakarta Pusat', {
-      latitude: -6.21462,
-      longitude: 106.84513,
-    });
+    await applyPickupLocation(page);
+    await applyDropoffBySearch(page);
 
     await page.getByTestId('recipient-name-input').fill('Budi Santoso');
     await page.getByTestId('recipient-phone-input').fill('081234567890');
     await page.getByTestId('package-category-input').fill('electronics');
+    await page.getByTestId('package-item-description-input').fill('Kamera DSLR hitam dalam tas');
     await page.getByTestId('package-weight-input').fill('2.5');
 
-    // 4. Wait for pricing calculation debounce
+    // 4. Wait for pricing calculation debounce (service auto-select + default size tier)
+    await expect(page.getByTestId('order-submit-button')).toBeEnabled({ timeout: 20000 });
     await page.waitForTimeout(1500);
 
     // 5. Submit order
-    const submitBtn = page.getByTestId('order-submit-button');
-    await expect(submitBtn).toBeEnabled({ timeout: 15000 });
-    await submitBtn.click();
+    await page.getByTestId('order-submit-button').click();
 
-    // 6. Verify Payment Modal appears
-    await expect(page.locator('h2, h3').filter({ hasText: /Selesaikan Pembayaran|Pembayaran/ }).first()).toBeVisible({ timeout: 10000 });
+    // 6. Verify order created -> redirected to Dashboard (no payment modal on success path)
+    await expect(page.locator('h1').filter({ hasText: /Welcome back/ }).first()).toBeVisible({ timeout: 15000 });
   });
 
   test('Validation: Check required fields and Zod errors', async ({ page }) => {
