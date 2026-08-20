@@ -25,6 +25,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -5908,7 +5909,7 @@ private fun PayoutBalanceCard(
                     Text("Settlement pendapatan ke rekening terverifikasi", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh pencairan", tint = Primary)
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh pencairan", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -5935,7 +5936,7 @@ private fun PayoutBalanceCard(
             eligibility?.reasons?.takeIf { it.isNotEmpty() }?.let { reasons ->
                 Surface(modifier = Modifier.fillMaxWidth(), color = Warning.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Pencairan sedang ditinjau", fontWeight = FontWeight.Bold, color = DeepForest)
+                        Text("Pencairan sedang ditinjau", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         reasons.take(2).forEach { reason ->
                             Text(reason, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -5948,7 +5949,11 @@ private fun PayoutBalanceCard(
                 enabled = canRequest,
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Secondary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Secondary,
+                    disabledContainerColor = Secondary.copy(alpha = 0.32f),
+                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                )
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
@@ -6003,11 +6008,11 @@ private fun PayoutAccountStatusPanel(account: com.tembus.courier.data.model.Cour
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Surface(color = Color.White.copy(alpha = 0.72f), shape = RoundedCornerShape(8.dp)) {
-                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = if (isVerified) Primary else Warning, modifier = Modifier.padding(8.dp).size(18.dp))
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp)) {
+                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = if (isVerified) MaterialTheme.colorScheme.onSurface else Warning, modifier = Modifier.padding(10.dp).size(18.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Rekening pencairan", fontWeight = FontWeight.Bold, color = DeepForest)
+                Text("Rekening pencairan", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text(
                     if (account != null) {
                         "${account.bankCode ?: "-"} • ${maskAccountNumber(account.accountNumber.orEmpty())} • ${account.accountName ?: "-"}"
@@ -6055,7 +6060,7 @@ private fun PayoutRequestRow(request: CourierPayoutRequestItem, onClick: () -> U
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(request.netAmountIdr.toRupiahCompact(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = DeepForest)
+                Text(request.netAmountIdr.toRupiahCompact(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text(shortDateLabel(request.requestedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -6205,7 +6210,7 @@ private fun PayoutRequestDialog(
 private fun PayoutReviewRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = DeepForest, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -6269,7 +6274,16 @@ private fun CapabilityStatusPill(status: String) {
             normalized,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = color,
+            color = if (isSystemInDarkTheme()) {
+                // Di dark mode, warna status terlalu gelap bila dipakai langsung di atas surface gelap.
+                // Naikkan luminansi: warning/success pakai versi lebih terang.
+                when (status) {
+                    "disabled", "rejected", "suspended" -> MaterialTheme.colorScheme.error
+                    else -> Color.White.copy(alpha = 0.92f)
+                }
+            } else {
+                color
+            },
             fontWeight = FontWeight.Bold,
             maxLines = 1
         )
@@ -6294,18 +6308,18 @@ private fun PayoutAccountPanel(ledger: CourierEarningsLedger) {
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Surface(
-                color = if (isReady) Color.White.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.58f),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Icon(
                     Icons.Default.AccountBalance,
                     contentDescription = null,
-                    tint = if (isReady) Primary else Warning,
-                    modifier = Modifier.padding(8.dp).size(18.dp)
+                    tint = if (isReady) MaterialTheme.colorScheme.onSurface else Warning,
+                    modifier = Modifier.padding(10.dp).size(18.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Rekening pencairan", fontWeight = FontWeight.Bold, color = DeepForest)
+                Text("Rekening pencairan", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text(
                     if (isReady) {
                         "$bankCode • ${maskAccountNumber(accountNumber.orEmpty())} • $accountName"
@@ -6437,10 +6451,10 @@ private fun MiniProfileStat(label: String, value: String, modifier: Modifier = M
         shape = RoundedCornerShape(8.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Primary, maxLines = 1)
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
