@@ -559,11 +559,14 @@ jobs:
     name: Android Regression (${{ matrix.app_name }})
     needs: build-android
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/staging'
-    # macOS runner: hardware acceleration (Hypervisor.framework) selalu tersedia.
-    # ubuntu-latest tidak bisa diandalkan — KVM group runner kosong di sebagian fleet
-    # → emulator jatuh ke -accel off → API 34 tak pernah boot dalam 600s (adb error).
+    # Emulator CI di-runner GitHub TIDAK bisa boot: ubuntu → KVM group kosong
+    # (-accel off → API 34 tak boot, "Unable to connect to adb daemon 5037"),
+    # macos-14 → "HVF error: HV_UNSUPPORTED" (nested virtualization tidak tersedia).
+    # UAT emulator = lokal/user (skill lancar-*): smoke androidTest + lint + unit
+    # test sudah di-cover job build-android. Job ini di-disable permanen.
     runs-on: macos-14
     timeout-minutes: 45
+    if: false
     strategy:
       fail-fast: false
       matrix:
