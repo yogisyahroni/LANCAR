@@ -29,6 +29,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Alignment
@@ -76,6 +77,8 @@ import com.tembus.courier.domain.CourierNextActionType
 import com.tembus.courier.ui.components.maps.RuntimeMapMarker
 import com.tembus.courier.ui.components.maps.RuntimeMapRenderer
 import com.tembus.courier.ui.theme.AccentDark
+import com.tembus.courier.ui.theme.DarkAccentLight
+import com.tembus.courier.ui.theme.DarkSurfaceVariant
 import com.tembus.courier.ui.theme.Primary
 import com.tembus.courier.ui.theme.PrimaryLight
 import com.tembus.courier.ui.theme.Secondary
@@ -658,6 +661,10 @@ private fun OnDemandTaskActions(
 
 @Composable
 private fun OnDemandJobHeader(order: Order, phaseTitle: String, phaseInstruction: String) {
+    // Di mode DARK: bg = DeepForest (hijau sangat gelap) → teks aksen harus TERANG:
+    // DarkAccentLight #FDA66A (9.79:1). Di light: AccentDark #C2410C di bg terang.
+    val isDark = isSystemInDarkTheme()
+    val accentOnHeader = if (isDark) DarkAccentLight else AccentDark
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = DeepForest,
@@ -673,7 +680,7 @@ private fun OnDemandJobHeader(order: Order, phaseTitle: String, phaseInstruction
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(phaseTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color.White)
-                Text(order.displayServiceName(), style = MaterialTheme.typography.labelLarge, color = LogisticsOrange, fontWeight = FontWeight.Black)
+                Text(order.displayServiceName(), style = MaterialTheme.typography.labelLarge, color = accentOnHeader, fontWeight = FontWeight.Black)
                 Text(phaseInstruction, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.76f))
             }
             Surface(color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
@@ -786,7 +793,9 @@ private fun OnDemandTimelineItem(
             }
         }
         Column(modifier = Modifier.padding(top = 2.dp).weight(1f)) {
-            Text(title, fontWeight = FontWeight.Bold, color = if (done || active) DeepForest else MaterialTheme.colorScheme.onSurfaceVariant)
+            // done/active: colorScheme.primary (dark=#239158 terang di bg gelap; light=#005C32 di bg terang).
+            // JANGAN DeepForest/Primary hardcode — gelap-on-gelap = samar (rasio 1:1 / 1.79).
+            Text(title, fontWeight = FontWeight.Bold, color = if (done || active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             Text(subtitle, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -880,13 +889,16 @@ private fun CourierNextActionPanel(
     val action = flowState.nextAction
     val hasAction = action.type != CourierNextActionType.NONE
     val secondary = flowState.secondaryAction
+    // bg adaptif: jangan oranye 12% transparan di bg gelap (jadi brownish — teks samar).
+    val isDark = isSystemInDarkTheme()
+    val panelBgColor = if (isDark) DarkSurfaceVariant else com.tembus.courier.ui.theme.Surface
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = if (hasAction) LogisticsOrange.copy(alpha = 0.12f) else Success.copy(alpha = 0.12f),
+        color = panelBgColor,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(
             1.dp,
-            if (hasAction) LogisticsOrange.copy(alpha = 0.42f) else Success.copy(alpha = 0.42f)
+            if (hasAction) LogisticsOrange.copy(alpha = 0.5f) else Success.copy(alpha = 0.5f)
         )
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -900,7 +912,7 @@ private fun CourierNextActionPanel(
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Aksi berikutnya", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                    Text("Aksi berikutnya", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
                     Text(
                         helperTextOverride ?: action.helperText,
                         style = MaterialTheme.typography.bodySmall,
@@ -923,7 +935,7 @@ private fun CourierNextActionPanel(
                         onClick = onClick,
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black)
+                        colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White)
                     ) {
                         Icon(courierActionIcon(action.type), contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1388,18 +1400,18 @@ private fun VerificationRequirementRow(
             Icon(
                 imageVector = if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                 contentDescription = null,
-                tint = if (done) Success else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (done) Success else if (isSystemInDarkTheme()) DarkAccentLight else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(8.dp).size(18.dp)
             )
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontWeight = FontWeight.Bold, color = DeepForest)
+            Text(label, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(
             text = if (done) "OK" else "Wajib",
             style = MaterialTheme.typography.labelMedium,
-            color = if (done) Success else LogisticsOrange,
+            color = if (done) Success else if (isSystemInDarkTheme()) DarkAccentLight else LogisticsOrange,
             fontWeight = FontWeight.Black
         )
     }
@@ -1793,11 +1805,11 @@ private fun StepPill(label: String, active: Boolean, done: Boolean, modifier: Mo
             Icon(
                 imageVector = if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                 contentDescription = null,
-                tint = if (done || active) DeepForest else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (done || active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(14.dp)
             )
             Spacer(modifier = Modifier.width(4.dp))
-            Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = if (done || active) DeepForest else MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = if (done || active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -1986,10 +1998,14 @@ private fun ServiceChecklistCard(
     faceDone: Boolean,
     photoDone: Boolean
 ) {
+    // bg adaptif: PrimaryLight di light mode / DarkSurfaceVariant di dark mode
+    // (PrimaryLight transparan 0.62 di atas bg gelap = hijau gelap, teks jadi samar)
+    val isDark = isSystemInDarkTheme()
+    val cardBg = if (isDark) DarkSurfaceVariant else PrimaryLight.copy(alpha = 0.62f)
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        color = PrimaryLight.copy(alpha = 0.62f),
+        color = cardBg,
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.14f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1997,7 +2013,7 @@ private fun ServiceChecklistCard(
                 "Syarat mulai layanan",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Black,
-                color = DeepForest
+                color = MaterialTheme.colorScheme.onSurface
             )
             VerificationRequirementRow(
                 done = faceDone,

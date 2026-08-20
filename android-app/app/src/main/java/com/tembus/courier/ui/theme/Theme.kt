@@ -35,7 +35,7 @@ private val DarkColorScheme = darkColorScheme(
     onTertiary = DarkAccentLight,
     onBackground = DarkOnBackground,
     onSurface = DarkOnSurface,
-    onSurfaceVariant = DarkOnSurface,
+    onSurfaceVariant = DarkOnSurfaceVariant,
     error = Error,
     errorContainer = Error.copy(alpha = 0.18f),
     onError = OnPrimary,
