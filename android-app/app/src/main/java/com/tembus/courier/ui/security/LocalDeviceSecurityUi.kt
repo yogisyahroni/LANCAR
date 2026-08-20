@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,37 +64,41 @@ fun LocalSecuritySettingsPanel(
     var showPinSetup by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFF)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+    val isDark = isSystemInDarkTheme()
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isDark) MaterialTheme.colorScheme.surface else Color(0xFFF8FAFF)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = if (isDark) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)) else null
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Surface(shape = RoundedCornerShape(14.dp), color = SecureBlue.copy(alpha = 0.12f)) {
-                    Icon(
-                        imageVector = Icons.Default.Security,
-                        contentDescription = null,
-                        tint = SecureBlue,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Proteksi perangkat", fontWeight = FontWeight.Bold)
-                    Text(
-                        "PIN dan biometrik diproses lokal di HP ini.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF5D6B82)
-                    )
-                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(shape = RoundedCornerShape(14.dp), color = if (isDark) SecureBlue.copy(alpha = 0.16f) else SecureBlue.copy(alpha = 0.12f)) {
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = null,
+                            tint = if (isDark) Color(0xFF93B4FF) else SecureBlue,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Proteksi perangkat", fontWeight = FontWeight.Bold, color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF1A2233))
+                        Text(
+                            "PIN dan biometrik diproses lokal di HP ini.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF5D6B82)
+                        )
+                    }
                 Switch(
                     checked = settings.enabled,
                     onCheckedChange = { enabled ->
@@ -109,20 +114,20 @@ fun LocalSecuritySettingsPanel(
                 )
             }
 
-            HorizontalDivider(color = Color(0xFFE1E7F0))
+            HorizontalDivider(color = if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f) else Color(0xFFE1E7F0))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = SecureGreen)
+                Icon(Icons.Default.Lock, contentDescription = null, tint = if (isDark) Color(0xFF7DD99B) else SecureGreen)
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(if (settings.pinConfigured) "PIN 6 digit sudah aktif" else "PIN 6 digit belum dibuat")
+                    Text(if (settings.pinConfigured) "PIN 6 digit sudah aktif" else "PIN 6 digit belum dibuat", color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF1A2233))
                     Text(
                         "Dipakai sebagai fallback saat biometrik tidak tersedia.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF5D6B82)
+                        color = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF5D6B82)
                     )
                 }
                 OutlinedButton(onClick = { showPinSetup = true }) {
@@ -135,13 +140,13 @@ fun LocalSecuritySettingsPanel(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = SecureBlue)
+                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = if (isDark) Color(0xFF93B4FF) else SecureBlue)
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(if (settings.biometricSupported) "Biometrik perangkat" else "Biometrik perangkat tidak aktif")
+                    Text(if (settings.biometricSupported) "Biometrik perangkat" else "Biometrik perangkat tidak aktif", color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF1A2233))
                     Text(
                         if (settings.biometricSupported) "Sidik jari atau Face Unlock sesuai dukungan perangkat." else "Tambahkan biometric di pengaturan HP untuk mengaktifkan.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF5D6B82)
+                        color = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF5D6B82)
                     )
                 }
                 Switch(

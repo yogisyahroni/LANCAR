@@ -26,6 +26,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -5388,64 +5389,86 @@ private fun ProfileContent(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Primary)
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
-            Row(
-                modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(Color(0xFF06231A), Color(0xFF0E5C33), Color(0xFF16A34A)),
+                            start = Offset.Zero,
+                            end = Offset.Infinite
+                        )
+                    )
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(20.dp))
             ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.White.copy(alpha = 0.18f)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(140.dp)
+                        .clip(RoundedCornerShape(70.dp))
+                        .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.10f), Color.Transparent)))
+                )
+                Row(
+                    modifier = Modifier.padding(18.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (!courierProfile?.profilePhotoUrl.isNullOrBlank() && authToken != null) {
-                        AsyncImage(
-                            model = coil.request.ImageRequest.Builder(LocalContext.current)
-                                .data("${com.tembus.courier.BuildConfig.BASE_URL.dropLastWhile { it == '/' }}${courierProfile?.profilePhotoUrl}")
-                                .addHeader("Authorization", "Bearer $authToken")
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Foto Profil",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.size(52.dp).clip(RoundedCornerShape(8.dp))
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.padding(12.dp).size(28.dp)
-                        )
-                    }
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(courierName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(courierRoleLabel(courierRole), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.78f))
-                }
-                Surface(
-                    color = Color.White.copy(alpha = 0.14f),
-                    shape = RoundedCornerShape(8.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.34f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color.White.copy(alpha = 0.16f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
                     ) {
-                        Icon(
-                            Icons.Default.VerifiedUser,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            "Aktif",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
+                        if (!courierProfile?.profilePhotoUrl.isNullOrBlank() && authToken != null) {
+                            AsyncImage(
+                                model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                    .data("${com.tembus.courier.BuildConfig.BASE_URL.dropLastWhile { it == '/' }}${courierProfile?.profilePhotoUrl}")
+                                    .addHeader("Authorization", "Bearer $authToken")
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Foto Profil",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.padding(12.dp).size(28.dp)
+                            )
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(courierName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color.White)
+                        Text(courierRoleLabel(courierRole), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+                    }
+                    Surface(
+                        color = Color.White.copy(alpha = 0.14f),
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.34f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.VerifiedUser,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                "Aktif",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -5907,7 +5930,7 @@ private fun PayoutBalanceCard(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Pencairan saldo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Settlement pendapatan ke rekening terverifikasi", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Settlement pendapatan ke rekening terverifikasi", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f))
                 }
                 IconButton(onClick = onRefresh) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh pencairan", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -5934,20 +5957,21 @@ private fun PayoutBalanceCard(
                     .clip(RoundedCornerShape(20.dp))
                     .background(
                         Brush.linearGradient(
-                            colors = listOf(Color(0xFF041F12), Color(0xFF0A4A28), Color(0xFF127A42)),
+                            colors = listOf(Color(0xFF06231A), Color(0xFF0E5C33), Color(0xFF16A34A)),
                             start = Offset.Zero,
                             end = Offset.Infinite
                         )
                     )
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(20.dp))
                     .padding(20.dp)
             ) {
                 // Subtle accent glow di pojok kanan-atas — kesan premium
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .size(120.dp)
-                        .clip(RoundedCornerShape(60.dp))
-                        .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.09f), Color.Transparent)))
+                        .size(140.dp)
+                        .clip(RoundedCornerShape(70.dp))
+                        .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.10f), Color.Transparent)))
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     // Label saldo utama + aksi cepat pencairan
@@ -6058,7 +6082,7 @@ private fun PayoutAccountStatusPanel(account: com.tembus.courier.data.model.Cour
     val isVerified = status == "verified"
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = if (isVerified) PrimaryLight.copy(alpha = 0.45f) else Warning.copy(alpha = 0.1f),
+        color = if (isVerified) PrimaryLight.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
@@ -6327,17 +6351,22 @@ private fun CapabilityStatusPill(status: String) {
         "disabled", "rejected", "suspended" -> MaterialTheme.colorScheme.error
         else -> Warning
     }
-    Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+    val isDark = isSystemInDarkTheme()
+    Surface(
+        color = if (isDark && color != MaterialTheme.colorScheme.error) Warning.copy(alpha = 0.14f) else color.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, if (isDark && color != MaterialTheme.colorScheme.error) Color(0xFFFBBF24).copy(alpha = 0.35f) else Color.Transparent)
+    ) {
         Text(
             normalized,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = if (isSystemInDarkTheme()) {
+            color = if (isDark) {
                 // Di dark mode, warna status terlalu gelap bila dipakai langsung di atas surface gelap.
                 // Naikkan luminansi: warning/success pakai versi lebih terang.
                 when (status) {
                     "disabled", "rejected", "suspended" -> MaterialTheme.colorScheme.error
-                    else -> Color.White.copy(alpha = 0.92f)
+                    else -> Color(0xFFFBBF24)
                 }
             } else {
                 color
@@ -6505,15 +6534,16 @@ private fun quickPayoutAmounts(summary: CourierPayoutSummaryData): List<Int> {
 private fun HeroBalanceChip(label: String, value: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        color = Color.White.copy(alpha = 0.14f),
-        shape = RoundedCornerShape(12.dp)
+        color = Color.White.copy(alpha = 0.18f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f), maxLines = 1)
+            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.9f), maxLines = 1)
         }
     }
 }
