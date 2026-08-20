@@ -49,6 +49,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -5890,7 +5891,7 @@ private fun PayoutBalanceCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -5901,7 +5902,7 @@ private fun PayoutBalanceCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Surface(color = Success.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                Surface(color = Success.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp)) {
                     Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
@@ -5914,7 +5915,7 @@ private fun PayoutBalanceCard(
             }
 
             if (payoutSummary == null) {
-                Surface(modifier = Modifier.fillMaxWidth(), color = PrimaryLight.copy(alpha = 0.55f), shape = RoundedCornerShape(8.dp)) {
+                Surface(modifier = Modifier.fillMaxWidth(), color = PrimaryLight.copy(alpha = 0.55f), shape = RoundedCornerShape(12.dp)) {
                     Text(
                         "Memuat saldo pencairan dari sistem...",
                         modifier = Modifier.padding(12.dp),
@@ -5925,20 +5926,77 @@ private fun PayoutBalanceCard(
                 return@Column
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                MiniProfileStat("Tersedia", summary?.availableBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
-                MiniProfileStat("Pending", summary?.pendingBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
-                MiniProfileStat("Total", summary?.totalBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
+            // 🎨 HERO CARD — saldo utama dalam satu modul gradasi (standar driver-wallet 2025/26:
+            // Uber/Gojek menampilkan saldo sebagai fokus utama dengan hierarchy tegas)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(Color(0xFF041F12), Color(0xFF0A4A28), Color(0xFF127A42)),
+                            start = Offset.Zero,
+                            end = Offset.Infinite
+                        )
+                    )
+                    .padding(20.dp)
+            ) {
+                // Subtle accent glow di pojok kanan-atas — kesan premium
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(120.dp)
+                        .clip(RoundedCornerShape(60.dp))
+                        .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.09f), Color.Transparent)))
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    // Label saldo utama + aksi cepat pencairan
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "SALDO TERSEDIA",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.2.sp,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            "IDR",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+                    Text(
+                        summary?.availableBalanceIdr?.toRupiahCompact() ?: "Rp0",
+                        style = MaterialTheme.typography.displayLarge,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+
+                    // Sub-stats dalam satu baris chip glassmorphism
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        HeroBalanceChip("Pending", summary?.pendingBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
+                        HeroBalanceChip("Total", summary?.totalBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
+                    }
+                }
             }
 
             PayoutAccountStatusPanel(account)
 
             eligibility?.reasons?.takeIf { it.isNotEmpty() }?.let { reasons ->
-                Surface(modifier = Modifier.fillMaxWidth(), color = Warning.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Pencairan sedang ditinjau", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        reasons.take(2).forEach { reason ->
-                            Text(reason, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Surface(modifier = Modifier.fillMaxWidth(), color = Warning.copy(alpha = 0.1f), shape = RoundedCornerShape(12.dp)) {
+                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = Warning, modifier = Modifier.size(18.dp))
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Pencairan sedang ditinjau", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+                            reasons.take(1).forEach { reason ->
+                                Text(reason, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
@@ -6000,16 +6058,16 @@ private fun PayoutAccountStatusPanel(account: com.tembus.courier.data.model.Cour
     val isVerified = status == "verified"
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = if (isVerified) PrimaryLight.copy(alpha = 0.58f) else Warning.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(8.dp)
+        color = if (isVerified) PrimaryLight.copy(alpha = 0.45f) else Warning.copy(alpha = 0.1f),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp)) {
-                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = if (isVerified) MaterialTheme.colorScheme.onSurface else Warning, modifier = Modifier.padding(10.dp).size(18.dp))
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), shape = RoundedCornerShape(10.dp)) {
+                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = if (isVerified) MaterialTheme.colorScheme.onSurface else Warning, modifier = Modifier.padding(8.dp).size(18.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text("Rekening pencairan", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
@@ -6025,7 +6083,7 @@ private fun PayoutAccountStatusPanel(account: com.tembus.courier.data.model.Cour
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            CapabilityStatusPill(status)
+            CapabilityStatusPill(if (isVerified) "verified" else "incomplete")
         }
     }
 }
@@ -6441,6 +6499,23 @@ private fun quickPayoutAmounts(summary: CourierPayoutSummaryData): List<Int> {
         .distinct()
         .filter { it <= maxAmount }
         .take(4)
+}
+
+@Composable
+private fun HeroBalanceChip(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.14f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f), maxLines = 1)
+        }
+    }
 }
 
 @Composable
