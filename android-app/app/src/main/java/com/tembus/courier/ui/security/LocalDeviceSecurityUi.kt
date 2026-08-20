@@ -71,8 +71,8 @@ fun LocalSecuritySettingsPanel(
             colors = CardDefaults.cardColors(
                 containerColor = if (isDark) MaterialTheme.colorScheme.surface else Color(0xFFF8FAFF)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            border = if (isDark) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)) else null
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f) else Color(0xFFE1E7F0))
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),

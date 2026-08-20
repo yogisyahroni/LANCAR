@@ -1462,9 +1462,9 @@ private fun OnDemandBottomNavigation(
 @Composable
 private fun onDemandNavigationItemColors(): NavigationBarItemColors =
     NavigationBarItemDefaults.colors(
-        selectedIconColor = Color.White,
+        selectedIconColor = LogisticsOrange,
         selectedTextColor = Color.White,
-        indicatorColor = LogisticsOrange.copy(alpha = 0.9f),
+        indicatorColor = LogisticsOrange.copy(alpha = 0.22f),
         unselectedIconColor = Color.White.copy(alpha = 0.66f),
         unselectedTextColor = Color.White.copy(alpha = 0.66f)
     )
@@ -5482,11 +5482,13 @@ private fun ProfileContent(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("Kesiapan Operasional", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 ProfileMetricRow(
@@ -5529,7 +5531,9 @@ private fun ProfileContent(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -5573,14 +5577,14 @@ private fun ProfileContent(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Surface(
-                                color = if (item.status == "enabled") Success.copy(alpha = 0.12f) else Warning.copy(alpha = 0.12f),
+                                color = Color.Transparent,
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Icon(
                                     if (item.status == "enabled") Icons.Default.CheckCircle else Icons.Default.PendingActions,
                                     contentDescription = null,
                                     tint = if (item.status == "enabled") Success else Warning,
-                                    modifier = Modifier.padding(8.dp).size(18.dp)
+                                    modifier = Modifier.padding(2.dp).size(20.dp)
                                 )
                             }
                             Column(modifier = Modifier.weight(1f)) {
