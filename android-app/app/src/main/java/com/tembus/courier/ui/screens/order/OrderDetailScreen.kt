@@ -62,6 +62,7 @@ import com.tembus.courier.data.model.CourierRoutePreview
 import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.CancelPickupReason
 import com.tembus.courier.data.model.OrderStatusTransition
+import com.tembus.courier.data.model.isMaintenanceService
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.data.model.displayServiceName
@@ -259,7 +260,7 @@ fun OrderDetailScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Pengantaran", fontWeight = FontWeight.Bold)
+                        Text(if (order.isMaintenanceService()) serviceTitle(order) else "Pengantaran", fontWeight = FontWeight.Bold)
                         Text(
                             order.orderId.ifBlank { "Order aktif" },
                             style = MaterialTheme.typography.labelMedium,
@@ -351,6 +352,7 @@ fun OrderDetailScreen(
                 OrderActions(
                     order = order,
                     flowState = courierFlow,
+                    isServiceOrder = isServiceOrder,
                     onStatusClick = { showStatusDialog = true },
                     onUpdateStatus = onUpdateStatus,
                     onStartDelivery = { targetStatus ->
@@ -576,7 +578,7 @@ private fun OnDemandTaskActions(
             }
 
             SyncStateNotice(order = order)
-            OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone)
+            OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone, isServiceOrder = false)
 
             if (!flowState.pickupDone) {
                 // FB-105: order food tampilkan isi pesanan (snapshot
@@ -671,30 +673,57 @@ private fun OnDemandJobHeader(order: Order, phaseTitle: String, phaseInstruction
 }
 
 @Composable
-private fun OnDemandProgressTimeline(pickupDone: Boolean, deliveryDone: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        OnDemandTimelineItem(
-            icon = Icons.Default.Storefront,
-            title = "Jemput barang",
-            subtitle = "Scan kode paket dan foto barang di titik pickup",
-            done = pickupDone,
-            active = !pickupDone
-        )
-        OnDemandTimelineItem(
-            icon = Icons.Default.Navigation,
-            title = "Perjalanan ke penerima",
-            subtitle = "Navigasi aktif setelah pickup tervalidasi",
-            done = deliveryDone,
-            active = pickupDone && !deliveryDone
-        )
-        OnDemandTimelineItem(
-            icon = Icons.Default.CameraAlt,
-            title = "Bukti Terima",
-            subtitle = "Foto bukti terima di titik penerima",
-            done = deliveryDone,
-            active = false,
-            showConnector = false
-        )
+private fun OnDemandProgressTimeline(pickupDone: Boolean, deliveryDone: Boolean, isServiceOrder: Boolean = false) {
+    if (isServiceOrder) {
+        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            OnDemandTimelineItem(
+                icon = Icons.Default.Build,
+                title = "Tiba di lokasi",
+                subtitle = "Verifikasi identitas di titik layanan",
+                done = pickupDone,
+                active = !pickupDone
+            )
+            OnDemandTimelineItem(
+                icon = Icons.Default.Settings,
+                title = "Proses perbaikan",
+                subtitle = "Kerjakan layanan sesuai pesanan customer",
+                done = deliveryDone,
+                active = pickupDone && !deliveryDone
+            )
+            OnDemandTimelineItem(
+                icon = Icons.Default.CameraAlt,
+                title = "Selesai & Dokumentasi",
+                subtitle = "Foto hasil pekerjaan sebagai bukti",
+                done = deliveryDone,
+                active = false,
+                showConnector = false
+            )
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            OnDemandTimelineItem(
+                icon = Icons.Default.Storefront,
+                title = "Jemput barang",
+                subtitle = "Scan kode paket dan foto barang di titik pickup",
+                done = pickupDone,
+                active = !pickupDone
+            )
+            OnDemandTimelineItem(
+                icon = Icons.Default.Navigation,
+                title = "Perjalanan ke penerima",
+                subtitle = "Navigasi aktif setelah pickup tervalidasi",
+                done = deliveryDone,
+                active = pickupDone && !deliveryDone
+            )
+            OnDemandTimelineItem(
+                icon = Icons.Default.CameraAlt,
+                title = "Bukti Terima",
+                subtitle = "Foto bukti terima di titik penerima",
+                done = deliveryDone,
+                active = false,
+                showConnector = false
+            )
+        }
     }
 }
 
@@ -828,7 +857,8 @@ private fun OnDemandProofPanel(
 private fun CourierNextActionPanel(
     flowState: CourierFlowState,
     onClick: () -> Unit,
-    onSecondaryClick: (() -> Unit)? = null
+    onSecondaryClick: (() -> Unit)? = null,
+    helperTextOverride: String? = null
 ) {
     val action = flowState.nextAction
     val hasAction = action.type != CourierNextActionType.NONE
@@ -854,7 +884,11 @@ private fun CourierNextActionPanel(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Aksi berikutnya", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = DeepForest)
-                    Text(action.helperText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        helperTextOverride ?: action.helperText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             if (hasAction) {
@@ -1816,7 +1850,7 @@ private fun OrderInfoCard(order: Order) {
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = "Detail Paket",
+                text = if (order.isMaintenanceService()) "Detail Layanan" else "Detail Paket",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -1837,34 +1871,49 @@ private fun OrderInfoCard(order: Order) {
 
             InfoRow(label = "Order ID", value = order.orderId)
             InfoRow(label = "Pelanggan", value = order.customerName)
-            InfoRow(label = "Pickup", value = order.pickupAddress)
-            InfoRow(label = "Tujuan", value = order.dropAddress)
-            InfoRow(label = "Waktu Pickup", value = order.pickupTime)
-            InfoRow(label = "Jarak", value = order.distance)
 
-            // FB-115: breakdown pendapatan — ongkir dasar + tip + total.
-            val basePayout = order.estimatedNetEarningsIdr()
-            val tipAmount = order.tipAmountIdr
-            InfoRow(label = "Ongkir Dasar", value = "Rp${formatRp(basePayout.toLong())}")
-            if (tipAmount > 0) {
+            if (order.isMaintenanceService()) {
+                // Service (tambal ban / towing): satu titik lokasi layanan + rincian biaya jasa.
+                val pb = order.pricingBreakdown
+                InfoRow(label = "Lokasi Layanan", value = order.pickupAddress.ifBlank { order.dropAddress })
+                InfoRow(label = "Waktu Pemesanan", value = order.pickupTime)
+                InfoRow(label = "Biaya Jasa", value = "Rp${formatRp(pb?.serviceFeeIdr?.toLong() ?: 0L)}")
+                InfoRow(label = "Biaya Perjalanan", value = "Rp${formatRp(pb?.travelFeeIdr?.toLong() ?: 0L)}")
                 InfoRow(
-                    label = "Tip Customer",
-                    value = "Rp${formatRp(tipAmount)}",
+                    label = "Total Pendapatan",
+                    value = "Rp${formatRp(((pb?.serviceFeeIdr ?: 0) + (pb?.travelFeeIdr ?: 0)).toLong())}",
                     valueColor = Color(0xFF7BC043)
                 )
-            }
-            InfoRow(
-                label = "Total Pendapatan",
-                value = "Rp${formatRp((basePayout + tipAmount).toLong())}",
-                valueColor = Color(0xFF7BC043)
-            )
-            
-            if (order.length != null || order.width != null || order.height != null) {
-                val dims = "${order.length ?: 0} x ${order.width ?: 0} x ${order.height ?: 0} cm"
-                InfoRow(label = "Dimensi", value = dims)
-            }
-            if (order.weight != null) {
-                InfoRow(label = "Berat", value = "${order.weight} kg")
+            } else {
+                InfoRow(label = "Pickup", value = order.pickupAddress)
+                InfoRow(label = "Tujuan", value = order.dropAddress)
+                InfoRow(label = "Waktu Pickup", value = order.pickupTime)
+                InfoRow(label = "Jarak", value = order.distance)
+
+                // FB-115: breakdown pendapatan — ongkir dasar + tip + total.
+                val basePayout = order.estimatedNetEarningsIdr()
+                val tipAmount = order.tipAmountIdr
+                InfoRow(label = "Ongkir Dasar", value = "Rp${formatRp(basePayout.toLong())}")
+                if (tipAmount > 0) {
+                    InfoRow(
+                        label = "Tip Customer",
+                        value = "Rp${formatRp(tipAmount)}",
+                        valueColor = Color(0xFF7BC043)
+                    )
+                }
+                InfoRow(
+                    label = "Total Pendapatan",
+                    value = "Rp${formatRp((basePayout + tipAmount).toLong())}",
+                    valueColor = Color(0xFF7BC043)
+                )
+                
+                if (order.length != null || order.width != null || order.height != null) {
+                    val dims = "${order.length ?: 0} x ${order.width ?: 0} x ${order.height ?: 0} cm"
+                    InfoRow(label = "Dimensi", value = dims)
+                }
+                if (order.weight != null) {
+                    InfoRow(label = "Berat", value = "${order.weight} kg")
+                }
             }
 
             InfoRow(label = "Status", value = order.status.replace("_", " ").uppercase())
@@ -1896,9 +1945,77 @@ private fun formatRp(value: Long): String {
 }
 
 @Composable
+private fun ServiceChecklistCard(
+    faceDone: Boolean,
+    photoDone: Boolean
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = PrimaryLight.copy(alpha = 0.62f),
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.14f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "Syarat mulai layanan",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Black,
+                color = DeepForest
+            )
+            VerificationRequirementRow(
+                done = faceDone,
+                label = "Verifikasi Wajah",
+                description = "Membuktikan identitas teknisi di lokasi, mencegah penyalahgunaan akun."
+            )
+            VerificationRequirementRow(
+                done = photoDone,
+                label = "Foto Kondisi Kendaraan",
+                description = "Dokumentasi kondisi ban/velg sebelum dikerjakan sebagai bukti."
+            )
+        }
+    }
+}
+
+private fun serviceTitle(order: Order): String {
+    val sc = order.serviceCode.orEmpty().lowercase()
+    return when {
+        sc.startsWith("towing") -> "Layanan Towing"
+        sc.startsWith("tambal_ban") -> "Layanan Tambal Ban"
+        else -> "Layanan"
+    }
+}
+
+private fun serviceNextActionHelper(order: Order): String {
+    val sc = order.serviceCode.orEmpty().lowercase()
+    return if (sc.startsWith("towing"))
+        "Scan wajah untuk membuktikan identitas teknisi di lokasi kendaraan customer."
+    else
+        "Scan wajah untuk membuktikan identitas teknisi di lokasi layanan."
+}
+
+private fun servicePhaseTitle(order: Order): String {
+    val sc = order.serviceCode.orEmpty().lowercase()
+    return when {
+        sc.startsWith("towing") -> "Proses Towing"
+        sc.startsWith("tambal_ban") -> "Proses Tambal Ban"
+        else -> "Proses Layanan"
+    }
+}
+
+private fun servicePhaseInstruction(order: Order): String {
+    val sc = order.serviceCode.orEmpty().lowercase()
+    return when {
+        sc.startsWith("towing") -> "Menuju lokasi kendaraan customer untuk layanan towing."
+        sc.startsWith("tambal_ban") -> "Menuju lokasi kendaraan customer untuk perbaikan ban."
+        else -> "Menuju lokasi layanan."
+    }
+}
+
+@Composable
 private fun OrderActions(
     order: Order,
     flowState: CourierFlowState,
+    isServiceOrder: Boolean = false,
     onStatusClick: () -> Unit,
     onUpdateStatus: (String) -> Unit,
     onStartDelivery: (String) -> Unit,
@@ -1919,19 +2036,20 @@ private fun OrderActions(
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             OnDemandJobHeader(
                 order = order,
-                phaseTitle = flowState.title,
-                phaseInstruction = flowState.instruction
+                phaseTitle = if (isServiceOrder) servicePhaseTitle(order) else flowState.title,
+                phaseInstruction = if (isServiceOrder) servicePhaseInstruction(order) else flowState.instruction
             )
 
             OnDemandCurrentStopCard(
-                title = flowState.activeAddressLabel,
-                address = flowState.activeAddress,
-                icon = if (flowState.targetIsPickup) Icons.Default.Storefront else Icons.Default.LocationOn,
-                gateLabel = if (flowState.targetIsPickup) "Validasi di titik pickup" else "Validasi di titik penerima"
+                title = if (isServiceOrder) "Lokasi Layanan" else flowState.activeAddressLabel,
+                address = if (isServiceOrder) order.pickupAddress.ifBlank { "Alamat lokasi sedang disinkronkan" } else flowState.activeAddress,
+                icon = if (isServiceOrder) Icons.Default.Build else if (flowState.targetIsPickup) Icons.Default.Storefront else Icons.Default.LocationOn,
+                gateLabel = if (isServiceOrder) "Validasi di titik lokasi" else if (flowState.targetIsPickup) "Validasi di titik pickup" else "Validasi di titik penerima"
             )
 
             CourierNextActionPanel(
                 flowState = flowState,
+                helperTextOverride = if (isServiceOrder) serviceNextActionHelper(order) else null,
                 onClick = {
                     runCourierNextAction(
                         context = context,
@@ -1952,16 +2070,23 @@ private fun OrderActions(
             if (!flowState.deliveryDone) {
                 ActionButton(
                     icon = Icons.Default.Navigation,
-                    label = if (flowState.targetIsPickup) "Navigasi ke pickup" else "Navigasi ke penerima",
+                    label = if (isServiceOrder) "Navigasi ke lokasi layanan" else if (flowState.targetIsPickup) "Navigasi ke pickup" else "Navigasi ke penerima",
                     prominent = false,
                     onClick = { openNavigation(context, flowState.activeAddress) }
                 )
             }
 
             SyncStateNotice(order = order)
-            OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone)
+            OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone, isServiceOrder = isServiceOrder)
 
-            if (!flowState.pickupDone) {
+            if (isServiceOrder) {
+                // Service order (tambal ban / towing): syarat = identitas + dokumentasi kendaraan,
+                // BUKAN scan paket / foto barang pickup (itu template pengiriman paket).
+                ServiceChecklistCard(
+                    faceDone = flowState.pickupScanDone,
+                    photoDone = flowState.pickupPhotoDone
+                )
+            } else if (!flowState.pickupDone) {
                 PackageChecklistCard(order = order, deliveryDone = flowState.deliveryDone)
                 MandatoryPickupChecklist(
                     faceDone = false,
