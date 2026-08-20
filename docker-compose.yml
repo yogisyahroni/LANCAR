@@ -639,7 +639,7 @@ services:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
     ports:
-      - "${LANDING_PORT:-3003}:3000"
+      - "${LANDING_PORT:-3085}:3000"
     networks:
       - tembus-net
 
@@ -657,7 +657,7 @@ services:
     container_name: tembus-merchant-web
     restart: unless-stopped
     ports:
-      - "${MERCHANT_WEB_PORT:-3004}:80"
+      - "${MERCHANT_WEB_PORT:-3086}:80"
     networks:
       - tembus-net
 
@@ -687,7 +687,7 @@ services:
       NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: ${NEXT_PUBLIC_MIDTRANS_CLIENT_KEY:-}
       NEXT_PUBLIC_MIDTRANS_SNAP_URL: ${NEXT_PUBLIC_MIDTRANS_SNAP_URL:-https://app.sandbox.midtrans.com/snap/snap.js}
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT:-3083}:3000"
     networks:
       - tembus-net
 
@@ -714,7 +714,7 @@ services:
       VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:8080}
       VITE_ALLOW_LOCALHOST_FALLBACK: "true"
     ports:
-      - "${ADMIN_DASHBOARD_PORT:-3002}:3001"
+      - "${ADMIN_DASHBOARD_PORT:-3084}:3001"
     networks:
       - tembus-net
 
