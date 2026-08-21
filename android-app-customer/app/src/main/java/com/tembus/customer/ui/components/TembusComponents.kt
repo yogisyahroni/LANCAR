@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.tembus.customer.ui.theme.TembusComponentDefaults
+import com.tembus.customer.ui.theme.TembusRadius
 
 /**
  * ShimmerBrush for Skeleton Loader effect
@@ -32,10 +34,11 @@ fun ShimmerBrush(
     targetValue: Float = 1000f
 ): Brush {
     return if (showShimmer) {
+        val baseColor = MaterialTheme.colorScheme.surfaceVariant
         val shimmerColors = listOf(
-            Color.LightGray.copy(alpha = 0.6f),
-            Color.LightGray.copy(alpha = 0.2f),
-            Color.LightGray.copy(alpha = 0.6f),
+            baseColor.copy(alpha = 0.6f),
+            baseColor.copy(alpha = 0.2f),
+            baseColor.copy(alpha = 0.6f),
         )
 
         val transition = rememberInfiniteTransition(label = "shimmer")
@@ -67,7 +70,7 @@ fun SkeletonItem(
     modifier: Modifier = Modifier,
     height: Dp = 20.dp,
     width: Dp = Dp.Unspecified,
-    cornerRadius: Dp = 8.dp
+    cornerRadius: Dp = TembusRadius.Card
 ) {
     val baseModifier = if (width != Dp.Unspecified) {
         modifier.width(width)
@@ -96,7 +99,9 @@ fun LoadingListPlaceholder(
         repeat(itemCount) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                shape = TembusComponentDefaults.cardShape(),
+                colors = TembusComponentDefaults.cardColors(),
+                border = TembusComponentDefaults.cardBorder()
             ) {
                 Column(
                     modifier = Modifier
@@ -155,7 +160,8 @@ fun FullScreenError(
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                shape = TembusComponentDefaults.buttonShape(),
+                colors = TembusComponentDefaults.primaryButtonColors()
             ) {
                 Text("Coba Lagi")
             }
@@ -171,7 +177,7 @@ fun SmoothLoadingIndicator() {
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-            shape = RoundedCornerShape(16.dp)
+            shape = TembusComponentDefaults.cardShape()
         ) {
             Text(
                 text = "Memuat...",

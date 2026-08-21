@@ -69,7 +69,7 @@ Fokus fase ini adalah visual system, component consistency, accessibility, dan U
 - [x] Implement/align web CSS variables atau Tailwind tokens untuk TEMBUS.
 - [x] Pastikan light/dark theme memakai token yang sama namanya lintas app.
 - [x] Tambah semantic alias: success, warning, error, info, pending, active, completed, cancelled, disabled.
-- [ ] Update component primitive bila ada: button, chip, card, input, dialog, top bar, bottom nav, timeline, proof card.
+- [x] Update component primitive bila ada: button, chip, card, input, dialog, top bar, bottom nav, timeline, proof card.
 
 ## Phase 2 — Customer App Migration
 
@@ -165,6 +165,7 @@ Fokus fase ini adalah visual system, component consistency, accessibility, dan U
 - 2026-08-22: Customer dashboard/home migrated to TEMBUS tokens. Removed off-brand service tile colors, emoji/pictographic status prefixes, unicode arrow CTA copy, negative letter spacing, and oversized card radii from `DashboardScreen.kt`. Customer Android `:app:compileDebugKotlin` PASS.
 - 2026-08-22: Customer service category/selector migrated to TEMBUS tokens. `ServiceCategoryScreen.kt` and `SubTypeSelectorScreen.kt` now use shared card radius, token borders, palette-safe category colors, and no emoji note copy. Customer Android `:app:compileDebugKotlin` PASS.
 - 2026-08-22: Customer package booking migrated to TEMBUS tokens. `BookingScreen.kt` now removes hardcoded hex colors, oversized booking card radii, pictographic arrow copy, and local white/neutral surfaces in favor of TEMBUS surface/outline/semantic tokens. Customer Android `:app:compileDebugKotlin` PASS.
+- 2026-08-22: Phase 1 completed. Added Android `TembusComponentDefaults` primitives for button, chip, card, input, dialog, top app bar, bottom nav item, timeline connector, and proof card across customer/courier/merchant. Wired customer shared loading/error primitives to the defaults. Customer/courier/merchant Android `:app:compileDebugKotlin` PASS.
 
 ## Screenshot Regression Matrix
 

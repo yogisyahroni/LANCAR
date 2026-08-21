@@ -2,7 +2,7 @@
 
 ## Active
 
-- [ ] **TEMBUS UI/UX Standardization** - detail eksekusi ada di [task-tembus-uiux-standardization.md](task-tembus-uiux-standardization.md); Phase 0, token foundation, customer dashboard/home, customer service category/selector, dan customer package booking sudah migrated + compile customer pass; scope sisa customer food/tambal/towing booking, payment/tracking, courier app, merchant app, dan web/admin/merchant portal bila surface ikut disentuh.
+- [ ] **TEMBUS UI/UX Standardization** - detail eksekusi ada di [task-tembus-uiux-standardization.md](task-tembus-uiux-standardization.md); Phase 0 dan Phase 1 selesai, customer dashboard/home, customer service category/selector, dan customer package booking sudah migrated + Android customer/courier/merchant compile pass; scope sisa Phase 2 customer food/tambal/towing booking, payment/tracking, courier app, merchant app, dan web/admin/merchant portal bila surface ikut disentuh.
 
 - [ ] **P0 - E2E Multi-Service Courier Flow Repair** - detail eksekusi ada di [task-e2e-multi-service-courier-flow-repair.md](task-e2e-multi-service-courier-flow-repair.md); scope customer web/mobile, backend order/admin/payment/dispatch, courier app, merchant/admin ops, settlement, proof, notification, dan test Android/Playwright.
 
