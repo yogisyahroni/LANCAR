@@ -1,14 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #006437;
-  --color-primary-light: #22C55E;
-  --color-primary-dark: #004d2a;
+  --color-primary: #003A20;
+  --color-primary-light: #007A42;
+  --color-primary-dark: #003A20;
+  --color-primary-soft: #E8F5EE;
+  --color-primary-pale: #F4FBF7;
+  --color-accent: #F97316;
+  --color-accent-dark: #C95A00;
+  --color-accent-light: #FB923C;
+  --color-accent-soft: #FFF1E6;
+  --color-accent-pale: #FFF8F2;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #DC2626;
+  --color-info: #2563EB;
   
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
   
   --animate-in: animate-in 0.3s ease-out;
   --animate-out: animate-out 0.3s ease-in;
@@ -16,18 +27,18 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 120 7% 97%;
+    --foreground: 144 24% 10%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 140 24% 6%;
+    --foreground: 150 16% 96%;
   }
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased selection:bg-primary/30 selection:text-primary-light;
+  @apply bg-[#0B120E] text-[#F4F7F5] antialiased selection:bg-primary/30 selection:text-primary-light;
   font-family: var(--font-sans);
 }
 
@@ -40,7 +51,7 @@ body {
 }
 
 .text-gradient {
-  @apply bg-gradient-to-r from-primary-light to-emerald-400 bg-clip-text text-transparent font-bold;
+  @apply bg-gradient-to-r from-primary-light to-primary-soft bg-clip-text text-transparent font-bold;
 }
 
 @keyframes animate-in {

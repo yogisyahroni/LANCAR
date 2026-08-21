@@ -112,15 +112,23 @@ import com.tembus.customer.data.model.ServiceSizeTier
 import com.tembus.customer.ui.components.maps.RuntimeMapMarker
 import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.theme.Accent
-import com.tembus.customer.ui.theme.AccentLight
+import com.tembus.customer.ui.theme.AccentSoft
 import com.tembus.customer.ui.theme.Background
+import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
+import com.tembus.customer.ui.theme.OutlineStrong
 import com.tembus.customer.ui.theme.Primary
-import com.tembus.customer.ui.theme.PrimaryLight
+import com.tembus.customer.ui.theme.PrimaryPale
+import com.tembus.customer.ui.theme.PrimarySoft
 import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.SecondaryLight
+import com.tembus.customer.ui.theme.Success
+import com.tembus.customer.ui.theme.Surface as TembusSurface
+import com.tembus.customer.ui.theme.SurfaceVariant
+import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.TextDisabled
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -131,22 +139,22 @@ private val Ink = OnSurface
 private val Muted = OnSurfaceVariant
 private val FieldBg = Background
 private val LcGreen = Primary
-private val SoftGreen = PrimaryLight
+private val SoftGreen = PrimarySoft
 private val SoftBlue = SecondaryLight
-private val SoftOrange = AccentLight
+private val SoftOrange = AccentSoft
 
 @Composable
 private fun tembusLightTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = Ink,
     unfocusedTextColor = Ink,
     disabledTextColor = Muted,
-    focusedContainerColor = Color.White,
-    unfocusedContainerColor = Color.White,
-    disabledContainerColor = Color(0xFFF5F7FA),
+    focusedContainerColor = TembusSurface,
+    unfocusedContainerColor = TembusSurface,
+    disabledContainerColor = SurfaceVariant,
     cursorColor = Primary,
     focusedBorderColor = Primary,
-    unfocusedBorderColor = Color(0xFFDCE3EE),
-    disabledBorderColor = Color(0xFFE5EAF2),
+    unfocusedBorderColor = OutlineStrong,
+    disabledBorderColor = Outline,
     focusedLabelColor = Primary,
     unfocusedLabelColor = Muted,
     disabledLabelColor = Muted,
@@ -490,9 +498,9 @@ fun BookingScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F5FF)),
-                        border = BorderStroke(1.dp, Color(0xFFDCE6F8))
+                        shape = RoundedCornerShape(TembusRadius.Card),
+                        colors = CardDefaults.cardColors(containerColor = PrimaryPale),
+                        border = BorderStroke(1.dp, Outline)
                     ) {
                         Row(
                             modifier = Modifier
@@ -504,7 +512,7 @@ fun BookingScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Rute & Layanan Terpilih", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Primary)
                                 Spacer(Modifier.height(4.dp))
-                                Text("${uiState.pickupAddress.take(22)}... ➔ ${uiState.destinationAddress.take(22)}...", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink)
+                                Text("${uiState.pickupAddress.take(22)}... ke ${uiState.destinationAddress.take(22)}...", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink)
                                 Text("${uiState.selectedService()?.name ?: "TEMBUS"} • ${uiState.selectedSizeTier()?.name ?: ""} (${uiState.packageWeight} kg)", fontSize = 12.sp, color = Muted)
                             }
                             TextButton(onClick = { currentStep = 1 }) {
@@ -545,7 +553,7 @@ fun BookingScreen(
         ModalBottomSheet(
             onDismissRequest = { showServiceSheet = false },
             sheetState = rememberModalBottomSheetState(),
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             ServicePickerSheet(
                 state = uiState,
@@ -564,7 +572,7 @@ fun BookingScreen(
                 showDestinationSheet = false
             },
             sheetState = rememberModalBottomSheetState(),
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             LocationInputSheet(
                 title = "Kirim paket ke mana?",
@@ -612,7 +620,7 @@ fun BookingScreen(
                 showPickupSheet = false
             },
             sheetState = rememberModalBottomSheetState(),
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             LocationInputSheet(
                 title = "Ambil paket di mana?",
@@ -657,7 +665,7 @@ fun BookingScreen(
         ModalBottomSheet(
             onDismissRequest = { showLocationRequestSheet = false },
             sheetState = rememberModalBottomSheetState(),
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             RequestReceiverLocationSheet(
                 link = uiState.receiverLocationLink?.url.orEmpty(),
@@ -698,7 +706,7 @@ fun BookingScreen(
         ModalBottomSheet(
             onDismissRequest = { showReviewSheet = false },
             sheetState = rememberModalBottomSheetState(),
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             BookingReviewSheet(
                 state = uiState,
@@ -713,12 +721,12 @@ fun BookingScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.18f)),
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center
         ) {
             Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                shape = RoundedCornerShape(TembusRadius.Card),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Text(
                     text = "Menyiapkan pengiriman...",
@@ -740,8 +748,8 @@ private fun PreselectedPromoCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = AccentLight),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = SoftOrange),
         border = BorderStroke(1.dp, Accent.copy(alpha = 0.28f))
     ) {
         Row(
@@ -751,8 +759,8 @@ private fun PreselectedPromoCard(
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White),
+                    .clip(RoundedCornerShape(TembusRadius.Card))
+                    .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Default.LocalOffer, contentDescription = null, tint = Accent)
@@ -789,25 +797,25 @@ private fun VoucherCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(
-            containerColor = if (applied) Color(0xFFEAF7EC) else Color.White
+            containerColor = if (applied) PrimaryPale else MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.dp, if (applied) Color(0xFF4ADE80).copy(alpha = 0.5f) else Color(0xFFE2E8F0))
+        border = BorderStroke(1.dp, if (applied) Success.copy(alpha = 0.5f) else Outline)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .size(46.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (applied) Color(0xFFDCFCE7) else AccentLight),
+                        .clip(RoundedCornerShape(TembusRadius.Card))
+                        .background(if (applied) PrimarySoft else SoftOrange),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.LocalActivity,
                         contentDescription = null,
-                        tint = if (applied) Color(0xFF16A34A) else Accent
+                        tint = if (applied) Success else Accent
                     )
                 }
                 Spacer(Modifier.width(12.dp))
@@ -815,13 +823,13 @@ private fun VoucherCard(
                     Text("Kode Voucher", color = OnSurface, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                     Text(
                         if (applied) "${state.voucherName} (${state.voucherCode})" else "Diskon tambahan di luar promo",
-                        color = if (applied) Color(0xFF166534) else Color(0xFF64748B),
+                        color = if (applied) Success else Muted,
                         fontSize = 12.sp
                     )
                 }
                 if (applied) {
                     TextButton(onClick = onClear) {
-                        Text("Hapus", color = Color(0xFFEF4444), fontWeight = FontWeight.ExtraBold)
+                        Text("Hapus", color = Error, fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }
@@ -831,11 +839,11 @@ private fun VoucherCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Diskon", fontSize = 13.sp, color = Color(0xFF166534), fontWeight = FontWeight.Bold)
+                    Text("Diskon", fontSize = 13.sp, color = Success, fontWeight = FontWeight.Bold)
                     Text(
                         "− Rp ${state.voucherDiscountIdr.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
                         fontSize = 14.sp,
-                        color = Color(0xFF16A34A),
+                        color = Success,
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
@@ -851,18 +859,18 @@ private fun VoucherCard(
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("Masukkan kode (mis. HEMAT10)", fontSize = 13.sp) },
                         singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(TembusRadius.Input)
                     )
                     Spacer(Modifier.width(8.dp))
                     Button(
                         onClick = onApply,
                         enabled = localCode.isNotBlank() && !state.voucherLoading,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(TembusRadius.Button),
                         colors = ButtonDefaults.buttonColors(containerColor = Primary)
                     ) {
                         if (state.voucherLoading) {
                             CircularProgressIndicator(
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp
                             )
@@ -875,7 +883,7 @@ private fun VoucherCard(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         err,
-                        color = Color(0xFFEF4444),
+                        color = Error,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -896,12 +904,12 @@ private fun BookingHeader(onBackClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBackClick) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = MaterialTheme.colorScheme.onPrimary)
         }
         Spacer(Modifier.width(8.dp))
         Column {
-            Text("TEMBUS", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-            Text("Pengiriman on-demand", fontSize = 14.sp, color = Color.White.copy(alpha = 0.82f))
+            Text("TEMBUS", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimary)
+            Text("Pengiriman on-demand", fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f))
         }
     }
 }
@@ -917,8 +925,8 @@ private fun DeliveryDetailCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -967,7 +975,7 @@ private fun DeliveryDetailCard(
             Spacer(Modifier.height(14.dp))
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(SoftGreen)
                     .clickable { onRequestLocationClick() }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -995,7 +1003,7 @@ private fun AddressRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(TembusRadius.Card))
             .clickable(enabled = onClick != null) { onClick?.invoke() }
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1003,7 +1011,7 @@ private fun AddressRow(
         Box(
             modifier = Modifier
                 .size(42.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
                 .background(iconColor.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
@@ -1014,14 +1022,14 @@ private fun AddressRow(
             Text(title, color = Muted, fontSize = 13.sp)
             Text(
                 address,
-                color = if (emphasized) Ink else Color(0xFF9AA3AF),
+                color = if (emphasized) Ink else TextDisabled,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2
             )
         }
         if (onClick != null) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color(0xFFB2BAC6))
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = TextDisabled)
         }
     }
 }
@@ -1033,7 +1041,7 @@ private fun DottedConnector() {
             modifier = Modifier
                 .height(24.dp)
                 .width(1.dp)
-                .background(Color(0xFFD7DDE6))
+                .background(OutlineStrong)
         )
     }
 }
@@ -1045,7 +1053,7 @@ private fun BookingStepHintCard() {
             Box(
                 modifier = Modifier
                     .size(52.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(SoftBlue),
                 contentAlignment = Alignment.Center
             ) {
@@ -1090,12 +1098,12 @@ private fun BookingProgressPills(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(
                         when {
                             active -> Primary.copy(alpha = 0.12f)
                             done -> SoftGreen
-                            else -> Color.White
+                            else -> MaterialTheme.colorScheme.surface
                         }
                     )
                     .border(
@@ -1104,10 +1112,10 @@ private fun BookingProgressPills(
                             color = when {
                                 active -> Primary
                                 done -> LcGreen.copy(alpha = 0.4f)
-                                else -> Color(0xFFE1E7F0)
+                                else -> Outline
                             }
                         ),
-                        RoundedCornerShape(14.dp)
+                        RoundedCornerShape(TembusRadius.Card)
                     )
                     .clickable { onStepSelect(stepNum) }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -1161,7 +1169,7 @@ private fun RecipientCard(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Nama penerima") },
             singleLine = true,
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(TembusRadius.Input),
             colors = tembusLightTextFieldColors()
         )
         Spacer(Modifier.height(10.dp))
@@ -1172,7 +1180,7 @@ private fun RecipientCard(
             label = { Text("Nomor handphone penerima") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(TembusRadius.Input),
             colors = tembusLightTextFieldColors()
         )
         Spacer(Modifier.height(10.dp))
@@ -1182,7 +1190,7 @@ private fun RecipientCard(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Isi paket / catatan barang") },
             singleLine = true,
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(TembusRadius.Input),
             colors = tembusLightTextFieldColors()
         )
     }
@@ -1217,7 +1225,7 @@ private fun PackageCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(FieldBg)
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -1237,11 +1245,11 @@ private fun PackageCard(
                     Column(
                         modifier = Modifier
                             .width(148.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(if (selected) SoftGreen else if (availableForService) Color.White else Color(0xFFF2F4F7))
+                            .clip(RoundedCornerShape(TembusRadius.Card))
+                            .background(if (selected) SoftGreen else if (availableForService) MaterialTheme.colorScheme.surface else SurfaceVariant)
                             .border(
-                                BorderStroke(1.dp, if (selected) LcGreen else Color(0xFFDDE3EC)),
-                                RoundedCornerShape(18.dp)
+                                BorderStroke(1.dp, if (selected) LcGreen else Outline),
+                                RoundedCornerShape(TembusRadius.Card)
                             )
                             .clickable(enabled = availableForService) {
                                 selectedTierCode = tier.code
@@ -1266,7 +1274,7 @@ private fun PackageCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(FieldBg)
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -1287,7 +1295,7 @@ private fun PackageCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(FieldBg)
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -1332,7 +1340,7 @@ private fun AddOnCard(
             checked = deliveryCodeEnabled,
             onCheckedChange = onDeliveryCodeChange
         )
-        HorizontalDivider(color = Color(0xFFE7EAF0))
+        HorizontalDivider(color = Outline)
         AddOnRow(
             icon = Icons.Default.Shield,
             title = "Perlindungan paket",
@@ -1362,7 +1370,7 @@ private fun AddOnRow(
         Box(
             modifier = Modifier
                 .size(48.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
                 .background(SoftOrange),
             contentAlignment = Alignment.Center
         ) {
@@ -1402,7 +1410,7 @@ private fun RoutePreviewCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(190.dp)
-                .clip(RoundedCornerShape(22.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
         ) {
             val markers = buildList {
                 state.pickupLocation?.let {
@@ -1515,7 +1523,7 @@ private fun ServiceInlinePreview(
             Box(
                 modifier = Modifier
                     .size(58.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(SoftGreen),
                 contentAlignment = Alignment.Center
             ) {
@@ -1589,8 +1597,8 @@ private fun SelectedServiceBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
-            .background(Color.White)
+            .clip(RoundedCornerShape(topStart = TembusRadius.Sheet, topEnd = TembusRadius.Sheet))
+            .background(MaterialTheme.colorScheme.surface)
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(18.dp)
     ) {
@@ -1599,14 +1607,14 @@ private fun SelectedServiceBar(
                 .align(Alignment.CenterHorizontally)
                 .size(width = 42.dp, height = 4.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFD2D8E2))
+                .background(OutlineStrong)
         )
         Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(54.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(SoftGreen),
                 contentAlignment = Alignment.Center
             ) {
@@ -1646,8 +1654,8 @@ private fun SelectedServiceBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
+            shape = RoundedCornerShape(TembusRadius.Button),
+            colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = MaterialTheme.colorScheme.onPrimary)
         ) {
             Text(buttonLabel, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
             Spacer(Modifier.width(8.dp))
@@ -1673,7 +1681,7 @@ private fun ServicePickerSheet(
                 .align(Alignment.CenterHorizontally)
                 .size(width = 42.dp, height = 4.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFD2D8E2))
+                .background(OutlineStrong)
         )
         Text("Pilih layanan TEMBUS", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Text("Harga final dihitung dari jarak, berat, dan fitur tambahan.", color = Muted, lineHeight = 20.sp)
@@ -1681,12 +1689,12 @@ private fun ServicePickerSheet(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = SoftGreen),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(TembusRadius.Card)
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Menghitung harga dari rute jalan", color = Ink, fontWeight = FontWeight.ExtraBold)
                     RoadPricingProgressBar(
-                        trackColor = Color.White,
+                        trackColor = MaterialTheme.colorScheme.surface,
                         indicatorColor = LcGreen
                     )
                 }
@@ -1695,7 +1703,7 @@ private fun ServicePickerSheet(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = SoftBlue),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(TembusRadius.Card)
             ) {
                 Text(
                     "Pilih ukuran dan berat paket terlebih dahulu. Setelah itu sistem akan menghitung harga dan menampilkan layanan yang tersedia.",
@@ -1708,7 +1716,7 @@ private fun ServicePickerSheet(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = SoftOrange),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(TembusRadius.Card)
             ) {
                 Text(
                     "Lengkapi pickup dan tujuan agar sistem bisa menampilkan layanan yang tersedia.",
@@ -1743,15 +1751,15 @@ private fun ServiceRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(TembusRadius.Card))
             .background(
                 when {
                     selected -> SoftGreen
-                    selectable -> Color.White
-                    else -> Color(0xFFF3F5F8)
+                    selectable -> MaterialTheme.colorScheme.surface
+                    else -> SurfaceVariant
                 }
             )
-            .border(BorderStroke(1.dp, if (selected) LcGreen else Color(0xFFE2E6ED)), RoundedCornerShape(22.dp))
+            .border(BorderStroke(1.dp, if (selected) LcGreen else Outline), RoundedCornerShape(TembusRadius.Card))
             .clickable(enabled = selectable) { onClick() }
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1759,8 +1767,8 @@ private fun ServiceRow(
         Box(
             modifier = Modifier
                 .size(58.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(if (selected) Color.White else SoftBlue),
+                .clip(RoundedCornerShape(TembusRadius.Card))
+                .background(if (selected) MaterialTheme.colorScheme.surface else SoftBlue),
             contentAlignment = Alignment.Center
         ) {
             Icon(serviceIcon(service), null, tint = if (service.vehicleTypes.contains("car")) Secondary else Primary)
@@ -1821,7 +1829,7 @@ private fun BookingReviewSheet(
                 .align(Alignment.CenterHorizontally)
                 .size(width = 42.dp, height = 4.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFD2D8E2))
+                .background(OutlineStrong)
         )
         Text("Cek lagi detail pengiriman", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Text("Pastikan alamat, penerima, layanan, dan harga sudah benar sebelum order diteruskan ke kurir.", color = Muted)
@@ -1832,7 +1840,7 @@ private fun BookingReviewSheet(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(22.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
                 .background(SoftGreen)
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -1851,7 +1859,7 @@ private fun BookingReviewSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(58.dp),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(TembusRadius.Button),
             colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
         ) {
             Text(
@@ -1883,9 +1891,9 @@ private fun ReviewRouteSnapshotBlock(state: BookingState, price: PriceBreakdown?
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .border(BorderStroke(1.dp, Color(0xFFDCEFE7)), RoundedCornerShape(22.dp))
-            .background(Color(0xFFF6FFFA))
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .border(BorderStroke(1.dp, Outline), RoundedCornerShape(TembusRadius.Card))
+            .background(PrimaryPale)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -1901,7 +1909,7 @@ private fun ReviewRouteSnapshotBlock(state: BookingState, price: PriceBreakdown?
                     fontSize = 13.sp
                 )
             }
-            Surface(color = SoftGreen, shape = RoundedCornerShape(12.dp)) {
+            Surface(color = SoftGreen, shape = RoundedCornerShape(TembusRadius.Card)) {
                 Text(
                     "RUTE AKTIF",
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1915,7 +1923,7 @@ private fun ReviewRouteSnapshotBlock(state: BookingState, price: PriceBreakdown?
             modifier = Modifier
                 .fillMaxWidth()
                 .height(158.dp)
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
         ) {
             RuntimeMapRenderer(
                 providerConfig = state.mapsProviderConfig,
@@ -1952,7 +1960,7 @@ private fun ReviewRouteBlock(state: BookingState) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(TembusRadius.Card))
             .background(FieldBg)
             .padding(14.dp)
     ) {
@@ -1981,8 +1989,8 @@ private fun ReviewInfoRow(title: String, primary: String, secondary: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .border(BorderStroke(1.dp, Color(0xFFE2E6ED)), RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .border(BorderStroke(1.dp, Outline), RoundedCornerShape(TembusRadius.Card))
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2042,14 +2050,14 @@ private fun LocationInputSheet(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(22.dp))
-                .background(if (selectedMapLocation == null) FieldBg else Color(0xFFEAF7F0))
+                .clip(RoundedCornerShape(TembusRadius.Card))
+                .background(if (selectedMapLocation == null) FieldBg else PrimaryPale)
                 .border(
                     BorderStroke(
                         1.dp,
-                        if (selectedMapLocation == null) Color(0xFFE1E7EF) else Color(0xFFB7E5CA)
+                        if (selectedMapLocation == null) Outline else Success.copy(alpha = 0.32f)
                     ),
-                    RoundedCornerShape(22.dp)
+                    RoundedCornerShape(TembusRadius.Card)
                 )
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -2057,8 +2065,8 @@ private fun LocationInputSheet(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (selectedMapLocation == null) Color.White else Color(0xFFDDF6EA)),
+                    .clip(RoundedCornerShape(TembusRadius.Card))
+                    .background(if (selectedMapLocation == null) MaterialTheme.colorScheme.surface else PrimarySoft),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -2096,7 +2104,7 @@ private fun LocationInputSheet(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(if (addressKind == "pickup") "Cari alamat pickup" else "Cari alamat tujuan") },
             minLines = 2,
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(TembusRadius.Input),
             colors = tembusLightTextFieldColors()
         )
         Button(
@@ -2105,7 +2113,7 @@ private fun LocationInputSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(TembusRadius.Button),
             colors = ButtonDefaults.buttonColors(containerColor = Primary)
         ) {
             Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
@@ -2119,9 +2127,9 @@ private fun LocationInputSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .border(BorderStroke(1.dp, Color(0xFFDDE6F2)), RoundedCornerShape(20.dp))
-                    .background(Color.White)
+                .clip(RoundedCornerShape(TembusRadius.Card))
+                .border(BorderStroke(1.dp, Outline), RoundedCornerShape(TembusRadius.Card))
+                .background(MaterialTheme.colorScheme.surface)
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -2140,7 +2148,7 @@ private fun LocationInputSheet(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
                 .background(FieldBg)
                 .clickable { saveFavorite = !saveFavorite }
                 .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -2159,7 +2167,7 @@ private fun LocationInputSheet(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Nama alamat") },
                 singleLine = true,
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(TembusRadius.Input),
                 colors = tembusLightTextFieldColors()
             )
         }
@@ -2177,7 +2185,7 @@ private fun LocationInputSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(TembusRadius.Button),
             colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
         ) {
             Text(buttonLabel, fontWeight = FontWeight.ExtraBold)
@@ -2194,7 +2202,7 @@ private fun GeocodeResultRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(TembusRadius.Card))
             .background(FieldBg)
             .clickable { onClick() }
             .padding(12.dp),
@@ -2203,7 +2211,7 @@ private fun GeocodeResultRow(
         Box(
             modifier = Modifier
                 .size(42.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
                 .background(SoftGreen),
             contentAlignment = Alignment.Center
         ) {
@@ -2231,9 +2239,9 @@ private fun SavedAddressChip(
     Row(
         modifier = Modifier
             .width(240.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .border(BorderStroke(1.dp, Color(0xFFDCE3EE)), RoundedCornerShape(18.dp))
-            .background(Color.White)
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .border(BorderStroke(1.dp, Outline), RoundedCornerShape(TembusRadius.Card))
+            .background(MaterialTheme.colorScheme.surface)
             .clickable { onClick() }
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -2241,7 +2249,7 @@ private fun SavedAddressChip(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
                 .background(if (address.kind == "pickup") SoftGreen else SoftOrange),
             contentAlignment = Alignment.Center
         ) {
@@ -2286,7 +2294,7 @@ private fun RequestReceiverLocationSheet(
         Box(
             modifier = Modifier
                 .size(76.dp)
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
                 .background(SoftGreen),
             contentAlignment = Alignment.Center
         ) {
@@ -2311,7 +2319,7 @@ private fun RequestReceiverLocationSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(if (status == "submitted") SoftGreen else FieldBg)
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -2346,7 +2354,7 @@ private fun RequestReceiverLocationSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(SoftGreen)
                     .padding(14.dp)
             ) {
@@ -2366,7 +2374,7 @@ private fun RequestReceiverLocationSheet(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(TembusRadius.Card))
                 .background(FieldBg)
                 .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -2396,7 +2404,7 @@ private fun RequestReceiverLocationSheet(
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(TembusRadius.Button),
                     colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
                 ) {
                     Text("Bagikan", fontWeight = FontWeight.ExtraBold)
@@ -2407,7 +2415,7 @@ private fun RequestReceiverLocationSheet(
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(TembusRadius.Button),
                     colors = ButtonDefaults.buttonColors(containerColor = Primary)
                 ) {
                     Text(if (isLoading) "Mengecek..." else "Cek status", fontWeight = FontWeight.ExtraBold)
@@ -2420,9 +2428,9 @@ private fun RequestReceiverLocationSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, Color(0xFFE8294D).copy(alpha = 0.45f)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE8294D))
+                shape = RoundedCornerShape(TembusRadius.Button),
+                border = BorderStroke(1.dp, Error.copy(alpha = 0.45f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)
             ) {
                 Text("Batalkan link", fontWeight = FontWeight.ExtraBold)
             }
@@ -2434,7 +2442,7 @@ private fun RequestReceiverLocationSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(TembusRadius.Button),
             colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
         ) {
             Text(
@@ -2457,8 +2465,8 @@ private fun LcCard(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, Outline),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {

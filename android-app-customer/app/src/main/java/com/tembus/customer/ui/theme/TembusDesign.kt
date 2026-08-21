@@ -3,10 +3,10 @@ package com.tembus.customer.ui.theme
 import androidx.compose.ui.unit.dp
 
 object TembusRadius {
-    val Card = 20.dp
-    val Sheet = 24.dp
-    val Button = 16.dp
-    val Input = 14.dp
+    val Card = 8.dp
+    val Sheet = 8.dp
+    val Button = 8.dp
+    val Input = 8.dp
     val Chip = 50.dp
 }
 

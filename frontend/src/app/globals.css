@@ -1,14 +1,25 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #006437;
-  --color-primary-light: #22C55E;
-  --color-primary-dark: #004d2a;
+  --color-primary: #003A20;
+  --color-primary-light: #007A42;
+  --color-primary-dark: #003A20;
+  --color-primary-soft: #E8F5EE;
+  --color-primary-pale: #F4FBF7;
+  --color-accent: #F97316;
+  --color-accent-dark: #C95A00;
+  --color-accent-light: #FB923C;
+  --color-accent-soft: #FFF1E6;
+  --color-accent-pale: #FFF8F2;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #DC2626;
+  --color-info: #2563EB;
   
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
   
   --animate-in: animate-in 0.3s ease-out;
   --animate-out: animate-out 0.3s ease-in;
@@ -27,33 +38,31 @@
 
 @layer base {
   :root {
-    /* Light mode background and foreground (like zinc-50 and zinc-900) */
-    --background: #fafafa;
-    --foreground: #18181b;
+    --background: #F7F8F7;
+    --foreground: #14211A;
     
     --card: #ffffff;
-    --card-foreground: #18181b;
+    --card-foreground: #14211A;
     --popover: #ffffff;
-    --popover-foreground: #18181b;
-    --muted: #f4f4f5;
-    --muted-foreground: #71717a;
-    --border: #e4e4e7;
-    --input: #e4e4e7;
+    --popover-foreground: #14211A;
+    --muted: #F0F3F1;
+    --muted-foreground: #6B756F;
+    --border: #E5E9E6;
+    --input: #E5E9E6;
   }
 
   .dark {
-    /* Dark mode background and foreground (like zinc-950 and zinc-100) */
-    --background: #09090b;
-    --foreground: #f4f4f5;
+    --background: #0B120E;
+    --foreground: #F4F7F5;
     
-    --card: #09090b;
-    --card-foreground: #f4f4f5;
-    --popover: #09090b;
-    --popover-foreground: #f4f4f5;
-    --muted: #27272a;
-    --muted-foreground: #a1a1aa;
-    --border: #27272a;
-    --input: #27272a;
+    --card: #142019;
+    --card-foreground: #F4F7F5;
+    --popover: #142019;
+    --popover-foreground: #F4F7F5;
+    --muted: #1B2921;
+    --muted-foreground: #AAB5AE;
+    --border: #26352C;
+    --input: #26352C;
   }
 }
 
@@ -83,7 +92,7 @@ body {
 }
 
 .text-gradient {
-  @apply bg-gradient-to-r from-primary to-emerald-600 dark:from-primary-light dark:to-emerald-400 bg-clip-text text-transparent font-bold;
+  @apply bg-gradient-to-r from-primary to-primary-light dark:from-primary-light dark:to-primary-soft bg-clip-text text-transparent font-bold;
 }
 
 @keyframes animate-in {
@@ -105,7 +114,7 @@ select option {
 }
 
 .dark select option {
-  background-color: #18181b;
-  color: #f4f4f5;
+  background-color: #142019;
+  color: #F4F7F5;
 }
 

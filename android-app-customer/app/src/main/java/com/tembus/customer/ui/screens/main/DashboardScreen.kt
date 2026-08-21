@@ -96,6 +96,8 @@ import com.tembus.customer.ui.theme.PrimaryDark
 import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.SecondaryLight
+import com.tembus.customer.ui.theme.Success
+import com.tembus.customer.ui.theme.TembusRadius
 
 private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
 private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
@@ -190,7 +192,6 @@ fun DashboardScreen(
                 .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Background hijau ala Gojek di bagian atas
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -326,7 +327,7 @@ private fun GojekTopBar(
         Surface(
             modifier = Modifier.weight(1f).height(42.dp),
             shape = RoundedCornerShape(21.dp),
-            color = Color.White
+            color = MaterialTheme.colorScheme.surface
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -341,25 +342,31 @@ private fun GojekTopBar(
         Box(contentAlignment = Alignment.TopEnd) {
             IconButton(
                 onClick = onNotificationsClick,
-                modifier = Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f))
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f))
             ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = "Notifikasi", tint = Color.White)
+                Icon(Icons.Default.NotificationsActive, contentDescription = "Notifikasi", tint = MaterialTheme.colorScheme.onPrimary)
             }
             if (notificationUnreadCount > 0) {
                 Box(
                     modifier = Modifier.size(18.dp).clip(CircleShape).background(Accent),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(notificationUnreadCount.coerceAtMost(99).toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    Text(notificationUnreadCount.coerceAtMost(99).toString(), color = MaterialTheme.colorScheme.onTertiary, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
         Spacer(Modifier.width(8.dp))
         IconButton(
             onClick = onProfileClick,
-            modifier = Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f))
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f))
         ) {
-            Icon(Icons.Default.Person, contentDescription = "Profil", tint = Color.White)
+            Icon(Icons.Default.Person, contentDescription = "Profil", tint = MaterialTheme.colorScheme.onPrimary)
         }
     }
 }
@@ -370,8 +377,9 @@ private fun WalletCard() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
@@ -379,7 +387,10 @@ private fun WalletCard() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(SoftBlue),
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(TembusRadius.Card))
+                    .background(SoftGreen),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LcGreen)
@@ -402,10 +413,10 @@ private fun WalletCard() {
 private fun WalletAction(icon: ImageVector, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
-            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(LcGreen),
+            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(TembusRadius.Button)).background(LcGreen),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.height(4.dp))
         Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Ink)
@@ -423,10 +434,10 @@ private fun GojekServiceGrid(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            GojekServiceTile("Kirim Paket", Icons.Default.LocalShipping, Color(0xFF00AA5B), Color.White, onPickupClick, modifier = Modifier.weight(1f))
-            GojekServiceTile("Food", Icons.Default.Restaurant, Color(0xFFEE2737), Color.White, onFoodClick, modifier = Modifier.weight(1f))
-            GojekServiceTile("Tambal Ban", Icons.Default.Build, Color(0xFF00AED6), Color.White, onTambalBanClick, modifier = Modifier.weight(1f))
-            GojekServiceTile("Towing", Icons.Default.DirectionsCar, Color(0xFF93328E), Color.White, onTowingClick, modifier = Modifier.weight(1f))
+            GojekServiceTile("Kirim Paket", Icons.Default.LocalShipping, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onPickupClick, modifier = Modifier.weight(1f))
+            GojekServiceTile("Food", Icons.Default.Restaurant, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.onTertiary, onFoodClick, modifier = Modifier.weight(1f))
+            GojekServiceTile("Tambal Ban", Icons.Default.Build, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, onTambalBanClick, modifier = Modifier.weight(1f))
+            GojekServiceTile("Towing", Icons.Default.DirectionsCar, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, onTowingClick, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -449,7 +460,7 @@ private fun GojekServiceTile(
             Box(
                 modifier = Modifier
                     .size(54.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(bgColor),
                 contentAlignment = Alignment.Center
             ) {
@@ -457,10 +468,10 @@ private fun GojekServiceTile(
             }
             if (badge != null) {
                 Box(
-                    modifier = Modifier.align(Alignment.TopEnd).size(22.dp).clip(CircleShape).background(Color(0xFFEE2737)),
+                    modifier = Modifier.align(Alignment.TopEnd).size(22.dp).clip(CircleShape).background(Error),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(badge, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text(badge, color = MaterialTheme.colorScheme.onError, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -469,7 +480,7 @@ private fun GojekServiceTile(
             text = label,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF1C2126),
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -485,8 +496,8 @@ private fun DashboardDataErrorCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = AccentLight),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
         border = BorderStroke(1.dp, Accent.copy(alpha = 0.24f))
     ) {
         Row(
@@ -496,7 +507,7 @@ private fun DashboardDataErrorCard(
             Icon(Icons.Default.Warning, contentDescription = null, tint = Accent)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Data sedang disinkronkan", color = Ink, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp, fontSize = 15.sp)
+                Text("Data sedang disinkronkan", color = Ink, fontWeight = FontWeight.Black, fontSize = 15.sp)
                 Text(message, color = PrimaryDark, fontSize = 12.sp, lineHeight = 17.sp)
             }
             TextButton(onClick = onRetry) {
@@ -515,7 +526,7 @@ private fun NotificationPermissionPromptCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, SurfaceLine),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -527,7 +538,7 @@ private fun NotificationPermissionPromptCard(
             Box(
                 modifier = Modifier
                     .size(52.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(SoftGreen),
                 contentAlignment = Alignment.Center
             ) {
@@ -535,7 +546,7 @@ private fun NotificationPermissionPromptCard(
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Aktifkan notifikasi order", color = Ink, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp, fontSize = 16.sp)
+                Text("Aktifkan notifikasi order", color = Ink, fontWeight = FontWeight.Black, fontSize = 16.sp)
                 Text(
                     "Chat kurir, status pengiriman, bantuan, dan promo yang kamu izinkan akan muncul tepat waktu.",
                     color = Muted,
@@ -548,8 +559,8 @@ private fun NotificationPermissionPromptCard(
                     }
                     androidx.compose.material3.Button(
                         onClick = onEnable,
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = LcGreen, contentColor = Color.White),
-                        shape = RoundedCornerShape(14.dp)
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = LcGreen, contentColor = MaterialTheme.colorScheme.onPrimary),
+                        shape = RoundedCornerShape(TembusRadius.Button)
                     ) {
                         Text("Aktifkan", fontWeight = FontWeight.ExtraBold)
                     }
@@ -566,15 +577,15 @@ private fun GlobalBannerCard(banners: List<com.tembus.customer.data.model.Global
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = PrimaryLight),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.2f))
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(42.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(LcGreen.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -608,14 +619,14 @@ private fun ActiveOrderCard(
     )
 
     val displayTitle = when {
-        isCancelled -> if (statusLower == "failed" || statusLower == "payment_failed") "⚠️ Pengiriman Gagal" else "⚠️ Pengiriman Dibatalkan"
-        isDelivered -> "✅ Pengiriman Selesai"
+        isCancelled -> if (statusLower == "failed" || statusLower == "payment_failed") "Pengiriman Gagal" else "Pengiriman Dibatalkan"
+        isDelivered -> "Pengiriman Selesai"
         else -> title
     }
 
     val statusColor = when {
         isCancelled -> Error
-        isDelivered -> Color(0xFF22C55E)
+        isDelivered -> Success
         else -> LcGreen
     }
 
@@ -626,8 +637,8 @@ private fun ActiveOrderCard(
     }
 
     val ctaText = when {
-        isCancelled -> "Detail ➔"
-        isDelivered -> "Detail ➔"
+        isCancelled -> "Detail"
+        isDelivered -> "Detail"
         else -> "Lacak"
     }
 
@@ -636,7 +647,7 @@ private fun ActiveOrderCard(
             .fillMaxWidth()
             .padding(horizontal = 18.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -644,7 +655,7 @@ private fun ActiveOrderCard(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(17.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(statusColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -652,7 +663,7 @@ private fun ActiveOrderCard(
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(displayTitle, color = Ink, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp, fontSize = 17.sp)
+                Text(displayTitle, color = Ink, fontWeight = FontWeight.Black, fontSize = 17.sp)
                 Text(
                     subtitle,
                     color = Muted,
@@ -668,7 +679,7 @@ private fun ActiveOrderCard(
                     Spacer(Modifier.height(8.dp))
                     Surface(
                         modifier = Modifier.clickable { onChatClick() },
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.surface,
                         shape = RoundedCornerShape(999.dp),
                         border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.24f))
                     ) {
@@ -705,7 +716,7 @@ private fun IncomingPackagesSection(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Paket Masuk", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp)
+                Text("Paket Masuk", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 Text("Pantau paket yang dikirim ke nomor akun ini.", color = Muted, fontSize = 13.sp)
             }
             if (hasUnreadMessage) {
@@ -754,14 +765,14 @@ private fun IncomingPackageCard(
     )
     val statusColor = when {
         isCancelled -> Error
-        isDelivered -> Color(0xFF22C55E)
+        isDelivered -> Success
         else -> LcGreen
     }
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onTrackingClick() },
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, SurfaceLine),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -770,7 +781,7 @@ private fun IncomingPackageCard(
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Card))
                     .background(statusColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -803,9 +814,9 @@ private fun IncomingPackageCard(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Chat", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("Chat", color = MaterialTheme.colorScheme.onPrimary, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }

@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.service
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tembus.customer.ui.theme.TembusRadius
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,7 +91,7 @@ fun ServiceCategoryScreen(
             Spacer(Modifier.height(16.dp))
             
             Text(
-                "💡 Harga jasa ditentukan oleh petugas. Biaya per-km ditentukan oleh sistem.",
+                "Catatan: harga jasa ditentukan oleh petugas. Biaya per-km ditentukan oleh sistem.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -109,8 +111,9 @@ private fun ServiceCategoryCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = color),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(

@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.service
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,10 +29,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tembus.customer.ui.theme.TembusRadius
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +77,7 @@ fun SubTypeSelectorScreen(
                     title = "Motor",
                     subtitle = if (isTambalBan) "Bebek/Matic/Sport" else "Angkut pakai Pickup/Van",
                     priceRange = if (isTambalBan) "Harga mulai Rp 25.000" else "Harga mulai Rp 50.000",
-                    color = Color(0xFFE8F5E9),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     onClick = { onSubTypeSelected("${category}_motor") },
                     modifier = Modifier.weight(1f)
                 )
@@ -87,7 +88,7 @@ fun SubTypeSelectorScreen(
                     title = "Mobil",
                     subtitle = if (isTambalBan) "Sedan/MPV/SUV" else "Angkut pakai Towing Truck",
                     priceRange = if (isTambalBan) "Harga mulai Rp 45.000" else "Harga mulai Rp 75.000",
-                    color = Color(0xFFE3F2FD),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
                     onClick = { onSubTypeSelected("${category}_mobil") },
                     modifier = Modifier.weight(1f)
                 )
@@ -96,7 +97,7 @@ fun SubTypeSelectorScreen(
             Spacer(Modifier.height(16.dp))
             
             Text(
-                "ℹ️ Harga jasa ditentukan oleh masing-masing petugas. Biaya per-km ditentukan oleh sistem.",
+                "Catatan: harga jasa ditentukan oleh masing-masing petugas. Biaya per-km ditentukan oleh sistem.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -110,15 +111,16 @@ private fun SubTypeCard(
     title: String,
     subtitle: String,
     priceRange: String,
-    color: Color,
+    color: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = color),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(

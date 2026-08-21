@@ -1,4 +1,4 @@
-package com.tembus.courier.ui.theme
+package com.tembus.merchant.ui.theme
 
 import androidx.compose.ui.unit.dp
 
