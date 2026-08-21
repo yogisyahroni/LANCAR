@@ -14,6 +14,11 @@ Obsidian vault adalah **source of truth**. Setiap sesi WAJIB:
 5. **WRITE** session summary ke `E:\antigraviti google\SUDAH DEPLOY\vault\07 Daily Notes\LANCAR — Session {date}.md`
 6. **UPDATE** decision log jika ada keputusan penting
 7. **SAVE** skill baru ke `E:\antigraviti google\SUDAH DEPLOY\vault\06 Hermes-Ops\skills\` jika ada workflow baru
+8. **SELF-REVIEW SEBELUM LOGOUT/TASK SELESAI**:
+   - Baca ulang histori chat yang tersedia di konteks thread saat ini dan catatan vault terbaru; jangan memaksa buka Codex Desktop History jika kondisi auth sedang rawan logout.
+   - Catat bagian **Self-Improvement** di session note: miskomunikasi/kesalahan, root cause perilaku agent, aturan kerja baru, dan follow-up.
+   - Kalau ada pola bug agent/tooling yang berulang, tulis juga ke `E:\antigraviti google\SUDAH DEPLOY\vault\06 Hermes-Ops\decisions\Bug Patterns.md`.
+   - Untuk isu Codex Desktop logout/history: review dari transcript aktif, logs, dan daily note; hindari klik History Desktop saat VS Code Codex atau host Codex lain masih aktif memakai auth store yang sama.
 
 ### During Session — REAL-TIME Thought Capture
 - **Debugging kompleks** (>5 steps) → `07 Daily Notes/LANCAR — Debug {date}.md` dengan root cause analysis

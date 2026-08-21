@@ -199,7 +199,8 @@ private val CourierRouteStateSaver = Saver<CourierRouteState, List<String>>(
             state.scanType,
             state.proofMode,
             state.callTargetType,
-            state.serviceType
+            state.serviceType,
+            state.returnToServiceType
         )
     },
     restore = { raw ->
@@ -213,7 +214,8 @@ private val CourierRouteStateSaver = Saver<CourierRouteState, List<String>>(
             scanType = raw.getOrNull(3) ?: CourierProofTypes.PICKUP_SCAN,
             proofMode = raw.getOrNull(4) ?: CourierProofTypes.DELIVERY_POD_PHOTO,
             callTargetType = raw.getOrNull(5)?.takeIf { it.isNotBlank() } ?: "customer",
-            serviceType = raw.getOrNull(6) ?: ""
+            serviceType = raw.getOrNull(6) ?: "",
+            returnToServiceType = raw.getOrNull(7) ?: ""
         )
     }
 )
@@ -494,6 +496,10 @@ fun MainScreen(
         routeState = CourierRouteReducer.faceVerify(order.orderId)
     }
 
+    fun openServiceFaceVerify(orderId: String, serviceType: String) {
+        routeState = CourierRouteReducer.faceVerify(orderId, returnToServiceType = serviceType)
+    }
+
     fun openOrderDetail(order: Order) {
         selectedOrder = order
         routeState = CourierRouteReducer.detail(order.orderId)
@@ -697,11 +703,33 @@ fun MainScreen(
         FaceVerificationScreen(
             orderId = order.orderId,
             verificationType = "pickup",
+            workContext = routeState.returnToServiceType,
             onVerified = {
                 faceVerifiedOrderIds = faceVerifiedOrderIds + order.orderId
-                routeState = CourierRouteReducer.detail(order.orderId)
-                scope.launch {
-                    snackbarHostState.showSnackbar("Verifikasi wajah berhasil. Lanjutkan scan paket.")
+                val returnToServiceType = routeState.returnToServiceType
+                when (returnToServiceType) {
+                    "tambal_ban" -> {
+                        orderViewModel.updateOrderStatusAndSync(order.orderId, "inspecting")
+                        selectedOrder = selectedOrder?.copy(status = "inspecting")
+                        routeState = CourierRouteReducer.tambalBanFlow(order.orderId)
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Verifikasi wajah berhasil. Lanjutkan inspeksi ban.")
+                        }
+                    }
+                    "towing" -> {
+                        orderViewModel.updateOrderStatusAndSync(order.orderId, "inspecting")
+                        selectedOrder = selectedOrder?.copy(status = "inspecting")
+                        routeState = CourierRouteReducer.towingFlow(order.orderId)
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Verifikasi wajah berhasil. Lanjutkan inspeksi kendaraan.")
+                        }
+                    }
+                    else -> {
+                        routeState = CourierRouteReducer.detail(order.orderId)
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Verifikasi wajah berhasil. Lanjutkan scan paket.")
+                        }
+                    }
                 }
             },
             onBack = { backToOrderOrHome() }
@@ -907,6 +935,9 @@ fun MainScreen(
             orderId = orderId,
             onBackClick = { routeState = CourierRouteReducer.home() },
             onComplete = { routeState = CourierRouteReducer.home() },
+            onVerifyFace = { id, serviceType ->
+                openServiceFaceVerify(id, serviceType)
+            },
             onOpenCompletion = { id, serviceType ->
                 routeState = CourierRouteReducer.completion(id, serviceType)
             }
@@ -921,6 +952,9 @@ fun MainScreen(
             orderId = orderId,
             onBackClick = { routeState = CourierRouteReducer.home() },
             onComplete = { routeState = CourierRouteReducer.home() },
+            onVerifyFace = { id, serviceType ->
+                openServiceFaceVerify(id, serviceType)
+            },
             onOpenCompletion = { id, serviceType ->
                 routeState = CourierRouteReducer.completion(id, serviceType)
             }
@@ -935,12 +969,14 @@ fun MainScreen(
         CompletionScreen(
             serviceType = serviceType,
             onBackClick = { routeState = CourierRouteReducer.home() },
-            onComplete = { notes ->
+            onComplete = { notes, completionPhoto, signatureBitmap ->
                 scope.launch {
                     orderViewModel.submitServiceReport(
                         orderId = orderId,
                         serviceType = serviceType,
-                        notes = notes
+                        notes = notes,
+                        completionPhoto = completionPhoto,
+                        signatureBitmap = signatureBitmap
                     )
                 }
                 routeState = CourierRouteReducer.home()

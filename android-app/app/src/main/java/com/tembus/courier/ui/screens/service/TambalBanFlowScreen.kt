@@ -1,6 +1,7 @@
 package com.tembus.courier.ui.screens.service
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -72,11 +74,14 @@ fun TambalBanFlowScreen(
     orderId: String,
     onBackClick: () -> Unit,
     onComplete: () -> Unit,
+    onVerifyFace: (orderId: String, serviceType: String) -> Unit,
     onOpenCompletion: (orderId: String, serviceType: String) -> Unit,
     viewModel: TambalBanFlowViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedDamage by remember { mutableStateOf<String?>(null) }
+    var inspectionPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
+    var pendingCriticalAction by remember { mutableStateOf<TambalBanNextActionType?>(null) }
 
     // Auto-navigate when completed without needing extra tap
     LaunchedEffect(uiState.isCompleted) {
@@ -100,6 +105,17 @@ fun TambalBanFlowScreen(
         val context = LocalContext.current
         var distanceM by remember(orderId) { mutableStateOf<Int?>(null) }
         var overrideArrival by remember(orderId) { mutableStateOf(false) }
+        val runNextAction: (TambalBanNextActionType) -> Unit = { actionType ->
+            if (actionType == TambalBanNextActionType.CAPTURE_COMPLETION) {
+                onOpenCompletion(orderId, "tambal_ban")
+            } else if (actionType == TambalBanNextActionType.VERIFY_FACE) {
+                onVerifyFace(orderId, "tambal_ban")
+            } else if (actionType == TambalBanNextActionType.CAPTURE_INSPECTION) {
+                inspectionPhoto?.let { viewModel.captureInspection(it) }
+            } else {
+                viewModel.handleNextAction(actionType)
+            }
+        }
 
         // Loop monitor jarak: hitung ulang tiap 3 detik dari last known location.
         LaunchedEffect(orderId, uiState.pickupLatitude, uiState.pickupLongitude) {
@@ -112,6 +128,34 @@ fun TambalBanFlowScreen(
                 delay(3_000)
             }
         }
+
+    pendingCriticalAction?.let { actionType ->
+        AlertDialog(
+            onDismissRequest = { pendingCriticalAction = null },
+            title = { Text("Konfirmasi aksi") },
+            text = {
+                Text(
+                    tambalBanConfirmationMessage(actionType, uiState.nextActionLabel),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingCriticalAction = null
+                        runNextAction(actionType)
+                    }
+                ) {
+                    Text("Konfirmasi", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCriticalAction = null }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -129,8 +173,11 @@ fun TambalBanFlowScreen(
                         if (uiState.nextActionType != TambalBanNextActionType.NONE) {
                             // Soft-gate: tombol "Saya di lokasi" butuh jarak ≤100m, kecuali override
                             val isArriveAction = uiState.nextActionType == TambalBanNextActionType.ARRIVED_AT_LOCATION
+                            val isInspectionAction = uiState.nextActionType == TambalBanNextActionType.CAPTURE_INSPECTION
                             val withinRadius = distanceM != null && distanceM!! <= ARRIVAL_RADIUS_M
                             val gateBlocked = isArriveAction && !overrideArrival && !withinRadius
+                            val inspectionBlocked = isInspectionAction &&
+                                (inspectionPhoto == null || selectedDamage.isNullOrBlank())
                             Surface(shadowElevation = 8.dp) {
                                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                     if (uiState.error != null) {
@@ -170,17 +217,24 @@ fun TambalBanFlowScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(bottom = 8.dp)
                                         )
+                                    } else if (inspectionBlocked) {
+                                        Text(
+                                            "Pilih jenis kerusakan dan ambil foto kondisi awal ban sebelum mulai layanan.",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
                                     }
                                     Button(
                                         onClick = {
-                                            if (uiState.nextActionType == TambalBanNextActionType.CAPTURE_COMPLETION) {
-                                                onOpenCompletion(orderId, "tambal_ban")
+                                            if (requiresTambalBanConfirmation(uiState.nextActionType)) {
+                                                pendingCriticalAction = uiState.nextActionType
                                             } else {
-                                                viewModel.handleNextAction(uiState.nextActionType)
+                                                runNextAction(uiState.nextActionType)
                                             }
                                         },
                                         modifier = Modifier.fillMaxWidth(),
-                                        enabled = !uiState.isLoading && !gateBlocked,
+                                        enabled = !uiState.isLoading && !gateBlocked && !inspectionBlocked,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.primary
                                         )
@@ -337,6 +391,17 @@ fun TambalBanFlowScreen(
                 }
             }
 
+            if (uiState.nextActionType == TambalBanNextActionType.CAPTURE_INSPECTION) {
+                Spacer(Modifier.height(16.dp))
+                InspectionPhotoCard(
+                    photo = inspectionPhoto,
+                    uploadedUrl = uiState.inspectionBeforePhotoUrl,
+                    title = "Foto kondisi awal ban",
+                    description = "Ambil foto ban sebelum pekerjaan dimulai sebagai bukti inspeksi.",
+                    onPhotoCaptured = { inspectionPhoto = it }
+                )
+            }
+
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -429,6 +494,27 @@ private fun CustomerInfoCard(
                     }
                 }
             }
+
+            private fun requiresTambalBanConfirmation(actionType: TambalBanNextActionType): Boolean =
+                actionType in setOf(
+                    TambalBanNextActionType.ARRIVED_AT_LOCATION,
+                    TambalBanNextActionType.CAPTURE_INSPECTION,
+                    TambalBanNextActionType.START_SERVICE,
+                    TambalBanNextActionType.COMPLETE_SERVICE
+                )
+
+            private fun tambalBanConfirmationMessage(actionType: TambalBanNextActionType, label: String): String =
+                when (actionType) {
+                    TambalBanNextActionType.ARRIVED_AT_LOCATION ->
+                        "Pastikan kamu benar-benar sudah berada di lokasi customer sebelum mengonfirmasi kedatangan."
+                    TambalBanNextActionType.CAPTURE_INSPECTION ->
+                        "Pastikan jenis kerusakan dan foto kondisi awal ban sudah benar. Data ini akan menjadi bukti awal layanan."
+                    TambalBanNextActionType.START_SERVICE ->
+                        "Mulai layanan hanya setelah customer siap dan kondisi awal sudah diverifikasi."
+                    TambalBanNextActionType.COMPLETE_SERVICE ->
+                        "Selesaikan layanan hanya setelah pekerjaan selesai dan customer sudah menerima hasilnya."
+                    else -> "Lanjutkan aksi \"$label\"?"
+                }
 
             /** Radius soft-gate arrival (standar industri: 100m sebelum tombol aktif). */
             private const val ARRIVAL_RADIUS_M = 100

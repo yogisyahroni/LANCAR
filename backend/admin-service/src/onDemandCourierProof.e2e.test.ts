@@ -1,4 +1,5 @@
 import fs from 'fs';
+import axios from 'axios';
 import { scanMobileCourierOrder, uploadMobileCourierPod } from './controllers/courierAuth.controller';
 import { getOrderTracking } from './controllers/customerOrder.controller';
 import { db } from './db';
@@ -33,6 +34,10 @@ socketChain = { to, emit };
 
 jest.mock('./websocket', () => ({
   getIO: jest.fn(() => ({ to })),
+}));
+
+jest.mock('axios', () => ({
+  post: jest.fn().mockResolvedValue({ status: 200, data: { success: true } }),
 }));
 
 const makeResponse = () => {
@@ -220,6 +225,8 @@ describe('on-demand courier proof to ledger lifecycle', () => {
       .mockResolvedValueOnce({ rows: [] }) // proof attempt
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
+    process.env.INTERNAL_API_KEY = 'test-internal-api-key';
+
     const podRes = makeResponse();
     await uploadMobileCourierPod({
       user: { id: 'courier-1', role: 'courier' },
@@ -262,6 +269,14 @@ describe('on-demand courier proof to ledger lifecycle', () => {
       }),
     }));
     expect(getIO).toHaveBeenCalled();
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/internal/orders/food-settlement'),
+      { order_id: 'order-1' },
+      expect.objectContaining({
+        timeout: 8000,
+        headers: { 'X-Internal-Api-Key': 'test-internal-api-key' },
+      })
+    );
 
     (db.query as jest.Mock)
       .mockResolvedValueOnce({
@@ -321,6 +336,70 @@ describe('on-demand courier proof to ledger lifecycle', () => {
         eta_minutes: expect.any(Number),
       }),
     }));
+  });
+
+  it('reuses existing courier earning ledger on duplicate POD retry', async () => {
+    const podClient = makeClient();
+    (db.connect as jest.Mock).mockResolvedValueOnce(podClient);
+
+    podClient.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 'order-1',
+          customer_id: 'customer-1',
+          order_number: 'LCR-OD-1',
+          status: 'in_transit',
+          model: 'p2p',
+          service_code: 'tambal_ban_motor',
+          leg_id: 'leg-1',
+          leg_status: 'in_transit',
+          distance_m: 6,
+          face_verification_required: true,
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: 'face-delivery' }] })
+      .mockResolvedValueOnce({ rows: [{ total_packages: 0 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'scan-pod-retry', recorded_at: '2026-05-18T04:22:00.000Z' }] })
+      .mockResolvedValueOnce({ rows: [{ complete: true }] })
+      .mockResolvedValueOnce({ rows: [] }) // update orders
+      .mockResolvedValueOnce({ rows: [] }) // update legs
+      .mockResolvedValueOnce({ rows: [] }) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // insert ledger skipped by NOT EXISTS
+      .mockResolvedValueOnce({ rows: [{ id: 'ledger-existing', amount_idr: 24000 }] }) // existing ledger replay
+      .mockResolvedValueOnce({ rows: [] }) // pod event
+      .mockResolvedValueOnce({ rows: [] }) // proof attempt
+      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+    const podRes = makeResponse();
+    await uploadMobileCourierPod({
+      user: { id: 'courier-1', role: 'courier' },
+      body: {
+        order_id: 'order-1',
+        proof_type: 'delivery',
+        latitude: -6.218285,
+        longitude: 106.802433,
+        accuracy: 9,
+        face_verification_id: 'face-delivery',
+      },
+      file: makeValidatedImageFile('pod-retry.jpg'),
+    } as any, podRes);
+
+    expect(podRes.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      data: expect.objectContaining({
+        earning_ledger_id: 'ledger-existing',
+        earning_amount_idr: 24000,
+      }),
+    }));
+    const ledgerInsertCalls = podClient.query.mock.calls.filter(([sql]) =>
+      String(sql).includes('INSERT INTO courier_earnings_ledger')
+    );
+    expect(ledgerInsertCalls).toHaveLength(1);
+    expect(String(ledgerInsertCalls[0][0])).toContain('NOT EXISTS');
+    expect(podClient.query.mock.calls.some(([sql]) =>
+      String(sql).includes('FROM courier_earnings_ledger') && String(sql).includes('ORDER BY created_at DESC')
+    )).toBe(true);
   });
 
   it('rejects pickup barcode that does not match handover token (FOOD-BIKE-032)', async () => {

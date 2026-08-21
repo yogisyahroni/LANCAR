@@ -371,6 +371,121 @@ const publicCustomerPaymentSession = (row: any) => {
   };
 };
 
+const customerOrderStatusLabel = (status: any, serviceSubType?: any) => {
+  const normalized = String(status || '').toLowerCase();
+  const service = String(serviceSubType || '').toLowerCase();
+  const isFood = service === 'food_delivery';
+  const labels: Record<string, string> = {
+    pending_payment: 'Menunggu pembayaran',
+    pending_merchant: 'Menunggu merchant menerima pesanan',
+    preparing: 'Merchant sedang menyiapkan pesanan',
+    searching: isFood ? 'Mencari kurir sepeda terdekat' : 'Mencari kurir terdekat',
+    offered: 'Menawarkan order ke kurir',
+    accepted: 'Kurir menerima order',
+    assigned: 'Kurir menerima order',
+    picking_up: isFood ? 'Kurir menuju merchant' : 'Kurir menuju titik pickup',
+    arrived_pickup: isFood ? 'Kurir tiba di merchant' : 'Kurir tiba di pickup',
+    picked_up: isFood ? 'Pesanan sudah diambil dari merchant' : 'Barang sudah dipickup',
+    in_transit: 'Dalam perjalanan ke tujuan',
+    delivering: 'Dalam perjalanan ke tujuan',
+    service_started: 'Layanan sedang dikerjakan',
+    completed: 'Order selesai',
+    delivered: 'Order selesai',
+    cancelled: 'Order dibatalkan',
+    failed: 'Order gagal',
+    payment_failed: 'Pembayaran gagal',
+    scheduled: 'Pesanan terjadwal',
+  };
+  return labels[normalized] || 'Menunggu update pengiriman';
+};
+
+const publicCustomerInvoice = (row: any) => ({
+  amount_idr: Number(row.payment_amount_idr || row.total_price_idr || 0),
+  currency: 'IDR',
+  payment_status: row.payment_status || (Number(row.total_price_idr || 0) > 0 ? 'pending' : 'bypassed'),
+  payment_method: customerPaymentMethodLabel(row.payment_provider, row.payment_method),
+  provider: row.payment_provider || null,
+  paid_at: row.paid_at || null,
+  payment_reference: row.provider_reference || null,
+});
+
+type CustomerPaymentLifecycleNotification = {
+  orderId: string;
+  orderNumber: string;
+  customerId: string;
+  merchantId?: string | null;
+  paymentStatus: 'paid' | 'failed' | 'expired';
+  orderStatus: string;
+  source: 'manual_confirm' | 'payment_reconciled' | 'midtrans_webhook';
+  serviceSubType?: string | null;
+  provider?: string | null;
+  method?: string | null;
+  amountIdr?: number;
+};
+
+const notifyCustomerPaymentLifecycle = async ({
+  orderId,
+  orderNumber,
+  customerId,
+  merchantId,
+  paymentStatus,
+  orderStatus,
+  source,
+  serviceSubType,
+  provider,
+  method,
+  amountIdr,
+}: CustomerPaymentLifecycleNotification) => {
+  const paid = paymentStatus === 'paid';
+  const event = paid
+    ? ON_DEMAND_REALTIME_EVENTS.PAYMENT_CONFIRMED
+    : ON_DEMAND_REALTIME_EVENTS.PAYMENT_FAILED;
+  const type = paid ? 'payment' : 'payment_failed';
+  const title = paid
+    ? `Pembayaran diterima - ${orderNumber}`
+    : `Pembayaran ${paymentStatus === 'expired' ? 'kedaluwarsa' : 'gagal'} - ${orderNumber}`;
+  const body = paid
+    ? serviceSubType === 'food_delivery'
+      ? 'Pembayaran diterima. Pesanan diteruskan ke merchant.'
+      : 'Pembayaran diterima. Order sedang masuk antrean dispatch.'
+    : paymentStatus === 'expired'
+      ? 'Batas waktu pembayaran sudah habis. Silakan buat pembayaran baru.'
+      : 'Pembayaran belum berhasil. Silakan coba lagi atau gunakan metode lain.';
+  const metadata = {
+    source,
+    service_sub_type: serviceSubType || null,
+    payment_status: paymentStatus,
+    provider: provider || null,
+    method: method || null,
+    amount_idr: amountIdr ?? null,
+  };
+
+  try {
+    emitOnDemandRealtime(event, {
+      order_id: orderId,
+      order_number: orderNumber,
+      customer_id: customerId,
+      merchant_id: merchantId || null,
+      admin_broadcast: true,
+      status: orderStatus,
+      stage: event,
+      metadata,
+    });
+    await createNotification({
+      user_id: customerId,
+      title,
+      body,
+      type,
+      order_id: orderId,
+      deep_link: `/orders/${orderId}`,
+      metadata,
+      priority: paid ? 'normal' : 'high',
+    });
+  } catch (notificationError) {
+    console.warn('Failed to publish customer payment lifecycle notification:', notificationError);
+  }
+};
+
 const getCustomerOrderPaymentRow = async (customerId: string, orderId: string) => {
   const { rows } = await db.query(
     `SELECT o.id,
@@ -1731,6 +1846,7 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
               o.recipient_name,
               o.recipient_phone_masked,
               o.merchant_id,
+              o.service_sub_type,
               o.model,
               p.id AS payment_id,
               p.provider,
@@ -1791,7 +1907,20 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
       await client.query('COMMIT');
       return {
         payment: publicCustomerPaymentSession({ ...order, provider: order.provider || 'lapay', method: order.method || 'lapay' }),
-        createdOffers
+        createdOffers,
+        lifecycle: {
+          orderId,
+          orderNumber: order.order_number,
+          customerId,
+          merchantId: order.merchant_id,
+          paymentStatus: 'paid' as const,
+          orderStatus: order.order_status,
+          source: 'payment_reconciled' as const,
+          serviceSubType: order.service_sub_type,
+          provider: order.provider || 'lapay',
+          method: order.method || 'lapay',
+          amountIdr,
+        },
       };
     }
 
@@ -1972,7 +2101,23 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
       wallet_balance: runningBalance
     });
 
-    return { payment, createdOffers };
+    return {
+      payment,
+      createdOffers,
+      lifecycle: {
+        orderId,
+        orderNumber: order.order_number,
+        customerId,
+        merchantId: order.merchant_id,
+        paymentStatus: 'paid' as const,
+        orderStatus: isFoodOrder ? 'pending_merchant' : 'pending',
+        source: 'payment_reconciled' as const,
+        serviceSubType: order.service_sub_type,
+        provider: 'lapay',
+        method: 'lapay',
+        amountIdr,
+      },
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -1993,8 +2138,9 @@ export const createCustomerOrderPaymentSession = async (req: Request, res: Respo
     }
 
     if (requestedMethod === 'lapay') {
-      const { payment, createdOffers } = await completeCustomerLapayPayment(customerId, orderId);
+      const { payment, createdOffers, lifecycle } = await completeCustomerLapayPayment(customerId, orderId);
       await notifyOnDemandOffers(createdOffers);
+      await notifyCustomerPaymentLifecycle(lifecycle);
       res.json({ success: true, payment, ...payment });
       return;
     }
@@ -2143,7 +2289,9 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
               p.redirect_url,
               p.client_key,
               p.snap_js_url,
-              p.status AS payment_status
+              p.status AS payment_status,
+              o.merchant_id,
+              o.service_sub_type
        FROM orders o
        LEFT JOIN payments p ON p.order_id = o.id
        WHERE o.id = $1 AND o.customer_id = $2
@@ -2167,10 +2315,12 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
     const manualConfirmEnabled = process.env.ALLOW_CUSTOMER_MANUAL_PAYMENT_CONFIRM === 'true';
     const paymentAlreadyPaid = order.payment_status === 'paid';
 
+    const isFoodOrder = order.merchant_id != null || order.service_sub_type === 'food_delivery';
+
     if (order.status === 'pending_payment' && (paymentAlreadyPaid || manualConfirmEnabled)) {
       await client.query(
-        `UPDATE orders SET status = 'pending', updated_at = NOW() WHERE id = $1`,
-        [id]
+        `UPDATE orders SET status = $2, updated_at = NOW() WHERE id = $1`,
+        [id, isFoodOrder ? 'pending_merchant' : 'pending']
       );
       if (manualConfirmEnabled && !paymentAlreadyPaid) {
         await client.query(
@@ -2205,7 +2355,9 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
           manual_confirmed: manualConfirmEnabled && !paymentAlreadyPaid,
         },
       });
-      createdOffers = await advanceOnDemandDispatchQueue(client, 1);
+      if (!isFoodOrder) {
+        createdOffers = await advanceOnDemandDispatchQueue(client, 1);
+      }
     }
 
     if (order.status === 'pending_payment' && !paymentAlreadyPaid && !manualConfirmEnabled) {
@@ -2224,25 +2376,26 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
     await client.query('COMMIT');
     await notifyOnDemandOffers(createdOffers);
 
-    if (createdOffers.length > 0 || paymentAlreadyPaid || manualConfirmEnabled) {
-      try {
-        await createNotification({
-          user_id: customer_id,
-          title: `Pembayaran diterima - ${order.order_number}`,
-          body: 'Order Anda sedang masuk antrean dispatch.',
-          type: 'payment',
-          order_id: id,
-          deep_link: `/orders/${id}`
-        });
-      } catch (notificationError) {
-        console.warn('Failed to create payment notification:', notificationError);
-      }
+    if (paymentAlreadyPaid || manualConfirmEnabled) {
+      await notifyCustomerPaymentLifecycle({
+        orderId: id,
+        orderNumber: order.order_number,
+        customerId: customer_id,
+        paymentStatus: 'paid',
+        orderStatus: isFoodOrder ? 'pending_merchant' : 'pending',
+        source: manualConfirmEnabled && !paymentAlreadyPaid ? 'manual_confirm' : 'payment_reconciled',
+        serviceSubType: order.service_sub_type,
+        merchantId: order.merchant_id,
+        provider: order.provider || 'midtrans',
+        method: order.method || 'qris',
+        amountIdr: Number(order.amount_idr || order.total_price_idr || 0),
+      });
     }
 
     const payment = publicCustomerPaymentSession({
       ...order,
       payment_status: paymentAlreadyPaid || manualConfirmEnabled ? 'paid' : order.payment_status,
-      order_status: paymentAlreadyPaid || manualConfirmEnabled ? 'pending' : order.order_status
+      order_status: paymentAlreadyPaid || manualConfirmEnabled ? (isFoodOrder ? 'pending_merchant' : 'pending') : order.order_status
     });
 
     res.json({
@@ -2274,6 +2427,7 @@ const toMobileCustomerOrderDto = (row: any) => {
     fee: row.total_price_idr !== null && row.total_price_idr !== undefined ? String(row.total_price_idr) : '',
     customer_name: row.recipient_name || row.customer_name || '',
     status: row.status || 'pending',
+    status_label: customerOrderStatusLabel(row.status, row.service_sub_type || row.serviceSubType),
     created_at: Number.isFinite(createdAtMs) ? createdAtMs : Date.now(),
     updated_at: Number.isFinite(updatedAtMs) ? updatedAtMs : Date.now(),
     customer_phone: null,
@@ -2291,9 +2445,13 @@ const toMobileCustomerOrderDto = (row: any) => {
     route_provider: row.route_provider || row.route_snapshot?.provider || null,
     route_profile: row.route_profile || row.route_snapshot?.route_profile || null,
     route_polyline: row.route_polyline || row.route_snapshot?.route_polyline || null,
+    route_distance_meters: Number(row.route_distance_meters || row.route_snapshot?.distance_meters || 0),
+    route_duration_seconds: Number(row.route_duration_seconds || row.route_snapshot?.duration_seconds || 0),
+    eta_minutes: Number(row.eta_minutes || row.route_snapshot?.eta_minutes || 0),
     service_sub_type: row.service_sub_type || row.serviceSubType || '',
     merchant_name: row.merchant_name || row.merchantName || '',
     order_notes: row.order_notes || row.orderNotes || '',
+    invoice: publicCustomerInvoice(row),
     food_items: row.food_items || [],
   };
 };
@@ -2603,10 +2761,19 @@ export const getMobileCustomerOrders = async (req: Request, res: Response): Prom
              o.route_provider,
              o.route_profile,
              o.route_polyline,
+             COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
+             COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
+             COALESCE(NULLIF(o.route_snapshot->>'eta_minutes', '')::int, 0)::int AS eta_minutes,
              o.total_price_idr,
              o.scheduled_at,
              o.created_at,
              o.updated_at,
+             p.status AS payment_status,
+             p.provider AS payment_provider,
+             p.method AS payment_method,
+             p.amount_idr AS payment_amount_idr,
+             p.paid_at,
+             p.provider_reference,
              COALESCE(o.service_sub_type, '') AS service_sub_type,
              COALESCE(o.order_notes, '') AS order_notes,
              COALESCE(m.nama_toko, '') AS merchant_name,
@@ -2619,6 +2786,13 @@ export const getMobileCustomerOrders = async (req: Request, res: Response): Prom
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
       LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+      LEFT JOIN LATERAL (
+        SELECT status, provider, method, amount_idr, paid_at, provider_reference
+        FROM payments
+        WHERE order_id = o.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) p ON TRUE
       WHERE o.customer_id = $1
       ${statusFilter}
       ORDER BY o.created_at DESC
@@ -2793,10 +2967,19 @@ export const getMobileCustomerOrder = async (req: Request, res: Response): Promi
              o.route_provider,
              o.route_profile,
              o.route_polyline,
+             COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
+             COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
+             COALESCE(NULLIF(o.route_snapshot->>'eta_minutes', '')::int, 0)::int AS eta_minutes,
              o.total_price_idr,
              o.scheduled_at,
              o.created_at,
              o.updated_at,
+             p.status AS payment_status,
+             p.provider AS payment_provider,
+             p.method AS payment_method,
+             p.amount_idr AS payment_amount_idr,
+             p.paid_at,
+             p.provider_reference,
              COALESCE(o.service_sub_type, '') AS service_sub_type,
              COALESCE(o.order_notes, '') AS order_notes,
              COALESCE(m.nama_toko, '') AS merchant_name,
@@ -2809,6 +2992,13 @@ export const getMobileCustomerOrder = async (req: Request, res: Response): Promi
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
       LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+      LEFT JOIN LATERAL (
+        SELECT status, provider, method, amount_idr, paid_at, provider_reference
+        FROM payments
+        WHERE order_id = o.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) p ON TRUE
       WHERE o.customer_id = $1 AND o.id = $2
       LIMIT 1
     `, [customer_id, id]);
@@ -2834,11 +3024,6 @@ export const getMobileCustomerOrder = async (req: Request, res: Response): Promi
       ORDER BY foi.id ASC
     `, [id]);
 
-    const order = {
-      ...rows[0],
-      food_items: foodItems,
-    };
-
     if (rows.length === 0) {
       res.status(404).json({
         success: false,
@@ -2848,6 +3033,11 @@ export const getMobileCustomerOrder = async (req: Request, res: Response): Promi
       });
       return;
     }
+
+    const order = {
+      ...rows[0],
+      food_items: foodItems,
+    };
 
     res.json({
       success: true,
@@ -2966,6 +3156,23 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
       ORDER BY foi.id ASC
     `, [id]);
 
+    const { rows: tambalBanReports } = await db.query(`
+      SELECT *
+      FROM tambal_ban_reports
+      WHERE order_id = $1
+      LIMIT 1
+    `, [id]);
+
+    const { rows: towingReports } = await db.query(`
+      SELECT *
+      FROM towing_reports
+      WHERE order_id = $1
+      LIMIT 1
+    `, [id]);
+
+    order.tambal_ban_report = tambalBanReports[0] || null;
+    order.towing_report = towingReports[0] || null;
+
     res.json({ success: true, order, events, proofs, food_items: foodItems });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -2985,7 +3192,16 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
       SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name,
              o.recipient_phone_masked, o.model, o.status, o.distance_km, o.total_price_idr,
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
+             COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
+             COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
+             COALESCE(NULLIF(o.route_snapshot->>'eta_minutes', '')::int, 0)::int AS eta_minutes,
              o.package_details, o.customer_notes, o.created_at, o.updated_at,
+             p.status AS payment_status,
+             p.provider AS payment_provider,
+             p.method AS payment_method,
+             p.amount_idr AS payment_amount_idr,
+             p.paid_at,
+             p.provider_reference,
              COALESCE(o.order_notes, '') AS order_notes,
              COALESCE(o.service_sub_type, '') AS service_sub_type,
              COALESCE(m.nama_toko, '') AS merchant_name,
@@ -2997,6 +3213,13 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
       LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+      LEFT JOIN LATERAL (
+        SELECT status, provider, method, amount_idr, paid_at, provider_reference
+        FROM payments
+        WHERE order_id = o.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) p ON TRUE
       WHERE o.customer_id = $1 AND o.id = $2
     `;
     const { rows } = await db.query(orderQuery, [customer_id, id]);
@@ -3093,6 +3316,20 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
       ORDER BY foi.id ASC
     `, [id]);
 
+    const { rows: tambalBanReports } = await db.query(`
+      SELECT *
+      FROM tambal_ban_reports
+      WHERE order_id = $1
+      LIMIT 1
+    `, [id]);
+
+    const { rows: towingReports } = await db.query(`
+      SELECT *
+      FROM towing_reports
+      WHERE order_id = $1
+      LIMIT 1
+    `, [id]);
+
     const tracking = await buildOnDemandTrackingSnapshot(db, {
       orderId: String(id),
       userId: String(customer_id),
@@ -3101,7 +3338,11 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
 
     const order = {
       ...rows[0],
+      status_label: customerOrderStatusLabel(rows[0].status, rows[0].service_sub_type),
+      invoice: publicCustomerInvoice(rows[0]),
       food_items: foodItems,
+      tambal_ban_report: tambalBanReports[0] || null,
+      towing_report: towingReports[0] || null,
     };
 
     res.json({
@@ -4529,7 +4770,15 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
     auditEventId = auditInsert.id;
 
     const { rows } = await client.query(
-      `SELECT p.order_id, o.customer_id, o.order_number
+      `SELECT p.order_id,
+              p.provider,
+              p.method,
+              p.amount_idr,
+              o.total_price_idr,
+              o.customer_id,
+              o.order_number,
+              o.merchant_id,
+              o.service_sub_type
        FROM payments p
        JOIN orders o ON o.id = p.order_id
        WHERE p.provider_reference = $1
@@ -4545,9 +4794,15 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
     }
 
     const orderIds = rows.map((row) => row.order_id);
+    const dispatchableOrderIds = rows
+      .filter((row) => row.merchant_id == null && row.service_sub_type !== 'food_delivery')
+      .map((row) => row.order_id);
     const customerId = rows[0].customer_id;
+    const paidWebhook = isSuccessfulTransaction(transaction_status, fraud_status);
+    const failedWebhook = isExpiredOrFailedTransaction(transaction_status);
+    const failedPaymentStatus = transaction_status === 'expire' ? 'expired' : 'failed';
 
-    if (isSuccessfulTransaction(transaction_status, fraud_status)) {
+    if (paidWebhook) {
       await client.query(
         `UPDATE payments
          SET status = 'paid', paid_at = COALESCE(paid_at, NOW()), webhook_payload = $2, updated_at = NOW()
@@ -4555,7 +4810,13 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
         [order_id, payload]
       );
       await client.query(
-        `UPDATE orders SET status = 'pending', updated_at = NOW() WHERE id = ANY($1::uuid[]) AND status = 'pending_payment'`,
+        `UPDATE orders
+         SET status = CASE
+               WHEN merchant_id IS NOT NULL OR service_sub_type = 'food_delivery' THEN 'pending_merchant'
+               ELSE 'pending'
+             END,
+             updated_at = NOW()
+         WHERE id = ANY($1::uuid[]) AND status = 'pending_payment'`,
         [orderIds]
       );
       for (const orderId of orderIds) {
@@ -4566,13 +4827,15 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
           [orderId, customerId]
         );
       }
-      createdOffers = await advanceOnDemandDispatchQueue(client, Math.max(orderIds.length, 1));
-    } else if (isExpiredOrFailedTransaction(transaction_status)) {
+      if (dispatchableOrderIds.length > 0) {
+        createdOffers = await advanceOnDemandDispatchQueue(client, Math.max(dispatchableOrderIds.length, 1));
+      }
+    } else if (failedWebhook) {
       await client.query(
         `UPDATE payments
          SET status = $2, webhook_payload = $3, updated_at = NOW()
          WHERE provider_reference = $1`,
-        [order_id, transaction_status === 'expire' ? 'expired' : 'failed', payload]
+        [order_id, failedPaymentStatus, payload]
       );
       await client.query(
         `UPDATE orders SET status = 'payment_failed', updated_at = NOW() WHERE id = ANY($1::uuid[]) AND status = 'pending_payment'`,
@@ -4589,13 +4852,30 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
     await updateWebhookAuditEvent(client, auditEventId, 'processed');
     await client.query('COMMIT');
     await notifyOnDemandOffers(createdOffers);
+    if (paidWebhook || failedWebhook) {
+      await Promise.all(rows.map((row) => notifyCustomerPaymentLifecycle({
+        orderId: row.order_id,
+        orderNumber: row.order_number,
+        customerId: row.customer_id,
+        paymentStatus: paidWebhook ? 'paid' : failedPaymentStatus,
+        orderStatus: paidWebhook
+          ? (row.merchant_id != null || row.service_sub_type === 'food_delivery' ? 'pending_merchant' : 'pending')
+          : 'payment_failed',
+        source: 'midtrans_webhook',
+        serviceSubType: row.service_sub_type,
+        merchantId: row.merchant_id,
+        provider: row.provider || 'midtrans',
+        method: row.method || 'qris',
+        amountIdr: Number(row.amount_idr || row.total_price_idr || gross_amount || 0),
+      })));
+    }
 
     // 🚀 ENTERPRISE ORCHESTRATION: Trigger Courier Matching
-    if (isSuccessfulTransaction(transaction_status, fraud_status)) {
+    if (paidWebhook) {
       const orderServiceClientUrl = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
       console.log(`[Orchestration] Triggering courier matching for ${orderIds.length} orders...`);
       
-      for (const orderId of orderIds) {
+      for (const orderId of dispatchableOrderIds) {
         // Use global fetch (Node 18+)
         fetch(`${orderServiceClientUrl}/api/v1/internal/orders/matching?id=${orderId}`, { 
           method: 'POST' 

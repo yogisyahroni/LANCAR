@@ -1425,6 +1425,169 @@ export const getCostBreakdown = async (req: Request, res: Response) => {
   }
 };
 
+export const getServiceSettlementSummary = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const daysRaw = Number.parseInt(String(req.query.days || '30'), 10);
+    const days = Number.isFinite(daysRaw) ? Math.min(Math.max(daysRaw, 1), 180) : 30;
+
+    const serviceRows = await readDb.query(`
+      WITH base_orders AS (
+        SELECT
+          o.id,
+          CASE
+            WHEN o.service_sub_type = 'food_delivery' THEN 'food_delivery'
+            WHEN o.service_sub_type IN ('tambal_ban_motor', 'tambal_ban_mobil') THEN 'tambal_ban'
+            WHEN o.service_sub_type IN ('towing_motor', 'towing_mobil') THEN 'towing'
+            WHEN COALESCE(o.service_category, '') <> '' THEN o.service_category
+            ELSE o.model
+          END AS service_bucket,
+          COALESCE(o.total_price_idr, 0)::bigint AS gross_idr,
+          COALESCE(o.platform_fee_idr, 0)::bigint AS platform_fee_idr,
+          COALESCE(o.courier_payout_estimate_idr, 0)::bigint AS courier_earning_idr,
+          COALESCE(o.delivered_at, o.updated_at, o.created_at) AS financial_at
+        FROM orders o
+        WHERE o.status IN ('delivered', 'completed')
+          AND COALESCE(o.delivered_at, o.updated_at, o.created_at) >= NOW() - ($1::int * INTERVAL '1 day')
+      ),
+      merchant_summary AS (
+        SELECT
+          order_id,
+          COALESCE(SUM(gross_item_price_idr), 0)::bigint AS merchant_gross_idr,
+          COALESCE(SUM(merchant_fee_idr), 0)::bigint AS merchant_fee_idr,
+          COALESCE(SUM(net_payout_idr), 0)::bigint AS merchant_settlement_idr,
+          COUNT(*)::int AS settlement_count,
+          COUNT(*) FILTER (WHERE status IN ('HOLDING', 'PROCESSING', 'DISPUTED', 'FAILED'))::int AS open_settlement_count
+        FROM merchant_settlements
+        GROUP BY order_id
+      ),
+      refund_summary AS (
+        SELECT
+          order_id,
+          COALESCE(SUM(amount_idr), 0)::bigint AS refund_idr,
+          COUNT(*)::int AS refund_count
+        FROM refunds
+        WHERE status IN ('pending', 'processing', 'completed', 'failed')
+          AND created_at >= NOW() - ($1::int * INTERVAL '1 day')
+        GROUP BY order_id
+      ),
+      cancel_fee_summary AS (
+        SELECT
+          order_id,
+          COALESCE(SUM(amount_idr), 0)::bigint AS cancel_fee_idr,
+          COUNT(*)::int AS cancel_fee_count
+        FROM merchant_cancellation_fees
+        WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+        GROUP BY order_id
+      ),
+      service_rollup AS (
+        SELECT
+          bo.service_bucket,
+          COUNT(*)::int AS delivered_orders,
+          COALESCE(SUM(bo.gross_idr), 0)::bigint AS gross_idr,
+          COALESCE(SUM(bo.platform_fee_idr + COALESCE(ms.merchant_fee_idr, 0)), 0)::bigint AS platform_fee_idr,
+          COALESCE(SUM(bo.courier_earning_idr), 0)::bigint AS courier_earning_idr,
+          COALESCE(SUM(COALESCE(ms.merchant_settlement_idr, 0)), 0)::bigint AS merchant_settlement_idr,
+          COALESCE(SUM(COALESCE(rs.refund_idr, 0)), 0)::bigint AS refund_idr,
+          COALESCE(SUM(COALESCE(cfs.cancel_fee_idr, 0)), 0)::bigint AS cancel_fee_idr,
+          COALESCE(SUM(COALESCE(ms.open_settlement_count, 0)), 0)::int AS open_settlement_count,
+          COALESCE(SUM(COALESCE(rs.refund_count, 0)), 0)::int AS refund_count,
+          COALESCE(SUM(COALESCE(cfs.cancel_fee_count, 0)), 0)::int AS cancel_fee_count
+        FROM base_orders bo
+        LEFT JOIN merchant_summary ms ON ms.order_id = bo.id
+        LEFT JOIN refund_summary rs ON rs.order_id = bo.id
+        LEFT JOIN cancel_fee_summary cfs ON cfs.order_id = bo.id
+        GROUP BY bo.service_bucket
+      )
+      SELECT
+        service_bucket,
+        delivered_orders,
+        gross_idr,
+        platform_fee_idr,
+        courier_earning_idr,
+        merchant_settlement_idr,
+        refund_idr,
+        cancel_fee_idr,
+        open_settlement_count,
+        refund_count,
+        cancel_fee_count,
+        (gross_idr - courier_earning_idr - merchant_settlement_idr - refund_idr + cancel_fee_idr) AS net_after_settlement_idr
+      FROM service_rollup
+      ORDER BY gross_idr DESC, service_bucket ASC
+    `, [days]);
+
+    const adjustmentResult = await readDb.query(`
+      SELECT
+        COALESCE(SUM(GREATEST(e.debit_idr, e.credit_idr)), 0)::bigint AS adjustment_idr,
+        COUNT(DISTINCT j.id)::int AS adjustment_count
+      FROM ledger_journals j
+      JOIN ledger_entries e ON e.journal_id = j.id
+      WHERE (
+          LOWER(j.journal_type) LIKE '%adjust%'
+          OR LOWER(j.reference_type) LIKE '%adjust%'
+        )
+        AND j.created_at >= NOW() - ($1::int * INTERVAL '1 day')
+    `, [days]);
+
+    const summary = serviceRows.rows.reduce((acc: any, row: any) => {
+      acc.delivered_orders += Number(row.delivered_orders || 0);
+      acc.gross_idr += Number(row.gross_idr || 0);
+      acc.platform_fee_idr += Number(row.platform_fee_idr || 0);
+      acc.courier_earning_idr += Number(row.courier_earning_idr || 0);
+      acc.merchant_settlement_idr += Number(row.merchant_settlement_idr || 0);
+      acc.refund_idr += Number(row.refund_idr || 0);
+      acc.cancel_fee_idr += Number(row.cancel_fee_idr || 0);
+      acc.open_settlement_count += Number(row.open_settlement_count || 0);
+      return acc;
+    }, {
+      delivered_orders: 0,
+      gross_idr: 0,
+      platform_fee_idr: 0,
+      courier_earning_idr: 0,
+      merchant_settlement_idr: 0,
+      refund_idr: 0,
+      cancel_fee_idr: 0,
+      open_settlement_count: 0,
+    });
+
+    const adjustments = adjustmentResult.rows[0] || {};
+    summary.adjustment_idr = Number(adjustments.adjustment_idr || 0);
+    summary.adjustment_count = Number(adjustments.adjustment_count || 0);
+    summary.net_after_settlement_idr =
+      summary.gross_idr
+      - summary.courier_earning_idr
+      - summary.merchant_settlement_idr
+      - summary.refund_idr
+      + summary.cancel_fee_idr
+      - summary.adjustment_idr;
+
+    res.json({
+      success: true,
+      data: {
+        period_days: days,
+        summary,
+        services: serviceRows.rows.map((row: any) => ({
+          service_bucket: row.service_bucket,
+          delivered_orders: Number(row.delivered_orders || 0),
+          gross_idr: Number(row.gross_idr || 0),
+          platform_fee_idr: Number(row.platform_fee_idr || 0),
+          courier_earning_idr: Number(row.courier_earning_idr || 0),
+          merchant_settlement_idr: Number(row.merchant_settlement_idr || 0),
+          refund_idr: Number(row.refund_idr || 0),
+          cancel_fee_idr: Number(row.cancel_fee_idr || 0),
+          adjustment_idr: 0,
+          open_settlement_count: Number(row.open_settlement_count || 0),
+          refund_count: Number(row.refund_count || 0),
+          cancel_fee_count: Number(row.cancel_fee_count || 0),
+          net_after_settlement_idr: Number(row.net_after_settlement_idr || 0),
+        })),
+      },
+    });
+  } catch (error: any) {
+    securityLog.error('[getServiceSettlementSummary] error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 export const getEmergencyFund = async (req: Request, res: Response) => {
   try {
     const result = await readDb.query("SELECT value FROM system_configs WHERE key = 'emergency_fund'");

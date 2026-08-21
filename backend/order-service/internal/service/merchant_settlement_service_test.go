@@ -41,6 +41,7 @@ func (m *mockSettlementRepo) GetByIdempotencyKey(ctx context.Context, key string
 
 func (m *mockSettlementRepo) Create(ctx context.Context, s *domain.MerchantSettlement) error {
 	m.created = append(m.created, s)
+	m.existing = s
 	return nil
 }
 
@@ -195,6 +196,24 @@ func TestHandleFoodOrderDelivered_Sukses(t *testing.T) {
 	}
 	if s.HoldingReleaseAt == nil || s.PODConfirmedAt == nil {
 		t.Fatalf("holding/pod timestamps harus terisi")
+	}
+}
+
+func TestHandleFoodOrderDelivered_DuplicateRetryCreatesOneSettlement(t *testing.T) {
+	repo := &mockSettlementRepo{foodData: foodSettlementData()}
+	svc := newSettlementTestSvc(repo)
+
+	if err := svc.HandleFoodOrderDelivered(context.Background(), "order-food-1"); err != nil {
+		t.Fatalf("first delivery settlement failed: %v", err)
+	}
+	if err := svc.HandleFoodOrderDelivered(context.Background(), "order-food-1"); err != nil {
+		t.Fatalf("duplicate delivery settlement should be idempotent, got: %v", err)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected exactly 1 settlement after duplicate retry, got %d", len(repo.created))
+	}
+	if repo.created[0].IdempotencyKey != "settle-order-order-food-1" {
+		t.Fatalf("wrong idempotency key: %s", repo.created[0].IdempotencyKey)
 	}
 }
 

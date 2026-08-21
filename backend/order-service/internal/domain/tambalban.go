@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -25,6 +26,8 @@ const (
 	ServiceCategoryTowing    ServiceCategory = "towing"
 	ServiceCategoryOnDemand  ServiceCategory = "on_demand"
 )
+
+var ErrInvalidServiceReport = errors.New("invalid service report")
 
 // ============================================================
 // SETTLEMENT — Dual Model
@@ -54,18 +57,18 @@ type SettlementConfig struct {
 
 type SettlementResult struct {
 	// Gross breakdown
-	GrossTotal     int64 `json:"gross_total"`
-	MDRAmount      int64 `json:"mdr_amount"`
-	TaxAmount      int64 `json:"tax_amount"`
-	InsuranceFee   int64 `json:"insurance_fee"`
+	GrossTotal      int64 `json:"gross_total"`
+	MDRAmount       int64 `json:"mdr_amount"`
+	TaxAmount       int64 `json:"tax_amount"`
+	InsuranceFee    int64 `json:"insurance_fee"`
 	OperationalPool int64 `json:"operational_pool"`
 
 	// Commission calculation
-	CommissionBasis         string  `json:"commission_basis"`
-	PerKMRevenue            int64   `json:"per_km_revenue"`
-	BaseFareRevenue         int64   `json:"base_fare_revenue"`
-	PlatformCommissionPct   float64 `json:"platform_commission_pct"`
-	PlatformCommissionAmt   int64   `json:"platform_commission_amount"`
+	CommissionBasis       string  `json:"commission_basis"`
+	PerKMRevenue          int64   `json:"per_km_revenue"`
+	BaseFareRevenue       int64   `json:"base_fare_revenue"`
+	PlatformCommissionPct float64 `json:"platform_commission_pct"`
+	PlatformCommissionAmt int64   `json:"platform_commission_amount"`
 
 	// Courier earnings breakdown
 	CourierServiceFee    int64 `json:"courier_service_fee"`
@@ -134,8 +137,8 @@ type NearbyCourier struct {
 	VehicleType         string  `json:"vehicle_type"`
 	VehicleTypeCar      *string `json:"vehicle_type_car,omitempty"`
 	ServiceSubType      string  `json:"service_sub_type"`
-	Status              string  `json:"status"`              // available, conditional
-	StatusText          string  `json:"status_text"`         // "Siap melayani", "Dalam perjalanan (~8 menit)"
+	Status              string  `json:"status"`      // available, conditional
+	StatusText          string  `json:"status_text"` // "Siap melayani", "Dalam perjalanan (~8 menit)"
 	RadiusMaxKM         int     `json:"radius_max_km" db:"radius_max_km"`
 }
 
@@ -156,39 +159,39 @@ type PriceRange struct {
 // ============================================================
 
 type TambalBanReport struct {
-	ID                    string     `json:"id" db:"id"`
-	OrderID               string     `json:"order_id" db:"order_id"`
-	CourierID             string     `json:"courier_id" db:"courier_id"`
-	TireConditionBefore   *string    `json:"tire_condition_before,omitempty" db:"tire_condition_before"`
-	TirePhotoBeforeURL    *string    `json:"tire_photo_before_url,omitempty" db:"tire_photo_before_url"`
-	ServiceDurationMins   *int       `json:"service_duration_minutes,omitempty" db:"service_duration_minutes"`
-	MaterialsUsed         *string    `json:"materials_used,omitempty" db:"materials_used"`
-	Notes                 *string    `json:"notes,omitempty" db:"notes"`
-	TireConditionAfter    *string    `json:"tire_condition_after,omitempty" db:"tire_condition_after"`
-	TirePhotoAfterURL     *string    `json:"tire_photo_after_url,omitempty" db:"tire_photo_after_url"`
-	CompletedAt           *time.Time `json:"completed_at,omitempty" db:"completed_at"`
-	CreatedAt             time.Time  `json:"created_at" db:"created_at"`
+	ID                  string     `json:"id" db:"id"`
+	OrderID             string     `json:"order_id" db:"order_id"`
+	CourierID           string     `json:"courier_id" db:"courier_id"`
+	TireConditionBefore *string    `json:"tire_condition_before,omitempty" db:"tire_condition_before"`
+	TirePhotoBeforeURL  *string    `json:"tire_photo_before_url,omitempty" db:"tire_photo_before_url"`
+	ServiceDurationMins *int       `json:"service_duration_minutes,omitempty" db:"service_duration_minutes"`
+	MaterialsUsed       *string    `json:"materials_used,omitempty" db:"materials_used"`
+	Notes               *string    `json:"notes,omitempty" db:"notes"`
+	TireConditionAfter  *string    `json:"tire_condition_after,omitempty" db:"tire_condition_after"`
+	TirePhotoAfterURL   *string    `json:"tire_photo_after_url,omitempty" db:"tire_photo_after_url"`
+	CompletedAt         *time.Time `json:"completed_at,omitempty" db:"completed_at"`
+	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
 }
 
 type TowingReport struct {
-	ID                    string     `json:"id" db:"id"`
-	OrderID               string     `json:"order_id" db:"order_id"`
-	CourierID             string     `json:"courier_id" db:"courier_id"`
-	VehicleConditionBefore *string   `json:"vehicle_condition_before,omitempty" db:"vehicle_condition_before"`
-	VehiclePhotoBeforeURL *string    `json:"vehicle_photo_before_url,omitempty" db:"vehicle_photo_before_url"`
-	OdometerReading       *int       `json:"odometer_reading,omitempty" db:"odometer_reading"`
-	LoadingPhotoURL       *string    `json:"loading_photo_url,omitempty" db:"loading_photo_url"`
-	LoadingStartedAt      *time.Time `json:"loading_started_at,omitempty" db:"loading_started_at"`
-	TransitStartedAt      *time.Time `json:"transit_started_at,omitempty" db:"transit_started_at"`
-	TransitEndedAt        *time.Time `json:"transit_ended_at,omitempty" db:"transit_ended_at"`
-	UnloadingPhotoURL     *string    `json:"unloading_photo_url,omitempty" db:"unloading_photo_url"`
-	UnloadingCompletedAt  *time.Time `json:"unloading_completed_at,omitempty" db:"unloading_completed_at"`
-	OdometerAfter         *int       `json:"odometer_after,omitempty" db:"odometer_after"`
-	CompletionPhotoURL    *string    `json:"completion_photo_url,omitempty" db:"completion_photo_url"`
-	SignatureURL          *string    `json:"signature_url,omitempty" db:"signature_url"`
-	CompletedAt           *time.Time `json:"completed_at,omitempty" db:"completed_at"`
-	Notes                 *string    `json:"notes,omitempty" db:"notes"`
-	CreatedAt             time.Time  `json:"created_at" db:"created_at"`
+	ID                     string     `json:"id" db:"id"`
+	OrderID                string     `json:"order_id" db:"order_id"`
+	CourierID              string     `json:"courier_id" db:"courier_id"`
+	VehicleConditionBefore *string    `json:"vehicle_condition_before,omitempty" db:"vehicle_condition_before"`
+	VehiclePhotoBeforeURL  *string    `json:"vehicle_photo_before_url,omitempty" db:"vehicle_photo_before_url"`
+	OdometerReading        *int       `json:"odometer_reading,omitempty" db:"odometer_reading"`
+	LoadingPhotoURL        *string    `json:"loading_photo_url,omitempty" db:"loading_photo_url"`
+	LoadingStartedAt       *time.Time `json:"loading_started_at,omitempty" db:"loading_started_at"`
+	TransitStartedAt       *time.Time `json:"transit_started_at,omitempty" db:"transit_started_at"`
+	TransitEndedAt         *time.Time `json:"transit_ended_at,omitempty" db:"transit_ended_at"`
+	UnloadingPhotoURL      *string    `json:"unloading_photo_url,omitempty" db:"unloading_photo_url"`
+	UnloadingCompletedAt   *time.Time `json:"unloading_completed_at,omitempty" db:"unloading_completed_at"`
+	OdometerAfter          *int       `json:"odometer_after,omitempty" db:"odometer_after"`
+	CompletionPhotoURL     *string    `json:"completion_photo_url,omitempty" db:"completion_photo_url"`
+	SignatureURL           *string    `json:"signature_url,omitempty" db:"signature_url"`
+	CompletedAt            *time.Time `json:"completed_at,omitempty" db:"completed_at"`
+	Notes                  *string    `json:"notes,omitempty" db:"notes"`
+	CreatedAt              time.Time  `json:"created_at" db:"created_at"`
 }
 
 // ============================================================

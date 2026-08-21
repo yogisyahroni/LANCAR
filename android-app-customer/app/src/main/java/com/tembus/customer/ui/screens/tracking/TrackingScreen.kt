@@ -414,7 +414,11 @@ fun CourierStatusCard(
             modifier = Modifier.padding(20.dp)
         ) {
             val order = detail?.order
-            val stageText = remember(order?.status) { trackingStageText(order?.status) }
+            val stageText = remember(order?.status, order?.serviceSubType, order?.statusLabel, detail?.tracking?.stageLabel) {
+                order?.statusLabel?.takeIf { it.isNotBlank() }
+                    ?: detail?.tracking?.stageLabel?.takeIf { it.isNotBlank() }
+                    ?: trackingStageText(order?.status, order?.serviceSubType)
+            }
             // ETA Banner
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -591,7 +595,78 @@ fun CourierStatusCard(
             if (detail != null) {
                 Spacer(modifier = Modifier.height(18.dp))
                 TrackingTimeline(detail = detail)
+                PackageSection(detail = detail)
                 ProofSection(detail = detail)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PackageSection(detail: OrderTrackingDetail) {
+    if (detail.packages.isEmpty()) return
+
+    Spacer(modifier = Modifier.height(14.dp))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFF7FAFC))
+            .padding(14.dp)
+    ) {
+        Text("Rincian paket", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF1A1A1A))
+        Spacer(modifier = Modifier.height(12.dp))
+        detail.packages.forEachIndexed { index, item ->
+            val scanDone = !item.pickupScanVerifiedAt.isNullOrBlank()
+            val photoDone = !item.pickupPhotoVerifiedAt.isNullOrBlank()
+            val podDone = !item.deliveryPodVerifiedAt.isNullOrBlank()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = if (podDone) Primary.copy(alpha = 0.12f) else Color.White
+                ) {
+                    Text(
+                        text = "${item.packageIndex ?: index + 1}",
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp,
+                        color = Primary
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.description?.takeIf { it.isNotBlank() } ?: "Paket ${index + 1}",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = Color(0xFF1A1A1A)
+                    )
+                    val meta = buildList {
+                        item.packageCode?.takeIf { it.isNotBlank() }?.let { add(it) }
+                        item.sizeTier?.takeIf { it.isNotBlank() }?.let { add(it.uppercase()) }
+                        item.weightKg?.takeIf { it > 0.0 }?.let { add("${it} kg") }
+                    }.joinToString(" • ")
+                    if (meta.isNotBlank()) {
+                        Text(meta, color = Color.Gray, fontSize = 12.sp)
+                    }
+                    Text(
+                        text = buildList {
+                            add(if (scanDone) "Scan pickup OK" else "Scan pickup belum")
+                            add(if (photoDone) "Foto pickup OK" else "Foto pickup belum")
+                            add(if (podDone) "POD OK" else "POD belum")
+                        }.joinToString(" • "),
+                        color = if (podDone) Primary else Color.Gray,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+            if (index != detail.packages.lastIndex) {
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = Color(0xFFE8ECEF))
+                Spacer(modifier = Modifier.height(10.dp))
             }
         }
     }
@@ -601,12 +676,13 @@ fun CourierStatusCard(
 private fun TrackingTimeline(detail: OrderTrackingDetail) {
     val completedTypes = remember(detail.events) { detail.events.map { it.eventType.lowercase() }.toSet() }
     val status = detail.order.status.lowercase()
-    val isFood = !detail.order.merchantId.isNullOrBlank() || detail.order.model?.lowercase() == "food_delivery"
+    val copy = trackingCopy(detail.order.serviceSubType, detail.order.model, detail.order.merchantId)
+    val isFood = copy.kind == TrackingServiceKind.FOOD
     val isCancelled = status in setOf("cancelled", "failed") || completedTypes.contains("pickup_cancelled_by_courier")
     val steps = if (isCancelled) {
         listOf(
             TimelineStep("merchant_order", "Order diterima", true),
-            TimelineStep("cancelled", "Pengiriman tidak dilanjutkan", true)
+            TimelineStep("cancelled", copy.cancelledLabel, true)
         )
     } else if (isFood) {
         // FOOD-BIKE-058: timeline khusus food — tahap merchant sebelum kurir
@@ -628,10 +704,10 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
             TimelineStep("pod", "POD diterima", status in setOf("delivered", "completed"))
         )
     } else listOf(
-        TimelineStep("accepted", "Kurir menerima order", completedTypes.any { it in setOf("accepted", "courier_assigned", "assigned") } || status in setOf("accepted", "picking_up", "picked_up", "in_transit", "delivered", "completed")),
-        TimelineStep("pickup", "Barang diverifikasi di pickup", completedTypes.contains("pickup_verified") || status in setOf("picked_up", "in_transit", "delivered", "completed")),
-        TimelineStep("delivery", "Dalam pengantaran", status in setOf("in_transit", "delivering", "delivered", "completed")),
-        TimelineStep("pod", "POD diterima", completedTypes.contains("pod_verified") || status in setOf("delivered", "completed"))
+        TimelineStep("accepted", copy.acceptedLabel, completedTypes.any { it in setOf("accepted", "courier_assigned", "assigned") } || status in setOf("accepted", "picking_up", "arrived_pickup", "picked_up", "service_started", "in_transit", "delivering", "loading", "unloading", "delivered", "completed")),
+        TimelineStep("pickup", copy.pickupLabel, completedTypes.contains("pickup_verified") || status in setOf("arrived_pickup", "picked_up", "service_started", "in_transit", "delivering", "loading", "unloading", "delivered", "completed")),
+        TimelineStep("delivery", copy.activeLabel, status in setOf("service_started", "in_transit", "delivering", "loading", "unloading", "delivered", "completed")),
+        TimelineStep("pod", copy.completedLabel, completedTypes.contains("pod_verified") || status in setOf("delivered", "completed"))
     )
 
     Column(
@@ -641,7 +717,7 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
             .background(Color(0xFFF7FAFC))
             .padding(14.dp)
     ) {
-        Text("Timeline pengiriman", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF1A1A1A))
+        Text(copy.timelineTitle, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF1A1A1A))
         Spacer(modifier = Modifier.height(12.dp))
         steps.forEachIndexed { index, step ->
             Row(verticalAlignment = Alignment.Top) {
@@ -669,6 +745,7 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
 
 @Composable
 private fun ProofSection(detail: OrderTrackingDetail) {
+    val copy = trackingCopy(detail.order.serviceSubType, detail.order.model, detail.order.merchantId)
     val pickupProof = detail.proofs.lastOrNull {
         it.scanType?.lowercase() in setOf("pickup", "pickup_photo") && !it.photoUrl.isNullOrBlank()
     }
@@ -676,7 +753,20 @@ private fun ProofSection(detail: OrderTrackingDetail) {
     val cancellationProof = detail.proofs.lastOrNull {
         it.scanType?.lowercase() == "pickup_cancellation" && !it.photoUrl.isNullOrBlank()
     }
-    if (pickupProof == null && podProof == null && cancellationProof == null) return
+    val serviceProofs = buildList {
+        detail.order.tambalBanReport?.let { report ->
+            report.tirePhotoBeforeUrl?.takeIf { it.isNotBlank() }?.let { add("Foto ban sebelum" to it) }
+            report.tirePhotoAfterUrl?.takeIf { it.isNotBlank() }?.let { add("Foto ban sesudah" to it) }
+        }
+        detail.order.towingReport?.let { report ->
+            report.vehiclePhotoBeforeUrl?.takeIf { it.isNotBlank() }?.let { add("Foto kendaraan sebelum" to it) }
+            report.loadingPhotoUrl?.takeIf { it.isNotBlank() }?.let { add("Foto loading" to it) }
+            report.unloadingPhotoUrl?.takeIf { it.isNotBlank() }?.let { add("Foto unloading" to it) }
+            report.completionPhotoUrl?.takeIf { it.isNotBlank() }?.let { add("Foto completion" to it) }
+            report.signatureUrl?.takeIf { it.isNotBlank() }?.let { add("Tanda tangan penerima" to it) }
+        }
+    }
+    if (pickupProof == null && podProof == null && cancellationProof == null && serviceProofs.isEmpty()) return
 
     Spacer(modifier = Modifier.height(14.dp))
     Column(
@@ -689,7 +779,7 @@ private fun ProofSection(detail: OrderTrackingDetail) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFFFF6B00), modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Bukti pengiriman", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0B3D2E))
+            Text(copy.proofSectionTitle, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0B3D2E))
         }
         Spacer(modifier = Modifier.height(12.dp))
         val context = LocalContext.current
@@ -697,23 +787,29 @@ private fun ProofSection(detail: OrderTrackingDetail) {
         val authToken by sessionManager.authToken.collectAsState(initial = null)
         
         cancellationProof?.let {
-            CancellationProofCard(proof = it, authToken = authToken)
+            CancellationProofCard(proof = it, authToken = authToken, title = copy.cancelledLabel)
             if (pickupProof != null || podProof != null) {
                 Spacer(modifier = Modifier.height(10.dp))
             }
         }
         pickupProof?.let {
-            ProofImage(title = "Foto barang pickup", url = absoluteUploadUrl(it.photoUrl), authToken = authToken)
+            ProofImage(title = copy.pickupProofTitle, url = absoluteUploadUrl(it.photoUrl), authToken = authToken)
             Spacer(modifier = Modifier.height(10.dp))
         }
         podProof?.let {
-            ProofImage(title = "Foto POD", url = absoluteUploadUrl(it.photoUrl), authToken = authToken)
+            ProofImage(title = copy.podProofTitle, url = absoluteUploadUrl(it.photoUrl), authToken = authToken)
+        }
+        serviceProofs.forEachIndexed { index, proof ->
+            if (pickupProof != null || podProof != null || cancellationProof != null || index > 0) {
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+            ProofImage(title = proof.first, url = absoluteUploadUrl(proof.second), authToken = authToken)
         }
     }
 }
 
 @Composable
-private fun CancellationProofCard(proof: com.tembus.customer.data.model.TrackingProof, authToken: String?) {
+private fun CancellationProofCard(proof: com.tembus.customer.data.model.TrackingProof, authToken: String?, title: String) {
     val reasonText = proof.reasonNote
         ?: proof.overrideReason?.substringAfter(":", missingDelimiterValue = proof.overrideReason)?.trim()
         ?: "Alasan operasional sudah dikirim oleh kurir."
@@ -724,7 +820,7 @@ private fun CancellationProofCard(proof: com.tembus.customer.data.model.Tracking
             .background(Color(0xFFFFF1F1))
             .padding(12.dp)
     ) {
-        Text("Pickup tidak dilanjutkan", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFFB42318))
+        Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFFB42318))
         Spacer(modifier = Modifier.height(4.dp))
         Text(reasonText, fontSize = 13.sp, color = Color(0xFF5F1D1B))
         Spacer(modifier = Modifier.height(10.dp))
@@ -784,16 +880,105 @@ private fun absoluteUploadUrl(path: String?): String {
     return "$gatewayBase$path"
 }
 
-private fun trackingStageText(status: String?): String {
+private enum class TrackingServiceKind {
+    FOOD,
+    TAMBAL_BAN,
+    TOWING,
+    PACKAGE
+}
+
+private data class TrackingCopy(
+    val kind: TrackingServiceKind,
+    val timelineTitle: String,
+    val acceptedLabel: String,
+    val pickupLabel: String,
+    val activeLabel: String,
+    val completedLabel: String,
+    val cancelledLabel: String,
+    val proofSectionTitle: String,
+    val pickupProofTitle: String,
+    val podProofTitle: String
+)
+
+private fun trackingCopy(serviceSubType: String?, model: String?, merchantId: String?): TrackingCopy {
+    val normalized = listOfNotNull(serviceSubType, model).joinToString(" ").lowercase()
+    return when {
+        !merchantId.isNullOrBlank() || normalized.contains("food") -> TrackingCopy(
+            kind = TrackingServiceKind.FOOD,
+            timelineTitle = "Timeline pengiriman",
+            acceptedLabel = "Kurir sepeda mengambil",
+            pickupLabel = "Diverifikasi di merchant",
+            activeLabel = "Dalam pengantaran",
+            completedLabel = "POD diterima",
+            cancelledLabel = "Pengiriman tidak dilanjutkan",
+            proofSectionTitle = "Bukti pengiriman",
+            pickupProofTitle = "Foto pickup di merchant",
+            podProofTitle = "Foto POD"
+        )
+        normalized.contains("tambal") || normalized.contains("ban") || normalized.contains("tire") -> TrackingCopy(
+            kind = TrackingServiceKind.TAMBAL_BAN,
+            timelineTitle = "Timeline layanan",
+            acceptedLabel = "Teknisi menerima order",
+            pickupLabel = "Teknisi tiba dan verifikasi lokasi",
+            activeLabel = "Perbaikan ban sedang dikerjakan",
+            completedLabel = "Layanan selesai",
+            cancelledLabel = "Layanan tidak dilanjutkan",
+            proofSectionTitle = "Bukti layanan tambal ban",
+            pickupProofTitle = "Foto kondisi sebelum layanan",
+            podProofTitle = "Foto penyelesaian layanan"
+        )
+        normalized.contains("towing") -> TrackingCopy(
+            kind = TrackingServiceKind.TOWING,
+            timelineTitle = "Timeline towing",
+            acceptedLabel = "Driver towing menerima order",
+            pickupLabel = "Kendaraan diverifikasi di titik jemput",
+            activeLabel = "Kendaraan dalam proses towing",
+            completedLabel = "Towing selesai",
+            cancelledLabel = "Towing tidak dilanjutkan",
+            proofSectionTitle = "Bukti towing",
+            pickupProofTitle = "Foto kendaraan saat pickup",
+            podProofTitle = "Foto serah terima akhir"
+        )
+        else -> TrackingCopy(
+            kind = TrackingServiceKind.PACKAGE,
+            timelineTitle = "Timeline pengiriman",
+            acceptedLabel = "Kurir menerima order",
+            pickupLabel = "Barang diverifikasi di pickup",
+            activeLabel = "Dalam pengantaran",
+            completedLabel = "POD diterima",
+            cancelledLabel = "Pengiriman tidak dilanjutkan",
+            proofSectionTitle = "Bukti pengiriman",
+            pickupProofTitle = "Foto barang pickup",
+            podProofTitle = "Foto POD"
+        )
+    }
+}
+
+private fun trackingStageText(status: String?, serviceSubType: String?): String {
+    val copy = trackingCopy(serviceSubType, null, null)
     return when (status?.lowercase()) {
-        "scheduled" -> "Pesanan terjadwal — akan diproses merchant mendekati jam pilihan" // FB-123
+        "scheduled" -> if (copy.kind == TrackingServiceKind.FOOD) "Pesanan terjadwal, akan diproses merchant mendekati jam pilihan" else "Order terjadwal"
         "pending_merchant" -> "Menunggu merchant menerima pesanan"
         "preparing" -> "Merchant sedang menyiapkan makanan"
-        "searching" -> "Mencari kurir sepeda terdekat"
-        "accepted", "picking_up", "assigned" -> "Kurir menuju titik pickup"
-        "picked_up", "in_transit", "delivering" -> "Barang sudah dipickup dan sedang diantar"
-        "delivered", "completed" -> "Pengiriman selesai"
-        "cancelled", "failed" -> "Pengiriman tidak dilanjutkan"
+        "searching" -> if (copy.kind == TrackingServiceKind.FOOD) "Mencari kurir sepeda terdekat" else "Mencari driver terdekat"
+        "accepted", "picking_up", "assigned" -> when (copy.kind) {
+            TrackingServiceKind.TAMBAL_BAN -> "Teknisi menuju lokasi"
+            TrackingServiceKind.TOWING -> "Driver towing menuju titik jemput"
+            else -> "Kurir menuju titik pickup"
+        }
+        "arrived_pickup" -> when (copy.kind) {
+            TrackingServiceKind.TAMBAL_BAN -> "Teknisi sudah tiba di lokasi"
+            TrackingServiceKind.TOWING -> "Driver towing tiba di titik jemput"
+            else -> "Kurir tiba di titik pickup"
+        }
+        "service_started" -> copy.activeLabel
+        "picked_up", "in_transit", "delivering", "loading", "unloading" -> when (copy.kind) {
+            TrackingServiceKind.TAMBAL_BAN -> "Layanan sedang dikerjakan"
+            TrackingServiceKind.TOWING -> "Kendaraan dalam proses towing"
+            else -> "Barang sudah dipickup dan sedang diantar"
+        }
+        "delivered", "completed" -> copy.completedLabel
+        "cancelled", "failed" -> copy.cancelledLabel
         else -> "Menunggu update pengiriman"
     }
 }

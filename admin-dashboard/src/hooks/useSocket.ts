@@ -17,6 +17,10 @@ export const useSocket = () => {
     socketService.on('order_update', (data) => {
       clientLog.debug('WebSocket order update received', { hasOrderUpdate: Boolean(data) })
       queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
+      if (data?.order_id) {
+        queryClient.invalidateQueries({ queryKey: ['admin-order-detail', data.order_id] })
+      }
       queryClient.invalidateQueries({ queryKey: ['stats'] })
     })
 

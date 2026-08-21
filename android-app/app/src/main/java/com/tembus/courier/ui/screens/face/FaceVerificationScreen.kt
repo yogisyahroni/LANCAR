@@ -66,6 +66,7 @@ private val DimOverlay = Color(0xCC000000)
 fun FaceVerificationScreen(
     orderId: String?,
     verificationType: String,
+    workContext: String = "",
     onVerified: () -> Unit,
     onBack: () -> Unit,
     viewModel: FaceVerificationViewModel = hiltViewModel()
@@ -73,6 +74,7 @@ fun FaceVerificationScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
     var showLiveness by remember { mutableStateOf(false) }
+    val contextCopy = remember(workContext) { faceVerificationCopy(workContext) }
 
     // Kamera launcher — TakePicturePreview untuk selfie live
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -140,7 +142,7 @@ fun FaceVerificationScreen(
                         color = Color.White
                     )
                     Text(
-                        "Wajib sebelum pickup barang",
+                        contextCopy.subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.68f)
                     )
@@ -175,7 +177,7 @@ fun FaceVerificationScreen(
                             color = Color.White
                         )
                         Text(
-                            "Untuk memastikan kamu — bukan orang lain — yang mengambil barang ini. Ini melindungi pelanggan dan akun kurir kamu.",
+                            contextCopy.reason,
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.76f)
                         )
@@ -385,6 +387,28 @@ fun FaceVerificationScreen(
 
             Spacer(Modifier.height(8.dp))
         }
+    }
+}
+
+private data class FaceVerificationCopy(
+    val subtitle: String,
+    val reason: String
+)
+
+private fun faceVerificationCopy(workContext: String): FaceVerificationCopy {
+    return when (workContext.trim().lowercase()) {
+        "tambal_ban" -> FaceVerificationCopy(
+            subtitle = "Wajib sebelum inspeksi ban",
+            reason = "Untuk memastikan teknisi yang terdaftar benar-benar menangani layanan ini. Ini melindungi pelanggan dan akun kurir kamu."
+        )
+        "towing" -> FaceVerificationCopy(
+            subtitle = "Wajib sebelum inspeksi kendaraan",
+            reason = "Untuk memastikan armada yang terdaftar benar-benar menangani layanan ini. Ini melindungi pelanggan dan akun kurir kamu."
+        )
+        else -> FaceVerificationCopy(
+            subtitle = "Wajib sebelum pickup barang",
+            reason = "Untuk memastikan kamu — bukan orang lain — yang mengambil barang ini. Ini melindungi pelanggan dan akun kurir kamu."
+        )
     }
 }
 

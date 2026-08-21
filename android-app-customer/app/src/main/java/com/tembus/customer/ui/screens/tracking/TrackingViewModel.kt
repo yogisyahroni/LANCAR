@@ -155,10 +155,19 @@ class TrackingViewModel @Inject constructor(
 
     private suspend fun fetchLatestOrder(orderId: String) {
         orderRepository.getOrderTrackingDetail(orderId).onSuccess { detail ->
-            val orderRoutePoints = decodeEncodedPolyline(detail.order.routePolyline ?: detail.order.routeSnapshot?.routePolyline)
+            val orderRoutePoints = decodeEncodedPolyline(
+                detail.tracking?.orderRoutePolyline
+                    ?: detail.tracking?.orderRouteSnapshot?.routePolyline
+                    ?: detail.order.routePolyline
+                    ?: detail.order.routeSnapshot?.routePolyline
+            )
             _uiState.update { currentState ->
-                val etaFromOrder = detail.order.routeSnapshot?.eta
+                val etaFromOrder = detail.tracking?.eta
+                    ?: detail.tracking?.orderRouteSnapshot?.eta
+                    ?: detail.tracking?.etaMinutes?.takeIf { minutes -> minutes > 0 }?.let { minutes -> "$minutes menit" }
+                    ?: detail.order.routeSnapshot?.eta
                     ?: detail.order.routeSnapshot?.etaMinutes?.takeIf { minutes -> minutes > 0 }?.let { minutes -> "$minutes menit" }
+                    ?: detail.order.etaMinutes?.takeIf { minutes -> minutes > 0 }?.let { minutes -> "$minutes menit" }
                 currentState.copy(
                     detail = detail,
                     routePoints = if (currentState.routePoints.isEmpty() && orderRoutePoints.isNotEmpty()) orderRoutePoints else currentState.routePoints,

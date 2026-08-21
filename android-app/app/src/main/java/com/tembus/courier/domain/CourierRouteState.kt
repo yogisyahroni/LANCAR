@@ -22,7 +22,8 @@ data class CourierRouteState(
     val callTargetType: String = "customer",
     val scanType: String = CourierProofTypes.PICKUP_SCAN,
     val proofMode: String = CourierProofTypes.DELIVERY_POD_PHOTO,
-    val serviceType: String = ""
+    val serviceType: String = "",
+    val returnToServiceType: String = ""
 ) {
     val hasOrderContext: Boolean
         get() = !orderId.isNullOrBlank()
@@ -75,10 +76,21 @@ object CourierRouteReducer {
             callTargetType = normalizeCallTargetType(targetType)
         )
 
-    fun faceVerify(orderId: String): CourierRouteState =
-        CourierRouteState(screen = CourierRouteScreen.FACE_VERIFY, orderId = orderId)
+    fun faceVerify(orderId: String, returnToServiceType: String = ""): CourierRouteState =
+        CourierRouteState(
+            screen = CourierRouteScreen.FACE_VERIFY,
+            orderId = orderId,
+            returnToServiceType = normalizeServiceType(returnToServiceType)
+        )
 
     fun backFromChild(state: CourierRouteState): CourierRouteState {
+        if (state.screen == CourierRouteScreen.FACE_VERIFY) {
+            return when (state.returnToServiceType) {
+                "tambal_ban" -> state.orderId?.let { tambalBanFlow(it) } ?: home()
+                "towing" -> state.orderId?.let { towingFlow(it) } ?: home()
+                else -> state.orderId?.let { detail(it) } ?: home()
+            }
+        }
         return if (state.hasOrderContext && state.screen in setOf(
             CourierRouteScreen.SCAN,
             CourierRouteScreen.PROOF,
@@ -96,5 +108,10 @@ object CourierRouteReducer {
         "recipient" -> "recipient"
         "support" -> "support"
         else -> "customer"
+    }
+
+    private fun normalizeServiceType(value: String): String = when (value.trim().lowercase()) {
+        "tambal_ban", "towing" -> value.trim().lowercase()
+        else -> ""
     }
 }

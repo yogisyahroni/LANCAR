@@ -1,8 +1,11 @@
 package com.tembus.courier.ui.screens.service
 
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.repository.OrderRepository
+import com.tembus.courier.data.repository.ServiceReportProofDraftStore
+import com.tembus.courier.data.repository.ServiceReportProofUploader
 import com.tembus.courier.data.model.distanceKmValue
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
@@ -16,6 +19,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import javax.inject.Inject
 
 data class TambalBanFlowUiState(
@@ -40,12 +47,15 @@ data class TambalBanFlowUiState(
         val pickupLongitude: Double? = null,
         // Jenis kerusakan ban (design Stitch: Tubeless/Standar/Ganti/Isi Angin
         // → mekanisme existing: dipilih kurir saat inspeksi, dikirim di report)
-        val damageType: String? = null
+        val damageType: String? = null,
+        val inspectionBeforePhotoUrl: String? = null
     )
 
 @HiltViewModel
 class TambalBanFlowViewModel @Inject constructor(
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val proofUploader: ServiceReportProofUploader,
+    private val proofDraftStore: ServiceReportProofDraftStore
 ) : ViewModel() {
 
     private var orderId: String = ""
@@ -93,6 +103,7 @@ class TambalBanFlowViewModel @Inject constructor(
                                                                                                         orderNumber = order.orderNumber.orEmpty(),
                                                                                                         pickupLatitude = order.pickupLatitude,
                                                                                                         pickupLongitude = order.pickupLongitude,
+                                                                                                        inspectionBeforePhotoUrl = proofDraftStore.getBeforePhotoUrl(orderId, "tambal_ban"),
                                                 earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,
@@ -146,12 +157,20 @@ class TambalBanFlowViewModel @Inject constructor(
                         orderRepository.updateOrderStatus(orderId, "verifying")
                     }
                     TambalBanNextActionType.VERIFY_FACE -> {
-                        // Advance past identity verification to inspection
-                        orderRepository.updateOrderStatus(orderId, "inspecting")
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = "Verifikasi wajah wajib dilakukan dari layar kamera."
+                            )
+                        }
                     }
                     TambalBanNextActionType.CAPTURE_INSPECTION -> {
-                        // Advance from inspecting to service in progress
-                        orderRepository.updateOrderStatus(orderId, "in_progress")
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = "Foto inspeksi awal wajib diambil sebelum layanan dimulai."
+                            )
+                        }
                     }
                     TambalBanNextActionType.START_SERVICE -> {
                         orderRepository.updateOrderStatus(orderId, "in_progress")
@@ -164,7 +183,7 @@ class TambalBanFlowViewModel @Inject constructor(
                         val reportRequest = mutableMapOf<String, Any>(
                             "order_id" to orderId,
                             "service_type" to "tambal_ban",
-                            "completed_at" to System.currentTimeMillis().toString()
+                            "completed_at" to utcNowRfc3339()
                         )
                         _uiState.value.damageType?.let {
                             reportRequest["tire_damage_type"] = it
@@ -192,5 +211,37 @@ class TambalBanFlowViewModel @Inject constructor(
 
     fun setDamageType(damageType: String) {
         _uiState.update { it.copy(damageType = damageType) }
+    }
+
+    fun captureInspection(beforePhoto: Bitmap) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val uploadResult = proofUploader.upload(
+                orderId = orderId,
+                serviceType = "tambal_ban",
+                proofType = "tire_photo_before",
+                bitmap = beforePhoto
+            )
+            if (uploadResult.isFailure) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = uploadResult.exceptionOrNull()?.message ?: "Foto inspeksi awal belum berhasil diunggah."
+                    )
+                }
+                return@launch
+            }
+
+            val photoUrl = uploadResult.getOrNull().orEmpty()
+            proofDraftStore.saveBeforePhotoUrl(orderId, "tambal_ban", photoUrl)
+            orderRepository.updateOrderStatus(orderId, "in_progress")
+            loadOrder(orderId)
+        }
+    }
+
+    private fun utcNowRfc3339(): String {
+        return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }.format(Date())
     }
 }

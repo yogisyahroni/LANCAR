@@ -8,7 +8,7 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/authStore';
 import { getSocket, joinOrderRoom, leaveOrderRoom } from '@/lib/socket';
 import { clientLog } from '@/lib/clientLogger';
-import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation, Image as ImageIcon, X, Share2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation, Image as ImageIcon, X, Share2, RefreshCw, FileSignature, UtensilsCrossed, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { DisputeModal } from '@/components/orders/DisputeModal';
@@ -51,6 +51,50 @@ interface Order {
   route_polyline?: string | null;
   route_distance_meters?: number | null;
   route_duration_seconds?: number | null;
+  service_sub_type?: string | null;
+  tambal_ban_report?: TambalBanReport | null;
+  towing_report?: TowingReport | null;
+  food_items?: FoodOrderItem[];
+}
+
+interface FoodOrderItemVariantSnapshot {
+  variant_name?: string | null;
+  option_name?: string | null;
+  price_delta?: number | string | null;
+}
+
+interface FoodOrderItem {
+  name?: string | null;
+  item_name?: string | null;
+  quantity?: number | string | null;
+  notes?: string | null;
+  price?: number | string | null;
+  item_price?: number | string | null;
+  subtotal?: number | string | null;
+  variants?: FoodOrderItemVariantSnapshot[];
+}
+
+interface TambalBanReport {
+  tire_condition_before?: string | null;
+  tire_photo_before_url?: string | null;
+  tire_condition_after?: string | null;
+  tire_photo_after_url?: string | null;
+  materials_used?: string | null;
+  notes?: string | null;
+  completed_at?: string | null;
+}
+
+interface TowingReport {
+  vehicle_condition_before?: string | null;
+  vehicle_photo_before_url?: string | null;
+  loading_photo_url?: string | null;
+  unloading_photo_url?: string | null;
+  completion_photo_url?: string | null;
+  signature_url?: string | null;
+  odometer_reading?: number | null;
+  odometer_after?: number | null;
+  notes?: string | null;
+  completed_at?: string | null;
 }
 
 interface RouteSnapshot {
@@ -339,7 +383,10 @@ export default function OrderDetailPage() {
     try {
       const res = await api.get(`/auth/web/orders/${id}`);
       if (res.data && res.data.success) {
-        setOrder(res.data.order);
+        setOrder({
+          ...res.data.order,
+          food_items: res.data.food_items || res.data.order?.food_items || []
+        });
         setEvents(res.data.events || []);
         setProofs(res.data.proofs || []);
         if (showLoader) {
@@ -654,6 +701,39 @@ export default function OrderDetailPage() {
     pod: proofs.filter((proof) => proof.proof_category === 'pod'),
     cancellation: proofs.filter((proof) => proof.proof_category === 'cancellation')
   };
+  const serviceProofs = [
+    ...(order?.tambal_ban_report ? [
+      { label: 'Foto ban sebelum', url: order.tambal_ban_report.tire_photo_before_url },
+      { label: 'Foto ban sesudah', url: order.tambal_ban_report.tire_photo_after_url },
+    ] : []),
+    ...(order?.towing_report ? [
+      { label: 'Foto kendaraan sebelum', url: order.towing_report.vehicle_photo_before_url },
+      { label: 'Foto loading', url: order.towing_report.loading_photo_url },
+      { label: 'Foto unloading', url: order.towing_report.unloading_photo_url },
+      { label: 'Foto completion', url: order.towing_report.completion_photo_url },
+      { label: 'Tanda tangan penerima', url: order.towing_report.signature_url, signature: true },
+    ] : []),
+  ].filter((proof) => proof.url);
+  const serviceReportNotes = order?.tambal_ban_report?.notes || order?.towing_report?.notes || '';
+  const foodItems = order?.food_items || [];
+  const packageDetails = order?.package_details || {};
+  const packageDimensions = packageDetails.dimensions || {};
+  const packageLength = Number(packageDetails.length_cm ?? packageDimensions.length ?? 0);
+  const packageWidth = Number(packageDetails.width_cm ?? packageDimensions.width ?? 0);
+  const packageHeight = Number(packageDetails.height_cm ?? packageDimensions.height ?? 0);
+  const packageWeight = Number(packageDetails.weight_kg ?? 0);
+  const packageCount = Number(packageDetails.package_count ?? packageDetails.count ?? 0);
+  const hasPackageDetails = Boolean(
+    packageDetails.category ||
+    packageDetails.item_description ||
+    packageDetails.description ||
+    packageDetails.size_tier ||
+    packageCount > 0 ||
+    packageWeight > 0 ||
+    packageLength > 0 ||
+    packageWidth > 0 ||
+    packageHeight > 0
+  );
 
   const getStatusBadgeClass = (statusStr: string) => {
     switch (statusStr?.toLowerCase()) {
@@ -1095,6 +1175,47 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
+          {hasPackageDetails && (
+            <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-5">
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" /> Rincian paket
+                </h3>
+                {packageCount > 0 && (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                    {packageCount} paket
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-background/40 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Kategori</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{packageDetails.category || packageDetails.size_tier || '-'}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-background/40 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Berat</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{packageWeight > 0 ? `${packageWeight} kg` : '-'}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-background/40 p-4 md:col-span-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Isi paket</p>
+                  <p className="mt-1 text-sm leading-6 text-white/90">{packageDetails.item_description || packageDetails.description || '-'}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-background/40 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Dimensi</p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {packageLength > 0 || packageWidth > 0 || packageHeight > 0
+                      ? `${packageLength || '-'} × ${packageWidth || '-'} × ${packageHeight || '-'} cm`
+                      : '-'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-background/40 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Validasi dimensi</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{packageDetails.dimensions_scanned ? 'Scan selesai' : 'Manual / tidak wajib scan'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Order Pricing Breakdown Card */}
           <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2 border-b border-white/10 pb-3">
@@ -1119,6 +1240,49 @@ export default function OrderDetailPage() {
               </div>
             </div>
           </div>
+
+          {foodItems.length > 0 && (
+            <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-5">
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <UtensilsCrossed className="h-5 w-5 text-primary" /> Rincian pesanan food
+                </h3>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  {foodItems.length} item
+                </span>
+              </div>
+              <div className="space-y-3">
+                {foodItems.map((item, index) => {
+                  const itemName = item.name || item.item_name || 'Item makanan';
+                  const quantity = Number(item.quantity || 1);
+                  const subtotal = Number(item.subtotal || 0);
+                  const variants = Array.isArray(item.variants) ? item.variants : [];
+                  return (
+                    <div key={`${itemName}-${index}`} className="flex items-start justify-between gap-4 rounded-xl border border-white/10 bg-background/40 p-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-white">{quantity}× {itemName}</p>
+                        {variants.length > 0 && (
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            {variants.map((variant) => {
+                              const variantName = String(variant.variant_name || '').trim();
+                              const optionName = String(variant.option_name || '').trim();
+                              return variantName ? `${variantName}: ${optionName}` : optionName;
+                            }).filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                        {item.notes && (
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">Catatan: {item.notes}</p>
+                        )}
+                      </div>
+                      {subtotal > 0 && (
+                        <p className="shrink-0 text-sm font-bold text-primary">{formatPrice(subtotal)}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Timeline Tracking Flow */}
           <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-6">
@@ -1230,6 +1394,45 @@ export default function OrderDetailPage() {
               </div>
             )}
           </div>
+
+          {(serviceProofs.length > 0 || serviceReportNotes) && (
+            <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-5">
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-primary" /> Bukti layanan
+                </h3>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  {serviceProofs.length} bukti
+                </span>
+              </div>
+
+              {serviceProofs.length > 0 && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {serviceProofs.map((proof) => {
+                    const imageUrl = uploadUrl(proof.url);
+                    return (
+                      <div key={proof.label} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className="text-sm font-semibold text-white">{proof.label}</p>
+                          {proof.signature ? <FileSignature className="h-4 w-4 text-primary" /> : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                        <button type="button" onClick={() => setActivePhoto(imageUrl)} className="block overflow-hidden rounded-lg border border-white/10">
+                          <img src={imageUrl} alt={proof.label} className="h-36 w-full object-cover transition hover:opacity-90" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {serviceReportNotes && (
+                <div className="rounded-xl border border-white/10 bg-background/40 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Catatan kurir</p>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-white/85">{serviceReportNotes}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

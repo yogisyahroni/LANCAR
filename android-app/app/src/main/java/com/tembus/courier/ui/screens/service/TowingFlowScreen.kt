@@ -1,6 +1,7 @@
 package com.tembus.courier.ui.screens.service
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -62,10 +64,13 @@ fun TowingFlowScreen(
     orderId: String,
     onBackClick: () -> Unit,
     onComplete: () -> Unit,
+    onVerifyFace: (orderId: String, serviceType: String) -> Unit,
     onOpenCompletion: (orderId: String, serviceType: String) -> Unit,
     viewModel: TowingFlowViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var inspectionPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
+    var pendingCriticalAction by remember { mutableStateOf<TowingNextActionType?>(null) }
 
     // Auto-navigate when completed without needing extra tap
     LaunchedEffect(uiState.isCompleted) {
@@ -89,6 +94,17 @@ fun TowingFlowScreen(
         val context = LocalContext.current
         var distanceM by remember(orderId) { mutableStateOf<Int?>(null) }
         var overrideArrival by remember(orderId) { mutableStateOf(false) }
+        val runNextAction: (TowingNextActionType) -> Unit = { actionType ->
+            if (actionType == TowingNextActionType.CAPTURE_COMPLETION) {
+                onOpenCompletion(orderId, "towing")
+            } else if (actionType == TowingNextActionType.VERIFY_FACE) {
+                onVerifyFace(orderId, "towing")
+            } else if (actionType == TowingNextActionType.CAPTURE_INSPECTION) {
+                inspectionPhoto?.let { viewModel.captureInspection(it) }
+            } else {
+                viewModel.handleNextAction(actionType)
+            }
+        }
 
         // Loop monitor jarak: hitung ulang tiap 3 detik dari last known location.
         LaunchedEffect(orderId, uiState.pickupLatitude, uiState.pickupLongitude) {
@@ -100,6 +116,34 @@ fun TowingFlowScreen(
                 } else null
                 delay(3_000)
             }
+        }
+
+        pendingCriticalAction?.let { actionType ->
+            AlertDialog(
+                onDismissRequest = { pendingCriticalAction = null },
+                title = { Text("Konfirmasi aksi") },
+                text = {
+                    Text(
+                        towingConfirmationMessage(actionType, uiState.nextActionLabel),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            pendingCriticalAction = null
+                            runNextAction(actionType)
+                        }
+                    ) {
+                        Text("Konfirmasi", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingCriticalAction = null }) {
+                        Text("Batal")
+                    }
+                }
+            )
         }
 
         Scaffold(
@@ -115,13 +159,13 @@ fun TowingFlowScreen(
         },
         bottomBar = {
             // ===== STICKY CTA (standar industri: tombol aksi selalu terlihat) =====
-                        if (uiState.nextActionType != TowingNextActionType.NONE &&
-                            uiState.nextActionType != TowingNextActionType.CAPTURE_COMPLETION
-                        ) {
+                        if (uiState.nextActionType != TowingNextActionType.NONE) {
                             // Soft-gate: tombol "Saya di lokasi" butuh jarak ≤100m, kecuali override
                             val isArriveAction = uiState.nextActionType == TowingNextActionType.ARRIVED_AT_PICKUP
+                            val isInspectionAction = uiState.nextActionType == TowingNextActionType.CAPTURE_INSPECTION
                             val withinRadius = distanceM != null && distanceM!! <= ARRIVAL_RADIUS_M
                             val gateBlocked = isArriveAction && !overrideArrival && !withinRadius
+                            val inspectionBlocked = isInspectionAction && inspectionPhoto == null
                             Surface(shadowElevation = 8.dp) {
                                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                     if (uiState.error != null) {
@@ -161,17 +205,24 @@ fun TowingFlowScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(bottom = 8.dp)
                                         )
+                                    } else if (inspectionBlocked) {
+                                        Text(
+                                            "Ambil foto kondisi awal kendaraan sebelum mulai loading.",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
                                     }
                                     Button(
                                         onClick = {
-                                            if (uiState.nextActionType == TowingNextActionType.CAPTURE_COMPLETION) {
-                                                onOpenCompletion(orderId, "towing")
+                                            if (requiresTowingConfirmation(uiState.nextActionType)) {
+                                                pendingCriticalAction = uiState.nextActionType
                                             } else {
-                                                viewModel.handleNextAction(uiState.nextActionType)
+                                                runNextAction(uiState.nextActionType)
                                             }
                                         },
                                         modifier = Modifier.fillMaxWidth(),
-                                        enabled = !uiState.isLoading && !gateBlocked,
+                                        enabled = !uiState.isLoading && !gateBlocked && !inspectionBlocked,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.primary
                                         )
@@ -258,6 +309,17 @@ fun TowingFlowScreen(
                         ) {
                 EarningsBreakdown(data = earnings)
                 Spacer(Modifier.height(16.dp))
+            }
+
+            if (uiState.nextActionType == TowingNextActionType.CAPTURE_INSPECTION) {
+                Spacer(Modifier.height(16.dp))
+                InspectionPhotoCard(
+                    photo = inspectionPhoto,
+                    uploadedUrl = uiState.inspectionBeforePhotoUrl,
+                    title = "Foto kondisi awal kendaraan",
+                    description = "Ambil foto kendaraan sebelum proses loading sebagai bukti inspeksi.",
+                    onPhotoCaptured = { inspectionPhoto = it }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
@@ -349,6 +411,33 @@ private fun CustomerInfoCard(
                     }
                 }
             }
+
+            private fun requiresTowingConfirmation(actionType: TowingNextActionType): Boolean =
+                actionType in setOf(
+                    TowingNextActionType.ARRIVED_AT_PICKUP,
+                    TowingNextActionType.CAPTURE_INSPECTION,
+                    TowingNextActionType.START_LOADING,
+                    TowingNextActionType.START_TRANSIT,
+                    TowingNextActionType.ARRIVED_AT_DROPOFF,
+                    TowingNextActionType.START_UNLOADING
+                )
+
+            private fun towingConfirmationMessage(actionType: TowingNextActionType, label: String): String =
+                when (actionType) {
+                    TowingNextActionType.ARRIVED_AT_PICKUP ->
+                        "Pastikan kamu benar-benar sudah berada di titik jemput kendaraan sebelum mengonfirmasi kedatangan."
+                    TowingNextActionType.CAPTURE_INSPECTION ->
+                        "Pastikan foto kondisi awal kendaraan sudah jelas. Bukti ini dipakai sebelum loading."
+                    TowingNextActionType.START_LOADING ->
+                        "Mulai loading hanya setelah kendaraan dan area sekitar aman."
+                    TowingNextActionType.START_TRANSIT ->
+                        "Mulai perjalanan hanya setelah kendaraan sudah aman di towing."
+                    TowingNextActionType.ARRIVED_AT_DROPOFF ->
+                        "Pastikan kamu sudah tiba di titik tujuan sebelum mengonfirmasi kedatangan."
+                    TowingNextActionType.START_UNLOADING ->
+                        "Mulai unloading hanya setelah lokasi tujuan aman untuk menurunkan kendaraan."
+                    else -> "Lanjutkan aksi \"$label\"?"
+                }
 
             /** Radius soft-gate arrival (standar industri: 100m sebelum tombol aktif). */
             private const val ARRIVAL_RADIUS_M = 100

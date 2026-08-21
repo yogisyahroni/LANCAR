@@ -212,9 +212,22 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
 
 @Composable
 private fun RoleChip(order: Order) {
-    val (label, color) = when (order.normalizedWorkflowRole()) {
-        "regular" -> "REGULAR" to Success
-        else -> "ON DEMAND" to Primary
+    val serviceCode = order.serviceCode.orEmpty().lowercase()
+    val serviceCategory = order.serviceCategory.orEmpty().lowercase()
+    val hasFoodPayload = order.foodItems.isNotEmpty() ||
+        serviceCode.startsWith("food") ||
+        serviceCategory in setOf("food", "food_delivery")
+    val (label, color, icon) = when {
+        serviceCode.startsWith("tambal_ban") || serviceCategory == "tambal_ban" ->
+            Triple("TAMBAL BAN", Warning, Icons.Default.Build)
+        serviceCode.startsWith("towing") || serviceCategory == "towing" ->
+            Triple("TOWING", Info, Icons.Default.LocalShipping)
+        hasFoodPayload ->
+            Triple("FOOD", Success, Icons.Default.Storefront)
+        order.normalizedWorkflowRole() == "regular" ->
+            Triple("REGULAR", Success, Icons.Default.LocalShipping)
+        else ->
+            Triple("PAKET", Primary, Icons.Default.Bolt)
     }
 
     AssistChip(
@@ -222,10 +235,7 @@ private fun RoleChip(order: Order) {
         label = { Text(label) },
         leadingIcon = {
             Icon(
-                imageVector = when (order.normalizedWorkflowRole()) {
-                    "regular" -> Icons.Default.LocalShipping
-                    else -> Icons.Default.Bolt
-                },
+                imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(14.dp)
             )

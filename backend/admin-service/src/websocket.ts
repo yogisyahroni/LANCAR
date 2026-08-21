@@ -301,6 +301,40 @@ export const initWebSocket = (server: HttpServer) => {
       realtimeStructuredLog('info', 'socket_role_room_joined', { role });
     }
 
+    if (role === 'merchant' || role === 'merchant_staff') {
+      db.query(
+        `SELECT id AS merchant_id
+           FROM merchants
+          WHERE user_id = $1
+         UNION
+         SELECT merchant_id
+           FROM merchant_staff
+          WHERE user_id = $1
+            AND status = 'active'`,
+        [userId]
+      )
+        .then((result) => {
+          result.rows.forEach((row) => {
+            if (!row.merchant_id) return;
+            socket.join(`merchant:${row.merchant_id}`);
+          });
+          if (result.rows.length > 0) {
+            void recordRealtimeMetric('merchant_socket_room_joined', { role });
+            realtimeStructuredLog('info', 'socket_merchant_room_joined', {
+              role,
+              merchant_count: result.rows.length,
+            });
+          }
+        })
+        .catch((error) => {
+          void recordRealtimeMetric('merchant_socket_room_failed', { role });
+          realtimeStructuredLog('warn', 'socket_merchant_room_join_failed', {
+            role,
+            error_name: error instanceof Error ? error.name : 'Error',
+          });
+        });
+    }
+
     // Dispute Rooms
     socket.on('join_dispute_room', ({ dispute_id }) => {
       socket.join(dispute_id);

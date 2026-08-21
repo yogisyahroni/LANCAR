@@ -354,6 +354,19 @@ interface TEMBUSApiService {
         @Part photo: MultipartBody.Part
     ): Response<ApiResponse<JsonElement>>
 
+    /**
+     * Upload service-report proof image for tambal ban / towing reports.
+     */
+    @Multipart
+    @POST("api/v1/courier/service-report/proof")
+    suspend fun uploadServiceReportProof(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Part("order_id") orderId: RequestBody,
+        @Part("service_type") serviceType: RequestBody,
+        @Part("proof_type") proofType: RequestBody,
+        @Part photo: MultipartBody.Part
+    ): Response<ApiResponse<JsonElement>>
+
     // ── LOCATION ────────────────────────────────────────────────
 
     /**
@@ -467,4 +480,3 @@ interface TEMBUSApiService {
     @GET("api/v1/courier/service-price/{serviceCode}")
     suspend fun getServicePrice(@Path("serviceCode") serviceCode: String): Response<Map<String, Any>>
 }
-

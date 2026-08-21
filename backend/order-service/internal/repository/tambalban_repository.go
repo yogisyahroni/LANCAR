@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"tembus/order-service/internal/domain"
@@ -26,7 +27,7 @@ func (r *settlementRepo) GetSettlementConfig(ctx context.Context, serviceCode st
 		       created_at, updated_at
 		FROM settlement_configs 
 		WHERE service_code = $1`
-	
+
 	config := &domain.SettlementConfig{}
 	err := r.db.QueryRowContext(ctx, query, serviceCode).Scan(
 		&config.ID, &config.ServiceCode, &config.ServiceCategory,
@@ -49,7 +50,7 @@ func (r *settlementRepo) GetAllSettlementConfigs(ctx context.Context) ([]*domain
 		       created_at, updated_at
 		FROM settlement_configs 
 		ORDER BY service_code`
-	
+
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -92,7 +93,7 @@ func (r *availabilityRepo) GetAvailabilityState(ctx context.Context, courierID s
 		       latitude, longitude, last_location_update, created_at, updated_at
 		FROM courier_availability_state 
 		WHERE courier_id = $1`
-	
+
 	state := &domain.CourierAvailabilityState{}
 	err := r.db.QueryRowContext(ctx, query, courierID).Scan(
 		&state.CourierID, &state.CurrentState, &state.ActiveOrderID, &state.ActiveOrderType,
@@ -119,7 +120,7 @@ func (r *availabilityRepo) UpsertAvailabilityState(ctx context.Context, state *d
 		    longitude = EXCLUDED.longitude,
 		    last_location_update = EXCLUDED.last_location_update,
 		    updated_at = EXCLUDED.updated_at`
-	
+
 	now := time.Now()
 	_, err := r.db.ExecContext(ctx, query,
 		state.CourierID, state.CurrentState, state.ActiveOrderID, state.ActiveOrderType,
@@ -418,6 +419,28 @@ func NewServiceReportRepository(db *sql.DB) domain.ServiceReportRepository {
 }
 
 func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *domain.TambalBanReport) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tambal ban report tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "tambal_ban_report:"+report.OrderID); err != nil {
+		return fmt.Errorf("lock tambal ban report: %w", err)
+	}
+
+	existing := tx.QueryRowContext(ctx, `
+		SELECT id, created_at
+		FROM tambal_ban_reports
+		WHERE order_id = $1
+		ORDER BY created_at ASC
+		LIMIT 1`, report.OrderID)
+	if err := existing.Scan(&report.ID, &report.CreatedAt); err == nil {
+		return tx.Commit()
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("check tambal ban report idempotency: %w", err)
+	}
+
 	query := `
 		INSERT INTO tambal_ban_reports 
 		    (order_id, courier_id, tire_condition_before, tire_photo_before_url,
@@ -425,12 +448,15 @@ func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *d
 		     tire_condition_after, tire_photo_after_url, completed_at)
 		VALUES ($1, (SELECT id FROM courier_profiles WHERE user_id = $2), $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, created_at`
-	return r.db.QueryRowContext(ctx, query,
+	if err := tx.QueryRowContext(ctx, query,
 		report.OrderID, report.CourierID,
 		report.TireConditionBefore, report.TirePhotoBeforeURL,
 		report.ServiceDurationMins, report.MaterialsUsed, report.Notes,
 		report.TireConditionAfter, report.TirePhotoAfterURL, report.CompletedAt,
-	).Scan(&report.ID, &report.CreatedAt)
+	).Scan(&report.ID, &report.CreatedAt); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *serviceReportRepo) GetTambalBanReportByOrderID(ctx context.Context, orderID string) (*domain.TambalBanReport, error) {
@@ -439,7 +465,7 @@ func (r *serviceReportRepo) GetTambalBanReportByOrderID(ctx context.Context, ord
 		       service_duration_minutes, materials_used, notes,
 		       tire_condition_after, tire_photo_after_url, completed_at, created_at
 		FROM tambal_ban_reports WHERE order_id = $1`
-	
+
 	report := &domain.TambalBanReport{}
 	err := r.db.QueryRowContext(ctx, query, orderID).Scan(
 		&report.ID, &report.OrderID, &report.CourierID,
@@ -455,6 +481,28 @@ func (r *serviceReportRepo) GetTambalBanReportByOrderID(ctx context.Context, ord
 }
 
 func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *domain.TowingReport) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin towing report tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "towing_report:"+report.OrderID); err != nil {
+		return fmt.Errorf("lock towing report: %w", err)
+	}
+
+	existing := tx.QueryRowContext(ctx, `
+		SELECT id, created_at
+		FROM towing_reports
+		WHERE order_id = $1
+		ORDER BY created_at ASC
+		LIMIT 1`, report.OrderID)
+	if err := existing.Scan(&report.ID, &report.CreatedAt); err == nil {
+		return tx.Commit()
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("check towing report idempotency: %w", err)
+	}
+
 	query := `
 		INSERT INTO towing_reports 
 		    (order_id, courier_id, vehicle_condition_before, vehicle_photo_before_url, odometer_reading,
@@ -462,16 +510,19 @@ func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *doma
 		     transit_started_at, transit_ended_at,
 		     unloading_photo_url, unloading_completed_at, odometer_after,
 		     completion_photo_url, signature_url, completed_at, notes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		VALUES ($1, (SELECT id FROM courier_profiles WHERE user_id = $2), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		RETURNING id, created_at`
-	return r.db.QueryRowContext(ctx, query,
+	if err := tx.QueryRowContext(ctx, query,
 		report.OrderID, report.CourierID,
 		report.VehicleConditionBefore, report.VehiclePhotoBeforeURL, report.OdometerReading,
 		report.LoadingPhotoURL, report.LoadingStartedAt,
 		report.TransitStartedAt, report.TransitEndedAt,
 		report.UnloadingPhotoURL, report.UnloadingCompletedAt, report.OdometerAfter,
 		report.CompletionPhotoURL, report.SignatureURL, report.CompletedAt, report.Notes,
-	).Scan(&report.ID, &report.CreatedAt)
+	).Scan(&report.ID, &report.CreatedAt); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *serviceReportRepo) GetTowingReportByOrderID(ctx context.Context, orderID string) (*domain.TowingReport, error) {
@@ -482,7 +533,7 @@ func (r *serviceReportRepo) GetTowingReportByOrderID(ctx context.Context, orderI
 		       unloading_photo_url, unloading_completed_at, odometer_after,
 		       completion_photo_url, signature_url, completed_at, notes, created_at
 		FROM towing_reports WHERE order_id = $1`
-	
+
 	report := &domain.TowingReport{}
 	err := r.db.QueryRowContext(ctx, query, orderID).Scan(
 		&report.ID, &report.OrderID, &report.CourierID,

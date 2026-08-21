@@ -1,5 +1,6 @@
 package com.tembus.courier.ui.screens.order
 
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.api.TEMBUSApiService
@@ -28,6 +29,8 @@ import com.tembus.courier.data.model.SosTriggerRequest
 import com.tembus.courier.data.model.SosTriggerResponse
 import com.tembus.courier.data.model.SecurityLogRequest
 import com.tembus.courier.data.repository.OrderRepository
+import com.tembus.courier.data.repository.ServiceReportProofDraftStore
+import com.tembus.courier.data.repository.ServiceReportProofUploader
 import com.tembus.courier.data.config.RemoteConfigManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +50,10 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import java.util.UUID
 import javax.inject.Inject
 
@@ -62,7 +69,9 @@ import javax.inject.Inject
 class OrderViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
     private val apiService: TEMBUSApiService,
-    private val remoteConfigManager: RemoteConfigManager
+    private val remoteConfigManager: RemoteConfigManager,
+    private val proofUploader: ServiceReportProofUploader,
+    private val proofDraftStore: ServiceReportProofDraftStore
 ) : ViewModel() {
 
     // ── State ─────────────────────────────────────────────────────
@@ -774,21 +783,92 @@ class OrderViewModel @Inject constructor(
     /**
      * Submit service report for tambal ban / towing completion
      */
-    fun submitServiceReport(orderId: String, serviceType: String, notes: String) {
+    fun submitServiceReport(
+        orderId: String,
+        serviceType: String,
+        notes: String,
+        completionPhoto: Bitmap? = null,
+        signatureBitmap: Bitmap? = null
+    ) {
         viewModelScope.launch {
-            val reportRequest = mapOf(
+            val reportRequest = mutableMapOf<String, Any>(
                 "order_id" to orderId,
                 "service_type" to serviceType,
                 "notes" to notes,
-                "completed_at" to System.currentTimeMillis().toString()
+                "completed_at" to utcNowRfc3339()
             )
+            val beforePhotoUrl = proofDraftStore.getBeforePhotoUrl(orderId, serviceType)
+            if (beforePhotoUrl.isNullOrBlank()) {
+                _error.update {
+                    if (serviceType == "towing") {
+                        "Foto inspeksi awal kendaraan wajib tersimpan sebelum towing diselesaikan."
+                    } else {
+                        "Foto inspeksi awal ban wajib tersimpan sebelum layanan diselesaikan."
+                    }
+                }
+                return@launch
+            }
             when (serviceType) {
+                "tambal_ban" -> {
+                    reportRequest["tire_photo_before_url"] = beforePhotoUrl
+                    reportRequest["tire_condition_before"] = "Foto inspeksi awal diambil di aplikasi kurir."
+                }
+                "towing" -> {
+                    reportRequest["vehicle_photo_before_url"] = beforePhotoUrl
+                    reportRequest["vehicle_condition_before"] = "Foto inspeksi awal kendaraan diambil di aplikasi kurir."
+                }
+            }
+            if (completionPhoto != null) {
+                val proofType = if (serviceType == "tambal_ban") "tire_photo_after" else "completion_photo"
+                val uploadResult = proofUploader.upload(
+                    orderId = orderId,
+                    serviceType = serviceType,
+                    proofType = proofType,
+                    bitmap = completionPhoto
+                )
+                if (uploadResult.isFailure) {
+                    _error.update { uploadResult.exceptionOrNull()?.message ?: "Bukti layanan belum berhasil diunggah." }
+                    return@launch
+                }
+                val photoUrl = uploadResult.getOrNull().orEmpty()
+                when (serviceType) {
+                    "tambal_ban" -> reportRequest["tire_photo_after_url"] = photoUrl
+                    "towing" -> reportRequest["completion_photo_url"] = photoUrl
+                }
+            }
+            if (serviceType == "towing" && signatureBitmap != null) {
+                val signatureUploadResult = proofUploader.upload(
+                    orderId = orderId,
+                    serviceType = serviceType,
+                    proofType = "signature",
+                    bitmap = signatureBitmap
+                )
+                if (signatureUploadResult.isFailure) {
+                    _error.update { signatureUploadResult.exceptionOrNull()?.message ?: "Tanda tangan belum berhasil diunggah." }
+                    return@launch
+                }
+                reportRequest["signature_url"] = signatureUploadResult.getOrNull().orEmpty()
+            }
+            val result = when (serviceType) {
                 "tambal_ban" -> orderRepository.createTambalBanReport(orderId, reportRequest)
                 "towing" -> orderRepository.createTowingReport(orderId, reportRequest)
+                else -> Result.failure(IllegalArgumentException("Jenis layanan tidak didukung"))
             }
-            // Optimistic: mark completed
-            orderRepository.updateOrderStatus(orderId, "completed")
+            result
+                .onSuccess {
+                    orderRepository.updateOrderStatus(orderId, "completed")
+                    proofDraftStore.clearBeforePhotoUrl(orderId, serviceType)
+                }
+                .onFailure { error ->
+                    _error.update { error.message ?: "Laporan layanan belum berhasil dikirim." }
+                }
         }
+    }
+
+    private fun utcNowRfc3339(): String {
+        return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }.format(Date())
     }
 
     // ── Local ─────────────────────────────────────────────────────

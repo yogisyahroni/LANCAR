@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -91,15 +92,15 @@ func (h *TambalBanHandler) GetNearbyCouriers(w http.ResponseWriter, r *http.Requ
 // ============================================================
 func (h *TambalBanHandler) CalculateSettlement(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		OrderID              string  `json:"order_id"`
-		ServiceCode          string  `json:"service_code"`
-		GrossTotal           int64   `json:"gross_total"`
-		DistanceKM           float64 `json:"distance_km"`
-		BaseFare             int64   `json:"base_fare"`
-		PerKMRate            int64   `json:"per_km_rate"`
-		CourierServicePrice  int64   `json:"courier_service_price"`
-		TollCost             int64   `json:"toll_cost"`
-		InsuranceFee         int64   `json:"insurance_fee"`
+		OrderID             string  `json:"order_id"`
+		ServiceCode         string  `json:"service_code"`
+		GrossTotal          int64   `json:"gross_total"`
+		DistanceKM          float64 `json:"distance_km"`
+		BaseFare            int64   `json:"base_fare"`
+		PerKMRate           int64   `json:"per_km_rate"`
+		CourierServicePrice int64   `json:"courier_service_price"`
+		TollCost            int64   `json:"toll_cost"`
+		InsuranceFee        int64   `json:"insurance_fee"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -320,6 +321,11 @@ func (h *TambalBanHandler) CreateTambalBanReport(w http.ResponseWriter, r *http.
 
 	err := h.reportSvc.CreateTambalBanReport(r.Context(), &req)
 	if err != nil {
+		if errors.Is(err, domain.ErrInvalidServiceReport) {
+			middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_SERVICE_REPORT", err.Error(),
+				middleware.GetCorrelationID(r.Context()))
+			return
+		}
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create report",
 			middleware.GetCorrelationID(r.Context()))
 		return
@@ -351,6 +357,11 @@ func (h *TambalBanHandler) CreateTowingReport(w http.ResponseWriter, r *http.Req
 
 	err := h.reportSvc.CreateTowingReport(r.Context(), &req)
 	if err != nil {
+		if errors.Is(err, domain.ErrInvalidServiceReport) {
+			middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_SERVICE_REPORT", err.Error(),
+				middleware.GetCorrelationID(r.Context()))
+			return
+		}
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create report",
 			middleware.GetCorrelationID(r.Context()))
 		return

@@ -89,6 +89,22 @@ data class TowingReport(
     @SerialName("driver_notes") val driverNotes: String? = null
 )
 
+@Serializable
+data class CourierProofRequirements(
+    @SerialName("face_verification_required")
+    val faceVerificationRequired: Boolean = true,
+    @SerialName("geofence_radius_m")
+    val geofenceRadiusM: Int = 10,
+    @SerialName("min_accuracy_m")
+    val minAccuracyM: Int = 50,
+    @SerialName("failed_delivery_policy")
+    val failedDeliveryPolicy: String = "must_deliver",
+    @SerialName("pod_label")
+    val podLabel: String = "POD",
+    @SerialName("required_steps")
+    val requiredSteps: List<String> = emptyList()
+)
+
 /**
  * Order Model for TEMBUS Courier App
  *
@@ -186,6 +202,10 @@ data class Order(
     @SerialName("pricing_breakdown")
     val pricingBreakdown: PricingBreakdown? = null,
 
+    @ColumnInfo(name = "proof_requirements")
+    @SerialName("proof_requirements")
+    val proofRequirements: CourierProofRequirements? = null,
+
     @ColumnInfo(name = "service_code")
     @SerialName("service_code")
     val serviceCode: String? = null,
@@ -205,6 +225,34 @@ data class Order(
     @ColumnInfo(name = "service_route_model")
     @SerialName("service_route_model")
     val serviceRouteModel: String? = null,
+
+    @ColumnInfo(name = "route_snapshot")
+    @SerialName("route_snapshot")
+    val routeSnapshot: CourierRouteSnapshot? = null,
+
+    @ColumnInfo(name = "route_provider")
+    @SerialName("route_provider")
+    val routeProvider: String? = null,
+
+    @ColumnInfo(name = "route_profile")
+    @SerialName("route_profile")
+    val routeProfile: String? = null,
+
+    @ColumnInfo(name = "route_polyline")
+    @SerialName("route_polyline")
+    val routePolyline: String? = null,
+
+    @ColumnInfo(name = "route_distance_meters", defaultValue = "0")
+    @SerialName("route_distance_meters")
+    val routeDistanceMeters: Int = 0,
+
+    @ColumnInfo(name = "route_duration_seconds", defaultValue = "0")
+    @SerialName("route_duration_seconds")
+    val routeDurationSeconds: Int = 0,
+
+    @ColumnInfo(name = "eta_minutes", defaultValue = "0")
+    @SerialName("eta_minutes")
+    val etaMinutes: Int = 0,
 
     @ColumnInfo(name = "service_max_eta_minutes")
     @SerialName("service_max_eta_minutes")
@@ -499,6 +547,8 @@ fun Order.distanceKmValue(): Double {
 }
 
 fun Order.etaMinutesValue(): Int {
+    routeSnapshot?.etaMinutes?.takeIf { it > 0 }?.let { return it }
+    etaMinutes.takeIf { it > 0 }?.let { return it }
     if (serviceMaxEtaMinutes > 0) return serviceMaxEtaMinutes
     return 0
 }

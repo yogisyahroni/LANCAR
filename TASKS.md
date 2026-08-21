@@ -2,6 +2,8 @@
 
 ## Active
 
+- [ ] **P0 - E2E Multi-Service Courier Flow Repair** - detail eksekusi ada di [task-e2e-multi-service-courier-flow-repair.md](task-e2e-multi-service-courier-flow-repair.md); scope customer web/mobile, backend order/admin/payment/dispatch, courier app, merchant/admin ops, settlement, proof, notification, dan test Android/Playwright.
+
 - [ ] **Customer Google Login + Zenziva OTP Infrastructure** - detail eksekusi ada di [task-customer-google-auth-zenziva-otp.md](task-customer-google-auth-zenziva-otp.md); scope customer web, Android customer app, auth-service, API gateway, database, trusted device, dan provider OTP WA/SMS.
 
 - [x] **P0 - Zero mock/hardcoded production data untuk admin, customer web, mobile customer, mobile kurir, dan backend** - semua data runtime harus berasal dari database, API backend, device sensor nyata, atau provider eksternal resmi; tidak boleh ada mock/demo/random/static business data di production path.

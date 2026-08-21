@@ -1164,10 +1164,25 @@ const normalizeMobileOrder = (order: any) => {
       };
     }
   }
+  const proofRequirements = {
+    face_verification_required: order.service_face_verification_required !== false,
+    geofence_radius_m: Number(order.service_proof_geofence_radius_m || 10),
+    min_accuracy_m: Number(order.service_proof_min_accuracy_m || 50),
+    failed_delivery_policy: order.service_failed_delivery_policy || 'must_deliver',
+    pod_label: order.service_pod_label || 'POD',
+    required_steps: isMaintenance
+      ? ['arrival_photo', 'service_report', 'completion_photo']
+      : ['pickup_scan', 'pickup_photo', 'delivery_pod_photo'],
+  };
   return {
     ...order,
+    pickup_lat: order.pickup_latitude == null ? null : Number(order.pickup_latitude),
+    pickup_lng: order.pickup_longitude == null ? null : Number(order.pickup_longitude),
+    dropoff_lat: order.drop_latitude == null ? null : Number(order.drop_latitude),
+    dropoff_lng: order.drop_longitude == null ? null : Number(order.drop_longitude),
     distance: isMaintenance && order.distance ? String(order.distance) : (routeContract.distance_km > 0 ? String(routeContract.distance_km) : order.distance),
     pricing_breakdown: livePricingBreakdown,
+    proof_requirements: proofRequirements,
     route_snapshot: routeContract.snapshot,
     route_provider: routeContract.provider,
     route_profile: routeContract.route_profile,
@@ -2548,11 +2563,13 @@ export const updateAdminCourierIncentive = async (req: Request, res: Response) =
 
 const ON_DEMAND_OFFER_TTL_SECONDS = 90;
 const ON_DEMAND_OPEN_ORDER_STATUSES = ['pending', 'pending_payment', 'paid', 'matched', 'offered', 'dispatching', 'pending_assignment', 'searching'];
+const ON_DEMAND_DISPATCH_READY_STATUSES = ['pending', 'matched', 'offered', 'dispatching', 'pending_assignment', 'searching'];
 
 type CreatedDispatchOffer = {
   dispatch_id: string;
   order_id: string;
   courier_id: string;
+  merchant_id?: string | null;
   pickup_address: string | null;
   dropoff_address: string | null;
   distance: string | null;
@@ -2673,6 +2690,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           NULLIF(o.route_snapshot->>'snapshot_version', '')::int AS route_snapshot_version,
           NULLIF(o.route_snapshot->>'route_version', '') AS route_version,
           o.service_code,
+          o.merchant_id,
           COALESCE(dsp.max_active_orders_on_demand, 1)::int AS max_active_orders_on_demand,
           COALESCE(dsp.same_customer_batching_required, TRUE) AS same_customer_batching_required,
           COALESCE(dsp.allow_new_offer_while_pickup, FALSE) AS allow_new_offer_while_pickup,
@@ -2721,6 +2739,12 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
        WHERE o.id = $1
         AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
         AND o.status = ANY($2::text[])
+        AND EXISTS (
+          SELECT 1
+          FROM payments p
+          WHERE p.order_id = o.id
+            AND p.status = 'paid'
+        )
         AND (o.pickup_location IS NULL OR ST_Covers(z.polygon, o.pickup_location))
         AND COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)
         AND (
@@ -2759,7 +2783,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
      FROM scored
      ORDER BY score DESC, distance_m ASC, rating_snapshot DESC
      LIMIT 1`,
-    [orderId, ON_DEMAND_OPEN_ORDER_STATUSES]
+    [orderId, ON_DEMAND_DISPATCH_READY_STATUSES]
   );
 
   const nextCourier = candidate.rows[0];
@@ -2850,7 +2874,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
   await client.query(
     `UPDATE orders
      SET status = CASE
-           WHEN status IN ('pending', 'pending_payment', 'paid', 'matched', 'dispatching', 'offered') THEN 'offered'
+           WHEN status IN ('pending', 'matched', 'dispatching', 'offered') THEN 'offered'
            ELSE status
          END,
          updated_at = NOW()
@@ -2878,6 +2902,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
     dispatch_id: dispatch.id,
     order_id: orderId,
     courier_id: nextCourier.courier_id,
+    merchant_id: nextCourier.merchant_id || null,
     pickup_address: nextCourier.pickup_address,
     dropoff_address: nextCourier.dropoff_address,
     distance: ['tambal_ban', 'towing'].includes(nextCourier.service_code?.split('_')[0] ?? '')
@@ -2956,6 +2981,7 @@ export const dispatchToPreferredCourier = async (
        COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
        COALESCE(u.full_name, 'Customer') AS customer_name,
        COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS') AS service_name,
+       o.merchant_id,
        o.service_code,
        NULLIF(o.route_snapshot->>'vehicle_type', '') AS vehicle_type,
        COALESCE(NULLIF(o.route_snapshot->>'eta_minutes', '')::int, 0) AS eta_minutes,
@@ -2980,8 +3006,14 @@ export const dispatchToPreferredCourier = async (
      LEFT JOIN users u ON u.id = o.customer_id
      WHERE o.id = $1
        AND o.status = ANY($3::text[])
+       AND EXISTS (
+         SELECT 1
+         FROM payments p
+         WHERE p.order_id = o.id
+           AND p.status = 'paid'
+       )
      LIMIT 1`,
-    [orderId, preferredCourierUserId, ON_DEMAND_OPEN_ORDER_STATUSES]
+    [orderId, preferredCourierUserId, ON_DEMAND_DISPATCH_READY_STATUSES]
   );
   const nextCourier = courier.rows[0];
   if (!nextCourier) return null;
@@ -3035,7 +3067,7 @@ export const dispatchToPreferredCourier = async (
   await client.query(
     `UPDATE orders
      SET status = CASE
-           WHEN status IN ('pending', 'pending_payment', 'paid', 'matched', 'dispatching', 'offered') THEN 'offered'
+           WHEN status IN ('pending', 'matched', 'dispatching', 'offered') THEN 'offered'
            ELSE status
          END,
          updated_at = NOW()
@@ -3063,6 +3095,7 @@ export const dispatchToPreferredCourier = async (
     dispatch_id: dispatch.id,
     order_id: orderId,
     courier_id: nextCourier.courier_id,
+    merchant_id: nextCourier.merchant_id || null,
     pickup_address: nextCourier.pickup_address,
     dropoff_address: nextCourier.dropoff_address,
     distance: ['tambal_ban', 'towing'].includes((nextCourier.service_code ?? '').split('_')[0])
@@ -3096,6 +3129,12 @@ export const advanceOnDemandDispatchQueue = async (client: any, limit = 25): Pro
      FROM orders o
      WHERE LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
        AND o.status = ANY($1::text[])
+       AND EXISTS (
+         SELECT 1
+         FROM payments p
+         WHERE p.order_id = o.id
+           AND p.status = 'paid'
+       )
        AND NOT EXISTS (
          SELECT 1
          FROM courier_offer_dispatches d
@@ -3105,7 +3144,7 @@ export const advanceOnDemandDispatchQueue = async (client: any, limit = 25): Pro
      ORDER BY o.created_at ASC
      LIMIT $2
      FOR UPDATE SKIP LOCKED`,
-    [ON_DEMAND_OPEN_ORDER_STATUSES, limit]
+    [ON_DEMAND_DISPATCH_READY_STATUSES, limit]
   );
 
   for (const order of orders.rows) {
@@ -3122,6 +3161,8 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
       emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.OFFER_CREATED, {
         order_id: offer.order_id,
         courier_user_id: offer.courier_id,
+        merchant_id: offer.merchant_id || null,
+        admin_broadcast: true,
         status: 'offered',
         stage: 'offer_created',
         metadata: {
@@ -3266,6 +3307,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
           COALESCE(NULLIF(o.service_code, ''), o.service_sub_type) AS service_code,
           o.customer_id,
           o.order_number,
+          o.merchant_id,
           o.route_snapshot,
           o.route_provider,
           o.route_profile,
@@ -3495,6 +3537,8 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       order_number: dispatch.order_number || null,
       customer_id: dispatch.customer_id,
       courier_user_id: req.user.id,
+      merchant_id: dispatch.merchant_id || null,
+      admin_broadcast: true,
       status: 'accepted',
       stage: 'courier_otw_pickup',
       metadata: {
@@ -3507,6 +3551,8 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       order_number: dispatch.order_number || null,
       customer_id: dispatch.customer_id,
       courier_user_id: req.user.id,
+      merchant_id: dispatch.merchant_id || null,
+      admin_broadcast: true,
       status: 'accepted',
       stage: 'courier_otw_pickup',
       metadata: {
@@ -3963,6 +4009,7 @@ const verifyOnDemandStep = async ({
          o.status,
          o.model,
          o.service_code,
+         o.merchant_id,
          ol.id AS leg_id,
          ol.status AS leg_status,
          COALESCE(dsp.proof_geofence_radius_m, $6)::int AS proof_geofence_radius_m,
@@ -4393,8 +4440,16 @@ const verifyOnDemandStep = async ({
     // apakah order ini food/merchant — gagal tidak menggagalkan POD sukses.
     if (deliveryComplete) {
       const orderServiceUrl = process.env.ORDER_SERVICE_URL || 'http://order-service:8083';
+      const internalApiKey = process.env.INTERNAL_API_KEY || '';
       axios
-        .post(`${orderServiceUrl}/api/v1/internal/orders/food-settlement`, { order_id: orderId }, { timeout: 8000 })
+        .post(
+          `${orderServiceUrl}/api/v1/internal/orders/food-settlement`,
+          { order_id: orderId },
+          {
+            timeout: 8000,
+            headers: internalApiKey ? { 'X-Internal-Api-Key': internalApiKey } : undefined,
+          }
+        )
         .then(() => {
           console.info(JSON.stringify({
             event: 'food_settlement_triggered',
@@ -4477,6 +4532,8 @@ const verifyOnDemandStep = async ({
       order_number: order.order_number || null,
       customer_id: order.customer_id,
       courier_user_id: req.user.id,
+      merchant_id: order.merchant_id || null,
+      admin_broadcast: true,
       status: nextStatus,
       stage: step === 'delivery' ? (deliveryComplete ? 'pod_completed' : 'pod_package_verified') : (pickupComplete ? 'delivery_started' : 'pickup_validation'),
       location: {
@@ -4508,6 +4565,8 @@ const verifyOnDemandStep = async ({
         order_number: order.order_number || null,
         customer_id: order.customer_id,
         courier_user_id: req.user.id,
+        merchant_id: order.merchant_id || null,
+        admin_broadcast: true,
         status: nextStatus,
         stage: 'delivery_started',
         metadata: {
@@ -4648,6 +4707,79 @@ export const uploadMobileCourierPod = async (req: Request, res: Response) => {
   });
 };
 
+export const uploadMobileCourierServiceReportProof = async (req: Request, res: Response) => {
+  const orderId = String(req.body?.order_id || req.body?.orderId || '').trim();
+  const serviceType = String(req.body?.service_type || req.body?.serviceType || '').trim().toLowerCase();
+  const proofType = String(req.body?.proof_type || req.body?.proofType || '').trim().toLowerCase();
+
+  const allowedServices = new Set(['tambal_ban', 'towing']);
+  const allowedProofTypes = new Set([
+    'tire_photo_before',
+    'tire_photo_after',
+    'vehicle_photo_before',
+    'loading_photo',
+    'unloading_photo',
+    'completion_photo',
+    'signature',
+  ]);
+
+  if (!orderId || !allowedServices.has(serviceType) || !allowedProofTypes.has(proofType) || !req.file) {
+    res.status(400).json({
+      success: false,
+      data: null,
+      message: 'Order, jenis layanan, tipe bukti, dan foto wajib dikirim.',
+      code: 'ERR_BAD_REQUEST',
+    });
+    return;
+  }
+
+  const courierId = req.user?.id;
+  if (!courierId) {
+    res.status(401).json({
+      success: false,
+      data: null,
+      message: 'Sesi kurir tidak valid.',
+      code: 'ERR_UNAUTHORIZED',
+    });
+    return;
+  }
+
+  const ownership = await db.query(
+    `SELECT 1
+       FROM order_legs
+      WHERE order_id = $1
+        AND courier_id = $2
+      LIMIT 1`,
+    [orderId, courierId]
+  );
+
+  if (ownership.rows.length === 0) {
+    res.status(403).json({
+      success: false,
+      data: null,
+      message: 'Order tidak tersedia untuk akun kurir ini.',
+      code: 'ERR_ORDER_FORBIDDEN',
+    });
+    return;
+  }
+
+  const savedUpload = saveSecureUploadBuffer(req.file, `service-reports/${serviceType}/${proofType}`);
+
+  res.status(201).json({
+    success: true,
+    data: {
+      order_id: orderId,
+      service_type: serviceType,
+      proof_type: proofType,
+      file_url: savedUpload.fileUrl,
+      storage_key: savedUpload.storageKey,
+      checksum_sha256: req.file.checksumSha256 || null,
+      mime_type: req.file.detectedMimeType || null,
+    },
+    message: 'Bukti layanan tersimpan.',
+  });
+};
+
 export const getMobileCourierPickupCancellationReasons = async (_req: Request, res: Response) => {
   const reasonsRes = await db.query(
     `SELECT code, title, description, updated_at
@@ -4784,6 +4916,7 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
           o.id AS order_id,
           o.order_number,
           o.customer_id,
+          o.merchant_id,
           o.model,
           o.status AS order_status,
           o.service_code,
@@ -5007,6 +5140,8 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
       order_number: order.order_number || null,
       customer_id: order.customer_id || null,
       courier_user_id: req.user.id,
+      merchant_id: order.merchant_id || null,
+      admin_broadcast: true,
       status: effectiveRequestedStatus,
       stage: 'status_updated',
       metadata: {
@@ -5082,6 +5217,7 @@ export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Respo
          o.order_number,
          o.status,
          o.model,
+         o.merchant_id,
          ol.id AS leg_id,
          ol.status AS leg_status
        FROM orders o
@@ -5252,6 +5388,8 @@ export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Respo
       order_number: order.order_number || null,
       customer_id: order.customer_id,
       courier_user_id: req.user.id,
+      merchant_id: order.merchant_id || null,
+      admin_broadcast: true,
       status: 'cancelled',
       stage: 'pickup_cancelled',
       location: latitude != null && longitude != null ? {

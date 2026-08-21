@@ -1,8 +1,11 @@
 package com.tembus.courier.ui.screens.service
 
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.repository.OrderRepository
+import com.tembus.courier.data.repository.ServiceReportProofDraftStore
+import com.tembus.courier.data.repository.ServiceReportProofUploader
 import com.tembus.courier.data.model.distanceKmValue
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
@@ -16,6 +19,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import javax.inject.Inject
 
 data class TowingFlowUiState(
@@ -37,12 +44,15 @@ data class TowingFlowUiState(
                 val orderNumber: String = "",
                 // Titik lokasi layanan (soft-gate arrival 100m)
                 val pickupLatitude: Double? = null,
-                val pickupLongitude: Double? = null
+                val pickupLongitude: Double? = null,
+                val inspectionBeforePhotoUrl: String? = null
             )
 
 @HiltViewModel
 class TowingFlowViewModel @Inject constructor(
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val proofUploader: ServiceReportProofUploader,
+    private val proofDraftStore: ServiceReportProofDraftStore
 ) : ViewModel() {
 
     private var orderId: String = ""
@@ -73,6 +83,13 @@ class TowingFlowViewModel @Inject constructor(
                                                         val platformServiceFee = (pb?.platformFeeIdr ?: 0).toLong()
                                                         val baseFare = (pb?.baseFareIdr ?: 0).toLong()
                                                         val perKmRate = (pb?.perKmIdr ?: 0).toLong()
+                    val activeAddress = when (flowState.stage) {
+                        TowingStage.IN_TRANSIT,
+                        TowingStage.ARRIVED_AT_DROPOFF,
+                        TowingStage.UNLOADING,
+                        TowingStage.COMPLETED -> flowState.dropoffAddress
+                        else -> flowState.pickupAddress
+                    }
 
                     _uiState.update {
                                             it.copy(
@@ -86,10 +103,11 @@ class TowingFlowViewModel @Inject constructor(
                                                 stage = flowState.stage,
                                                 customerName = order.customerName,
                                                                             customerPhone = order.phoneNumber.orEmpty(),
-                                                                            activeAddress = flowState.pickupAddress,
+                                                                            activeAddress = activeAddress,
                                                                                                                                                         orderNumber = order.orderNumber.orEmpty(),
                                                                                                                                                         pickupLatitude = order.pickupLatitude,
                                                                                                                                                         pickupLongitude = order.pickupLongitude,
+                                                                                                                                                        inspectionBeforePhotoUrl = proofDraftStore.getBeforePhotoUrl(orderId, "towing"),
                                                 earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,
@@ -143,12 +161,20 @@ class TowingFlowViewModel @Inject constructor(
                         orderRepository.updateOrderStatus(orderId, "verifying")
                     }
                     TowingNextActionType.VERIFY_FACE -> {
-                        // Advance past identity to inspection
-                        orderRepository.updateOrderStatus(orderId, "inspecting")
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = "Verifikasi wajah wajib dilakukan dari layar kamera."
+                            )
+                        }
                     }
                     TowingNextActionType.CAPTURE_INSPECTION -> {
-                        // Advance from inspecting to loading
-                        orderRepository.updateOrderStatus(orderId, "loading")
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = "Foto inspeksi awal kendaraan wajib diambil sebelum loading."
+                            )
+                        }
                     }
                     TowingNextActionType.START_LOADING -> {
                         orderRepository.updateOrderStatus(orderId, "loading")
@@ -166,7 +192,7 @@ class TowingFlowViewModel @Inject constructor(
                         val reportRequest = mapOf(
                             "order_id" to orderId,
                             "service_type" to "towing",
-                            "completed_at" to System.currentTimeMillis().toString()
+                            "completed_at" to utcNowRfc3339()
                         )
                         orderRepository.createTowingReport(orderId, reportRequest)
                             .onSuccess {
@@ -183,6 +209,38 @@ class TowingFlowViewModel @Inject constructor(
                     it.copy(isLoading = false, error = e.message ?: "Gagal menjalankan aksi")
                 }
             }
+        }
+    }
+
+    private fun utcNowRfc3339(): String {
+        return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }.format(Date())
+    }
+
+    fun captureInspection(beforePhoto: Bitmap) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val uploadResult = proofUploader.upload(
+                orderId = orderId,
+                serviceType = "towing",
+                proofType = "vehicle_photo_before",
+                bitmap = beforePhoto
+            )
+            if (uploadResult.isFailure) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = uploadResult.exceptionOrNull()?.message ?: "Foto inspeksi awal kendaraan belum berhasil diunggah."
+                    )
+                }
+                return@launch
+            }
+
+            val photoUrl = uploadResult.getOrNull().orEmpty()
+            proofDraftStore.saveBeforePhotoUrl(orderId, "towing", photoUrl)
+            orderRepository.updateOrderStatus(orderId, "loading")
+            loadOrder(orderId)
         }
     }
 }

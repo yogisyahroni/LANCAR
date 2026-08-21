@@ -16,7 +16,9 @@ import {
   Truck,
   RefreshCw,
   Store,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Image as ImageIcon,
+  FileSignature
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -107,6 +109,67 @@ const formatShortTime = (value?: string | null) => {
   return Number.isNaN(date.getTime()) ? '---' : format(date, 'HH:mm')
 }
 
+const formatStuckSince = (value?: string | null) => {
+  if (!value) return 'Belum ada timestamp'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'Belum ada timestamp' : format(date, 'dd MMM HH:mm')
+}
+
+const stuckFilters = [
+  { value: 'all', label: 'Semua' },
+  { value: 'risk', label: 'Stuck' },
+  { value: 'paid_no_dispatch', label: 'Paid no dispatch' },
+  { value: 'offered_expired', label: 'Offer expired' },
+  { value: 'accepted_no_arrival', label: 'No arrival' },
+  { value: 'service_started_no_completion', label: 'No completion' },
+  { value: 'proof_failed', label: 'Proof failed' },
+  { value: 'settlement_missing', label: 'Settlement' },
+]
+
+const stuckBadgeTone = (severity?: string | null) =>
+  severity === 'critical'
+    ? 'bg-red-500/10 border-red-500/25 text-red-300'
+    : 'bg-amber-500/10 border-amber-500/25 text-amber-300'
+
+type ReportProof = {
+  label: string
+  url?: string | null
+}
+
+function ServiceReportProofGrid({ proofs }: { proofs: ReportProof[] }) {
+  const visibleProofs = proofs.filter((proof) => proof.url)
+  if (!visibleProofs.length) {
+    return (
+      <div className="rounded-2xl bg-zinc-800 border border-white/10 p-5 text-center">
+        <ImageIcon size={24} className="mx-auto text-zinc-700 mb-2" />
+        <span className="text-[10px] font-black text-zinc-700 uppercase tracking-[0.2em] block">Belum ada foto report</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3">
+      {visibleProofs.map((proof) => {
+        const url = uploadUrl(proof.url)
+        return (
+          <button
+            key={proof.label}
+            type="button"
+            onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+            className="group text-left rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] hover:border-primary/40 transition-all"
+          >
+            <img src={url} className="w-full h-32 object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt={proof.label} />
+            <div className="p-3 flex items-center justify-between gap-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{proof.label}</span>
+              <ImageIcon size={14} className="text-zinc-600 group-hover:text-primary-light transition-colors" />
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function TambalBanReportPanel({ report }: { report: any }) {
   if (!report) return null;
   return (
@@ -119,17 +182,23 @@ function TambalBanReportPanel({ report }: { report: any }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kerusakan</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{report.damage_type || 'N/A'}</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kondisi Awal</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{report.tire_condition_before || report.damage_type || 'N/A'}</p>
         </div>
         <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Deskripsi</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{report.description || 'N/A'}</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kondisi Akhir</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{report.tire_condition_after || report.description || 'N/A'}</p>
         </div>
       </div>
+      <ServiceReportProofGrid
+        proofs={[
+          { label: 'Foto ban sebelum', url: report.tire_photo_before_url },
+          { label: 'Foto ban sesudah', url: report.tire_photo_after_url },
+        ]}
+      />
       <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Catatan Teknisi</p>
-        <p className="text-sm font-black text-zinc-100 mt-1">{report.technician_notes || '-'}</p>
+        <p className="text-sm font-black text-zinc-100 mt-1">{report.notes || report.technician_notes || '-'}</p>
       </div>
     </div>
   )
@@ -147,17 +216,36 @@ function TowingReportPanel({ report }: { report: any }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Tipe Towing</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{report.towing_type || 'N/A'}</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kondisi Awal</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{report.vehicle_condition_before || report.vehicle_condition || 'N/A'}</p>
         </div>
         <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kondisi Kendaraan</p>
-          <p className="text-sm font-black text-zinc-100 mt-1">{report.vehicle_condition || 'N/A'}</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Odometer</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{report.odometer_reading ?? report.odometer_after ?? 'N/A'}</p>
         </div>
       </div>
+      <ServiceReportProofGrid
+        proofs={[
+          { label: 'Foto kendaraan sebelum', url: report.vehicle_photo_before_url },
+          { label: 'Foto loading', url: report.loading_photo_url },
+          { label: 'Foto unloading', url: report.unloading_photo_url },
+          { label: 'Foto completion', url: report.completion_photo_url },
+          { label: 'Tanda tangan', url: report.signature_url },
+        ]}
+      />
+      {report.signature_url && (
+        <button
+          type="button"
+          onClick={() => window.open(uploadUrl(report.signature_url), '_blank', 'noopener,noreferrer')}
+          className="w-full rounded-2xl bg-primary/10 border border-primary/20 p-3 text-left flex items-center justify-between gap-3 hover:bg-primary/15 transition-colors"
+        >
+          <span className="text-[10px] font-black uppercase tracking-widest text-primary-light">Buka tanda tangan customer</span>
+          <FileSignature size={16} className="text-primary-light" />
+        </button>
+      )}
       <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Catatan Driver</p>
-        <p className="text-sm font-black text-zinc-100 mt-1">{report.driver_notes || '-'}</p>
+        <p className="text-sm font-black text-zinc-100 mt-1">{report.notes || report.driver_notes || '-'}</p>
       </div>
     </div>
   )
@@ -319,22 +407,149 @@ function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
   )
 }
 
+function StuckDiagnosticsPanel({ orderDetail }: { orderDetail: any }) {
+  if (!orderDetail?.stuck_reason) {
+    return (
+      <div className="p-6 rounded-[32px] bg-emerald-500/5 border border-emerald-500/10 space-y-2">
+        <p className="text-[10px] font-black text-emerald-300 uppercase tracking-widest flex items-center gap-2">
+          <AlertCircle size={14} />
+          Stuck Diagnostics
+        </p>
+        <p className="text-xs text-zinc-500 font-bold leading-relaxed">
+          Tidak ada stuck signal dari dispatch, proof, service report, atau settlement.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn(
+      'p-6 rounded-[32px] border space-y-4',
+      orderDetail.stuck_severity === 'critical'
+        ? 'bg-red-500/5 border-red-500/15'
+        : 'bg-amber-500/5 border-amber-500/15'
+    )}>
+      <div className="flex items-start justify-between gap-4">
+        <p className={cn(
+          'text-[10px] font-black uppercase tracking-widest flex items-center gap-2',
+          orderDetail.stuck_severity === 'critical' ? 'text-red-300' : 'text-amber-300'
+        )}>
+          <AlertCircle size={14} />
+          Stuck Diagnostics
+        </p>
+        <span className={cn('px-3 py-1 rounded-full border text-[10px] font-black uppercase', stuckBadgeTone(orderDetail.stuck_severity))}>
+          {orderDetail.stuck_severity || 'warning'}
+        </span>
+      </div>
+      <div>
+        <p className="text-sm font-black text-zinc-100">{orderDetail.stuck_label || orderDetail.stuck_reason}</p>
+        <p className="mt-1 text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
+          Since {formatStuckSince(orderDetail.stuck_since)}
+        </p>
+      </div>
+      <p className="text-xs text-zinc-500 font-bold leading-relaxed">
+        Buka event stream, dispatch decision, proof risk, dan evidence vault di panel ini sebelum reassign atau flag issue.
+      </p>
+    </div>
+  )
+}
+
+function SupportResolutionPanel({ orderDetail }: { orderDetail: any }) {
+  const status = String(orderDetail?.status || '').toLowerCase()
+  const proofs = Array.isArray(orderDetail?.proofs) ? orderDetail.proofs : []
+  const events = Array.isArray(orderDetail?.events) ? orderDetail.events : []
+  const cancellationProofs = proofs.filter((proof: any) =>
+    proof.proof_category === 'cancellation'
+    || proof.scan_type === 'pickup_cancellation'
+    || proof.reason_code
+  )
+  const supportEvents = events.filter((event: any) => {
+    const type = String(event.event_type || '').toLowerCase()
+    return type.includes('cancel') || type.includes('failed') || type.includes('return') || type.includes('flag')
+  })
+  const latestProof = cancellationProofs[cancellationProofs.length - 1]
+  const latestEvent = supportEvents[supportEvents.length - 1]
+  const shouldShow = ['cancelled', 'failed', 'return_required', 'returned'].includes(status)
+    || cancellationProofs.length > 0
+    || supportEvents.length > 0
+
+  if (!shouldShow) return null
+
+  const latitude = readNumber(latestProof?.latitude)
+  const longitude = readNumber(latestProof?.longitude)
+  const reason = orderDetail.cancellation_reason
+    || latestProof?.reason_note
+    || latestProof?.override_reason
+    || latestEvent?.description
+    || 'Reason belum tersedia dari API'
+
+  return (
+    <div className="p-6 rounded-[32px] bg-red-500/5 border border-red-500/10 space-y-5">
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-[10px] font-black text-red-300 uppercase tracking-widest flex items-center gap-2">
+          <AlertCircle size={14} />
+          Support Case
+        </p>
+        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-zinc-500 uppercase">
+          {status || 'review'}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-black text-zinc-100 uppercase tracking-widest">Reason</p>
+        <p className="text-xs text-zinc-400 font-bold leading-relaxed">{reason}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Proof</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{cancellationProofs.length}</p>
+        </div>
+        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Audit Events</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{supportEvents.length}</p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Location</p>
+        <p className="text-xs font-mono text-zinc-300 mt-1">
+          {latitude !== null && longitude !== null ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : 'Belum ada koordinat bukti'}
+        </p>
+      </div>
+
+      {latestProof?.photo_url && (
+        <button
+          type="button"
+          onClick={() => window.open(uploadUrl(latestProof.photo_url), '_blank', 'noopener,noreferrer')}
+          className="w-full rounded-2xl bg-red-500/10 border border-red-500/20 p-3 text-left flex items-center justify-between gap-3 hover:bg-red-500/15 transition-colors"
+        >
+          <span className="text-[10px] font-black uppercase tracking-widest text-red-200">Buka proof cancellation</span>
+          <ImageIcon size={16} className="text-red-200" />
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function ActiveOrdersTable() {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
+  const [stuckFilter, setStuckFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const limit = 10
 
   // Fetch Orders — auto-refetch every 10s for near-realtime updates
   const { data: ordersData, isLoading: isLoadingOrders, isError: isOrdersError, error: ordersError, refetch: refetchOrders } = useQuery({
-    queryKey: ['admin-orders', page, searchTerm],
+    queryKey: ['admin-orders', page, searchTerm, stuckFilter],
     queryFn: async () => {
       const res = await api.get('/admin/orders', {
         params: {
           page,
           limit,
-          search: searchTerm
+          search: searchTerm,
+          ...(stuckFilter === 'all' ? {} : { stuck: stuckFilter })
         }
       })
       return res.data
@@ -408,9 +623,21 @@ export default function ActiveOrdersTable() {
           />
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-sm font-black uppercase tracking-widest text-zinc-400 hover:bg-white/10 hover:text-white transition-all">
+          <button
+            type="button"
+            onClick={() => {
+              setStuckFilter(stuckFilter === 'risk' ? 'all' : 'risk')
+              setPage(1)
+            }}
+            className={cn(
+              'flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl text-sm font-black uppercase tracking-widest transition-all',
+              stuckFilter === 'risk'
+                ? 'bg-amber-500/10 border-amber-500/25 text-amber-300'
+                : 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white'
+            )}
+          >
             <Filter size={18} />
-            Filters
+            Stuck
           </button>
           <button 
             onClick={() => refetchOrders()}
@@ -419,6 +646,27 @@ export default function ActiveOrdersTable() {
             <Clock size={20} />
           </button>
         </div>
+      </div>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        {stuckFilters.map((filter) => (
+          <button
+            key={filter.value}
+            type="button"
+            onClick={() => {
+              setStuckFilter(filter.value)
+              setPage(1)
+            }}
+            className={cn(
+              'h-9 px-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all',
+              stuckFilter === filter.value
+                ? 'bg-primary text-white border-primary shadow-lg shadow-primary/10'
+                : 'bg-white/[0.03] border-white/10 text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06]'
+            )}
+          >
+            {filter.label}
+          </button>
+        ))}
       </div>
 
       <div className="flex-1 overflow-x-auto">
@@ -445,7 +693,7 @@ export default function ActiveOrdersTable() {
                 <th className="px-6 py-4">ID & Model</th>
                 <th className="px-6 py-4">Customer</th>
                 <th className="px-6 py-4">Courier</th>
-                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Status & Risk</th>
                 <th className="px-6 py-4 text-right">Revenue</th>
               </tr>
             </thead>
@@ -502,10 +750,18 @@ export default function ActiveOrdersTable() {
                           masih terisi → badge tidak boleh muncul di non-scheduled) */}
                       {order.status === 'scheduled' && order.scheduled_at && (
                         <span className="text-[10px] font-bold bg-violet-500/10 text-violet-300 border border-violet-500/30 rounded-full px-2 py-0.5 ml-1">
-                          🕐 Terjadwal — {formatScheduledTime(order.scheduled_at)}
+                          Terjadwal {formatScheduledTime(order.scheduled_at)}
                         </span>
                       )}
                     </div>
+                    {order.stuck_reason && (
+                      <div className="mt-2">
+                        <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest', stuckBadgeTone(order.stuck_severity))}>
+                          <AlertCircle size={12} />
+                          {order.stuck_label || order.stuck_reason}
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-5 text-right">
                     <span className="text-sm font-black text-zinc-100">Rp {parseInt(order.total_amount).toLocaleString()}</span>
@@ -702,16 +958,25 @@ export default function ActiveOrdersTable() {
                             )}
                             <div className="pt-2 space-y-3">
                               {orderDetail.food_items.map((item: any, idx: number) => (
-                                <div key={idx} className="flex items-center justify-between border-t border-white/5 pt-3">
-                                  <div>
+                                <div key={idx} className="flex items-start justify-between gap-4 border-t border-white/5 pt-3">
+                                  <div className="min-w-0 flex-1">
                                     <p className="text-sm font-black text-zinc-100">
                                       {item.quantity}× {item.item_name}
                                     </p>
+                                    {Array.isArray(item.variants) && item.variants.length > 0 && (
+                                      <p className="mt-1 text-[10px] text-zinc-500 font-bold leading-relaxed">
+                                        {item.variants.map((variant: any) => {
+                                          const variantName = String(variant.variant_name || '').trim();
+                                          const optionName = String(variant.option_name || '').trim();
+                                          return variantName ? `${variantName}: ${optionName}` : optionName;
+                                        }).filter(Boolean).join(' · ')}
+                                      </p>
+                                    )}
                                     {item.notes && (
                                       <p className="text-[10px] text-zinc-600 font-medium">Catatan: {item.notes}</p>
                                     )}
                                   </div>
-                                  <span className="text-sm font-black text-zinc-100">Rp {parseInt(item.subtotal).toLocaleString()}</span>
+                                  <span className="shrink-0 text-sm font-black text-zinc-100">Rp {parseInt(item.subtotal).toLocaleString()}</span>
                                 </div>
                               ))}
                             </div>
@@ -759,6 +1024,10 @@ export default function ActiveOrdersTable() {
                            </p>
                            <RouteTelemetryPanel orderDetail={orderDetail} />
                         </div>
+
+                        <StuckDiagnosticsPanel orderDetail={orderDetail} />
+
+                        <SupportResolutionPanel orderDetail={orderDetail} />
 
                         <div className="space-y-4">
                           <button 

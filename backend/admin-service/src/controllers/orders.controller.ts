@@ -2,6 +2,220 @@ import { Request, Response } from 'express';
 import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
 
+const STUCK_REASON_SQL = `
+  CASE
+    WHEN EXISTS (
+      SELECT 1
+      FROM courier_proof_attempts cpa
+      WHERE cpa.order_id = o.id
+        AND cpa.proof_status = 'rejected'
+        AND cpa.created_at >= NOW() - INTERVAL '24 hours'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM courier_proof_attempts accepted_cpa
+          WHERE accepted_cpa.order_id = cpa.order_id
+            AND accepted_cpa.proof_step = cpa.proof_step
+            AND accepted_cpa.proof_status = 'accepted'
+            AND accepted_cpa.created_at > cpa.created_at
+        )
+    ) THEN 'proof_failed'
+    WHEN LOWER(o.status) IN ('delivered', 'completed')
+      AND (o.merchant_id IS NOT NULL OR o.service_sub_type = 'food_delivery')
+      AND COALESCE(o.delivered_at, o.updated_at, o.created_at) < NOW() - INTERVAL '15 minutes'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM merchant_settlements ms
+        WHERE ms.order_id = o.id
+      ) THEN 'settlement_missing'
+    WHEN LOWER(o.status) IN ('accepted', 'assigned', 'going_to_pickup', 'pickup_pending', 'picking_up')
+      AND COALESCE((
+        SELECT MAX(COALESCE(d.responded_at, d.offered_at, d.created_at))
+        FROM courier_offer_dispatches d
+        WHERE d.order_id = o.id
+          AND d.status = 'accepted'
+      ), o.assigned_at, o.updated_at, o.created_at) < NOW() - INTERVAL '20 minutes'
+      AND o.picked_up_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM order_events oe
+        WHERE oe.order_id = o.id
+          AND oe.event_type IN ('arrived', 'courier_arrived', 'driver_arrived', 'pickup_arrived')
+      ) THEN 'accepted_no_arrival'
+    WHEN LOWER(o.status) IN ('picked_up', 'in_transit', 'in_progress', 'service_started', 'loading', 'unloading')
+      AND COALESCE(o.picked_up_at, (
+        SELECT MAX(COALESCE(ol.started_at, ol.updated_at, ol.created_at))
+        FROM order_legs ol
+        WHERE ol.order_id = o.id
+          AND LOWER(ol.status) IN ('picked_up', 'in_transit', 'in_progress')
+      ), o.updated_at, o.created_at) < NOW() - INTERVAL '60 minutes'
+      AND (
+        o.service_sub_type IS NULL
+        OR o.service_sub_type NOT IN ('tambal_ban_motor', 'tambal_ban_mobil', 'towing_motor', 'towing_mobil')
+        OR (
+          o.service_sub_type IN ('tambal_ban_motor', 'tambal_ban_mobil')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM tambal_ban_reports tr
+            WHERE tr.order_id = o.id
+              AND tr.completed_at IS NOT NULL
+          )
+        )
+        OR (
+          o.service_sub_type IN ('towing_motor', 'towing_mobil')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM towing_reports twr
+            WHERE twr.order_id = o.id
+              AND twr.completed_at IS NOT NULL
+          )
+        )
+      ) THEN 'service_started_no_completion'
+    WHEN LOWER(o.status) IN ('paid', 'matched', 'dispatching', 'offered', 'searching', 'pending_assignment', 'no_courier_found')
+      AND NOT EXISTS (
+        SELECT 1
+        FROM courier_offer_dispatches accepted_dispatch
+        WHERE accepted_dispatch.order_id = o.id
+          AND accepted_dispatch.status = 'accepted'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM courier_offer_dispatches expired_dispatch
+        WHERE expired_dispatch.order_id = o.id
+          AND (
+            expired_dispatch.status = 'expired'
+            OR (expired_dispatch.status = 'offered' AND expired_dispatch.expires_at < NOW())
+          )
+      ) THEN 'offered_expired'
+    WHEN LOWER(o.status) IN ('paid', 'matched', 'dispatching', 'searching', 'pending_assignment')
+      AND COALESCE(o.updated_at, o.created_at) < NOW() - INTERVAL '5 minutes'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM courier_offer_dispatches d
+        WHERE d.order_id = o.id
+      ) THEN 'paid_no_dispatch'
+    ELSE NULL
+  END
+`;
+
+const STUCK_SINCE_SQL = `
+  CASE
+    WHEN EXISTS (
+      SELECT 1
+      FROM courier_proof_attempts cpa
+      WHERE cpa.order_id = o.id
+        AND cpa.proof_status = 'rejected'
+        AND cpa.created_at >= NOW() - INTERVAL '24 hours'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM courier_proof_attempts accepted_cpa
+          WHERE accepted_cpa.order_id = cpa.order_id
+            AND accepted_cpa.proof_step = cpa.proof_step
+            AND accepted_cpa.proof_status = 'accepted'
+            AND accepted_cpa.created_at > cpa.created_at
+        )
+    ) THEN (
+      SELECT MAX(cpa.created_at)
+      FROM courier_proof_attempts cpa
+      WHERE cpa.order_id = o.id
+        AND cpa.proof_status = 'rejected'
+    )
+    WHEN LOWER(o.status) IN ('delivered', 'completed')
+      AND (o.merchant_id IS NOT NULL OR o.service_sub_type = 'food_delivery')
+      AND NOT EXISTS (SELECT 1 FROM merchant_settlements ms WHERE ms.order_id = o.id)
+      THEN COALESCE(o.delivered_at, o.updated_at, o.created_at)
+    WHEN LOWER(o.status) IN ('accepted', 'assigned', 'going_to_pickup', 'pickup_pending', 'picking_up')
+      THEN COALESCE((
+        SELECT MAX(COALESCE(d.responded_at, d.offered_at, d.created_at))
+        FROM courier_offer_dispatches d
+        WHERE d.order_id = o.id
+          AND d.status = 'accepted'
+      ), o.assigned_at, o.updated_at, o.created_at)
+    WHEN LOWER(o.status) IN ('picked_up', 'in_transit', 'in_progress', 'service_started', 'loading', 'unloading')
+      THEN COALESCE(o.picked_up_at, (
+        SELECT MAX(COALESCE(ol.started_at, ol.updated_at, ol.created_at))
+        FROM order_legs ol
+        WHERE ol.order_id = o.id
+      ), o.updated_at, o.created_at)
+    WHEN EXISTS (
+      SELECT 1
+      FROM courier_offer_dispatches expired_dispatch
+      WHERE expired_dispatch.order_id = o.id
+        AND (
+          expired_dispatch.status = 'expired'
+          OR (expired_dispatch.status = 'offered' AND expired_dispatch.expires_at < NOW())
+        )
+    ) THEN (
+      SELECT MAX(expired_dispatch.expires_at)
+      FROM courier_offer_dispatches expired_dispatch
+      WHERE expired_dispatch.order_id = o.id
+        AND (
+          expired_dispatch.status = 'expired'
+          OR (expired_dispatch.status = 'offered' AND expired_dispatch.expires_at < NOW())
+        )
+    )
+    ELSE COALESCE(o.updated_at, o.created_at)
+  END
+`;
+
+const STUCK_REASON_FILTERS = new Set([
+  'paid_no_dispatch',
+  'offered_expired',
+  'accepted_no_arrival',
+  'service_started_no_completion',
+  'proof_failed',
+  'settlement_missing',
+]);
+
+const STUCK_LABEL_SQL = `
+  CASE stuck_reason
+    WHEN 'paid_no_dispatch' THEN 'Paid, belum masuk dispatch'
+    WHEN 'offered_expired' THEN 'Offer expired, perlu re-offer'
+    WHEN 'accepted_no_arrival' THEN 'Accepted, kurir belum tiba'
+    WHEN 'service_started_no_completion' THEN 'Service jalan, belum selesai'
+    WHEN 'proof_failed' THEN 'Proof gagal / perlu review'
+    WHEN 'settlement_missing' THEN 'Settlement belum terbentuk'
+    ELSE NULL
+  END
+`;
+
+const STUCK_SEVERITY_SQL = `
+  CASE stuck_reason
+    WHEN 'proof_failed' THEN 'critical'
+    WHEN 'settlement_missing' THEN 'critical'
+    WHEN 'accepted_no_arrival' THEN 'warning'
+    WHEN 'service_started_no_completion' THEN 'warning'
+    WHEN 'offered_expired' THEN 'warning'
+    WHEN 'paid_no_dispatch' THEN 'warning'
+    ELSE NULL
+  END
+`;
+
+const getOrderStuckDiagnostics = async (orderId: string) => {
+  const result = await readDb.query(`
+    WITH order_base AS (
+      SELECT
+        o.id,
+        ${STUCK_REASON_SQL} AS stuck_reason,
+        ${STUCK_SINCE_SQL} AS stuck_since
+      FROM orders o
+      WHERE o.id = $1
+    )
+    SELECT
+      stuck_reason,
+      ${STUCK_LABEL_SQL} AS stuck_label,
+      ${STUCK_SEVERITY_SQL} AS stuck_severity,
+      stuck_since
+    FROM order_base
+  `, [orderId]);
+
+  return result.rows[0] || {
+    stuck_reason: null,
+    stuck_label: null,
+    stuck_severity: null,
+    stuck_since: null,
+  };
+};
+
 export const getAllOrders = async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
@@ -10,16 +224,23 @@ export const getAllOrders = async (req: Request, res: Response) => {
     const search = req.query.search as string;
     const status = req.query.status as string;
     const type = req.query.type as string;
+    const stuck = String(req.query.stuck || '').trim();
 
     // Build the base query — courier diambil via correlated subquery dari leg PERTAMA
     // yang aktif untuk menghindari duplicate rows (1 order multi-leg = N baris jika JOIN langsung).
     let query = `
+      WITH order_base AS (
       SELECT 
         o.id, 
+        o.order_number,
         o.model, 
+        o.service_category,
+        o.service_code,
+        o.service_sub_type,
         o.status, 
         o.total_price_idr as total_amount, 
         o.base_price_idr as base_fare,
+        o.platform_fee_idr as platform_fee,
         o.created_at,
         -- AUDIT-FIX: kirim scheduled_at (UTC ISO) supaya badge "Terjadwal"
         -- di dashboard benar-benar tampil (sebelumnya tidak di-SELECT →
@@ -39,6 +260,9 @@ export const getAllOrders = async (req: Request, res: Response) => {
          JOIN users cu ON cu.id = cp2.user_id
          WHERE ol2.order_id = o.id 
          ORDER BY ol2.leg_number ASC LIMIT 1) as courier_phone
+        ,
+        ${STUCK_REASON_SQL} AS stuck_reason,
+        ${STUCK_SINCE_SQL} AS stuck_since
       FROM orders o
       LEFT JOIN users u ON o.customer_id = u.id
       WHERE 1=1
@@ -60,6 +284,27 @@ export const getAllOrders = async (req: Request, res: Response) => {
     if (type) {
       values.push(type);
       query += ` AND o.model = $${values.length}`;
+    }
+
+    query += `
+      ),
+      order_diag AS (
+        SELECT
+          order_base.*,
+          ${STUCK_LABEL_SQL} AS stuck_label,
+          ${STUCK_SEVERITY_SQL} AS stuck_severity
+        FROM order_base
+      )
+      SELECT *
+      FROM order_diag
+      WHERE 1=1
+    `;
+
+    if (stuck === 'risk' || stuck === 'any') {
+      query += ' AND stuck_reason IS NOT NULL';
+    } else if (STUCK_REASON_FILTERS.has(stuck)) {
+      values.push(stuck);
+      query += ` AND stuck_reason = $${values.length}`;
     }
 
     const countQuery = `SELECT COUNT(*) FROM (${query}) as subquery`;
@@ -101,7 +346,7 @@ export const getOrderStats = async (req: Request, res: Response) => {
 
 export const getOrderById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id || '');
     const orderRes = await readDb.query(`
       SELECT o.*, 
              o.total_price_idr as total_amount,
@@ -292,7 +537,16 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
              foi.quantity,
              foi.notes,
              foi.subtotal,
-             foi.created_at
+             foi.created_at,
+             COALESCE((
+               SELECT jsonb_agg(jsonb_build_object(
+                 'variant_name', foiv.variant_name,
+                 'option_name', foiv.option_name,
+                 'price_delta', foiv.price_delta
+               ) ORDER BY foiv.id)
+               FROM food_order_item_variants foiv
+               WHERE foiv.order_item_id = foi.id
+             ), '[]'::jsonb) AS variants
       FROM food_order_items foi
       WHERE foi.order_id = $1
       ORDER BY foi.created_at ASC
@@ -308,9 +562,11 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       LEFT JOIN merchants m ON m.id = o.merchant_id
       WHERE o.id = $1
     `, [id]);
+    const stuckDiagnostics = await getOrderStuckDiagnostics(id);
 
     res.json({
       ...orderRes.rows[0],
+      ...stuckDiagnostics,
       events: eventsRes.rows,
       legs: legsRes.rows,
       proofs: proofsRes.rows,

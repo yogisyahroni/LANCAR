@@ -80,6 +80,7 @@ jest.mock('./controllers', () => ({
   verifyMobileCourierFace: jest.fn((req, res) => res.status(200).json({ success: true, data: { verified: true } })),
   scanMobileCourierOrder: jest.fn((req, res) => res.status(200).json({ success: true, data: { scanned: true } })),
   uploadMobileCourierPod: jest.fn((req, res) => res.status(200).json({ success: true, data: { uploaded: true } })),
+  uploadMobileCourierServiceReportProof: jest.fn((req, res) => res.status(201).json({ success: true, data: { file_url: '/uploads/service-reports/test.jpg' } })),
   getPayouts: jest.fn((req, res) => res.status(200).json([])),
   exportPayouts: jest.fn((req, res) => res.status(200).send('csv,data')),
   updatePayoutStatus: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
@@ -290,6 +291,11 @@ describe('Admin Service Routes', () => {
         path: '/api/v1/orders/pod/upload',
         body: { order_id: 'order-1' },
         controller: controllers.uploadMobileCourierPod,
+      },
+      {
+        path: '/api/v1/courier/service-report/proof',
+        body: { order_id: 'order-1', service_type: 'towing', proof_type: 'completion_photo' },
+        controller: controllers.uploadMobileCourierServiceReportProof,
       },
     ];
 

@@ -359,7 +359,7 @@ fun OrderDetailScreen(
                     onReportIssue = onReportIssue,
                     onCancelPickup = onCancelPickup
                 )
-            } else {
+            } else if (!isServiceOrder) {
                 OrderActions(
                     order = order,
                     flowState = courierFlow,

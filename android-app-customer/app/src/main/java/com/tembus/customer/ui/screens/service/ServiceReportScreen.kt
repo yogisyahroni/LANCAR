@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -21,10 +23,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.tembus.customer.BuildConfig
+import com.tembus.customer.data.session.AuthSessionManager
 import com.tembus.customer.ui.components.PhotoComparisonView
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,6 +45,9 @@ fun ServiceReportScreen(
     viewModel: ServiceReportViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val sessionManager = androidx.compose.runtime.remember(context) { AuthSessionManager(context) }
+    val authToken by sessionManager.authToken.collectAsState(initial = null)
     
     androidx.compose.runtime.LaunchedEffect(orderId) {
         viewModel.loadReport(orderId, serviceSubType)
@@ -83,10 +95,11 @@ fun ServiceReportScreen(
                     if (report.tireConditionBefore != null || report.tirePhotoBeforeUrl != null) {
                         PhotoComparisonView(
                             title = "Kondisi Ban",
-                            beforePhotoUrl = report.tirePhotoBeforeUrl,
-                            afterPhotoUrl = report.tirePhotoAfterUrl,
+                            beforePhotoUrl = absoluteServiceUploadUrl(report.tirePhotoBeforeUrl),
+                            afterPhotoUrl = absoluteServiceUploadUrl(report.tirePhotoAfterUrl),
                             beforeLabel = "Sebelum",
-                            afterLabel = "Sesudah"
+                            afterLabel = "Sesudah",
+                            authToken = authToken
                         )
                     }
                     
@@ -112,27 +125,31 @@ fun ServiceReportScreen(
                     // Towing Report
                     val report = uiState.towingReport!!
                     
-                    if (report.vehiclePhotoBeforeUrl != null || report.vehiclePhotoBeforeUrl != null) {
+                    if (report.vehiclePhotoBeforeUrl != null || report.completionPhotoUrl != null) {
                         PhotoComparisonView(
                             title = "Kondisi Kendaraan",
-                            beforePhotoUrl = report.vehiclePhotoBeforeUrl,
-                            afterPhotoUrl = report.completionPhotoUrl,
+                            beforePhotoUrl = absoluteServiceUploadUrl(report.vehiclePhotoBeforeUrl),
+                            afterPhotoUrl = absoluteServiceUploadUrl(report.completionPhotoUrl),
                             beforeLabel = "Saat Diambil",
-                            afterLabel = "Saat Diturunkan"
+                            afterLabel = "Saat Diturunkan",
+                            authToken = authToken
                         )
                     }
                     
                     Spacer(Modifier.height(16.dp))
                     
                     report.loadingPhotoUrl?.let { url ->
-                        Text("Foto Loading:", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        // Show loading photo
+                        ServiceProofImage("Foto loading", absoluteServiceUploadUrl(url), authToken)
                     }
                     
                     report.unloadingPhotoUrl?.let { url ->
                         Spacer(Modifier.height(8.dp))
-                        Text("Foto Unloading:", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        // Show unloading photo
+                        ServiceProofImage("Foto unloading", absoluteServiceUploadUrl(url), authToken)
+                    }
+
+                    report.signatureUrl?.let { url ->
+                        Spacer(Modifier.height(8.dp))
+                        ServiceProofImage("Tanda tangan penerima", absoluteServiceUploadUrl(url), authToken)
                     }
                     
                     report.notes?.let { notes ->
@@ -144,4 +161,36 @@ fun ServiceReportScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ServiceProofImage(title: String, url: String?, authToken: String?) {
+    Column {
+        Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        androidx.compose.foundation.layout.Spacer(Modifier.height(6.dp))
+        val context = LocalContext.current
+        AsyncImage(
+            model = if (authToken != null && !url.isNullOrBlank()) {
+                ImageRequest.Builder(context)
+                    .data(url)
+                    .addHeader("Authorization", "Bearer $authToken")
+                    .crossfade(true)
+                    .build()
+            } else url,
+            contentDescription = title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(170.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        )
+    }
+}
+
+private fun absoluteServiceUploadUrl(path: String?): String? {
+    if (path.isNullOrBlank()) return null
+    if (path.startsWith("http://") || path.startsWith("https://")) return path
+    val gatewayBase = BuildConfig.BASE_URL.substringBefore("/api/v1").trimEnd('/')
+    return "$gatewayBase$path"
 }

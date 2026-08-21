@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -60,6 +61,7 @@ fun ServiceBookingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val isTowing = serviceSubType.startsWith("towing")
 
     var vehicleType by remember { mutableStateOf("") }
     var damageType by remember { mutableStateOf("") }
@@ -138,7 +140,7 @@ fun ServiceBookingScreen(
 
             // Location section (GPS)
             Text(
-                "📍 Lokasi Anda",
+                if (isTowing) "Lokasi jemput kendaraan" else "Lokasi layanan",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -195,6 +197,76 @@ fun ServiceBookingScreen(
 
             Spacer(Modifier.height(16.dp))
 
+            if (isTowing) {
+                Text(
+                    "Tujuan towing",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = uiState.dropoffQuery,
+                    onValueChange = viewModel::updateDropoffQuery,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Cari alamat bengkel, rumah, atau dropoff") },
+                    singleLine = false,
+                    minLines = 1,
+                    maxLines = 2
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = viewModel::searchDropoffAddress,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = uiState.dropoffQuery.trim().length >= 3 && !uiState.isLoading
+                ) {
+                    Text(if (uiState.isLoading) "Mencari tujuan..." else "Cari Tujuan")
+                }
+                if (uiState.dropoffResults.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    uiState.dropoffResults.take(5).forEach { result ->
+                        OutlinedButton(
+                            onClick = { viewModel.selectDropoff(result) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    result.label.ifBlank { "Tujuan towing" },
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "${result.latitude}, ${result.longitude}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+                } else if (uiState.dropoffAddress.isNotBlank()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Tujuan dipilih", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Text(uiState.dropoffAddress, fontSize = 13.sp)
+                            Text(
+                                "${uiState.dropoffLat}, ${uiState.dropoffLng}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+            }
+
             // Selected courier (dari "Pilih Petugas")
             if (courierId != null) {
                 Card(
@@ -206,7 +278,7 @@ fun ServiceBookingScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            "🛠️ Petugas dipilih",
+                            "Petugas dipilih",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -219,7 +291,7 @@ fun ServiceBookingScreen(
                             )
                             if (courierRating > 0) {
                                 Text(
-                                    "⭐ ${"%.1f".format(courierRating)}",
+                                    "Rating ${"%.1f".format(courierRating)}",
                                     fontSize = 13.sp
                                 )
                             }
@@ -243,9 +315,9 @@ fun ServiceBookingScreen(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = uiState.customerLat != 0.0
+                    enabled = uiState.customerLat != 0.0 && (!isTowing || uiState.dropoffAddress.isNotBlank())
                 ) {
-                    Text("🛠️ Pilih Petugas")
+                    Text("Pilih Petugas")
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -253,49 +325,59 @@ fun ServiceBookingScreen(
             // Price estimation
             if (uiState.priceEstimate != null) {
                 val estimate = uiState.priceEstimate!!
-                Text(
-                    "💰 Estimasi Harga",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                // Rincian transparan: jasa + perjalanan (dinamis) + fee platform + surge
-                                                val displayServiceFee = if (courierPrice != null && courierPrice > 0) {
-                                                    courierPrice
-                                                } else {
-                                                    estimate.baseFare - estimate.distanceBase
-                                                }
-                                                val travelFee = estimate.distanceBase +
-                                                    (estimate.perKmRate * kotlin.math.max(0.0, kotlin.math.ceil(estimate.distanceKm - 1))).toLong()
-                                                Text(
-                                                    "Biaya jasa petugas: Rp ${formatRupiah(displayServiceFee)}",
-                                                    fontSize = 14.sp
-                                                )
-                                                Text(
-                                                    "Biaya perjalanan: Rp ${formatRupiah(travelFee)} (${"%.1f".format(estimate.distanceKm)} km)",
-                                                    fontSize = 14.sp
-                                                )
-                                                if (estimate.dynamicPrice > 0) {
-                                                    Text(
-                                                        "Biaya dinamis: Rp ${formatRupiah(estimate.dynamicPrice)}",
-                                                        fontSize = 14.sp
-                                                    )
-                                                }
-                                                Text(
-                                                    "Biaya layanan platform: Rp ${formatRupiah(estimate.platformFee)}",
-                                                    fontSize = 14.sp
-                                                )
-
-                Spacer(Modifier.height(8.dp))
-
-                Text(
-                    "TOTAL: Rp ${formatRupiah(estimate.totalPrice)}",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                val displayServiceFee = if (courierPrice != null && courierPrice > 0) {
+                    courierPrice
+                } else {
+                    (estimate.baseFare - estimate.distanceBase).coerceAtLeast(0)
+                }
+                val travelFee = estimate.distanceBase +
+                    (estimate.perKmRate * kotlin.math.max(0.0, kotlin.math.ceil(estimate.distanceKm - 1))).toLong()
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            if (isTowing) "Estimasi biaya towing" else "Estimasi biaya layanan",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            if (isTowing) "Pembayaran wajib non-tunai lewat aplikasi." else "Pembayaran diproses lewat aplikasi.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text("Jasa petugas: Rp ${formatRupiah(displayServiceFee)}", fontSize = 14.sp)
+                        Text(
+                            "Biaya perjalanan: Rp ${formatRupiah(travelFee)} (${"%.1f".format(estimate.distanceKm)} km)",
+                            fontSize = 14.sp
+                        )
+                        if (estimate.dynamicPrice > 0) {
+                            Text("Biaya dinamis: Rp ${formatRupiah(estimate.dynamicPrice)}", fontSize = 14.sp)
+                        }
+                        Text("Biaya layanan platform: Rp ${formatRupiah(estimate.platformFee)}", fontSize = 14.sp)
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "Total estimasi: Rp ${formatRupiah(estimate.totalPrice)}",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (isTowing) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Biaya final dapat disesuaikan admin/support bila ada perubahan rute, tol, atau kondisi kendaraan. Jika dibatalkan setelah petugas berangkat, cancellation fee dapat dikenakan sesuai kebijakan operasional.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(24.dp))
 
@@ -311,7 +393,7 @@ fun ServiceBookingScreen(
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = courierId != null && !uiState.isLoading,
+                    enabled = courierId != null && !uiState.isLoading && (!isTowing || uiState.dropoffAddress.isNotBlank()),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )
@@ -319,6 +401,7 @@ fun ServiceBookingScreen(
                     Text(
                         when {
                             uiState.isLoading -> "Membuat pesanan..."
+                            isTowing && uiState.dropoffAddress.isBlank() -> "Pilih Tujuan Dulu"
                             courierId == null -> "Pilih Petugas Dulu"
                             else -> "Pesan Sekarang"
                         },
@@ -339,13 +422,17 @@ fun ServiceBookingScreen(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = uiState.customerLat != 0.0 && !uiState.isLoading,
+                    enabled = uiState.customerLat != 0.0 && !uiState.isLoading && (!isTowing || uiState.dropoffAddress.isNotBlank()),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Text(
-                        if (uiState.isLoading) "Menghitung..." else "Cek Harga",
+                        when {
+                            uiState.isLoading -> "Menghitung..."
+                            isTowing && uiState.dropoffAddress.isBlank() -> "Pilih Tujuan Dulu"
+                            else -> "Cek Harga"
+                        },
                         fontWeight = FontWeight.Bold
                     )
                 }

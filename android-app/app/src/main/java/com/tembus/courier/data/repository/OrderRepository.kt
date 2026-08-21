@@ -348,7 +348,7 @@ class OrderRepository @Inject constructor(
     suspend fun createTambalBanReport(orderId: String, request: Map<String, Any>): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.createTambalBanReport(request)
-            if (response.isSuccessful && response.body()?.get("success") == true) {
+            if (response.isSuccessful) {
                 orderDao.updateStatus(orderId, "report_submitted")
                 Result.success(true)
             } else {
@@ -365,7 +365,7 @@ class OrderRepository @Inject constructor(
     suspend fun createTowingReport(orderId: String, request: Map<String, Any>): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.createTowingReport(request)
-            if (response.isSuccessful && response.body()?.get("success") == true) {
+            if (response.isSuccessful) {
                 orderDao.updateStatus(orderId, "report_submitted")
                 Result.success(true)
             } else {

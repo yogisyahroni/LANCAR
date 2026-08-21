@@ -67,6 +67,7 @@ routes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers
 routes.post('/api/v1/orders/status', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierOrderStatus(req, res));
 routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
 routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.pod.upload'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierPod(req, res));
+routes.post('/api/v1/courier/service-report/proof', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.service-report.proof'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierServiceReportProof(req, res));
 
 routes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
 routes.get('/auth/web/notifications', verifySession, (req, res) => controllers.getUserNotifications(req, res));
@@ -574,6 +575,7 @@ routes.delete('/admin/reports/scheduled/:id', (req, res) => controllers.deleteSc
 routes.get('/admin/finance/summary', (req, res) => controllers.getFinancialSummary(req, res));
 routes.get('/admin/finance/revenue-breakdown', (req, res) => controllers.getRevenueBreakdown(req, res));
 routes.get('/admin/finance/cost-breakdown', (req, res) => controllers.getCostBreakdown(req, res));
+routes.get('/admin/finance/service-settlement-summary', (req, res) => controllers.getServiceSettlementSummary(req, res));
 routes.get('/admin/finance/emergency-fund', (req, res) => controllers.getEmergencyFund(req, res));
 
 // Finance P0 extensions: Cash Position, P&L Report, Tax Dashboard
@@ -615,5 +617,3 @@ routes.get('/admin/aggregator-finance/claims', requireRole(['super_admin', 'fina
 routes.post('/admin/aggregator-finance/claims/:id/resolve', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.aggregatorFinance.resolveLogisticsClaim(req, res));
 
 routes.get('/admin/aggregator-finance/settlement-ledger', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.listMerchantSettlementLedger(req, res));
-
-

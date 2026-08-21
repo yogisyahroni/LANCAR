@@ -8,8 +8,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -17,9 +24,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 // ============================================================
 // EARNINGS BREAKDOWN — Model B Settlement Display
@@ -95,7 +102,7 @@ fun EarningsBreakdown(
         EarningRow(
             label = "Perjalanan ${data.distanceKm} km",
             amount = data.travelFee,
-            icon = "🛵"
+            icon = Icons.Default.Route
         )
         
         // Toll (100% reimbursement)
@@ -103,7 +110,7 @@ fun EarningsBreakdown(
             EarningRow(
                 label = "Biaya Tol (Dibayar Penuh)",
                 amount = data.tollCost,
-                icon = "🔄"
+                icon = Icons.Default.Sync
             )
         }
         
@@ -140,7 +147,7 @@ fun EarningsBreakdown(
             EarningRow(
                 label = "Biaya Layanan Platform",
                 amount = data.platformServiceFee,
-                icon = "🧾"
+                icon = Icons.Default.Payments
             )
             Text(
                 "Ditanggung customer, bukan bagian pendapatan Anda.",
@@ -187,9 +194,9 @@ fun EarningsBreakdown(
         ) {
             Text(
                 if (data.settlementModel == "per_km") {
-                                    "💡 Harga jasa yang Anda tentukan 100% masuk ke penghasilan Anda. Komisi platform dihitung dari biaya perjalanan saja, tidak dari harga jasa. Biaya layanan platform ditanggung customer."
+                                    "Harga jasa yang Anda tentukan 100% masuk ke penghasilan Anda. Komisi platform dihitung dari biaya perjalanan saja, tidak dari harga jasa. Biaya layanan platform ditanggung customer."
                                 } else {
-                    "💡 Komisi platform dihitung dari seluruh pool (setelah PPN & MDR)."
+                    "Komisi platform dihitung dari seluruh pool (setelah PPN & MDR)."
                 },
                 modifier = Modifier.padding(12.dp),
                 style = MaterialTheme.typography.bodySmall,
@@ -208,7 +215,7 @@ private fun platformCommissionPctLabel(pct: Double): String {
 private fun EarningRow(
     label: String,
     amount: Long,
-    icon: String = "",
+    icon: ImageVector? = null,
     isDeduction: Boolean = false
 ) {
     Row(
@@ -217,9 +224,14 @@ private fun EarningRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (icon.isNotEmpty()) {
-                Text(icon, fontSize = 14.sp)
-                Spacer(Modifier.height(4.dp))
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(6.dp))
             }
             Text(label, style = MaterialTheme.typography.bodyMedium)
         }

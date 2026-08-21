@@ -1,9 +1,9 @@
-import { getOrderTracking, sendOrderChat, syncCourierTracking } from './controllers/customerOrder.controller';
+import { getOrderTracking, handleMidtransNotification, sendOrderChat, syncCourierTracking } from './controllers/customerOrder.controller';
 import { dispatchNextOnDemandCourier, notifyOnDemandOffers } from './controllers/courierAuth.controller';
 import { db } from './db';
 import { createNotification } from './notifications';
 import { getIO } from './websocket';
-import { ON_DEMAND_REALTIME_EVENTS } from './services/onDemandRealtime';
+import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from './services/onDemandRealtime';
 
 jest.mock('./db', () => ({
   db: {
@@ -45,6 +45,13 @@ jest.mock('./services/mapsProviderConfig', () => {
     }),
   };
 });
+
+jest.mock('./security/webhookSecurity', () => ({
+  insertWebhookAuditEvent: jest.fn().mockResolvedValue({ id: 'webhook-audit-1', duplicate: false }),
+  resolveRawBody: jest.fn(() => Buffer.from('{}')),
+  updateWebhookAuditEvent: jest.fn().mockResolvedValue(undefined),
+  verifyMidtransSignature: jest.fn(() => true),
+}));
 
 const emit = jest.fn();
 let socketChain: any;
@@ -347,6 +354,149 @@ describe('on-demand realtime lifecycle contract', () => {
         route_distance_meters: '2400',
         eta_minutes: '15',
       }),
+    }));
+  });
+
+  it('broadcasts lifecycle events to merchant and admin rooms when requested', () => {
+    emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.PAYMENT_CONFIRMED, {
+      order_id: '66666666-6666-4666-8666-666666666666',
+      order_number: 'LCR-FOOD-1',
+      customer_id: '33333333-3333-4333-8333-333333333333',
+      merchant_id: '77777777-7777-4777-8777-777777777777',
+      admin_broadcast: true,
+      status: 'pending_merchant',
+      stage: 'payment_confirmed',
+      metadata: {
+        service_sub_type: 'food_delivery',
+      },
+    });
+
+    expect(to).toHaveBeenCalledWith('merchant:77777777-7777-4777-8777-777777777777');
+    expect(emit).toHaveBeenCalledWith('merchant_order_update', expect.objectContaining({
+      event: ON_DEMAND_REALTIME_EVENTS.PAYMENT_CONFIRMED,
+      order_id: '66666666-6666-4666-8666-666666666666',
+      merchant_id: '77777777-7777-4777-8777-777777777777',
+    }));
+    expect(to).toHaveBeenCalledWith('ops_admin');
+    expect(to).toHaveBeenCalledWith('cs_agent');
+    expect(emit).toHaveBeenCalledWith('admin_order_lifecycle', expect.objectContaining({
+      event: ON_DEMAND_REALTIME_EVENTS.PAYMENT_CONFIRMED,
+      order_id: '66666666-6666-4666-8666-666666666666',
+      admin_broadcast: true,
+    }));
+    expect(emit).toHaveBeenCalledWith('order_update', expect.objectContaining({
+      order_id: '66666666-6666-4666-8666-666666666666',
+      status: 'pending_merchant',
+    }));
+  });
+
+  it('publishes customer payment lifecycle events from Midtrans webhook outcomes', async () => {
+    const buildClient = (paymentRow: Record<string, any>) => ({
+      release: jest.fn(),
+      query: jest.fn((sql: string) => {
+        if (String(sql).includes('FROM payments p')) {
+          return Promise.resolve({ rows: [paymentRow] });
+        }
+        if (String(sql).includes('FROM promo_redemptions')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      }),
+    });
+
+    const paidClient = buildClient({
+      order_id: '66666666-6666-4666-8666-666666666666',
+      provider: 'midtrans',
+      method: 'qris',
+      amount_idr: 52000,
+      total_price_idr: 52000,
+      customer_id: '33333333-3333-4333-8333-333333333333',
+      order_number: 'LCR-FOOD-1',
+      merchant_id: '77777777-7777-4777-8777-777777777777',
+      service_sub_type: 'food_delivery',
+    });
+    (db.connect as jest.Mock).mockResolvedValueOnce(paidClient);
+
+    const paidRes = makeResponse();
+    await handleMidtransNotification({
+      body: {
+        order_id: 'MIDTRANS-FOOD-1',
+        transaction_id: 'trx-paid-1',
+        transaction_status: 'settlement',
+        status_code: '200',
+        gross_amount: '52000',
+        signature_key: 'test-signature',
+      },
+    } as any, paidRes);
+
+    expect(paidRes.json).toHaveBeenCalledWith({ success: true });
+    expect(emit).toHaveBeenCalledWith('on_demand_event', expect.objectContaining({
+      event: ON_DEMAND_REALTIME_EVENTS.PAYMENT_CONFIRMED,
+      order_id: '66666666-6666-4666-8666-666666666666',
+      customer_id: '33333333-3333-4333-8333-333333333333',
+      status: 'pending_merchant',
+      stage: ON_DEMAND_REALTIME_EVENTS.PAYMENT_CONFIRMED,
+      metadata: expect.objectContaining({
+        source: 'midtrans_webhook',
+        service_sub_type: 'food_delivery',
+        payment_status: 'paid',
+      }),
+    }));
+    expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: '33333333-3333-4333-8333-333333333333',
+      type: 'payment',
+      order_id: '66666666-6666-4666-8666-666666666666',
+      metadata: expect.objectContaining({
+        source: 'midtrans_webhook',
+        payment_status: 'paid',
+      }),
+    }));
+
+    jest.clearAllMocks();
+    to.mockReturnValue(socketChain);
+    const failedClient = buildClient({
+      order_id: '88888888-8888-4888-8888-888888888888',
+      provider: 'midtrans',
+      method: 'qris',
+      amount_idr: 24000,
+      total_price_idr: 24000,
+      customer_id: '99999999-9999-4999-8999-999999999999',
+      order_number: 'LCR-PKG-1',
+      merchant_id: null,
+      service_sub_type: 'instant_package',
+    });
+    (db.connect as jest.Mock).mockResolvedValueOnce(failedClient);
+
+    const failedRes = makeResponse();
+    await handleMidtransNotification({
+      body: {
+        order_id: 'MIDTRANS-PKG-1',
+        transaction_id: 'trx-expired-1',
+        transaction_status: 'expire',
+        status_code: '407',
+        gross_amount: '24000',
+        signature_key: 'test-signature',
+      },
+    } as any, failedRes);
+
+    expect(failedRes.json).toHaveBeenCalledWith({ success: true });
+    expect(emit).toHaveBeenCalledWith('on_demand_event', expect.objectContaining({
+      event: ON_DEMAND_REALTIME_EVENTS.PAYMENT_FAILED,
+      order_id: '88888888-8888-4888-8888-888888888888',
+      customer_id: '99999999-9999-4999-8999-999999999999',
+      status: 'payment_failed',
+      stage: ON_DEMAND_REALTIME_EVENTS.PAYMENT_FAILED,
+      metadata: expect.objectContaining({
+        source: 'midtrans_webhook',
+        service_sub_type: 'instant_package',
+        payment_status: 'expired',
+      }),
+    }));
+    expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: '99999999-9999-4999-8999-999999999999',
+      type: 'payment_failed',
+      priority: 'high',
+      order_id: '88888888-8888-4888-8888-888888888888',
     }));
   });
 

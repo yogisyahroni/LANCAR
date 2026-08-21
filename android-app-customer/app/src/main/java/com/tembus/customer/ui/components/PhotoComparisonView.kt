@@ -25,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
 
 // ============================================================
 // PHOTO COMPARISON VIEW — Before/After Photos
@@ -37,6 +39,7 @@ fun PhotoComparisonView(
     afterPhotoUrl: String?,
     beforeLabel: String = "Sebelum",
     afterLabel: String = "Sesudah",
+    authToken: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -67,6 +70,7 @@ fun PhotoComparisonView(
                 PhotoCard(
                     label = beforeLabel,
                     photoUrl = beforePhotoUrl,
+                    authToken = authToken,
                     modifier = Modifier.weight(1f)
                 )
                 
@@ -74,6 +78,7 @@ fun PhotoComparisonView(
                 PhotoCard(
                     label = afterLabel,
                     photoUrl = afterPhotoUrl,
+                    authToken = authToken,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -85,6 +90,7 @@ fun PhotoComparisonView(
 private fun PhotoCard(
     label: String,
     photoUrl: String?,
+    authToken: String?,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -109,8 +115,15 @@ private fun PhotoCard(
             contentAlignment = Alignment.Center
         ) {
             if (photoUrl != null) {
+                val context = LocalContext.current
                 AsyncImage(
-                    model = photoUrl,
+                    model = if (authToken != null) {
+                        ImageRequest.Builder(context)
+                            .data(photoUrl)
+                            .addHeader("Authorization", "Bearer $authToken")
+                            .crossfade(true)
+                            .build()
+                    } else photoUrl,
                     contentDescription = label,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier

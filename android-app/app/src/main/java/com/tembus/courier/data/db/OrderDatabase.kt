@@ -7,6 +7,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.tembus.courier.data.model.CourierOrderFoodItem
 import com.tembus.courier.data.model.CourierOrderPackage
+import com.tembus.courier.data.model.CourierProofRequirements
+import com.tembus.courier.data.model.CourierRouteSnapshot
 import com.tembus.courier.data.model.Location
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.PricingBreakdown
@@ -23,7 +25,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 20,
+    version = 21,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -262,6 +264,19 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addOrderColumnIfMissing(db, "proof_requirements", "ALTER TABLE `orders` ADD COLUMN `proof_requirements` TEXT")
+                addOrderColumnIfMissing(db, "route_snapshot", "ALTER TABLE `orders` ADD COLUMN `route_snapshot` TEXT")
+                addOrderColumnIfMissing(db, "route_provider", "ALTER TABLE `orders` ADD COLUMN `route_provider` TEXT")
+                addOrderColumnIfMissing(db, "route_profile", "ALTER TABLE `orders` ADD COLUMN `route_profile` TEXT")
+                addOrderColumnIfMissing(db, "route_polyline", "ALTER TABLE `orders` ADD COLUMN `route_polyline` TEXT")
+                addOrderColumnIfMissing(db, "route_distance_meters", "ALTER TABLE `orders` ADD COLUMN `route_distance_meters` INTEGER NOT NULL DEFAULT 0")
+                addOrderColumnIfMissing(db, "route_duration_seconds", "ALTER TABLE `orders` ADD COLUMN `route_duration_seconds` INTEGER NOT NULL DEFAULT 0")
+                addOrderColumnIfMissing(db, "eta_minutes", "ALTER TABLE `orders` ADD COLUMN `eta_minutes` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         val MIGRATION_10_13 = object : Migration(10, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addVersion11Columns(db)
@@ -296,6 +311,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_17_18,
             MIGRATION_18_19,
             MIGRATION_19_20,
+            MIGRATION_20_21,
             MIGRATION_10_13,
             MIGRATION_11_13
         )
@@ -406,6 +422,34 @@ class Converters {
         if (value.isNullOrBlank()) return null
         return runCatching {
             json.decodeFromString(PricingBreakdown.serializer(), value)
+        }.getOrNull()
+    }
+
+    @TypeConverter
+    fun routeSnapshotToString(snapshot: CourierRouteSnapshot?): String? {
+        if (snapshot == null) return null
+        return json.encodeToString(CourierRouteSnapshot.serializer(), snapshot)
+    }
+
+    @TypeConverter
+    fun stringToRouteSnapshot(value: String?): CourierRouteSnapshot? {
+        if (value.isNullOrBlank()) return null
+        return runCatching {
+            json.decodeFromString(CourierRouteSnapshot.serializer(), value)
+        }.getOrNull()
+    }
+
+    @TypeConverter
+    fun proofRequirementsToString(requirements: CourierProofRequirements?): String? {
+        if (requirements == null) return null
+        return json.encodeToString(CourierProofRequirements.serializer(), requirements)
+    }
+
+    @TypeConverter
+    fun stringToProofRequirements(value: String?): CourierProofRequirements? {
+        if (value.isNullOrBlank()) return null
+        return runCatching {
+            json.decodeFromString(CourierProofRequirements.serializer(), value)
         }.getOrNull()
     }
 }

@@ -1,7 +1,20 @@
 import { getIO } from '../websocket';
 import { recordRealtimeEventDelivery, recordRealtimeMetric } from './realtimeObservability';
 
+const ADMIN_REALTIME_ROOMS = [
+  'super_admin',
+  'admin',
+  'manager',
+  'ops_security',
+  'ops_admin',
+  'finance_admin',
+  'cs_agent',
+  'zone_manager',
+];
+
 export const ON_DEMAND_REALTIME_EVENTS = {
+  PAYMENT_CONFIRMED: 'payment_confirmed',
+  PAYMENT_FAILED: 'payment_failed',
   OFFER_CREATED: 'offer_created',
   OFFER_ACCEPTED: 'offer_accepted',
   COURIER_OTW_PICKUP: 'courier_otw_pickup',
@@ -24,6 +37,8 @@ export type OnDemandRealtimePayload = {
   customer_id?: string | null;
   courier_user_id?: string | null;
   courier_profile_id?: string | null;
+  merchant_id?: string | null;
+  admin_broadcast?: boolean;
   order_number?: string | null;
   occurred_at?: string;
   location?: {
@@ -56,38 +71,40 @@ export const emitOnDemandRealtime = (
 
   try {
     const io = getIO();
-    io.to(`order:${realtimePayload.order_id}`).emit('on_demand_event', realtimePayload);
-    io.to(`order:${realtimePayload.order_id}`).emit(event, realtimePayload);
-    if (event === ON_DEMAND_REALTIME_EVENTS.TRACKING_UPDATED) {
-      io.to(`order:${realtimePayload.order_id}`).emit('order_tracking_updated', realtimePayload);
-      io.to(`order:${realtimePayload.order_id}`).emit('tracking:update', realtimePayload);
-    }
-    if (event === ON_DEMAND_REALTIME_EVENTS.CHAT_MESSAGE && realtimePayload.chat) {
-      io.to(`order:${realtimePayload.order_id}`).emit('new_chat_message', realtimePayload.chat);
-    }
-
-    if (realtimePayload.customer_id) {
-      io.to(String(realtimePayload.customer_id)).emit('on_demand_event', realtimePayload);
-      io.to(String(realtimePayload.customer_id)).emit(event, realtimePayload);
+    const emitLifecycleToRoom = (room: string) => {
+      io.to(room).emit('on_demand_event', realtimePayload);
+      io.to(room).emit(event, realtimePayload);
       if (event === ON_DEMAND_REALTIME_EVENTS.TRACKING_UPDATED) {
-        io.to(String(realtimePayload.customer_id)).emit('order_tracking_updated', realtimePayload);
-        io.to(String(realtimePayload.customer_id)).emit('tracking:update', realtimePayload);
+        io.to(room).emit('order_tracking_updated', realtimePayload);
+        io.to(room).emit('tracking:update', realtimePayload);
       }
       if (event === ON_DEMAND_REALTIME_EVENTS.CHAT_MESSAGE && realtimePayload.chat) {
-        io.to(String(realtimePayload.customer_id)).emit('new_chat_message', realtimePayload.chat);
+        io.to(room).emit('new_chat_message', realtimePayload.chat);
       }
+    };
+
+    emitLifecycleToRoom(`order:${realtimePayload.order_id}`);
+
+    if (realtimePayload.customer_id) {
+      emitLifecycleToRoom(String(realtimePayload.customer_id));
     }
 
     if (realtimePayload.courier_user_id) {
-      io.to(String(realtimePayload.courier_user_id)).emit('on_demand_event', realtimePayload);
-      io.to(String(realtimePayload.courier_user_id)).emit(event, realtimePayload);
-      if (event === ON_DEMAND_REALTIME_EVENTS.TRACKING_UPDATED) {
-        io.to(String(realtimePayload.courier_user_id)).emit('order_tracking_updated', realtimePayload);
-        io.to(String(realtimePayload.courier_user_id)).emit('tracking:update', realtimePayload);
-      }
-      if (event === ON_DEMAND_REALTIME_EVENTS.CHAT_MESSAGE && realtimePayload.chat) {
-        io.to(String(realtimePayload.courier_user_id)).emit('new_chat_message', realtimePayload.chat);
-      }
+      emitLifecycleToRoom(String(realtimePayload.courier_user_id));
+    }
+
+    if (realtimePayload.merchant_id) {
+      const merchantRoom = `merchant:${realtimePayload.merchant_id}`;
+      emitLifecycleToRoom(merchantRoom);
+      io.to(merchantRoom).emit('merchant_order_update', realtimePayload);
+      io.to(merchantRoom).emit('order_update', realtimePayload);
+    }
+
+    if (realtimePayload.admin_broadcast) {
+      ADMIN_REALTIME_ROOMS.forEach((room) => {
+        io.to(room).emit('admin_order_lifecycle', realtimePayload);
+        io.to(room).emit('order_update', realtimePayload);
+      });
     }
     recordRealtimeEventDelivery(event, realtimePayload);
   } catch (wsError) {
@@ -95,6 +112,8 @@ export const emitOnDemandRealtime = (
       event,
       has_customer: Boolean(realtimePayload.customer_id),
       has_courier: Boolean(realtimePayload.courier_user_id),
+      has_merchant: Boolean(realtimePayload.merchant_id),
+      admin_broadcast: Boolean(realtimePayload.admin_broadcast),
     });
     console.warn(`[WebSocket] Could not emit on-demand event ${event}:`, wsError);
   }
