@@ -10,7 +10,7 @@ class CourierFlowResolverTest {
 
     @Test
     fun `assigned order requires pickup scan first`() {
-        val order = Order(orderId = "TMB-001", status = "assigned", workflowRole = "regular")
+        val order = Order(orderId = "TMB-001", status = "assigned", workflowRole = "on_demand")
 
         val flow = CourierFlowResolver.resolve(
             order = order, 
@@ -60,7 +60,7 @@ class CourierFlowResolverTest {
 
     @Test
     fun `in transit order asks for delivery proof`() {
-        val order = Order(orderId = "TMB-004", status = "in_transit", workflowRole = "regular")
+        val order = Order(orderId = "TMB-004", status = "in_transit", workflowRole = "on_demand")
 
         val flow = CourierFlowResolver.resolve(order, pickupPhotoRequired = false)
 

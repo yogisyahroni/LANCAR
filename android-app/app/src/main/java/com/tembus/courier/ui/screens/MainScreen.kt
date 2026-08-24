@@ -276,7 +276,9 @@ fun MainScreen(
     val courierName by authSessionManager.courierName.collectAsState(initial = null)
     val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
     val lifecycleOwner = LocalLifecycleOwner.current
-    val courierRole = normalizeCourierMode(courierProfile?.applicationChannel ?: inferCourierRole(allOrders))
+    // ponytail: single-mode app — non-on_demand retired 2026-08; always on_demand.
+    // Upgrade path: restore role inference only if a regular (P2P) courier mode is reintroduced.
+    val courierRole = "on_demand"
     val displayCourierName = courierName?.takeIf { it.isNotBlank() } ?: "Profil sedang disinkronkan"
     val courierVehicleType = capabilityProfile?.vehicle?.vehicleType
         ?: capabilityProfile?.vehicles?.firstOrNull { it.verificationStatus.equals("approved", ignoreCase = true) }?.vehicleType
@@ -2939,261 +2941,27 @@ private fun HomeContent(
         "Aktifkan untuk bekerja atau cek daftar order."
     }
 
-    if (courierRole == "on_demand") {
-        OnDemandHomeHubEnterprise(
-            courierName = courierName,
-            totalOrders = totalOrders,
-            pendingCount = pendingCount,
-            deliveredCount = deliveredCount,
-            todayEarningsIdr = todayEarningsIdr,
-            orders = orders,
-            offers = offers,
-            services = services,
-            capabilityProfile = capabilityProfile,
-            courierVehicleType = courierVehicleType,
-            routePreviews = routePreviews,
-            activeRoutePlan = activeRoutePlan,
-            hotspots = hotspots,
-            mapsProviderConfig = mapsProviderConfig,
-            isOnline = isOnline,
-            onOnlineToggle = onOnlineToggle,
-            onOpenDelivery = onOpenDelivery,
-            onViewOrders = onViewOrders
-        )
-        return
-    }
-
-    Column(
-        modifier = Modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = if (courierRole == "on_demand") DeepForest else Primary),
-            shape = if (courierRole == "on_demand") {
-                RoundedCornerShape(topStart = 16.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 16.dp)
-            } else {
-                RoundedCornerShape(8.dp)
-            },
-            border = if (courierRole == "on_demand") BorderStroke(1.dp, Outline.copy(alpha = 0.24f)) else null
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Halo, $courierName",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = if (isOnline) roleHint else "Aktifkan untuk bekerja",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.82f)
-                        )
-                    }
-                    Switch(
-                        checked = isOnline,
-                        onCheckedChange = onOnlineToggle,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = if (courierRole == "on_demand") LogisticsOrange else Secondary,
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color.White.copy(alpha = 0.36f)
-                        )
-                    )
-                }
-
-                Surface(
-                    color = if (courierRole == "on_demand" && isOnline) LogisticsOrange else Color.White.copy(alpha = 0.14f),
-                    shape = RoundedCornerShape(topStart = 8.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isOnline) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                            contentDescription = null,
-                            tint = if (courierRole == "on_demand" && isOnline) PrimaryDark else if (isOnline) Secondary else Color.White.copy(alpha = 0.78f)
-                        )
-                        Column {
-                            Text(
-                                text = if (isOnline) "On Duty" else "Off Duty",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (courierRole == "on_demand" && isOnline) PrimaryDark else Color.White
-                            )
-                            Text(
-                            text = if (courierRole == "on_demand" && isOnline) "Siap menerima tawaran prioritas" else if (isOnline) "Lokasi dan sinkronisasi aktif" else "Pelacakan lokasi berhenti",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (courierRole == "on_demand" && isOnline) PrimaryDark.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.78f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (courierRole == "on_demand") {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E8)),
-                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 26.dp, bottomStart = 26.dp, bottomEnd = 16.dp),
-                border = BorderStroke(1.dp, Accent.copy(alpha = 0.28f))
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("Pendapatan Hari Ini", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
-                            Text("Pendapatan bersih hari ini", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LogisticsOrange)
-                    }
-                    Text(
-                        todayEarningsIdr.toRupiahCompact(),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                        color = DeepForest
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoPill(icon = Icons.Default.Bolt, text = "${offers.size} tawaran")
-                        InfoPill(icon = Icons.Default.CheckCircle, text = "$deliveredCount selesai")
-                    }
-                }
-            }
-        } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
-                        Icon(
-                            if (courierRole == "regular") Icons.Default.LocalShipping else Icons.Default.Bolt,
-                            contentDescription = null,
-                            tint = Primary,
-                            modifier = Modifier.padding(10.dp).size(22.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(roleLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(roleHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text("$pendingCount tugas", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Primary)
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            StatCard(title = "Total", value = "$totalOrders", modifier = Modifier.weight(1f))
-            StatCard(title = "Aktif", value = "${orders.count { it.status == "assigned" || it.status == "picked_up" || it.status == "in_transit" }}", modifier = Modifier.weight(1f))
-            StatCard(title = if (courierRole == "on_demand") "Pendapatan" else completedLabel, value = if (courierRole == "on_demand") todayEarningsIdr.toRupiahCompact() else "$deliveredCount", modifier = Modifier.weight(1f))
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(taskTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    AssistChip(
-                        onClick = onViewOrders,
-                        label = { Text("$pendingCount $pendingLabel") },
-                        leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    )
-                }
-
-                if (activeOrder != null) {
-                    RouteSummary(order = activeOrder)
-                    Button(
-                        onClick = { onOpenDelivery(activeOrder) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary)
-                    ) {
-                        Icon(Icons.Default.Navigation, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Buka Pengantaran")
-                    }
-                    Button(
-                        onClick = { onCapturePod(activeOrder) },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Secondary)
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Ambil Bukti Terima")
-                    }
-                } else {
-                    EmptyActiveOrder(
-                        title = emptyTitle,
-                        subtitle = emptyHint,
-                        onViewOrders = onViewOrders
-                    )
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = onScanPackage,
-                modifier = Modifier.weight(1f).height(52.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Secondary)
-            ) {
-                Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Scan Kode Paket")
-            }
-            OutlinedButton(
-                onClick = onViewOrders,
-                modifier = Modifier.weight(1f).height(52.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(Icons.Default.LocalShipping, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Daftar Order")
-            }
-        }
-    }
+    // ponytail: single on_demand mode — retired regular/HomeContent branch 2026-08.
+    OnDemandHomeHubEnterprise(
+        courierName = courierName,
+        totalOrders = totalOrders,
+        pendingCount = pendingCount,
+        deliveredCount = deliveredCount,
+        todayEarningsIdr = todayEarningsIdr,
+        orders = orders,
+        offers = offers,
+        services = services,
+        capabilityProfile = capabilityProfile,
+        courierVehicleType = courierVehicleType,
+        routePreviews = routePreviews,
+        activeRoutePlan = activeRoutePlan,
+        hotspots = hotspots,
+        mapsProviderConfig = mapsProviderConfig,
+        isOnline = isOnline,
+        onOnlineToggle = onOnlineToggle,
+        onOpenDelivery = onOpenDelivery,
+        onViewOrders = onViewOrders
+    )
 }
 
 @Composable
@@ -6647,56 +6415,25 @@ private fun MaintenanceButton(
     }
 }
 
-private fun inferCourierRole(orders: List<Order>): String {
-    val roles = orders.map { it.normalizedWorkflowRole() }.toSet()
-    return when {
-        roles.isEmpty() -> "on_demand"
-        roles.all { it == "on_demand" } -> "on_demand"
-        else -> "regular"
-    }
-}
-
+// ponytail: single on_demand mode — inferCourierRole() removed 2026-08; role is now constant.
 private fun List<Order>.filterByCourierRole(courierRole: String): List<Order> {
-    return when (normalizeCourierMode(courierRole)) {
-        "regular" -> filter { it.normalizedWorkflowRole() == "regular" }
-        else -> filter { it.normalizedWorkflowRole() == "on_demand" }
-    }
+    return filter { it.normalizedWorkflowRole() == "on_demand" }
 }
 
-private fun normalizeCourierMode(courierRole: String): String = when (courierRole.lowercase()) {
-    "regular", "pickup_only", "pickup", "delivery_only", "delivery" -> "regular"
-    else -> "on_demand"
-}
+// ponytail: single on_demand mode — regular/other role mappings removed 2026-08.
+private fun normalizeCourierMode(courierRole: String): String = "on_demand"
 
-private fun courierRoleLabel(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
-    "regular" -> "Regular"
-    else -> "On Demand"
-}
+private fun courierRoleLabel(courierRole: String): String = "On Demand"
 
-private fun courierRoleHint(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
-    "regular" -> "Siap menjalankan order regular P2P"
-    else -> "Siap menerima tawaran on-demand"
-}
+private fun courierRoleHint(courierRole: String): String = "Siap menerima tawaran on-demand"
 
-private fun courierPendingLabel(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
-    "regular" -> "regular"
-    else -> "menunggu"
-}
+private fun courierPendingLabel(courierRole: String): String = "menunggu"
 
-private fun courierCompletedLabel(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
-    "regular" -> "Order regular selesai"
-    else -> "Selesai"
-}
+private fun courierCompletedLabel(courierRole: String): String = "Selesai"
 
-private fun courierCurrentTaskTitle(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
-    "regular" -> "Order Regular Saat Ini"
-    else -> "Tugas Saat Ini"
-}
+private fun courierCurrentTaskTitle(courierRole: String): String = "Tugas Saat Ini"
 
-private fun courierEmptyTaskTitle(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
-    "regular" -> "Belum ada order regular aktif"
-    else -> "Belum ada tugas aktif"
-}
+private fun courierEmptyTaskTitle(courierRole: String): String = "Belum ada tugas aktif"
 
 private fun Order.communicationCallTargetType(): String {
     return if (communicationShouldCallRecipient()) {
