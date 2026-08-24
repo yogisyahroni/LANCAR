@@ -44,8 +44,12 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.FavoriteMerchant
 import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
+import com.tembus.customer.ui.theme.Success
+import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.Warning
 
 // FOOD-BIKE-070: Favorite merchants list
 @Composable
@@ -64,13 +68,13 @@ fun FoodFavoritesScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF7F8FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -79,7 +83,7 @@ fun FoodFavoritesScreen(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Favorit", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
-                    Text("${favorites.size} merchant", fontSize = 12.sp, color = Color(0xFF64748B))
+                    Text("${favorites.size} merchant", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -94,7 +98,7 @@ fun FoodFavoritesScreen(
                 error != null && favorites.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Gagal memuat favorit", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                            Text("Gagal memuat favorit", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(8.dp))
                             androidx.compose.material3.TextButton(onClick = { viewModel.loadFavoriteMerchants() }) {
                                 Text("Coba lagi", color = Primary)
@@ -105,11 +109,11 @@ fun FoodFavoritesScreen(
                 favorites.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = Color(0xFFCBD5E1), modifier = Modifier.size(48.dp))
+                            Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text("Belum ada merchant favorit", color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                            Text("Belum ada merchant favorit", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(4.dp))
-                            Text("Tekan ikon hati di merchant untuk menambahkannya", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                            Text("Tekan ikon hati di merchant untuk menambahkannya", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                     }
                 }
@@ -142,8 +146,8 @@ private fun FavoriteMerchantCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
@@ -163,57 +167,57 @@ private fun FavoriteMerchantCard(
                         favorite.merchantName,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 16.sp,
-                        color = Color(0xFF0F172A),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
                     // ADR 003: badge halal / non-halal
                     when {
-                        favorite.isHalalCertified -> HalalBadge(text = "Halal", container = Color(0xFF16A34A))
-                        favorite.isNonHalal -> HalalBadge(text = "Non-Halal", container = Color(0xFF64748B))
+                        favorite.isHalalCertified -> HalalBadge(text = "Halal", container = Success)
+                        favorite.isNonHalal -> HalalBadge(text = "Non-Halal", container = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Text(
                     favorite.address,
                     fontSize = 12.sp,
-                    color = Color(0xFF64748B),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (favorite.avgRating != null && favorite.avgRating > 0) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Star, contentDescription = null, tint = Warning, modifier = Modifier.size(14.dp))
                             Text(
                                 String.format("%.1f", favorite.avgRating),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
                     if (favorite.distanceKm != null) {
-                        Text("•", color = Color(0xFFCBD5E1))
+                        Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                         Text(
                             "${String.format("%.1f", favorite.distanceKm)} km",
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Text("•", color = Color(0xFFCBD5E1))
+                    Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                     Text(
                         if (favorite.isOpen) "Buka" else "Tutup",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (favorite.isOpen) Color(0xFF16A34A) else Color(0xFFEF4444)
+                        color = if (favorite.isOpen) Success else Error
                     )
                     // Remove from favorites
                     IconButton(onClick = onRemove) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = "Hapus dari favorit",
-                            tint = Color(0xFFEF4444)
+                            tint = Error
                         )
                     }
                 }

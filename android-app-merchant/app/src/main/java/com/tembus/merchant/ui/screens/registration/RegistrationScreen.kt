@@ -32,6 +32,7 @@ import com.tembus.merchant.data.model.RegisterMerchantRequest
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.components.LocationPickerSection
 import com.tembus.merchant.ui.theme.Primary
+import com.tembus.merchant.ui.theme.TembusRadius
 import kotlinx.coroutines.launch
 
 /**
@@ -499,7 +500,7 @@ private fun DocumentUploadField(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(96.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(TembusRadius.Input))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .clickable(enabled = !uploading) { onPick() },
             contentAlignment = Alignment.Center

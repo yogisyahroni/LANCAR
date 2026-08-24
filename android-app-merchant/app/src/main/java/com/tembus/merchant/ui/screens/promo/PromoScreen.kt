@@ -20,6 +20,7 @@ import com.tembus.merchant.data.model.MerchantPromoRequest
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.TembusRadius
 import com.tembus.merchant.ui.theme.Primary
 
 /**
@@ -138,7 +139,7 @@ private fun PromoCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(TembusRadius.Card)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

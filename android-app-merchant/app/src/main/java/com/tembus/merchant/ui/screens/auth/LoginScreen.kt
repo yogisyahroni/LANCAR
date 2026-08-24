@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tembus.merchant.R
 import com.tembus.merchant.TEMBUSApplication
 import com.tembus.merchant.ui.theme.TEMBUSMerchantTheme
+import com.tembus.merchant.ui.theme.TembusRadius
 
 // Skema warna login mengikuti mockup: bg hijau sangat gelap + tombol oranye #FF6201
 private val LoginBackground = Color(0xFF001E16)
@@ -106,7 +107,7 @@ fun LoginScreen(
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next
                     ),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(TembusRadius.Input),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = LoginText,
                         unfocusedTextColor = LoginText,
@@ -131,7 +132,7 @@ fun LoginScreen(
                         keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Done
                     ),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(TembusRadius.Input),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = LoginText,
                         unfocusedTextColor = LoginText,
@@ -158,7 +159,7 @@ fun LoginScreen(
                 Button(
                     onClick = viewModel::login,
                     enabled = !uiState.isLoading,
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(TembusRadius.Card),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = LoginAccent,
                         contentColor = LoginOnAccent,

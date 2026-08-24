@@ -19,7 +19,7 @@ export default function Success() {
 
         <div className="mt-7 rounded-2xl bg-zinc-50 p-5 text-left">
           <div className="flex items-center gap-3">
-            <Clock3 className="h-5 w-5 shrink-0 text-[#ff6908]" />
+            <Clock3 className="h-5 w-5 shrink-0 text-[#F97316]" />
             <div>
               <p className="text-sm font-bold text-zinc-900">Waktu verifikasi</p>
               <p className="text-xs text-zinc-500">± 1×24 jam kerja</p>
@@ -39,7 +39,7 @@ export default function Success() {
         <div className="mt-8 flex flex-col gap-3">
           <Link
             to="/status"
-            className="inline-flex items-center justify-center rounded-xl bg-[#003d2b] px-6 py-3.5 font-bold text-white transition hover:bg-emerald-950"
+            className="inline-flex items-center justify-center rounded-xl bg-[#003A20] px-6 py-3.5 font-bold text-white transition hover:bg-emerald-950"
           >
             Cek Status Pendaftaran
           </Link>

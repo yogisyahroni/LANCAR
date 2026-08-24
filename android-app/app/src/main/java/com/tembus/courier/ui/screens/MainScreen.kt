@@ -1750,7 +1750,7 @@ private fun OnDemandMapHome(
             ) {
                 Surface(
                     modifier = Modifier.size(10.dp),
-                    color = if (isOnline) Color(0xFF00C853) else Color(0xFFFF3B30),
+                    color = if (isOnline) Success else MaterialTheme.colorScheme.error,
                     shape = RoundedCornerShape(50)
                 ) {}
                 Text(
@@ -2072,7 +2072,7 @@ private fun OnDemandMapDispatchCockpit(
                         modifier = Modifier
                             .size(12.dp)
                             .clip(CircleShape)
-                            .background(if (isOnline) Success.copy(alpha = alpha) else Color.Gray)
+                            .background(if (isOnline) Success.copy(alpha = alpha) else MaterialTheme.colorScheme.outlineVariant)
                     )
                     
                     Text(
@@ -2163,7 +2163,7 @@ private fun OnDemandMapDispatchCockpit(
             } else {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFFF7F8FA),
+                    color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, Primary.copy(alpha = 0.08f))
                 ) {
@@ -2172,7 +2172,7 @@ private fun OnDemandMapDispatchCockpit(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Surface(color = Color.White, shape = RoundedCornerShape(8.dp)) {
+                        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp)) {
                             Icon(
                                 if (isOnline) Icons.Default.Radar else Icons.Default.Schedule,
                                 contentDescription = null,

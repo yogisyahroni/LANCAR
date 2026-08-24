@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.tembus.merchant.data.model.MerchantStaff
 import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.ui.appViewModel
+import com.tembus.merchant.ui.theme.TembusRadius
 
 /**
  * StaffScreen — M1 (CORPORATE ONLY). Hanya reachable kalau merchant perusahaan
@@ -120,7 +121,7 @@ private fun StaffCard(
     }
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(TembusRadius.Input)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

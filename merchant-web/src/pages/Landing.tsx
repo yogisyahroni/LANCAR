@@ -30,7 +30,7 @@ export default function Landing() {
             <Link to="/status" className="hover:text-emerald-900">Cek Status</Link>
             <Link
               to="/daftar"
-              className="rounded-full bg-[#ff6908] px-5 py-2.5 text-white shadow-sm transition hover:bg-orange-600"
+              className="rounded-full bg-[#F97316] px-5 py-2.5 text-white shadow-sm transition hover:bg-orange-600"
             >
               Daftar Sekarang
             </Link>
@@ -46,7 +46,7 @@ export default function Landing() {
               <BadgeCheck className="h-4 w-4" /> Mitra resmi TEMBUS
             </div>
             <h1 className="mt-5 text-4xl font-black leading-tight tracking-tight text-zinc-900 md:text-5xl">
-              Buka toko online-mu <span className="text-[#ff6908]">hari ini</span>
+              Buka toko online-mu <span className="text-[#F97316]">hari ini</span>
             </h1>
             <p className="mt-4 max-w-lg text-lg text-zinc-600">
               Gabung jadi merchant TEMBUS. Jualan makin gampang, order makin banyak, pengiriman
@@ -55,7 +55,7 @@ export default function Landing() {
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
                 to="/daftar"
-                className="inline-flex items-center gap-2 rounded-full bg-[#003d2b] px-7 py-3.5 font-bold text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-950"
+                className="inline-flex items-center gap-2 rounded-full bg-[#003A20] px-7 py-3.5 font-bold text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-950"
               >
                 Daftar Jadi Merchant <ArrowRight className="h-5 w-5" />
               </Link>
@@ -67,11 +67,11 @@ export default function Landing() {
           </div>
           <div className="relative">
             <div className="rounded-[2rem] bg-gradient-to-br from-emerald-900 to-emerald-950 p-8 text-white shadow-2xl">
-              <Store className="h-10 w-10 text-[#7bc043]" />
+              <Store className="h-10 w-10 text-[#007A42]" />
               <p className="mt-6 text-3xl font-black">+40%</p>
               <p className="text-sm text-emerald-100/80">rata-rata peningkatan order merchant TEMBUS dalam 3 bulan pertama</p>
               <div className="mt-8 flex items-center gap-3 rounded-2xl bg-white/10 p-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#ff6908]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F97316]">
                   <Bike className="h-6 w-6" />
                 </div>
                 <div>
@@ -117,7 +117,7 @@ export default function Landing() {
         <div className="mt-12 text-center">
           <Link
             to="/daftar"
-            className="inline-flex items-center gap-2 rounded-full bg-[#ff6908] px-8 py-4 font-bold text-white shadow-lg shadow-orange-500/25 transition hover:bg-orange-600"
+            className="inline-flex items-center gap-2 rounded-full bg-[#F97316] px-8 py-4 font-bold text-white shadow-lg shadow-orange-500/25 transition hover:bg-orange-600"
           >
             Mulai Daftar Sekarang <ArrowRight className="h-5 w-5" />
           </Link>

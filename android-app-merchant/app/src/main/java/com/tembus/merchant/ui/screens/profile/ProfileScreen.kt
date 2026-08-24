@@ -32,6 +32,7 @@ import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.screens.promo.PromoScreen
 import com.tembus.merchant.ui.screens.home.OperatingHoursDialog
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.TembusRadius
 import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryLight
@@ -106,7 +107,7 @@ fun ProfileScreen(
             }
         } else {
         if (state.needsRegistration) {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(TembusRadius.Card)) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -133,12 +134,12 @@ fun ProfileScreen(
 
         state.merchant?.let { m ->
             // Kartu identitas toko
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(TembusRadius.Card)) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
                             color = PrimaryLight,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(TembusRadius.Input)
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Storefront,
@@ -234,7 +235,7 @@ fun ProfileScreen(
         Card(
             onClick = { showPromo = true },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(TembusRadius.Card)
         ) {
             Row(
                 modifier = Modifier.padding(16.dp),
@@ -242,7 +243,7 @@ fun ProfileScreen(
             ) {
                 Surface(
                     color = MaterialTheme.colorScheme.tertiaryContainer,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(TembusRadius.Input)
                 ) {
                     Icon(
                         androidx.compose.material.icons.Icons.Filled.LocalOffer,
@@ -275,7 +276,7 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Status Pesanan (legend sesuai spec design)
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(TembusRadius.Card)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Status Pesanan",
@@ -297,7 +298,7 @@ fun ProfileScreen(
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
-                                .clip(RoundedCornerShape(5.dp))
+                                .clip(RoundedCornerShape(TembusRadius.Chip))
                                 .background(color)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -310,7 +311,7 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Metode Pembayaran (info statis — OVO, GoPay, ShopeePay)
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(TembusRadius.Card)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Metode Pembayaran",
@@ -329,7 +330,7 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Akun
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(TembusRadius.Card)) {
             Column(modifier = Modifier.padding(8.dp)) {
                 state.name?.let {
                     ProfileActionRow(title = it, subtitle = state.email)
@@ -469,7 +470,7 @@ private fun VerificationStatusCard(status: String) {
     }
     Surface(
         color = style.container,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(TembusRadius.Input),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -556,12 +557,12 @@ private fun BankAccountSection(
     var number by remember { mutableStateOf(bankAccountNumber ?: "") }
     var holder by remember { mutableStateOf(bankAccountHolder ?: "") }
 
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(TembusRadius.Card)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(TembusRadius.Input)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.AccountBalance,

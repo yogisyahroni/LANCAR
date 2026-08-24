@@ -444,7 +444,7 @@ fun CourierStatusCard(
             }
             Text(
                 text = if (eta.isBlank() || eta == "Menghitung...") "Lokasi kurir diperbarui otomatis." else "Estimasi $eta",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(start = 32.dp, top = 6.dp)
             )

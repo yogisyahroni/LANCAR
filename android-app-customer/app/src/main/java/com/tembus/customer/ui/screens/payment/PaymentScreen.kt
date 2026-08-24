@@ -63,6 +63,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.FoodPaymentItem
 import com.tembus.customer.data.security.LocalDeviceSecurityManager
 import com.tembus.customer.ui.security.LocalSecurityChallengeDialog
+import com.tembus.customer.ui.theme.Error
+import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.Warning
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -102,7 +105,7 @@ fun PaymentScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFFF4F7FB))
+                .background(MaterialTheme.colorScheme.background)
         ) {
             when (val result = state) {
                 is PaymentUiState.Choosing -> PaymentMethodChooser(
@@ -186,8 +189,8 @@ private fun PaymentMethodChooser(
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(TembusRadius.Card),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
@@ -198,12 +201,12 @@ private fun PaymentMethodChooser(
                     text = "Pilih metode pembayaran",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF101828)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Pembayaran hanya diproses oleh server. Mobile app tidak bisa mengubah status lunas.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF667085)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 PaymentItemsBlock(state.items)
                 PaymentAmountBlock(state.amountIdr)
@@ -227,7 +230,7 @@ private fun PaymentMethodChooser(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFB54708)
+                        color = Warning
                     )
                 }
                 Button(
@@ -236,7 +239,7 @@ private fun PaymentMethodChooser(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(58.dp),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(TembusRadius.Button),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF07884A))
                 ) {
                     Text(
@@ -254,8 +257,8 @@ private fun PaymentMethodChooser(
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            color = Color(0xFFE8F5EE)
+            shape = RoundedCornerShape(TembusRadius.Card),
+            color = MaterialTheme.colorScheme.primaryContainer
         ) {
             Row(
                 modifier = Modifier.padding(18.dp),
@@ -287,8 +290,8 @@ private fun PaymentItemsBlock(items: List<FoodPaymentItem>?) {
     if (items.isNullOrEmpty()) return
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = Color(0xFFF9FAFB)
+        shape = RoundedCornerShape(TembusRadius.Card),
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
@@ -298,7 +301,7 @@ private fun PaymentItemsBlock(items: List<FoodPaymentItem>?) {
                 text = "Ringkasan pesanan",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF475467)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             items.forEach { item ->
                 Row(
@@ -309,13 +312,13 @@ private fun PaymentItemsBlock(items: List<FoodPaymentItem>?) {
                         Text(
                             text = "${item.quantity}× ${item.itemName}",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF101828)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         if (!item.notes.isNullOrBlank()) {
                             Text(
                                 text = item.notes,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF667085)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -323,7 +326,7 @@ private fun PaymentItemsBlock(items: List<FoodPaymentItem>?) {
                         text = formatRupiah(item.subtotal),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF101828)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -335,8 +338,8 @@ private fun PaymentItemsBlock(items: List<FoodPaymentItem>?) {
 private fun PaymentAmountBlock(amountIdr: Long) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = Color(0xFFF0F7FF)
+        shape = RoundedCornerShape(TembusRadius.Card),
+        color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
@@ -345,13 +348,13 @@ private fun PaymentAmountBlock(amountIdr: Long) {
             Text(
                 text = "Total pembayaran",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF475467)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = formatRupiah(amountIdr),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0B5CAD)
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -368,17 +371,17 @@ private fun PaymentMethodCard(
     val isLapay = method == CustomerPaymentMethod.LAPAY
     val balanceSufficient = !isLapay || walletBalanceIdr >= amountIdr
     val borderColor = when {
-        selected -> Color(0xFF07884A)
-        !balanceSufficient -> Color(0xFFF79009)
-        else -> Color(0xFFE4E7EC)
+        selected -> Color(0xFF07884A)  // brand LAPAY green (by design)
+        !balanceSufficient -> Warning
+        else -> MaterialTheme.colorScheme.outline
     }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(TembusRadius.Card))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp),
-        color = if (selected) Color(0xFFECFDF3) else Color.White,
+        shape = RoundedCornerShape(TembusRadius.Card),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.5.dp, borderColor)
     ) {
         Row(
@@ -389,13 +392,13 @@ private fun PaymentMethodCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(if (isLapay) Color(0xFFE8F5EE) else Color(0xFFEFF6FF)),
+                    .background(if (isLapay) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = if (isLapay) Icons.Default.AccountBalanceWallet else Icons.Default.Payment,
                     contentDescription = null,
-                    tint = if (isLapay) Color(0xFF07884A) else Color(0xFF0B5CAD)
+                    tint = if (isLapay) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -404,7 +407,7 @@ private fun PaymentMethodCard(
                     text = method.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF101828)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = if (isLapay) {
@@ -413,14 +416,14 @@ private fun PaymentMethodCard(
                         method.description
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (balanceSufficient) Color(0xFF667085) else Color(0xFFB54708)
+                    color = if (balanceSufficient) MaterialTheme.colorScheme.onSurfaceVariant else Warning
                 )
             }
             if (selected) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Dipilih",
-                    tint = Color(0xFF07884A)
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -436,13 +439,13 @@ private fun CenterPaymentState(title: String, subtitle: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        CircularProgressIndicator(color = Color(0xFF07884A))
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.height(18.dp))
-        Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF101828))
+        Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = subtitle,
-            color = Color(0xFF667085),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
     }
@@ -462,11 +465,11 @@ private fun PaymentMessageState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF101828))
+        Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(8.dp))
-        Text(message, color = Color(0xFF667085), textAlign = TextAlign.Center)
+        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(18.dp))
-        OutlinedButton(onClick = onAction, shape = RoundedCornerShape(16.dp)) {
+        OutlinedButton(onClick = onAction, shape = RoundedCornerShape(TembusRadius.Button)) {
             Text(actionLabel)
         }
     }

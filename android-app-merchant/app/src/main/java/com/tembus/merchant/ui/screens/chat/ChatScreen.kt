@@ -43,6 +43,7 @@ import com.tembus.merchant.data.model.ChatMessage
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryLight
+import com.tembus.merchant.ui.theme.TembusRadius
 
 /**
  * ChatScreen (FB-119) — percakapan customer↔merchant untuk satu order.
@@ -169,7 +170,7 @@ fun ChatScreen(
                 enabled = draft.isNotBlank() && !state.isSending,
                 modifier = Modifier
                     .size(48.dp)
-                    .background(Primary, RoundedCornerShape(12.dp))
+                    .background(Primary, RoundedCornerShape(TembusRadius.Input))
             ) {
                 if (state.isSending) {
                     CircularProgressIndicator(
@@ -207,7 +208,7 @@ private fun MessageBubble(message: ChatMessage, isMine: Boolean) {
     ) {
         Box(
             modifier = Modifier
-                .background(bg, RoundedCornerShape(14.dp))
+                .background(bg, RoundedCornerShape(TembusRadius.Card))
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Column {

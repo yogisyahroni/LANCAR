@@ -37,6 +37,7 @@ import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.AccentLight
+import com.tembus.merchant.ui.theme.TembusRadius
 import com.tembus.merchant.ui.theme.Primary
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -388,7 +389,7 @@ private fun FilterChipsRow(
             val isSelected = selected == filter
             Surface(
                 color = if (isSelected) AccentLight else MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(TembusRadius.Card),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
                     if (isSelected) Accent else MaterialTheme.colorScheme.outline
@@ -421,7 +422,7 @@ private fun OrderCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -617,7 +618,7 @@ private fun StatusBadge(status: String) {
         "scheduled" -> Triple("🕐 Terjadwal", Color(0xFF7C3AED), Color(0xFFEDE9FE))
         else -> Triple(status, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.surfaceVariant)
     }
-    Surface(color = bg, shape = RoundedCornerShape(8.dp)) {
+    Surface(color = bg, shape = RoundedCornerShape(TembusRadius.Chip)) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
@@ -720,7 +721,7 @@ private fun ScheduledTodayHeader(count: Int) {
 private fun ScheduledOrderCard(order: MerchantOrder, onOpenStruk: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF5FF))
     ) {
         Column(modifier = Modifier.padding(14.dp)) {

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +42,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.CartItem
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.TembusRadius
 
 // FOOD-BIKE-057: keranjang (list item + qty + catatan + ringkasan harga)
 @Composable
@@ -54,13 +56,13 @@ fun FoodCartScreen(
     val cartSize by viewModel.cartSize.collectAsState()
 
     Scaffold(
-        containerColor = Color(0xFFF7F8FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -81,14 +83,14 @@ fun FoodCartScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.surface)
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Total ($cartSize item)", fontSize = 13.sp, color = Color(0xFF64748B))
+                        Text("Total ($cartSize item)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             "Rp ${cartTotal.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
                             fontSize = 17.sp,
@@ -100,7 +102,7 @@ fun FoodCartScreen(
                     Button(
                         onClick = onCheckout,
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(TembusRadius.Button)
                     ) {
                         Text("Lanjut ke Pembayaran", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     }
@@ -114,11 +116,11 @@ fun FoodCartScreen(
                     Icon(
                         Icons.Default.ShoppingCart,
                         contentDescription = null,
-                        tint = Color(0xFFCBD5E1),
+                        tint = MaterialTheme.colorScheme.outlineVariant,
                         modifier = Modifier.size(52.dp)
                     )
                     Spacer(Modifier.height(12.dp))
-                    Text("Keranjang masih kosong", fontSize = 14.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                    Text("Keranjang masih kosong", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                 }
             }
         } else {
@@ -153,8 +155,8 @@ private fun CartItemRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color.White)
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .background(MaterialTheme.colorScheme.surface)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -163,26 +165,31 @@ private fun CartItemRow(
                 item.menuItem.name,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = Color(0xFF0F172A),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             if (item.notes.isNotBlank()) {
-                Text("Catatan: ${item.notes}", fontSize = 11.sp, color = Color(0xFF94A3B8), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Catatan: ${item.notes}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             // FB-108: tampilkan pilihan varian (mis. "Level Pedas: Extra Pedas")
             if (item.variantLabels.isNotEmpty()) {
                 Text(
                     item.variantLabels.joinToString(" · "),
                     fontSize = 11.sp,
-                    color = Color(0xFF64748B),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
             Text(
-                "Rp ${item.subtotal.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
+                "Rp ${
+                    item.subtotal.toString().replace(
+                        Regex("\\B(?=(\\d{3})+(?!\\d))"),
+                        "."
+                    )
+                }",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Primary,
@@ -193,12 +200,12 @@ private fun CartItemRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .clip(RoundedCornerShape(999.dp))
-                .background(Color(0xFFF1F5F9))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.Remove, contentDescription = "Kurangi", tint = Primary, modifier = Modifier.size(16.dp))
             }
-            Text(item.quantity.toString(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+            Text(item.quantity.toString(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.Add, contentDescription = "Tambah", tint = Accent, modifier = Modifier.size(16.dp))
             }

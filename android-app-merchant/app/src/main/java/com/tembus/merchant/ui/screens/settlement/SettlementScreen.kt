@@ -22,6 +22,7 @@ import com.tembus.merchant.data.model.SettlementSummary
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.TembusRadius
 import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
 
@@ -206,8 +207,8 @@ private fun SummaryCards(summary: SettlementSummary) {
 private fun SummaryCard(modifier: Modifier, label: String, value: String, valueColor: Color) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .background(MaterialTheme.colorScheme.surface)
             .padding(16.dp)
     ) {
         Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = valueColor)
@@ -239,8 +240,8 @@ private fun SettlementRow(record: SettlementRecord) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .background(MaterialTheme.colorScheme.surface)
             .padding(16.dp)
     ) {
         Row(
@@ -257,7 +258,7 @@ private fun SettlementRow(record: SettlementRecord) {
             Text(
                 text = statusText,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Chip))
                     .background(bgColor)
                     .padding(horizontal = 10.dp, vertical = 4.dp),
                 color = statusColor,
@@ -293,8 +294,8 @@ private fun EmptyState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .background(MaterialTheme.colorScheme.surface)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

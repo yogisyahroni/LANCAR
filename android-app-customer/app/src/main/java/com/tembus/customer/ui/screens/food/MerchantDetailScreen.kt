@@ -37,6 +37,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -68,8 +69,12 @@ import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.FoodOrderItemVariantRequest
 import com.tembus.customer.data.model.MenuItemVariant
 import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
+import com.tembus.customer.ui.theme.Success
+import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.Warning
 import java.util.Locale
 
 // FOOD-BIKE-056: detail merchant + daftar menu, jam buka/tutup, badge ramah sepeda
@@ -94,13 +99,13 @@ fun MerchantDetailScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF7F8FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -145,7 +150,7 @@ fun MerchantDetailScreen(
             }
             error != null && merchant == null -> {
                 Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text(error ?: "Terjadi kesalahan", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                    Text(error ?: "Terjadi kesalahan", color = Error, fontWeight = FontWeight.Bold)
                 }
             }
             merchant != null -> {
@@ -160,47 +165,48 @@ fun MerchantDetailScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color.White)
+                                .clip(RoundedCornerShape(TembusRadius.Card))
+                                .background(MaterialTheme.colorScheme.surface)
                                 .padding(16.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
                                         .size(56.dp)
-                                        .clip(RoundedCornerShape(14.dp))
+                                        .clip(RoundedCornerShape(12.dp))
                                         .background(PrimaryLight),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(Icons.Default.Store, contentDescription = null, tint = Primary, modifier = Modifier.size(30.dp))
                                 }
                                 Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                                    Text(m.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
-                                    Text(m.address, fontSize = 12.sp, color = Color(0xFF64748B), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(m.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(m.address, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                             Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 if (m.avgRating != null && m.avgRating > 0) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Default.Star, contentDescription = null, tint = Warning, modifier = Modifier.size(16.dp))
                                         Text(
                                             String.format(Locale.US, "%.1f", m.avgRating),
                                             fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
-                                Text("•", color = Color(0xFFCBD5E1))
+                                Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                                 Text(
                                     if (m.isOpen) "Buka sekarang" else "Tutup",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (m.isOpen) Color(0xFF16A34A) else Color(0xFFEF4444)
+                                    color = if (m.isOpen) Success else Error
                                 )
                                 if (m.jamBuka != null && m.jamTutup != null) {
-                                    Text("•", color = Color(0xFFCBD5E1))
-                                    Text("${m.jamBuka} - ${m.jamTutup}", fontSize = 13.sp, color = Color(0xFF64748B))
+                                    Text("•", color = MaterialTheme.colorScheme.outlineVariant)
+                                    Text("${m.jamBuka} - ${m.jamTutup}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             // ADR 003: badge halal / non-halal
@@ -210,8 +216,8 @@ fun MerchantDetailScreen(
                                         .padding(top = 12.dp)
                                         .clip(RoundedCornerShape(999.dp))
                                         .background(
-                                            if (m.halalStatus == "halal_certified") Color(0xFF16A34A).copy(alpha = 0.12f)
-                                            else Color(0xFF64748B).copy(alpha = 0.12f)
+                                            if (m.halalStatus == "halal_certified") Success.copy(alpha = 0.12f)
+                                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
                                         )
                                         .padding(horizontal = 12.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -221,8 +227,8 @@ fun MerchantDetailScreen(
                                             .size(8.dp)
                                             .clip(CircleShape)
                                             .background(
-                                                if (m.halalStatus == "halal_certified") Color(0xFF16A34A)
-                                                else Color(0xFF64748B)
+                                                if (m.halalStatus == "halal_certified") Success
+                                                else MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                     )
                                     Spacer(Modifier.size(6.dp))
@@ -230,7 +236,7 @@ fun MerchantDetailScreen(
                                         if (m.halalStatus == "halal_certified") "Bersertifikat Halal" else "Non-Halal",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = if (m.halalStatus == "halal_certified") Color(0xFF16A34A) else Color(0xFF64748B)
+                                        color = if (m.halalStatus == "halal_certified") Success else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -261,12 +267,12 @@ fun MerchantDetailScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(Color.White)
+                                    .clip(RoundedCornerShape(TembusRadius.Card))
+                                    .background(MaterialTheme.colorScheme.surface)
                                     .padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Belum ada menu", fontSize = 14.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                                Text("Belum ada menu", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     } else {
@@ -319,7 +325,7 @@ fun MerchantDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.resolveConflict(proceed = false) }) {
-                    Text("Batal", color = Color(0xFF64748B))
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -404,7 +410,7 @@ private fun ItemDetailSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(220.dp)
-                        .clip(RoundedCornerShape(20.dp)),
+                        .clip(RoundedCornerShape(16.dp)),
                     contentScale = ContentScale.Crop
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -413,7 +419,7 @@ private fun ItemDetailSheet(
                 item.name,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF0F172A),
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(6.dp))
@@ -427,7 +433,7 @@ private fun ItemDetailSheet(
             Text(
                 "Estimasi siap ±${item.prepTimeMinutes} menit",
                 fontSize = 12.sp,
-                color = Color(0xFF94A3B8)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             // FB-108: pilihan varian — scrollable kalau banyak
@@ -478,7 +484,7 @@ private fun ItemDetailSheet(
                     "$quantity",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF0F172A)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 FilledTonalIconButton(onClick = { if (quantity < 99) quantity++ }) {
                     Icon(Icons.Default.Add, contentDescription = "Tambah")
@@ -503,7 +509,7 @@ private fun ItemDetailSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(TembusRadius.Button)
             ) {
                 Text(
                     if (requiredMissing) "Pilih varian wajib dulu" else "Tambah $quantity ke Keranjang",
@@ -531,13 +537,13 @@ private fun VariantGroupPicker(
                 variant.nama,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 14.sp,
-                color = Color(0xFF0F172A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             if (variant.isRequired) {
                 Text(
                     " • Wajib",
                     fontSize = 11.sp,
-                    color = Color(0xFFEF4444),
+                    color = Error,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -545,7 +551,7 @@ private fun VariantGroupPicker(
                 Text(
                     " • max ${variant.maxSelect}",
                     fontSize = 11.sp,
-                    color = Color(0xFF94A3B8)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -554,11 +560,11 @@ private fun VariantGroupPicker(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Chip))
                     .background(if (multi) {
-                        if (opt.id in selectedMulti) Color(0xFFFFF3E8) else Color(0xFFF8FAFC)
+                        if (opt.id in selectedMulti) PrimaryLight else MaterialTheme.colorScheme.surfaceVariant
                     } else {
-                        if (opt.id == selectedSingle) Color(0xFFFFF3E8) else Color(0xFFF8FAFC)
+                        if (opt.id == selectedSingle) PrimaryLight else MaterialTheme.colorScheme.surfaceVariant
                     })
                     .clickable {
                         if (multi) onMultiToggle(opt.id, opt.id !in selectedMulti)
@@ -585,7 +591,7 @@ private fun VariantGroupPicker(
                     opt.nama,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF334155),
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
                 if (opt.priceDelta > 0) {
@@ -600,7 +606,7 @@ private fun VariantGroupPicker(
                         "-Rp ${(-opt.priceDelta).toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF16A34A)
+                        color = Success
                     )
                 }
             }
@@ -614,8 +620,8 @@ private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit, onClick: () -> Un
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -625,7 +631,7 @@ private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit, onClick: () -> Un
                 item.name,
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
-                color = Color(0xFF0F172A),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -639,7 +645,7 @@ private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit, onClick: () -> Un
             Text(
                 "±${item.prepTimeMinutes} mnt",
                 fontSize = 11.sp,
-                color = Color(0xFF94A3B8)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Button(
@@ -648,7 +654,7 @@ private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit, onClick: () -> Un
             shape = CircleShape,
             contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Tambah", tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Add, contentDescription = "Tambah", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -660,10 +666,10 @@ private fun CategoryHeader(title: String) {
         text = title.replaceFirstChar { c -> c.uppercase(Locale.US) },
         fontSize = 16.sp,
         fontWeight = FontWeight.ExtraBold,
-        color = Color(0xFF0F172A),
+        color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF7F8FA))
+            .background(MaterialTheme.colorScheme.background)
             .padding(vertical = 6.dp)
     )
 }

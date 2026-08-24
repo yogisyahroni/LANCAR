@@ -28,10 +28,10 @@ val Outline = Color(0xFFE5E9E6)
 val OutlineStrong = Color(0xFFD1D5DB)
 
 val OnPrimary = Color(0xFFFFFFFF)
-val OnAccent = Color(0xFFFFFFFF)         // hanya dipakai di atas AccentDark #C2410C (5.18:1)
+val OnAccent = Color(0xFF1A0E00)         // dark brown, 6.77:1 PASS di atas Accent #F97316 (fix dari white 2.8:1)
 val OnBackground = Color(0xFF14211A)     // 15.6:1 PASS
 val OnSurface = Color(0xFF14211A)        // 16.6:1 PASS
-val OnSurfaceVariant = Color(0xFF6B756F) // 4.77:1 PASS (label sekunder)
+val OnSurfaceVariant = Color(0xFF626C67) // 5.11:1 PASS (label sekunder, fix dari 4.48)
 val OnSurfaceTertiary = Color(0xFF98A19C)
 val TextDisabled = Color(0xFFB8C0BB)     // disabled/non-interactive
 

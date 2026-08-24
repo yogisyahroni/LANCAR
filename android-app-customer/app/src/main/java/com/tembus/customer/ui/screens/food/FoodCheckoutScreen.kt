@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -49,7 +50,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.Success
+import com.tembus.customer.ui.theme.TembusRadius
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -88,13 +92,13 @@ fun FoodCheckoutScreen(
     val formatRupiah = { v: Long -> v.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".") }
 
     Scaffold(
-        containerColor = Color(0xFFF7F8FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -119,12 +123,12 @@ fun FoodCheckoutScreen(
                 .padding(16.dp)
         ) {
             // Ringkasan pesanan
-            Text("Ringkasan Pesanan", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+            Text("Ringkasan Pesanan", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(10.dp))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(TembusRadius.Card))
                     .padding(14.dp)
             ) {
                 cart.forEach { item ->
@@ -135,14 +139,14 @@ fun FoodCheckoutScreen(
                         Text(
                             "${item.quantity}x ${item.menuItem.name}",
                             fontSize = 13.sp,
-                            color = Color(0xFF334155),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
                         )
                         Text(
                             "Rp ${formatRupiah(item.subtotal)}",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -151,7 +155,7 @@ fun FoodCheckoutScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Total", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+                    Text("Total", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
                     Text(
                         "Rp ${formatRupiah(cartTotal)}",
                         fontSize = 15.sp,
@@ -164,12 +168,12 @@ fun FoodCheckoutScreen(
             Spacer(Modifier.height(16.dp))
 
             // ── FB-123: pesanan terjadwal ──
-            Text("Waktu Pesanan", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+            Text("Waktu Pesanan", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(10.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(TembusRadius.Button))
                     .padding(6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -181,7 +185,7 @@ fun FoodCheckoutScreen(
                             if (isNow) scheduledAtMs = null
                             submitError = null
                         },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(TembusRadius.Button),
                         color = if (selected) Primary else Color.Transparent,
                         modifier = Modifier.weight(1f)
                     ) {
@@ -189,7 +193,7 @@ fun FoodCheckoutScreen(
                             label,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                            color = if (selected) Color.White else Color(0xFF475569),
+                            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                         )
@@ -237,42 +241,42 @@ fun FoodCheckoutScreen(
                         ).show()
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(TembusRadius.Button)
                 ) {
                     Text(
                         if (scheduledAtMs != null) "🕐 Diantar ~${timeFmt.format(Date(scheduledAtMs!!))}"
                         else "Pilih waktu jadwal (min 30 menit lagi)",
                         fontSize = 14.sp,
-                        color = if (scheduledAtMs != null) Primary else Color(0xFF475569)
+                        color = if (scheduledAtMs != null) Primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 scheduleError?.let {
                     Spacer(Modifier.height(4.dp))
-                    Text(it, color = Color(0xFFEF4444), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(it, color = Error, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "Pesanan akan mulai diproses merchant mendekati waktu pilihan. Minimal 30 menit dari sekarang, hanya untuk hari ini.",
                     fontSize = 11.sp,
-                    color = Color(0xFF94A3B8)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (scheduledAtMs == null) {
                     Spacer(Modifier.height(6.dp))
-                    Text("Pilih waktu jadwal dulu sebelum membuat pesanan", color = Color(0xFFEF4444), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Pilih waktu jadwal dulu sebelum membuat pesanan", color = Error, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
             // FB-078: voucher diskon
-            Text("Kode Voucher", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+            Text("Kode Voucher", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(10.dp))
             when (val vs = voucherState) {
                 is VoucherState.Applied -> {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFFEAF7EC), RoundedCornerShape(14.dp))
+                            .background(Success.copy(alpha = 0.12f), RoundedCornerShape(TembusRadius.Button))
                             .padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -282,16 +286,16 @@ fun FoodCheckoutScreen(
                                 "${vs.name} (${vs.code})",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF166534)
+                                color = Success
                             )
                             Text(
                                 "Diskon Rp ${formatRupiah(vs.discountIdr)}",
                                 fontSize = 12.sp,
-                                color = Color(0xFF166534)
+                                color = Success
                             )
                         }
                         TextButton(onClick = { viewModel.clearVoucher(); voucherInput = "" }) {
-                            Text("Hapus", color = Color(0xFFEF4444), fontSize = 13.sp)
+                            Text("Hapus", color = Error, fontSize = 13.sp)
                         }
                     }
                 }
@@ -309,7 +313,7 @@ fun FoodCheckoutScreen(
                             modifier = Modifier.weight(1f),
                             placeholder = { Text("Masukkan kode (mis. HEMAT10)", fontSize = 14.sp) },
                             singleLine = true,
-                            shape = RoundedCornerShape(14.dp)
+                            shape = RoundedCornerShape(TembusRadius.Input)
                         )
                         Spacer(Modifier.width(8.dp))
                         Button(
@@ -318,10 +322,10 @@ fun FoodCheckoutScreen(
                                 viewModel.validateVoucher(voucherInput, cartTotal)
                             },
                             enabled = voucherInput.isNotBlank() && voucherState !is VoucherState.Loading,
-                            shape = RoundedCornerShape(14.dp)
+                            shape = RoundedCornerShape(TembusRadius.Button)
                         ) {
                             if (voucherState is VoucherState.Loading) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.height(18.dp).width(18.dp))
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.height(18.dp).width(18.dp))
                             } else {
                                 Text("Pakai", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
@@ -337,7 +341,7 @@ fun FoodCheckoutScreen(
             Spacer(Modifier.height(16.dp))
 
             // Alamat pengantaran
-            Text("Alamat Pengantaran", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+            Text("Alamat Pengantaran", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(10.dp))
             // FB-090: saved addresses — reuse alamat favorit (receiver)
             val savedAddresses by viewModel.addressBook.collectAsState()
@@ -354,19 +358,19 @@ fun FoodCheckoutScreen(
                                 address = saved.address
                                 if (saved.contactName != null) receiverName = saved.contactName
                             },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(TembusRadius.Chip),
                             color = if (address == saved.address) Primary.copy(alpha = 0.12f)
-                            else Color.White,
+                            else MaterialTheme.colorScheme.surface,
                             border = BorderStroke(
                                 1.dp,
-                                if (address == saved.address) Primary else Color(0xFFE2E8F0)
+                                if (address == saved.address) Primary else MaterialTheme.colorScheme.outline
                             )
                         ) {
                             Text(
                                 text = "${saved.label} • ${saved.address}",
                                 fontSize = 12.sp,
                                 fontWeight = if (address == saved.address) FontWeight.Bold else FontWeight.Medium,
-                                color = if (address == saved.address) Primary else Color(0xFF334155),
+                                color = if (address == saved.address) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -382,7 +386,7 @@ fun FoodCheckoutScreen(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Contoh: Jl. Sudirman No. 12, Jakarta", fontSize = 14.sp) },
                 minLines = 2,
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(TembusRadius.Input)
             )
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
@@ -391,7 +395,7 @@ fun FoodCheckoutScreen(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Nama penerima (opsional)", fontSize = 14.sp) },
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(TembusRadius.Input)
             )
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
@@ -400,7 +404,7 @@ fun FoodCheckoutScreen(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("No. HP penerima (opsional)", fontSize = 14.sp) },
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(TembusRadius.Input)
             )
             Spacer(Modifier.height(10.dp))
             // FB-121: catatan untuk seluruh order (mis. "pisahin sambal semua")
@@ -410,12 +414,12 @@ fun FoodCheckoutScreen(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Catatan untuk merchant (mis. pisahin sambal semua)", fontSize = 14.sp) },
                 minLines = 2,
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(TembusRadius.Input)
             )
 
             submitError?.let {
                 Spacer(Modifier.height(10.dp))
-                Text(it, color = Color(0xFFEF4444), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(it, color = Error, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
 
             Spacer(Modifier.height(20.dp))
@@ -467,11 +471,11 @@ fun FoodCheckoutScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(TembusRadius.Button),
                 enabled = !loading
             ) {
                 if (loading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.height(22.dp).width(22.dp))
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.height(22.dp).width(22.dp))
                 } else {
                     Text("Buat Pesanan • Rp ${formatRupiah(cartTotal)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
@@ -481,7 +485,7 @@ fun FoodCheckoutScreen(
             Text(
                 "Harga dihitung ulang oleh server — biaya antar dihitung otomatis.",
                 fontSize = 11.sp,
-                color = Color(0xFF94A3B8),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
             Spacer(Modifier.height(24.dp))

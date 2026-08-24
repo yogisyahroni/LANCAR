@@ -56,6 +56,8 @@ import com.google.android.gms.location.Priority
 import com.tembus.customer.data.model.NearbyCourier
 import com.tembus.customer.data.model.TambalBanServiceProduct
 import com.tembus.customer.ui.components.CourierPriceCard
+import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.Warning
 
 // Brand color tambal ban (design Stitch): cyan #00AED6 → #008EB0
 private val CyanGradient = Brush.linearGradient(
@@ -125,14 +127,14 @@ fun TambalBanHomeScreen(
             // ===== HERO (design Stitch: gradasi cyan) =====
             item {
                 Card(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(TembusRadius.Card),
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(CyanGradient, RoundedCornerShape(20.dp))
+                            .background(CyanGradient, RoundedCornerShape(TembusRadius.Card))
                             .padding(20.dp)
                     ) {
                         Column {
@@ -153,7 +155,7 @@ fun TambalBanHomeScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color.White, RoundedCornerShape(12.dp))
+                                    .background(Color.White, RoundedCornerShape(TembusRadius.Input))
                                     .clickable { onSearchClick(currentLat, currentLng) }
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -168,7 +170,7 @@ fun TambalBanHomeScreen(
                                 Text(
                                     "Cari teknisi atau layanan...",
                                     fontSize = 14.sp,
-                                    color = Color.Gray
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -197,7 +199,7 @@ fun TambalBanHomeScreen(
                 if (range.max > 0) {
                     item {
                         Card(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(TembusRadius.Card),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F7FA))
                         ) {
                             Text(
@@ -248,7 +250,7 @@ private fun ServiceCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -309,7 +311,7 @@ fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
         Icon(
             Icons.Default.Star,
             contentDescription = null,
-            tint = Color(0xFFFFB300),
+            tint = Warning,
             modifier = Modifier.size(14.dp)
         )
         Spacer(Modifier.width(2.dp))

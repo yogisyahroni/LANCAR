@@ -23,6 +23,7 @@ import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.Primary
+import com.tembus.merchant.ui.theme.TembusRadius
 
 /**
  * DashboardScreen — tab Dashboard (design merchant 2026):
@@ -102,7 +103,7 @@ fun DashboardScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(TembusRadius.Card))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .padding(24.dp),
                     contentAlignment = Alignment.Center
@@ -183,7 +184,7 @@ private fun RevenueCard(report: com.tembus.merchant.data.model.SalesReportSummar
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 16.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(TembusRadius.Card))
             .background(Accent)
             .padding(20.dp)
     ) {
@@ -264,7 +265,7 @@ private fun SummaryCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -295,7 +296,7 @@ private fun RecentOrderRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
@@ -305,7 +306,7 @@ private fun RecentOrderRow(
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Input))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {

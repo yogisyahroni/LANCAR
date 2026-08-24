@@ -22,6 +22,7 @@ import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.screens.settlement.SettlementScreen
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.TembusRadius
 import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
 
@@ -66,7 +67,7 @@ fun ReportScreen(
             // Toggle periode
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Chip))
                     .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f))
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -75,7 +76,7 @@ fun ReportScreen(
                     val selected = state.period == period
                     Surface(
                         color = if (selected) MaterialTheme.colorScheme.onPrimary else Color.Transparent,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(TembusRadius.Chip),
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.selectPeriod(period) }
                     ) {
@@ -107,7 +108,7 @@ fun ReportScreen(
             state.errorMessage?.let { msg ->
                 item {
                     Card(
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(TembusRadius.Card),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                     ) {
                         Row(
@@ -172,7 +173,7 @@ fun ReportScreen(
                 Card(
                     onClick = { showSettlement = true },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(TembusRadius.Card),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Row(
@@ -216,7 +217,7 @@ private fun RevenueSummaryCard(report: SalesReportSummary?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(TembusRadius.Card))
             .background(Accent)
             .padding(20.dp)
     ) {
@@ -251,7 +252,7 @@ private fun TopItemRow(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -259,7 +260,7 @@ private fun TopItemRow(
                 Box(
                     modifier = Modifier
                         .size(28.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(TembusRadius.Chip))
                         .background(if (rank == 1) Accent else MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
@@ -291,14 +292,14 @@ private fun TopItemRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
+                    .clip(RoundedCornerShape(TembusRadius.Button))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(quantity.toFloat() / maxQuantity.coerceAtLeast(1))
                         .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(TembusRadius.Button))
                         .background(Accent)
                 )
             }
@@ -317,7 +318,7 @@ private fun TopItemRow(
 private fun SummaryCard(report: SalesReportSummary?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {

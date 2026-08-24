@@ -19,7 +19,7 @@ const CARTO_LIGHT_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/c
 const pinIcon = L.divIcon({
   className: '',
   html: `<svg width="34" height="44" viewBox="0 0 34 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M17 0C7.6 0 0 7.6 0 17c0 12.75 17 27 17 27s17-14.25 17-27C34 7.6 26.4 0 17 0z" fill="#ff6908" stroke="#fff" stroke-width="2"/>
+    <path d="M17 0C7.6 0 0 7.6 0 17c0 12.75 17 27 17 27s17-14.25 17-27C34 7.6 26.4 0 17 0z" fill="#F97316" stroke="#fff" stroke-width="2"/>
     <circle cx="17" cy="17" r="6.5" fill="#fff"/>
   </svg>`,
   iconSize: [34, 44],
@@ -73,7 +73,7 @@ export default function LocationPicker({ lat, lng, onChange }: {
     <div className="rounded-2xl border border-zinc-200 p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-bold text-zinc-700">
-          Lokasi toko di peta <span className="text-[#ff6908]">*</span>
+          Lokasi toko di peta <span className="text-[#F97316]">*</span>
         </p>
         <button
           type="button"

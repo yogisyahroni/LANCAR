@@ -22,11 +22,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.Background
+import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.Secondary
+import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.Warning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,7 +158,7 @@ fun OrderDetailScreen(
                     ) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(TembusRadius.Card),
                             colors = CardDefaults.cardColors(containerColor = Primary)
                         ) {
                             Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -173,7 +176,7 @@ fun OrderDetailScreen(
                         // Rute Card
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(TembusRadius.Card),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
                             border = BorderStroke(1.dp, Outline)
                         ) {
@@ -203,7 +206,7 @@ fun OrderDetailScreen(
                         if (order.foodItems.isNotEmpty()) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(20.dp),
+                                shape = RoundedCornerShape(TembusRadius.Card),
                                 colors = CardDefaults.cardColors(containerColor = Color.White),
                                 border = BorderStroke(1.dp, Outline)
                             ) {
@@ -276,7 +279,7 @@ fun OrderDetailScreen(
                         // Info Pembayaran
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(TembusRadius.Card),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
                             border = BorderStroke(1.dp, Outline)
                         ) {
@@ -297,7 +300,7 @@ fun OrderDetailScreen(
                                 Button(
                                     onClick = { onTrackClick(order.orderId) },
                                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                                    shape = RoundedCornerShape(16.dp),
+                                    shape = RoundedCornerShape(TembusRadius.Button),
                                     colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
                                 ) {
                                     Icon(Icons.Default.MyLocation, contentDescription = null)
@@ -309,7 +312,7 @@ fun OrderDetailScreen(
                                     OutlinedButton(
                                         onClick = { onChatClick(order.orderId, order.courierName) },
                                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                                        shape = RoundedCornerShape(16.dp),
+                                        shape = RoundedCornerShape(TembusRadius.Button),
                                         border = BorderStroke(1.dp, Primary)
                                     ) {
                                         Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = Primary)
@@ -323,9 +326,9 @@ fun OrderDetailScreen(
                                     OutlinedButton(
                                         onClick = { showCancelDialog = true },
                                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                                        shape = RoundedCornerShape(16.dp),
-                                        border = BorderStroke(1.dp, Color(0xFFFF5252)),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252))
+                                        shape = RoundedCornerShape(TembusRadius.Button),
+                                        border = BorderStroke(1.dp, Error),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)
                                     ) {
                                         Icon(Icons.Default.Close, contentDescription = null)
                                         Spacer(Modifier.width(8.dp))
@@ -343,7 +346,7 @@ fun OrderDetailScreen(
                                     OutlinedButton(
                                         onClick = { /* Navigate to service report */ },
                                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                                        shape = RoundedCornerShape(16.dp),
+                                        shape = RoundedCornerShape(TembusRadius.Button),
                                         border = BorderStroke(1.dp, Primary),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Primary)
                                     ) {
@@ -463,14 +466,14 @@ private fun CancelReasonDialog(
                 // FB-079: info refund window (free / kena biaya layanan)
                 if (refundHint.isNotEmpty()) {
                     Surface(
-                        color = Color(0xFFFFF3E0),
-                        shape = RoundedCornerShape(10.dp),
+                        color = Warning.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(TembusRadius.Chip),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
                             refundHint,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFFB26A00),
+                            color = Warning,
                             modifier = Modifier.padding(10.dp)
                         )
                     }
@@ -492,7 +495,7 @@ private fun CancelReasonDialog(
                         RadioButton(
                             selected = selectedReason == reason,
                             onClick = { selectedReason = reason },
-                            colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFFF5252))
+                            colors = RadioButtonDefaults.colors(selectedColor = Error)
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(reason, style = MaterialTheme.typography.bodyMedium)
@@ -507,7 +510,7 @@ private fun CancelReasonDialog(
                 },
                 enabled = selectedReason != null
             ) {
-                Text("Batalkan Pesanan", color = Color(0xFFFF5252), fontWeight = FontWeight.Bold)
+                Text("Batalkan Pesanan", color = Error, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -521,7 +524,7 @@ private fun CancelReasonDialog(
 @Composable
 fun RoutePoint(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, label: String, value: String) {
     Row(verticalAlignment = Alignment.Top) {
-        Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(14.dp)) {
+        Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(TembusRadius.Chip)) {
             Icon(icon, contentDescription = null, tint = color, modifier = Modifier.padding(8.dp).size(20.dp))
         }
         Spacer(Modifier.width(16.dp))

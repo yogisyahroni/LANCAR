@@ -53,8 +53,12 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
+import com.tembus.customer.ui.theme.Success
+import com.tembus.customer.ui.theme.TembusRadius
+import com.tembus.customer.ui.theme.Warning
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -93,13 +97,13 @@ fun FoodHomeScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF7F8FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -108,7 +112,7 @@ fun FoodHomeScreen(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Food Delivery", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
-                    Text("Merchant terdekat", fontSize = 12.sp, color = Color(0xFF64748B))
+                    Text("Merchant terdekat", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 // Cart badge
                 Box {
@@ -141,9 +145,9 @@ fun FoodHomeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 placeholder = { Text("Cari makanan atau merchant...", fontSize = 14.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF94A3B8)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(TembusRadius.Input)
             )
 
             // ── ADR 003: filter halal ──
@@ -180,7 +184,7 @@ fun FoodHomeScreen(
                 error != null && merchants.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Gagal memuat merchant", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                            Text("Gagal memuat merchant", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(8.dp))
                             TextButton(onClick = { viewModel.loadMerchants(initialLat, initialLng, searchQuery.trim()) }) {
                                 Text("Coba lagi", color = Primary)
@@ -191,9 +195,9 @@ fun FoodHomeScreen(
                 merchants.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Store, contentDescription = null, tint = Color(0xFFCBD5E1), modifier = Modifier.size(48.dp))
+                            Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text("Belum ada merchant di sekitarmu", color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                            Text("Belum ada merchant di sekitarmu", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -237,8 +241,8 @@ private fun FoodMerchantCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .clip(RoundedCornerShape(TembusRadius.Card))
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
@@ -258,50 +262,50 @@ private fun FoodMerchantCard(
                         merchant.name,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 16.sp,
-                        color = Color(0xFF0F172A),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
                     // ADR 003: badge halal / non-halal
                     when {
-                        merchant.isHalalCertified -> HalalBadge(text = "Halal", container = Color(0xFF16A34A))
-                        merchant.isNonHalal -> HalalBadge(text = "Non-Halal", container = Color(0xFF64748B))
+                        merchant.isHalalCertified -> HalalBadge(text = "Halal", container = Success)
+                        merchant.isNonHalal -> HalalBadge(text = "Non-Halal", container = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Text(
                     merchant.address,
                     fontSize = 12.sp,
-                    color = Color(0xFF64748B),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (merchant.avgRating != null && merchant.avgRating > 0) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Star, contentDescription = null, tint = Warning, modifier = Modifier.size(14.dp))
                             Text(
                                 String.format("%.1f", merchant.avgRating),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
                     if (merchant.distanceKm != null) {
-                        Text("•", color = Color(0xFFCBD5E1))
+                        Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                         Text(
                             "${String.format("%.1f", merchant.distanceKm)} km",
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Text("•", color = Color(0xFFCBD5E1))
+                    Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                     Text(
                         if (merchant.isOpen) "Buka" else "Tutup",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (merchant.isOpen) Color(0xFF16A34A) else Color(0xFFEF4444)
+                        color = if (merchant.isOpen) Success else Error
                     )
                     // Favorite toggle
                     if (onFavoriteClick != null) {
@@ -312,7 +316,7 @@ private fun FoodMerchantCard(
                             Icon(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                                 contentDescription = if (isFavorite) "Hapus dari favorit" else "Tambah ke favorit",
-                                tint = if (isFavorite) Color(0xFFEF4444) else Color(0xFF64748B)
+                                tint = if (isFavorite) Error else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }

@@ -74,7 +74,7 @@ function Field({ label, value, onChange, type = 'text', placeholder, required }:
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-bold text-zinc-700">{label} {required && <span className="text-[#ff6908]">*</span>}</span>
+      <span className="text-sm font-bold text-zinc-700">{label} {required && <span className="text-[#F97316]">*</span>}</span>
       <input
         type={type}
         value={value}
@@ -208,7 +208,7 @@ export default function Register() {
     <div key={d.key} className="rounded-2xl border border-zinc-100 bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-bold text-zinc-900">{d.label} {d.required && <span className="text-[#ff6908]">*</span>}</p>
+          <p className="font-bold text-zinc-900">{d.label} {d.required && <span className="text-[#F97316]">*</span>}</p>
           <p className="mt-0.5 text-xs text-zinc-500">{d.hint}</p>
         </div>
         {form[d.key] ? (
@@ -259,7 +259,7 @@ export default function Register() {
         <ol className="flex items-center gap-1.5 overflow-x-auto pb-2">
           {STEPS.map((label, i) => (
             <li key={label} className="flex items-center gap-1.5">
-              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${i <= step ? 'bg-[#003d2b] text-white' : 'bg-zinc-200 text-zinc-500'}`}>
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${i <= step ? 'bg-[#003A20] text-white' : 'bg-zinc-200 text-zinc-500'}`}>
                 {i < step ? <Check className="h-4 w-4" /> : i + 1}
               </span>
               <span className={`whitespace-nowrap text-xs font-bold ${i <= step ? 'text-emerald-900' : 'text-zinc-400'}`}>{label}</span>
@@ -282,13 +282,13 @@ export default function Register() {
                   <button
                     key={type}
                     onClick={() => { setForm((f) => ({ ...f, businessType: type })); setError('') }}
-                    className={`rounded-2xl border-2 p-5 text-left transition ${form.businessType === type ? 'border-[#003d2b] bg-emerald-900/5' : 'border-zinc-100 hover:border-zinc-200'}`}
+                    className={`rounded-2xl border-2 p-5 text-left transition ${form.businessType === type ? 'border-[#003A20] bg-emerald-900/5' : 'border-zinc-100 hover:border-zinc-200'}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-900/10">
                         <Icon className="h-5 w-5 text-emerald-900" />
                       </div>
-                      <span className="rounded-full bg-[#ff6908]/10 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#ff6908]">{badge}</span>
+                      <span className="rounded-full bg-[#F97316]/10 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#F97316]">{badge}</span>
                     </div>
                     <p className="mt-3 font-bold text-zinc-900">{title}</p>
                     <p className="mt-1 text-xs leading-relaxed text-zinc-500">{desc}</p>
@@ -317,7 +317,7 @@ export default function Register() {
               <p className="text-sm text-zinc-500">Info ini yang tampil ke pelanggan & dipakai driver untuk antar order.</p>
               <Field label="Nama toko" required value={form.storeName} onChange={update('storeName')} placeholder="Nama toko / warung" />
               <label className="block">
-                <span className="text-sm font-bold text-zinc-700">Alamat lengkap <span className="text-[#ff6908]">*</span></span>
+                <span className="text-sm font-bold text-zinc-700">Alamat lengkap <span className="text-[#F97316]">*</span></span>
                 <textarea
                   value={form.address}
                   onChange={(e) => update('address')(e.target.value)}
@@ -402,13 +402,13 @@ export default function Register() {
               <button
                 onClick={submit}
                 disabled={submitting}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#ff6908] px-7 py-3.5 font-bold text-white shadow-lg shadow-orange-500/25 transition hover:bg-orange-600 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#F97316] px-7 py-3.5 font-bold text-white shadow-lg shadow-orange-500/25 transition hover:bg-orange-600 disabled:opacity-60"
               >
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Store className="h-5 w-5" />}
                 {submitting ? 'Mengirim...' : 'Kirim Pendaftaran'}
               </button>
             ) : (
-              <button onClick={next} className="inline-flex items-center gap-2 rounded-xl bg-[#003d2b] px-7 py-3.5 font-bold text-white transition hover:bg-emerald-950">
+              <button onClick={next} className="inline-flex items-center gap-2 rounded-xl bg-[#003A20] px-7 py-3.5 font-bold text-white transition hover:bg-emerald-950">
                 Lanjut <ArrowRight className="h-4 w-4" />
               </button>
             )}

@@ -60,7 +60,7 @@ export default function StatusCheck() {
             <img src="/favicon.svg" alt="TEMBUS" className="h-8 w-8" />
             <span className="font-black text-zinc-900">TEMBUS Mitra</span>
           </Link>
-          <Link to="/daftar" className="text-sm font-bold text-[#ff6908] hover:underline">Daftar Merchant</Link>
+          <Link to="/daftar" className="text-sm font-bold text-[#F97316] hover:underline">Daftar Merchant</Link>
         </div>
       </header>
 
@@ -97,7 +97,7 @@ export default function StatusCheck() {
           <button
             onClick={check}
             disabled={loading}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#003d2b] px-6 py-3.5 font-bold text-white transition hover:bg-emerald-950 disabled:opacity-60"
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#003A20] px-6 py-3.5 font-bold text-white transition hover:bg-emerald-950 disabled:opacity-60"
           >
             {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
             Periksa Status

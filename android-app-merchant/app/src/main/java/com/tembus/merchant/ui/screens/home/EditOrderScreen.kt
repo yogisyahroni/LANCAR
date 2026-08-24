@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.GreenText
+import com.tembus.merchant.ui.theme.TembusRadius
 
 /**
  * EditOrderScreen — FB-087: layar merchant mengubah qty item order food
@@ -156,7 +157,7 @@ fun EditOrderScreen(
                         item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
+                                shape = RoundedCornerShape(TembusRadius.Card),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
@@ -207,7 +208,7 @@ private fun EditItemCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(

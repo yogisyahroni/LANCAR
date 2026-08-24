@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.TembusRadius
 import com.tembus.merchant.ui.theme.Primary
 
 /**
@@ -151,7 +152,7 @@ private fun VariantGroupCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(TembusRadius.Card)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

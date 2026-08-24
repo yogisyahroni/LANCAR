@@ -52,6 +52,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.tembus.courier.domain.TowingNextActionType
 import com.tembus.courier.domain.TowingStage
+import com.tembus.courier.ui.theme.TembusRadius
 import com.tembus.courier.ui.components.service.EarningsBreakdown
 import com.tembus.courier.ui.components.service.ServiceProgressBar
 import com.tembus.courier.ui.components.service.TowingProgressSteps
@@ -343,7 +344,7 @@ private fun CustomerInfoCard(
     val canCall = phone.isNotEmpty()
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -383,7 +384,7 @@ private fun CustomerInfoCard(
 
             Box(
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), RoundedCornerShape(TembusRadius.Chip))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
                 Text(

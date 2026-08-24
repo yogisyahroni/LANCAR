@@ -41,6 +41,7 @@ import com.tembus.merchant.data.model.MenuItemRequest
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.TembusRadius
 import kotlinx.coroutines.launch
 
 /**
@@ -156,7 +157,7 @@ private fun MenuItemCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(TembusRadius.Card)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -296,7 +297,7 @@ private fun MenuItemEditorSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(160.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(TembusRadius.Card))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
@@ -315,7 +316,7 @@ private fun MenuItemEditorSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(160.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(TembusRadius.Card))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable {
                             photoPicker.launch(
