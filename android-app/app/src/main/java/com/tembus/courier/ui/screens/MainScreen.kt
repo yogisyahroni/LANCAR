@@ -307,11 +307,14 @@ fun MainScreen(
         }
     }
 
-    var selectedTab by remember { mutableStateOf(0) }
-    var routeState by rememberSaveable(stateSaver = CourierRouteStateSaver) {
+    val selectedTabState = remember { mutableStateOf(0) }
+    var selectedTab by selectedTabState
+    val routeStateState = rememberSaveable(stateSaver = CourierRouteStateSaver) {
         mutableStateOf(CourierRouteState())
     }
-    var selectedOrder by remember { mutableStateOf<Order?>(null) }
+    var routeState by routeStateState
+    val selectedOrderState = remember { mutableStateOf<Order?>(null) }
+    var selectedOrder by selectedOrderState
     val showPodScreen = routeState.screen == CourierRouteScreen.PROOF
     val showOrderDetail = routeState.screen == CourierRouteScreen.ORDER_DETAIL
     val showScanScreen = routeState.screen == CourierRouteScreen.SCAN
@@ -320,17 +323,27 @@ fun MainScreen(
     val showFaceVerifyScreen = routeState.screen == CourierRouteScreen.FACE_VERIFY
     val activeScanType = routeState.scanType
     val activeProofMode = routeState.proofMode
-    var pickupScanVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var pickupPhotoVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val pickupScanVerifiedOrderIdsState = remember { mutableStateOf<Set<String>>(emptySet()) }
+    var pickupScanVerifiedOrderIds by pickupScanVerifiedOrderIdsState
+    val pickupPhotoVerifiedOrderIdsState = remember { mutableStateOf<Set<String>>(emptySet()) }
+    var pickupPhotoVerifiedOrderIds by pickupPhotoVerifiedOrderIdsState
     // Face verification state — NOT persisted (intentional: clear on app restart for security)
-    var faceVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var showLogoutDialog by remember { mutableStateOf(false) }
-    var pendingDutySecurityTarget by remember { mutableStateOf<Boolean?>(null) }
-    var showMissingPhotoWarning by remember { mutableStateOf(false) }
-    var inlineErrorMessage by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingOnlineAfterForegroundPermission by remember { mutableStateOf(false) }
-    var showForegroundLocationPermissionDialog by remember { mutableStateOf(false) }
-    var showBackgroundLocationPermissionDialog by remember { mutableStateOf(false) }
+    val faceVerifiedOrderIdsState = remember { mutableStateOf<Set<String>>(emptySet()) }
+    var faceVerifiedOrderIds by faceVerifiedOrderIdsState
+    val showLogoutDialogState = remember { mutableStateOf(false) }
+    var showLogoutDialog by showLogoutDialogState
+    val pendingDutySecurityTargetState = remember { mutableStateOf<Boolean?>(null) }
+    var pendingDutySecurityTarget by pendingDutySecurityTargetState
+    val showMissingPhotoWarningState = remember { mutableStateOf(false) }
+    var showMissingPhotoWarning by showMissingPhotoWarningState
+    val inlineErrorMessageState = rememberSaveable { mutableStateOf<String?>(null) }
+    var inlineErrorMessage by inlineErrorMessageState
+    val pendingOnlineAfterForegroundPermissionState = remember { mutableStateOf(false) }
+    var pendingOnlineAfterForegroundPermission by pendingOnlineAfterForegroundPermissionState
+    val showForegroundLocationPermissionDialogState = remember { mutableStateOf(false) }
+    var showForegroundLocationPermissionDialog by showForegroundLocationPermissionDialogState
+    val showBackgroundLocationPermissionDialogState = remember { mutableStateOf(false) }
+    var showBackgroundLocationPermissionDialog by showBackgroundLocationPermissionDialogState
     val isOnDemandCourier = courierRole == "on_demand"
     val activeOnDemandJobCount = roleOrders.count {
         it.normalizedWorkflowRole() == "on_demand" &&
@@ -542,575 +555,67 @@ fun MainScreen(
             selectedOrder = null
         }
     }
+    val deps = MainScreenDeps(
+        context = context,
+        scope = scope,
+        snackbarHostState = snackbarHostState,
+        orderViewModel = orderViewModel,
+        callEventsViewModel = callEventsViewModel,
+        routeState = routeStateState,
+        selectedOrder = selectedOrderState,
+        selectedTab = selectedTabState,
+        courierRole = courierRole,
+        isOnline = isOnline,
+        lifecycleOwner = lifecycleOwner,
+        syncIntervalMs = syncIntervalMs,
+        onDemandOffers = onDemandOffers,
+        roleOrders = roleOrders,
+        mapsProviderConfig = mapsProviderConfig,
+        routePreviews = routePreviews,
+        cancelPickupReasons = cancelPickupReasons,
+        statusTransitions = statusTransitions,
+        activeOnDemandJobCount = activeOnDemandJobCount,
+        maxActiveOnDemandJobs = maxActiveOnDemandJobs,
+        initialOrderId = initialOrderId,
+        initialChatOrderId = initialChatOrderId,
+        onConsumedDeepLink = onConsumedDeepLink,
+        authSessionManager = authSessionManager,
+        onLogout = onLogout,
+        showPodScreen = showPodScreen,
+        showOrderDetail = showOrderDetail,
+        showScanScreen = showScanScreen,
+        showChatScreen = showChatScreen,
+        showCallScreen = showCallScreen,
+        showFaceVerifyScreen = showFaceVerifyScreen,
+        activeScanType = activeScanType,
+        activeProofMode = activeProofMode,
+        pickupScanVerifiedOrderIds = pickupScanVerifiedOrderIdsState,
+        pickupPhotoVerifiedOrderIds = pickupPhotoVerifiedOrderIdsState,
+        faceVerifiedOrderIds = faceVerifiedOrderIdsState,
+        showLogoutDialog = showLogoutDialogState,
+        pendingDutySecurityTarget = pendingDutySecurityTargetState,
+        showMissingPhotoWarning = showMissingPhotoWarningState,
+        pendingOnlineAfterForegroundPermission = pendingOnlineAfterForegroundPermissionState,
+        showForegroundLocationPermissionDialog = showForegroundLocationPermissionDialogState,
+        showBackgroundLocationPermissionDialog = showBackgroundLocationPermissionDialogState,
+        inlineErrorMessage = inlineErrorMessageState,
+        foregroundLocationPermissionLauncher = foregroundLocationPermissionLauncher,
+        backgroundLocationPermissionLauncher = backgroundLocationPermissionLauncher,
+        openOrderDetail = { openOrderDetail(it) },
+        openChat = { openChat(it) },
+        openCall = { o, id -> openCall(o, id) },
+        openScan = { o, t -> openScan(o, t) },
+        openProof = { o, m -> openProof(o, m) },
+        openFaceVerify = { openFaceVerify(it) },
+        openServiceFaceVerify = { id, st -> openServiceFaceVerify(id, st) },
+        closeRoute = { closeRoute() },
+        backToOrderOrHome = { backToOrderOrHome() },
+        sendSafetyEvent = { o, et, sv, msg, f -> sendSafetyEvent(o, et, sv, msg, f) },
+        performDutyToggle = { performDutyToggle(it) },
+        requestDutyToggle = { requestDutyToggle(it) }
+    )
 
-    LaunchedEffect(routeState.orderId, routeState.screen, roleOrders, onDemandOffers) {
-        val orderId = routeState.orderId ?: return@LaunchedEffect
-        if (selectedOrder?.orderId == orderId) return@LaunchedEffect
-        val cachedOrder = roleOrders.firstOrNull { it.orderId == orderId }
-            ?: onDemandOffers.firstOrNull { it.orderId == orderId }
-            ?: orderViewModel.getOrderById(orderId)
-        if (cachedOrder != null) {
-            selectedOrder = cachedOrder
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        callEventsViewModel.incomingCallInvites.collect { invite ->
-            val order = orderViewModel.getOrderById(invite.orderId)
-                ?: roleOrders.firstOrNull { it.orderId == invite.orderId }
-                ?: onDemandOffers.firstOrNull { it.orderId == invite.orderId }
-            if (order != null) {
-                selectedOrder = order
-                routeState = CourierRouteReducer.call(invite.orderId, invite.callId, order.communicationCallTargetType())
-            } else {
-                snackbarHostState.showSnackbar("Panggilan masuk diterima, tetapi order belum tersinkron.")
-            }
-        }
-    }
-
-    if (courierRole == "on_demand" && onDemandOffers.isNotEmpty()) {
-        val capacityBlocked = activeOnDemandJobCount >= maxActiveOnDemandJobs
-        OnDemandOfferQueueDialog(
-            offers = onDemandOffers,
-            mapsProviderConfig = mapsProviderConfig,
-            activeJobCount = activeOnDemandJobCount,
-            maxActiveJobs = maxActiveOnDemandJobs,
-            acceptBlocked = capacityBlocked,
-            onAccept = { offer ->
-                orderViewModel.acceptOffer(offer) { accepted ->
-                    openOrderDetail(accepted)
-                }
-            },
-            onReject = { offer -> orderViewModel.rejectOffer(offer) },
-            onExpired = { offer -> orderViewModel.rejectOffer(offer, "ttl_expired") }
-        )
-    }
-
-    // Navigate to order detail if app was opened from notification
-    LaunchedEffect(initialOrderId) {
-        if (initialOrderId != null) {
-            val order = orderViewModel.getOrderById(initialOrderId)
-            if (order != null) {
-                openOrderDetail(order)
-                onConsumedDeepLink()
-            }
-        }
-    }
-
-    // Navigate to Chat Screen directly if app was opened from a Chat notification
-    LaunchedEffect(initialChatOrderId) {
-        if (initialChatOrderId != null) {
-            val order = orderViewModel.getOrderById(initialChatOrderId)
-            if (order != null) {
-                openChat(order)
-                onConsumedDeepLink()
-            }
-        }
-    }
-
-    // Show error as Snackbar and persistent inline retry state.
-    LaunchedEffect(error) {
-        error?.let { msg ->
-            inlineErrorMessage = msg
-            snackbarHostState.showSnackbar(
-                message = msg,
-                duration = SnackbarDuration.Short
-            )
-            orderViewModel.clearError()
-        }
-    }
-
-    // Main synchronization loop (App Foreground)
-    LaunchedEffect(isOnline, courierRole, syncIntervalMs, lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            if (!isOnline) return@repeatOnLifecycle
-
-            val baseIntervalMs = if (courierRole == "on_demand") {
-                ON_DEMAND_FOREGROUND_SYNC_INTERVAL_MS
-            } else {
-                syncIntervalMs
-            }
-            val minIntervalMs = if (courierRole == "on_demand") {
-                ON_DEMAND_FOREGROUND_SYNC_MIN_INTERVAL_MS
-            } else {
-                (syncIntervalMs * 0.66).toLong()
-            }
-            var intervalMs = baseIntervalMs
-            while (isActive) {
-                val result = orderViewModel.refreshOrdersFromBackend(
-                    showUserErrors = false,
-                    showLoading = false,
-                    minIntervalMs = minIntervalMs
-                )
-                intervalMs = if (result.isSuccess) {
-                    baseIntervalMs
-                } else {
-                    min(intervalMs * 2, FOREGROUND_SYNC_MAX_BACKOFF_MS)
-                }
-                delay(intervalMs)
-            }
-        }
-    }
-
-    LaunchedEffect(isOnline, lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            OrderSyncSignalBus.events.collect {
-                if (isOnline) {
-                    orderViewModel.refreshOrdersFromBackend(
-                        showUserErrors = false,
-                        showLoading = false,
-                        minIntervalMs = PUSH_SYNC_MIN_INTERVAL_MS
-                    )
-                }
-            }
-        }
-    }
-
-    // ── PoD Screen ─────────────────────────────────────────────
-    selectedOrder?.takeIf { showPodScreen }?.let { order ->
-        ProofOfDeliveryScreen(
-            order = order,
-            proofMode = activeProofMode,
-            onImageConfirmed = { _ ->
-                if (CourierProofTypes.isPickupProof(activeProofMode)) {
-                    pickupPhotoVerifiedOrderIds = pickupPhotoVerifiedOrderIds + order.orderId
-                    scope.launch {
-                        val updatedOrder = orderViewModel.getOrderById(order.orderId)
-                            ?: order.copy(pickupPhotoVerified = true)
-                        val hasPickupScan = pickupScanVerifiedOrderIds.contains(order.orderId) ||
-                            updatedOrder.pickupScanVerified ||
-                            updatedOrder.scanType == "pickup" ||
-                            updatedOrder.scanType == CourierProofTypes.PICKUP_SCAN
-                        selectedOrder = updatedOrder
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(
-                            if (hasPickupScan) {
-                                "Pickup lengkap. Mulai pengantaran."
-                            } else {
-                                "Foto barang tersimpan. Scan kode paket masih wajib."
-                            }
-                        )
-                    }
-                    routeState = CourierRouteReducer.detail(order.orderId)
-                } else {
-                    orderViewModel.fetchOrdersFromBackend()
-                    closeRoute()
-                }
-            },
-            onBack = {
-                backToOrderOrHome()
-            }
-        )
-        return
-    }
-
-    // ── Face Verification Screen ───────────────────────────────
-    selectedOrder?.takeIf { showFaceVerifyScreen }?.let { order ->
-        FaceVerificationScreen(
-            orderId = order.orderId,
-            verificationType = "pickup",
-            workContext = routeState.returnToServiceType,
-            onVerified = {
-                faceVerifiedOrderIds = faceVerifiedOrderIds + order.orderId
-                val returnToServiceType = routeState.returnToServiceType
-                when (returnToServiceType) {
-                    "tambal_ban" -> {
-                        orderViewModel.updateOrderStatusAndSync(order.orderId, "inspecting")
-                        selectedOrder = selectedOrder?.copy(status = "inspecting")
-                        routeState = CourierRouteReducer.tambalBanFlow(order.orderId)
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Verifikasi wajah berhasil. Lanjutkan inspeksi ban.")
-                        }
-                    }
-                    "towing" -> {
-                        orderViewModel.updateOrderStatusAndSync(order.orderId, "inspecting")
-                        selectedOrder = selectedOrder?.copy(status = "inspecting")
-                        routeState = CourierRouteReducer.towingFlow(order.orderId)
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Verifikasi wajah berhasil. Lanjutkan inspeksi kendaraan.")
-                        }
-                    }
-                    else -> {
-                        routeState = CourierRouteReducer.detail(order.orderId)
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Verifikasi wajah berhasil. Lanjutkan scan paket.")
-                        }
-                    }
-                }
-            },
-            onBack = { backToOrderOrHome() }
-        )
-        return
-    }
-
-    // ── Order Detail Screen ────────────────────────────────────
-    selectedOrder?.takeIf { showOrderDetail }?.let { order ->
-        LaunchedEffect(order.orderId) {
-            if (order.normalizedWorkflowRole() == "on_demand") {
-                orderViewModel.loadRoutePreview(order.orderId)
-            }
-            orderViewModel.fetchOrderStatusTransitions(order.normalizedWorkflowRole())
-        }
-        OrderDetailScreen(
-            order = order,
-            routePreview = routePreviews[order.orderId],
-            mapsProviderConfig = mapsProviderConfig,
-            cancelPickupReasons = cancelPickupReasons,
-            statusTransitions = statusTransitions,
-            pickupScanVerified = pickupScanVerifiedOrderIds.contains(order.orderId) ||
-                order.pickupScanVerified ||
-                order.scanType == "pickup" ||
-                order.scanType == CourierProofTypes.PICKUP_SCAN,
-            pickupPhotoVerified = pickupPhotoVerifiedOrderIds.contains(order.orderId) || order.pickupPhotoVerified,
-            faceVerifiedForPickup = faceVerifiedOrderIds.contains(order.orderId),
-            onBack = {
-                closeRoute()
-            },
-            onUpdateStatus = { newStatus ->
-                // Optimistic local update + backend sync
-                orderViewModel.updateOrderStatusAndSync(
-                    orderId = order.orderId,
-                    status = newStatus
-                )
-                selectedOrder = selectedOrder?.copy(status = newStatus)
-            },
-            onVerifyPickup = {
-                openScan(order, CourierProofTypes.PICKUP_SCAN)
-            },
-            onVerifyFace = {
-                openFaceVerify(order)
-            },
-            onOpenTambalBanFlow = {
-                routeState = CourierRouteReducer.tambalBanFlow(order.orderId)
-            },
-            onOpenTowingFlow = {
-                routeState = CourierRouteReducer.towingFlow(order.orderId)
-            },
-            onCapturePickupProof = {
-                openProof(order, CourierProofTypes.PICKUP_PHOTO)
-            },
-            onCapturePod = {
-                openProof(order, CourierProofTypes.DELIVERY_POD_PHOTO)
-            },
-            onChatClick = {
-                openChat(order)
-            },
-            onCallClick = {
-                openCall(order)
-            },
-            onLogLocalSecurity = { actionType, cb ->
-                orderViewModel.logLocalSecurityEvent(actionType, onComplete = cb)
-            },
-            onSosClick = {
-                scope.launch {
-                    val location = getLastKnownDutyLocation(context)
-                    if (location == null) {
-                        snackbarHostState.showSnackbar("Gagal memicu SOS: Lokasi GPS tidak tersedia. Pastikan GPS aktif.")
-                        return@launch
-                    }
-                    val result = orderViewModel.triggerSos(
-                        latitude = location.latitude,
-                        longitude = location.longitude
-                    )
-                    result.onSuccess { data ->
-                        val prefs = context.getSharedPreferences("sos_prefs", android.content.Context.MODE_PRIVATE)
-                        prefs.edit()
-                            .putBoolean("is_sos_active", true)
-                            .putString("active_incident_id", data.incidentId)
-                            .apply()
-                        snackbarHostState.showSnackbar("Panggilan Darurat (SOS) telah dikirim ke pusat komando.")
-                    }.onFailure {
-                        snackbarHostState.showSnackbar("Gagal memicu SOS: ${it.message}")
-                    }
-                }
-            },
-            onReportIssue = { eventType, severity, message, photoFile ->
-                scope.launch {
-                    sendSafetyEvent(order, eventType, severity, message, photoFile)
-                }
-            },
-            onCancelPickup = { reasonCode, reasonNote, photoFile ->
-                scope.launch {
-                    val location = getLastKnownDutyLocation(context)
-                    val result = orderViewModel.cancelOnDemandPickup(
-                        orderId = order.orderId,
-                        reasonCode = reasonCode,
-                        reasonNote = reasonNote,
-                        latitude = location?.latitude,
-                        longitude = location?.longitude,
-                        accuracy = location?.accuracy,
-                        photoFile = photoFile
-                    )
-                    result.onSuccess { message ->
-                        closeRoute()
-                        snackbarHostState.showSnackbar(message)
-                    }.onFailure { error ->
-                        snackbarHostState.showSnackbar(error.message ?: "Pembatalan pickup belum terkirim. Coba lagi.")
-                    }
-                }
-            }
-        )
-        return
-    }
-
-    // ── Chat Screen ────────────────────────────────────────────
-    selectedOrder?.takeIf { showChatScreen }?.let { order ->
-        ChatScreen(
-            orderId = order.orderId,
-            conversationTitle = order.communicationChatTitle(),
-            conversationSubtitle = order.communicationChatSubtitle(),
-            inputPlaceholder = order.communicationChatPlaceholder(),
-            isDeliveryGroup = order.communicationIsDeliveryGroup(),
-            onCallClick = {
-                openCall(order)
-            },
-            onBackClick = {
-                backToOrderOrHome()
-            },
-            order = order
-        )
-        return
-    }
-
-    // ── In-app Call Screen ─────────────────────────────────────
-    selectedOrder?.takeIf { showCallScreen }?.let { order ->
-        InAppCallScreen(
-            orderId = order.orderId,
-            targetName = order.communicationCallTargetLabel(),
-            targetType = routeState.callTargetType,
-            initialState = if (routeState.callId.isNullOrBlank()) InAppCallState.OUTGOING else InAppCallState.INCOMING,
-            routeCallId = routeState.callId,
-            onBackClick = { backToOrderOrHome() },
-            onOpenChat = {
-                routeState = CourierRouteReducer.chat(order.orderId)
-            }
-        )
-        return
-    }
-
-    // ── Scan Screen ────────────────────────────────────────────
-    if (showScanScreen) {
-        ScanScreen(
-            initialOrderId = selectedOrder?.orderId,
-            scanType = activeScanType,
-            title = if (activeScanType == CourierProofTypes.PICKUP_SCAN) "Verifikasi Barang" else "Verifikasi Tujuan",
-            onScanSuccess = { orderId ->
-                scope.launch {
-                    // Load real order from DB (may have been added by notification)
-                    val order = orderViewModel.getOrderById(orderId)
-                    if (order != null) {
-                        if (activeScanType == CourierProofTypes.PICKUP_SCAN) {
-                            pickupScanVerifiedOrderIds = pickupScanVerifiedOrderIds + orderId
-                            val hasPickupPhoto = pickupPhotoVerifiedOrderIds.contains(orderId) || order.pickupPhotoVerified
-                            if (hasPickupPhoto) {
-                                selectedOrder = order.copy(pickupScanVerified = true)
-                                orderViewModel.fetchOrdersFromBackend()
-                                snackbarHostState.showSnackbar("Pickup lengkap. Mulai pengantaran.")
-                            } else {
-                                selectedOrder = order.copy(pickupScanVerified = true)
-                                snackbarHostState.showSnackbar("Scan berhasil. Lanjutkan foto barang untuk mulai pengantaran.")
-                            }
-                        } else {
-                            selectedOrder = order
-                        }
-                        routeState = CourierRouteReducer.detail(orderId)
-                    } else {
-                        snackbarHostState.showSnackbar("Order $orderId tidak ditemukan")
-                    }
-                }
-            },
-            onBack = {
-                backToOrderOrHome()
-            }
-        )
-        return
-    }
-
-    // ── Inbox Screen ──────────────────────────────────────────
-    if (routeState.screen == CourierRouteScreen.SERVICE_UPGRADE) {
-        ServiceUpgradeScreen(
-            onNavigateBack = { routeState = CourierRouteReducer.home() }
-        )
-        return
-    }
-
-    // ── Tambal Ban Flow Screen ──────────────────────────────
-    if (routeState.screen == CourierRouteScreen.TAMBAL_BAN_FLOW) {
-        val orderId = routeState.orderId ?: return
-        TambalBanFlowScreen(
-            orderId = orderId,
-            onBackClick = { routeState = CourierRouteReducer.home() },
-            onComplete = { routeState = CourierRouteReducer.home() },
-            onVerifyFace = { id, serviceType ->
-                openServiceFaceVerify(id, serviceType)
-            },
-            onOpenCompletion = { id, serviceType ->
-                routeState = CourierRouteReducer.completion(id, serviceType)
-            }
-        )
-        return
-    }
-
-    // ── Towing Flow Screen ──────────────────────────────────
-    if (routeState.screen == CourierRouteScreen.TOWING_FLOW) {
-        val orderId = routeState.orderId ?: return
-        TowingFlowScreen(
-            orderId = orderId,
-            onBackClick = { routeState = CourierRouteReducer.home() },
-            onComplete = { routeState = CourierRouteReducer.home() },
-            onVerifyFace = { id, serviceType ->
-                openServiceFaceVerify(id, serviceType)
-            },
-            onOpenCompletion = { id, serviceType ->
-                routeState = CourierRouteReducer.completion(id, serviceType)
-            }
-        )
-        return
-    }
-
-    // ── Completion Screen ────────────────────────────────────
-    if (routeState.screen == CourierRouteScreen.COMPLETION) {
-        val orderId = routeState.orderId ?: return
-        val serviceType = routeState.serviceType
-        CompletionScreen(
-            serviceType = serviceType,
-            onBackClick = { routeState = CourierRouteReducer.home() },
-            onComplete = { notes, completionPhoto, signatureBitmap ->
-                scope.launch {
-                    orderViewModel.submitServiceReport(
-                        orderId = orderId,
-                        serviceType = serviceType,
-                        notes = notes,
-                        completionPhoto = completionPhoto,
-                        signatureBitmap = signatureBitmap
-                    )
-                }
-                routeState = CourierRouteReducer.home()
-            }
-        )
-        return
-    }
-
-    if (routeState.screen == CourierRouteScreen.INBOX) {
-        InboxScreen(
-            onBackClick = { routeState = CourierRouteReducer.home() }
-        )
-        return
-    }
-
-    // ── Logout Confirmation Dialog ─────────────────────────────
-    if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Keluar Aplikasi") },
-            text = { Text("Kamu yakin ingin keluar? Semua data offline akan tetap tersimpan.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                        scope.launch {
-                            orderViewModel.clearAllOrders()
-                            authSessionManager.clearSession()
-                            onLogout()
-                        }
-                    }
-                ) {
-                    Text("Keluar", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Batal")
-                }
-            }
-        )
-    }
-
-    if (showForegroundLocationPermissionDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showForegroundLocationPermissionDialog = false
-                pendingOnlineAfterForegroundPermission = false
-            },
-            title = { Text("Aktifkan Lokasi") },
-            text = {
-                Text("Lokasi foreground dibutuhkan untuk validasi area kerja, rute pickup, dan bukti pengantaran. TEMBUS hanya memakai lokasi saat kurir On Duty.")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showForegroundLocationPermissionDialog = false
-                        foregroundLocationPermissionLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
-                    }
-                ) {
-                    Text("Izinkan lokasi")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showForegroundLocationPermissionDialog = false
-                        pendingOnlineAfterForegroundPermission = false
-                    }
-                ) {
-                    Text("Batal")
-                }
-            }
-        )
-    }
-
-    if (showBackgroundLocationPermissionDialog) {
-        AlertDialog(
-            onDismissRequest = { showBackgroundLocationPermissionDialog = false },
-            title = { Text("Tracking Saat App Ditutup") },
-            text = {
-                Text("Agar dispatcher dan pelanggan tetap mendapat posisi akurat selama pekerjaan aktif, aktifkan izin lokasi background. Izin ini hanya dipakai saat status On Duty.")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showBackgroundLocationPermissionDialog = false
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            backgroundLocationPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                        }
-                    }
-                ) {
-                    Text("Buka pengaturan")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showBackgroundLocationPermissionDialog = false }) {
-                    Text("Nanti")
-                }
-            }
-        )
-    }
-
-    pendingDutySecurityTarget?.let { targetOnline ->
-        FaceVerificationScreen(
-            orderId = null,
-            verificationType = if (targetOnline) "on_duty" else "off_duty",
-            onVerified = {
-                val actionType = if (targetOnline) "on_duty" else "off_duty"
-                pendingDutySecurityTarget = null
-                orderViewModel.logLocalSecurityEvent(actionType) {
-                    scope.launch { performDutyToggle(targetOnline) }
-                }
-            },
-            onBack = { pendingDutySecurityTarget = null }
-        )
-    }
-
+    MainScreenEffects(deps)
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
