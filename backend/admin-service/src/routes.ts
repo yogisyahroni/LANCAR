@@ -65,7 +65,7 @@ routes.post('/api/v1/courier/orders/:orderId/cancel-pickup', requireMobileOrWebA
 routes.post('/api/v1/tracking/sync', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.syncCourierTracking(req, res));
 routes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderTracking(req, res));
 // Public resi lookup untuk halaman cek-resi (tanpa auth, rate limit agresif per IP)
-routes.get('/api/v1/tracking/public', controllers.publicTracking.publicTrackingRateLimiter, (req, res) => controllers.publicTracking.getPublicTrackingByResi(req, res));
+routes.get('/api/v1/tracking/public', (req, res, next) => controllers.publicTracking.publicTrackingRateLimiter(req, res, next), (req, res) => controllers.publicTracking.getPublicTrackingByResi(req, res));
 routes.post('/api/v1/orders/status', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierOrderStatus(req, res));
 routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
 routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.pod.upload'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierPod(req, res));

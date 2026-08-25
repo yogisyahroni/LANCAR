@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { readDb } from '../db';
 import { redis } from '../redis';
-import { customerOrderStatusLabel } from './order/_shared';
+import { customerOrderStatusLabel } from './order/statusLabels';
 
 // ─── Rate limiting (aggressive, IP-based: 20 req/min/IP) ─────────────────────
 // Mirrors the redis limiter pattern in src/rateLimit.ts (publicEndpointRateLimiter)

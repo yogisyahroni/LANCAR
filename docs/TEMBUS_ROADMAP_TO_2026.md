@@ -78,6 +78,21 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 11.5 | Merchant Web Portal v1 | ❌ |
 | 11.6 | Feature flag control UI admin | ✅ (⚠️ dead link `/feature-flags`) |
 | 11.6 | RBAC multi-role | 🟡 |
+| 11.1 | Voucher page web (`/voucher`) | ✅ **VERIFIED 2026-08-26** — `frontend/src/app/(portal)/voucher/page.tsx` exists + `frontend build` EXIT 0 |
+| 11.1 | Cek resi publik endpoint + page | ❌ (route `/api/v1/tracking/public` + `publicTracking.controller.ts` ADA tapi `routes.test.ts` sempat broken akibat circular import — FIXED 2026-08-26, lihat bawah) |
+| 11.1 | Landing page publik utuh | ❌ (`landing-page/` terpisah, broken; link "Lacak Paket" → `/track` tidak exist) |
+
+### Verifikasi Build & Test — 2026-08-26 (Hermes Agent)
+Semua claim ✅ di atas diverifikasi dengan build/test nyata (bukan asumsi):
+- `backend/order-service`: `go build ./...` **EXIT 0** — handler terpecah (`order_handler.go` 346, `parcel_handler.go` 470, `food_handler.go` 193, `matching_handler.go` 148, `proof_handler.go` 442 baris) + service (`order_*.go` 9 file) + domain (`order.go` 461 + `order_food.go` 238). ✅
+- `backend/admin-service`: `tsc --noEmit` **EXIT 0** + `npm test` **31 suites / 165 tests PASSED** (sebelumnya 1 suite gagal). Controller `courier/` (13 file) + `order/` (9 file) terpecah beneran. ✅
+- `frontend`: `npm run build` **EXIT 0** — route `/voucher`, `/alamat`, `/laporan` ter-build. ✅
+
+**BUG FIX 2026-08-26 — `routes.test.ts` broken (regression dari commit 54af2e0):**
+- Symptom: `TypeError: Cannot read properties of undefined (reading 'publicTrackingRateLimiter')` saat load `routes.ts`.
+- Root cause: `routes.ts:68` lewatkan `controllers.publicTracking.publicTrackingRateLimiter` **langsung** sebagai middleware reference (dievaluasi saat module load), padahal semua route lain pakai arrow wrapper (lazy, dievaluasi saat request). Saat `routes.ts` di-load pertama kali, `controllers.publicTracking` masih `undefined` (circular init di `controllers/index`).
+- Fix: bungkus jadi `(req,res,next)=>controllers.publicTracking.publicTrackingRateLimiter(req,res,next)` (lazy) — konsisten dengan pola route lain. Plus extract `customerOrderStatusLabel` ke leaf `order/statusLabels.ts` (dependency-free) utk putus circular graph `order/_shared ↔ courierAuth.controller`.
+- Verifikasi: `routes.test.ts` 14 passed; full suite 165 passed. ✅
 | 11.6 | Evidence viewer | 🟡 (GPS trail ❌) |
 | 11.6 | Force cancel + refund flow | ❌ |
 
