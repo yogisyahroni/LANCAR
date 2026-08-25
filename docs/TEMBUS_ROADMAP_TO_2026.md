@@ -181,20 +181,20 @@ backend/admin-service/src/controllers/order/
 ## 1.2 Order Service (Go)
 
 ### Task — Split `order_handler.go` (1541 baris)
-**Status:** ❌ **BELUM** — file masih **1375 baris** (turun tipis dari 1541). Blueprint parcel/food/roadside/matching/proof handler belum dieksekusi; hanya `tambalban_handler.go` yang sudah terpisah sebelumnya.
+**Status:** ✅ **DONE** — 2026-08-25 (1541 → **346 baris** di `order_handler.go` + 4 file handler, `go build ./...` EXIT 0, nol perubahan API publik karena same-package split).
 
 **File lama:** `backend/order-service/internal/handler/order_handler.go`
 
-**File baru:**
+**File baru (aktual — 31 method dipindah, 2 fungsi tetap di order_handler.go):**
 ```
 backend/order-service/internal/handler/
-  ├── order_handler.go              (core CRUD + status transition ≤350)
-  ├── parcel_handler.go
-  ├── food_handler.go
-  ├── roadside_handler.go           (tambal_ban + towing)
-  ├── matching_handler.go
-  └── proof_handler.go
+  ├── order_handler.go              (struct + NewOrderHandler + userSafeError + core CRUD)
+  ├── parcel_handler.go             (Estimate, CreateOrder, CreateBulkOrder, GetOrder, ReorderCheck, ListOrders, PollOrderUpdates, SuggestMeetingPoints, AcceptOrder, UpdateStatus)
+  ├── food_handler.go               (CreateFoodOrder, List/Get/Del FavoriteMerchant, CheckIsFavoriteMerchant)
+  ├── matching_handler.go           (StartMatching, RetryMatching, InternalStart/RetryMatching)
+  └── proof_handler.go              (ScanPackage, consolidation bag, AutoDetectScanType, SubmitCourier/MerchantRating, GetRatingReminders, GetCourierPerformance)
 ```
+**Catatan:** `roadside_handler.go` tidak dibuat karena logic roadside sudah di `tambalban_handler.go` (sudah terpisah sebelumnya).
 
 ### Task — Split `order_service.go` (2531 baris)
 **Status:** ✅ **DONE** — 2026-08-25 (2531 → **318 baris** di `order_service.go` + 9 file `order_*.go`, `go build ./internal/service/` EXIT 0, nol perubahan API publik karena same-package split).
