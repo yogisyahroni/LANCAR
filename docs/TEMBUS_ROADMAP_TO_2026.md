@@ -372,7 +372,7 @@ Pecah per tab/section (General, Pricing, Zones, Notification, Security, dll).
 
 ## 2.1 Accessibility (WCAG 2.2 AA) — HIGHEST PRIORITY
 
-**Status:** ❌ **NYARIS NOL (~10–15%)** — `lang="en"` masih di kedua root; tidak ada focus ring token / prefers-reduced-motion / SafeImage / folder a11y; ARIA insidental (~25 atribut); Android `Modifier.semantics {}` = 0; CI Lighthouse job ada tapi config `lighthouserc.json` tidak ada → broken. Yang sudah oke: alt text manual disiplin (web), `contentDescription = null` untuk icon dekoratif (Android), skeleton Android.
+**Status:** 🟡 **PARTIAL** — `lang="en"` masih di kedua root; tidak ada focus ring token / prefers-reduced-motion terpusat; ARIA insidental (~25 atribut); Android `Modifier.semantics {}` = 0; CI Lighthouse job ada tapi config `lighthouserc.json` masih tidak ada → broken. **UPDATE 2026-08-26:** komponen a11y sudah ada di tree (`admin-dashboard/src/components/a11y/` = FocusTrap/SafeImage/VisuallyHidden/useAnnounce, `frontend/src/components/a11y/`, `scripts/ci/lighthouserc.json` sudah di-commit di `54af2e0`) — naik ke PARTIAL. Yang masih kurang: wiring focus-ring token + prefers-reduced-motion ke design system, Android `semantics {}`, Lighthouse CI job yang benar-benar jalan.
 
 ### Web (Customer Portal + Admin)
 | Action | File / Path |
@@ -442,7 +442,7 @@ Token-bucket / sliding-window (per IP + per user + per endpoint). Config via env
 
 ## 2.3 Feature Flags Foundation
 
-**Status:** 🟡 **PARTIAL** — Backend lengkap ✅ (`services/featureFlags.ts`, `controllers/flags.controller.ts`, routes penuh dengan toggle di-gate TOTP + rate limiter + audit logs). Admin UI toggle ✅ (Settings.tsx). Client SDK belum ada ❌: `frontend/src/lib/featureFlags.ts`, `FeatureFlagManager.kt` (2 app). ⚠️ Ada page `/feature-flags` stale di frontend (diblok middleware) dan tombol navigate ke sana dari PricingConfig = dead link.
+**Status:** ✅ **SELESAI** — Backend lengkap (`services/featureFlags.ts`, `controllers/flags.controller.ts`, routes + TOTP + rate limiter + audit logs). Admin UI toggle ✅ (Settings.tsx). **UPDATE 2026-08-26:** Client SDK sudah ada di tree & di-commit `54af2e0` — `frontend/src/lib/featureFlags.ts`, `frontend/src/hooks/useFeatureFlag.ts`, `android-app/.../featureflag/`, `android-app-customer/.../featureflag/`. ⚠️ Masih ada page `/feature-flags` stale di frontend (diblok middleware) + dead link dari PricingConfig — minor cleanup.
 
 **File baru:**
 ```
@@ -522,7 +522,7 @@ Motion tokens di `globals.css` + Compose theme. Shared element transition. Desig
 
 ## 4.1 Android APK/AAB Size
 
-**Status:** 🟡 — R8 + shrinkResources ✅ (ON di kedua app). abiFilters ❌ **ship semua 4 ABI termasuk x86/x86_64** (kebalikan spec). Bundle splits ❌, Baseline Profile ❌, WebP ❌ (8 PNG masih ada), junk files ❌ parah (`logcat_*` ×5, `hs_err_pid*.log` ×4, `tmp_*.exe`, `gateway.log`, `temp.js`, 16 folder `.hermes-tmp.*` ter-commit di `.github/workflows/`).
+**Status:** 🟡 — R8 + shrinkResources ✅ (ON di kedua app). abiFilters ❌ **ship semua 4 ABI termasuk x86/x86_64** (kebalikan spec). Bundle splits ❌, Baseline Profile ❌, WebP ❌ (8 PNG masih ada). **UPDATE 2026-08-26:** junk files `temp.js` + `android-app-customer/logcat_*.txt` + `backend/*/tmp_*` SUDAH dihapus di commit `54af2e0`; `.hermes-tmp.*` di `.github/workflows/` masih ada (runtime artifact, perlu gitignore).
 
 | # | Task | File / Action | Expected Impact |
 |---|------|---------------|-----------------|
