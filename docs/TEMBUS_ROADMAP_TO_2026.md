@@ -321,7 +321,7 @@ android-app-customer/.../ui/screens/booking/
 ```
 
 ### Task — Split `TrackingScreen.kt` (1091 baris)
-**Status:** ❌ **BELUM** — masih **1039 baris**.
+**Status:** 🟡 **PARTIAL** — `TrackingScreen.kt` 1091 → **953 baris** (ekstraksi pure helpers `eventMatchesStep`/`formatTrackingDate`/`absoluteUploadUrl`/`trackingCopy`/`trackingStageText`/`trackingFreshnessLabel` + `TrackingServiceKind`/`TrackingCopy` → `TrackingComponents.kt`, semua `internal`, same-package). Plus **unit test baru** `TrackingScreenLogicTest.kt` (15 test, 0 fail) untuk coverage pure logic. `compileDebugKotlin` + `testDebugUnitTest` BUILD SUCCESSFUL. Sisa: composable besar (`RuntimeMapFallback`, `CourierStatusCard` ~216, `PackageSection`, `TrackingTimeline`, `ProofSection`, `CancellationProofCard`, `ProofImage`, `bitmapDescriptorFromVector`, `SearchTimeoutSheet`) masih di root — perlu sub-composable extraction lanjutan. Update 2026-08-26.
 ```
 android-app-customer/.../ui/screens/tracking/
   ├── TrackingScreen.kt
