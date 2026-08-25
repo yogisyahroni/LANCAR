@@ -100,10 +100,6 @@ import com.tembus.courier.data.security.LocalDeviceSecurityManager
 import com.tembus.courier.ui.screens.face.FaceVerificationScreen
 import com.tembus.courier.util.NavigationHelper
 
-private val LogisticsOrange = AccentDark // #C2410C — CTA/ikon oranye dgn teks putih 5.18:1 (WCAG AA)
-private val DeepForest = Color(0xFF0A2F20)
-private val OnDemandSurface = Color(0xFFF2F5F0)
-
 private fun decodeRoutePolyline(encoded: String?): List<LatLng> {
     if (encoded.isNullOrBlank()) return emptyList()
 
@@ -1804,80 +1800,6 @@ private fun OnDemandStepper(pickupDone: Boolean, deliveryDone: Boolean) {
 }
 
 @Composable
-private fun StepPill(label: String, active: Boolean, done: Boolean, modifier: Modifier = Modifier) {
-    val color = when {
-        done -> Success
-        active -> LogisticsOrange
-        else -> Color.White
-    }
-    Surface(
-        modifier = modifier,
-        color = color,
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.32f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                contentDescription = null,
-                tint = if (done || active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = if (done || active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun VerificationNotice(text: String) {
-    Surface(
-        color = Color.White.copy(alpha = 0.74f),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, LogisticsOrange.copy(alpha = 0.45f))
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(10.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(Icons.Default.GpsFixed, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(18.dp))
-            Text(text, style = MaterialTheme.typography.bodySmall, color = DeepForest)
-        }
-    }
-}
-
-@Composable
-private fun CompactActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    strong: Boolean = false
-) {
-    // strong = tombol utama hijau: pakai Primary (#005C32, putih 8.15:1 PASS)
-    // bukan DeepForest (#0A2F20) yang nyaris menyatu dgn bg gelap (vision 5/10).
-    val container = if (strong) Primary else Color.White
-    val content = if (strong) Color.White else DeepForest
-    Button(
-        onClick = onClick,
-        modifier = modifier.height(52.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
-        contentPadding = PaddingValues(horizontal = 8.dp)
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
 private fun DeliveryStop(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
@@ -1982,41 +1904,6 @@ private fun OrderInfoCard(order: Order) {
             InfoRow(label = "Status", value = order.status.replace("_", " ").uppercase())
         }
     }
-}
-
-@Composable
-private fun InfoRow(label: String, value: String, valueColor: Color = Color.Unspecified) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.42f)
-        )
-        Text(
-            text = value.ifBlank { "Data sedang disinkronkan" },
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = if (valueColor == Color.Unspecified) MaterialTheme.colorScheme.onSurface else valueColor,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(0.58f)
-        )
-    }
-    Spacer(modifier = Modifier.height(8.dp))
-}
-
-/** Potong UUID jadi 8 karakter pertama untuk tampilan kompak: f779a9c4… */
-private fun shortOrderId(orderId: String): String =
-    orderId.take(8).ifBlank { orderId }
-
-/** Format angka ke rupiah tanpa desimal: 10000 → "10.000". */
-private fun formatRp(value: Long): String {
-    val s = value.toString()
-    return s.reversed().chunked(3).joinToString(".").reversed()
 }
 
 @Composable

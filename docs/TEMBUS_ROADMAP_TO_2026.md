@@ -270,7 +270,7 @@ android-app/.../ui/screens/
 ```
 
 ### Task — Split `OrderDetailScreen.kt` (2557 baris) — PALING BESAR ANDROID
-**Status:** ❌ **BELUM** — masih **2443 baris**.
+**Status:** 🟡 **PARTIAL** — `OrderDetailScreen.kt` 2557 → **2446 baris** (ekstraksi leaf components `InfoRow`/`StepPill`/`VerificationNotice`/`CompactActionButton`/`shortOrderId`/`formatRp` + theme colors `LogisticsOrange`/`DeepForest`/`OnDemandSurface` → `OrderDetailComponents.kt`, semua `internal`, same-package). `compileDebugKotlin` BUILD SUCCESSFUL. Sisa: composable besar (`DeliveryMapCard` ~385, `OnDemandTaskActions` ~150, `OnDemandJobHeader`, `OnDemandProofPanel`, `CourierNextActionPanel`, `SwipeToActionTrack`, `MandatoryPickupChecklist`, `FoodItemsCard`, `PackageChecklistCard`, `RegularFailedDeliveryPanel`, `OnDemandSupportActions`, `CancelPickupDialog`) masih di root — perlu sub-composable extraction lanjutan (pitfall #4: single-giant-composable butuh deps state-holder). Update 2026-08-26.
 
 **File lama:** `android-app/.../ui/screens/order/OrderDetailScreen.kt`
 
