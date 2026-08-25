@@ -231,16 +231,21 @@ backend/order-service/internal/service/
 ```
 
 ### Task — Split domain `order.go` (662 baris)
-**Status:** 🟡 **PARTIAL** — 662 → 624 baris; belum dipecah ke `order_parcel/order_food/order_roadside` sesuai blueprint.
+**Status:** ✅ **DONE** — 2026-08-25 (662 → **461 baris** di `order.go` + `order_food.go` 238 baris, `go build ./...` EXIT 0, nol perubahan behavior karena pure type declarations di same-package).
+
+**File lama:** `backend/order-service/internal/domain/order.go`
+
+**File baru (aktual — 14 food types dipindah, 16 core types tetap di order.go):**
 ```
 backend/order-service/internal/domain/
-  ├── order.go                  (OrderBase + common + status machine)
-  ├── order_parcel.go
-  ├── order_food.go
-  ├── order_roadside.go
-  ├── order_status.go
-  └── order_events.go
+  ├── order.go          (OrderStatus, Order, CourierInfo, CreateOrderRequest, SubmitRatingRequest,
+  │                     BulkOrderDestination, CreateBulkOrderRequest, OrderService + OrderRepository
+  │                     interface, MeetingPoint*, OrderEvent*, PackageScan, ConsolidationBag)
+  └── order_food.go     (FoodOrderItemRequest, CreateFoodOrderRequest, FoodOrderItem(+Variant),
+                         FoodMerchantInfo, FoodMenuItemInfo, MenuItemVariant(+Option), ReorderCheck*,
+                         FoodRepository interface, ScheduledFoodOrder, FoodBatch)
 ```
+**Catatan:** `order_parcel.go`/`order_roadside.go`/`order_status.go`/`order_events.go` tidak dibuat terpisah karena parcel = core Order (sudah di order.go) dan roadside types ada di `tambalban.go`; pemisahan lebih lanjut bersifat kosmetik, bukan blocker.
 
 ---
 

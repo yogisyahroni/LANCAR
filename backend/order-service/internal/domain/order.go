@@ -10,11 +10,11 @@ type OrderStatus string
 const (
 	StatusPendingPayment OrderStatus = "pending_payment"
 	// FOOD-BIKE-020: status food delivery — disisipkan antara pending_payment dan searching.
-	StatusPendingMerchant     OrderStatus = "pending_merchant"
+	StatusPendingMerchant OrderStatus = "pending_merchant"
 	// FB-123: order food terjadwal — dibayar, tapi "ditahan" dan belum masuk
 	// radar merchant. Diaktivasi worker scheduled_order_worker → pending_merchant
 	// mendekati scheduled_at. Bisa di-cancel customer (refund 100%).
-	StatusScheduled OrderStatus = "scheduled"
+	StatusScheduled           OrderStatus = "scheduled"
 	StatusPreparing           OrderStatus = "preparing"
 	StatusPending             OrderStatus = "pending"
 	StatusPendingAssignment   OrderStatus = "pending_assignment"
@@ -36,37 +36,37 @@ const (
 )
 
 type Order struct {
-	ID                     string       `json:"id"`
-	OrderNumber            string       `json:"order_number"`
-	CustomerID             string       `json:"customer_id"`
-	Model                  string       `json:"model"`
-	Status                 OrderStatus  `json:"status"`
-	PickupAddress          string       `json:"pickup_address"`
-	PickupCity             string       `json:"pickup_city,omitempty"`
-	PickupZipCode          string       `json:"pickup_zip_code,omitempty"`
-	PickupLat              float64      `json:"pickup_lat"`
-	PickupLng              float64      `json:"pickup_lng"`
-	DropoffAddress         string       `json:"dropoff_address"`
-	DropoffCity            string       `json:"dropoff_city,omitempty"`
-	DropoffZipCode         string       `json:"dropoff_zip_code,omitempty"`
-	DropoffLat             float64      `json:"dropoff_lat"`
-	DropoffLng             float64      `json:"dropoff_lng"`
-	Length                 float64      `json:"length,omitempty"`
-	Width                  float64      `json:"width,omitempty"`
-	Height                 float64      `json:"height,omitempty"`
-	Weight                 float64      `json:"weight,omitempty"`
-	ItemDescription        string       `json:"item_description,omitempty"`
-	ItemImageURL           string       `json:"item_image_url,omitempty"`
+	ID              string      `json:"id"`
+	OrderNumber     string      `json:"order_number"`
+	CustomerID      string      `json:"customer_id"`
+	Model           string      `json:"model"`
+	Status          OrderStatus `json:"status"`
+	PickupAddress   string      `json:"pickup_address"`
+	PickupCity      string      `json:"pickup_city,omitempty"`
+	PickupZipCode   string      `json:"pickup_zip_code,omitempty"`
+	PickupLat       float64     `json:"pickup_lat"`
+	PickupLng       float64     `json:"pickup_lng"`
+	DropoffAddress  string      `json:"dropoff_address"`
+	DropoffCity     string      `json:"dropoff_city,omitempty"`
+	DropoffZipCode  string      `json:"dropoff_zip_code,omitempty"`
+	DropoffLat      float64     `json:"dropoff_lat"`
+	DropoffLng      float64     `json:"dropoff_lng"`
+	Length          float64     `json:"length,omitempty"`
+	Width           float64     `json:"width,omitempty"`
+	Height          float64     `json:"height,omitempty"`
+	Weight          float64     `json:"weight,omitempty"`
+	ItemDescription string      `json:"item_description,omitempty"`
+	ItemImageURL    string      `json:"item_image_url,omitempty"`
 	// FB-121: catatan keseluruhan order (ditulis customer saat checkout).
-	OrderNotes             string       `json:"order_notes,omitempty"`
-	DistanceKM             float64      `json:"distance_km"`
-	IncludedDistanceKM     float64      `json:"included_distance_km"`
-	DistanceFeeIDR         int64        `json:"distance_fee_idr"`
+	OrderNotes         string  `json:"order_notes,omitempty"`
+	DistanceKM         float64 `json:"distance_km"`
+	IncludedDistanceKM float64 `json:"included_distance_km"`
+	DistanceFeeIDR     int64   `json:"distance_fee_idr"`
 	// FB-123: order food terjadwal — scheduled_at kapan order mulai diproses
 	// merchant (aktivasi → pending_merchant). NULL = pesan langsung.
 	// IsScheduled = turunan dari scheduled_at (computed saat scan).
-	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
-	IsScheduled bool       `json:"is_scheduled"`
+	ScheduledAt            *time.Time   `json:"scheduled_at,omitempty"`
+	IsScheduled            bool         `json:"is_scheduled"`
 	BasePriceIDR           int64        `json:"base_price_idr"`
 	VolumetricWeightKG     float64      `json:"volumetric_weight_kg"`
 	VolumetricSurchargeIDR int64        `json:"volumetric_surcharge_idr"`
@@ -142,9 +142,9 @@ type CreateOrderRequest struct {
 	ItemDescription string `json:"item_description" validate:"required,min=5"`
 	// Category barang: document, electronic, food, fragile, dll.
 	// Nilai terlarang (gas, chemical, weapon, flammable, explosive) dicegah (TC-LOG-005).
-	Category      string `json:"category,omitempty"`
-	ItemImageURL  string `json:"item_image_url,omitempty"`
-	IsScheduled   bool   `json:"is_scheduled"`
+	Category     string `json:"category,omitempty"`
+	ItemImageURL string `json:"item_image_url,omitempty"`
+	IsScheduled  bool   `json:"is_scheduled"`
 	// Logistics fields (optional if using on-demand)
 	LogisticsProvider    string  `json:"logistics_provider,omitempty"`
 	LogisticsServiceType string  `json:"logistics_service_type,omitempty"`
@@ -177,254 +177,36 @@ type CreateOrderRequest struct {
 // dari merchant_menu_items (zero-trust, anti price manipulation).
 // ─────────────────────────────────────────────────────────────
 
-type FoodOrderItemRequest struct {
-	MenuID   string `json:"menu_item_id" validate:"required"`
-	Quantity int    `json:"quantity" validate:"required,min=1,max=99"`
-	Notes    string `json:"notes,omitempty"`
-	// FB-108: pilihan varian (opsional). Harga delta dihitung server-side
-	// dari menu_item_variant_options — client TIDAK kirim harga.
-	Variants []FoodOrderItemVariantRequest `json:"variants,omitempty"`
-}
-
 // FoodOrderItemVariantRequest — satu pilihan varian yang dipilih customer.
-type FoodOrderItemVariantRequest struct {
-	VariantID string `json:"variant_id" validate:"required"`
-	OptionID  string `json:"option_id" validate:"required"`
-}
-
-type CreateFoodOrderRequest struct {
-	MerchantID     string                 `json:"merchant_id" validate:"required"`
-	Items          []FoodOrderItemRequest `json:"items" validate:"required,min=1,dive"`
-	DropoffAddress string                 `json:"dropoff_address" validate:"required"`
-	DropoffCity    string                 `json:"dropoff_city,omitempty"`
-	DropoffZipCode string                 `json:"dropoff_zip_code,omitempty"`
-	DropoffLat     float64                `json:"dropoff_lat" validate:"required"`
-	DropoffLng     float64                `json:"dropoff_lng" validate:"required"`
-	ReceiverName   string                 `json:"receiver_name,omitempty"`
-	ReceiverPhone  string                 `json:"receiver_phone,omitempty"`
-	IsScheduled    bool                   `json:"is_scheduled"`
-	// FB-123: waktu mulai diproses (aktivasi → pending_merchant). Wajib diisi
-	// kalau IsScheduled. Same-day only, minimal now+30 menit, dalam jam
-	// operasional merchant.
-	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
-
-	// FB-121: catatan keseluruhan order (mis. "pisahin sambal semua").
-	OrderNotes string `json:"order_notes,omitempty"`
-
-	// FB-089: antar tanpa kontak fisik (foto lokasi dropoff, POD tetap wajib).
-	Contactless bool `json:"contactless,omitempty"`
-
-	// FB-078: kode voucher diskon (opsional). Divalidasi + dihitung server-side.
-	VoucherCode string `json:"voucher_code,omitempty"`
-}
 
 // FoodOrderItem — snapshot item saat order (nama & harga beku di waktu order,
 // jangan ambil live dari menu supaya tidak berubah kalau merchant update).
-type FoodOrderItem struct {
-	ID         string `json:"id"`
-	OrderID    string `json:"order_id"`
-	MenuItemID string `json:"menu_item_id"`
-	ItemName   string `json:"item_name"`
-	ItemPrice  int64  `json:"item_price"`
-	Quantity   int    `json:"quantity"`
-	Notes      string `json:"notes,omitempty"`
-	Subtotal   int64  `json:"subtotal"`
-	// FB-108: snapshot pilihan varian (nama + price_delta beku saat order).
-	Variants []FoodOrderItemVariant `json:"variants,omitempty"`
-}
 
 // FoodOrderItemVariant — snapshot satu pilihan varian di item order.
-type FoodOrderItemVariant struct {
-	VariantID   string `json:"variant_id"`
-	OptionID    string `json:"option_id"`
-	VariantName string `json:"variant_name"`
-	OptionName  string `json:"option_name"`
-	PriceDelta  int64  `json:"price_delta"`
-}
 
 // FoodMerchantInfo — data merchant yang dibutuhkan order-service untuk
 // validasi & pickup location (diambil dari tabel merchants).
-type FoodMerchantInfo struct {
-	ID                 string  `json:"id"`
-	Name               string  `json:"name"`
-	Address            string  `json:"address"`
-	IsOpen             bool    `json:"is_open"`
-	VerificationStatus string  `json:"verification_status"`
-	Lat                float64 `json:"lat"`
-	Lng                float64 `json:"lng"`
-	JamBuka            *string `json:"jam_buka,omitempty"`
-	JamTutup           *string `json:"jam_tutup,omitempty"`
-	// FB-107: pause sementara — merchant tidak terima order baru selama
-	// PausedUntil > NOW(). NULL = tidak pause.
-	PausedUntil *time.Time `json:"paused_until,omitempty"`
-	// FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
-	MinOrderIDR int64 `json:"min_order_idr"`
-	// FOOD-BIKE-055: metrik browse merchant
-	DistanceKM  *float64           `json:"distance_km,omitempty"`
-	AvgRating   *float64           `json:"avg_rating,omitempty"`
-	RatingCount int                `json:"rating_count"`
-	// ADR 003 (2026-08-10): status halal merchant untuk label + filter
-	// customer — halal_certified | non_halal | unknown.
-	HalalStatus string `json:"halal_status"`
-	MenuItems   []FoodMenuItemInfo `json:"menu_items,omitempty"`
-}
-
-type FoodMenuItemInfo struct {
-	ID              string `json:"id"`
-	MerchantID      string `json:"merchant_id"`
-	Name            string `json:"name"`
-	Price           int64  `json:"price"`
-	IsAvailable     bool   `json:"is_available"`
-	PrepTimeMinutes int    `json:"prep_time_minutes"`
-	// FOOD-BIKE-055/056: field UI tambahan
-	Kategori *string `json:"kategori,omitempty"`
-	Foto     *string `json:"foto,omitempty"`
-	// FB-108: grup varian menu (Ukuran, Level Pedas, Tambahan, ...).
-	// Kosong [] = item single-variant (perilaku lama).
-	Variants []MenuItemVariant `json:"variants,omitempty"`
-}
 
 // MenuItemVariant — grup varian sebuah menu item (dengan opsi-opsinya).
-type MenuItemVariant struct {
-	ID         string                 `json:"id"`
-	MenuID     string                 `json:"menu_item_id"`
-	Nama       string                 `json:"nama"`
-	IsRequired bool                   `json:"is_required"`
-	MinSelect  int                    `json:"min_select"`
-	MaxSelect  int                    `json:"max_select"`
-	Options    []MenuItemVariantOption `json:"options"`
-}
 
 // MenuItemVariantOption — satu opsi dalam grup varian (harga delta IDR).
-type MenuItemVariantOption struct {
-	ID         string `json:"id"`
-	VariantID  string `json:"variant_id"`
-	Nama       string `json:"nama"`
-	PriceDelta int64  `json:"price_delta"`
-	IsDefault  bool   `json:"is_default"`
-}
 
 // ── FB-084 REORDER — validasi ulang item order lama sebelum "Pesan Lagi" ──
 // ReorderCheckItem: perbandingan snapshot harga saat order vs harga menu
 // sekarang + availability. Client pakai ini untuk (a) prefill cart dan
 // (b) menampilkan perbedaan harga kalau berubah.
-type ReorderCheckItem struct {
-	MenuItemID   string `json:"menu_item_id"`
-	ItemName     string `json:"item_name"`
-	Quantity     int    `json:"quantity"`
-	Notes        string `json:"notes,omitempty"`
-	OldPrice     int64  `json:"old_price"`
-	NewPrice     int64  `json:"new_price"`
-	Available    bool   `json:"available"`
-	PriceChanged bool   `json:"price_changed"`
-}
 
 // ReorderCheckResult — hasil validasi ulang satu order food utk reorder.
 // TotalOld = total snapshot saat order; TotalNew = total harga saat ini.
-type ReorderCheckResult struct {
-	OrderID      string             `json:"order_id"`
-	MerchantID   string             `json:"merchant_id"`
-	MerchantName string             `json:"merchant_name"`
-	MerchantOpen bool               `json:"merchant_open"`
-	Items        []ReorderCheckItem `json:"items"`
-	TotalOld     int64              `json:"total_old"`
-	TotalNew     int64              `json:"total_new"`
-	HasChanges   bool               `json:"has_changes"`
-}
 
 // FoodRepository — akses merchant/menu/items untuk order-service.
 // (merchant-service terpisah; order-service cuma butuh baca + tulis order items)
-type FoodRepository interface {
-	GetFoodMerchant(ctx context.Context, merchantID string) (*FoodMerchantInfo, error)
-	GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]FoodMenuItemInfo, error)
-	// GetMenuItemVariants — FB-108: ambil grup varian + opsi untuk menu IDs.
-	// Map key = menu_item_id. Item tanpa varian tidak ada di map.
-	GetMenuItemVariants(ctx context.Context, menuIDs []string) (map[string][]MenuItemVariant, error)
-	CreateFoodOrderWithItems(ctx context.Context, order *Order, items []FoodOrderItem) error
-	// GetFoodOrderItems — snapshot item food sebuah order (harga beku saat order,
-	// dipakai refund partial per item FB-080).
-	GetFoodOrderItems(ctx context.Context, orderID string) ([]FoodOrderItem, error)
-	// ── FOOD-BIKE-021/022: transisi status food delivery ──
-	// GetFoodOrderForMerchant mengambil order food milik merchant tertentu
-	// (validasi ownership sebelum accept/reject).
-	GetFoodOrderForMerchant(ctx context.Context, orderID, merchantID string) (*Order, error)
-	// AcceptFoodOrder: pending_merchant → preparing, set merchant_accepted_at +
-	// food_ready_at = NOW() + prep_time_minutes.
-	AcceptFoodOrder(ctx context.Context, orderID string, prepMinutes int) error
-	// RejectFoodOrder: pending_merchant → cancelled, set cancellation_reason +
-	// cancelled_at (dipanggil merchant menolak ATAU timeout auto-cancel worker).
-	RejectFoodOrder(ctx context.Context, orderID, reason string) error
-	// GetPreparingFoodOrders: order food berstatus preparing yang siap transisi
-	// ke searching (matching driver dimulai 5 menit sebelum food_ready_at).
-	GetPreparingFoodOrders(ctx context.Context) ([]*Order, error)
-	// GetPendingMerchantFoodOrders: order food pending_merchant yang belum direspon
-	// merchant melebihi timeout (FOOD-BIKE-022: 3 menit) → auto-cancel.
-	GetPendingMerchantFoodOrders(ctx context.Context, timeout time.Duration) ([]*Order, error)
-	// FOOD-BIKE-055: browse merchant terdekat (is_open + approved) + menu
-	ListFoodMerchants(ctx context.Context, lat, lng float64, search, halal string, limit int) ([]FoodMerchantInfo, error)
-	GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]FoodMenuItemInfo, error)
-	// ── FOOD-BIKE-070: Favorite Merchants (C3) ──
-	// AddFavoriteMerchant: customer bookmark merchant.
-	AddFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
-	// RemoveFavoriteMerchant: customer hapus bookmark.
-	RemoveFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
-	// ListFavoriteMerchants: customer lihat daftar favorite merchant + detail dasar.
-	ListFavoriteMerchants(ctx context.Context, customerID string) ([]FoodMerchantInfo, error)
-	// CheckIsFavoriteMerchant: cek apakah merchant sudah di-favorite customer.
-	CheckIsFavoriteMerchant(ctx context.Context, customerID, merchantID string) (bool, error)
-	// ── FB-088: batching driver food ──
-	// GetSearchingFoodOrdersForBatch: order food `searching` tanpa batch_id
-	// yang siap dipairing (sudah searching ≤ 2 menit, service food_delivery).
-	GetSearchingFoodOrdersForBatch(ctx context.Context) ([]*Order, error)
-	// FindBatchCandidate: pasangan untuk order tertentu — merchant sama,
-	// dropoff ≤ maxRadiusKM, bukan customer yang sama, total max 2 order.
-	FindBatchCandidate(ctx context.Context, orderID string, maxRadiusKM float64) (*Order, float64, error)
-	// CreateFoodBatch: buat baris food_batches (status forming) + set batch_id
-	// kedua order dalam SATU transaksi.
-	CreateFoodBatch(ctx context.Context, batch *FoodBatch, orderAID, orderBID string) error
-	// GetFoodBatchByOrderID: batch tempat order berada (untuk earnings/audit).
-	GetFoodBatchByOrderID(ctx context.Context, orderID string) (*FoodBatch, error)
-	// UpdateFoodBatchCourier: status forming/assigned → set courier_id saat
-	// courier accept (dipanggil AcceptOrder untuk order batch food).
-	UpdateFoodBatchCourier(ctx context.Context, batchID, courierID string) error
-	// GetScheduledFoodOrdersDue — FB-123: order status 'scheduled' yang
-	// scheduled_at ≤ NOW() + prep_time_minutes + buffer 5 menit → saatnya
-	// diaktivasi ke pending_merchant atau auto-cancel (merchant tidak valid).
-	GetScheduledFoodOrdersDue(ctx context.Context) ([]ScheduledFoodOrder, error)
-	// CancelScheduledFoodOrder — FB-123: auto-cancel order terjadwal saat
-	// aktivasi gagal (merchant tidak valid / lewat jam tutup). Guard status.
-	CancelScheduledFoodOrder(ctx context.Context, orderID, reason string) error
-	// ActivateScheduledFoodOrder — FB-123: transisi scheduled → pending_merchant
-	// saat aktivasi (merchant re-validated OK). Guard status.
-	ActivateScheduledFoodOrder(ctx context.Context, orderID string) error
-}
 
 // ScheduledFoodOrder — FB-123: order terjadwal yang sudah due untuk aktivasi.
 // Ringan (bukan full Order) — hanya field yang dibutuhkan worker.
-type ScheduledFoodOrder struct {
-	OrderID         string
-	CustomerID      string
-	OrderNumber     string
-	MerchantID      string
-	ScheduledAt     time.Time
-	PrepTimeMinutes int
-}
 
 // FoodBatch — FB-088: dua order food dari merchant sama yang digabung
 // jadi satu trip courier (pickup sekali, antar dua titik).
-type FoodBatch struct {
-	ID                string
-	MerchantID        string
-	CourierID         *string
-	Status            string // forming | assigned | in_progress | completed | cancelled
-	OrderAID          string
-	OrderBID          *string
-	DropoffDistanceM  int
-	MaxETAMinutes     int
-	CreatedAt         time.Time
-	CompletedAt       *time.Time
-	UpdatedAt         time.Time
-}
 
 // SubmitRatingRequest adalah request body dari customer untuk memberi rating ke kurir.
 // Rating bersifat opsional (1-5 bintang), kurir tidak bisa rating dirinya sendiri.
@@ -501,17 +283,17 @@ type OrderService interface {
 	SubmitRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
 	// SubmitMerchantRating menilai makanan dari merchant (FOOD-BIKE-059/060),
 	// terpisah dari rating driver. Validasi sama: order milik customer & delivered.
-		SubmitMerchantRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
-		// ── FOOD-BIKE-070: Favorite Merchants (C3) ──
-		// AddFavoriteMerchant: customer bookmark merchant untuk quick access.
-		AddFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
-		// RemoveFavoriteMerchant: customer hapus bookmark.
-		RemoveFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
-		// ListFavoriteMerchants: customer lihat daftar favorite merchant + detail dasar.
-		ListFavoriteMerchants(ctx context.Context, customerID string) ([]FoodMerchantInfo, error)
-		// CheckIsFavoriteMerchant: cek apakah merchant sudah di-favorite customer.
-		CheckIsFavoriteMerchant(ctx context.Context, customerID, merchantID string) (bool, error)
-		// ── FOOD-BIKE-021: accept/reject order oleh merchant ──
+	SubmitMerchantRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
+	// ── FOOD-BIKE-070: Favorite Merchants (C3) ──
+	// AddFavoriteMerchant: customer bookmark merchant untuk quick access.
+	AddFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
+	// RemoveFavoriteMerchant: customer hapus bookmark.
+	RemoveFavoriteMerchant(ctx context.Context, customerID, merchantID string) error
+	// ListFavoriteMerchants: customer lihat daftar favorite merchant + detail dasar.
+	ListFavoriteMerchants(ctx context.Context, customerID string) ([]FoodMerchantInfo, error)
+	// CheckIsFavoriteMerchant: cek apakah merchant sudah di-favorite customer.
+	CheckIsFavoriteMerchant(ctx context.Context, customerID, merchantID string) (bool, error)
+	// ── FOOD-BIKE-021: accept/reject order oleh merchant ──
 	// AcceptByMerchant: pending_merchant → preparing (merchant terima).
 	// Validasi kepemilikan merchant via foodRepo.GetFoodOrderForMerchant.
 	AcceptByMerchant(ctx context.Context, orderID string, merchantID string) error
