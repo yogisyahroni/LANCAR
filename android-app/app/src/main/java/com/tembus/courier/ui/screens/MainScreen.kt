@@ -679,36 +679,11 @@ fun MainScreen(
                     onSelectTab = { selectedTab = it }
                 )
             } else {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
-                        label = { Text("Beranda") },
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 }
-                    )
-                    NavigationBarItem(
-                        icon = {
-                            BadgedBox(
-                                badge = {
-                                    if (pendingOrders.isNotEmpty()) {
-                                        Badge { Text("${pendingOrders.size}") }
-                                    }
-                                }
-                            ) {
-                                Icon(Icons.Default.LocalShipping, contentDescription = "Order")
-                            }
-                        },
-                        label = { Text("Order") },
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 }
-                    )
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
-                        label = { Text("Profil") },
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 }
-                    )
-                }
+                MainBottomNav(
+                    selectedTab = selectedTab,
+                    pendingOrders = pendingOrders,
+                    onSelectTab = { selectedTab = it }
+                )
             }
         }
     ) { paddingValues ->
@@ -955,66 +930,6 @@ fun MainScreen(
             )
         }
     }
-}
-
-@Composable
-private fun HomeContent(
-    courierName: String,
-    courierRole: String,
-    totalOrders: Int,
-    pendingCount: Int,
-    deliveredCount: Int,
-    todayEarningsIdr: Int,
-    orders: List<Order>,
-    offers: List<Order>,
-    services: List<CourierServiceProduct>,
-    capabilityProfile: CourierCapabilityProfile?,
-    courierVehicleType: String,
-    routePreviews: Map<String, CourierRoutePreview>,
-    activeRoutePlan: CourierActiveRoutePlan?,
-    hotspots: List<CourierHotspot>,
-    mapsProviderConfig: MapsProviderConfig,
-    isOnline: Boolean,
-    onOnlineToggle: (Boolean) -> Unit,
-    onCapturePod: (Order) -> Unit,
-    onOpenDelivery: (Order) -> Unit,
-    onViewOrders: () -> Unit,
-    onScanPackage: () -> Unit
-) {
-    val activeOrder = orders.firstOrNull { it.status == "in_transit" || it.status == "picked_up" }
-    val roleLabel = courierRoleLabel(courierRole)
-    val roleHint = courierRoleHint(courierRole)
-    val pendingLabel = courierPendingLabel(courierRole)
-    val completedLabel = courierCompletedLabel(courierRole)
-    val taskTitle = courierCurrentTaskTitle(courierRole)
-    val emptyTitle = courierEmptyTaskTitle(courierRole)
-    val emptyHint = if (isOnline) {
-        "Cek daftar order atau tunggu tugas berikutnya."
-    } else {
-        "Aktifkan untuk bekerja atau cek daftar order."
-    }
-
-    // ponytail: single on_demand mode — retired regular/HomeContent branch 2026-08.
-    OnDemandHomeHubEnterprise(
-        courierName = courierName,
-        totalOrders = totalOrders,
-        pendingCount = pendingCount,
-        deliveredCount = deliveredCount,
-        todayEarningsIdr = todayEarningsIdr,
-        orders = orders,
-        offers = offers,
-        services = services,
-        capabilityProfile = capabilityProfile,
-        courierVehicleType = courierVehicleType,
-        routePreviews = routePreviews,
-        activeRoutePlan = activeRoutePlan,
-        hotspots = hotspots,
-        mapsProviderConfig = mapsProviderConfig,
-        isOnline = isOnline,
-        onOnlineToggle = onOnlineToggle,
-        onOpenDelivery = onOpenDelivery,
-        onViewOrders = onViewOrders
-    )
 }
 
 @Composable

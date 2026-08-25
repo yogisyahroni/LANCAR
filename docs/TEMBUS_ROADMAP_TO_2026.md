@@ -251,18 +251,22 @@ backend/order-service/internal/domain/
 
 ## 1.3 Android Courier App
 
+> **⚠️ BASELINE REPAIR (2026-08-26):** Modul Android `staging` ternyata TIDAK compile karena sesi refactor sebelumnya menghapus `OnDemandMapScreens.kt` / `PayoutScreens.kt` / `OnDemandHubScreens.kt` (roadmap tandai ✅ "terdistribusi") tapi meninggalkan reference ke symbol yang hilang di `MainScreen.kt` / `MainScreenEffects.kt` / `MainScreenModalScreens.kt` / `WalletScreens.kt` / `ProfileScreens.kt`. Symbol yang di-recreate (dari git history `cfdf1d0`/`852e73a`): `ACTIVE_ON_DEMAND_STATUSES`, `DutyLocation`, `hasForegroundLocationPermission`, `hasBackgroundLocationPermission`, `getLastKnownDutyLocation`, `resolveMaxActiveOnDemandJobs`, `normalizedVehicleGroup`, `PUSH_SYNC_MIN_INTERVAL_MS`, `ON_DEMAND_OFFER_TTL_SECONDS`, extension `Order.communicationCallTargetType/IsDeliveryGroup/ShouldCallRecipient/CallTargetLabel/ChatTitle` → `MainScreenHelpers.kt`; `PayoutAccountPanel`, `EarningsLedgerRow`, `MiniProfileStat` → `ProfileWalletHelpers.kt`. Semua `internal` (private boundary rusak akibat split). Setelah repair: `compileDebugKotlin` harus hijau sebelum lanjut god-file Android berikutnya.
+
 ### Task — Split `MainScreen.kt` (1024 baris)
-**Status:** ❌ **BELUM** — masih **984 baris** (target ≤250). Sebagian isi lama sudah keluar ke `MainScreenDeps.kt`, `MainScreenEffects.kt`, `MainScreenModalScreens.kt`, tapi navigation host + state masih monolitik.
+**Status:** 🟡 **PARTIAL** — 1024 → **939 baris** (target ≤250). Ekstraksi `HomeContent` → `MainHomeContent.kt` + inline `NavigationBar` → `main/MainBottomNav.kt` (keduanya `internal`, same-package). Sisa `MainScreen()` masih monolitik: ~375 baris state wiring (ViewModel collect + MutableState) yang irreducibel + Scaffold + `when(selectedTab)` content router. Per `android-kotlin-refactor` skill pitfall #4, single-giant-composable butuh sub-composable extraction via deps state-holder untuk capai ≤250 — pekerjaan lanjutan.
 
 **File lama:** `android-app/app/src/main/java/com/tembus/courier/ui/screens/MainScreen.kt`
 
-**File baru:**
+**File baru (aktual):**
 ```
 android-app/.../ui/screens/
-  ├── MainScreen.kt                     (navigation host + top-level state ≤250)
-  ├── main/MainBottomNav.kt
-  ├── main/MainScaffold.kt
-  └── ondemand/OnDemandHomeScreen.kt
+  ├── MainScreen.kt              (state wiring + Scaffold + tab content router)
+  ├── MainHomeContent.kt         (HomeContent composable — diekstrak)
+  ├── main/MainBottomNav.kt      (NavigationBar 3-item — diekstrak)
+  ├── MainScreenDeps.kt          (state-holder, sudah ada)
+  ├── MainScreenEffects.kt       (LaunchedEffect/side-effects, sudah ada)
+  └── MainScreenModalScreens.kt  (modal screens, sudah ada)
 ```
 
 ### Task — Split `OrderDetailScreen.kt` (2557 baris) — PALING BESAR ANDROID
