@@ -30,6 +30,61 @@
 
 ---
 
+## 🔍 STATUS EKSEKUSI — HASIL AUDIT KODEBASE (2026-08-25)
+
+Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial · ❌ belum.
+
+| Bagian | Item | Status |
+|---|---|---|
+| 1 | Split `courierAuth.controller.ts` | ✅ |
+| 1 | Split `customerOrder.controller.ts` | ✅ |
+| 1 | Split `order_service.go` | ✅ |
+| 1 | OnDemandMapScreens / PayoutScreens / HubScreens | ✅ terdistribusi ulang |
+| 1 | Split `order_handler.go` | ❌ |
+| 1 | Split domain `order.go` | 🟡 |
+| 1 | Split OrderDetailScreen.kt (kurir) | ❌ |
+| 1 | Split BookingScreen.kt (customer) | ❌ |
+| 1 | Split TrackingScreen.kt | ❌ |
+| 1 | Split MainScreen.kt | ❌ |
+| 1 | Split Finance.tsx / Settings.tsx | ❌ |
+| 1 | Split orders/[id]/page.tsx & OnDemandOrderForm.tsx | ❌ |
+| 1 | Split routes.ts admin-service | ❌ |
+| 2.1 | Accessibility WCAG 2.2 AA | ❌ (~10–15%) |
+| 2.2 | Circuit breaker + retry + bulkhead | 🟡 |
+| 2.2 | Rate limiter api-gateway | ✅ (catatan: in-memory store) |
+| 2.3 | Feature flags | 🟡 backend+admin ✅, client SDK ❌ |
+| 2.4 | Certificate pinning runtime OkHttp | ✅ |
+| 2.4 | Fake GPS sensor fusion | ✅ |
+| 3.1 | Observability SRE (SLO/Grafana) | ❌ (alert rules + Telegram sudah ada) |
+| 3.2 | Coverage threshold CI | ❌ |
+| 3.2 | Maestro / Pact / mobile visual regression | ❌ (Percy web ada tapi config broken) |
+| 3.2 | k6 stress/spike/soak | ✅ |
+| 3.3 | Edge-to-edge + targetSdk 36 | ✅ |
+| 3.3 | Predictive back manifest flag | ❌ |
+| 3.4 | Skeleton Android | ✅ (hand-rolled) |
+| 3.4 | Skeleton web | ❌ |
+| 4.1 | R8 + shrinkResources | ✅ |
+| 4.1 | abiFilters exclude x86/x86_64 | ❌ (ship 4 ABI) |
+| 4.1 | Bundle splits / Baseline Profile / WebP | ❌ |
+| 4.1 | Junk files cleanup | ❌ (logcat/tmp/.exe/.hermes-tmp ter-commit) |
+| 10 | Broadcast Center end-to-end | ❌ (inbox kurir = fondasi ~45%) |
+| 11.1 | Address book backend API | ✅ |
+| 11.1 | Laporan/export nyata (UMKM analytics) | ✅ |
+| 11.1 | Cek resi publik / voucher page / landing utuh | ❌ |
+| 11.3 | Cert pinning + fake GPS kurir | ✅ |
+| 11.4 | Mark food ready (FB-125) | ✅ |
+| 11.4 | Order alert FCM merchant | ❌ (app tanpa Firebase) |
+| 11.4 | Partial reject UI | ❌ (backend FB-080 idle) |
+| 11.5 | Merchant Web Portal v1 | ❌ |
+| 11.6 | Feature flag control UI admin | ✅ (⚠️ dead link `/feature-flags`) |
+| 11.6 | RBAC multi-role | 🟡 |
+| 11.6 | Evidence viewer | 🟡 (GPS trail ❌) |
+| 11.6 | Force cancel + refund flow | ❌ |
+
+Detail per task: lihat baris **Status** di masing-masing seksi di bawah.
+
+---
+
 ## 🎯 VISI TARGET 2026
 
 Platform logistik on-demand multi-service (Parcel, Food, Tambal Ban, Towing) yang:
@@ -126,6 +181,8 @@ backend/admin-service/src/controllers/order/
 ## 1.2 Order Service (Go)
 
 ### Task — Split `order_handler.go` (1541 baris)
+**Status:** ❌ **BELUM** — file masih **1375 baris** (turun tipis dari 1541). Blueprint parcel/food/roadside/matching/proof handler belum dieksekusi; hanya `tambalban_handler.go` yang sudah terpisah sebelumnya.
+
 **File lama:** `backend/order-service/internal/handler/order_handler.go`
 
 **File baru:**
@@ -140,6 +197,25 @@ backend/order-service/internal/handler/
 ```
 
 ### Task — Split `order_service.go` (2531 baris)
+**Status:** ✅ **DONE** — 2026-08-25 (2531 → **318 baris** di `order_service.go` + 9 file `order_*.go`, `go build ./internal/service/` EXIT 0, nol perubahan API publik karena same-package split).
+
+**File lama:** `backend/order-service/internal/service/order_service.go`
+
+**File baru (aktual — 50 method dipindah, 8 setter tetap di order_service.go):**
+```
+backend/order-service/internal/service/
+  ├── order_service.go              (struct + NewOrderService + 8 setter + standalone helpers)
+  ├── order_create.go               (CreateOrder, CreateInternalAggregatorOrder, CreateBulkOrder)
+  ├── order_read.go                 (GetOrder, ListOrders, GetCourierIDByUserID, UpdateStatus, UpdateDimensions)
+  ├── order_matching.go             (AcceptOrder, FindAndAssignCourier, scoreCouriers, proximityScoreFromDistance, notify*, StartMatching, RetryMatching)
+  ├── order_consolidation.go        (ListEvents, ScanPackage, consolidation bag, AutoDetectScanType)
+  ├── order_rating.go               (SubmitRating, SubmitMerchantRating, GetOrdersNeedingRatingReminder, GetCourierPerformanceStats)
+  ├── order_food.go                 (CreateFoodOrder, AcceptByMerchant, RejectByMerchant, triggerRefundOnCancel, ProcessFood*, PairFoodBatches)
+  ├── order_events.go               (publishOrderEvent)
+  └── order_food_merchant.go        (ListFoodMerchants, GetFoodMerchantDetail, FavoriteMerchant*, CheckReorder)
+```
+**Catatan:** `merchant_settlement_service.go` = 756 baris masih besar (follow-up terpisah, bukan blocker god-file utama).
+
 **File lama:** `backend/order-service/internal/service/order_service.go`
 
 **File baru:**
@@ -155,6 +231,7 @@ backend/order-service/internal/service/
 ```
 
 ### Task — Split domain `order.go` (662 baris)
+**Status:** 🟡 **PARTIAL** — 662 → 624 baris; belum dipecah ke `order_parcel/order_food/order_roadside` sesuai blueprint.
 ```
 backend/order-service/internal/domain/
   ├── order.go                  (OrderBase + common + status machine)
@@ -170,6 +247,8 @@ backend/order-service/internal/domain/
 ## 1.3 Android Courier App
 
 ### Task — Split `MainScreen.kt` (1024 baris)
+**Status:** ❌ **BELUM** — masih **984 baris** (target ≤250). Sebagian isi lama sudah keluar ke `MainScreenDeps.kt`, `MainScreenEffects.kt`, `MainScreenModalScreens.kt`, tapi navigation host + state masih monolitik.
+
 **File lama:** `android-app/app/src/main/java/com/tembus/courier/ui/screens/MainScreen.kt`
 
 **File baru:**
@@ -182,6 +261,8 @@ android-app/.../ui/screens/
 ```
 
 ### Task — Split `OrderDetailScreen.kt` (2557 baris) — PALING BESAR ANDROID
+**Status:** ❌ **BELUM** — masih **2443 baris**.
+
 **File lama:** `android-app/.../ui/screens/order/OrderDetailScreen.kt`
 
 **File baru:**
@@ -199,6 +280,7 @@ android-app/.../ui/screens/order/
 ```
 
 ### Task — Split `OnDemandMapScreens.kt` (1614 baris)
+**Status:** ✅ **TERDISTRIBUSI (bentuk berbeda dari blueprint)** — file sudah tidak ada; logikanya pecah ke `TambalBanFlowScreen.kt` (511), `TowingFlowScreen.kt` (435), `EmergencyNavigationScreen.kt`, `SosResolutionScreen.kt`, `MainScreenModalScreens.kt`, dll.
 ```
 android-app/.../ui/screens/ondemand/
   ├── OnDemandMapScreen.kt
@@ -209,6 +291,7 @@ android-app/.../ui/screens/ondemand/
 ```
 
 ### Task — Split `PayoutScreens.kt` (1092) & `OnDemandHubScreens.kt` (869)
+**Status:** ✅ **TERDISTRIBUSI** — kedua file sudah tidak ada. Payout UI kini di `WalletScreens.kt` (359) + `PayoutUiState.kt`; hub screens masuk `MainScreenModalScreens.kt` (641). Semua ≤350 ✅.
 Pecah per screen + bottom sheet + dialog. Target tiap file ≤350 baris.
 
 ---
@@ -216,6 +299,7 @@ Pecah per screen + bottom sheet + dialog. Target tiap file ≤350 baris.
 ## 1.4 Android Customer App
 
 ### Task — Split `BookingScreen.kt` (2495 baris)
+**Status:** ❌ **BELUM** — masih **2426 baris**.
 ```
 android-app-customer/.../ui/screens/booking/
   ├── BookingScreen.kt                  (orchestrator)
@@ -228,6 +312,7 @@ android-app-customer/.../ui/screens/booking/
 ```
 
 ### Task — Split `TrackingScreen.kt` (1091 baris)
+**Status:** ❌ **BELUM** — masih **1039 baris**.
 ```
 android-app-customer/.../ui/screens/tracking/
   ├── TrackingScreen.kt
@@ -243,6 +328,7 @@ android-app-customer/.../ui/screens/tracking/
 ## 1.5 Admin Dashboard & Frontend
 
 ### Task — Split `Finance.tsx` (2622 baris)
+**Status:** ❌ **BELUM** — masih **2494 baris**.
 ```
 admin-dashboard/src/pages/finance/
   ├── FinancePage.tsx
@@ -254,9 +340,11 @@ admin-dashboard/src/pages/finance/
 ```
 
 ### Task — Split `Settings.tsx` (2129 baris)
+**Status:** ❌ **BELUM** — masih **2048 baris**.
 Pecah per tab/section (General, Pricing, Zones, Notification, Security, dll).
 
 ### Task — Frontend Order Detail & Form
+**Status:** ❌ **BELUM** — `orders/[id]/page.tsx` masih **1441 baris**, `OnDemandOrderForm.tsx` masih **1102 baris**.
 - `frontend/src/app/(portal)/orders/[id]/page.tsx` (1530) → pecah ke components
 - `frontend/src/components/orders/OnDemandOrderForm.tsx` (1177) → sub-components per step
 
@@ -274,6 +362,8 @@ Pecah per tab/section (General, Pricing, Zones, Notification, Security, dll).
 **Goal: Hilangkan liability legal + naikkan reliability dasar**
 
 ## 2.1 Accessibility (WCAG 2.2 AA) — HIGHEST PRIORITY
+
+**Status:** ❌ **NYARIS NOL (~10–15%)** — `lang="en"` masih di kedua root; tidak ada focus ring token / prefers-reduced-motion / SafeImage / folder a11y; ARIA insidental (~25 atribut); Android `Modifier.semantics {}` = 0; CI Lighthouse job ada tapi config `lighthouserc.json` tidak ada → broken. Yang sudah oke: alt text manual disiplin (web), `contentDescription = null` untuk icon dekoratif (Android), skeleton Android.
 
 ### Web (Customer Portal + Admin)
 | Action | File / Path |
@@ -311,6 +401,8 @@ android-app/.../ui/a11y/AccessibilityPreview.kt
 
 ## 2.2 Resilience Patterns
 
+**Status:** 🟡 **PARTIAL** — Circuit breaker Go ✅ (`integration-gateway/internal/provider/circuit_breaker.go`, wired Zenziva/JNT/JNE; ⚠️ duplikat mati di auth-service). Opossum di api-gateway terpasang sebagian (wrapper stub `return true`; proxy `/api/v1/customer` besar tanpa breaker). Retry `WithRetry` ada tapi **dead code**. **Midtrans = bare fetch tanpa timeout/retry/breaker** 🔴. Bulkhead ❌ nol. Rate limiter ✅ (global 100/mnt/IP, auth 30/15mnt, public per-user→device→IP + brute-force Redis; ⚠️ express-rate-limit in-memory store).
+
 ### Circuit Breaker + Retry + Bulkhead
 **Files diubah:**
 - `backend/admin-service/src/services/` (external calls)
@@ -341,6 +433,8 @@ Token-bucket / sliding-window (per IP + per user + per endpoint). Config via env
 
 ## 2.3 Feature Flags Foundation
 
+**Status:** 🟡 **PARTIAL** — Backend lengkap ✅ (`services/featureFlags.ts`, `controllers/flags.controller.ts`, routes penuh dengan toggle di-gate TOTP + rate limiter + audit logs). Admin UI toggle ✅ (Settings.tsx). Client SDK belum ada ❌: `frontend/src/lib/featureFlags.ts`, `FeatureFlagManager.kt` (2 app). ⚠️ Ada page `/feature-flags` stale di frontend (diblok middleware) dan tombol navigate ke sana dari PricingConfig = dead link.
+
 **File baru:**
 ```
 backend/admin-service/src/services/featureFlag.service.ts
@@ -356,6 +450,8 @@ Integrasi: Unleash / Flagsmith / simple Redis + admin toggle. Semua fitur baru w
 
 ## 2.4 Security Quick Wins
 
+**Status:** ✅ **SEBAGIAN BESAR SELESAI** — Cert pinning runtime ✅ (attach beneran ke OkHttp/Retrofit kedua app + Socket.IO, build-time enforcement GradleException, plus XML pin-set). Fake GPS ✅ melebihi spec (4-layer + SensorFusionEngine + enforcement drop/report, Room v14). Rate limit lihat 2.2.
+
 | Task | File yang diubah |
 |------|------------------|
 | Certificate Pinning runtime | `android-app/.../network/`, `android-app-customer/.../network/` (OkHttp Client) |
@@ -369,6 +465,7 @@ Integrasi: Unleash / Flagsmith / simple Redis + admin toggle. Semua fitur baru w
 **Timeline: 1–3 bulan**
 
 ## 3.1 Observability SRE-Grade
+**Status:** ❌ **MINIMAL** — hanya `otel-collector-config.yml` (metrics/logs → debug exporter). Tidak ada Prometheus/Grafana/VictoriaMetrics, tidak ada `slo.yaml`. Yang sudah ada: 6 alert rules (`deploy/observability/prometheus-rules.yaml`) + alerting Telegram di 5 service Go (`pkg/alerting/alerting.go`) + notif deploy Telegram CI.
 - Extend `observability/otel-collector-config.yml`
 - Prometheus / VictoriaMetrics + Grafana dashboards di `observability/grafana/`
 - SLO definition: `observability/slo.yaml`
@@ -376,6 +473,7 @@ Integrasi: Unleash / Flagsmith / simple Redis + admin toggle. Semua fitur baru w
 - Business metrics (matching time, completion rate, ghosting rate, fraud rate)
 
 ## 3.2 Testing Maturity
+**Status:** 🟡 **PARTIAL** — k6 ✅ lebih dari smoke (soak-like 14 mnt, stress & spike scenario tersedia). Coverage threshold ❌. Maestro ❌. Pact ❌. Percy web-only tapi config yang direferensikan CI **tidak ada di disk → job broken**. Mobile visual regression ❌.
 - Coverage threshold di CI (Go + JS)
 - Maestro flows: `android-app/maestro/`, `android-app-customer/maestro/`
 - Visual regression (Chromatic / Loki)
@@ -383,6 +481,7 @@ Integrasi: Unleash / Flagsmith / simple Redis + admin toggle. Semua fitur baru w
 - k6 stress + spike + soak test
 
 ## 3.3 Android 15 + Modern Mobile UX
+**Status:** 🟡 — targetSdk 36 + edge-to-edge ✅ (semua MainActivity). Predictive back manifest flag ❌ (logcat membuktikan warning runtime aktif). Haptic ❌ hampir nol (1 call site kurir, 0 customer; 7 file import mati). Credential Manager / Photo Picker / WindowSizeClass ❌.
 - Edge-to-edge + Predictive Back di `MainActivity` / theme
 - Credential Manager di auth screens
 - Photo Picker di proof/POD screens
@@ -391,6 +490,7 @@ Integrasi: Unleash / Flagsmith / simple Redis + admin toggle. Semua fitur baru w
 - WindowSizeClass (tablet/foldable minimal)
 
 ## 3.4 UI/UX Polish & Design System v2
+**Status:** 🟡 — Skeleton Android ✅ hand-rolled (`ShimmerBrush`, `SkeletonItem`, CourierListSkeleton, dll). Skeleton web ❌. Motion tokens/Storybook/shared element ❌.
 **File baru:**
 ```
 frontend/src/components/ui/Skeleton.tsx
@@ -412,6 +512,8 @@ Motion tokens di `globals.css` + Compose theme. Shared element transition. Desig
 # BAGIAN 4 — BUILD SIZE & PERFORMANCE OPTIMIZATION
 
 ## 4.1 Android APK/AAB Size
+
+**Status:** 🟡 — R8 + shrinkResources ✅ (ON di kedua app). abiFilters ❌ **ship semua 4 ABI termasuk x86/x86_64** (kebalikan spec). Bundle splits ❌, Baseline Profile ❌, WebP ❌ (8 PNG masih ada), junk files ❌ parah (`logcat_*` ×5, `hs_err_pid*.log` ×4, `tmp_*.exe`, `gateway.log`, `temp.js`, 16 folder `.hermes-tmp.*` ter-commit di `.github/workflows/`).
 
 | # | Task | File / Action | Expected Impact |
 |---|------|---------------|-----------------|
@@ -552,6 +654,8 @@ Depends on: -
 ---
 
 # BAGIAN 10 — FEATURE BARU: BROADCAST CENTER (PESAN KE DRIVER) — TARGET 10/10
+
+**Status audit:** ❌ **BELUM DIMULAI end-to-end (~10%)** — Backend 0% (hanya `broadcast-onboarding` undangan basecamp lama), Admin UI 0%, Courier App fondasi ~45% (InboxScreen + API unread/mark-read + model AppNotification dengan type/category/priority ✅; tapi tanpa handler `admin_broadcast`, tanpa FCM Topic sama sekali, tanpa deep link broadcast). Guardrails (rate limit send, audit trail, delivery report) ❌ — padahal framework reuse sudah ada (`rateLimit.ts`, `auditTrail.ts`, `recordPushDelivery`).
 
 **Status sekarang:** Ada hanya “Broadcast Undangan Basecamp” (use-case tunggal). Engine FCM sudah solid.  
 **Target:** Broadcast Center mature (setara Gojek/Grab announcement tools) — **10/10**.
@@ -860,19 +964,21 @@ android-app/app/src/main/java/com/tembus/courier/
 ### P0
 - [ ] **Landing page publik** di `/` (navbar Layanan/Harga/UMKM, CTA Cek Resi/Masuk/Daftar, mobile hamburger)
   - File: `frontend/src/app/page.tsx` (+ komponen landing)
+  - 🟡 *Audit: app `landing-page/` terpisah ada, tapi broken — link "Lacak Paket" → `/track` tidak exist; widget resi panggil endpoint `/tracking/public?resi=` yang tidak ada di backend*
 - [ ] **Cek resi publik** `/cek-resi` (input resi, status terbatas, CTA login, rate-limit backend)
   - File baru: `frontend/src/app/cek-resi/page.tsx` + endpoint lookup
-- [ ] **Address book backend** (ganti localStorage → CRUD API + sync multi-device)
-  - File: `frontend/src/app/(portal)/alamat/page.tsx` + backend address API
+- [ ] **Address book backend** (ganti localStorage → CRUD API + sync multi-device) ✅ **DONE**
+  - File: `frontend/src/app/(portal)/alamat/page.tsx` + backend address API — CRUD Postgres end-to-end via `/api/v1/customer/addresses` (`customerOrderAddress.controller.ts`)
 - [ ] **Voucher page** `/voucher` (list aktif, input kode, history, auto-apply checkout)
   - File baru: `frontend/src/app/(portal)/voucher/page.tsx`
-- [ ] **CSRF protection** untuk semua mutation web session
-- [ ] **Maps/geocoding production** di form order (bukan mock)
+- [ ] **CSRF protection** untuk semua mutation web session — 🟡 *Audit: admin double-submit token lengkap; portal customer hanya Origin/Referer check (tanpa token)*
+- [ ] **Maps/geocoding production** di form order (bukan mock) — ✅ *Audit: TomTom geocoding production dengan fallback two-wheeler→drive*
 
 ### P1
-- [ ] Notification center penuh (`/notifikasi`: filter, mark all read, deep link, pagination)
-- [ ] Laporan/export nyata (Excel/PDF, backend analytics — ganti mock)
-  - File: `frontend/src/app/(portal)/laporan/page.tsx`
+- [ ] Notification center penuh (`/notifikasi`: filter, mark all read, deep link, pagination) — 🟡 *Audit: dropdown saja (mark-read/Clear All/deep-link sanitize ✅), tanpa halaman/filter*
+- [ ] Skeleton/shimmer loading web — ❌ *(Android ✅ hand-rolled)*
+- [ ] Laporan/export nyata (Excel/PDF, backend analytics — ganti mock) ✅ **DONE**
+  - File: `frontend/src/app/(portal)/laporan/page.tsx` — real analytics `/auth/web/reports/umkm`, CSV + print, bukan mock
 - [ ] Google/Apple Sign-In web + Remember me + session expiry UX
 - [ ] Profile lengkap: foto crop, ganti PIN, login history, logout all devices, referral
 - [ ] Reorder dengan validasi harga & availability terbaru
@@ -889,13 +995,13 @@ android-app/app/src/main/java/com/tembus/courier/
 ## 11.2 Customer App (`android-app-customer/`) — Tasks
 
 ### P0
-- [ ] **Offline queue + conflict resolution** untuk order & proof
-- [ ] **Accessibility TalkBack** di critical path (booking, tracking, payment, POD)
-- [ ] Voucher apply UX jelas di checkout
-- [ ] Saved addresses sync server (selaras web)
+- [ ] **Offline queue + conflict resolution** untuk order & proof — 🟡 *Audit: outbox WorkManager ada, conflict resolution belum*
+- [ ] **Accessibility TalkBack** di critical path (booking, tracking, payment, POD) — ❌ *Audit: `Modifier.semantics {}` = 0 penggunaan*
+- [ ] Voucher apply UX jelas di checkout — ✅ *Audit: promo code input + eligible list sudah ada di flow ondemand*
+- [ ] Saved addresses sync server (selaras web) — 🟡 *Audit: API address book backend sudah ada; sync di app belum terverifikasi*
 
 ### P1
-- [ ] Skeleton/shimmer di semua list & loading
+- [x] Skeleton/shimmer di semua list & loading ✅ *hand-rolled (`ShimmerBrush`, `SkeletonItem`, ChatLoadingSkeleton)*
 - [ ] Pull-to-refresh konsisten
 - [ ] Android 15: edge-to-edge, predictive back, Credential Manager, Photo Picker
 - [ ] Haptic feedback action penting
@@ -914,10 +1020,10 @@ android-app/app/src/main/java/com/tembus/courier/
 ## 11.3 Kurir App (`android-app/`) — Tasks
 
 ### P0
-- [ ] **Terima Broadcast Center** (FCM type `admin_broadcast`, Inbox, deep link) — lihat BAGIAN 10
-- [ ] God-file refactor: `OrderDetailScreen.kt` (2557), `MainScreen.kt` (1024), `OnDemandMapScreens.kt` (1614), dll
-- [ ] Certificate pinning **runtime** attach ke OkHttp
-- [ ] Fake GPS detection advanced (sensor fusion)
+- [ ] **Terima Broadcast Center** (FCM type `admin_broadcast`, Inbox, deep link) — lihat BAGIAN 10 — ❌ *(Inbox ✅; handler type/topics/deeplink ❌)*
+- [ ] God-file refactor: `OrderDetailScreen.kt` (2557), `MainScreen.kt` (1024), `OnDemandMapScreens.kt` (1614), dll — 🟡 *(OnDemand/Payout/Hub ✅ terdistribusi; OrderDetail 2443 & MainScreen 984 ❌)*
+- [x] Certificate pinning **runtime** attach ke OkHttp ✅ *DONE — NetworkModule.kt kedua app + Socket.IO + build-time enforcement*
+- [x] Fake GPS detection advanced (sensor fusion) ✅ *DONE — FakeGpsDetector.kt (486 baris) + SensorFusionEngine.kt + enforcement loop*
 
 ### P1
 - [ ] Batching multi-order UX jelas (urutan pickup/delivery)
@@ -936,9 +1042,9 @@ android-app/app/src/main/java/com/tembus/courier/
 ## 11.4 Merchant App (`android-app-merchant/`) — Tasks
 
 ### P0
-- [ ] **Order alert reliable** (foreground + background + killed) — SLA accept 3 menit
-- [ ] Prep timer + **mark food ready** yang jelas (trigger matching driver)
-- [ ] **Partial reject / item unavailable** → partial refund customer
+- [ ] **Order alert reliable** (foreground + background + killed) — SLA accept 3 menit — ❌ *Audit: app TIDAK pakai Firebase (tanpa google-services.json); polling saat app open saja. Backend push (`push_service.go`) sudah siap tapi tak pernah dipakai app* 🔴
+- [ ] Prep timer + **mark food ready** yang jelas (trigger matching driver) — 🟡 *Audit: mark-ready FB-125 ✅ DONE; prep timer countdown UI ❌*
+- [ ] **Partial reject / item unavailable** → partial refund customer — ❌ *Audit: backend FB-080 (`CreateItemRefund`) sudah jadi tapi idle di internal endpoint; UI app whole-order reject saja*
 
 ### P1
 - [ ] Staff role & permission matang (multi-kasir)
@@ -957,7 +1063,7 @@ android-app/app/src/main/java/com/tembus/courier/
 
 ## 11.5 Merchant Web (`merchant-web/`) — Tasks
 
-**Status sekarang:** Landing + Register + StatusCheck + Success saja (**3/10**).
+**Status sekarang:** Landing + Register + StatusCheck + Success saja (**3/10**). *Audit 2026-08-25: masih persis baseline — tidak ada progress.*
 
 ### P0 (Merchant Portal v1 — minimal viable ops)
 - [ ] **Auth + dashboard web** setelah register approved
@@ -999,11 +1105,11 @@ merchant-web/src/components/
 - [ ] **RBAC multi-role** end-to-end (ops / finance / support / superadmin)
 
 ### P1
-- [ ] Evidence viewer (foto POD, GPS trail, chat log) untuk dispute
+- [ ] Evidence viewer (foto POD, GPS trail, chat log) untuk dispute — 🟡 *Audit: foto POD + chat log + proofs ✅; GPS trail playback ❌ (admin tidak query courier_locations history)*
 - [ ] GPS spoofing / geofence alert **actionable** (bukan hanya log)
-- [ ] Live ops map (semua kurir online + order aktif) sebagai command center
+- [ ] Live ops map (semua kurir online + order aktif) sebagai command center — 🟡 *Audit: map kurir online ✅ (Leaflet + poll 15s); layer order aktif ❌*
 - [ ] Meeting point management
-- [ ] Feature flag control UI penuh di admin
+- [x] Feature flag control UI penuh di admin ✅ *DONE — Settings.tsx toggle + reason + change log (⚠️ tombol navigate `/feature-flags` dari PricingConfig = dead link, perlu route atau dibenerin)*
 - [ ] Delivery report broadcast + audit
 
 ### P2
