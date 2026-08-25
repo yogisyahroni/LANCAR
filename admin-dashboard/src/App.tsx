@@ -25,6 +25,8 @@ import Zones from './pages/Zones'
 import Vouchers from './pages/Vouchers'
 import Promos from './pages/Promos'
 import Notifications from './pages/Notifications'
+import Broadcasts from './pages/Broadcasts'
+import FeatureFlags from './pages/FeatureFlags'
 import Finance from './pages/Finance'
 import TaxCenter from './pages/TaxCenter'
 import ChartOfAccounts from './pages/ChartOfAccounts'
@@ -351,6 +353,23 @@ function App() {
                 <Notifications />
               </ProtectedRoute>
             } 
+          />
+          {/* 10.2: Broadcast Center — role match BROADCAST_ROLES backend */}
+          <Route
+            path="/broadcasts"
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'ops_admin']}>
+                <Broadcasts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/feature-flags"
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <FeatureFlags />
+              </ProtectedRoute>
+            }
           />
 
           <Route 

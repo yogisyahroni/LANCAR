@@ -19,7 +19,7 @@ export default function RootLayout({
   const midtransClientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
 
   return (
-    <html lang="en" className="dark h-full antialiased" suppressHydrationWarning>
+    <html lang="id" className="dark h-full antialiased" suppressHydrationWarning>
       <body className={`${inter.className} min-h-full flex flex-col bg-background text-foreground selection:bg-primary/30`}>
         <QueryProvider>
           {children}

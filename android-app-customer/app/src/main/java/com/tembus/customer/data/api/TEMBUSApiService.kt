@@ -1,16 +1,20 @@
 package com.tembus.customer.data.api
 
 import com.tembus.customer.data.model.*
+import kotlinx.serialization.json.JsonElement
 import retrofit2.Response
 import retrofit2.http.*
 
 interface TEMBUSApiService {
-    
+
     // System Endpoints
     @GET("api/v1/system/latest-version")
     suspend fun getLatestVersion(
         @Query("type") type: String
     ): Response<AppVersion>
+
+    @GET("api/v1/mobile/feature-flags")
+    suspend fun getFeatureFlags(): Response<JsonElement>
 
     @GET("api/v1/maps/config")
     suspend fun getMapsProviderConfig(

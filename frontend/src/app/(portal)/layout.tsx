@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   AlertTriangle,
   Key,
+  Ticket,
   Link as LinkIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +34,7 @@ import PushNotificationPrompt from '@/components/PushNotificationPrompt';
 import WalletWidget from '@/components/WalletWidget';
 import { cn } from '@/lib/utils';
 import { clientLog } from '@/lib/clientLogger';
+import { sanitizeDeepLink } from '@/lib/deepLink';
 
 import { getSocket, disconnectSocket } from '@/lib/socket';
 import { clearCustomerOrderDraft } from '@/components/orders/OrderSchemas';
@@ -49,64 +51,13 @@ interface DBNotification {
   deep_link?: string;
 }
 
+// S3-CW-03: deep_link validation extracted to @/lib/deepLink (shared with /notifikasi page)
+
 /**
- * S3-CW-03: Validate a deep_link from a push notification before navigating.
- *
- * Only relative paths within the same origin are permitted (e.g. /orders/123).
- * Absolute URLs, protocol-relative URLs (//evil.com), and javascript: URIs are
- * all rejected. Additionally, only pre-approved route prefixes are allowed —
- * this prevents redirect to internal/admin pages like /analytics or /feature-flags.
- * Returns null when the link should be ignored.
+ * Emitted by notification pages after mark-read/clear mutations so the bell
+ * badge in this layout can re-sync without a full reload.
  */
-
-// S3-CW-03b: Only these customer-facing routes are allowed as deep link destinations
-const ALLOWED_DEEP_LINK_PREFIXES = [
-  '/orders/',
-  '/orders',
-  '/disputes/',
-  '/disputes',
-  '/resi/',
-  '/resi',
-  '/dashboard',
-  '/profil',
-  '/alamat',
-  '/laporan',
-] as const;
-
-function sanitizeDeepLink(rawLink: string | undefined | null): string | null {
-  if (!rawLink) return null;
-
-  const trimmed = rawLink.trim();
-  if (!trimmed) return null;
-
-  // Must start with '/' and be a relative path — block absolute URLs and protocol-relative
-  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return null;
-
-  // Reject path traversal
-  if (trimmed.includes('..')) return null;
-
-  // Guard against javascript: injections encoded as a path
-  let safePath: string;
-  try {
-    const url = new URL(trimmed, window.location.origin);
-    if (url.origin !== window.location.origin) return null;
-    // Only allow internal paths — block cross-origin even via tricky encoding
-    safePath = url.pathname + (url.search || '') + (url.hash || '');
-  } catch {
-    return null;
-  }
-
-  // S3-CW-03b: Allowlist check — only navigate to known customer routes
-  const isAllowed = ALLOWED_DEEP_LINK_PREFIXES.some(
-    (prefix) => safePath === prefix || safePath.startsWith(`${prefix}`)
-  );
-
-  if (!isAllowed) {
-    return null; // Blocked — path not in allowlist (e.g. /analytics, /feature-flags, /admin)
-  }
-
-  return safePath;
-}
+const NOTIFICATIONS_UPDATED_EVENT = 'tembus:notifications-updated';
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, setAuth, setLoading, user } = useAuthStore();
@@ -180,20 +131,27 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     }
   }, [isAuthenticated, isLoading, router, setAuth, setLoading]);
 
-  // Initial fetch for notifications
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      if (isAuthenticated) {
-        try {
-          const res = await api.get('/auth/web/notifications');
-          setBellNotifications(res.data.notifications || []);
-        } catch (error) {
-          clientLog.error('Failed to fetch notifications', { error });
-        }
+  // Initial fetch for notifications + re-sync when notification pages mutate them
+  const fetchBellNotifications = useCallback(async () => {
+    if (isAuthenticated) {
+      try {
+        const res = await api.get('/auth/web/notifications');
+        setBellNotifications(res.data.notifications || []);
+      } catch (error) {
+        clientLog.error('Failed to fetch notifications', { error });
       }
-    };
-    fetchNotifications();
+    }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    void fetchBellNotifications();
+  }, [fetchBellNotifications]);
+
+  useEffect(() => {
+    const handler = () => void fetchBellNotifications();
+    window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, handler);
+  }, [fetchBellNotifications]);
 
   // Command palette state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -238,8 +196,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     { name: 'Riwayat Order', href: '/orders', icon: Package },
     { name: 'Pusat Bantuan', href: '/disputes', icon: AlertTriangle },
     { name: 'Resi Management', href: '/resi', icon: Layers },
+    { name: 'Voucher & Promo', href: '/voucher', icon: Ticket },
     { name: 'Buku Alamat', href: '/alamat', icon: MapPin },
     { name: 'Laporan UMKM', href: '/laporan', icon: BarChart3 },
+    { name: 'Notifikasi', href: '/notifikasi', icon: Bell },
     { name: 'Profil & Settings', href: '/profil', icon: Settings },
   ];
 

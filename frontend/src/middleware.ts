@@ -22,7 +22,13 @@ const PROTECTED_PREFIXES = [
   '/laporan',
   '/disputes',
   '/alamat',
+  '/voucher',
+  '/notifikasi',
 ];
+
+// PUBLIC ROUTES (no session required): '/', '/cek-resi', '/track/*' and the
+// auth pages listed in the matcher below. Do NOT add them to PROTECTED_PREFIXES.
+
 
 // These were mistakenly added to customer portal — redirect them away
 // They belong in the admin-dashboard, not here

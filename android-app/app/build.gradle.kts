@@ -210,7 +210,7 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
         }
 
         missingDimensionStrategy("tomtom-sdk-version", "complete")
@@ -268,6 +268,11 @@ android {
     }
 
     composeOptions { kotlinCompilerExtensionVersion = "1.5.5" }
+
+    bundle {
+        language { enableSplit = true }
+        density { enableSplit = true }
+    }
 
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }

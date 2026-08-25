@@ -119,14 +119,18 @@ func (z *ZenzivaProvider) doRequest(ctx context.Context, endpoint string, payloa
 	}
 
 	url := z.baseURL + endpoint
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
 
-	resp, err := z.httpClient.Do(req)
+	// Retry transport failures / 5xx with exponential backoff; business-level
+	// rejections below are terminal and never retried.
+	resp, err := doHTTPWithRetry(ctx, z.httpClient, func() (*http.Request, error) {
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+		if reqErr != nil {
+			return nil, reqErr
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		return req, nil
+	})
 	if err != nil {
 		return err
 	}

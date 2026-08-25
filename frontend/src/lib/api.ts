@@ -24,6 +24,18 @@ const isPublicAuthRequest = (url?: string) => {
 
 const SAFE_REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
+const CSRF_COOKIE_NAME = 'csrf_token';
+const CSRF_SAFE_METHODS = new Set(['get', 'head', 'options']);
+
+const readCsrfTokenFromCookie = (): string | null => {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`));
+  return match ? decodeURIComponent(match.slice(CSRF_COOKIE_NAME.length + 1)) : null;
+};
+
 const createRequestId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -101,6 +113,14 @@ const processQueue = (error: any, token: string | null = null) => {
 
 api.interceptors.request.use((config) => {
   config.headers = setHeader(config.headers, 'X-Request-ID', createRequestId());
+
+  const method = (config.method ?? 'get').toLowerCase();
+  if (!CSRF_SAFE_METHODS.has(method)) {
+    const csrfToken = readCsrfTokenFromCookie();
+    if (csrfToken) {
+      config.headers = setHeader(config.headers, 'X-CSRF-Token', csrfToken);
+    }
+  }
 
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
     if (typeof config.headers?.delete === 'function') {

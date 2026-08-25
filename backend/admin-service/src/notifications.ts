@@ -4,6 +4,7 @@ import { App, initializeApp, getApps, cert, ServiceAccount } from 'firebase-admi
 import { getMessaging, MulticastMessage, SendResponse, BatchResponse } from 'firebase-admin/messaging';
 import { recordPushDelivery, recordRealtimeMetric } from './services/realtimeObservability';
 import { securityLog } from './security/logRedaction';
+import { withRetry } from './lib/resilience/retry';
 
 type FirebaseTarget = 'default' | 'customer' | 'courier';
 type DeviceRecipient = {
@@ -26,6 +27,49 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: str
   } finally {
     if (timeout) clearTimeout(timeout);
   }
+};
+
+// Single retry (one extra attempt, 500ms backoff) on network-level failures
+// only: timeouts and non-retryable Firebase errors are never retried.
+const NON_RETRYABLE_FCM_CODES = [
+  'authentication',
+  'permission',
+  'invalid',
+  'unregistered',
+  'sender-id-mismatch',
+  'third-party-auth-error',
+];
+
+const sendMulticastWithRetry = async (
+  app: App,
+  message: MulticastMessage,
+): Promise<BatchResponse> => {
+  const label = `FCM send (${app.name})`;
+  return withRetry(
+    () =>
+      withTimeout<BatchResponse>(
+        getMessaging(app).sendEachForMulticast(message),
+        FCM_SEND_TIMEOUT_MS,
+        label,
+      ),
+    {
+      maxAttempts: 2,
+      baseDelayMs: 500,
+      shouldRetry: (err) => {
+        if (err instanceof Error && err.message.startsWith(label)) {
+          return false;
+        }
+        const code =
+          err instanceof Error
+            ? ((err as { code?: string }).code ?? '')
+            : '';
+        if (!code) {
+          return true;
+        }
+        return !NON_RETRYABLE_FCM_CODES.some((fragment) => code.includes(fragment));
+      },
+    },
+  );
 };
 
 const decodeBase64ServiceAccount = (encoded?: string): string | undefined => {
@@ -334,11 +378,7 @@ export const createNotification = async (payload: NotificationPayload) => {
               tokens: group.tokens
             };
 
-            const fcmResponse = await withTimeout<BatchResponse>(
-              getMessaging(group.app).sendEachForMulticast(message),
-              FCM_SEND_TIMEOUT_MS,
-              `FCM send (${group.app.name})`
-            );
+            const fcmResponse = await sendMulticastWithRetry(group.app, message);
             totalSuccessCount += fcmResponse.successCount;
             totalFailureCount += fcmResponse.failureCount;
 

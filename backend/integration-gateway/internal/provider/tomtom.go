@@ -80,14 +80,15 @@ func (p *TomTomProvider) GetDistanceMatrix(ctx context.Context, originLat, origi
 	query.Set("language", "id-ID")
 	requestURL.RawQuery = query.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
-	if err != nil {
-		return 0, 0, "", "", fmt.Errorf("tomtom route request invalid: %w", err)
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "TEMBUS-IntegrationGateway/1.0")
-
-	resp, err := p.httpClient.Do(req)
+	resp, err := doHTTPWithRetry(ctx, p.httpClient, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
+		if err != nil {
+			return nil, fmt.Errorf("tomtom route request invalid: %w", err)
+		}
+		httpReq.Header.Set("Accept", "application/json")
+		httpReq.Header.Set("User-Agent", "TEMBUS-IntegrationGateway/1.0")
+		return httpReq, nil
+	})
 	if err != nil {
 		return 0, 0, "", "", fmt.Errorf("tomtom routing request failed: %w", err)
 	}
@@ -149,14 +150,15 @@ func (p *TomTomProvider) OptimizeWaypoints(ctx context.Context, origin domain.Wa
 	query.Set("computeBestOrder", "true")
 	requestURL.RawQuery = query.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("tomtom optimize request invalid: %w", err)
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "TEMBUS-IntegrationGateway/1.0")
-
-	resp, err := p.httpClient.Do(req)
+	resp, err := doHTTPWithRetry(ctx, p.httpClient, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
+		if err != nil {
+			return nil, fmt.Errorf("tomtom optimize request invalid: %w", err)
+		}
+		httpReq.Header.Set("Accept", "application/json")
+		httpReq.Header.Set("User-Agent", "TEMBUS-IntegrationGateway/1.0")
+		return httpReq, nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("tomtom optimize request failed: %w", err)
 	}

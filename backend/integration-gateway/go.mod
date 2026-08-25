@@ -10,4 +10,7 @@ require (
 require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
+	tembus/pkg/resilience v0.0.0
 )
+
+replace tembus/pkg/resilience => ../pkg/resilience

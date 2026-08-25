@@ -52,17 +52,18 @@ func (p *JNEProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 	formData.Set("thru", req.DestinationCode)
 	formData.Set("weight", fmt.Sprintf("%.2f", req.WeightKG))
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JNE tariff request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
 	if err := p.cb.Allow(); err != nil {
 		return nil, fmt.Errorf("JNE circuit breaker open: %w", err)
 	}
 
-	resp, err := p.httpClient.Do(httpReq)
+	resp, err := doHTTPWithRetry(ctx, p.httpClient, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JNE tariff request: %w", err)
+		}
+		httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return httpReq, nil
+	})
 	if err != nil {
 		p.cb.RecordFailure()
 		return nil, fmt.Errorf("JNE tariff HTTP request failed: %w", err)
@@ -156,17 +157,18 @@ func (p *JNEProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 	formData.Set("OLSHOP_COD_FLAG", "N")
 	formData.Set("OLSHOP_COD_AMOUNT", "0")
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JNE order request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
 	if err := p.cb.Allow(); err != nil {
 		return nil, fmt.Errorf("JNE circuit breaker open: %w", err)
 	}
 
-	resp, err := p.httpClient.Do(httpReq)
+	resp, err := doHTTPWithRetry(ctx, p.httpClient, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JNE order request: %w", err)
+		}
+		httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return httpReq, nil
+	})
 	if err != nil {
 		p.cb.RecordFailure()
 		return nil, fmt.Errorf("JNE order HTTP request failed: %w", err)
@@ -229,17 +231,18 @@ func (p *JNEProvider) TrackOrder(ctx context.Context, awb string) (*domain.Track
 	formData.Set("username", p.username)
 	formData.Set("api_key", p.apiKey)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JNE track request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
 	if err := p.cb.Allow(); err != nil {
 		return nil, fmt.Errorf("JNE circuit breaker open: %w", err)
 	}
 
-	resp, err := p.httpClient.Do(httpReq)
+	resp, err := doHTTPWithRetry(ctx, p.httpClient, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JNE track request: %w", err)
+		}
+		httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return httpReq, nil
+	})
 	if err != nil {
 		p.cb.RecordFailure()
 		return nil, fmt.Errorf("JNE track HTTP request failed: %w", err)

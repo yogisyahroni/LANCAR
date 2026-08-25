@@ -90,4 +90,15 @@ NUL
 # Debug logs
 crash_after_login.txt
 logcat.txt
-gateway.log
+logcat2.txt
+logcat_*.txt
+
+# Crash dumps & temp artifacts
+hs_err_pid*
+replay_pid*
+temp.js
+tmp_*.exe
+tmp_auth
+tmp_build
+tmp_bin*
+tmp_order*

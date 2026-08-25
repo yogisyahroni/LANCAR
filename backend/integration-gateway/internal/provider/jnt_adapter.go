@@ -71,17 +71,18 @@ func (p *JNTProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 	formData.Set("msg_type", "TARIFF_QUERY")
 	formData.Set("eccompanyid", p.apiAccount)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create J&T tariff request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
 	if err := p.cb.Allow(); err != nil {
 		return nil, fmt.Errorf("J&T circuit breaker open: %w", err)
 	}
 
-	resp, err := p.httpClient.Do(httpReq)
+	resp, err := doHTTPWithRetry(ctx, p.httpClient, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create J&T tariff request: %w", err)
+		}
+		httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return httpReq, nil
+	})
 	if err != nil {
 		p.cb.RecordFailure()
 		return nil, fmt.Errorf("J&T tariff HTTP request failed: %w", err)
@@ -196,17 +197,18 @@ func (p *JNTProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 	formData.Set("msg_type", "ORDERCREATE")
 	formData.Set("eccompanyid", p.apiAccount)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create J&T order request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
 	if err := p.cb.Allow(); err != nil {
 		return nil, fmt.Errorf("J&T circuit breaker open: %w", err)
 	}
 
-	resp, err := p.httpClient.Do(httpReq)
+	resp, err := doHTTPWithRetry(ctx, p.httpClient, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create J&T order request: %w", err)
+		}
+		httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return httpReq, nil
+	})
 	if err != nil {
 		p.cb.RecordFailure()
 		return nil, fmt.Errorf("J&T order HTTP request failed: %w", err)
@@ -278,17 +280,18 @@ func (p *JNTProvider) TrackOrder(ctx context.Context, awb string) (*domain.Track
 	formData.Set("msg_type", "TRACKQUERY")
 	formData.Set("eccompanyid", p.apiAccount)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create J&T track request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
 	if err := p.cb.Allow(); err != nil {
 		return nil, fmt.Errorf("J&T circuit breaker open: %w", err)
 	}
 
-	resp, err := p.httpClient.Do(httpReq)
+	resp, err := doHTTPWithRetry(ctx, p.httpClient, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create J&T track request: %w", err)
+		}
+		httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return httpReq, nil
+	})
 	if err != nil {
 		p.cb.RecordFailure()
 		return nil, fmt.Errorf("J&T track HTTP request failed: %w", err)

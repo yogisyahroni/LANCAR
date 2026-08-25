@@ -100,7 +100,7 @@ jobs:
   # ACCESSIBILITY — axe-core + Lighthouse CI
   # ─────────────────────────────────────────────
   accessibility:
-    name: Accessibility (axe/Lighthouse)
+    name: Accessibility (axe/Lighthouse) (non-blocking)
     runs-on: ubuntu-latest
     needs: [preflight]
     if: needs.preflight.outputs.web_ok == 'true'
@@ -116,6 +116,12 @@ jobs:
           npx lhci autorun --config=scripts/ci/lighthouserc.json
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_TOKEN }}
+      - name: axe-core scan against staging (non-blocking)
+        continue-on-error: true
+        run: |
+          npx --yes @axe-core/cli https://app.bawain.my.id https://app.bawain.my.id/login \
+            --tags wcag2a,wcag2aa,wcag21aa,wcag22aa,best-practice \
+            --exit
 
   # ─────────────────────────────────────────────
   # VISUAL — Percy (jadwal; screenshot diff)

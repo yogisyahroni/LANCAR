@@ -1,8 +1,11 @@
 import { NextFunction, Request, Response } from 'express';
+import crypto from 'crypto';
 import { verifyInternalGatewayAuth } from '../internalAuth';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const SESSION_COOKIE_NAMES = ['admin_session', 'customer_session', 'web_session'];
+export const CSRF_COOKIE_NAME = 'csrf_token';
+const CSRF_HEADER_NAMES = ['x-csrf-token', 'x-xsrf-token'];
 
 const DEFAULT_DEVELOPMENT_ORIGINS = [
   'http://localhost:3000',
@@ -60,6 +63,55 @@ export const getAllowedCsrfOrigins = () => {
   return isProductionRuntime() ? [] : DEFAULT_DEVELOPMENT_ORIGINS;
 };
 
+export const getSessionCsrfSecret = () => process.env.JWT_SECRET || '';
+
+export const computeSessionCsrfToken = (sessionToken: string): string | null => {
+  const secret = getSessionCsrfSecret();
+  if (!secret || !sessionToken) return null;
+  return crypto.createHmac('sha256', secret).update(sessionToken).digest('hex');
+};
+
+const sessionCookieOptionsFor = (expiresAt: Date, httpOnly: boolean) => ({
+  httpOnly,
+  secure: isProductionRuntime() || process.env.FORCE_SECURE_COOKIES === 'true',
+  sameSite: (isProductionRuntime() || process.env.FORCE_SECURE_COOKIES === 'true' ? 'none' : 'lax') as 'none' | 'lax',
+  domain: process.env.COOKIE_DOMAIN || undefined,
+  path: '/',
+  expires: expiresAt,
+});
+
+export const issueCsrfTokenCookie = (res: Response, sessionToken: string, expiresAt: Date) => {
+  const token = computeSessionCsrfToken(sessionToken);
+  if (!token) return;
+  res.cookie(CSRF_COOKIE_NAME, token, sessionCookieOptionsFor(expiresAt, false));
+};
+
+export const clearCsrfTokenCookie = (res: Response) => {
+  res.clearCookie(CSRF_COOKIE_NAME);
+};
+
+export const verifyCsrfHeaderForSessions = (req: Request): boolean => {
+  let headerValue = '';
+  for (const headerName of CSRF_HEADER_NAMES) {
+    headerValue = readHeader(req.headers[headerName]).trim();
+    if (headerValue) break;
+  }
+  if (!headerValue) return false;
+
+  for (const cookieName of SESSION_COOKIE_NAMES) {
+    const sessionToken = req.cookies?.[cookieName];
+    if (!sessionToken) continue;
+    const expected = computeSessionCsrfToken(String(sessionToken));
+    if (!expected) continue;
+
+    const provided = Buffer.from(headerValue);
+    const target = Buffer.from(expected);
+    if (provided.length !== target.length) continue;
+    if (crypto.timingSafeEqual(provided, target)) return true;
+  }
+  return false;
+};
+
 const requestHasSessionCookie = (req: Request) =>
   SESSION_COOKIE_NAMES.some((cookieName) => Boolean(req.cookies?.[cookieName]));
 
@@ -90,13 +142,19 @@ export const requireCookieCsrfProtection = (req: Request, res: Response, next: N
     return;
   }
 
+  if (verifyCsrfHeaderForSessions(req)) {
+    next();
+    return;
+  }
+
   const requestOrigin = resolveRequestOrigin(req);
   const allowedOrigins = getAllowedCsrfOrigins();
   if (!requestOrigin || !allowedOrigins.includes(requestOrigin.value)) {
     res.status(403).json({
       status: 'error',
       code: 'ERR_CSRF_ORIGIN',
-      message: 'Cookie-authenticated mutation requires a trusted Origin or Referer header.',
+      message:
+        'Cookie-authenticated mutation requires a trusted Origin or Referer header, or a valid X-CSRF-Token double-submit token.',
     });
     return;
   }

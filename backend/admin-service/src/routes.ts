@@ -64,6 +64,8 @@ routes.get('/api/v1/courier/orders/:orderId/route', requireMobileOrWebAuth, (req
 routes.post('/api/v1/courier/orders/:orderId/cancel-pickup', requireMobileOrWebAuth, ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.cancelMobileCourierOnDemandPickup(req, res));
 routes.post('/api/v1/tracking/sync', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.syncCourierTracking(req, res));
 routes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderTracking(req, res));
+// Public resi lookup untuk halaman cek-resi (tanpa auth, rate limit agresif per IP)
+routes.get('/api/v1/tracking/public', controllers.publicTracking.publicTrackingRateLimiter, (req, res) => controllers.publicTracking.getPublicTrackingByResi(req, res));
 routes.post('/api/v1/orders/status', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierOrderStatus(req, res));
 routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
 routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.pod.upload'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierPod(req, res));
@@ -87,6 +89,7 @@ routes.get('/api/v1/mobile/notifications/unread-count', requireMobileOrWebAuth, 
 routes.patch('/api/v1/mobile/notifications/read-all', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.markAllNotificationsRead(req, res));
 routes.patch('/api/v1/mobile/notifications/:id/read', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.markNotificationRead(req, res));
 routes.patch('/api/v1/mobile/notifications/:id/archive', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.archiveNotification(req, res));
+routes.patch('/api/v1/mobile/notifications/:id/opened', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.broadcast.markMobileNotificationOpened(req, res));
 routes.get('/api/v1/mobile/notifications/preferences', requireMobileOrWebAuth, (req, res) => controllers.getNotificationPreferences(req, res));
 routes.patch('/api/v1/mobile/notifications/preferences', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.updateNotificationPreferences(req, res));
 routes.post('/api/v1/mobile/notifications/register-token', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
@@ -103,6 +106,10 @@ routes.get('/auth/web/delivery-services', (req, res) => controllers.deliveryServ
 routes.get('/auth/web/dashboard/stats', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerDashboardStats(req, res));
 routes.get('/auth/web/reports/umkm', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerUmkmReport(req, res));
 routes.post('/auth/web/promos/validate', verifyWebSession, promoReadRateLimiter, (req, res) => controllers.validateCustomerPromo(req, res));
+
+// Client-facing read-only feature flags (hanya flag enabled, bentuk {flags:{key:{enabled,variant?}}})
+routes.get('/auth/web/feature-flags', verifyWebSession, (req, res) => controllers.featureFlagsPublic.getWebFeatureFlags(req, res));
+routes.get('/api/v1/mobile/feature-flags', requireMobileOrWebAuth, (req, res) => controllers.featureFlagsPublic.getMobileFeatureFlags(req, res));
 
 // Web Portal Order Routes
 routes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));
@@ -361,6 +368,9 @@ routes.get('/admin/orders/stats', (req, res) => controllers.getOrderStats(req, r
 routes.get('/admin/orders/:id', (req, res) => controllers.getOrderById(req, res));
 routes.post('/admin/orders/:id/reassign', (req, res) => controllers.reassignOrder(req, res));
 routes.post('/admin/orders/:id/flag', (req, res) => controllers.flagOrderIssue(req, res));
+// SECURITY 2026: force-cancel memindahkan order ke 'cancelled' + memicu refund.
+// Wajib super_admin/ops_admin + TOTP (pola BROADCAST_ROLES + requireTotp).
+routes.post('/admin/orders/:id/force-cancel', requireRole(['super_admin', 'ops_admin']), requireTotp, (req, res) => controllers.adminOrderActions.forceCancelAdminOrder(req, res));
 routes.post('/admin/orders', (req, res) => controllers.createOrder(req, res));
 routes.get('/admin/orders/export', (req, res) => controllers.exportOrders(req, res));
 
@@ -398,6 +408,9 @@ routes.post('/admin/merchants/:id/reject', (req, res) => controllers.rejectAdmin
 routes.get('/admin/disputes', (req, res) => controllers.getDisputes(req, res));
 routes.get('/admin/disputes/stats', (req, res) => controllers.getDisputeStats(req, res));
 routes.patch('/admin/disputes/:id/status', (req, res) => controllers.updateDisputeStatus(req, res));
+// Resolve extension: wrapper tipis di atas updateDisputeStatus — menerima
+// resolution + refund_items[] + include_delivery_fee passthrough. super_admin/ops_admin + TOTP.
+routes.patch('/admin/disputes/:id/resolve', requireRole(['super_admin', 'ops_admin']), requireTotp, (req, res) => controllers.adminOrderActions.resolveAdminDispute(req, res));
 routes.post('/admin/disputes/:id/assign', (req, res) => controllers.assignDispute(req, res));
 routes.get('/admin/disputes/:id/chats', (req, res) => controllers.getDisputeChats(req, res));
 routes.post('/admin/disputes/:id/chats', (req, res) => controllers.sendDisputeChat(req, res));
@@ -510,6 +523,16 @@ routes.get('/admin/notifications/templates/:id', (req, res) => controllers.getNo
 routes.post('/admin/notifications/templates', requireTotp, (req, res) => controllers.createNotificationTemplate(req, res));
 routes.put('/admin/notifications/templates/:id', requireTotp, (req, res) => controllers.updateNotificationTemplate(req, res));
 routes.delete('/admin/notifications/templates/:id', requireTotp, (req, res) => controllers.deleteNotificationTemplate(req, res));
+
+// Broadcast Center — mass notification campaigns (super_admin/admin/ops_admin only)
+const BROADCAST_ROLES = ['super_admin', 'admin', 'ops_admin'];
+routes.get('/admin/broadcasts/targets/estimate', requireRole(BROADCAST_ROLES), (req, res) => controllers.broadcast.estimateAdminTargets(req, res));
+routes.get('/admin/broadcasts', requireRole(BROADCAST_ROLES), (req, res) => controllers.broadcast.listAdminBroadcasts(req, res));
+routes.get('/admin/broadcasts/:id', requireRole(BROADCAST_ROLES), (req, res) => controllers.broadcast.getAdminBroadcastDetail(req, res));
+routes.post('/admin/broadcasts', requireRole(BROADCAST_ROLES), requireTotp, (req, res) => controllers.broadcast.createAdminBroadcast(req, res));
+routes.patch('/admin/broadcasts/:id', requireRole(BROADCAST_ROLES), requireTotp, (req, res) => controllers.broadcast.updateAdminBroadcast(req, res));
+routes.post('/admin/broadcasts/:id/send', requireRole(BROADCAST_ROLES), requireTotp, (req, res) => controllers.broadcast.sendAdminBroadcast(req, res));
+routes.get('/admin/broadcasts/:id/report', requireRole(BROADCAST_ROLES), (req, res) => controllers.broadcast.getAdminBroadcastReport(req, res));
 
 
 // Voucher Engine

@@ -13,6 +13,8 @@ import androidx.work.WorkManager
 import com.tembus.courier.data.repository.FCMTokenRepository
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.data.session.AuthSessionManager
+import com.tembus.courier.data.api.TEMBUSApiService
+import com.tembus.courier.featureflag.FeatureFlagManager
 import com.tembus.courier.worker.OrderSyncWorker
 import androidx.hilt.work.HiltWorkerFactory
 import dagger.hilt.android.HiltAndroidApp
@@ -46,6 +48,9 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    @Inject
+    lateinit var tembusApiService: TEMBUSApiService
+
     private val TAG = "TEMBUSApplication"
 
     override fun onCreate() {
@@ -62,6 +67,8 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
         Log.d(TAG, "Application created")
 
         FirebaseInitializer.initializeIfConfigured(this)
+
+        FeatureFlagManager.init(this, tembusApiService)
 
         // AuthSessionManager & ApiClient will now operate through Hilt
         // Initialize notification channels

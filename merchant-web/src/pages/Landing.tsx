@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { ArrowRight, BadgeCheck, BarChart3, Bike, Clock3, Search, Store, Users } from 'lucide-react'
+import { ArrowRight, BadgeCheck, BarChart3, Bike, Clock3, LogIn, Search, Store, Users } from 'lucide-react'
 
 const benefits = [
   { icon: Users, title: 'Jangkau lebih banyak pelanggan', desc: 'Toko kamu tampil ke ribuan pengguna TEMBUS di sekitar lokasi.' },
@@ -27,6 +27,7 @@ export default function Landing() {
             </span>
           </div>
           <nav className="hidden items-center gap-6 text-sm font-semibold text-zinc-600 md:flex">
+            <Link to="/masuk" className="hover:text-emerald-900">Masuk sebagai Mitra</Link>
             <Link to="/status" className="hover:text-emerald-900">Cek Status</Link>
             <Link
               to="/daftar"
@@ -58,6 +59,9 @@ export default function Landing() {
                 className="inline-flex items-center gap-2 rounded-full bg-[#003A20] px-7 py-3.5 font-bold text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-950"
               >
                 Daftar Jadi Merchant <ArrowRight className="h-5 w-5" />
+              </Link>
+              <Link to="/masuk" className="inline-flex items-center gap-2 rounded-full border border-zinc-200 px-6 py-3.5 font-bold text-zinc-700 transition hover:border-emerald-900/30 hover:text-emerald-900">
+                <LogIn className="h-5 w-5" /> Masuk sebagai Mitra
               </Link>
               <Link to="/status" className="inline-flex items-center gap-2 rounded-full border border-zinc-200 px-6 py-3.5 font-bold text-zinc-700 transition hover:border-emerald-900/30 hover:text-emerald-900">
                 <Search className="h-5 w-5" /> Cek Status Pendaftaran

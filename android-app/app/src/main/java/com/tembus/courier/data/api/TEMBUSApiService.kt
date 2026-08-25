@@ -91,6 +91,9 @@ interface TEMBUSApiService {
     @GET("api/v1/config/runtime")
     suspend fun getRuntimeConfig(): Response<RuntimeConfigResponse>
 
+    @GET("api/v1/mobile/feature-flags")
+    suspend fun getFeatureFlags(): Response<JsonElement>
+
 
     // ── AUTH ────────────────────────────────────────────────────
 

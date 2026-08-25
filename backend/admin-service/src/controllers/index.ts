@@ -87,3 +87,15 @@ export * from './driverWalletHold.controller'; // FOOD-BIKE-054
 export * as productCatalog from './productCatalog.controller';
 export * as costIntelligence from './costIntelligence.controller';
 export * as merchantSettlement from './merchantSettlement.controller';
+
+// Broadcast Center
+export * as broadcast from './broadcast.controller';
+
+// Client-facing read-only feature flags (web session / mobile-web auth)
+export * as featureFlagsPublic from './featureFlagsPublic.controller';
+
+// Public resi tracking lookup (cek-resi, tanpa auth)
+export * as publicTracking from './publicTracking.controller';
+
+// Admin force-cancel + dispute resolve extension
+export * as adminOrderActions from './adminOrderActions.controller';

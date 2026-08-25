@@ -3,6 +3,7 @@ import { securityLog } from '../security/logRedaction';
 import { db } from '../db';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { issueCsrfTokenCookie, clearCsrfTokenCookie } from '../middleware/csrfProtection';
 import {
   AuthProtectionError,
   assertAuthAttemptAllowed,
@@ -151,6 +152,7 @@ export const loginWeb = async (req: Request, res: Response) => {
     };
 
     res.cookie(cookieName, sessionToken, cookieOptions);
+    issueCsrfTokenCookie(res, sessionToken, expiresAt);
 
     // Remove sensitive fields
     delete user.pin_hash;
@@ -212,6 +214,7 @@ export const exchangeCustomerJwtForWebSession = async (req: Request, res: Respon
 
     const { sessionToken, expiresAt } = await createCustomerWebSession(req, user.id);
     res.cookie('customer_session', sessionToken, customerCookieOptions(expiresAt));
+    issueCsrfTokenCookie(res, sessionToken, expiresAt);
     res.json({ message: 'Customer web session created', user });
   } catch (error) {
     securityLog.error('Customer JWT exchange error:', error);
@@ -282,6 +285,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     console.log(`\x1b[36m[Auth Refresh]\x1b[0m User: ${user.email}, Refreshing cookie: ${cookieName}`);
 
     res.cookie(cookieName, sessionToken, customerCookieOptions(newExpiresAt));
+    issueCsrfTokenCookie(res, sessionToken, newExpiresAt);
 
     res.json({ message: 'Session refreshed' });
   } catch (error) {
@@ -304,6 +308,7 @@ export const logoutWeb = async (req: Request, res: Response) => {
 
   res.clearCookie('admin_session');
   res.clearCookie('customer_session');
+  clearCsrfTokenCookie(res);
   res.json({ message: 'Logout successful' });
 };
 

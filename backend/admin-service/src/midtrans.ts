@@ -1,3 +1,5 @@
+import { withCircuitBreaker } from './lib/resilience/circuitBreaker';
+
 type SnapItem = {
   id: string;
   price: number;
@@ -47,6 +49,22 @@ const getSnapApiUrl = () =>
 
 export const getMidtransClientKey = () => process.env.MIDTRANS_CLIENT_KEY || '';
 
+const MIDTRANS_HTTP_TIMEOUT_MS = Number(process.env.MIDTRANS_HTTP_TIMEOUT_MS || 15_000);
+
+const fetchWithTimeout = async (
+  url: string,
+  init: RequestInit,
+  timeoutMs = MIDTRANS_HTTP_TIMEOUT_MS,
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 export const createSnapTransaction = async (input: SnapTransactionInput): Promise<SnapTransactionResult> => {
   const serverKey = process.env.MIDTRANS_SERVER_KEY;
   if (!serverKey) {
@@ -88,15 +106,19 @@ export const createSnapTransaction = async (input: SnapTransactionInput): Promis
   };
 
   const auth = Buffer.from(`${serverKey}:`).toString('base64');
-  const response = await fetch(getSnapApiUrl(), {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Authorization: `Basic ${auth}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  // POST create-transaction is non-idempotent: timeout + circuit breaker
+  // only, NO auto-retry (a blind retry could double-charge the customer).
+  const response = await withCircuitBreaker('midtrans', () =>
+    fetchWithTimeout(getSnapApiUrl(), {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${auth}`,
+      },
+      body: JSON.stringify(payload),
+    }),
+  );
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {

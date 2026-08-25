@@ -152,17 +152,37 @@ const breakerOptions = {
   resetTimeout: 30000, // After 30s, try again (half-open)
 };
 
-const createServiceBreaker = (serviceName: string) => {
-  const breaker = new CircuitBreaker(async (proxyReq: any) => {
-    // This is a wrapper, the actual proxying is handled by http-proxy-middleware.
-    // We use the breaker to track health.
-    return true; 
-  }, { ...breakerOptions, name: serviceName });
+// Stricter profile for high-traffic mobile surfaces: trip once >=10 requests
+// have been seen in a 30s rolling window AND >=50% failed; half-open probe
+// after 15s.
+const customerProxyBreakerOptions = {
+  ...breakerOptions,
+  timeout: 10000,
+  volumeThreshold: 10,
+  rollingCountTimeout: 30000,
+  resetTimeout: 15000,
+};
 
-  breaker.fallback(() => ({
-    error: true,
-    message: `Service ${serviceName} is currently unavailable (Circuit Breaker Open)`,
-  }));
+const upstreamUnavailableBody = (message: string) => ({
+  status: 'error',
+  error: {
+    code: 'UPSTREAM_UNAVAILABLE',
+    message,
+  },
+});
+
+const createServiceBreaker = (serviceName: string, extraOptions: Record<string, unknown> = {}) => {
+  const breaker = new CircuitBreaker(async (_proxyReq: any) => {
+    // Health-tracking stub: actual proxying is handled by http-proxy-middleware.
+    // Failures are reported via breaker.fire() from the proxy event hooks.
+    // NOTE: keep the positional arg — opossum's generic infers fire()'s arity
+    // from this callback, and existing call sites pass fire(null).
+    return true;
+  }, { ...breakerOptions, ...extraOptions, name: serviceName });
+
+  breaker.fallback(() =>
+    upstreamUnavailableBody(`Service ${serviceName} is currently unavailable (Circuit Breaker Open)`),
+  );
 
   return breaker;
 };
@@ -172,6 +192,7 @@ const orderBreaker = createServiceBreaker('order-service');
 const adminBreaker = createServiceBreaker('admin-service');
 const paymentBreaker = createServiceBreaker('payment-service');
 const merchantBreaker = createServiceBreaker('merchant-service'); // FOOD-BIKE-019
+const customerMobileBreaker = createServiceBreaker('customer-mobile', customerProxyBreakerOptions);
 
 const requestLogContext = (req: Request) => {
   const activeTrace = getActiveTraceContext();
@@ -793,15 +814,83 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Public resi tracking lookup (cek-resi page) — NO auth, aggressive per-IP rate
+// limit (default 20 req/min). Owned by admin-service, so this explicit GET route
+// must be registered BEFORE the broad '/api/v1/tracking' proxy below (which
+// forwards to order-service).
+const trackingPublicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.TRACKING_PUBLIC_RATE_LIMIT_PER_MINUTE || 20),
+  keyGenerator: (req) => {
+    return (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
+  message: {
+    status: 'error',
+    code: 'ERR_TOO_MANY_REQUESTS',
+    message: 'Too many tracking lookups, please try again later',
+  },
+});
+
+app.get(
+  '/api/v1/tracking/public',
+  trackingPublicLimiter,
+  createProxyMiddleware({
+    target: ADMIN_SERVICE_URL,
+    changeOrigin: true,
+    on: {
+      proxyReq: (proxyReq: any, req: any) => {
+        logProxyForward('tracking_public', req, ADMIN_SERVICE_URL);
+        prepareProxyRequest(proxyReq, req);
+      },
+      proxyRes: (proxyRes: any) => {
+        if (proxyRes.statusCode >= 500) {
+          adminBreaker.fire(null);
+        }
+      },
+      error: (err: Error, req: any, res: any) => {
+        adminBreaker.fire(null);
+        logProxyError('tracking_public', ADMIN_SERVICE_URL, err, req as Request);
+        if (res && typeof res.status === 'function') {
+          res.status(502).json({
+            status: 'error',
+            code: 'ERR_BAD_GATEWAY',
+            message: 'Tracking service is currently unavailable',
+          });
+        }
+      }
+    }
+  })
+);
+
 // Tracking Service (Order & Courier tracking)
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/tracking',
   target: ORDER_SERVICE_URL,
   changeOrigin: true,
   on: {
-    proxyReq: (proxyReq: any, req: any) => {
+    proxyReq: (proxyReq: any, req: any, res: any) => {
+      if (orderBreaker.opened) {
+        res.status(503).json(upstreamUnavailableBody('Tracking service is currently unavailable'));
+        proxyReq.destroy();
+        return;
+      }
       logProxyForward('tracking', req, ORDER_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        orderBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      orderBreaker.fire(null);
+      logProxyError('tracking', ORDER_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(503).json(upstreamUnavailableBody('Tracking service is currently unavailable'));
+      }
     }
   }
 }));
@@ -909,14 +998,32 @@ app.use(createProxyMiddleware({
 // Customer Mobile Portal Routes (JWT-authenticated, backed by Admin Service aggregates)
 // S-AG-01 FIX: authenticateCustomerApi removed — see comment at line 300.
 // Admin-service requireMobileOrWebAuth validates both cookies and JWTs against the DB.
+// Protected by customerMobileBreaker (10 failures / 30s window, half-open after 15s).
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/customer',
   target: ADMIN_SERVICE_URL,
   changeOrigin: true,
   on: {
-    proxyReq: (proxyReq: any, req: any) => {
+    proxyReq: (proxyReq: any, req: any, res: any) => {
+      if (customerMobileBreaker.opened) {
+        res.status(503).json(upstreamUnavailableBody('Customer service is currently unavailable'));
+        proxyReq.destroy();
+        return;
+      }
       logProxyForward('customer_mobile', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        customerMobileBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      customerMobileBreaker.fire(null);
+      logProxyError('customer_mobile', ADMIN_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(503).json(upstreamUnavailableBody('Customer service is currently unavailable'));
+      }
     }
   }
 }));
@@ -925,6 +1032,7 @@ app.use(createProxyMiddleware({
 app.use(createProxyMiddleware({
   pathFilter: (pathname: string) =>
     pathname.startsWith('/api/v1/mobile/notifications') ||
+    pathname.startsWith('/api/v1/mobile/feature-flags') ||
     pathname.startsWith('/api/v1/courier/fcm') ||
     pathname.startsWith('/api/v1/courier/profile') ||
     pathname.startsWith('/api/v1/courier/duty') ||
