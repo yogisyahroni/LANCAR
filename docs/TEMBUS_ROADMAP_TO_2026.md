@@ -99,20 +99,27 @@ backend/admin-service/src/controllers/courier/
 **Update `routes.ts`:** TIDAK PERLU — facade `courierAuth.controller.ts` mempertahankan API `controllers.courierAuth.*` persis, sehingga `routes.ts` & `controllers/index.ts` tidak berubah. 4 test file (`courierAuth.controller.test.ts`, 3 e2e) tetap resolve facade.
 
 ### Task — Split `customerOrder.controller.ts` (5065 baris)
-**File lama:** `backend/admin-service/src/controllers/customerOrder.controller.ts`
+**Status:** ✅ **DONE** — 2026-08-25 (39 fungsi, `tsc --noEmit` + `npm run build` bersih, API publik utuh via facade)
 
-**File baru:**
+**File lama:** `backend/admin-service/src/controllers/customerOrder.controller.ts` *(sekarang jadi facade `export * from './order'`)*
+
+**File baru (hasil aktual — 9 controller fokus + 1 shared, lebih granular dari rekomendasi 7 file):**
 ```
 backend/admin-service/src/controllers/order/
-  ├── customerOrder.controller.ts        (create, cancel, list – core)
-  ├── customerOrderParcel.controller.ts
-  ├── customerOrderFood.controller.ts
-  ├── customerOrderRoadside.controller.ts
-  ├── customerOrderTracking.controller.ts
-  ├── customerOrderPayment.controller.ts
-  └── customerOrderReview.controller.ts
+  ├── _shared.ts                            (60 helper level-modul, diekspor sekali)
+  ├── customerOrder.controller.ts           (create, cancel, list, getById, retryMatching)
+  ├── customerOrderPayment.controller.ts    (paymentSession, paymentStatus, confirm, midtransNotif, calculatePrice(s))
+  ├── customerOrderAddress.controller.ts    (create/update/delete/list addresses)
+  ├── customerOrderTracking.controller.ts   (tracking, syncCourier, mobileDetail, publicLink, umkmReport, dashboardStats)
+  ├── customerOrderChat.controller.ts       (chats, send, markRead, orderCall join/end)
+  ├── customerOrderReceiverLocation.controller.ts (receiver location request flow)
+  ├── customerOrderMobile.controller.ts     (getMobileCustomerOrders/Order/IncomingPackages)
+  ├── customerOrderProfile.controller.ts    (get/update mobile profile, upload photo)
+  ├── customerOrderFile.controller.ts       (uploadOrderFile)
+  └── index.ts                             (barrel)
 ```
-**Shared:** `backend/admin-service/src/controllers/order/_helpers.ts`
+**Shared helpers:** `backend/admin-service/src/controllers/order/_shared.ts`  
+**Update `routes.ts`:** TIDAK PERLU — facade `customerOrder.controller.ts` mempertahankan API `controllers.customerOrder.*` persis. Cross-controller deps (`courierAuth`, `deliveryServices`, `websocket`) di-rewire ke path benar (`../courierAuth.controller`, `../deliveryServices.controller`, `../../websocket`).
 
 ---
 
