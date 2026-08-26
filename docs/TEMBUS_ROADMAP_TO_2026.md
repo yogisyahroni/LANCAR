@@ -57,7 +57,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 2.4 | Certificate pinning runtime OkHttp | ✅ |
 | 2.4 | Fake GPS sensor fusion | ✅ |
 | 3.1 | Observability SRE (SLO/Grafana) | ❌ (alert rules + Telegram sudah ada) |
-| 3.2 | Coverage threshold CI | ❌ |
+| 3.2 | Coverage threshold CI | 🟡 PARTIAL — Go (auth+routing) coverage measurement added to `pr-quality.yml` (coverprofile + artifact upload, 2026-08-26). Hard 90% gate deferred until baseline known; TS/Android coverage pending dep install + test authoring |
 | 3.2 | Maestro / Pact / mobile visual regression | ❌ (Percy web ada tapi config broken) |
 | 3.2 | k6 stress/spike/soak | ✅ |
 | 3.3 | Edge-to-edge + targetSdk 36 | ✅ |
@@ -65,9 +65,9 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 3.4 | Skeleton Android | ✅ (hand-rolled) |
 | 3.4 | Skeleton web | ❌ |
 | 4.1 | R8 + shrinkResources | ✅ |
-| 4.1 | abiFilters exclude x86/x86_64 | ❌ (ship 4 ABI) |
+| 4.1 | abiFilters exclude x86/x86_64 | ✅ DONE — both apps `build.gradle.kts` set `abiFilters += ["armeabi-v7a","arm64-v8a"]` (x86 excluded); verified 2026-08-26 |
 | 4.1 | Bundle splits / Baseline Profile / WebP | ❌ |
-| 4.1 | Junk files cleanup | ❌ (logcat/tmp/.exe/.hermes-tmp ter-commit) |
+| 4.1 | Junk files cleanup | ✅ DONE — `android-app-customer/logcat2.txt` removed 2026-08-26 (commit `a63e151`); earlier `temp.js`/`logcat_*.txt`/`tmp_*` removed `54af2e0` |
 | 10 | Broadcast Center end-to-end | 🟡 PARTIAL — backend (controller+3 service+scheduler, routes ter-register) + admin UI (BroadcastComposer/BroadcastDeliveryReport/hooks) SUDAH ADA (commit 54af2e0); kurir app handler type/topic/deeplink ❌ |
 | 11.1 | Address book backend API | ✅ |
 | 11.1 | Laporan/export nyata (UMKM analytics) | ✅ |
