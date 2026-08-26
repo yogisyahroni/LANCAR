@@ -15,7 +15,10 @@ import {
   User,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { customerApiUrl } from '@/lib/runtimeConfig';
+
+// Public tracking now goes through the same-origin Next.js proxy route
+// (app/api/v1/tracking/public) which forwards to the order-service backend.
+const PUBLIC_TRACKING_PATH = '/api/v1/tracking/public';
 
 const RESI_PATTERN = /^[A-Za-z0-9-]{1,40}$/;
 
@@ -75,7 +78,7 @@ async function fetchPublicTracking(resi: string): Promise<ResultState> {
   }
   try {
     const response = await fetch(
-      `${customerApiUrl}/tracking/public?resi=${encodeURIComponent(resi)}`,
+      `${PUBLIC_TRACKING_PATH}?resi=${encodeURIComponent(resi)}`,
       { headers: { Accept: 'application/json' } }
     );
     let body: { found?: boolean; data?: PublicResiData; message?: string } | null = null;

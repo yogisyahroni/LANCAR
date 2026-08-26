@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   ArrowRight,
+  BadgePercent,
   BarChart3,
   Bike,
   LifeBuoy,
@@ -11,6 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 import ResiCheckWidget from '@/components/landing/ResiCheckWidget';
+import LandingNavbar from '@/components/landing/LandingNavbar';
 
 export const metadata: Metadata = {
   title: 'TEMBUS — Logistik On-Demand',
@@ -60,41 +62,7 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-white/5 bg-slate-950/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/tembusweb.svg" alt="TEMBUS" className="h-8 object-contain" />
-          </Link>
-          <nav aria-label="Navigasi utama" className="hidden items-center gap-6 md:flex">
-            <a href="#layanan" className="text-sm text-slate-300 transition-colors hover:text-white">
-              Layanan
-            </a>
-            <a href="#harga" className="text-sm text-slate-300 transition-colors hover:text-white">
-              Harga
-            </a>
-            <a href="#umkm" className="text-sm text-slate-300 transition-colors hover:text-white">
-              UMKM
-            </a>
-            <Link href="/cek-resi" className="text-sm text-slate-300 transition-colors hover:text-white">
-              Cek Resi
-            </Link>
-          </nav>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/login"
-              className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition-all hover:bg-white/5"
-            >
-              Masuk
-            </Link>
-            <Link
-              href="/daftar"
-              className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950 transition-all hover:bg-emerald-400"
-            >
-              Daftar
-            </Link>
-          </div>
-        </div>
-      </header>
+      <LandingNavbar />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -142,6 +110,12 @@ export default function LandingPage() {
             </li>
             <li className="flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5 text-emerald-400" /> Resi publik bisa dilacak siapa saja
+            </li>
+            <li className="flex items-center gap-1.5">
+              <BadgePercent className="h-3.5 w-3.5 text-emerald-400" />
+              <Link href="/voucher" className="transition-colors hover:text-white">
+                Voucher &amp; promo untuk pelanggan
+              </Link>
             </li>
           </ul>
         </div>

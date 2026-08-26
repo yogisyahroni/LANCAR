@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "@/components/providers/QueryProvider";
+import CsrfBootstrap from "@/components/providers/CsrfBootstrap";
 import { Analytics } from "@/components/Analytics";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -24,6 +25,7 @@ export default function RootLayout({
         <QueryProvider>
           {children}
         </QueryProvider>
+        <CsrfBootstrap />
         <Analytics />
         {midtransClientKey ? (
           <script
