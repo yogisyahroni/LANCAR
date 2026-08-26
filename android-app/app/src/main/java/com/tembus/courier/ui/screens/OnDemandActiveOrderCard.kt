@@ -158,3 +158,41 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun OnDemandActiveOrderCard(
+    order: Order,
+    onOpenDelivery: (Order) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = CourierPanel,
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 10.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(color = Success.copy(alpha = 0.18f), shape = RoundedCornerShape(12.dp)) {
+                Icon(Icons.Default.Navigation, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Order aktif", color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.labelMedium)
+                Text(order.pickupAddress.ifBlank { order.displayServiceName() }, color = Color.White, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(order.estimatedNetEarningsIdr().toRupiahCompact(), color = LogisticsOrange, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            }
+            Button(
+                onClick = { onOpenDelivery(order) },
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Color.White)
+            ) {
+                Text("Buka", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+

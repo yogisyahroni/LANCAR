@@ -158,3 +158,31 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun OnDemandMapMetricPill(
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String,
+    highlighted: Boolean
+) {
+    Surface(
+        modifier = modifier,
+        color = if (highlighted) LogisticsOrange.copy(alpha = 0.12f) else PrimaryLight.copy(alpha = 0.54f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (highlighted) LogisticsOrange.copy(alpha = 0.26f) else Primary.copy(alpha = 0.10f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Icon(icon, contentDescription = null, tint = if (highlighted) LogisticsOrange else Primary, modifier = Modifier.size(14.dp))
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = DeepForest)
+        }
+    }
+}
+

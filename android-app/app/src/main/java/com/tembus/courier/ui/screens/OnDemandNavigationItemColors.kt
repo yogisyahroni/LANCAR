@@ -158,3 +158,14 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun onDemandNavigationItemColors(): NavigationBarItemColors =
+    NavigationBarItemDefaults.colors(
+        selectedIconColor = LogisticsOrange,
+        selectedTextColor = Color.White,
+        indicatorColor = LogisticsOrange.copy(alpha = 0.22f),
+        unselectedIconColor = Color.White.copy(alpha = 0.66f),
+        unselectedTextColor = Color.White.copy(alpha = 0.66f)
+    )
+

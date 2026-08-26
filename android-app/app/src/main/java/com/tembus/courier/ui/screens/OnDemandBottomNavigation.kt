@@ -158,3 +158,54 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun OnDemandBottomNavigation(
+    selectedTab: Int,
+    offerCount: Int,
+    onSelectTab: (Int) -> Unit
+) {
+    NavigationBar(containerColor = PrimaryDark, contentColor = Color.White) {
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Map, contentDescription = "Peta") },
+            label = { Text("Peta") },
+            selected = selectedTab == 0,
+            onClick = { onSelectTab(0) },
+            colors = onDemandNavigationItemColors()
+        )
+        NavigationBarItem(
+            icon = {
+                BadgedBox(
+                    badge = {
+                        if (offerCount > 0) {
+            Badge(containerColor = LogisticsOrange, contentColor = Color.White) {
+                                Text(offerCount.toString())
+                            }
+                        }
+                    }
+                ) {
+                    Icon(Icons.Default.History, contentDescription = "Riwayat")
+                }
+            },
+            label = { Text("Riwayat") },
+            selected = selectedTab == 1,
+            onClick = { onSelectTab(1) },
+            colors = onDemandNavigationItemColors()
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = "Dompet") },
+            label = { Text("Dompet") },
+            selected = selectedTab == 2,
+            onClick = { onSelectTab(2) },
+            colors = onDemandNavigationItemColors()
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
+            label = { Text("Profil") },
+            selected = selectedTab == 3,
+            onClick = { onSelectTab(3) },
+            colors = onDemandNavigationItemColors()
+        )
+    }
+}
+

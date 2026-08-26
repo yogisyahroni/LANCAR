@@ -158,3 +158,29 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun OnDemandWaitingCard(onViewOrders: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = CourierPanel.copy(alpha = 0.86f),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Primary, strokeWidth = 3.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Menunggu pesanan terdekat", color = Color.White, fontWeight = FontWeight.Black)
+                Text("Tawaran akan muncul otomatis.", color = Color.White.copy(alpha = 0.68f), style = MaterialTheme.typography.labelMedium)
+            }
+            TextButton(onClick = onViewOrders) {
+                Text("Riwayat", color = LogisticsOrange, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}

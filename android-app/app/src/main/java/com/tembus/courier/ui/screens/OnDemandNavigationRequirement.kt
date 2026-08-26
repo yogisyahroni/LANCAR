@@ -158,3 +158,32 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun OnDemandNavigationRequirement(
+    modifier: Modifier = Modifier,
+    done: Boolean,
+    label: String
+) {
+    Surface(
+        modifier = modifier,
+        color = if (done) Success.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, if (done) Success.copy(alpha = 0.38f) else Color.White.copy(alpha = 0.10f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (done) Success else Color.White.copy(alpha = 0.62f),
+                modifier = Modifier.size(15.dp)
+            )
+            Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+

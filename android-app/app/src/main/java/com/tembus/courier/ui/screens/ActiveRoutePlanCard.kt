@@ -158,3 +158,84 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun ActiveRoutePlanCard(
+    activeRoutePlan: CourierActiveRoutePlan,
+    onViewOrders: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = CourierPanel.copy(alpha = 0.96f),
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 10.dp
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(color = LogisticsOrange.copy(alpha = 0.18f), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Route, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(10.dp).size(22.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Route plan aktif", color = Color.White, fontWeight = FontWeight.Black)
+                    Text(
+                        "${activeRoutePlan.stops.size} stop • ${String.format("%.1f", activeRoutePlan.totalDistanceKm)} km • ETA ${activeRoutePlan.totalEtaMinutes} menit",
+                        color = Color.White.copy(alpha = 0.68f),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                Surface(
+                    color = if (activeRoutePlan.trafficAware) Success.copy(alpha = 0.18f) else Warning.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        if (activeRoutePlan.trafficAware) "Traffic" else "Fallback",
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        color = if (activeRoutePlan.trafficAware) Success else Warning,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                activeRoutePlan.stops.take(4).forEachIndexed { index, stop ->
+                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Surface(
+                            modifier = Modifier.size(26.dp),
+                            color = if (stop.stopType == "pickup") Primary.copy(alpha = 0.24f) else LogisticsOrange.copy(alpha = 0.22f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("${index + 1}", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (stop.stopType == "pickup") "Pickup ${stop.orderNumber ?: stop.orderId.take(8)}" else "Dropoff ${stop.orderNumber ?: stop.orderId.take(8)}",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Text(
+                                "${stop.packageCount} paket • ${stop.address ?: "Alamat sinkron"}",
+                                color = Color.White.copy(alpha = 0.62f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+
+            TextButton(onClick = onViewOrders, modifier = Modifier.align(Alignment.End)) {
+                Text("Lihat semua order", color = LogisticsOrange, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+

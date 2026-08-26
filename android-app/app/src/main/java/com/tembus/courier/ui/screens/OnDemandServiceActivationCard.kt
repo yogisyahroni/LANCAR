@@ -158,3 +158,81 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun OnDemandServiceActivationCard(
+    serviceItems: List<CourierServiceProduct>,
+    activeServiceCount: Int,
+    capabilityByCode: Map<String, CourierServiceCapability>,
+    disabledServiceCodes: Set<String>,
+    vehicleGroup: String,
+    isServiceCatalogLoading: Boolean,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onServiceEnabledChange: (CourierServiceProduct, Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = CourierPanel,
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 8.dp
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(color = LogisticsOrange.copy(alpha = 0.18f), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Tune, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(9.dp).size(20.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Layanan aktif", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        if (isServiceCatalogLoading) {
+                            "Memuat layanan aktif..."
+                        } else if (serviceItems.isEmpty()) {
+                            "Layanan ${vehicleGroup.toVehicleLabel()} sedang disinkronkan"
+                        } else {
+                            "$activeServiceCount dari ${serviceItems.size} layanan ${vehicleGroup.toVehicleLabel()}"
+                        },
+                        color = Color.White.copy(alpha = 0.68f),
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                TextButton(onClick = onToggleExpanded) {
+                    Text(if (expanded) "Tutup" else "Atur", color = LogisticsOrange, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (serviceItems.isEmpty()) {
+                        Text(
+                            "Layanan mengikuti profil kendaraan operasional.",
+                            color = Color.White.copy(alpha = 0.72f),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    } else {
+                        serviceItems.forEach { service ->
+                            val capability = capabilityByCode[service.code]
+                            val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+                            val enabled = enabledByCapability && service.code !in disabledServiceCodes
+                            OnDemandServiceToggleRow(
+                                service = service,
+                                enabled = enabled,
+                                lockedByAdmin = !enabledByCapability,
+                                onEnabledChange = { checked ->
+                                    if (enabledByCapability) onServiceEnabledChange(service, checked)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
