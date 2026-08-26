@@ -47,7 +47,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 1 | Split TrackingScreen.kt | 🟡 PARTIAL (1091→953 + TrackingComponents.kt + 15 test) |
 | 1 | Split MainScreen.kt | 🟡 PARTIAL (1024→939 + MainHomeContent + MainBottomNav) |
 | 1 | Split Finance.tsx / Settings.tsx | ❌ (masih 2622/2129) |
-| 1 | Split orders/[id]/page.tsx & OnDemandOrderForm.tsx | 🟡 PARTIAL (1530→1220 + orderDetailTypes.ts/orderDetailUtils.ts/RouteSnapshotPanel.tsx; section extraction pending) |
+| 1 | Split orders/[id]/page.tsx & OnDemandOrderForm.tsx | 🟡 PARTIAL (1530→540 page.tsx + OrderDetailContent.tsx 888; types/helpers/RouteSnapshotPanel extracted; `tsc -b`+eslint EXIT 0, vitest 6/6 PASS) |
 | 1 | Split routes.ts admin-service | ✅ **DONE 2026-08-26** — 642→68-line aggregator + `routes/{auth,courier,notification,order,admin,public}.routes.ts`; `tsc --noEmit` EXIT 0, `npm test` 165/165 PASS. Preserved `requireAuth`/`requireTotp` gates |
 | 2.1 | Accessibility WCAG 2.2 AA | ✅ **DONE 2026-08-26** — Android `SemanticsHelpers.kt` (customer+courier) + wired `PaymentScreen`/`ServiceTrackingScreen`/`ProofOfDeliveryScreen`; web `SafeImage`, focus-ring, reduced-motion, `lang="id"`; verified in staging commit `3b78722` |
 | 2.2 | Circuit breaker + retry + bulkhead | ✅ **DONE 2026-08-26** — Go `order-service` Midtrans QRIS/Snap wrapped via vendored `resilience` pkg (commit `fc082a8`); TS `admin-service` merchant-settlement order call guarded (commit `3b78722`). `tsc --noEmit` + `go build` EXIT 0 |
