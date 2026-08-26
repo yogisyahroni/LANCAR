@@ -47,7 +47,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 1 | Split OnDemandMapScreens.kt (courier) | 🟡 PARTIAL — 1614 → 160 (`OnDemandMapScreens.kt` pkg+imports) + 15 extracted internal composables (OnDemandMapHome 426, OnDemandNavigationModeCard 286, OnDemandMapDispatchCockpit 257, +12 kecil 10-80). `compileDebugKotlin` BUILD SUCCESSFUL. Sisa: OnDemandMapHome 426 irreducibel |
 | 1 | Split TrackingScreen.kt | 🟡 PARTIAL (1091→953 + TrackingComponents.kt + 15 test) |
 | 1 | Split MainScreen.kt | 🟡 PARTIAL (1024→939 + MainHomeContent + MainBottomNav) |
-| 1 | Split Finance.tsx / Settings.tsx | 🔴 REVERTED — split `e23fd7b` was BROKEN in CI (~276 tsc errors: FinanceContent/SettingsContent missing imports `api`/`toast`/`clientLog`/lucide icons; Finance/Settings passed undeclared props). Reverted to originals (Finance.tsx 2622, Settings.tsx 2129) commit `c7fa5b8`; Admin Service + Frontend CI/CD Staging now GREEN (run 32980016588). Needs correct re-split with local `npm run build` verification before push. |
+| 1 | Split Finance.tsx / Settings.tsx | ✅ **DONE 2026-08-26** — Finance proper-split: `useFinanceData.ts`(689)+`FinanceContent.tsx`(176)+`finance/*.tsx`(8 panels)+`Finance.tsx`(9). `npm run build` EXIT 0 + **CI GREEN** (run `33002654176`). Settings masih thin-wrapper (2129) — proper-split next. |
 | 1 | Split orders/[id]/page.tsx & OnDemandOrderForm.tsx | ✅ **DONE 2026-08-26** — `orders/[id]/page.tsx` 1530→540 (hooks+handlers) + `OrderDetailContent.tsx` 888 (pure JSX) + `orderDetailTypes/Utils.ts`/`RouteSnapshotPanel.tsx`; `OnDemandOrderForm.tsx` 1177→681 + `OnDemandOrderFormContent.tsx` 683. Both `tsc -b` EXIT 0, eslint 0 errors, vitest 6/6 PASS |
 | 1 | Split routes.ts admin-service | ✅ **DONE 2026-08-26** — 642→68-line aggregator + `routes/{auth,courier,notification,order,admin,public}.routes.ts`; `tsc --noEmit` EXIT 0, `npm test` 165/165 PASS. Preserved `requireAuth`/`requireTotp` gates |
 | 2.1 | Accessibility WCAG 2.2 AA | ✅ **DONE 2026-08-26** — Android `SemanticsHelpers.kt` (customer+courier) + wired `PaymentScreen`/`ServiceTrackingScreen`/`ProofOfDeliveryScreen`; web `SafeImage`, focus-ring, reduced-motion, `lang="id"`; verified in staging commit `3b78722` |
@@ -122,7 +122,7 @@ Platform logistik on-demand multi-service (Parcel, Food, Tambal Ban, Towing) yan
 |------|-------|----------|--------|
 | `backend/admin-service/src/controllers/courierAuth.controller.ts` | **5445** | 🔴 P0 | ≤ 300–400 |
 | `backend/admin-service/src/controllers/customerOrder.controller.ts` | **5065** | 🔴 P0 | ≤ 300–400 |
-| `admin-dashboard/src/pages/Finance.tsx` | **2622** | 🔴 P0 | ≤ 400 |
+| `admin-dashboard/src/pages/Finance.tsx` | **2622 → 9** (data hook + 8 panels) | ✅ P0 | ≤ 400 | → `useFinanceData.ts`(689) + `FinanceContent.tsx`(176) + `finance/*.tsx`(8 panels) + wrapper 9 |
 | `android-app/.../order/OrderDetailScreen.kt` | **2444** (refactor 2557→2444) | 🔴 P0 | ≤ 400 |
 | `backend/order-service/internal/service/order_service.go` | **2531** | 🔴 P0 | ≤ 400 |
 | `android-app-customer/.../booking/BookingScreen.kt` | **2495** | 🔴 P0 | ≤ 400 |
@@ -353,7 +353,13 @@ android-app-customer/.../ui/screens/tracking/
 ## 1.5 Admin Dashboard & Frontend
 
 ### Task — Split `Finance.tsx` (2622 baris)
-**Status:** 🔴 **REVERTED** — Split `e23fd7b` was BROKEN in CI (FinanceContent.tsx missing imports `api`/`clientLog`/`toast`/lucide icons; Finance.tsx passed undeclared computed props `courierEscrow`/`gtv`/`realOmzet`/etc). Reverted to original `Finance.tsx` 2622 lines (commit `c7fa5b8`). CI/CD Staging GREEN after revert (run 32980016588). Re-split pending correct extraction with local `npm run build` verification.
+**Status:** ✅ **SELESAI** — Proper-split via data hook + per-tab panels (commit `45ad916`, push staging `45ad916`). Verified `npm run build` EXIT 0 + **CI GREEN** (Security Scan + CI/CD Staging, run `33002654176`, 2026-08-26).
+- `useFinanceData.ts` (689 LOC): all hooks/state/mutations/derived (100 fields) extracted.
+- `FinanceContent.tsx` (176 LOC): orchestrator (nav + 8 panels).
+- `finance/*.tsx`: 8 focused tab panels — treasury(1054)/pnl(378)/tax(344)/closing(347)/ledger(231)/reconciliation(209)/trial-balance(203)/unit-economics(202).
+- `Finance.tsx` (9 LOC): thin wrapper.
+- ⚠️ `treasuryPanel.tsx` still 1054 LOC (target ≤400) — sub-component extraction is a follow-up.
+- Reproducible via `gen_hook.py` / `gen_panels.py` / `gen_orchestrator.py` (committed).
 ```
 admin-dashboard/src/pages/finance/
   ├── FinancePage.tsx
@@ -365,7 +371,7 @@ admin-dashboard/src/pages/finance/
 ```
 
 ### Task — Split `Settings.tsx` (2129 baris)
-**Status:** 🔴 **REVERTED** — Split `e23fd7b` was BROKEN in CI (SettingsContent.tsx missing imports; Settings.tsx passed undeclared props). Reverted to original `Settings.tsx` 2129 lines (commit `c7fa5b8`). Also fixed pre-existing Gitleaks false-positive (`key: 'weight_surcharge_tierN', value:` flagged as generic-api-key) by renaming local var `cfgKey`→`cfgTier` (commit `d9ff4dc`); Security Scan GREEN. CI/CD Staging GREEN after revert (run 32980016588). Re-split pending correct extraction with local `npm run build` verification.
+**Status:** 🟡 **PENDING proper-split** — Finance already done (see above, CI GREEN `33002654176`). Settings masih thin-wrapper `SettingsContent.tsx` (2129) + `Settings.tsx` (8-LOC wrapper) — BELUM proper-split. Next task: samakan pattern Finance (`useSettingsData` hook + per-section panels). Also pre-existing Gitleaks false-positive (`key: 'weight_surcharge_tierN', value:` flagged as generic-api-key) fixed by renaming `cfgKey`→`cfgTier` (commit `d9ff4dc`); Security Scan GREEN.
 Pecah per tab/section (General, Pricing, Zones, Notification, Security, dll).
 
 ### Task — Frontend Order Detail & Form
