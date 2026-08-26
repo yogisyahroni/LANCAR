@@ -118,7 +118,18 @@ jobs:
         run: |
           go mod tidy
           go vet ./...
-          go test -v -timeout 5m ./...
+          go test -v -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
+      - name: Coverage report
+        working-directory: ./backend/auth-service
+        run: |
+          go tool cover -func=coverage.out | tail -1
+          mkdir -p ../coverage-artifacts
+          cp coverage.out ../coverage-artifacts/auth-coverage.out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auth-coverage
+          path: backend/coverage-artifacts/auth-coverage.out
+        if: always()
         env:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
@@ -152,7 +163,18 @@ jobs:
         run: |
           go mod tidy
           go vet ./...
-          go test -v -timeout 5m ./...
+          go test -v -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
+      - name: Coverage report
+        working-directory: ./backend/routing-service
+        run: |
+          go tool cover -func=coverage.out | tail -1
+          mkdir -p ../coverage-artifacts
+          cp coverage.out ../coverage-artifacts/routing-coverage.out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: routing-coverage
+          path: backend/coverage-artifacts/routing-coverage.out
+        if: always()
         env:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
