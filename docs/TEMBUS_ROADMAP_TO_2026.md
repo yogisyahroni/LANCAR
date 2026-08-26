@@ -47,7 +47,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 1 | Split OnDemandMapScreens.kt (courier) | 🟡 PARTIAL — 1614 → 160 (`OnDemandMapScreens.kt` pkg+imports) + 15 extracted internal composables (OnDemandMapHome 426, OnDemandNavigationModeCard 286, OnDemandMapDispatchCockpit 257, +12 kecil 10-80). `compileDebugKotlin` BUILD SUCCESSFUL. Sisa: OnDemandMapHome 426 irreducibel |
 | 1 | Split TrackingScreen.kt | 🟡 PARTIAL (1091→953 + TrackingComponents.kt + 15 test) |
 | 1 | Split MainScreen.kt | 🟡 PARTIAL (1024→939 + MainHomeContent + MainBottomNav) |
-| 1 | Split Finance.tsx / Settings.tsx | ✅ **DONE 2026-08-26** — `Finance.tsx` 2622→651 + `FinanceContent.tsx` 2275 (helpers+JSX); `Settings.tsx` 2129→400 + `SettingsContent.tsx` 1990 (PREDEFINED_FLAGS+JSX). Both `tsc --noEmit`+`eslint` 0 errors, `vite build` EXIT 0 |
+| 1 | Split Finance.tsx / Settings.tsx | 🔴 REVERTED — split `e23fd7b` was BROKEN in CI (~276 tsc errors: FinanceContent/SettingsContent missing imports `api`/`toast`/`clientLog`/lucide icons; Finance/Settings passed undeclared props). Reverted to originals (Finance.tsx 2622, Settings.tsx 2129) commit `c7fa5b8`; Admin Service + Frontend CI/CD Staging now GREEN (run 32980016588). Needs correct re-split with local `npm run build` verification before push. |
 | 1 | Split orders/[id]/page.tsx & OnDemandOrderForm.tsx | ✅ **DONE 2026-08-26** — `orders/[id]/page.tsx` 1530→540 (hooks+handlers) + `OrderDetailContent.tsx` 888 (pure JSX) + `orderDetailTypes/Utils.ts`/`RouteSnapshotPanel.tsx`; `OnDemandOrderForm.tsx` 1177→681 + `OnDemandOrderFormContent.tsx` 683. Both `tsc -b` EXIT 0, eslint 0 errors, vitest 6/6 PASS |
 | 1 | Split routes.ts admin-service | ✅ **DONE 2026-08-26** — 642→68-line aggregator + `routes/{auth,courier,notification,order,admin,public}.routes.ts`; `tsc --noEmit` EXIT 0, `npm test` 165/165 PASS. Preserved `requireAuth`/`requireTotp` gates |
 | 2.1 | Accessibility WCAG 2.2 AA | ✅ **DONE 2026-08-26** — Android `SemanticsHelpers.kt` (customer+courier) + wired `PaymentScreen`/`ServiceTrackingScreen`/`ProofOfDeliveryScreen`; web `SafeImage`, focus-ring, reduced-motion, `lang="id"`; verified in staging commit `3b78722` |
@@ -353,7 +353,7 @@ android-app-customer/.../ui/screens/tracking/
 ## 1.5 Admin Dashboard & Frontend
 
 ### Task — Split `Finance.tsx` (2622 baris)
-**Status:** ✅ **DONE 2026-08-26** — `Finance.tsx` 2622→651 (hooks+handlers+loading return) + `FinanceContent.tsx` 2275 (helpers COLORS/payoutStatusLabel/riskActionLabel + JSX). `tsc --noEmit`+`eslint` 0 errors, `vite build` EXIT 0.
+**Status:** 🔴 **REVERTED** — Split `e23fd7b` was BROKEN in CI (FinanceContent.tsx missing imports `api`/`clientLog`/`toast`/lucide icons; Finance.tsx passed undeclared computed props `courierEscrow`/`gtv`/`realOmzet`/etc). Reverted to original `Finance.tsx` 2622 lines (commit `c7fa5b8`). CI/CD Staging GREEN after revert (run 32980016588). Re-split pending correct extraction with local `npm run build` verification.
 ```
 admin-dashboard/src/pages/finance/
   ├── FinancePage.tsx
@@ -365,7 +365,7 @@ admin-dashboard/src/pages/finance/
 ```
 
 ### Task — Split `Settings.tsx` (2129 baris)
-**Status:** ✅ **DONE 2026-08-26** — `Settings.tsx` 2129→400 (hooks+handlers+loading return) + `SettingsContent.tsx` 1990 (PREDEFINED_FLAGS + JSX). `tsc --noEmit`+`eslint` 0 errors, `vite build` EXIT 0.
+**Status:** 🔴 **REVERTED** — Split `e23fd7b` was BROKEN in CI (SettingsContent.tsx missing imports; Settings.tsx passed undeclared props). Reverted to original `Settings.tsx` 2129 lines (commit `c7fa5b8`). Also fixed pre-existing Gitleaks false-positive (`key: 'weight_surcharge_tierN', value:` flagged as generic-api-key) by renaming local var `cfgKey`→`cfgTier` (commit `d9ff4dc`); Security Scan GREEN. CI/CD Staging GREEN after revert (run 32980016588). Re-split pending correct extraction with local `npm run build` verification.
 Pecah per tab/section (General, Pricing, Zones, Notification, Security, dll).
 
 ### Task — Frontend Order Detail & Form
