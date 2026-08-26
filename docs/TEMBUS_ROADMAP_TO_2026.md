@@ -43,7 +43,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 1 | Split `order_handler.go` | ✅ DONE (346 baris + 4 handler) |
 | 1 | Split domain `order.go` | ✅ DONE (order.go 444 + order_food.go 237) |
 | 1 | Split OrderDetailScreen.kt (kurir) | 🟡 PARTIAL (2557→2444 + OrderDetailComponents.kt) |
-| 1 | Split BookingScreen.kt (customer) | ❌ (masih 2495) |
+| 1 | Split BookingScreen.kt (customer) | 🟡 PARTIAL — 2495 → 629 + `BookingHelpers.kt` (258) + `BookingComponents.kt` (1900); `compileDebugKotlin` BUILD SUCCESSFUL. Sisa: orchestrator main (~483) irreducibel state-wiring + imports |
 | 1 | Split TrackingScreen.kt | 🟡 PARTIAL (1091→953 + TrackingComponents.kt + 15 test) |
 | 1 | Split MainScreen.kt | 🟡 PARTIAL (1024→939 + MainHomeContent + MainBottomNav) |
 | 1 | Split Finance.tsx / Settings.tsx | ✅ **DONE 2026-08-26** — `Finance.tsx` 2622→651 + `FinanceContent.tsx` 2275 (helpers+JSX); `Settings.tsx` 2129→400 + `SettingsContent.tsx` 1990 (PREDEFINED_FLAGS+JSX). Both `tsc --noEmit`+`eslint` 0 errors, `vite build` EXIT 0 |
@@ -323,7 +323,7 @@ Pecah per screen + bottom sheet + dialog. Target tiap file ≤350 baris.
 ## 1.4 Android Customer App
 
 ### Task — Split `BookingScreen.kt` (2495 baris)
-**Status:** ❌ **BELUM** — masih **2426 baris**.
+**Status:** 🟡 **PARTIAL** — 2495 → **629 baris** (`BookingScreen.kt` orchestrator) + `BookingHelpers.kt` (258, `BookingState` extensions + `decodeRoutePolyline` + `tembusLightTextFieldColors`, `internal`) + `BookingComponents.kt` (1900, sub-composables `PreselectedPromoCard`/`VoucherCard`/`BookingHeader`/`DeliveryDetailCard`/`ServicePickerSheet`/`LocationInputSheet`/dll, `internal`). `compileDebugKotlin` BUILD SUCCESSFUL (verified with local dummy `google-services.json`, not committed). Sisa: orchestrator main (~483) irreducibel state-wiring + imports 143 baris — perlu sub-composable extraction lanjutan untuk capai ≤400. Update 2026-08-26.
 ```
 android-app-customer/.../ui/screens/booking/
   ├── BookingScreen.kt                  (orchestrator)
