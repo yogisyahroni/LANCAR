@@ -158,3 +158,29 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun currentDistanceMeters(context: Context, lat: Double, lng: Double): Int? {
+    val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        ?: return null
+    val provider = if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER))
+        LocationManager.GPS_PROVIDER
+    else LocationManager.NETWORK_PROVIDER
+    val loc = try {
+        lm.getLastKnownLocation(provider)
+    } catch (_: SecurityException) {
+        null
+    }
+    if (loc == null) return null
+    val target = Location(provider).apply {
+        latitude = lat
+        longitude = lng
+    }
+    return loc.distanceTo(target).toInt()
+}
+
+internal data class DutyLocation(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracy: Float?
+)
+

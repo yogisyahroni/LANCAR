@@ -158,3 +158,44 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun PayoutRequestDetailDialog(request: CourierPayoutRequestItem, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(color = payoutStatusColor(request.status).copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                        Icon(payoutStatusIcon(request.status), contentDescription = null, tint = payoutStatusColor(request.status), modifier = Modifier.padding(10.dp).size(22.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Detail Pencairan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(request.requestNumber, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                PayoutReviewRow("Status", request.statusLabel ?: payoutStatusLabel(request.status))
+                PayoutReviewRow("Nominal", request.amountIdr.toRupiahCompact())
+                PayoutReviewRow("Diterima", request.netAmountIdr.toRupiahCompact())
+                PayoutReviewRow("Rekening", "${request.destinationSnapshot["bank_code"] ?: "-"} • **** ${request.destinationSnapshot["account_last4"] ?: request.destinationSnapshot["account_number_last4"] ?: "-"}")
+                PayoutReviewRow("Tanggal", shortDateLabel(request.requestedAt))
+                Surface(modifier = Modifier.fillMaxWidth(), color = payoutStatusColor(request.status).copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
+                    Text(
+                        payoutStatusMessage(request),
+                        modifier = Modifier.padding(10.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                request.failureReason?.takeIf { it.isNotBlank() }?.let { reason ->
+                    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
+                        Text(reason, modifier = Modifier.padding(10.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
+                    Text("Tutup")
+                }
+            }
+        }
+    }
+}
+

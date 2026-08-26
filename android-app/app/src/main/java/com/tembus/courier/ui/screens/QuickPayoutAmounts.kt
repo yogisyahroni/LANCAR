@@ -158,3 +158,14 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun quickPayoutAmounts(summary: CourierPayoutSummaryData): List<Int> {
+    val minAmount = summary.policy.minAmountIdr
+    val maxAmount = summary.eligibility.maxRequestableIdr
+    return listOf(minAmount, maxAmount)
+        .filter { it > 0 }
+        .distinct()
+        .filter { it <= maxAmount }
+        .take(4)
+}
+

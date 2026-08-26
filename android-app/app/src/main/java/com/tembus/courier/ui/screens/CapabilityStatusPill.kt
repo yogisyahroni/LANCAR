@@ -158,3 +158,45 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun CapabilityStatusPill(status: String) {
+    val normalized = when (status) {
+        "verified" -> "terverifikasi"
+        "enabled" -> "aktif"
+        "approved" -> "approved"
+        "complete" -> "lengkap"
+        "incomplete" -> "belum lengkap"
+        else -> status.replace("_", " ")
+    }
+    val color = when (status) {
+        "enabled", "approved", "complete", "verified" -> Success
+        "disabled", "rejected", "suspended" -> MaterialTheme.colorScheme.error
+        else -> Warning
+    }
+    val isDark = isSystemInDarkTheme()
+    Surface(
+        color = if (isDark && color != MaterialTheme.colorScheme.error) Warning.copy(alpha = 0.14f) else color.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, if (isDark && color != MaterialTheme.colorScheme.error) Color(0xFFFBBF24).copy(alpha = 0.35f) else Color.Transparent)
+    ) {
+        Text(
+            normalized,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isDark) {
+                // Di dark mode, warna status terlalu gelap bila dipakai langsung di atas surface gelap.
+                // Naikkan luminansi: warning/success pakai versi lebih terang.
+                when (status) {
+                    "disabled", "rejected", "suspended" -> MaterialTheme.colorScheme.error
+                    else -> Color(0xFFFBBF24)
+                }
+            } else {
+                color
+            },
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+    }
+}
+

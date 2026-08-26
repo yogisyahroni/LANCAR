@@ -158,3 +158,11 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun payoutStatusIcon(status: String): androidx.compose.ui.graphics.vector.ImageVector = when (status) {
+    "paid" -> Icons.Default.CheckCircle
+    "failed", "rejected", "blocked", "cancelled" -> Icons.Default.Cancel
+    "approved_auto", "approved", "processing" -> Icons.Default.Sync
+    else -> Icons.Default.Schedule
+}
+

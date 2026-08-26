@@ -158,3 +158,33 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun openCourierMapNavigation(context: Context, address: String, point: LatLng? = null) {
+    val validPoint = point?.takeIf { it.isValidNavigationPoint() }
+    if (validPoint == null && address.isBlank()) return
+
+    val preferredIntent = if (validPoint != null) {
+        Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("geo:${validPoint.latitude},${validPoint.longitude}?q=${validPoint.latitude},${validPoint.longitude}")
+        )
+    } else {
+        Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(address)}"))
+    }
+
+    val launchIntent = if (preferredIntent.resolveActivity(context.packageManager) != null) {
+        preferredIntent
+    } else if (validPoint != null) {
+        Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("geo:${validPoint.latitude},${validPoint.longitude}?q=${validPoint.latitude},${validPoint.longitude}")
+        )
+    } else {
+        Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(address)}"))
+    }
+
+    if (launchIntent.resolveActivity(context.packageManager) != null) {
+        context.startActivity(launchIntent)
+    }
+}
+

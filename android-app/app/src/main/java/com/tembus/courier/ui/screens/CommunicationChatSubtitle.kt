@@ -158,3 +158,14 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun Order.communicationChatSubtitle(): String {
+    return if (communicationIsDeliveryGroup()) {
+        "Koordinasi customer, kurir, dan penerima tetap di satu percakapan order."
+    } else if (isMaintenanceService()) {
+        "Kirim pesan jika Anda butuh arahan lokasi layanan atau konfirmasi pekerjaan."
+    } else {
+        "Kirim pesan jika Anda butuh arahan pickup atau konfirmasi paket."
+    }
+}
+

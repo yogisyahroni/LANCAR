@@ -158,3 +158,12 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun payoutStatusColor(status: String): Color = when (status) {
+    "paid" -> Success
+    "failed", "rejected", "blocked", "cancelled" -> MaterialTheme.colorScheme.error
+    "approved_auto", "approved", "processing" -> Primary
+    else -> Warning
+}
+

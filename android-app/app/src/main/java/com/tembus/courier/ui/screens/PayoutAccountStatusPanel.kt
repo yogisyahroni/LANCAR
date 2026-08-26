@@ -158,3 +158,40 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun PayoutAccountStatusPanel(account: com.tembus.courier.data.model.CourierPayoutAccount?) {
+    val status = account?.status ?: "incomplete"
+    val isVerified = status == "verified"
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (isVerified) PrimaryLight.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), shape = RoundedCornerShape(10.dp)) {
+                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = if (isVerified) MaterialTheme.colorScheme.onSurface else Warning, modifier = Modifier.padding(8.dp).size(18.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Rekening pencairan", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    if (account != null) {
+                        "${account.bankCode ?: "-"} • ${maskAccountNumber(account.accountNumber.orEmpty())} • ${account.accountName ?: "-"}"
+                    } else {
+                        "Rekening sedang ditinjau operasional."
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            CapabilityStatusPill(if (isVerified) "verified" else "incomplete")
+        }
+    }
+}
+

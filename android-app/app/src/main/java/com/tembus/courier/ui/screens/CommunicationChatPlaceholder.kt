@@ -158,3 +158,12 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun Order.communicationChatPlaceholder(): String {
+    return if (communicationIsDeliveryGroup()) {
+        "Tulis pesan di grup pengantaran..."
+    } else {
+        "Tulis pesan untuk pelanggan..."
+    }
+}
+

@@ -158,3 +158,14 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun Order.communicationIsDeliveryGroup(): Boolean {
+    return status.trim().lowercase() in setOf(
+        "picked_up",
+        "in_transit",
+        "delivering",
+        "delivered",
+        "completed"
+    )
+}
+

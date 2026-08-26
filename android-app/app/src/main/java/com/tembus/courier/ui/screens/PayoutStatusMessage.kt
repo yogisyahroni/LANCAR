@@ -158,3 +158,18 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun payoutStatusMessage(request: CourierPayoutRequestItem): String {
+    request.statusMessage?.takeIf { it.isNotBlank() }?.let { return it }
+    return when (request.status) {
+        "requested", "risk_screening" -> "Pengajuan sedang dicek otomatis. Kamu bisa memantau statusnya di sini."
+        "approved_auto", "approved", "processing" -> "Pengajuan sedang diproses ke rekening pencairan."
+        "risk_hold", "manual_review", "under_review" -> "Sedang diverifikasi oleh tim operasional."
+        "paid" -> "Pencairan berhasil diproses."
+        "rejected", "blocked" -> "Pengajuan belum dapat diproses. Cek detail atau hubungi operasional jika perlu."
+        "failed" -> "Pencairan belum berhasil. Saldo tetap tercatat dan akan ditinjau."
+        "cancelled" -> "Pengajuan dibatalkan."
+        else -> "Pengajuan pencairan saldo berhasil dibuat."
+    }
+}
+

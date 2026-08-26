@@ -158,3 +158,15 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun payoutStatusLabel(status: String): String = when (status) {
+    "requested", "risk_screening" -> "Dalam pemeriksaan otomatis"
+    "risk_hold", "manual_review", "under_review" -> "Butuh review"
+    "approved_auto", "approved", "processing" -> "Diproses"
+    "paid" -> "Berhasil"
+    "rejected", "blocked" -> "Ditolak"
+    "failed" -> "Gagal"
+    "cancelled" -> "Dibatalkan"
+    else -> status.replace("_", " ")
+}
+

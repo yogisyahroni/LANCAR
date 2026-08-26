@@ -158,3 +158,37 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun hasBackgroundLocationPermission(context: Context): Boolean {
+    return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+}
+
+internal suspend fun getLastKnownDutyLocation(context: Context): DutyLocation? {
+    if (!hasForegroundLocationPermission(context)) return null
+
+    return try {
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        val location = client.lastLocation.await()
+            ?: withTimeoutOrNull(8_000) {
+                client.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    CancellationTokenSource().token
+                ).await()
+            }
+        location?.let {
+            DutyLocation(
+                latitude = it.latitude,
+                longitude = it.longitude,
+                accuracy = it.takeIf { point -> point.hasAccuracy() }?.accuracy
+            )
+        }
+    } catch (_: SecurityException) {
+        null
+    } catch (_: Exception) {
+        null
+    }
+}

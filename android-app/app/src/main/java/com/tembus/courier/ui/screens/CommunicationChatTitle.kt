@@ -158,3 +158,14 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun Order.communicationChatTitle(): String {
+    return if (isMaintenanceService()) {
+        "Percakapan Layanan"
+    } else if (communicationIsDeliveryGroup()) {
+        "Percakapan Pengantaran"
+    } else {
+        "Hubungi Pelanggan"
+    }
+}
+

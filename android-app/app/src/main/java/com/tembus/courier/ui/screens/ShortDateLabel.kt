@@ -158,3 +158,9 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun shortDateLabel(value: String?): String {
+    if (value.isNullOrBlank()) return "-"
+    return value.take(16).replace("T", " ")
+}
+

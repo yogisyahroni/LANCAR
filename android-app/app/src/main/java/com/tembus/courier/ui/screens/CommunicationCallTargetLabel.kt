@@ -158,3 +158,11 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun Order.communicationCallTargetLabel(): String {
+    return when (communicationCallTargetType()) {
+        "recipient" -> if (isMaintenanceService()) "Customer" else "Penerima"
+        else -> customerName.takeIf { it.isNotBlank() } ?: "Pelanggan"
+    }
+}
+

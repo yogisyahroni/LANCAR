@@ -158,3 +158,16 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun orderSyncHint(isOnline: Boolean, lastRemoteSyncAt: Long?): String {
+    if (!isOnline) return "Aktifkan On Duty untuk menerima order otomatis."
+    if (lastRemoteSyncAt == null) return "Menunggu sinkronisasi order otomatis."
+
+    val elapsedSeconds = ((System.currentTimeMillis() - lastRemoteSyncAt) / 1000).coerceAtLeast(0)
+    return when {
+        elapsedSeconds < 10 -> "Sinkron otomatis baru saja berjalan."
+        elapsedSeconds < 60 -> "Sinkron terakhir ${elapsedSeconds} detik lalu."
+        else -> "Sinkron terakhir ${elapsedSeconds / 60} menit lalu."
+    }
+}
+

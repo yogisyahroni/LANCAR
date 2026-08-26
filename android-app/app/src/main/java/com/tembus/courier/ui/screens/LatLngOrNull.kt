@@ -158,3 +158,9 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun latLngOrNull(latitude: Double?, longitude: Double?): LatLng? {
+    if (latitude == null || longitude == null) return null
+    return LatLng(latitude, longitude).takeIf { it.isValidNavigationPoint() }
+}
+

@@ -158,3 +158,28 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun LatLng.isValidNavigationPoint(): Boolean {
+    return !latitude.isNaN() &&
+        !longitude.isNaN() &&
+        !latitude.isInfinite() &&
+        !longitude.isInfinite() &&
+        latitude in -90.0..90.0 &&
+        longitude in -180.0..180.0 &&
+        !(latitude == 0.0 && longitude == 0.0)
+}
+
+internal const val ON_DEMAND_FOREGROUND_SYNC_INTERVAL_MS = 5_000L
+internal const val ON_DEMAND_FOREGROUND_SYNC_MIN_INTERVAL_MS = 4_000L
+internal const val FOREGROUND_SYNC_MAX_BACKOFF_MS = 120_000L
+internal const val PUSH_SYNC_MIN_INTERVAL_MS = 2_000L
+internal const val ON_DEMAND_OFFER_TTL_SECONDS = 15
+internal val ACTIVE_ON_DEMAND_STATUSES = setOf("assigned", "accepted", "picked_up", "in_transit")
+
+/** Radius soft-gate arrival maintenance service (standar industri: 100m). */
+internal const val ARRIVAL_RADIUS_M = 100
+
+/**
+ * Jarak horizontal (meter) dari last known location ke titik layanan.
+ * null jika lokasi belum tersedia / izin belum diberikan.
+ */

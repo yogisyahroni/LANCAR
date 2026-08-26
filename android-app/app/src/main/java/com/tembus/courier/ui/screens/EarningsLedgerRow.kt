@@ -158,3 +158,49 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun EarningsLedgerRow(transaction: CourierEarningsTransaction) {
+    val isCredit = transaction.direction == "credit"
+    val color = if (isCredit) Success else MaterialTheme.colorScheme.error
+    val orderLabel = transaction.orderNumber ?: transaction.source.replace("_", " ").uppercase()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+            Icon(
+                if (isCredit) Icons.AutoMirrored.Filled.CallReceived else Icons.AutoMirrored.Filled.CallMade,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.padding(8.dp).size(18.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(orderLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                transaction.description ?: transaction.settlementStatus.replace("_", " "),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                transaction.amountIdr.toRupiahCompact(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+            Text(
+                transaction.settlementStatus.replace("_", " "),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+    }
+}
+

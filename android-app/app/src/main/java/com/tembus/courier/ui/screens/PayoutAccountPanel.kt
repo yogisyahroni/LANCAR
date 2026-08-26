@@ -158,3 +158,51 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+@Composable
+internal fun PayoutAccountPanel(ledger: CourierEarningsLedger) {
+    val account = ledger.summary.payoutAccount
+    val bankCode = account?.bankCode?.takeIf { it.isNotBlank() }
+    val accountNumber = account?.accountNumber?.takeIf { it.isNotBlank() }
+    val accountName = account?.accountName?.takeIf { it.isNotBlank() }
+    val isReady = bankCode != null && accountNumber != null && accountName != null
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (isReady) PrimaryLight.copy(alpha = 0.58f) else Warning.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.AccountBalance,
+                    contentDescription = null,
+                    tint = if (isReady) MaterialTheme.colorScheme.onSurface else Warning,
+                    modifier = Modifier.padding(10.dp).size(18.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Rekening pencairan", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    if (isReady) {
+                        "$bankCode • ${maskAccountNumber(accountNumber.orEmpty())} • $accountName"
+                    } else {
+                        "Rekening belum lengkap. Lengkapi lewat proses verifikasi operasional."
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            CapabilityStatusPill(if (isReady) "verified" else "incomplete")
+        }
+    }
+}
+

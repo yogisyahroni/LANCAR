@@ -158,3 +158,10 @@ import java.io.File
 import kotlin.math.min
 
 // Extracted from MainScreen.kt (Faza 2 refactor 2026-08)
+
+internal fun maskAccountNumber(value: String): String {
+    val digits = value.filter { it.isDigit() }
+    if (digits.length <= 4) return value
+    return "**** ${digits.takeLast(4)}"
+}
+
