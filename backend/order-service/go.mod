@@ -18,7 +18,6 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
-	tembus/pkg/resilience v0.0.0
 )
 
 require (
@@ -50,5 +49,3 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 )
-
-replace tembus/pkg/resilience => ../pkg/resilience

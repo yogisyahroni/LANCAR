@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"tembus/order-service/internal/domain"
-	"tembus/pkg/resilience"
+	"tembus/order-service/internal/pkg/resilience"
 )
 
 // midtransBreaker is the shared circuit breaker guarding all Midtrans
