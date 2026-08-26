@@ -1392,8 +1392,8 @@ export default function Settings() {
                         type="number" step="0.01"
                         defaultValue={getConfig('weight_surcharge_tier1', 0.15)}
                         onBlur={(e) => {
-                          const cfgKey = 'weight_surcharge_tier1';
-                          updateConfigMutation.mutate({ key: cfgKey, value: Number(e.target.value) });
+                          const cfgTier = 'weight_surcharge_tier1';
+                          updateConfigMutation.mutate({ key: cfgTier, value: Number(e.target.value) });
                         }}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
@@ -1422,8 +1422,8 @@ export default function Settings() {
                         type="number" step="0.01"
                         defaultValue={getConfig('weight_surcharge_tier2', 0.3)}
                         onBlur={(e) => {
-                          const cfgKey = 'weight_surcharge_tier2';
-                          updateConfigMutation.mutate({ key: cfgKey, value: Number(e.target.value) });
+                          const cfgTier = 'weight_surcharge_tier2';
+                          updateConfigMutation.mutate({ key: cfgTier, value: Number(e.target.value) });
                         }}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
