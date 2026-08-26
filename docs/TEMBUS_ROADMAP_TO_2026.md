@@ -39,7 +39,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 1 | Split `courierAuth.controller.ts` | ✅ |
 | 1 | Split `customerOrder.controller.ts` | ✅ |
 | 1 | Split `order_service.go` | ✅ |
-| 1 | OnDemandMapScreens / PayoutScreens / HubScreens | 🟡 SEBAGIAN — file legacy MASIH ADA (1614/1092/869 baris) + split-targets (TambalBanFlowScreen 542, TowingFlowScreen 465, dll) duplikat; belum dibuang |
+| 1 | OnDemandMapScreens / PayoutScreens / HubScreens | ✅ OnDemandMapScreens (1614→160 + 15 composables) & PayoutScreens (1092→159 + 43 files) SPLIT DONE 2026-08-26 (`compileDebugKotlin` BUILD SUCCESSFUL). HubScreens (869) ❌ MASIH ADA |
 | 1 | Split `order_handler.go` | ✅ DONE (346 baris + 4 handler) |
 | 1 | Split domain `order.go` | ✅ DONE (order.go 444 + order_food.go 237) |
 | 1 | Split OrderDetailScreen.kt (kurir) | 🟡 PARTIAL (2557→2444 + OrderDetailComponents.kt) |
@@ -316,7 +316,7 @@ android-app/.../ui/screens/ondemand/
 ```
 
 ### Task — Split `PayoutScreens.kt` (1092) & `OnDemandHubScreens.kt` (869)
-**Status:** 🟡 **SEBAGIAN** — `WalletScreens.kt` (371) + `PayoutUiState.kt` (30) + `MainScreenModalScreens.kt` (657) MEMANG ADA, TAPI file god-file legacy `PayoutScreens.kt` (**1092**) & `OnDemandHubScreens.kt` (**869**) **MASIH ADA**. Belum dibuang → duplikasi.
+**Status:** 🟡 **SEBAGIAN** — `PayoutScreens.kt` 1092 → **159 baris** (`package`+imports) + **43 extracted internal files** (composables: `PayoutBalanceCard` 181, `PayoutRequestDialog` 139, `PayoutAccountPanel` 47, `EarningsLedgerRow` 45, `CapabilityStatusPill` 41, `PayoutAccountStatusPanel` 36, `PayoutRequestRow` 37, `PayoutRequestDetailDialog` 40, `ProfileMetricRow` 20, `HeroBalanceChip` 18, `MiniProfileStat` 17, `PayoutStatusColor` 8, `PayoutStatusIcon` 7, `PayoutReviewRow` 8, `MaintenanceButton` 22; helpers: `MaskAccountNumber`, `PayoutStatusLabel/Message/Color/Icon`, `FilterByCourierRole`, `NormalizeCourierMode`, `CourierRole*`, `Communication*`, `OrderSyncHint`, `LatLng*`, `CurrentDistanceMeters`, `HasForeground/BackgroundLocationPermission`, `OpenCourierMapNavigation`, `ToLatLng`, `IsValidNavigationPoint`). `compileDebugKotlin` BUILD SUCCESSFUL (2026-08-26). `OnDemandHubScreens.kt` (869) MASIH ADA — belum dipecah.
 Pecah per screen + bottom sheet + dialog. Target tiap file ≤350 baris.
 
 ---
