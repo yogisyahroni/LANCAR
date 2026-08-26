@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tembus.customer.ui.accessible
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.components.ServiceProgressBar
 import com.tembus.customer.ui.components.TambalBanProgressSteps
@@ -99,7 +100,8 @@ fun ServiceTrackingScreen(
                 Text(
                     status,
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.accessible("Status pesanan: $status")
                 )
             }
             
@@ -108,7 +110,8 @@ fun ServiceTrackingScreen(
                 Text(
                     "Estimasi: $eta menit",
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.accessible("Estimasi tiba: $eta menit")
                 )
             }
         }

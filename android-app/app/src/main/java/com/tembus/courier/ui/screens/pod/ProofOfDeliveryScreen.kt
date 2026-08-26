@@ -25,6 +25,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.tembus.courier.ui.withTestTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -543,7 +544,7 @@ private fun ImagePreviewContent(
         ) {
             OutlinedButton(
                 onClick = onRetake,
-                modifier = Modifier.weight(1f).height(52.dp)
+                modifier = Modifier.weight(1f).height(52.dp).withTestTag("pod_retake_button")
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -552,7 +553,7 @@ private fun ImagePreviewContent(
 
             Button(
                 onClick = onConfirm,
-                modifier = Modifier.weight(1f).height(52.dp),
+                modifier = Modifier.weight(1f).height(52.dp).withTestTag("pod_confirm_button"),
                 enabled = !uiState.isUploading
             ) {
                 if (uiState.isUploading) {

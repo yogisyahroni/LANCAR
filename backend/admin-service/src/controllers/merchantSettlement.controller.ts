@@ -2,19 +2,26 @@ import { Request, Response } from 'express';
 import { securityLog } from '../security/logRedaction';
 import axios from 'axios';
 import { db } from '../db';
+import { withCircuitBreaker } from '../lib/resilience/circuitBreaker';
+import { withRetry as retryCall } from '../lib/resilience/retry';
 
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://order-service:8083';
 
 export const listMerchantSettlements = async (req: Request, res: Response) => {
   try {
-    const response = await axios.get(
-      `${ORDER_SERVICE_URL}/api/v1/internal/merchant-settlements`,
-      {
-        params: { ...req.query, is_admin: 'true' },
-        headers: {
-          'X-User-ID': (req as any).user?.id || req.headers['x-user-id'] || '',
-        },
-      }
+    // Resilience: guard the order-service call with a circuit breaker
+    // (fails fast when upstream is down) plus exponential-backoff retry.
+    const response = await withCircuitBreaker('order-service', () =>
+      retryCall(
+        () =>
+          axios.get(`${ORDER_SERVICE_URL}/api/v1/internal/merchant-settlements`, {
+            params: { ...req.query, is_admin: 'true' },
+            headers: {
+              'X-User-ID': (req as any).user?.id || req.headers['x-user-id'] || '',
+            },
+          }),
+        { maxAttempts: 3, baseDelayMs: 300, maxDelayMs: 3000, multiplier: 2 },
+      ),
     );
     res.status(response.status).json(response.data);
   } catch (err: any) {

@@ -52,6 +52,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.tembus.customer.ui.withTestTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -238,7 +239,8 @@ private fun PaymentMethodChooser(
                     enabled = !lapayInsufficient,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(58.dp),
+                        .height(58.dp)
+                        .withTestTag("payment_pay_button"),
                     shape = RoundedCornerShape(TembusRadius.Button),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF07884A))
                 ) {

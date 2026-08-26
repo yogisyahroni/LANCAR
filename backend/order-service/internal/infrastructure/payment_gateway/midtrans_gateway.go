@@ -12,7 +12,18 @@ import (
 	"time"
 
 	"tembus/order-service/internal/domain"
+	"tembus/pkg/resilience"
 )
+
+// midtransBreaker is the shared circuit breaker guarding all Midtrans
+// outbound calls. A sustained outage opens it so order placement fails
+// fast instead of piling up 15s timeouts against a dead upstream.
+var midtransBreaker = resilience.NewCircuitBreaker(resilience.BreakerOptions{
+	Name:             "midtrans",
+	FailureThreshold: 5,
+	SuccessThreshold: 2,
+	OpenTimeout:      30 * time.Second,
+})
 
 type MidtransConfig struct {
 	ServerKey string
@@ -88,9 +99,22 @@ func (g *MidtransGateway) GenerateQRIS(ctx context.Context, req domain.PaymentGa
 	httpReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(g.config.ServerKey+":")))
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return domain.PaymentGatewayResponse{}, fmt.Errorf("midtrans qris request failed: %w", err)
+	var resp *http.Response
+	doErr := midtransBreaker.Execute(ctx, func(ctx context.Context) error {
+		return resilience.WithRetry(ctx, resilience.DefaultRetryConfig(), func() (bool, error) {
+			r, err := client.Do(httpReq)
+			if err != nil {
+				if ctx.Err() != nil {
+					return false, ctx.Err()
+				}
+				return true, err
+			}
+			resp = r
+			return false, nil
+		})
+	})
+	if doErr != nil {
+		return domain.PaymentGatewayResponse{}, fmt.Errorf("midtrans qris request failed: %w", doErr)
 	}
 	defer resp.Body.Close()
 
@@ -162,9 +186,22 @@ func (g *MidtransGateway) GenerateSnap(ctx context.Context, req domain.SnapReque
 	httpReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(g.config.ServerKey+":")))
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return domain.SnapResponse{}, fmt.Errorf("midtrans snap request failed: %w", err)
+	var resp *http.Response
+	doErr := midtransBreaker.Execute(ctx, func(ctx context.Context) error {
+		return resilience.WithRetry(ctx, resilience.DefaultRetryConfig(), func() (bool, error) {
+			r, err := client.Do(httpReq)
+			if err != nil {
+				if ctx.Err() != nil {
+					return false, ctx.Err()
+				}
+				return true, err
+			}
+			resp = r
+			return false, nil
+		})
+	})
+	if doErr != nil {
+		return domain.SnapResponse{}, fmt.Errorf("midtrans snap request failed: %w", doErr)
 	}
 	defer resp.Body.Close()
 

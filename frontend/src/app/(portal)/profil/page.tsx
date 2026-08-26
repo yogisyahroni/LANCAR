@@ -7,27 +7,28 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { api } from '@/lib/api';
 import { customerApiRootUrl } from '@/lib/runtimeConfig';
 import { clientLog } from '@/lib/clientLogger';
-import { 
-  User, 
-  ShieldCheck, 
-  BellRing, 
-  Gift, 
-  Camera, 
-  Copy, 
-  Share2, 
-  Key, 
-  LogOut, 
-  CheckCircle, 
-  X, 
-  Loader2, 
-  Smartphone, 
-  Globe, 
+import {
+  User,
+  ShieldCheck,
+  BellRing,
+  Gift,
+  Camera,
+  Copy,
+  Share2,
+  Key,
+  LogOut,
+  CheckCircle,
+  X,
+  Loader2,
+  Smartphone,
+  Globe,
   Award,
   ToggleLeft,
   ToggleRight,
   Building2,
   Wallet
 } from 'lucide-react';
+import { SafeImage } from '@/components/a11y/SafeImage';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const LEGACY_PROFILE_PIC_KEY = 'tembus_profile_pic';
@@ -452,7 +453,7 @@ export default function ProfilPage() {
                 <div className="relative group flex-shrink-0 select-none">
                   <div className="h-32 w-32 rounded-3xl bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-3xl font-extrabold text-primary overflow-hidden shadow-sm relative">
                     {profilePic ? (
-                      <img src={profilePic.startsWith('/') ? `${customerApiRootUrl}${profilePic}` : profilePic} alt="Profile preview" className="h-full w-full object-cover select-none" />
+                      <SafeImage src={profilePic.startsWith('/') ? `${customerApiRootUrl}${profilePic}` : profilePic} alt="Foto profil" className="h-full w-full object-cover select-none" />
                     ) : (
                       name.charAt(0).toUpperCase() || 'C'
                     )}
@@ -973,7 +974,7 @@ export default function ProfilPage() {
               {/* Real Crop View Simulator Component Frame */}
               <div className="h-56 w-full bg-muted/40 border border-border/40 rounded-xl overflow-hidden flex items-center justify-center relative select-none">
                 {tempImage && (
-                  <img src={tempImage} alt="Temporal preview" className="h-full w-full object-contain select-none" />
+                  <SafeImage src={tempImage} alt="Pratinjau foto" className="h-full w-full object-contain select-none" />
                 )}
                 <div className="absolute inset-4 border-2 border-dashed border-primary/40 rounded-full pointer-events-none" />
               </div>
