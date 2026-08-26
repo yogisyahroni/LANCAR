@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tembus.merchant.data.model.MerchantOrder
+import com.tembus.merchant.data.model.ItemRejectRequest
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
@@ -61,6 +62,15 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var rejectTarget by remember { mutableStateOf<MerchantOrder?>(null) }
+    var partialRejectTarget by remember { mutableStateOf<MerchantOrder?>(null) }
+
+    // 11.4: prep timer — tick tiap detik supaya countdown "preparing" live.
+    LaunchedEffect(Unit) {
+        while (true) {
+            viewModel.tickPrepTimers()
+            kotlinx.coroutines.delay(1000)
+        }
+    }
 
     // Dialog error aksi (accept/reject/toggle)
     state.actionError?.let { msg ->
@@ -83,6 +93,18 @@ fun HomeScreen(
                 rejectTarget = null
             },
             onDismiss = { rejectTarget = null }
+        )
+    }
+
+    // 11.4: dialog partial reject — sebagian item unavailable → trigger refund.
+    partialRejectTarget?.let { order ->
+        PartialRejectOrderDialog(
+            order = order,
+            onConfirm = { items, reason ->
+                viewModel.rejectOrderItems(order.id, items, reason)
+                partialRejectTarget = null
+            },
+            onDismiss = { partialRejectTarget = null }
         )
     }
 
@@ -164,8 +186,10 @@ fun HomeScreen(
                 OrderCard(
                     order = order,
                     isActionLoading = state.actionOrderId == order.id,
+                    prepSecondsLeft = state.prepTimers[order.id] ?: 0L,
                     onAccept = { viewModel.acceptOrder(order.id) },
                     onReject = { rejectTarget = order },
+                    onPartialReject = { partialRejectTarget = order },
                     onOpenEdit = { onOpenEditOrder(order.id) }, // FB-087
                     onOpenStruk = { onOpenStruk(order.id) },
                     onOpenChat = { onOpenChat(order.id, order.orderNumber) }, // FB-119
@@ -175,6 +199,89 @@ fun HomeScreen(
             }
         }
     }
+}
+
+@Composable
+private fun PartialRejectOrderDialog(
+    order: MerchantOrder,
+    onConfirm: (items: List<ItemRejectRequest>, reason: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Pilih item (menurut snapshot order) + jumlah yang unavailable.
+    val reasons = listOf(
+        "stok_habis" to "Stok habis",
+        "bahan_kosong" to "Bahan baku habis",
+        "lainnya" to "Lainnya"
+    )
+    var selectedReason by remember(order.id) { mutableStateOf("stok_habis") }
+    // menu_item_id -> qty dipilih (0 = tidak ditolak).
+    val qtyState = remember(order.id) {
+        order.items.associate { it.menuItemId to mutableStateOf(0) }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Tolak Sebagian Item — ${order.orderNumber}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Pilih item yang tidak tersedia. Customer otomatis di-refund untuk item ini (FB-080).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                order.items.forEach { item ->
+                    val qty = qtyState[item.menuItemId] ?: return@forEach
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(item.itemName, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "tersedia ${item.quantity}×",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(
+                            onClick = { qty.value = (qty.value - 1).coerceAtLeast(0) }
+                        ) { Text("−", fontWeight = FontWeight.Bold) }
+                        Text("${qty.value}", modifier = Modifier.padding(horizontal = 8.dp))
+                        IconButton(
+                            onClick = { qty.value = (qty.value + 1).coerceAtMost(item.quantity) }
+                        ) { Text("+", fontWeight = FontWeight.Bold) }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Alasan:", style = MaterialTheme.typography.labelMedium)
+                reasons.forEach { (code, label) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = selectedReason == code, onClick = { selectedReason = code })
+                        Text(label, modifier = Modifier
+                            .padding(start = 4.dp)
+                            .clickable { selectedReason = code })
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            val selected = qtyState.filter { it.value.value > 0 }.map { (menuItemId, qty) ->
+                val item = order.items.first { it.menuItemId == menuItemId }
+                ItemRejectRequest(
+                    menuItemId = menuItemId,
+                    quantity = qty.value,
+                    reason = "$selectedReason (${item.itemName})"
+                )
+            }
+            TextButton(
+                onClick = { onConfirm(selected, selectedReason) },
+                enabled = selected.isNotEmpty()
+            ) { Text("Tolak & Refund", color = MaterialTheme.colorScheme.error) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Batal") }
+        }
+    )
 }
 
 @Composable
@@ -412,8 +519,10 @@ private fun FilterChipsRow(
 private fun OrderCard(
     order: MerchantOrder,
     isActionLoading: Boolean,
+    prepSecondsLeft: Long = 0L,
     onAccept: () -> Unit,
     onReject: () -> Unit,
+    onPartialReject: () -> Unit, // 11.4: partial reject (item unavailable → refund)
     onOpenEdit: () -> Unit, // FB-087: edit item order (pending_merchant)
     onOpenStruk: () -> Unit,
     onOpenChat: () -> Unit, // FB-119: chat customer↔merchant
@@ -562,6 +671,37 @@ private fun OrderCard(
             // Merchant explicit tandai siap → mulai cari kurir (DoorDash-style).
             if (order.status == "preparing") {
                 Spacer(modifier = Modifier.height(12.dp))
+                // 11.4: prep timer countdown ke foodReadyAt (waktu siap ideal).
+                val mins = prepSecondsLeft / 60
+                val secs = prepSecondsLeft % 60
+                val isOverdue = prepSecondsLeft <= 0L
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            if (isOverdue) MaterialTheme.colorScheme.errorContainer
+                            else MaterialTheme.colorScheme.primaryContainer,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isOverdue) "⏰ Waktu prep habis" else "⏱ Prep:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (isOverdue) MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = if (isOverdue) "tandai siap!" else String.format("%02d:%02d", mins, secs),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isOverdue) MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
                 Button(
                     onClick = onMarkReady,
                     enabled = !isActionLoading,
@@ -570,6 +710,20 @@ private fun OrderCard(
                     Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Pesanan Siap")
+                }
+                // 11.4: sebagian item unavailable → partial reject + refund otomatis.
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onPartialReject,
+                    enabled = !isActionLoading,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(Icons.Filled.Cancel, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Sebagian Item Habis")
                 }
             }
 

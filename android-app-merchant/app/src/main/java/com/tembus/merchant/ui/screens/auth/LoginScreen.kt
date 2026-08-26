@@ -204,7 +204,12 @@ fun rememberLoginViewModelFactory(): androidx.lifecycle.ViewModelProvider.Factor
         object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return LoginViewModel(app.container.authRepository, app.container.onboardingPreferences) as T
+                return LoginViewModel(
+                    app.container.authRepository,
+                    app.container.onboardingPreferences,
+                    app.container.sessionManager,
+                    app.applicationContext
+                ) as T
             }
         }
     }

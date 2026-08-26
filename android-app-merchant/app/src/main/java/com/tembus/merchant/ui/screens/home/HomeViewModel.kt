@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.model.MerchantOrder
 import com.tembus.merchant.data.model.UpdateProfileRequest
+import com.tembus.merchant.data.model.ItemRejectRequest
 import com.tembus.merchant.data.notifications.OrderAlertNotifier
 import com.tembus.merchant.data.repository.MerchantRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +33,9 @@ data class HomeUiState(
     val pauseRemainingMinutes: Long = 0L,
     val actionOrderId: String? = null,
     val actionError: String? = null,
-    val needsRegistration: Boolean = false
+    val needsRegistration: Boolean = false,
+    // 11.4: prep timer — orderId -> detik tersisa (dihitung dari accepted_at + prep_time_minutes).
+    val prepTimers: Map<String, Long> = emptyMap()
 )
 
 class HomeViewModel(
@@ -260,13 +263,50 @@ class HomeViewModel(
         }
     }
 
+    // 11.4: partial reject — sebagian item unavailable → trigger refund (FB-080).
+    fun rejectOrderItems(orderId: String, items: List<ItemRejectRequest>, reason: String = "item_unavailable") {
+        _uiState.value = _uiState.value.copy(actionOrderId = orderId, actionError = null)
+        viewModelScope.launch {
+            merchantRepository.rejectOrderItems(orderId, items, reason)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(actionOrderId = null)
+                    loadOrders()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        actionOrderId = null,
+                        actionError = e.message ?: "Gagal tolak sebagian item"
+                    )
+                }
+        }
+    }
+
     fun clearActionError() {
         _uiState.value = _uiState.value.copy(actionError = null)
     }
 
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
+    // 11.4: hitung sisa detik prep timer untuk order "preparing" berdasarkan
+    // foodReadyAt (backend = accepted_at + prep_time_minutes). Dipanggil tiap
+    // detik dari UI (LaunchedEffect ticker). Nilai max(0, ...) — 0 = waktunya
+    // tandai siap.
+    fun tickPrepTimers() {
+        val orders = _uiState.value.orders
+        if (orders.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val next = orders.filter { it.status == "preparing" }.associate { order ->
+            val secs = order.foodReadyAt?.let { parseIsoToEpoch(it) }
+                ?.let { ((it - now) / 1000).coerceAtLeast(0L) }
+                ?: 0L
+            order.id to secs
+        }
+        if (next != _uiState.value.prepTimers) {
+            _uiState.value = _uiState.value.copy(prepTimers = next)
+        }
     }
+
+    private fun parseIsoToEpoch(iso: String): Long? = runCatching {
+        java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli()
+    }.getOrNull()
 
     companion object {
         val activeStatuses = setOf(

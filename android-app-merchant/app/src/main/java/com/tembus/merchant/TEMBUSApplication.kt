@@ -12,6 +12,8 @@ import com.tembus.merchant.data.repository.ChatRepository
 import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.data.session.AuthSessionManager
 import com.tembus.merchant.util.UpdateManager
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 /**
  * AppContainer — manual dependency injection (tanpa Hilt; pola ringan & langsung).
@@ -52,5 +54,15 @@ class TEMBUSApplication : Application() {
             this, android.preference.PreferenceManager.getDefaultSharedPreferences(this)
         )
         org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
+
+        // 11.4: (1) schedule fallback polling tiap 15 menit (background/killed
+        // tanpa FCM), (2) daftarkan FCM token ke backend kalau sudah login.
+        com.tembus.merchant.data.notifications.OrderPollWorker.schedule(this)
+        val session = container.sessionManager
+        if (session.getAuthTokenSync().isNullOrBlank().not()) {
+            kotlinx.coroutines.GlobalScope.launch {
+                com.tembus.merchant.data.notifications.DeviceTokenRegistrar.registerCurrentToken(this@TEMBUSApplication, session)
+            }
+        }
     }
 }

@@ -10,6 +10,9 @@
     <!-- FB-106: notifikasi order baru (suara + getar) — wajib Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 11.4: WorkManager periodic poll fallback (saat FCM unavailable) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:name=".TEMBUSApplication"
@@ -40,6 +43,15 @@
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|keyboardHidden">
         </activity>
+
+        <!-- 11.4: FCM receiver — alert order baru di foreground/background/killed -->
+        <service
+            android:name=".data.notifications.OrderAlertService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
         <!-- Auto-update: share APK hasil download ke installer Android (FB-2026-08). -->
         <provider

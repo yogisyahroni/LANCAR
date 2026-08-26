@@ -144,6 +144,26 @@ data class RejectOrderRequest(
     @SerializedName("reject_reason") val rejectReason: String
 )
 
+/** 11.4: satu baris item yang ditolak (unavailable) dalam partial reject. */
+data class ItemRejectRequest(
+    @SerializedName("menu_item_id") val menuItemId: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("reason") val reason: String
+)
+
+/** 11.4: partial reject — daftar item unavailable + alasan order keseluruhan. */
+data class RejectOrderItemsRequest(
+    @SerializedName("items") val items: List<ItemRejectRequest>,
+    @SerializedName("reason") val reason: String = "item_unavailable"
+)
+
+/** 11.4: register FCM device token (FOOD-BIKE-064). */
+data class RegisterDeviceTokenRequest(
+    @SerializedName("token") val token: String,
+    @SerializedName("platform") val platform: String = "android",
+    @SerializedName("app_name") val appName: String = "tembus-merchant"
+)
+
 /** FB-114: update rekening bank merchant (payout settlement). */
 data class UpdateBankAccountRequest(
     @SerializedName("bank_name") val bankName: String,

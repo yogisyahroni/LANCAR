@@ -36,34 +36,38 @@ class OrderAlertNotifier(context: Context) {
         const val PREFS_SEEN_ORDERS = "seen_order_ids"
 
         /** Vibration khas "order baru": 3 getaran pendek (berbeda dari notif biasa). */
-        private val VIBRATION_PATTERN = longArrayOf(0, 200, 100, 200, 100, 200)
+        val VIBRATION_PATTERN = longArrayOf(0, 200, 100, 200, 100, 200)
 
         /** Ambil set order id yang pernah dilihat (persist antar restart app). */
         fun seenOrderIds(prefs: SharedPreferences): Set<String> =
             prefs.getStringSet(PREFS_SEEN_ORDERS, emptySet()) ?: emptySet()
+
+        /** Buat notification channel (idempoten) — dipakai FCM + polling notifier. */
+        fun ensureChannel(context: Context) {
+            val appContext = context.applicationContext
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifikasi order baru masuk (suara + getar)"
+                enableVibration(true)
+                vibrationPattern = VIBRATION_PATTERN
+                setSound(
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+            }
+            appContext.getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(channel)
+        }
     }
 
-    fun ensureChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Notifikasi order baru masuk (suara + getar)"
-            enableVibration(true)
-            vibrationPattern = VIBRATION_PATTERN
-            setSound(
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-            )
-        }
-        appContext.getSystemService(NotificationManager::class.java)
-            .createNotificationChannel(channel)
-    }
+    fun ensureChannel() = ensureChannel(appContext)
 
     /**
      * Tandai order sebagai sudah dilihat (baseline / setelah alert dipicu).

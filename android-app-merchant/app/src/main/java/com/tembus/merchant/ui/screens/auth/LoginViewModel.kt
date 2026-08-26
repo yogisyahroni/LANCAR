@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.onboarding.OnboardingPreferences
 import com.tembus.merchant.data.repository.AuthRepository
+import com.tembus.merchant.data.session.AuthSessionManager
+import com.tembus.merchant.data.notifications.DeviceTokenRegistrar
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +23,9 @@ data class LoginUiState(
 
 class LoginViewModel(
     private val authRepository: AuthRepository,
-    private val onboardingPreferences: OnboardingPreferences
+    private val onboardingPreferences: OnboardingPreferences,
+    private val sessionManager: AuthSessionManager,
+    private val appContext: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -53,6 +58,9 @@ class LoginViewModel(
             authRepository.login(state.email, state.password)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(isLoading = false, loginSuccess = true)
+                    // 11.4: daftarkan FCM token ke backend setelah login sukses
+                    // (token pending dari onNewToken sebelum login ikut dikirim).
+                    launch { DeviceTokenRegistrar.registerCurrentToken(appContext, sessionManager) }
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(

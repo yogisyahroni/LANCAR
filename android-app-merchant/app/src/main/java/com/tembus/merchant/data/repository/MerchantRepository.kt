@@ -89,6 +89,10 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun rejectOrder(orderId: String, reason: String, rejectReason: String = "lainnya"): Result<Boolean> =
         request { api.rejectOrder(orderId, RejectOrderRequest(reason, rejectReason)) }.map { it.success }
 
+    // 11.4: partial reject — sebagian item unavailable → trigger refund (FB-080).
+    suspend fun rejectOrderItems(orderId: String, items: List<ItemRejectRequest>, reason: String = "item_unavailable"): Result<Boolean> =
+        request { api.rejectOrderItems(orderId, RejectOrderItemsRequest(items, reason)) }.map { it.success }
+
     // ── FB-087: Edit order items ──
     suspend fun getOrderEdit(orderId: String): Result<OrderEditData> =
         request { api.getOrderEdit(orderId) }

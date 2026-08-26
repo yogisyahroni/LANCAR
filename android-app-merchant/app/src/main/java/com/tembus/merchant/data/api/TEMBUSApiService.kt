@@ -17,6 +17,12 @@ interface TEMBUSApiService {
         @Query("type") type: String
     ): Response<AppVersion>
 
+    // 11.4: daftarkan FCM device token (FOOD-BIKE-064) — POST /api/v1/device-tokens
+    @POST("api/v1/device-tokens")
+    suspend fun registerDeviceToken(
+        @Body request: RegisterDeviceTokenRequest
+    ): Response<SuccessResponse>
+
     // ── Auth (auth-service, generic untuk semua role) ──
     @POST("api/v1/auth/customer/login/start")
     suspend fun login(
@@ -147,6 +153,15 @@ interface TEMBUSApiService {
     suspend fun rejectOrder(
         @Path("id") id: String,
         @Body request: RejectOrderRequest
+    ): Response<SuccessResponse>
+
+    // 11.4: partial reject — sebagian item unavailable → backend trigger
+    // partial refund (FB-080 CreateItemRefund) otomatis. Baris item =
+    // {menu_item_id, quantity, reason}. Ongkir tidak direfund (default).
+    @POST("api/v1/merchant/orders/{id}/reject-items")
+    suspend fun rejectOrderItems(
+        @Path("id") id: String,
+        @Body request: RejectOrderItemsRequest
     ): Response<SuccessResponse>
 
     // ── FB-087: Edit order items ──

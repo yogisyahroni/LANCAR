@@ -3,6 +3,8 @@ import java.net.URI
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // 11.4: Firebase Cloud Messaging (order alert foreground/background/killed).
+    id("com.google.gms.google-services")
 }
 
 fun getConfigValue(key: String): String {
@@ -220,6 +222,13 @@ dependencies {
 
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // 11.4: Firebase Cloud Messaging (order alert saat app background/killed).
+    // BoM mengunci versi Firebase supaya cocok dgn compileSdk 36.
+    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    // 11.4: WorkManager (fallback periodic poll saat FCM unavailable).
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     // FB-093: peta OSM untuk pin lokasi saat registrasi (tanpa API key)
     implementation("org.osmdroid:osmdroid-android:6.1.18")
 
