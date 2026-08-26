@@ -85,27 +85,21 @@ export function useBroadcasts({ status, page, limit = 20 }: { status: string; pa
 export function useCreateBroadcast(options?: { onSuccessCreate?: (row: any) => void }) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ payload, sendNow }: { payload: BroadcastPayload; sendNow: boolean }) => {
-      const body: Record<string, unknown> = { ...payload, send_now: sendNow }
-      if (!sendNow) delete body.send_now
+    mutationFn: async (vars: { payload: BroadcastPayload; sendNow: boolean }) => {
+      const { payload, sendNow } = vars
+      const body: Record<string, unknown> = { ...payload }
+      if (sendNow) body.send_now = true
       const res = await api.post('/admin/broadcasts', body)
       return res.data
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['broadcasts'] })
-      if (variables.sendNow) {
-        toast.success('Broadcast dikirim ke antrean pengiriman')
-      } else if (variables.payload.status === 'scheduled') {
-        toast.success('Broadcast dijadwalkan')
-      } else {
-        toast.success('Draft broadcast disimpan')
-      }
-      options?.onSuccessCreate?.(_data?.data)
+      toast.success('Broadcast disimpan')
     },
     onError: (error: any) => {
       toast.error(broadcastErrorMessage(error, 'Gagal menyimpan broadcast'))
     },
-  }),
+  })
 }
 
 export function useCancelBroadcast() {

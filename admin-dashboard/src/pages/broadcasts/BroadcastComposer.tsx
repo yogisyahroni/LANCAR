@@ -13,9 +13,9 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { cn } from '../../../lib/utils'
+import { cn } from '../../lib/utils'
 import { toast } from 'sonner'
-import { FocusTrap } from '../../../components/a11y/FocusTrap'
+import { FocusTrap } from '../../components/a11y/FocusTrap'
 import type { BroadcastRow, BroadcastTargetType } from './hooks/useBroadcasts'
 import { useCreateBroadcast, broadcastErrorMessage } from './hooks/useBroadcasts'
 import {
