@@ -66,7 +66,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 3.4 | Skeleton web | ❌ |
 | 4.1 | R8 + shrinkResources | ✅ |
 | 4.1 | abiFilters exclude x86/x86_64 | ✅ DONE — both apps `build.gradle.kts` set `abiFilters += ["armeabi-v7a","arm64-v8a"]` (x86 excluded); verified 2026-08-26 |
-| 4.1 | Bundle splits / Baseline Profile / WebP | ❌ |
+| 4.1 | Bundle splits / Baseline Profile / WebP | 🟡 PARTIAL — `abi { enableSplit = true }` added to both apps' `bundle {}` (2026-08-26, gradle sync OK); language+density splits already on. Baseline Profile + WebP (8 PNG) still ❌ |
 | 4.1 | Junk files cleanup | ✅ DONE — `android-app-customer/logcat2.txt` removed 2026-08-26 (commit `a63e151`); earlier `temp.js`/`logcat_*.txt`/`tmp_*` removed `54af2e0` |
 | 10 | Broadcast Center end-to-end | 🟡 PARTIAL — backend (controller+3 service+scheduler, routes ter-register) + admin UI (BroadcastComposer/BroadcastDeliveryReport/hooks) SUDAH ADA (commit 54af2e0); kurir app handler type/topic/deeplink ❌ |
 | 11.1 | Address book backend API | ✅ |
