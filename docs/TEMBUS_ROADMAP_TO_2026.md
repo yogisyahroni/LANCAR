@@ -39,20 +39,20 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 1 | Split `courierAuth.controller.ts` | ✅ |
 | 1 | Split `customerOrder.controller.ts` | ✅ |
 | 1 | Split `order_service.go` | ✅ |
-| 1 | OnDemandMapScreens / PayoutScreens / HubScreens | ✅ terdistribusi ulang |
-| 1 | Split `order_handler.go` | ❌ |
-| 1 | Split domain `order.go` | 🟡 |
-| 1 | Split OrderDetailScreen.kt (kurir) | ❌ |
-| 1 | Split BookingScreen.kt (customer) | ❌ |
-| 1 | Split TrackingScreen.kt | ❌ |
-| 1 | Split MainScreen.kt | ❌ |
-| 1 | Split Finance.tsx / Settings.tsx | ❌ |
-| 1 | Split orders/[id]/page.tsx & OnDemandOrderForm.tsx | ❌ |
-| 1 | Split routes.ts admin-service | ❌ |
-| 2.1 | Accessibility WCAG 2.2 AA | ❌ (~10–15%) |
-| 2.2 | Circuit breaker + retry + bulkhead | 🟡 |
+| 1 | OnDemandMapScreens / PayoutScreens / HubScreens | 🟡 SEBAGIAN — file legacy MASIH ADA (1614/1092/869 baris) + split-targets (TambalBanFlowScreen 542, TowingFlowScreen 465, dll) duplikat; belum dibuang |
+| 1 | Split `order_handler.go` | ✅ DONE (346 baris + 4 handler) |
+| 1 | Split domain `order.go` | ✅ DONE (order.go 444 + order_food.go 237) |
+| 1 | Split OrderDetailScreen.kt (kurir) | 🟡 PARTIAL (2557→2444 + OrderDetailComponents.kt) |
+| 1 | Split BookingScreen.kt (customer) | ❌ (masih 2495) |
+| 1 | Split TrackingScreen.kt | 🟡 PARTIAL (1091→953 + TrackingComponents.kt + 15 test) |
+| 1 | Split MainScreen.kt | 🟡 PARTIAL (1024→939 + MainHomeContent + MainBottomNav) |
+| 1 | Split Finance.tsx / Settings.tsx | ❌ (masih 2622/2129) |
+| 1 | Split orders/[id]/page.tsx & OnDemandOrderForm.tsx | ❌ (masih 1530/1177) |
+| 1 | Split routes.ts admin-service | ✅ **DONE 2026-08-26** — 642→68-line aggregator + `routes/{auth,courier,notification,order,admin,public}.routes.ts`; `tsc --noEmit` EXIT 0, `npm test` 165/165 PASS. Preserved `requireAuth`/`requireTotp` gates |
+| 2.1 | Accessibility WCAG 2.2 AA | ✅ **DONE 2026-08-26** — Android `SemanticsHelpers.kt` (customer+courier) + wired `PaymentScreen`/`ServiceTrackingScreen`/`ProofOfDeliveryScreen`; web `SafeImage`, focus-ring, reduced-motion, `lang="id"`; verified in staging commit `3b78722` |
+| 2.2 | Circuit breaker + retry + bulkhead | ✅ **DONE 2026-08-26** — Go `order-service` Midtrans QRIS/Snap wrapped via vendored `resilience` pkg (commit `fc082a8`); TS `admin-service` merchant-settlement order call guarded (commit `3b78722`). `tsc --noEmit` + `go build` EXIT 0 |
 | 2.2 | Rate limiter api-gateway | ✅ (catatan: in-memory store) |
-| 2.3 | Feature flags | 🟡 backend+admin ✅, client SDK ❌ |
+| 2.3 | Feature flags | ✅ backend+admin ✅, client SDK ✅ (commit `54af2e0`: `frontend/src/lib/featureFlags.ts`, `useFeatureFlag.ts`, Android `featureflag/`) |
 | 2.4 | Certificate pinning runtime OkHttp | ✅ |
 | 2.4 | Fake GPS sensor fusion | ✅ |
 | 3.1 | Observability SRE (SLO/Grafana) | ❌ (alert rules + Telegram sudah ada) |
@@ -67,7 +67,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 4.1 | abiFilters exclude x86/x86_64 | ❌ (ship 4 ABI) |
 | 4.1 | Bundle splits / Baseline Profile / WebP | ❌ |
 | 4.1 | Junk files cleanup | ❌ (logcat/tmp/.exe/.hermes-tmp ter-commit) |
-| 10 | Broadcast Center end-to-end | ❌ (inbox kurir = fondasi ~45%) |
+| 10 | Broadcast Center end-to-end | 🟡 PARTIAL — backend (controller+3 service+scheduler, routes ter-register) + admin UI (BroadcastComposer/BroadcastDeliveryReport/hooks) SUDAH ADA (commit 54af2e0); kurir app handler type/topic/deeplink ❌ |
 | 11.1 | Address book backend API | ✅ |
 | 11.1 | Laporan/export nyata (UMKM analytics) | ✅ |
 | 11.1 | Cek resi publik / voucher page / landing utuh | ❌ |
@@ -122,7 +122,7 @@ Platform logistik on-demand multi-service (Parcel, Food, Tambal Ban, Towing) yan
 | `backend/admin-service/src/controllers/courierAuth.controller.ts` | **5445** | 🔴 P0 | ≤ 300–400 |
 | `backend/admin-service/src/controllers/customerOrder.controller.ts` | **5065** | 🔴 P0 | ≤ 300–400 |
 | `admin-dashboard/src/pages/Finance.tsx` | **2622** | 🔴 P0 | ≤ 400 |
-| `android-app/.../order/OrderDetailScreen.kt` | **2557** | 🔴 P0 | ≤ 400 |
+| `android-app/.../order/OrderDetailScreen.kt` | **2444** (refactor 2557→2444) | 🔴 P0 | ≤ 400 |
 | `backend/order-service/internal/service/order_service.go` | **2531** | 🔴 P0 | ≤ 400 |
 | `android-app-customer/.../booking/BookingScreen.kt` | **2495** | 🔴 P0 | ≤ 400 |
 | `admin-dashboard/src/pages/Settings.tsx` | **2129** | 🟠 P1 | ≤ 400 |
@@ -131,8 +131,8 @@ Platform logistik on-demand multi-service (Parcel, Food, Tambal Ban, Towing) yan
 | `frontend/src/app/(portal)/orders/[id]/page.tsx` | **1530** | 🟠 P1 | ≤ 400 |
 | `frontend/src/components/orders/OnDemandOrderForm.tsx` | **1177** | 🟠 P1 | ≤ 350 |
 | `android-app/.../PayoutScreens.kt` | **1092** | 🟠 P1 | ≤ 350 |
-| `android-app-customer/.../tracking/TrackingScreen.kt` | **1091** | 🟠 P1 | ≤ 350 |
-| `android-app/.../MainScreen.kt` | **1024** | 🔴 P0 | ≤ 300 |
+| `android-app-customer/.../tracking/TrackingScreen.kt` | **953** (refactor 1091→953) | 🟠 P1 | ≤ 350 |
+| `android-app/.../MainScreen.kt` | **939** (refactor 1024→939) | 🔴 P0 | ≤ 300 |
 | `android-app/.../OnDemandHubScreens.kt` | **869** | 🟠 P1 | ≤ 350 |
 | `backend/order-service/internal/domain/order.go` | **662** | 🟠 P1 | ≤ 300 |
 | `backend/admin-service/src/routes.ts` | **619** | 🟡 P2 | ≤ 300 |
@@ -285,7 +285,7 @@ android-app/.../ui/screens/
 ```
 
 ### Task — Split `OrderDetailScreen.kt` (2557 baris) — PALING BESAR ANDROID
-**Status:** 🟡 **PARTIAL** — `OrderDetailScreen.kt` 2557 → **2446 baris** (ekstraksi leaf components `InfoRow`/`StepPill`/`VerificationNotice`/`CompactActionButton`/`shortOrderId`/`formatRp` + theme colors `LogisticsOrange`/`DeepForest`/`OnDemandSurface` → `OrderDetailComponents.kt`, semua `internal`, same-package). `compileDebugKotlin` BUILD SUCCESSFUL. Sisa: composable besar (`DeliveryMapCard` ~385, `OnDemandTaskActions` ~150, `OnDemandJobHeader`, `OnDemandProofPanel`, `CourierNextActionPanel`, `SwipeToActionTrack`, `MandatoryPickupChecklist`, `FoodItemsCard`, `PackageChecklistCard`, `RegularFailedDeliveryPanel`, `OnDemandSupportActions`, `CancelPickupDialog`) masih di root — perlu sub-composable extraction lanjutan (pitfall #4: single-giant-composable butuh deps state-holder). Update 2026-08-26.
+**Status:** 🟡 **PARTIAL** — `OrderDetailScreen.kt` 2557 → **2444 baris** (ekstraksi leaf components `InfoRow`/`StepPill`/`VerificationNotice`/`CompactActionButton`/`shortOrderId`/`formatRp` + theme colors `LogisticsOrange`/`DeepForest`/`OnDemandSurface` → `OrderDetailComponents.kt` (147 baris, internal, same-package)). `compileDebugKotlin` BUILD SUCCESSFUL. Sisa composable besar (`DeliveryMapCard` ~385, `OnDemandTaskActions` ~150, `OnDemandJobHeader`, `OnDemandProofPanel`, `CourierNextActionPanel`, `SwipeToActionTrack`, `MandatoryPickupChecklist`, `FoodItemsCard`, `PackageChecklistCard`, `RegularFailedDeliveryPanel`, `OnDemandSupportActions`, `CancelPickupDialog`) masih di root — perlu sub-composable extraction lanjutan (pitfall #4: single-giant-composable butuh deps state-holder). Update 2026-08-26.
 
 **File lama:** `android-app/.../ui/screens/order/OrderDetailScreen.kt`
 
@@ -304,7 +304,7 @@ android-app/.../ui/screens/order/
 ```
 
 ### Task — Split `OnDemandMapScreens.kt` (1614 baris)
-**Status:** ✅ **TERDISTRIBUSI (bentuk berbeda dari blueprint)** — file sudah tidak ada; logikanya pecah ke `TambalBanFlowScreen.kt` (511), `TowingFlowScreen.kt` (435), `EmergencyNavigationScreen.kt`, `SosResolutionScreen.kt`, `MainScreenModalScreens.kt`, dll.
+**Status:** 🟡 **SEBAGIAN** — split-targets (`TambalBanFlowScreen.kt` 542, `TowingFlowScreen.kt` 465, `EmergencyNavigationScreen.kt` 125, `SosResolutionScreen.kt` 124) MEMANG ADA, TAPI file god-file legacy `OnDemandMapScreens.kt` (**1614 baris**) **MASIH ADA** (dikembalikan di commit 3fa6529 utk benerin compile). Belum dibuang → duplikasi.
 ```
 android-app/.../ui/screens/ondemand/
   ├── OnDemandMapScreen.kt
@@ -315,7 +315,7 @@ android-app/.../ui/screens/ondemand/
 ```
 
 ### Task — Split `PayoutScreens.kt` (1092) & `OnDemandHubScreens.kt` (869)
-**Status:** ✅ **TERDISTRIBUSI** — kedua file sudah tidak ada. Payout UI kini di `WalletScreens.kt` (359) + `PayoutUiState.kt`; hub screens masuk `MainScreenModalScreens.kt` (641). Semua ≤350 ✅.
+**Status:** 🟡 **SEBAGIAN** — `WalletScreens.kt` (371) + `PayoutUiState.kt` (30) + `MainScreenModalScreens.kt` (657) MEMANG ADA, TAPI file god-file legacy `PayoutScreens.kt` (**1092**) & `OnDemandHubScreens.kt` (**869**) **MASIH ADA**. Belum dibuang → duplikasi.
 Pecah per screen + bottom sheet + dialog. Target tiap file ≤350 baris.
 
 ---
@@ -352,7 +352,7 @@ android-app-customer/.../ui/screens/tracking/
 ## 1.5 Admin Dashboard & Frontend
 
 ### Task — Split `Finance.tsx` (2622 baris)
-**Status:** ❌ **BELUM** — masih **2494 baris**.
+**Status:** ❌ **BELUM** — masih **2622 baris** (belum dipecah).
 ```
 admin-dashboard/src/pages/finance/
   ├── FinancePage.tsx
@@ -364,11 +364,11 @@ admin-dashboard/src/pages/finance/
 ```
 
 ### Task — Split `Settings.tsx` (2129 baris)
-**Status:** ❌ **BELUM** — masih **2048 baris**.
+**Status:** ❌ **BELUM** — masih **2129 baris** (belum dipecah).
 Pecah per tab/section (General, Pricing, Zones, Notification, Security, dll).
 
 ### Task — Frontend Order Detail & Form
-**Status:** ❌ **BELUM** — `orders/[id]/page.tsx` masih **1441 baris**, `OnDemandOrderForm.tsx` masih **1102 baris**.
+**Status:** ❌ **BELUM** — `orders/[id]/page.tsx` masih **1530 baris**, `OnDemandOrderForm.tsx` masih **1177 baris**.
 - `frontend/src/app/(portal)/orders/[id]/page.tsx` (1530) → pecah ke components
 - `frontend/src/components/orders/OnDemandOrderForm.tsx` (1177) → sub-components per step
 
@@ -1045,7 +1045,7 @@ android-app/app/src/main/java/com/tembus/courier/
 
 ### P0
 - [ ] **Terima Broadcast Center** (FCM type `admin_broadcast`, Inbox, deep link) — lihat BAGIAN 10 — ❌ *(Inbox ✅; handler type/topics/deeplink ❌)*
-- [ ] God-file refactor: `OrderDetailScreen.kt` (2557), `MainScreen.kt` (1024), `OnDemandMapScreens.kt` (1614), dll — 🟡 *(OnDemand/Payout/Hub ✅ terdistribusi; OrderDetail 2443 & MainScreen 984 ❌)*
+- [ ] God-file refactor: `OrderDetailScreen.kt` (2444), `MainScreen.kt` (939), `OnDemandMapScreens.kt` (1614), `PayoutScreens.kt` (1092), `OnDemandHubScreens.kt` (869) — 🟡 *(legacy god-files MASIH ADA + split-targets duplikat; OrderDetail & MainScreen partial ✅; BookingScreen 2495 ❌)*
 - [x] Certificate pinning **runtime** attach ke OkHttp ✅ *DONE — NetworkModule.kt kedua app + Socket.IO + build-time enforcement*
 - [x] Fake GPS detection advanced (sensor fusion) ✅ *DONE — FakeGpsDetector.kt (486 baris) + SensorFusionEngine.kt + enforcement loop*
 
