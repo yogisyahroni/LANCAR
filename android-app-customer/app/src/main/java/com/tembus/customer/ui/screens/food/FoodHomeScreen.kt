@@ -58,6 +58,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import androidx.compose.foundation.Image
+import com.tembus.customer.R
+import androidx.compose.ui.res.painterResource
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.Error
@@ -70,6 +73,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // FOOD-BIKE-055: browse merchant terdekat (list + search + filter)
+private val FOOD_EMOJIS = listOf("🍜", "🍲", "🍛", "🍗", "🍚", "🥘", "🍱", "🥗")
+
+/** Deterministic food emoji so each merchant keeps a stable visual across recompositions. */
+fun foodEmojiFor(seed: String): String =
+    FOOD_EMOJIS[Math.abs(seed.hashCode()) % FOOD_EMOJIS.size]
+
 @Composable
 fun FoodHomeScreen(
     initialLat: Double,
@@ -278,14 +287,15 @@ private fun FoodMerchantCard(
                         error = rememberVectorPainter(Icons.Default.Store)
                     )
                 } else {
-                    Icon(
-                        Icons.Default.Store,
-                        contentDescription = null,
-                        tint = Color.White,
+                    // Brand-gradient placeholder with a food emoji (backend hasn't sent a photo yet).
+                    Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .align(Alignment.Center)
-                    )
+                            .fillMaxSize()
+                            .background(Brush.linearGradient(listOf(PrimaryLight, Primary.copy(alpha = 0.55f)))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(foodEmojiFor(merchant.id ?: merchant.name), fontSize = 48.sp)
+                    }
                 }
                 // Favorite toggle (top-end of image)
                 if (onFavoriteClick != null) {
@@ -362,6 +372,14 @@ private fun FoodMerchantCard(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (merchant.isOpen) Success else Error
+                    )
+                    // Estimasi waktu (mirip GrabFood "≈25 mnt")
+                    val etaMin = if (merchant.distanceKm != null) (8 + (merchant.distanceKm * 4)).toInt() else 25
+                    Text("•", color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(
+                        "≈$etaMin mnt",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

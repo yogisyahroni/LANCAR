@@ -65,6 +65,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import androidx.compose.foundation.Image
+import com.tembus.customer.R
+import androidx.compose.ui.res.painterResource
 import com.tembus.customer.data.model.FoodMenuItem
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.FoodOrderItemVariantRequest
@@ -190,14 +193,15 @@ fun MerchantDetailScreen(
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    Icon(
-                                        Icons.Default.Store,
-                                        contentDescription = null,
-                                        tint = Color.White,
+                                    // Brand-gradient placeholder with a food emoji (backend hasn't sent a photo yet).
+                                    Box(
                                         modifier = Modifier
-                                            .size(48.dp)
-                                            .align(Alignment.Center)
-                                    )
+                                            .fillMaxSize()
+                                            .background(Brush.linearGradient(listOf(PrimaryLight, Primary.copy(alpha = 0.55f)))),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(foodEmojiFor(m.id ?: m.name), fontSize = 64.sp)
+                                    }
                                 }
                             }
                             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
