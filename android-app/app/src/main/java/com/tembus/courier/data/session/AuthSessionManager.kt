@@ -13,12 +13,14 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.tembus.courier.notification.FcmTopicManager
 import org.json.JSONObject
 import java.io.File
 
@@ -33,6 +35,8 @@ private val Context.legacyDataStore: DataStore<Preferences> by preferencesDataSt
  * Also provides legacy migration from standard Preferences DataStore to prevent logged out users.
  */
 class AuthSessionManager(private val context: Context) {
+
+    private val topicScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val sharedPreferences: SharedPreferences by lazy {
         try {
@@ -121,6 +125,18 @@ class AuthSessionManager(private val context: Context) {
         _isLoggedInFlow.value = !token.isNullOrEmpty() && !cid.isNullOrEmpty()
         _isOnlineFlow.value = online
         _tokenExpiresAtFlow.value = if (storedExp > 0L) storedExp else extractJwtExpiry(token)
+
+        // Ensure FCM topic subscription (courier_all + courier_online) is active for
+        // already-logged-in couriers whose token predates the broadcast feature.
+        if (!token.isNullOrEmpty()) {
+            topicScope.launch {
+                try {
+                    FcmTopicManager.sync(_isOnlineFlow.value)
+                } catch (error: Exception) {
+                    Log.w("AuthSessionManager", "Topic sync skipped: ${error.message}")
+                }
+            }
+        }
     }
 
     // ── JWT EXPIRY HELPERS (S2-MA-02) ────────────────────────────────────────────
