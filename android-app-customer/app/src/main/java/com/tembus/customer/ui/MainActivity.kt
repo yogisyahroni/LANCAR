@@ -5,6 +5,7 @@ package com.tembus.customer.ui
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,6 +22,7 @@ import com.tembus.customer.data.model.AppVersion
 import com.tembus.customer.ui.components.UpdateDialog
 import com.tembus.customer.ui.theme.TEMBUSCustomerTheme
 import com.tembus.customer.util.UpdateManager
+import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -39,7 +41,7 @@ class MainActivity : FragmentActivity() {
     lateinit var authRepository: com.tembus.customer.data.repository.AuthRepository
 
     @Inject
-    lateinit var authSessionManager: com.tembus.customer.data.session.AuthSessionManager
+    lateinit var authSessionManager: Lazy<com.tembus.customer.data.session.AuthSessionManager>
 
     private var pendingDeepLinkUri by mutableStateOf<Uri?>(null)
 
@@ -47,11 +49,12 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
+        val splashStartedAt = SystemClock.elapsedRealtime()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
+
         splashScreen.setKeepOnScreenCondition {
-            viewModel.isLoading.value
+            SystemClock.elapsedRealtime() - splashStartedAt < 1_000L
         }
 
         // ---- DEBUG-ONLY UAT harness (BuildConfig.DEBUG) ----
@@ -164,7 +167,7 @@ class MainActivity : FragmentActivity() {
                 val token = resp.data?.token ?: resp.accessToken
                 val cid = resp.data?.customerId ?: resp.user?.id
                 if (!token.isNullOrBlank() && !cid.isNullOrBlank()) {
-                    authSessionManager.saveSessionSync(token, cid, resp.data?.name ?: resp.user?.name)
+                    authSessionManager.get().saveSessionSync(token, cid, resp.data?.name ?: resp.user?.name)
                     // Rewrite deep link to the real chat route
                     pendingDeepLinkUri = Uri.parse("tembus://orders/$orderId/chat")
                     // Re-launch RootNavGraph with the new deep link by recreating the activity intent

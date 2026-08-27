@@ -66,7 +66,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 3.4 | Skeleton web | ❌ |
 | 4.1 | R8 + shrinkResources | ✅ |
 | 4.1 | abiFilters exclude x86/x86_64 | ✅ DONE — both apps `build.gradle.kts` set `abiFilters += ["armeabi-v7a","arm64-v8a"]` (x86 excluded); verified 2026-08-26 |
-| 4.1 | Bundle splits / Baseline Profile / WebP | 🟡 PARTIAL — `abi { enableSplit = true }` added to both apps' `bundle {}` (2026-08-26, gradle sync OK); language+density splits already on. Baseline Profile + WebP (8 PNG) still ❌ |
+| 4.1 | Bundle splits / Baseline Profile / WebP | ✅ **DONE 2026-08-27** — 57 source PNG (`android-app*/app/src/main/res`) + build intermediates converted to WebP via PIL (0 fail); resource refs omit extension so no XML/Manifest edit needed; `assembleDebug` customer/courier/merchant all BUILD SUCCESSFUL. Baseline Profile still ❌ |
 | 4.1 | Junk files cleanup | ✅ DONE — `android-app-customer/logcat2.txt` removed 2026-08-26 (commit `a63e151`); earlier `temp.js`/`logcat_*.txt`/`tmp_*` removed `54af2e0` |
 | 10 | Broadcast Center end-to-end | 🟡 PARTIAL — backend + admin UI + scheduler + rate limit + delivery report + audit ✅; kurir app handler type/topic/deeplink/image/priority ✅ (local verified); device E2E kurir↔admin + zone topic + a11y polish pending |
 | 11.1 | Address book backend API | ✅ |

@@ -8,6 +8,9 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
 import java.io.File
@@ -27,20 +30,31 @@ class AuthSessionManager(private val context: Context) {
         createSecurePreferences()
     }
 
-    private val _isLoggedIn = MutableStateFlow(
-        !sharedPreferences.getString(KEY_AUTH_TOKEN, null).isNullOrEmpty() &&
-        !sharedPreferences.getString(KEY_CUSTOMER_ID, null).isNullOrEmpty()
-    )
+    private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: Flow<Boolean> = _isLoggedIn.asStateFlow()
 
-    private val _authToken = MutableStateFlow(sharedPreferences.getString(KEY_AUTH_TOKEN, null))
+    private val _authToken = MutableStateFlow<String?>(null)
     val authToken: Flow<String?> = _authToken.asStateFlow()
 
-    private val _customerId = MutableStateFlow(sharedPreferences.getString(KEY_CUSTOMER_ID, null))
+    private val _customerId = MutableStateFlow<String?>(null)
     val customerId: Flow<String?> = _customerId.asStateFlow()
 
-    private val _customerName = MutableStateFlow(sharedPreferences.getString(KEY_CUSTOMER_NAME, null))
+    private val _customerName = MutableStateFlow<String?>(null)
     val customerName: Flow<String?> = _customerName.asStateFlow()
+
+    init {
+        // Baca secure prefs di IO, jangan block main thread (penyebab splash nyangkut).
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val token = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
+                val cid = sharedPreferences.getString(KEY_CUSTOMER_ID, null)
+                _isLoggedIn.value = !token.isNullOrEmpty() && !cid.isNullOrEmpty()
+                _authToken.value = token
+                _customerId.value = cid
+                _customerName.value = sharedPreferences.getString(KEY_CUSTOMER_NAME, null)
+            }
+        }
+    }
 
     private val _sessionInvalidationReason = MutableStateFlow<SessionInvalidationReason?>(null)
     val sessionInvalidationReason = _sessionInvalidationReason.asStateFlow()

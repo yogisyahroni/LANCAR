@@ -51,7 +51,7 @@ val DarkPrimary = Color(0xFF1A7A4C)
 val DarkPrimaryBase = Color(0xFF23915B)
 val DarkPrimaryLight = Color(0xFF52B788) // 7.67:1 PASS — teks hijau di bg gelap
 val DarkPrimarySoft = Color(0xFF0D3322)  // pill hijau bg dark
-val DarkPrimaryPale = Color(0xFFF4F8F3)
+val DarkPrimaryPale = Color(0xFFF4FBF3)
 
 val DarkAccentDark = Color(0xFFC95A00)
 val DarkAccent = Color(0xFFFB923C)

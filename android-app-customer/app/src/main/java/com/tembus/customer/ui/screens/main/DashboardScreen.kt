@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.main
 
 import android.Manifest
+import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -64,6 +65,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,11 +73,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -108,6 +112,17 @@ private val SoftBlue @Composable get() = MaterialTheme.colorScheme.secondaryCont
 private val SoftOrange @Composable get() = MaterialTheme.colorScheme.tertiaryContainer
 private val SurfaceLine @Composable get() = MaterialTheme.colorScheme.outline
 
+@Composable
+private fun HomeStatusBarIcons() {
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+        }
+    }
+}
+
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -122,8 +137,9 @@ fun DashboardScreen(
     onFoodClick: () -> Unit = {},
     onIncomingClick: () -> Unit = {}
 ) {
+    HomeStatusBarIcons()
+
     val customerName by viewModel.customerName.collectAsState()
-    val activeOrders by viewModel.activeOrders.collectAsState()
     val incomingPackages by viewModel.incomingPackages.collectAsState()
     val dataError by viewModel.dataError.collectAsState()
     val notificationUnreadCount by viewModel.notificationUnreadCount.collectAsState()
@@ -242,20 +258,6 @@ fun DashboardScreen(
                     }
                 }
 
-                // Active orders — keep (customer bisa punya >1 order jalan).
-                activeOrders.forEach { order ->
-                    item(key = "active-${order.orderId}") {
-                        ActiveOrderCard(
-                            title = if (order.serviceSubType == "food_delivery") "Pesanan makanan aktif" else "Pengiriman aktif",
-                            subtitle = order.dropAddress.ifBlank { order.pickupAddress.ifBlank { order.orderId } },
-                            status = order.status,
-                            hasUnreadMessage = hasUnreadMessages,
-                            onClick = { onTrackingClick(order.orderId) },
-                            onChatClick = { onChatClick(order.orderId) }
-                        )
-                    }
-                }
-
                 if (incomingPackages.isNotEmpty()) {
                     item {
                         IncomingPackagesSection(
@@ -310,6 +312,36 @@ private fun TembusBrandMark(modifier: Modifier = Modifier) {
     )
 }
 
+private fun compactUnreadCount(count: Int): String = if (count > 9) "9+" else count.toString()
+
+
+private fun humanOrderStatus(statusLower: String): String = when (statusLower) {
+    "pending", "created", "waiting", "waiting_for_driver", "searching_driver" -> "Menunggu kurir"
+    "assigned", "accepted" -> "Kurir ditugaskan"
+    "picking_up" -> "Kurir menuju pickup"
+    "picked_up", "in_transit", "delivering" -> "Dalam perjalanan"
+    "delivered", "completed", "arrived" -> "Selesai"
+    "cancelled", "canceled" -> "Dibatalkan"
+    "failed", "payment_failed", "rejected" -> "Gagal"
+    else -> statusLower.replace("_", " ").replaceFirstChar { it.uppercase() }
+}
+
+@Composable
+private fun DashboardSectionHeader(title: String, subtitle: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
+            Text(subtitle, color = Muted, fontSize = 12.sp)
+        }
+    }
+}
+
 @Composable
 private fun GojekTopBar(
     customerName: String,
@@ -354,7 +386,7 @@ private fun GojekTopBar(
                     modifier = Modifier.size(18.dp).clip(CircleShape).background(Accent),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(notificationUnreadCount.coerceAtMost(99).toString(), color = MaterialTheme.colorScheme.onTertiary, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    Text(compactUnreadCount(notificationUnreadCount), color = MaterialTheme.colorScheme.onTertiary, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -397,8 +429,9 @@ private fun WalletCard() {
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Rp50.000", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Ink)
-                Text("183 coins", color = Muted, fontSize = 12.sp)
+                Text("Saldo siap dipakai", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Muted)
+                Text("Rp50.000", fontWeight = FontWeight.Black, fontSize = 18.sp, color = Ink)
+                Text("183 coins reward", color = Muted, fontSize = 12.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 WalletAction(Icons.Default.ArrowUpward, "Bayar")
@@ -433,6 +466,9 @@ private fun GojekServiceGrid(
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
     ) {
+        Text("Mau apa hari ini?", color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
+        Text("Layanan utama TEMBUS, satu tap ke pesanan.", color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             GojekServiceTile("Kirim Paket", Icons.Default.LocalShipping, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onPickupClick, modifier = Modifier.weight(1f))
             GojekServiceTile("Food", Icons.Default.Restaurant, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.onTertiary, onFoodClick, modifier = Modifier.weight(1f))
@@ -546,9 +582,9 @@ private fun NotificationPermissionPromptCard(
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Aktifkan notifikasi order", color = Ink, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                Text("Aktifkan update kurir", color = Ink, fontWeight = FontWeight.Black, fontSize = 16.sp)
                 Text(
-                    "Chat kurir, status pengiriman, bantuan, dan promo yang kamu izinkan akan muncul tepat waktu.",
+                    "Dapatkan alert saat kurir diterima, 5 menit dari lokasi, dan chat baru masuk.",
                     color = Muted,
                     fontSize = 12.sp,
                     lineHeight = 17.sp
@@ -562,7 +598,7 @@ private fun NotificationPermissionPromptCard(
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = LcGreen, contentColor = MaterialTheme.colorScheme.onPrimary),
                         shape = RoundedCornerShape(TembusRadius.Button)
                     ) {
-                        Text("Aktifkan", fontWeight = FontWeight.ExtraBold)
+                        Text("Aktifkan notifikasi", fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }
@@ -614,7 +650,8 @@ private fun ActiveOrderCard(
     val statusLower = status.lowercase()
     val isCancelled = statusLower in setOf("cancelled", "canceled", "failed", "rejected", "payment_failed") || statusLower.contains("cancel")
     val isDelivered = statusLower in setOf("delivered", "completed", "arrived")
-    val canOpenChat = !isCancelled && !isDelivered && statusLower in setOf(
+    val isPending = statusLower in setOf("pending", "created", "waiting", "waiting_for_driver", "searching_driver")
+    val canOpenChat = !isCancelled && !isDelivered && !isPending && statusLower in setOf(
         "assigned", "accepted", "picking_up", "picked_up", "in_transit", "delivering"
     )
 
@@ -627,18 +664,21 @@ private fun ActiveOrderCard(
     val statusColor = when {
         isCancelled -> Error
         isDelivered -> Success
+        isPending -> Accent
         else -> LcGreen
     }
 
     val iconVector = when {
         isCancelled -> Icons.Default.Warning
         isDelivered -> Icons.Default.CheckCircle
+        isPending -> Icons.Default.LocalShipping
         else -> Icons.Default.Navigation
     }
 
     val ctaText = when {
         isCancelled -> "Detail"
         isDelivered -> "Detail"
+        isPending -> "Detail"
         else -> "Lacak"
     }
 
@@ -671,7 +711,7 @@ private fun ActiveOrderCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(status.replace("_", " ").uppercase(), color = statusColor, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                Text(humanOrderStatus(statusLower), color = statusColor, fontWeight = FontWeight.Bold, fontSize = 11.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(ctaText, color = statusColor, fontWeight = FontWeight.ExtraBold)
@@ -760,12 +800,14 @@ private fun IncomingPackageCard(
     val normalizedStatus = order.status.lowercase()
     val isCancelled = normalizedStatus in setOf("cancelled", "canceled", "failed", "rejected", "payment_failed") || normalizedStatus.contains("cancel")
     val isDelivered = normalizedStatus in setOf("delivered", "completed", "arrived")
-    val canOpenChat = !isCancelled && !isDelivered && normalizedStatus in setOf(
+    val isPending = normalizedStatus in setOf("pending", "created", "waiting", "waiting_for_driver", "searching_driver")
+    val canOpenChat = !isCancelled && !isDelivered && !isPending && normalizedStatus in setOf(
         "picked_up", "in_transit", "delivering", "delivered", "completed"
     )
     val statusColor = when {
         isCancelled -> Error
         isDelivered -> Success
+        isPending -> Accent
         else -> LcGreen
     }
     Card(

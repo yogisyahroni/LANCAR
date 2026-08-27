@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -50,9 +51,12 @@ class MainViewModel @Inject constructor(
     }
 
     private fun checkAuth() {
-        viewModelScope.launch {
-            authenticatedDestination = resolveAuthenticatedDestination()
-            _startDestination.value = if (onboardingPreferences.isCompleted()) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val onboardingCompleted = runCatching { onboardingPreferences.isCompleted() }
+                .getOrDefault(false)
+            authenticatedDestination = runCatching { resolveAuthenticatedDestination() }
+                .getOrDefault(Screen.AuthGraph.route)
+            _startDestination.value = if (onboardingCompleted) {
                 authenticatedDestination
             } else {
                 Screen.Onboarding.route

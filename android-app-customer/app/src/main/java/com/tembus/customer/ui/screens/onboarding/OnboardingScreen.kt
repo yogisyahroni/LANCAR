@@ -4,6 +4,7 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,8 +46,8 @@ import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.OnAccent
 import com.tembus.customer.ui.theme.OnBackground
 import com.tembus.customer.ui.theme.OnSurfaceVariant
-import com.tembus.customer.ui.theme.OutlineStrong
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.PrimarySoft
 import com.tembus.customer.ui.theme.Surface
 import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.TembusSpacing
@@ -111,12 +112,12 @@ fun OnboardingScreen(
                 .fillMaxWidth(0.46f)
                 .heightIn(max = 56.dp)
         )
-        Spacer(modifier = Modifier.height(TembusSpacing.XLarge))
+        Spacer(modifier = Modifier.height(TembusSpacing.Large))
         OnboardingIndicator(
             pageCount = pages.size,
             selectedPage = pagerState.currentPage
         )
-        Spacer(modifier = Modifier.height(TembusSpacing.Large))
+        Spacer(modifier = Modifier.height(TembusSpacing.Medium))
 
         HorizontalPager(
             state = pagerState,
@@ -152,8 +153,9 @@ private fun OnboardingPageContent(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = modifier.padding(top = TembusSpacing.Medium),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
     ) {
         Box(
             modifier = Modifier
@@ -167,15 +169,15 @@ private fun OnboardingPageContent(
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 318.dp)
+                    .heightIn(max = 262.dp)
             )
         }
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = TembusSpacing.Large),
-            verticalArrangement = Arrangement.spacedBy(TembusSpacing.Medium)
+                .padding(bottom = TembusSpacing.Medium),
+            verticalArrangement = Arrangement.spacedBy(TembusSpacing.Small)
         ) {
             Text(
                 text = page.title,
@@ -218,7 +220,7 @@ private fun OnboardingIndicator(
                     .width(if (isSelected) 24.dp else 8.dp)
                     .height(8.dp)
                     .clip(RoundedCornerShape(50.dp))
-                    .background(if (isSelected) Primary else OutlineStrong)
+                    .background(if (isSelected) Primary else OnSurfaceVariant)
             )
         }
     }
@@ -280,11 +282,15 @@ private fun OnboardingActions(
             ) {
                 TextButton(
                     onClick = onSkip,
-                    modifier = Modifier.height(48.dp)
+                    modifier = Modifier
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(TembusRadius.Button))
+                        .background(PrimarySoft)
+                        .border(1.dp, Primary.copy(alpha = 0.18f), RoundedCornerShape(TembusRadius.Button)),
+                    colors = ButtonDefaults.textButtonColors(contentColor = Primary)
                 ) {
                     Text(
                         text = "Lewati",
-                        color = Primary,
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
