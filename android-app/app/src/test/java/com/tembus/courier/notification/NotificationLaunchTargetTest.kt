@@ -40,4 +40,12 @@ class NotificationLaunchTargetTest {
         assertEquals("ORD-3", target.selectedOrderId)
         assertNull(target.chatOrderId)
     }
+
+    @Test
+    fun `accepts only http image urls for rich broadcast notification`() {
+        assertEquals("https://cdn.example.test/banner.png", notificationImageUrl(mapOf("image_url" to "https://cdn.example.test/banner.png")))
+        assertEquals("http://cdn.example.test/banner.png", notificationImageUrl(mapOf("imageUrl" to "http://cdn.example.test/banner.png")))
+        assertNull(notificationImageUrl(mapOf("image_url" to "javascript:alert(1)")))
+        assertNull(notificationImageUrl(emptyMap()))
+    }
 }

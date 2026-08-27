@@ -18,3 +18,10 @@ internal fun notificationLaunchTarget(data: Map<String, String>): NotificationLa
         else -> NotificationLaunchTarget()
     }
 }
+
+internal fun notificationImageUrl(data: Map<String, String>): String? {
+    val raw = data["image_url"] ?: data["imageUrl"] ?: data["image"] ?: return null
+    val value = raw.trim()
+    return value.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+}
+

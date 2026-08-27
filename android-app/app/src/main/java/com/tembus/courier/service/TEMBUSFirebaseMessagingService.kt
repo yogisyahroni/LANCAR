@@ -5,6 +5,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.RingtoneManager
 import android.os.Build
 import android.util.Log
@@ -20,6 +22,7 @@ import com.tembus.courier.BuildConfig
 import com.tembus.courier.R
 import com.tembus.courier.TEMBUSApplication
 import com.tembus.courier.data.repository.FCMTokenRepository
+import com.tembus.courier.notification.notificationImageUrl
 import com.tembus.courier.notification.notificationLaunchTarget
 import com.tembus.courier.receiver.NotificationReceiver
 import com.tembus.courier.ui.MainActivity
@@ -30,6 +33,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.net.HttpURLConnection
+import java.net.URL
 import javax.inject.Inject
 
 /**
@@ -260,6 +265,19 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
             .setVibrate(longArrayOf(0, 800, 400, 800, 400, 1000))
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
 
+        if (type == "admin_broadcast" || type == "broadcast") {
+            notificationImageUrl(data)
+                ?.let(::loadNotificationBitmap)
+                ?.let { bitmap ->
+                    builder.setLargeIcon(bitmap)
+                        .setStyle(
+                            NotificationCompat.BigPictureStyle()
+                                .bigPicture(bitmap)
+                                .setSummaryText(body),
+                        )
+                }
+        }
+
         if (type == "order_assignment" || type == "on_demand_offer" || type == "sos_emergency_dispatch") {
             val fullScreenPendingIntent = PendingIntent.getActivity(
                 applicationContext,
@@ -311,6 +329,26 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
         }
 
         debugLog("Notification shown for type=$type")
+    }
+
+    private fun loadNotificationBitmap(imageUrl: String): Bitmap? {
+        return try {
+            val connection = (URL(imageUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 1500
+                readTimeout = 2000
+                instanceFollowRedirects = true
+            }
+            try {
+                val length = connection.contentLengthLong
+                if (length > 2_000_000L) return null
+                connection.inputStream.use { input -> BitmapFactory.decodeStream(input) }
+            } finally {
+                connection.disconnect()
+            }
+        } catch (error: Exception) {
+            warnLog("Broadcast image skipped: ${error::class.java.simpleName}")
+            null
+        }
     }
 
     private fun messageSummary(data: Map<String, String>): String {
