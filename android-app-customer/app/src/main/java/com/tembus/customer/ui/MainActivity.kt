@@ -168,14 +168,22 @@ class MainActivity : FragmentActivity() {
                 val cid = resp.data?.customerId ?: resp.user?.id
                 if (!token.isNullOrBlank() && !cid.isNullOrBlank()) {
                     authSessionManager.get().saveSessionSync(token, cid, resp.data?.name ?: resp.user?.name)
-                    // Rewrite deep link to the real chat route
-                    pendingDeepLinkUri = Uri.parse("tembus://orders/$orderId/chat")
-                    // Re-launch RootNavGraph with the new deep link by recreating the activity intent
-                    val chatIntent = Intent(this@MainActivity, MainActivity::class.java).apply {
-                        data = Uri.parse("tembus://orders/$orderId/chat")
-                        flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    if (orderId == "home") {
+                        // Debug-only: route straight to Dashboard after auto-login (skip chat).
+                        pendingDeepLinkUri = null
+                        val homeIntent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        }
+                        startActivity(homeIntent)
+                    } else {
+                        // Rewrite deep link to the real chat route
+                        pendingDeepLinkUri = Uri.parse("tembus://orders/$orderId/chat")
+                        val chatIntent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                            data = Uri.parse("tembus://orders/$orderId/chat")
+                            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        }
+                        startActivity(chatIntent)
                     }
-                    startActivity(chatIntent)
                 } else {
                     android.util.Log.e("MainActivity", "UAT debug login: empty token/cid (requireOtp=${resp.requireOtp})")
                 }
