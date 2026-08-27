@@ -66,7 +66,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 3.4 | Skeleton web | ❌ |
 | 4.1 | R8 + shrinkResources | ✅ |
 | 4.1 | abiFilters exclude x86/x86_64 | ✅ DONE — both apps `build.gradle.kts` set `abiFilters += ["armeabi-v7a","arm64-v8a"]` (x86 excluded); verified 2026-08-26 |
-| 4.1 | Bundle splits / Baseline Profile / WebP | ✅ **DONE 2026-08-27** — 57 source PNG (`android-app*/app/src/main/res`) + build intermediates converted to WebP via PIL (0 fail); resource refs omit extension so no XML/Manifest edit needed; `assembleDebug` customer/courier/merchant all BUILD SUCCESSFUL. Baseline Profile still ❌ |
+| 4.1 | Bundle splits / Baseline Profile / WebP | ✅ **DONE 2026-08-28** — 57 source PNG + build intermediates → WebP (0 fail); Baseline Profile ✅ (`baseline-prof.txt` + `profileinstaller` dep, commit `377968c`); `assembleDebug` customer/courier/merchant all BUILD SUCCESSFUL |
 | 4.1 | Junk files cleanup | ✅ DONE — `android-app-customer/logcat2.txt` removed 2026-08-26 (commit `a63e151`); earlier `temp.js`/`logcat_*.txt`/`tmp_*` removed `54af2e0` |
 | 10 | Broadcast Center end-to-end | 🟡 PARTIAL — backend + admin UI + scheduler + rate limit + delivery report + audit ✅; kurir app handler type/topic/deeplink/image/priority ✅ (local verified); device E2E kurir↔admin + zone topic + a11y polish pending |
 | 11.1 | Address book backend API | ✅ |
@@ -350,7 +350,10 @@ android-app-customer/.../ui/screens/tracking/
 
 ---
 
-## 1.5 Admin Dashboard & Frontend
+### Task — Food UI hero-image cards (FOOD-IMG)
+**Status:** ✅ **DONE 2026-08-28** (commit `377968c`) — `FoodMerchantCard` redesign ke horizontal hero-image card (AsyncImage Coil + gradient fallback + favorite + rating/distance/Buka/halal badge); `MerchantDetailScreen` header jadi full-width hero image. `FoodMerchant` + field `imageUrl` (`image_url`, nullable). Hero fallback chain: `merchant.imageUrl ?: menuItems.firstOrNull()?.foto` → gradient+Store icon. `compileDebugKotlin` + `assembleDebug` BUILD SUCCESSFUL; CI staging GREEN (run 33103974762). Staging backend belum isi `image_url`/`menu.foto` → fallback gradient+icon render; foto nyata muncul saat API populate.
+
+---
 
 ### Task — Split `Finance.tsx` (2622 baris)
 **Status:** ✅ **DONE 2026-08-26** — `Finance.tsx` 2622 → `useFinanceData.ts` (data hook, ~100 fields) + `FinanceContent.tsx` (orchestrator) + 8 tab panels in `finance/` (closingPanel, ledgerPanel, pnlPanel, reconciliationPanel, taxPanel, trialbalancePanel, uniteconomicsPanel) + `Finance.tsx` thin wrapper. Local `npm run build` EXIT 0 + CI/CD Staging GREEN (run 33002654176, commit `45ad916`).
