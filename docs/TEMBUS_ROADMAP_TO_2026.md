@@ -790,6 +790,8 @@ admin-dashboard/src/pages/broadcasts/
 
 ## 10.3 Backend — API & Engine
 
+**Status update 2026-08-27:** ✅ **BC-5 scheduling/draft/cancel verified by tests** — repo sudah punya create draft/scheduled (`POST /admin/broadcasts`), update/cancel (`PATCH /admin/broadcasts/:id`), force-send draft/scheduled, dan `broadcast-scheduler-worker.ts` yang started dari `index.ts`. Ditambah regression test `broadcastSchedule.test.ts` untuk future `scheduled_at`, draft normalization, cancel scheduled, dan block edit/cancel untuk status terminal. Verified `npm test -- --runTestsByPath src/services/broadcastSchedule.test.ts --runInBand && npm run build`.
+
 ### Endpoint baru
 
 | Method | Path | Keterangan |
@@ -951,7 +953,7 @@ android-app/app/src/main/java/com/tembus/courier/
 | **BC-2** | Admin UI Composer + List + Preview | 4–6 hari |
 | **BC-3** | Target filter (zona, role, online, capability) + estimate | 2–3 hari |
 | **BC-4** | ✅ DONE local 2026-08-27 — Courier app FCM type + Notification Center route + broadcast deep link | verified `:app:compileDebugKotlin :app:lintDebug :app:testDebugUnitTest` |
-| **BC-5** | Scheduling + draft + cancel | 2–3 hari |
+| **BC-5** | ✅ DONE local 2026-08-27 — Scheduling + draft + cancel existing flow verified by `broadcastSchedule.test.ts` + backend build | verified `npm test -- --runTestsByPath src/services/broadcastSchedule.test.ts --runInBand && npm run build` |
 | **BC-6** | Delivery report + audit + rate limit | 2–3 hari |
 | **BC-7** | 🟡 PARTIAL — FCM Topic `courier_all` + `courier_online` done; image rich notif/a11y/zona topic pending | 2–4 hari |
 | **BC-8** | E2E test + load test + docs | 2 hari |
