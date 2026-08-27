@@ -1,29 +1,30 @@
 package com.tembus.courier.service
 
-import android.app.PendingIntent
 import android.Manifest
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.RingtoneManager
 import android.os.Build
 import android.util.Log
-import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.tembus.courier.BuildConfig
-import com.tembus.courier.TEMBUSApplication
 import com.tembus.courier.R
+import com.tembus.courier.TEMBUSApplication
 import com.tembus.courier.data.repository.FCMTokenRepository
+import com.tembus.courier.notification.notificationLaunchTarget
 import com.tembus.courier.receiver.NotificationReceiver
 import com.tembus.courier.ui.MainActivity
 import com.tembus.courier.util.OrderSyncSignalBus
 import com.tembus.courier.worker.OrderSyncWorker
-import android.media.RingtoneManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,9 +34,10 @@ import javax.inject.Inject
 
 /**
  * TEMBUS Firebase Messaging Service
- * 
+ *
  * Handles incoming FCM messages for both foreground and background states.
- * Creates notification channels and displays notifications for order assignments.
+ * Creates notification channels and displays notifications for order assignments,
+ * chat, SOS, and admin broadcasts.
  */
 @AndroidEntryPoint
 class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
@@ -44,7 +46,7 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
     lateinit var fcmTokenRepository: FCMTokenRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val TAG = "FCM_TEMBUS"
+    private val tag = "FCM_TEMBUS"
 
     override fun onCreate() {
         super.onCreate()
@@ -54,18 +56,17 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         debugLog("FCM message received: ${messageSummary(remoteMessage.data)}")
 
-        // Handle data payload
         if (remoteMessage.data.isNotEmpty()) {
             handleDataMessage(remoteMessage.data)
+            return
         }
 
-        // Handle notification payload
         remoteMessage.notification?.let { notification ->
             debugLog("FCM notification payload received")
             showNotification(
-                notification.title ?: "TEMBUS Courier",
-                notification.body ?: "",
-                remoteMessage.data
+                title = notification.title ?: "TEMBUS Courier",
+                body = notification.body ?: "",
+                data = emptyMap(),
             )
         }
     }
@@ -78,7 +79,6 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         debugLog("FCM token refreshed")
-        // Register new token with backend if courier is logged in
         serviceScope.launch {
             val result = fcmTokenRepository.registerTokenIfLoggedIn()
             if (result.isSuccess) {
@@ -93,56 +93,62 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun handleDataMessage(data: Map<String, String>) {
-        val type = data["type"] ?: "unknown"
-        
-        when (type) {
+        when (data["type"] ?: "unknown") {
             "on_demand_offer" -> {
-                            signalOrderRefresh()
-                            val sc = data["service_code"] ?: ""
-                            val isMaintenance = sc.startsWith("tambal_ban") || sc.startsWith("towing")
-                            val title = data["title"] ?: if (isMaintenance) "Pekerjaan Baru" else "Pekerjaan On Demand Baru"
-                            val body = data["body"] ?: if (isMaintenance) "Terima pekerjaan untuk mulai menuju lokasi layanan." else "Terima pekerjaan untuk mulai navigasi ke pickup."
-                            showNotification(title, body, data)
-                        }
+                signalOrderRefresh()
+                val serviceCode = data["service_code"] ?: ""
+                val isMaintenance = serviceCode.startsWith("tambal_ban") || serviceCode.startsWith("towing")
+                val title = data["title"] ?: if (isMaintenance) "Pekerjaan Baru" else "Pekerjaan On Demand Baru"
+                val body = data["body"] ?: if (isMaintenance) {
+                    "Terima pekerjaan untuk mulai menuju lokasi layanan."
+                } else {
+                    "Terima pekerjaan untuk mulai navigasi ke pickup."
+                }
+                showNotification(title, body, data)
+            }
             "order_assignment" -> {
                 signalOrderRefresh()
-                val title = data["title"] ?: "New Order Assignment"
-                val body = data["body"] ?: "You have a new order assigned"
-                showNotification(title, body, data)
+                showNotification(
+                    title = data["title"] ?: "New Order Assignment",
+                    body = data["body"] ?: "You have a new order assigned",
+                    data = data,
+                )
             }
-            "order_status_update" -> {
-                val title = data["title"] ?: "Order Update"
-                val body = data["body"] ?: ""
-                showNotification(title, body, data)
-            }
-            "chat_message" -> {
-                val title = data["title"] ?: "Pesan Baru Dari Customer 💬"
-                val body = data["body"] ?: "Ketuk untuk membalas pesan customer."
-                showNotification(title, body, data)
-            }
-            "sos_emergency_dispatch" -> {
-                val title = data["title"] ?: "⚠️ PANGGILAN DARURAT (SOS)"
-                val body = data["body"] ?: "Rekan Anda membutuhkan bantuan! Ketuk untuk menerima."
-                showNotification(title, body, data)
-            }
+            "order_status_update" -> showNotification(
+                title = data["title"] ?: "Order Update",
+                body = data["body"] ?: "",
+                data = data,
+            )
+            "chat_message" -> showNotification(
+                title = data["title"] ?: "Pesan Baru Dari Customer 💬",
+                body = data["body"] ?: "Ketuk untuk membalas pesan customer.",
+                data = data,
+            )
+            "sos_emergency_dispatch" -> showNotification(
+                title = data["title"] ?: "⚠️ PANGGILAN DARURAT (SOS)",
+                body = data["body"] ?: "Rekan Anda membutuhkan bantuan! Ketuk untuk menerima.",
+                data = data,
+            )
             "sos_resolved" -> {
-                val title = data["title"] ?: "🚨 SOS Selesai"
-                val body = data["body"] ?: "Insiden SOS telah ditutup. Sistem peringatan dinormalkan kembali."
-                
-                // CLEAR the local SOS flag so Tamper checks are disabled
                 val prefs = applicationContext.getSharedPreferences("sos_prefs", Context.MODE_PRIVATE)
                 prefs.edit()
                     .putBoolean("is_sos_active", false)
                     .remove("active_incident_id")
                     .apply()
-                    
-                showNotification(title, body, data)
+                showNotification(
+                    title = data["title"] ?: "🚨 SOS Selesai",
+                    body = data["body"] ?: "Insiden SOS telah ditutup. Sistem peringatan dinormalkan kembali.",
+                    data = data,
+                )
             }
-            else -> {
-                val title = data["title"] ?: "TEMBUS Update"
-                val body = data["body"] ?: ""
-                showNotification(title, body, data)
+            "admin_broadcast", "broadcast" -> {
+                showBroadcastNotification(data)
             }
+            else -> showNotification(
+                title = data["title"] ?: "TEMBUS Update",
+                body = data["body"] ?: "",
+                data = data,
+            )
         }
     }
 
@@ -152,7 +158,17 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
         WorkManager.getInstance(applicationContext).enqueueUniqueWork(
             "order_sync_push_signal",
             ExistingWorkPolicy.REPLACE,
-            syncRequest
+            syncRequest,
+        )
+    }
+
+    private fun showBroadcastNotification(data: Map<String, String>) {
+        val title = data["title"] ?: "Pengumuman Baru"
+        val body = data["body"] ?: "Buka inbox untuk melihat detail pengumuman."
+        showNotification(
+            title = title,
+            body = body,
+            data = data + mapOf("open_inbox" to "true"),
         )
     }
 
@@ -160,7 +176,7 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
                 applicationContext,
-                Manifest.permission.POST_NOTIFICATIONS
+                Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             warnLog("Notification skipped because POST_NOTIFICATIONS permission is not granted")
@@ -169,24 +185,23 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
         val type = data["type"] ?: "unknown"
         val orderId = data["order_id"] ?: data["orderId"]
+        val launchTarget = notificationLaunchTarget(data)
 
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
-            // 🔗 DYNAMIC ROUTING INJECTOR
-            if (type == "chat_message") {
-                putExtra("chat_order_id", orderId)
-            } else if (orderId != null) {
-                putExtra("selected_order_id", orderId)
-            }
-            
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("notification_data", data.toString())
+            if (launchTarget.openInbox) {
+                putExtra("open_inbox", true)
+            }
+            launchTarget.chatOrderId?.let { putExtra("chat_order_id", it) }
+            launchTarget.selectedOrderId?.let { putExtra("selected_order_id", it) }
         }
 
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
-            System.currentTimeMillis().toInt(), // Unique RequestCode prevents caching collisions
+            System.currentTimeMillis().toInt(),
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
         val fullScreenIntent = Intent(applicationContext, com.tembus.courier.ui.screens.IncomingOfferActivity::class.java).apply {
@@ -201,8 +216,8 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
             putExtra(NotificationReceiver.EXTRA_DROP_ADDRESS, data["drop_address"] ?: "")
             putExtra(NotificationReceiver.EXTRA_DISTANCE, data["distance"] ?: "")
             putExtra(NotificationReceiver.EXTRA_FEE, data["fee"] ?: "")
-                        putExtra(NotificationReceiver.EXTRA_ESTIMATED_NET_EARNINGS, data["estimated_net_earnings"] ?: "")
-                        putExtra(NotificationReceiver.EXTRA_MODEL, data["model"] ?: "P2P")
+            putExtra(NotificationReceiver.EXTRA_ESTIMATED_NET_EARNINGS, data["estimated_net_earnings"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_MODEL, data["model"] ?: "P2P")
             putExtra(NotificationReceiver.EXTRA_LEG_NUMBER, data["leg_number"]?.toIntOrNull() ?: 1)
             putExtra(NotificationReceiver.EXTRA_WORKFLOW_ROLE, data["workflow_role"] ?: "on_demand")
             putExtra(NotificationReceiver.EXTRA_CUSTOMER_NAME, data["customer_name"] ?: "")
@@ -219,8 +234,8 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
             putExtra(NotificationReceiver.EXTRA_DROP_ADDRESS, data["drop_address"] ?: "")
             putExtra(NotificationReceiver.EXTRA_DISTANCE, data["distance"] ?: "")
             putExtra(NotificationReceiver.EXTRA_FEE, data["fee"] ?: "")
-                        putExtra(NotificationReceiver.EXTRA_ESTIMATED_NET_EARNINGS, data["estimated_net_earnings"] ?: "")
-                        putExtra(NotificationReceiver.EXTRA_MODEL, data["model"] ?: "P2P")
+            putExtra(NotificationReceiver.EXTRA_ESTIMATED_NET_EARNINGS, data["estimated_net_earnings"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_MODEL, data["model"] ?: "P2P")
             putExtra(NotificationReceiver.EXTRA_LEG_NUMBER, data["leg_number"]?.toIntOrNull() ?: 1)
             putExtra(NotificationReceiver.EXTRA_WORKFLOW_ROLE, data["workflow_role"] ?: "on_demand")
             putExtra(NotificationReceiver.EXTRA_CUSTOMER_NAME, data["customer_name"] ?: "")
@@ -229,11 +244,11 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
             applicationContext,
             1,
             acceptIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-        
+
         val builder = NotificationCompat.Builder(applicationContext, TEMBUSApplication.CHANNEL_ORDERS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -245,17 +260,16 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
             .setVibrate(longArrayOf(0, 800, 400, 800, 400, 1000))
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
 
-        // 🔔 DYNAMIC SYSTEM BEHAVIOR MAPPING
         if (type == "order_assignment" || type == "on_demand_offer" || type == "sos_emergency_dispatch") {
             val fullScreenPendingIntent = PendingIntent.getActivity(
                 applicationContext,
                 System.currentTimeMillis().toInt(),
                 fullScreenIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            
+
             builder.setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setFullScreenIntent(fullScreenPendingIntent, true) // Bring screen alive!
+                .setFullScreenIntent(fullScreenPendingIntent, true)
                 .addAction(
                     NotificationCompat.Action.Builder(
                         R.drawable.ic_dismiss,
@@ -269,7 +283,7 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
                                 putExtra(NotificationReceiver.EXTRA_DISPATCH_ID, data["dispatch_id"] ?: "")
                                 putExtra(NotificationReceiver.EXTRA_NOTIFICATION_ID, data["notification_id"]?.toIntOrNull() ?: 0)
                             },
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                         )
                     ).build()
                 )
@@ -277,7 +291,7 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
                     NotificationCompat.Action.Builder(
                         R.drawable.ic_notification,
                         "Terima",
-                        acceptPendingIntent
+                        acceptPendingIntent,
                     ).build()
                 )
         } else if (type == "chat_message") {
@@ -315,19 +329,19 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
     private fun debugLog(message: String) {
         if (BuildConfig.DEBUG) {
-            Log.d(TAG, message)
+            Log.d(tag, message)
         }
     }
 
     private fun warnLog(message: String) {
-        Log.w(TAG, message)
+        Log.w(tag, message)
     }
 
     private fun errorLog(message: String, throwable: Throwable? = null) {
         if (BuildConfig.DEBUG && throwable != null) {
-            Log.e(TAG, message, throwable)
+            Log.e(tag, message, throwable)
         } else {
-            Log.e(TAG, message)
+            Log.e(tag, message)
         }
     }
 }

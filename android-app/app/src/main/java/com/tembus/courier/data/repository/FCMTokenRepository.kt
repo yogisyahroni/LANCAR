@@ -7,6 +7,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.model.FCMTokenRequest
 import com.tembus.courier.data.session.AuthSessionManager
+import com.tembus.courier.notification.FcmTopicManager
 import com.tembus.courier.util.FirebaseInitializer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +69,7 @@ class FCMTokenRepository @Inject constructor(
                 val response = apiService.registerFCMToken(request)
                 
                 if (response.isSuccessful) {
+                    FcmTopicManager.sync(authSessionManager.isOnline.first())
                     Log.d(TAG, "FCM token registered successfully")
                     Result.success(Unit)
                 } else {
@@ -112,6 +114,7 @@ class FCMTokenRepository @Inject constructor(
                 val response = apiService.unregisterFCMToken(request)
                 
                 if (response.isSuccessful) {
+                    FcmTopicManager.clear()
                     Log.d(TAG, "FCM token unregistered successfully")
                     Result.success(Unit)
                 } else {

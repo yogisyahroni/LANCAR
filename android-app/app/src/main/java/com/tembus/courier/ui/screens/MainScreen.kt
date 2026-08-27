@@ -235,6 +235,7 @@ private val CourierRouteStateSaver = Saver<CourierRouteState, List<String>>(
 fun MainScreen(
     initialOrderId: String? = null,
     initialChatOrderId: String? = null,
+    initialInboxOpen: Boolean = false,
     authSessionManager: AuthSessionManager,
     onConsumedDeepLink: () -> Unit = {},
     onLogout: () -> Unit = {}
@@ -578,6 +579,7 @@ fun MainScreen(
         maxActiveOnDemandJobs = maxActiveOnDemandJobs,
         initialOrderId = initialOrderId,
         initialChatOrderId = initialChatOrderId,
+        initialInboxOpen = initialInboxOpen,
         onConsumedDeepLink = onConsumedDeepLink,
         authSessionManager = authSessionManager,
         onLogout = onLogout,

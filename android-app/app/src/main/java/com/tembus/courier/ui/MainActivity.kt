@@ -80,6 +80,7 @@ class MainActivity : FragmentActivity() {
     // Reactive state flows for deterministic notification deep-linking
     private val selectedOrderIdFlow = MutableStateFlow<String?>(null)
     private val selectedChatOrderIdFlow = MutableStateFlow<String?>(null)
+    private val openInboxFlow = MutableStateFlow(false)
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -115,6 +116,7 @@ class MainActivity : FragmentActivity() {
                     // Collect active deep links reactively
                     val deepLinkOrderId by selectedOrderIdFlow.collectAsState()
                     val deepLinkChatOrderId by selectedChatOrderIdFlow.collectAsState()
+                    val shouldOpenInbox by openInboxFlow.collectAsState()
 
                     // 📱 SYSTEM: App Update Logic
                     var updateInfo by remember { mutableStateOf<AppVersion?>(null) }
@@ -161,10 +163,12 @@ class MainActivity : FragmentActivity() {
                         MainScreen(
                             initialOrderId = deepLinkOrderId,
                             initialChatOrderId = deepLinkChatOrderId,
+                            initialInboxOpen = shouldOpenInbox,
                             authSessionManager = authSessionManager,
                             onConsumedDeepLink = {
                                 selectedOrderIdFlow.value = null
                                 selectedChatOrderIdFlow.value = null
+                                openInboxFlow.value = false
                             },
                             onLogout = {
                                 // After logout: clear FCM, stop location service
@@ -295,6 +299,12 @@ class MainActivity : FragmentActivity() {
     private fun processIntentExtras(intent: Intent?) {
         val orderId = intent?.getStringExtra("selected_order_id")
         val chatOrderId = intent?.getStringExtra("chat_order_id")
+        val openInbox = intent?.getBooleanExtra("open_inbox", false) == true
+
+        if (openInbox) {
+            Log.d("DEEP_LINK", "Inbox Deep Link Captured")
+            openInboxFlow.value = true
+        }
         
         if (orderId != null) {
             Log.d("DEEP_LINK", "Order Deep Link Captured: $orderId")

@@ -857,6 +857,8 @@ error_code, sent_at, opened_at
 
 ## 10.4 Android Courier App (Driver) — Penerimaan 10/10
 
+**Status update 2026-08-27:** ✅ **BC-4 courier receive path DONE (local verified)** — courier FCM sekarang handle `admin_broadcast`/`broadcast`, tap notifikasi broadcast buka Inbox via `open_inbox`, `NotificationLaunchTargetTest` cover broadcast/chat/order routing, dan `FcmTopicManager` subscribe `courier_all` + sync `courier_online` saat token register/unregister. ⚠️ `courier_zone_{zoneId}` masih pending karena model courier app belum expose `zoneId`; device E2E admin→kurir + image rich notification/load test tetap pending.
+
 ### Yang harus ada
 
 1. **FCM Handler**
@@ -926,13 +928,13 @@ android-app/app/src/main/java/com/tembus/courier/
 - [ ] Observability (metric broadcast_sent, broadcast_failed)
 
 ### Courier App
-- [ ] Push muncul (foreground/background/killed)
-- [ ] Masuk Notification Center
-- [ ] Deep link work
+- [x] Push broadcast type `admin_broadcast` / `broadcast` ditangani di FCM service (local compile/lint/unit ✅ 2026-08-27)
+- [x] Masuk Notification Center via existing mobile notifications endpoint (broadcast stored by backend `createNotification`, courier app inbox already reads `/mobile/notifications`)
+- [x] Deep link work untuk broadcast tap → Inbox (`open_inbox`) + unit test `NotificationLaunchTargetTest`
 - [ ] Image tampil (kalau ada)
-- [ ] Priority high/urgent terasa (channel importance)
-- [ ] Tidak ganggu flow order aktif secara agresif
-- [ ] Topic subscription stabil (kalau dipakai)
+- [ ] Priority high/urgent channel tuning khusus broadcast
+- [x] Tidak ganggu flow order aktif secara agresif — broadcast tidak pakai full-screen intent, cuma Inbox pending intent
+- [~] Topic subscription stabil — `courier_all` + `courier_online` done; `courier_zone_{zoneId}` pending sampai app model expose `zoneId`
 
 ### Non-functional
 - [ ] Test: unit + API + E2E admin kirim → kurir terima
@@ -948,10 +950,10 @@ android-app/app/src/main/java/com/tembus/courier/
 | **BC-1** | DB migration + backend create/list/send (kirim sekarang, target manual + semua) | 3–5 hari |
 | **BC-2** | Admin UI Composer + List + Preview | 4–6 hari |
 | **BC-3** | Target filter (zona, role, online, capability) + estimate | 2–3 hari |
-| **BC-4** | Courier app: FCM type + Notification Center + deep link | 3–4 hari |
+| **BC-4** | ✅ DONE local 2026-08-27 — Courier app FCM type + Notification Center route + broadcast deep link | verified `:app:compileDebugKotlin :app:lintDebug :app:testDebugUnitTest` |
 | **BC-5** | Scheduling + draft + cancel | 2–3 hari |
 | **BC-6** | Delivery report + audit + rate limit | 2–3 hari |
-| **BC-7** | FCM Topic + image rich notif + polish a11y | 2–4 hari |
+| **BC-7** | 🟡 PARTIAL — FCM Topic `courier_all` + `courier_online` done; image rich notif/a11y/zona topic pending | 2–4 hari |
 | **BC-8** | E2E test + load test + docs | 2 hari |
 
 **Total realistis:** ±3–4 minggu (1 engineer full-time) untuk mencapai 9–10/10.

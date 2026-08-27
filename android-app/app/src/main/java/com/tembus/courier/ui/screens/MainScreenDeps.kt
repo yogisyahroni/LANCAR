@@ -36,6 +36,7 @@ internal data class MainScreenDeps(
     val maxActiveOnDemandJobs: Int,
     val initialOrderId: String?,
     val initialChatOrderId: String?,
+    val initialInboxOpen: Boolean,
     val onConsumedDeepLink: () -> Unit,
     val authSessionManager: AuthSessionManager,
     val onLogout: () -> Unit,

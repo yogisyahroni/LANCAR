@@ -175,6 +175,7 @@ internal fun MainScreenEffects(deps: MainScreenDeps) {
     val lifecycleOwner = deps.lifecycleOwner
     val initialOrderId = deps.initialOrderId
     val initialChatOrderId = deps.initialChatOrderId
+    val initialInboxOpen = deps.initialInboxOpen
     val onConsumedDeepLink = deps.onConsumedDeepLink
     val mapsProviderConfig = deps.mapsProviderConfig
     val activeOnDemandJobCount = deps.activeOnDemandJobCount
@@ -225,6 +226,13 @@ internal fun MainScreenEffects(deps: MainScreenDeps) {
             onReject = { offer -> orderViewModel.rejectOffer(offer) },
             onExpired = { offer -> orderViewModel.rejectOffer(offer, "ttl_expired") }
         )
+    }
+
+    LaunchedEffect(initialInboxOpen) {
+        if (initialInboxOpen) {
+            routeState = CourierRouteReducer.inbox()
+            onConsumedDeepLink()
+        }
     }
 
     // Navigate to order detail if app was opened from notification
