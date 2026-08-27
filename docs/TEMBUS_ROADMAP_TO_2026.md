@@ -951,9 +951,9 @@ android-app/app/src/main/java/com/tembus/courier/
 
 | Phase | Fokus | Estimasi |
 |-------|--------|----------|
-| **BC-1** | DB migration + backend create/list/send (kirim sekarang, target manual + semua) | 3–5 hari |
-| **BC-2** | Admin UI Composer + List + Preview | 4–6 hari |
-| **BC-3** | Target filter (zona, role, online, capability) + estimate | 2–3 hari |
+| **BC-1** | ✅ DONE local 2026-08-27 — DB migration + backend create/list/send/force-send + routes ter-register di `admin.routes.ts` + scheduler worker | verified `npm run build` + `broadcast.controller.test.ts` |
+| **BC-2** | ✅ DONE local 2026-08-27 — Admin UI Composer (title/body/image/deep_link/target/estimate) + List + DeliveryReport + hooks | verified compile + existing admin build |
+| **BC-3** | ✅ DONE local 2026-08-27 — Target filter (zone/role/online/capability/manual) + estimate endpoint covered by `broadcastTarget.test.ts` | verified `npm test -- --runTestsByPath src/services/broadcastTarget.test.ts --runInBand && npm run build` |
 | **BC-4** | ✅ DONE local 2026-08-27 — Courier app FCM type + Notification Center route + broadcast deep link | verified `:app:compileDebugKotlin :app:lintDebug :app:testDebugUnitTest` |
 | **BC-5** | ✅ DONE local 2026-08-27 — Scheduling + draft + cancel existing flow verified by `broadcastSchedule.test.ts` + backend build | verified `npm test -- --runTestsByPath src/services/broadcastSchedule.test.ts --runInBand && npm run build` |
 | **BC-6** | ✅ DONE local 2026-08-27 — Delivery report + audit + rate limit verified by `broadcastReportAuditRateLimit.test.ts` + backend build | verified `npm test -- --runTestsByPath src/services/broadcastReportAuditRateLimit.test.ts --runInBand && npm run build` |
