@@ -173,6 +173,25 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
             lightColor = android.graphics.Color.RED
         }
 
+        val broadcastChannel = NotificationChannel(
+            CHANNEL_BROADCASTS,
+            "Pengumuman",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Pengumuman operasional dan informasi umum kurir"
+            setShowBadge(true)
+        }
+
+        val urgentBroadcastChannel = NotificationChannel(
+            CHANNEL_BROADCASTS_URGENT,
+            "Pengumuman Penting",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Pengumuman prioritas tinggi dari admin operasional"
+            enableVibration(true)
+            setShowBadge(true)
+        }
+
         // General channel — for other notifications
         val generalChannel = NotificationChannel(
             CHANNEL_GENERAL,
@@ -182,7 +201,9 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
             description = "Notifikasi umum aplikasi"
         }
 
-        notificationManager.createNotificationChannels(listOf(ordersChannel, generalChannel))
+        notificationManager.createNotificationChannels(
+            listOf(ordersChannel, broadcastChannel, urgentBroadcastChannel, generalChannel)
+        )
         Log.d(TAG, "Notification channels created")
     }
 
@@ -210,6 +231,8 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
 
     companion object {
         const val CHANNEL_ORDERS = "tembus_orders"
+        const val CHANNEL_BROADCASTS = "tembus_broadcasts"
+        const val CHANNEL_BROADCASTS_URGENT = "tembus_broadcasts_urgent"
         const val CHANNEL_GENERAL = "tembus_general"
         const val WORKER_ORDER_SYNC = "order_sync_periodic"
     }

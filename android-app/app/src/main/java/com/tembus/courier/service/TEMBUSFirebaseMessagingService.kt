@@ -22,6 +22,7 @@ import com.tembus.courier.BuildConfig
 import com.tembus.courier.R
 import com.tembus.courier.TEMBUSApplication
 import com.tembus.courier.data.repository.FCMTokenRepository
+import com.tembus.courier.notification.notificationChannelId
 import com.tembus.courier.notification.notificationImageUrl
 import com.tembus.courier.notification.notificationLaunchTarget
 import com.tembus.courier.receiver.NotificationReceiver
@@ -254,11 +255,17 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
-        val builder = NotificationCompat.Builder(applicationContext, TEMBUSApplication.CHANNEL_ORDERS)
+        val channelId = notificationChannelId(data)
+        val notificationPriority = when (channelId) {
+            TEMBUSApplication.CHANNEL_BROADCASTS -> NotificationCompat.PRIORITY_DEFAULT
+            else -> NotificationCompat.PRIORITY_HIGH
+        }
+
+        val builder = NotificationCompat.Builder(applicationContext, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(notificationPriority)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setSound(soundUri)

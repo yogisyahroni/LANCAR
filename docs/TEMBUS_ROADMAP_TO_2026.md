@@ -861,7 +861,7 @@ error_code, sent_at, opened_at
 
 ## 10.4 Android Courier App (Driver) — Penerimaan 10/10
 
-**Status update 2026-08-27:** ✅ **BC-4 courier receive path DONE (local verified)** — courier FCM sekarang handle `admin_broadcast`/`broadcast`, tap notifikasi broadcast buka Inbox via `open_inbox`, `NotificationLaunchTargetTest` cover broadcast/chat/order routing, dan `FcmTopicManager` subscribe `courier_all` + sync `courier_online` saat token register/unregister. ✅ **BC-7 image rich notification partial DONE** — broadcast `image_url`/`imageUrl` http(s) dipakai sebagai BigPictureStyle best-effort dengan fallback BigText; invalid scheme ditolak oleh helper test. ⚠️ `courier_zone_{zoneId}` masih pending karena model courier app belum expose `zoneId`; device E2E admin→kurir + load test tetap pending.
+**Status update 2026-08-27:** ✅ **BC-4 courier receive path DONE (local verified)** — courier FCM sekarang handle `admin_broadcast`/`broadcast`, tap notifikasi broadcast buka Inbox via `open_inbox`, `NotificationLaunchTargetTest` cover broadcast/chat/order routing, dan `FcmTopicManager` subscribe `courier_all` + sync `courier_online` saat token register/unregister. ✅ **BC-7 image rich notification + priority channel partial DONE** — broadcast `image_url`/`imageUrl` http(s) dipakai sebagai BigPictureStyle best-effort dengan fallback BigText; normal broadcast pakai channel `tembus_broadcasts`, high/urgent pakai `tembus_broadcasts_urgent`; invalid scheme + channel routing ditolak/dicover helper test. ⚠️ `courier_zone_{zoneId}` masih pending karena model courier app belum expose `zoneId`; device E2E admin→kurir + load test tetap pending.
 
 ### Yang harus ada
 
@@ -936,7 +936,7 @@ android-app/app/src/main/java/com/tembus/courier/
 - [x] Masuk Notification Center via existing mobile notifications endpoint (broadcast stored by backend `createNotification`, courier app inbox already reads `/mobile/notifications`)
 - [x] Deep link work untuk broadcast tap → Inbox (`open_inbox`) + unit test `NotificationLaunchTargetTest`
 - [x] Image tampil best-effort via `image_url` / `imageUrl` http(s) BigPictureStyle; invalid scheme fallback BigText (local compile/lint/unit ✅ 2026-08-27)
-- [ ] Priority high/urgent channel tuning khusus broadcast
+- [x] Priority high/urgent channel tuning khusus broadcast — normal pakai `tembus_broadcasts`, high/urgent pakai `tembus_broadcasts_urgent` (local compile/lint/unit ✅ 2026-08-27)
 - [x] Tidak ganggu flow order aktif secara agresif — broadcast tidak pakai full-screen intent, cuma Inbox pending intent
 - [~] Topic subscription stabil — `courier_all` + `courier_online` done; `courier_zone_{zoneId}` pending sampai app model expose `zoneId`
 
@@ -957,7 +957,7 @@ android-app/app/src/main/java/com/tembus/courier/
 | **BC-4** | ✅ DONE local 2026-08-27 — Courier app FCM type + Notification Center route + broadcast deep link | verified `:app:compileDebugKotlin :app:lintDebug :app:testDebugUnitTest` |
 | **BC-5** | ✅ DONE local 2026-08-27 — Scheduling + draft + cancel existing flow verified by `broadcastSchedule.test.ts` + backend build | verified `npm test -- --runTestsByPath src/services/broadcastSchedule.test.ts --runInBand && npm run build` |
 | **BC-6** | ✅ DONE local 2026-08-27 — Delivery report + audit + rate limit verified by `broadcastReportAuditRateLimit.test.ts` + backend build | verified `npm test -- --runTestsByPath src/services/broadcastReportAuditRateLimit.test.ts --runInBand && npm run build` |
-| **BC-7** | 🟡 PARTIAL — FCM Topic `courier_all` + `courier_online` done; image rich notif BigPictureStyle done; priority/a11y/zona topic pending | verified `:app:compileDebugKotlin :app:lintDebug :app:testDebugUnitTest` |
+| **BC-7** | 🟡 PARTIAL — FCM Topic `courier_all` + `courier_online` done; image rich notif BigPictureStyle done; priority channels done; a11y/zona topic pending | verified `:app:compileDebugKotlin :app:lintDebug :app:testDebugUnitTest` |
 | **BC-8** | E2E test + load test + docs | 2 hari |
 
 **Total realistis:** ±3–4 minggu (1 engineer full-time) untuk mencapai 9–10/10.
