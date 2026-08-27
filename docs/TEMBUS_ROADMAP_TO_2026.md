@@ -68,7 +68,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 4.1 | abiFilters exclude x86/x86_64 | ✅ DONE — both apps `build.gradle.kts` set `abiFilters += ["armeabi-v7a","arm64-v8a"]` (x86 excluded); verified 2026-08-26 |
 | 4.1 | Bundle splits / Baseline Profile / WebP | 🟡 PARTIAL — `abi { enableSplit = true }` added to both apps' `bundle {}` (2026-08-26, gradle sync OK); language+density splits already on. Baseline Profile + WebP (8 PNG) still ❌ |
 | 4.1 | Junk files cleanup | ✅ DONE — `android-app-customer/logcat2.txt` removed 2026-08-26 (commit `a63e151`); earlier `temp.js`/`logcat_*.txt`/`tmp_*` removed `54af2e0` |
-| 10 | Broadcast Center end-to-end | 🟡 PARTIAL — backend (controller+3 service+scheduler, routes ter-register) + admin UI (BroadcastComposer/BroadcastDeliveryReport/hooks) SUDAH ADA (commit 54af2e0); kurir app handler type/topic/deeplink ❌ |
+| 10 | Broadcast Center end-to-end | 🟡 PARTIAL — backend + admin UI + scheduler + rate limit + delivery report + audit ✅; kurir app handler type/topic/deeplink/image/priority ✅ (local verified); device E2E kurir↔admin + zone topic + a11y polish pending |
 | 11.1 | Address book backend API | ✅ |
 | 11.1 | Laporan/export nyata (UMKM analytics) | ✅ |
 | 11.1 | Cek resi publik / voucher page / landing utuh | ❌ |
@@ -958,7 +958,7 @@ android-app/app/src/main/java/com/tembus/courier/
 | **BC-5** | ✅ DONE local 2026-08-27 — Scheduling + draft + cancel existing flow verified by `broadcastSchedule.test.ts` + backend build | verified `npm test -- --runTestsByPath src/services/broadcastSchedule.test.ts --runInBand && npm run build` |
 | **BC-6** | ✅ DONE local 2026-08-27 — Delivery report + audit + rate limit verified by `broadcastReportAuditRateLimit.test.ts` + backend build | verified `npm test -- --runTestsByPath src/services/broadcastReportAuditRateLimit.test.ts --runInBand && npm run build` |
 | **BC-7** | 🟡 PARTIAL — FCM Topic `courier_all` + `courier_online` done; image rich notif BigPictureStyle done; priority channels done; a11y/zona topic pending | verified `:app:compileDebugKotlin :app:lintDebug :app:testDebugUnitTest` |
-| **BC-8** | E2E test + load test + docs | 2 hari |
+| **BC-8** | 🟡 PARTIAL — E2E admin flow covered by `broadcast.controller.test.ts` (create/list/cancel + rate limit); broadcast loadtest script `scripts/load/admin-broadcast.k6.js` added; device E2E kurir↔admin + docs masih pending | verified `npm test -- --runTestsByPath src/controllers/broadcast.controller.test.ts --runInBand && npm run build` |
 
 **Total realistis:** ±3–4 minggu (1 engineer full-time) untuk mencapai 9–10/10.
 
