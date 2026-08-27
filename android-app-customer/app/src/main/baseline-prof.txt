@@ -1,0 +1,18 @@
+# Baseline Profile for TEMBUS Customer — cold-start (splash) optimization.
+# Covers the hot path executed on every launch: splash -> MainActivity -> RootNavGraph -> Dashboard.
+HSPLcom/tembus/customer/ui/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/tembus/customer/ui/MainActivity;->handleDebugUatDeepLink()V
+HSPLcom/tembus/customer/ui/MainViewModel;-><init>()V
+HSPLcom/tembus/customer/ui/MainViewModel;->checkAuth()V
+HSPLcom/tembus/customer/ui/MainViewModel;->resolveAuthenticatedDestination()Ljava/lang/String;
+HSPLcom/tembus/customer/ui/navigation/RootNavGraphKt;->RootNavGraph(Landroidx/navigation/NavHostController;Lcom/tembus/customer/ui/MainViewModel;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
+HSPLcom/tembus/customer/ui/screens/main/DashboardScreenKt;->DashboardScreen(Lcom/tembus/customer/ui/MainViewModel;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/tembus/customer/ui/theme/ThemeKt;->TEMBUSCustomerTheme(Landroidx/compose/runtime/Composer;ILkotlin/jvm/functions/Function2;)V
+HSPLcom/tembus/customer/data/session/AuthSessionManager;-><init>()V
+HSPLcom/tembus/customer/data/session/AuthSessionManager;->getTokenOnce()Ljava/lang/String;
+HSPLcom/tembus/customer/data/session/AuthSessionManager;->isCurrentTokenExpired()Z
+HSPLcom/tembus/customer/data/onboarding/OnboardingPreferences;->isCompleted()Z
+HSPLcom/tembus/customer/data/repository/AuthRepository;->startPasswordLogin(Ljava/lang/String;Ljava/lang/String;)Lkotlinx/coroutines/Deferred;
+HSPLcom/tembus/customer/util/UpdateManager;->checkUpdate()Lcom/tembus/customer/data/model/AppVersion;
+HSPLandroidx/core/splashscreen/SplashScreen$Companion;->installSplashScreen(Landroid/app/Activity;)Landroidx/core/splashscreen/SplashScreen;
+HSPLandroidx/activity/ComponentActivity;->setContent(Lkotlin/jvm/functions/Function2;)V

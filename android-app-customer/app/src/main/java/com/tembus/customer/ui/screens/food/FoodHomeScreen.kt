@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -34,6 +35,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,12 +48,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.Error
@@ -238,36 +245,82 @@ private fun FoodMerchantCard(
     isFavorite: Boolean = false,
     onFavoriteClick: (() -> Unit)? = null
 ) {
-    Column(
+    // FOOD-IMG (2026-08-27): horizontal hero-image card (GoFood/GrabFood/ShopeeFood standard).
+    // Image left (or full-width top), info overlay: name, rating, distance, ETA, open, halal.
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(TembusRadius.Card))
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onClick)
-            .padding(16.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            // Hero image (food/store cover) with branded gradient fallback.
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(PrimaryLight),
-                contentAlignment = Alignment.Center
+                    .size(width = 116.dp, height = 116.dp)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(PrimaryLight, Primary.copy(alpha = 0.55f))
+                        )
+                    )
             ) {
-                Icon(Icons.Default.Store, contentDescription = null, tint = Primary, modifier = Modifier.size(26.dp))
+                // Hero image: merchant cover, fallback to first menu item photo (real food photo), else gradient+icon.
+                val heroUrl = merchant.imageUrl ?: merchant.menuItems.firstOrNull()?.foto
+                if (!heroUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = heroUrl,
+                        contentDescription = merchant.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        placeholder = rememberVectorPainter(Icons.Default.Store),
+                        error = rememberVectorPainter(Icons.Default.Store)
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Store,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .align(Alignment.Center)
+                    )
+                }
+                // Favorite toggle (top-end of image)
+                if (onFavoriteClick != null) {
+                    IconButton(
+                        onClick = onFavoriteClick,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Hapus dari favorit" else "Tambah ke favorit",
+                            tint = if (isFavorite) Error else Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
-            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+
+            // Info column
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(12.dp)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         merchant.name,
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    // ADR 003: badge halal / non-halal
                     when {
                         merchant.isHalalCertified -> HalalBadge(text = "Halal", container = Success)
                         merchant.isNonHalal -> HalalBadge(text = "Non-Halal", container = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -278,19 +331,22 @@ private fun FoodMerchantCard(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     if (merchant.avgRating != null && merchant.avgRating > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = Warning, modifier = Modifier.size(14.dp))
-                            Text(
-                                String.format("%.1f", merchant.avgRating),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                        Icon(Icons.Default.Star, contentDescription = null, tint = Warning, modifier = Modifier.size(14.dp))
+                        Text(
+                            String.format("%.1f", merchant.avgRating),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                     if (merchant.distanceKm != null) {
                         Text("•", color = MaterialTheme.colorScheme.outlineVariant)
@@ -307,19 +363,6 @@ private fun FoodMerchantCard(
                         fontWeight = FontWeight.Bold,
                         color = if (merchant.isOpen) Success else Error
                     )
-                    // Favorite toggle
-                    if (onFavoriteClick != null) {
-                        IconButton(
-                            onClick = onFavoriteClick,
-                            modifier = Modifier.padding(start = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                contentDescription = if (isFavorite) "Hapus dari favorit" else "Tambah ke favorit",
-                                tint = if (isFavorite) Error else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
                 }
             }
         }

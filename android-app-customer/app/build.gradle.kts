@@ -402,4 +402,8 @@ dependencies {
 
     // AndroidX Core Splashscreen
     implementation("androidx.core:core-splashscreen:1.0.1")
+
+    // Baseline Profile: runtime installation so debug/side-loaded APKs also get
+    // pre-compiled hot methods (faster cold start / shorter splash).
+    implementation("androidx.profileinstaller:profileinstaller:1.3.1")
 }

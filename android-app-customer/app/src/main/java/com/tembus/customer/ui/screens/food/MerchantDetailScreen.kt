@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -160,29 +161,48 @@ fun MerchantDetailScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Header merchant
+                    // Header merchant — FOOD-IMG (2026-08-27): full-width hero image.
                     item {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(TembusRadius.Card))
                                 .background(MaterialTheme.colorScheme.surface)
-                                .padding(16.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(PrimaryLight),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Store, contentDescription = null, tint = Primary, modifier = Modifier.size(30.dp))
+                            // Hero image (food/store cover) with branded gradient fallback.
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(160.dp)
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(PrimaryLight, Primary.copy(alpha = 0.55f))
+                                        )
+                                    )
+                            ) {
+                                // Hero image: merchant cover, fallback to first menu item photo (real food), else gradient+icon.
+                                val heroUrl = m.imageUrl ?: m.menuItems.firstOrNull()?.foto
+                                if (!heroUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = heroUrl,
+                                        contentDescription = m.name,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Store,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .align(Alignment.Center)
+                                    )
                                 }
-                                Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                                    Text(m.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
-                                    Text(m.address, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                }
+                            }
+                            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                Text(m.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+                                Text(m.address, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                             Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -24,7 +24,10 @@ data class FoodMerchant(
     // ADR 003 (2026-08-10): status halal merchant — halal_certified | non_halal | unknown.
     // Dipakai badge di kartu toko + filter chip (Semua/Halal/Non-Halal).
     @SerialName("halal_status") val halalStatus: String = "unknown",
-    @SerialName("menu_items") val menuItems: List<FoodMenuItem> = emptyList()
+    @SerialName("menu_items") val menuItems: List<FoodMenuItem> = emptyList(),
+    // FOOD-IMG (2026-08-27): merchant cover/hero image (food photo). Backend optional;
+    // UI falls back to a branded gradient placeholder when null.
+    @SerialName("image_url") val imageUrl: String? = null
 ) {
     val isHalalCertified: Boolean get() = halalStatus == "halal_certified"
     val isNonHalal: Boolean get() = halalStatus == "non_halal"
