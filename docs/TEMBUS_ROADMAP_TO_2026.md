@@ -366,7 +366,7 @@ admin-dashboard/src/pages/finance/
 
 ### Task — Split `Settings.tsx` (2129 baris)
 **Status:** ✅ **DONE 2026-08-27** — `SettingsContent.tsx` 2135→`useSettingsData` hook (state/queries/mutations) + 11 tab panels in `admin-dashboard/src/pages/settings/` (general, logisticsawb, mapsprovider, featureflags, slaconfig, insurance, walletfees, parameters, security, team, auditlogs — all ≤400 LOC). TreasuryPanel.tsx 1054→9 section files in `finance/treasury/`. Local `npm run build` EXIT 0 + CI/CD Staging GREEN (run 33042908191, branch `feat/finance-resplit`). Commits `45ad916` (Finance proper-split, earlier) + `fc65818` (Treasury + Settings).
-**⚠️ E2E Browser Validation GAGAL di staging run 33043474835** — tapi BUKAN regression split: `git diff 2cc3de0..9b5b52f -- frontend/` kosong (customer portal login tak tersentuh). Symptom: login test-user `customer@tembus.id` redirect loop ke `/login` (timeout 45s nunggu `/dashboard`). Kemungkinan staging auth butuh OTP / test-user state berubah. Semua job lain HIJAU (Frontend Build, Service Test, Security, SBOM, Deploy, k6 Regression). Perlu cek staging auth config, bukan rollback split.
+**⚠️ E2E Browser Validation GAGAL di staging run 33043474835** — BUKAN regression split (`frontend/` tak tersentuh). ✅ **RESOLVED**: run `33045527661` (docs-only, code sama) E2E SUCCESS → failure sebelumnya TRANSIENT/FLAKY. Final: split = CI FULLY GREEN incl E2E.
 Pecah per tab/section (General, Pricing, Zones, Notification, Security, dll).
 
 ### Task — Frontend Order Detail & Form
