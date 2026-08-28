@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.chat
 
 import android.widget.Toast
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -125,20 +126,20 @@ fun ChatScreen(
                                     modifier = Modifier
                                         .size(40.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFFF3F4F6))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
                                 )
                             } else {
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFFF3F4F6)),
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Person,
                                         contentDescription = "Kurir",
-                                        tint = Color(0xFF9CA3AF),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -148,14 +149,14 @@ fun ChatScreen(
                                     text = courierName,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp,
-                                    color = Color(0xFF111827),
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = "Delivery Driver",
                                     fontSize = 12.sp,
-                                    color = Color(0xFF6B7280)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -318,7 +319,7 @@ fun ChatScreen(
                             Text(
                                 text = "Balasan cepat",
                                 fontSize = 11.sp,
-                                color = Color(0xFF9CA3AF),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(start = 4.dp, bottom = 4.dp)
@@ -751,7 +752,7 @@ private fun FoodOrderSummaryCard(
                     modifier = Modifier
                         .size(60.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF3F4F6))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     if (firstItemImageUrl != null) {
                         AsyncImage(
@@ -766,7 +767,7 @@ private fun FoodOrderSummaryCard(
                         Icon(
                             imageVector = Icons.Default.Fastfood,
                             contentDescription = "Food",
-                            tint = Color(0xFF9CA3AF),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(28.dp)
                                 .align(Alignment.Center)
@@ -793,7 +794,7 @@ private fun FoodOrderSummaryCard(
                     // Merchant name
                     Text(
                         text = order.merchantName ?: "Merchant",
-                        color = Color(0xFF111827),
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -802,7 +803,7 @@ private fun FoodOrderSummaryCard(
                     // Item count + Total
                     Text(
                         text = "${itemCount} produk  •  Rp ${formatPrice(subtotal)}",
-                        color = Color(0xFF374151),
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 13.sp
                     )
                     // Order number with copy
@@ -812,13 +813,13 @@ private fun FoodOrderSummaryCard(
                     ) {
                         Text(
                             text = "No. ${order.orderNumber ?: order.orderId.take(12).uppercase()}",
-                            color = Color(0xFF9CA3AF),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = "Salin nomor pesanan",
-                            tint = Color(0xFF9CA3AF),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(14.dp)
                                 .fillMaxHeight()

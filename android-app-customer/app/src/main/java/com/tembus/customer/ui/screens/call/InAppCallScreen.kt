@@ -305,14 +305,14 @@ private fun PermissionRequiredContent(onRequestPermission: () -> Unit) {
     Spacer(modifier = Modifier.height(12.dp))
     Text(
         text = "Aktifkan mikrofon",
-        color = Color(0xFF111827),
+        color = MaterialTheme.colorScheme.onSurface,
         fontWeight = FontWeight.Bold,
         fontSize = 20.sp
     )
     Spacer(modifier = Modifier.height(8.dp))
     Text(
         text = "Panggilan aman membutuhkan izin mikrofon. Nomor pribadi tetap tidak ditampilkan.",
-        color = Color(0xFF667085),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontSize = 14.sp,
         textAlign = TextAlign.Center,
         lineHeight = 20.sp
@@ -343,10 +343,10 @@ private fun CallActionPanel(
         InAppCallState.OUTGOING -> {
             CircularProgressIndicator(color = Primary, strokeWidth = 3.dp, modifier = Modifier.size(38.dp))
             Spacer(modifier = Modifier.height(14.dp))
-            Text("Menghubungkan panggilan", fontWeight = FontWeight.Bold, color = Color(0xFF111827), fontSize = 18.sp)
+            Text("Menghubungkan panggilan", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp)
             Text(
                 text = "Sistem sedang menyiapkan jalur aman di aplikasi.",
-                color = Color(0xFF667085),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 6.dp)
@@ -361,7 +361,7 @@ private fun CallActionPanel(
             }
         }
         InAppCallState.INCOMING -> {
-            Text("Panggilan masuk", fontWeight = FontWeight.Bold, color = Color(0xFF111827), fontSize = 20.sp)
+            Text("Panggilan masuk", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp)
             Spacer(modifier = Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 FilledIconButton(
@@ -381,7 +381,7 @@ private fun CallActionPanel(
             }
         }
         InAppCallState.ACCEPTED -> {
-            Text("Panggilan tersambung", fontWeight = FontWeight.Bold, color = Color(0xFF111827), fontSize = 20.sp)
+            Text("Panggilan tersambung", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp)
             Spacer(modifier = Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilledIconButton(
@@ -418,14 +418,14 @@ private fun CallActionPanel(
                     InAppCallState.MISSED -> "Panggilan tidak tersambung"
                     else -> "Panggilan selesai"
                 },
-                color = Color(0xFF111827),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = errorMessage ?: "Gunakan chat order agar koordinasi tetap tercatat.",
-                color = Color(0xFF667085),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp

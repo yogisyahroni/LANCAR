@@ -103,7 +103,7 @@ fun MerchantRatingDialog(
                             .align(Alignment.TopEnd)
                             .size(32.dp)
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color(0xFF94A3B8), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     }
                 }
 
@@ -120,12 +120,12 @@ fun MerchantRatingDialog(
                             modifier = Modifier.size(56.dp)
                         )
                         Spacer(Modifier.height(14.dp))
-                        Text("Terima kasih!", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+                        Text("Terima kasih!", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.height(6.dp))
                         Text(
                             "Penilaian untuk $merchantName berhasil dikirim.",
                             fontSize = 13.sp,
-                            color = Color(0xFF64748B),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                         Spacer(Modifier.height(20.dp))
@@ -153,13 +153,13 @@ fun MerchantRatingDialog(
                         "Beri penilaian untuk $merchantName",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF0F172A),
+                        color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center
                     )
                     Text(
                         "Order $orderNumber • Makanan kamu sudah sampai?",
                         fontSize = 12.sp,
-                        color = Color(0xFF64748B)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(16.dp))
 
@@ -244,7 +244,7 @@ fun MerchantRatingDialog(
                         onClick = onDismiss,
                         enabled = !isSubmitting
                     ) {
-                        Text("Nanti Saja", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                        Text("Nanti Saja", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     }
                 }
             }

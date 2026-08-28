@@ -23,8 +23,10 @@ Approved slice (2026-08-28): **P0 palette violation (OLD_BRAND) + NAV-01 navigat
 
 ## Backlog (deferred — needs separate approval)
 
-### P1 — Tailwind-gray token violations (121 occ)
-Highest density: `ChatScreen`(33), `CompleteProfileScreen`(12), `LoyaltyScreen`(10), `ReferralScreen`(10), `MerchantRatingDialog`(10), `AddressBookScreen`(9), `TrackingScreen`(9). Replace hardcoded `0xFF111827`/`0xFF667085`/`0xFFE5E7EB`/etc → `OnSurface`/`OnSurfaceVariant`/`Outline`/`SurfaceVariant`.
+### P1 — Tailwind-gray token violations (121 occ → 75 fixed this slice)
+Mapped neutral `color=`/`tint=` + light `surfaceVariant` `.background()` fills to `MaterialTheme.colorScheme.{onSurface,onSurfaceVariant,outlineVariant,surfaceVariant}` (adaptive, dark-mode safe) across 12 files:
+`ChatScreen`(35→neutral mapped, 10 bg fills), `CompleteProfileScreen`(12), `ReferralScreen`(11), `MerchantRatingDialog`(11), `AddressBookScreen`(10), `LoyaltyScreen`(10), `TrackingScreen`(9→8), `InAppCallScreen`(8), `RootNavGraph`(4), `RuntimeMapRenderer`(4), `LanguageScreen`(1), `BusinessScreen`(1).
+**Remaining 46:** non-light `.background()` fills (e.g. dark chat bubbles `0xFF1A1A1A`) intentionally left — needs per-occurrence semantic review, not blind token swap. Tracked as follow-up.
 
 ### P1 — `contentDescription = null` (112 occ / 37 files)
 Verify each with TalkBack (Phase 4). Actionable icons need accessible names; decorative only stay null.

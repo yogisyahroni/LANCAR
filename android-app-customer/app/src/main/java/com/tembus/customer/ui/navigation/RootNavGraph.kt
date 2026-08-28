@@ -696,7 +696,7 @@ private fun ForegroundNotificationBanner(
                 Column(Modifier.weight(1f)) {
                     Text(
                         event.title,
-                        color = Color(0xFF111827),
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold,
                         maxLines = 1,
@@ -704,7 +704,7 @@ private fun ForegroundNotificationBanner(
                     )
                     Text(
                         event.body.ifBlank { "Buka untuk melihat detail terbaru." },
-                        color = Color(0xFF64748B),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         maxLines = 2,
@@ -728,7 +728,7 @@ private fun ForegroundNotificationBanner(
                         .clickable { onDismiss() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = null, tint = Color(0xFF94A3B8), modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 }
             }
         }

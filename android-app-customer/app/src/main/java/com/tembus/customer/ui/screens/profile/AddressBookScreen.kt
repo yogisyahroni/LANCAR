@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -94,11 +95,11 @@ fun AddressBookScreen(
                 addresses.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFFCBD5E1), modifier = Modifier.size(48.dp))
+                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text("Belum ada alamat tersimpan", color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                            Text("Belum ada alamat tersimpan", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(4.dp))
-                            Text("Tambah alamat untuk checkout lebih cepat", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                            Text("Tambah alamat untuk checkout lebih cepat", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                     }
                 }
@@ -168,7 +169,7 @@ private fun AddressCard(
                     address.label,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = Color(0xFF0F172A),
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
                 if (address.isFavorite) {
@@ -176,9 +177,9 @@ private fun AddressCard(
                 }
             }
             Spacer(Modifier.height(4.dp))
-            Text(address.address, fontSize = 13.sp, color = Color(0xFF64748B), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(address.address, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (!address.contactName.isNullOrBlank()) {
-                Text("${address.contactName} • ${address.contactPhoneMasked ?: "-"}", fontSize = 12.sp, color = Color(0xFF94A3B8))
+                Text("${address.contactName} • ${address.contactPhoneMasked ?: "-"}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

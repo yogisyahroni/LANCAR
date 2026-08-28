@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.tracking
 
 import android.graphics.Bitmap
+import androidx.compose.material3.MaterialTheme
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import androidx.annotation.DrawableRes
@@ -353,7 +354,7 @@ private fun RuntimeMapFallback(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Pelacakan tetap berjalan realtime dan mengikuti konfigurasi operasional terbaru.",
-                    color = Color(0xFF4B5563),
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
                 )
@@ -361,12 +362,12 @@ private fun RuntimeMapFallback(
                 Text(
                     text = courierLocation?.let { "Kurir: ${"%.5f".format(it.latitude)}, ${"%.5f".format(it.longitude)}" }
                         ?: "Menunggu koordinat kurir...",
-                    color = Color(0xFF111827),
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     text = eta?.let { "Estimasi: $it" } ?: "Estimasi dihitung otomatis saat lokasi tersedia.",
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp)
                 )
@@ -510,7 +511,7 @@ fun CourierStatusCard(
                         text = order?.courierName ?: "Sedang mencari kurir...",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = Color(0xFF1A1A1A)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = if (order?.courierPlate != null) "${order.courierPlate} • ${order.courierVehicle ?: ""}" else "Menghubungkan driver",
@@ -615,7 +616,7 @@ private fun PackageSection(detail: OrderTrackingDetail) {
             .background(Color(0xFFF7FAFC))
             .padding(14.dp)
     ) {
-        Text("Rincian paket", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF1A1A1A))
+        Text("Rincian paket", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(12.dp))
         detail.packages.forEachIndexed { index, item ->
             val scanDone = !item.pickupScanVerifiedAt.isNullOrBlank()
@@ -643,7 +644,7 @@ private fun PackageSection(detail: OrderTrackingDetail) {
                         text = item.description?.takeIf { it.isNotBlank() } ?: "Paket ${index + 1}",
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
-                        color = Color(0xFF1A1A1A)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     val meta = buildList {
                         item.packageCode?.takeIf { it.isNotBlank() }?.let { add(it) }
@@ -718,7 +719,7 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
             .background(Color(0xFFF7FAFC))
             .padding(14.dp)
     ) {
-        Text(copy.timelineTitle, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF1A1A1A))
+        Text(copy.timelineTitle, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(12.dp))
         steps.forEachIndexed { index, step ->
             Row(verticalAlignment = Alignment.Top) {
@@ -832,7 +833,7 @@ private fun CancellationProofCard(proof: com.tembus.customer.data.model.Tracking
 @Composable
 private fun ProofImage(title: String, url: String, authToken: String?) {
     Column {
-        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color(0xFF1A1A1A))
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(6.dp))
         val context = LocalContext.current
         AsyncImage(

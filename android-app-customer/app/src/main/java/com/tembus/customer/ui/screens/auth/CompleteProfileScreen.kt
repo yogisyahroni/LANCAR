@@ -97,7 +97,7 @@ fun CompleteProfileScreen(
                     text = "Satu langkah lagi sebelum kamu mulai membuat pengiriman.",
                     fontSize = 15.sp,
                     lineHeight = 21.sp,
-                    color = Color(0xFF667085)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -139,7 +139,7 @@ fun CompleteProfileScreen(
                                     text = "Nama ini akan tampil di pesanan dan riwayat transaksi.",
                                     fontSize = 12.sp,
                                     lineHeight = 17.sp,
-                                    color = Color(0xFF667085)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -290,7 +290,7 @@ private fun TermsCheckboxCustomer(
             Text(
                 text = "Saya setuju dengan",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF667085)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = "Syarat & Ketentuan dan Kebijakan Privasi TEMBUS",

@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -111,11 +112,11 @@ fun ReferralScreen(
                                 onEnterCode = { showApplyDialog = true }
                             )
                         }
-                        item { Text("Riwayat Referral", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A)) }
+                        item { Text("Riwayat Referral", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) }
                         if (info?.rewards.isNullOrEmpty()) {
                             item {
                                 Box(modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
-                                    Text("Belum ada teman yang menggunakan kodemu", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                                    Text("Belum ada teman yang menggunakan kodemu", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 }
                             }
                         } else {
@@ -164,7 +165,7 @@ private fun ReferralHeaderCard(
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text("Kode Referral Kamu", fontSize = 14.sp, color = Color(0xFF64748B))
+            Text("Kode Referral Kamu", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
             if (referralCode != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -188,7 +189,7 @@ private fun ReferralHeaderCard(
                     }
                 }
             } else {
-                Text("Kode belum tersedia", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                Text("Kode belum tersedia", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             }
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -217,7 +218,7 @@ private fun StatChip(label: String, value: String) {
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.Center) {
             Text(value, fontSize = 20.sp, fontWeight = FontWeight.Black, color = Primary)
-            Text(label, fontSize = 11.sp, color = Color(0xFF64748B))
+            Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -239,9 +240,9 @@ private fun ReferralRewardCard(reward: ReferralReward) {
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(reward.referredName ?: "Teman", fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(reward.referredName ?: "Teman", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val rewardLabel = if (reward.rewardValue != null) "Rp ${reward.rewardValue}" else "-"
-                Text("Reward: $rewardLabel", fontSize = 12.sp, color = Color(0xFF64748B))
+                Text("Reward: $rewardLabel", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             val statusColor = when (reward.status) {
                 "completed" -> Color(0xFF16A34A)

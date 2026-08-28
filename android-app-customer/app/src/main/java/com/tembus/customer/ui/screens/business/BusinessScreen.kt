@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.business
 
 import android.content.ClipData
+import androidx.compose.material3.MaterialTheme
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
@@ -115,7 +116,7 @@ fun BusinessScreen(
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text("Toko Pengirim", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Primary, letterSpacing = 1.sp)
-                        Text(storeName.ifEmpty { "Loading..." }, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF17202A))
+                        Text(storeName.ifEmpty { "Loading..." }, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
 

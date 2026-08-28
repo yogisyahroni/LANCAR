@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -138,12 +139,12 @@ private fun LoyaltyContent(info: LoyaltyInfo) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
                         "Progress ke ${info.nextTier}",
-                        fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A)
+                        fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         "Tinggal ${info.ordersToNextTier} order lagi untuk mencapai ${info.nextTier} (diskon ${info.nextTierDiscountPct}%)",
-                        fontSize = 13.sp, color = Color(0xFF64748B)
+                        fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(10.dp))
                     LinearProgressIndicator(
@@ -153,7 +154,7 @@ private fun LoyaltyContent(info: LoyaltyInfo) {
                         trackColor = Color(0xFFE5E7EB)
                     )
                     Spacer(Modifier.height(6.dp))
-                    Text("${info.progressPct}%", fontSize = 12.sp, color = Color(0xFF94A3B8), textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+                    Text("${info.progressPct}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
                 }
             }
         } else {
@@ -172,19 +173,19 @@ private fun LoyaltyContent(info: LoyaltyInfo) {
         }
 
         // Benefits
-        Text("Benefit Keanggotaan", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+        Text("Benefit Keanggotaan", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         info.benefits.forEach { benefit ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(10.dp))
-                Text(benefit, fontSize = 14.sp, color = Color(0xFF334155))
+                Text(benefit, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
             }
         }
 
         Spacer(Modifier.height(8.dp))
         Text(
             "Tier dihitung dari jumlah order selesai dalam 30 hari terakhir.",
-            fontSize = 12.sp, color = Color(0xFF94A3B8)
+            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

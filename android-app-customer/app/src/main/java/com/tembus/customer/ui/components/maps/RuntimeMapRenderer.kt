@@ -420,7 +420,7 @@ private fun OpenStreetMapTileRenderer(
                 .align(Alignment.BottomStart)
                 .background(Color.White.copy(alpha = 0.82f))
                 .padding(horizontal = 8.dp, vertical = 4.dp),
-            color = Color(0xFF4B5563),
+            color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.labelSmall
         )
 
@@ -541,12 +541,12 @@ private fun RuntimeMapFallback(
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF0B3D2E))
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(message, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF4B5563))
+                Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     "Koordinat referensi: ${String.format(Locale.US, "%.5f, %.5f", center.latitude, center.longitude)}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFF6B7280)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(14.dp))
                 Button(
