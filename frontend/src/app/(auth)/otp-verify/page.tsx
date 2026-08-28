@@ -16,28 +16,8 @@ import { useGoogleAuthStore } from '@/store/googleAuthStore';
 import { useAuthStore } from '@/store/authStore';
 import { clientLog } from '@/lib/clientLogger';
 import { api } from '@/lib/api';
-
-const DEVICE_ID_KEY = 'tembus_customer_web_device_id';
-
-function getDeviceId(): string {
-  if (typeof window === 'undefined') return 'customer-web-server';
-  const existing = window.localStorage.getItem(DEVICE_ID_KEY);
-  if (existing) return existing;
-  const id = `customer-web-${crypto.randomUUID()}`;
-  window.localStorage.setItem(DEVICE_ID_KEY, id);
-  return id;
-}
-
-function buildDeviceInfo() {
-  return {
-    platform: 'web',
-    app: 'customer-portal',
-    remember_me: false,
-    user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    language: typeof navigator !== 'undefined' ? navigator.language : 'unknown',
-  };
-}
+import { getCustomerWebDeviceId, buildCustomerWebDeviceInfo } from '@/lib/customerDevice';
+import { exchangeSession } from '@/lib/customerSession';
 
 // ── 6-digit OTP input component ───────────────────────────────
 
@@ -147,21 +127,19 @@ function OtpVerifyContent() {
     setError(null);
 
     try {
-      const deviceId = getDeviceId();
+      const deviceId = getCustomerWebDeviceId();
       const result = await verifyCustomerOTP({
         challenge_id: otpChallengeId ?? '',
         code,
         phone_number: maskedRecipient ?? '',
         device_id: deviceId,
-        device_info: buildDeviceInfo(),
+        device_info: buildCustomerWebDeviceInfo(),
       });
 
       setSuccess(true);
 
       if (result.access_token) {
-        const user = await api
-          .post('/auth/web/session/exchange', { access_token: result.access_token })
-          .then((r) => r.data.user);
+        const user = await exchangeSession({ access_token: result.access_token }).then((r) => r.user ?? null);
         setAuth(true, user);
       } else if (result.user) {
         setAuth(true, result.user);
@@ -188,7 +166,7 @@ function OtpVerifyContent() {
     setError(null);
 
     try {
-      const deviceId = getDeviceId();
+      const deviceId = getCustomerWebDeviceId();
       await sendCustomerOTP({
         phone_number: maskedRecipient ?? '',
         channel: (preferredChannel as 'whatsapp' | 'sms') ?? 'whatsapp',

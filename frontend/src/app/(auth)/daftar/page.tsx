@@ -33,17 +33,8 @@ import { useGoogleAuthStore } from '@/store/googleAuthStore';
 import { sendCustomerOTP, verifyCustomerOTP } from '@/lib/customerOtp';
 import { clearGoogleSession } from '@/lib/googleAuth';
 import { clientLog } from '@/lib/clientLogger';
-
-const DEVICE_ID_KEY = 'tembus_customer_web_device_id';
-
-function getDeviceId(): string {
-  if (typeof window === 'undefined') return 'customer-web-server';
-  const existing = window.localStorage.getItem(DEVICE_ID_KEY);
-  if (existing) return existing;
-  const id = `customer-web-${crypto.randomUUID()}`;
-  window.localStorage.setItem(DEVICE_ID_KEY, id);
-  return id;
-}
+import { getCustomerWebDeviceId } from '@/lib/customerDevice';
+import { exchangeSession } from '@/lib/customerSession';
 
 type RegisterStep = 'identity' | 'otp';
 type RegisterFlow = 'normal' | 'google';
@@ -271,17 +262,17 @@ function RegisterContent() {
       const otpResponse = await api.post('/auth/otp/verify', {
         phone_number: email.trim().toLowerCase(),
         code: otp,
-        device_id: getDeviceId(),
+        device_id: getCustomerWebDeviceId(),
         device_info: {
           platform: 'web',
           flow: 'customer-registration',
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         },
       });
-      const sessionResponse = await api.post('/auth/web/session/exchange', {
+      const sessionResponse = await exchangeSession({
         access_token: otpResponse.data.access_token,
       });
-      setAuth(true, sessionResponse.data.user);
+      setAuth(true, sessionResponse.user ?? null);
       router.push('/dashboard');
     } catch (error: any) {
       setApiError(error.response?.data?.message || error.response?.data?.error || 'Verifikasi OTP gagal.');
@@ -312,7 +303,7 @@ function RegisterContent() {
         phone_number: normalized,
         channel: 'whatsapp',
         transaction_id: googleTransactionId ?? undefined,
-        device_id: getDeviceId(),
+        device_id: getCustomerWebDeviceId(),
       });
 
       if (result.status === 'bypassed') {
@@ -321,7 +312,7 @@ function RegisterContent() {
           challenge_id: result.challenge_id,
           code: '000000',
           phone_number: normalized,
-          device_id: getDeviceId(),
+          device_id: getCustomerWebDeviceId(),
           device_info: {
             platform: 'web',
             app: 'customer-portal',
@@ -333,10 +324,10 @@ function RegisterContent() {
         });
 
         if (verifyResult.access_token) {
-          const sessionResponse = await api.post('/auth/web/session/exchange', {
+          const sessionResponse = await exchangeSession({
             access_token: verifyResult.access_token,
           });
-          setAuth(true, sessionResponse.data.user);
+          setAuth(true, sessionResponse.user ?? null);
         } else if (verifyResult.user) {
           setAuth(true, verifyResult.user);
         }
@@ -370,7 +361,7 @@ function RegisterContent() {
         phone_number: phoneNumber,
         channel: 'whatsapp',
         transaction_id: googleTransactionId ?? undefined,
-        device_id: getDeviceId(),
+        device_id: getCustomerWebDeviceId(),
       });
       setChallengeId(result.challenge_id);
       setOtp('');
@@ -394,7 +385,7 @@ function RegisterContent() {
         challenge_id: challengeId,
         code: otp,
         phone_number: phoneNumber,
-        device_id: getDeviceId(),
+        device_id: getCustomerWebDeviceId(),
         device_info: {
           platform: 'web',
           app: 'customer-portal',
@@ -407,10 +398,10 @@ function RegisterContent() {
 
       // Exchange token → web session cookie
       if (result.access_token) {
-        const sessionResponse = await api.post('/auth/web/session/exchange', {
+        const sessionResponse = await exchangeSession({
           access_token: result.access_token,
         });
-        setAuth(true, sessionResponse.data.user);
+        setAuth(true, sessionResponse.user ?? null);
       } else if (result.user) {
         setAuth(true, result.user);
       }

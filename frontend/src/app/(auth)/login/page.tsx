@@ -12,6 +12,8 @@ import { clientLog } from '@/lib/clientLogger';
 import { customerGoogleAuthUrl } from '@/lib/runtimeConfig';
 import { useAuthStore } from '@/store/authStore';
 import { startGoogleAuth } from '@/lib/googleAuth';
+import { getCustomerWebDeviceId, buildCustomerWebDeviceInfo } from '@/lib/customerDevice';
+import { exchangeSession } from '@/lib/customerSession';
 
 const loginSchema = z.object({
   // LGN-03: Email max length prevents oversized payload; format enforced by Zod
@@ -44,42 +46,6 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
-
-const CUSTOMER_WEB_DEVICE_ID_KEY = 'tembus_customer_web_device_id';
-
-const createBrowserUUID = () => {
-  if (typeof window.crypto?.randomUUID === 'function') {
-    return window.crypto.randomUUID();
-  }
-
-  const bytes = new Uint8Array(16);
-  window.crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'));
-  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`;
-};
-
-const getOrCreateCustomerWebDeviceId = () => {
-  if (typeof window === 'undefined') return 'customer-web-server';
-
-  const existing = window.localStorage.getItem(CUSTOMER_WEB_DEVICE_ID_KEY);
-  if (existing) return existing;
-
-  const randomId = createBrowserUUID();
-  const deviceId = `customer-web-${randomId}`;
-  window.localStorage.setItem(CUSTOMER_WEB_DEVICE_ID_KEY, deviceId);
-  return deviceId;
-};
-
-const buildCustomerWebDeviceInfo = (rememberMe: boolean) => ({
-  platform: 'web',
-  app: 'customer-portal',
-  remember_me: rememberMe,
-  user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  language: typeof navigator !== 'undefined' ? navigator.language : 'unknown',
-});
 
 const getApiErrorMessage = (error: any, fallback: string) => {
   const data = error.response?.data;
@@ -146,10 +112,8 @@ export default function LoginPage() {
   };
 
   const createWebSessionFromCustomerToken = async (accessToken: string) => {
-    const response = await api.post('/auth/web/session/exchange', {
-      access_token: accessToken,
-    });
-    return response.data.user;
+    const data = await exchangeSession({ access_token: accessToken });
+    return data.user ?? null;
   };
 
   const onSubmit = async (data: LoginFormValues) => {
@@ -160,7 +124,7 @@ export default function LoginPage() {
           setApiError('Email and Password are required for password login');
           return;
         }
-        const deviceId = getOrCreateCustomerWebDeviceId();
+        const deviceId = getCustomerWebDeviceId();
         const response = await api.post('/auth/customer/login/start', {
           email: data.email,
           password: data.password,
@@ -198,7 +162,7 @@ export default function LoginPage() {
           setApiError('Email/phone and OTP are required for OTP login');
           return;
         }
-        const deviceId = getOrCreateCustomerWebDeviceId();
+        const deviceId = getCustomerWebDeviceId();
         const response = await api.post('/auth/otp/verify', {
           phone_number: identifier,
           code: data.otp,
@@ -218,7 +182,7 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       setApiError(null);
-      const deviceId = getOrCreateCustomerWebDeviceId();
+      const deviceId = getCustomerWebDeviceId();
       const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/google-callback` : undefined;
       const response = await startGoogleAuth(deviceId, redirectUri);
       

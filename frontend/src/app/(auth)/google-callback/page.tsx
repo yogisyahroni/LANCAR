@@ -21,17 +21,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useGoogleAuthStore } from '@/store/googleAuthStore';
 import { clientLog } from '@/lib/clientLogger';
 import { api } from '@/lib/api';
-
-const CUSTOMER_WEB_DEVICE_ID_KEY = 'tembus_customer_web_device_id';
-
-function getDeviceId(): string {
-  if (typeof window === 'undefined') return 'customer-web-server';
-  const existing = window.localStorage.getItem(CUSTOMER_WEB_DEVICE_ID_KEY);
-  if (existing) return existing;
-  const id = `customer-web-${crypto.randomUUID()}`;
-  window.localStorage.setItem(CUSTOMER_WEB_DEVICE_ID_KEY, id);
-  return id;
-}
+import { getCustomerWebDeviceId } from '@/lib/customerDevice';
+import { exchangeSession } from '@/lib/customerSession';
 
 function GoogleCallbackContent() {
   const router = useRouter();
@@ -99,7 +90,7 @@ function GoogleCallbackContent() {
         }
 
         // ── 3. Complete auth with backend ─────────────────────
-        const deviceId = getDeviceId();
+        const deviceId = getCustomerWebDeviceId();
         const result = await completeGoogleAuth({
           platform: 'web',
           id_token: idToken,
@@ -119,9 +110,7 @@ function GoogleCallbackContent() {
         switch (result.status) {
           case 'authenticated': {
             // Exchange access token for web session cookie
-            const user = await api
-              .post('/auth/web/session/exchange', { access_token: result.access_token })
-              .then((r) => r.data.user);
+            const user = await exchangeSession({ access_token: result.access_token }).then((r) => r.user ?? null);
             setAuth(true, user);
             router.replace('/dashboard');
             break;
