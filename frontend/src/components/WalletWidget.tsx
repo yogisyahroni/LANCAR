@@ -213,7 +213,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
             {formatCurrency(balance)}
           </h3>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
-            <ShieldCheck size={12} className="text-emerald-500" /> Saldo Terverifikasi (BI-FAST)
+            <ShieldCheck size={12} className="text-success" /> Saldo Terverifikasi (BI-FAST)
           </p>
         </div>
 
@@ -246,7 +246,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
           >
             <div className={cn(
               "p-2 rounded-xl flex-shrink-0",
-              notification.type === 'success' && "bg-emerald-500/10 text-emerald-500",
+              notification.type === 'success' && "bg-success/10 text-success",
               notification.type === 'error' && "bg-rose-500/10 text-rose-500",
               notification.type === 'info' && "bg-info/10 text-info"
             )}>
@@ -373,7 +373,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
             >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                  <div className="p-2 rounded-xl bg-success/10 text-success">
                     <ArrowUpRight size={18} />
                   </div>
                   <div>
@@ -464,7 +464,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                   </div>
                   <div className="pt-2 border-t border-black/5 dark:border-white/10 flex justify-between text-xs font-bold text-gray-900 dark:text-white">
                     <span>Total Potongan Saldo</span>
-                    <span className={isInsufficientBalance ? "text-rose-500" : "text-emerald-500"}>
+                    <span className={isInsufficientBalance ? "text-rose-500" : "text-success"}>
                       {formatCurrency(totalDeduction)}
                     </span>
                   </div>

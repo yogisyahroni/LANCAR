@@ -288,7 +288,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                {[
                  { label: 'Aktif', count: activeOrdersCount, color: 'text-info', bg: 'bg-info/10' },
-                 { label: 'Selesai', count: completedOrdersCount, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                 { label: 'Selesai', count: completedOrdersCount, color: 'text-success', bg: 'bg-success/10' },
                  { label: 'Dibatalkan', count: cancelledOrdersCount, color: 'text-rose-500', bg: 'bg-rose-500/10' },
                  { label: 'Total', count: dashboardStats ? (dashboardStats.active_orders + dashboardStats.completed_orders_month + dashboardStats.cancelled_orders_month) : orders.length, color: 'text-muted-foreground', bg: 'bg-muted' }
                ].map((stat, idx) => (
@@ -329,7 +329,7 @@ export default function DashboardPage() {
               <Package className="h-5 w-5 shrink-0" />
             </div>
           </div>
-          <div className="text-xs font-medium text-emerald-500 mt-2 z-10">
+          <div className="text-xs font-medium text-success mt-2 z-10">
             Sedang diproses / dikirim
           </div>
         </motion.div>
@@ -344,7 +344,7 @@ export default function DashboardPage() {
               <p className="text-xs font-medium text-muted-foreground">Selesai Bulan Ini</p>
               <h3 className="text-2xl font-extrabold text-foreground mt-2">{completedOrdersCount}</h3>
             </div>
-            <div className="h-10 w-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 group-hover:scale-105 transition-all">
+            <div className="h-10 w-10 bg-success/10 rounded-xl flex items-center justify-center text-success group-hover:scale-105 transition-all">
               <CheckCircle className="h-5 w-5 shrink-0" />
             </div>
           </div>
@@ -531,7 +531,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
                         <div className="flex items-start gap-2 select-none">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-500 mt-0.5" />
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-success mt-0.5" />
                           <div>
                             <p className="text-[10px] font-bold text-muted-foreground select-none">Dropoff Address</p>
                             <p className="text-[11px] text-foreground leading-relaxed truncate">{order.dropoff_address}</p>

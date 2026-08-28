@@ -527,7 +527,7 @@ export default function AddressBookPage() {
             )}
             {addr.is_default && (
               <div className="border-t border-border/40 pt-3 flex items-center justify-between select-none">
-                <span className="text-xs text-emerald-500 font-bold select-none">Selected for pickup</span>
+                <span className="text-xs text-success font-bold select-none">Selected for pickup</span>
                 <span className="text-[10px] text-muted-foreground font-mono select-none">
                   {formatCoordinates(addr.latitude, addr.longitude)}
                 </span>

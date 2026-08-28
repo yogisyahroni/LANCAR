@@ -107,7 +107,7 @@ export function AddressPicker({
   const addressField = mode === "pickup" ? "pickup_address" : "dropoff_address";
   const locationField = mode === "pickup" ? "pickup_location" : "dropoff_location";
   const isPickup = mode === "pickup";
-  const accentClass = isPickup ? "text-primary" : "text-emerald-500";
+  const accentClass = isPickup ? "text-primary" : "text-success";
 
   const performReverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
     try {
@@ -278,7 +278,7 @@ export function AddressPicker({
             <div className={[
               "flex items-start justify-between gap-3 rounded-xl border p-4",
               location
-                ? "border-emerald-500/25 bg-emerald-500/5"
+                ? "border-success/25 bg-success/5"
                 : "border-white/10 bg-white/[0.03]"
             ].join(" ")}>
               <div className="flex items-start gap-3 min-w-0">
@@ -363,7 +363,7 @@ export function AddressPicker({
                   setValue(addressField, event.target.value, { shouldDirty: true, shouldValidate: true });
                   setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
                 }}
-                className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-emerald-500 focus:ring-emerald-500"}`}
+                className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-success focus:ring-success"}`}
                 placeholder="Atau ketik untuk mencari lokasi..."
               />
               {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
@@ -384,7 +384,7 @@ export function AddressPicker({
                 setValue(addressField, event.target.value, { shouldDirty: true, shouldValidate: true });
                 setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
               }}
-              className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-emerald-500 focus:ring-emerald-500"}`}
+              className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-success focus:ring-success"}`}
               placeholder="Cari lokasi bangunan, jalan, atau area..."
             />
             {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
@@ -407,7 +407,7 @@ export function AddressPicker({
           <div className={[
             "flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-xs",
             location
-              ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
+              ? "border-success/25 bg-success/10 text-emerald-200"
               : "border-white/10 bg-white/[0.03] text-muted-foreground"
           ].join(" ")}>
             <div className="min-w-0">
@@ -418,7 +418,7 @@ export function AddressPicker({
                 {formatCoordinate(location)}
               </span>
             </div>
-            {location ? <Check className="h-4 w-4 shrink-0 text-emerald-500" /> : <Info className="h-4 w-4 shrink-0" />}
+            {location ? <Check className="h-4 w-4 shrink-0 text-success" /> : <Info className="h-4 w-4 shrink-0" />}
           </div>
         </>
       )}

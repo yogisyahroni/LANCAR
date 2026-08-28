@@ -52,7 +52,7 @@ export default function FlagEditor({ flagKey, initialConfig, isEnabled, onSave, 
         <div className="flex items-center justify-between p-5 border-b border-border/40">
           <div>
             <h3 className="text-lg font-bold text-foreground">Edit Configuration: {flagKey}</h3>
-            <p className="text-xs text-muted-foreground mt-1">Status saat ini: <span className={isEnabled ? "text-emerald-500 font-bold" : "text-destructive font-bold"}>{isEnabled ? 'ACTIVE' : 'INACTIVE'}</span></p>
+            <p className="text-xs text-muted-foreground mt-1">Status saat ini: <span className={isEnabled ? "text-success font-bold" : "text-destructive font-bold"}>{isEnabled ? 'ACTIVE' : 'INACTIVE'}</span></p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-xl transition-all">
             <X className="h-5 w-5 text-muted-foreground" />
