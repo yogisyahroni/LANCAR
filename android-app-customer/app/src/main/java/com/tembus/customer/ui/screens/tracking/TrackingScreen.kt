@@ -50,6 +50,7 @@ import com.tembus.customer.R
 import com.tembus.customer.data.model.OrderTrackingDetail
 import com.tembus.customer.ui.components.maps.RuntimeMapMarker
 import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
+import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.screens.rating.CourierRatingDialog
 import com.tembus.customer.ui.screens.rating.CourierRatingViewModel
@@ -558,7 +559,7 @@ fun CourierStatusCard(
                                     .align(Alignment.TopEnd)
                                     .size(11.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFFF7A00))
+                                    .background(Accent)
                             )
                         }
                     }

@@ -1,31 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Primary - TEMBUS Green -->
-    <color name="primary">#0D5C2F</color>
-    <color name="primary_dark">#063D22</color>
-    <color name="primary_light">#E7F7EE</color>
-    <color name="splash_background">#004A2A</color>
-    
-    <!-- Secondary and CTA -->
-    <color name="secondary">#138C3B</color>
-    <color name="secondary_dark">#0B6B2C</color>
-    <color name="secondary_light">#EAF8EF</color>
-    <color name="accent">#FF7A00</color>
+    <!-- TEMBUS 2026 approved palette (source of truth: ui/theme/Color.kt).
+         Legacy #0D5C2F / #FF7A00 removed to prevent reuse. -->
+
+    <!-- Brand -->
+    <color name="primary">#003A20</color>
+    <color name="primary_dark">#003A20</color>
+    <color name="primary_light">#E8F5EE</color>
+    <color name="splash_background">#003A20</color>
+
+    <!-- Accent (CTA orange) -->
+    <color name="accent">#F97316</color>
     <color name="accent_light">#FFF1E6</color>
-    
+
     <!-- Neutral -->
-    <color name="background">#F7F8FA</color>
+    <color name="background">#F7F8F7</color>
     <color name="surface">#FFFFFF</color>
     <color name="launcher_icon_background">#FFFFFF</color>
     <color name="on_primary">#FFFFFF</color>
-    <color name="on_secondary">#FFFFFF</color>
-    <color name="on_background">#111827</color>
-    <color name="on_surface">#111827</color>
-    <color name="on_surface_variant">#6B7280</color>
-    
+    <color name="on_background">#14211A</color>
+    <color name="on_surface">#14211A</color>
+    <color name="on_surface_variant">#626C67</color>
+
     <!-- Status -->
-    <color name="success">#22C55E</color>
+    <color name="success">#16A34A</color>
     <color name="warning">#F59E0B</color>
-    <color name="error">#EF4444</color>
-    <color name="info">#3B82F6</color>
+    <color name="error">#DC2626</color>
+    <color name="info">#2563EB</color>
 </resources>

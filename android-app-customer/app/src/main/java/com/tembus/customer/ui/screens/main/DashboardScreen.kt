@@ -134,6 +134,7 @@ fun DashboardScreen(
     onHistoryClick: () -> Unit = {},
     onBusinessClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
+    onHomeClick: () -> Unit = {},
     onFoodClick: () -> Unit = {},
     onIncomingClick: () -> Unit = {}
 ) {
@@ -173,7 +174,7 @@ fun DashboardScreen(
                     icon = { Icon(Icons.Default.LocalShipping, contentDescription = "Beranda") },
                     label = { Text("Beranda") },
                     selected = true,
-                    onClick = {},
+                    onClick = onHomeClick,
                     colors = tembusNavigationColors()
                 )
                 NavigationBarItem(

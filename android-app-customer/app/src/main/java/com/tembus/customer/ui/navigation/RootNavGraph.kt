@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -247,7 +248,11 @@ fun RootNavGraph(
                     onChatClick = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
                     onHistoryClick = { navController.navigate(Screen.History.route) },
                     onBusinessClick = { navController.navigate(Screen.Business.route) },
-                    onProfileClick = { navController.navigate(Screen.Profile.route) }
+                    onProfileClick = { navController.navigate(Screen.Profile.route) },
+                    onHomeClick = {
+                        navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+                            ?: navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
+                    }
                 )
             }
 
@@ -682,8 +687,8 @@ private fun ForegroundNotificationBanner(
                         },
                         contentDescription = null,
                         tint = when (event.category) {
-                            "promo" -> Color(0xFFFF7A00)
-                            else -> Color(0xFF0D5C2F)
+                            "promo" -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.primary
                         }
                     )
                 }
@@ -708,7 +713,7 @@ private fun ForegroundNotificationBanner(
                 }
                 Text(
                     "Buka",
-                    color = Color(0xFF0D5C2F),
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier

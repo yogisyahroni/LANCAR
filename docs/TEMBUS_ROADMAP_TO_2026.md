@@ -36,7 +36,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 
 | Bagian | Item | Status |
 |---|---|---|
-| 1 | Split `courierAuth.controller.ts` | ✅ |
+| 11.6 | Customer mobile palette/token + nav remediation (audit 2026-08-28) | ✅ **DONE 2026-08-28** — OLD_BRAND (`#0D5C2F`/`#FF7A00`) dihapus dari `RootNavGraph.kt`(3), `TrackingScreen.kt`(1), `MapPrimitives.kt`(1) + `colors.xml` + `TEMBUS_MOBILE_DESIGN_GUIDELINES_2026.md` disesuaikan ke palette `#003A20`/`#F97316`; NAV-01 (tab Beranda no-op) dibenerin via `onHomeClick`→`popBackStack(Dashboard)`. `compileDebugKotlin` + `testDebugUnitTest` BUILD SUCCESSFUL. Sisa: 121 Tailwind-gray token-violation (P1) + 112 `contentDescription=null` (P1 a11y) → remediasi lanjutan. |
 | 1 | Split `customerOrder.controller.ts` | ✅ |
 | 1 | Split `order_service.go` | ✅ |
 | 1 | OnDemandMapScreens / PayoutScreens / HubScreens | ✅ OnDemandMapScreens (1614→160 + 15 composables), PayoutScreens (1092→159 + 43 files), HubScreens (869→159 + OnDemandHomeHubEnterprise 427 + OnDemandHomeHub 283) — ALL SPLIT DONE 2026-08-26 (`compileDebugKotlin` BUILD SUCCESSFUL) |
@@ -1012,6 +1012,9 @@ android-app/app/src/main/java/com/tembus/courier/
 ### P1
 - [ ] Notification center penuh (`/notifikasi`: filter, mark all read, deep link, pagination) — 🟡 *Audit: dropdown saja (mark-read/Clear All/deep-link sanitize ✅), tanpa halaman/filter*
 - [ ] Skeleton/shimmer loading web — ❌ *(Android ✅ hand-rolled)*
+- [ ] **[AUDIT 2026-08-27] Brand-consistency: ganti hardcode `bg-blue-500/10` + `text-blue-500` → token `primary`/`accent` di 9 file** — ❌ *Audit: glow biru bukan brand di login, otp-verify, google-callback, forgot-pin, daftar, dashboard (ekspedisi), disputes, orders, orders/[id], WalletWidget. Token `--color-primary:#003A20`/`--color-accent:#F97316` sudah ada. Lihat `docs/customer-web-design-audit-2026-08-27.md` A1*
+- [ ] **[AUDIT 2026-08-27] Hapus demo data statis di ekspedisi dashboard** (`715 Order`, `Rp18.500.000`, `12 Paket` di `dashboard/page.tsx`) → ambil dari `dashboardStats` API atau render zero/empty-state jujur — ❌ *Lawan prinsip honest state. Lihat audit A3*
+- [ ] **[AUDIT 2026-08-27] Konsolidasi duplikasi auth web (D1–D4)** — ❌ *Audit temukan: (D1) dua endpoint OTP paralel `/auth/customer/otp/*` vs `/auth/otp/*` — login+daftar pakai path bukan-customer; (D2) `getOrCreateCustomerWebDeviceId`+`buildCustomerWebDeviceInfo` (login) vs `getDeviceId`+`buildDeviceInfo` (otp-verify) vs `getDeviceId` (google-callback) terduplikasi identik → 1 util `@/lib/device`; (D3) `session/exchange` diulang manual 4x → 1 helper `exchangeSession()`; (D4) notifikasi GET/read/clear duplikat layout vs `/notifikasi` → 1 hook `useNotifications()`. Lihat audit B/D1–D4*
 - [ ] Laporan/export nyata (Excel/PDF, backend analytics — ganti mock) ✅ **DONE**
   - File: `frontend/src/app/(portal)/laporan/page.tsx` — real analytics `/auth/web/reports/umkm`, CSV + print, bukan mock
 - [ ] Google/Apple Sign-In web + Remember me + session expiry UX

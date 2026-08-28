@@ -1,0 +1,199 @@
+{
+ "totals": {
+  "token_ok": 60,
+  "OLD_BRAND": 5,
+  "TAILWIND_GRAY": 121,
+  "unclassified": 134
+ },
+ "byfile": {
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\components\\CourierPriceCard.kt": {
+   "unclassified": 10
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\components\\ServiceGridMenu.kt": {
+   "unclassified": 6
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\components\\maps\\MapPrimitives.kt": {
+   "OLD_BRAND": 1,
+   "unclassified": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\components\\maps\\RuntimeMapRenderer.kt": {
+   "unclassified": 6,
+   "TAILWIND_GRAY": 4
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\localization\\LanguageScreen.kt": {
+   "TAILWIND_GRAY": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\navigation\\RootNavGraph.kt": {
+   "TAILWIND_GRAY": 4,
+   "unclassified": 3,
+   "OLD_BRAND": 3
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\auth\\CompleteProfileScreen.kt": {
+   "unclassified": 8,
+   "TAILWIND_GRAY": 12
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\auth\\OtpVerifyScreen.kt": {
+   "token_ok": 1,
+   "unclassified": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\business\\BusinessScreen.kt": {
+   "TAILWIND_GRAY": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\call\\InAppCallScreen.kt": {
+   "unclassified": 12,
+   "TAILWIND_GRAY": 8
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\chat\\ChatScreen.kt": {
+   "TAILWIND_GRAY": 33,
+   "unclassified": 12,
+   "token_ok": 4
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\detail\\DisputeDialog.kt": {
+   "unclassified": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\food\\FoodCheckoutScreen.kt": {
+   "TAILWIND_GRAY": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\history\\OrderHistoryScreen.kt": {
+   "TAILWIND_GRAY": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\notifications\\NotificationCenterScreen.kt": {
+   "token_ok": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\payment\\PaymentScreen.kt": {
+   "unclassified": 4
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\profile\\AddressBookScreen.kt": {
+   "TAILWIND_GRAY": 9,
+   "token_ok": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\profile\\LoyaltyScreen.kt": {
+   "TAILWIND_GRAY": 10,
+   "unclassified": 4,
+   "token_ok": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\profile\\ProfileScreen.kt": {
+   "unclassified": 3
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\profile\\ReferralScreen.kt": {
+   "TAILWIND_GRAY": 10,
+   "token_ok": 2
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\profile\\WithdrawDialog.kt": {
+   "unclassified": 5
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\rating\\CourierRatingDialog.kt": {
+   "unclassified": 3
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\rating\\MerchantRatingDialog.kt": {
+   "TAILWIND_GRAY": 10,
+   "token_ok": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\service\\CourierDetailScreen.kt": {
+   "unclassified": 6
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\service\\TambalBanHomeScreen.kt": {
+   "unclassified": 9
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\service\\TambalBanSearchScreen.kt": {
+   "unclassified": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\tip\\TipDialog.kt": {
+   "unclassified": 3
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\screens\\tracking\\TrackingScreen.kt": {
+   "TAILWIND_GRAY": 9,
+   "unclassified": 21,
+   "OLD_BRAND": 1
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\security\\LocalDeviceSecurityUi.kt": {
+   "unclassified": 10,
+   "TAILWIND_GRAY": 8
+  },
+  "E:/antigraviti google/SUDAH DEPLOY/LANCAR/android-app-customer\\app\\src\\main\\java\\com\\tembus\\customer\\ui\\theme\\Color.kt": {
+   "token_ok": 49,
+   "unclassified": 5
+  }
+ },
+ "unclassified": {
+  "E8F5E9": 2,
+  "FFF3E0": 3,
+  "FCE4EC": 3,
+  "4CAF50": 7,
+  "FF9800": 2,
+  "F44336": 2,
+  "FFC107": 1,
+  "E3F2FD": 1,
+  "FFF8E1": 1,
+  "EFF7F1": 1,
+  "0B7A53": 3,
+  "EAF3FF": 1,
+  "0B3D2E": 5,
+  "E8F6EE": 1,
+  "FFF3E3": 1,
+  "EAF2FF": 1,
+  "F4F8FB": 1,
+  "17212B": 2,
+  "EAF4FF": 1,
+  "E1E7EF": 2,
+  "047857": 1,
+  "475467": 1,
+  "F9FAFB": 1,
+  "075C2F": 2,
+  "F6F8F7": 2,
+  "0E7A3D": 1,
+  "E5484D": 3,
+  "FFF4E5": 2,
+  "EAF7EF": 1,
+  "FF6B00": 3,
+  "F2F2F7": 2,
+  "0B3D2A": 2,
+  "526173": 1,
+  "FFFBEB": 3,
+  "D97706": 1,
+  "92400E": 4,
+  "6B4E16": 1,
+  "8B5CF6": 1,
+  "10B981": 1,
+  "07884A": 4,
+  "084C2E": 1,
+  "D4AF37": 1,
+  "B45309": 1,
+  "ECFDF5": 1,
+  "166534": 1,
+  "0D6EFD": 1,
+  "008C5A": 1,
+  "25D366": 1,
+  "E53935": 2,
+  "1C1C1E": 1,
+  "FFBB00": 1,
+  "E0F7FA": 3,
+  "00AED6": 4,
+  "FFB300": 1,
+  "00AA5B": 1,
+  "008EB0": 6,
+  "00697A": 1,
+  "7BC043": 1,
+  "B42318": 2,
+  "FFF1F1": 2,
+  "E0E0E0": 1,
+  "F7FAFC": 2,
+  "E8ECEF": 1,
+  "FFFBF5": 1,
+  "5F1D1B": 1,
+  "EDEFF2": 1,
+  "FF9500": 1,
+  "FF5252": 1,
+  "1565C0": 1,
+  "DCE3EE": 1,
+  "E5EAF2": 1,
+  "F8FAFF": 1,
+  "5D6B82": 4,
+  "E1E7F0": 1,
+  "1A0E00": 1,
+  "F4FBF3": 1,
+  "FDA66A": 1,
+  "06150E": 1,
+  "0B1F17": 1
+ }
+}

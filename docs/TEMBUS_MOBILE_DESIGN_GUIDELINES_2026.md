@@ -6,18 +6,18 @@ Guideline ini adalah sumber aktif untuk UI Android customer dan kurir TEMBUS. Se
 
 | Token | Hex | Pemakaian |
 | --- | --- | --- |
-| Primary | `#0D5C2F` | Header, brand surface, ikon utama, state aktif |
-| Secondary | `#138C3B` | Secondary action, outline aktif, indikator progres |
-| Accent CTA | `#FF7A00` | CTA utama seperti kirim order, ambil paket, selesai antar |
-| Background | `#F7F8FA` | Background app light mode |
+| Primary | `#003A20` | Header, brand surface, ikon utama, state aktif |
+| PrimaryBase | `#005C32` | Secondary action, outline aktif, indikator progres |
+| Accent CTA | `#F97316` | CTA utama seperti kirim order, ambil paket, selesai antar |
+| Background | `#F7F8F7` | Background app light mode |
 | Surface | `#FFFFFF` | Card, input, sheet, dialog |
-| Text Primary | `#111827` | Judul, angka penting, label utama |
-| Text Secondary | `#6B7280` | Metadata, subtitle, hint |
-| Text Disabled | `#9CA3AF` | Disabled action dan placeholder |
-| Success | `#22C55E` | Status selesai dan verifikasi valid |
+| Text Primary | `#14211A` | Judul, angka penting, label utama |
+| Text Secondary | `#626C67` | Metadata, subtitle, hint |
+| Text Disabled | `#B8C0BB` | Disabled action dan placeholder |
+| Success | `#16A34A` | Status selesai dan verifikasi valid |
 | Warning | `#F59E0B` | Pending, perlu perhatian |
-| Error | `#EF4444` | Gagal, batal, destructive |
-| Info | `#3B82F6` | Informasi netral |
+| Error | `#DC2626` | Gagal, batal, destructive |
+| Info | `#2563EB` | Informasi netral |
 
 Customer memakai hero hijau bersih dan CTA orange untuk order. Kurir memakai surface hijau gelap untuk konteks operasional, map, dan status on-duty.
 
@@ -45,7 +45,7 @@ Gunakan grid 8dp.
 | Screen padding | 24dp | Page container |
 | Section gap | 32dp | Jarak antar section utama |
 | Card gap | 16dp | Jarak konten card |
-| Card radius | 20dp | Card utama dan status panel |
+| Card radius | 12dp | Card utama dan status panel (current 8dp component rule) |
 | Button radius | 16dp | CTA dan secondary button |
 | Input radius | 14dp | Text field, dropdown |
 | Chip radius | 50dp | Status chip dan filter |
