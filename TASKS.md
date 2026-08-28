@@ -2,6 +2,8 @@
 
 ## Active
 
+- [x] **Customer Mobile UI/UX & Flow Audit 2026** - audit customer Android terhadap standar aplikasi on-demand sejenis 2026, TEMBUS palette light/dark, WCAG 2.2 AA, adaptive layout, navigation, dan happy/error/offline flow. Static scope SELESAI (commit ae2a1d7): OLD_BRAND purged, NAV-01 fixed, 82/121 gray→M3 token, 112 cd=null classified. Device phases (flow traversal / TalkBack / adaptive 320–412–foldable / font 2.0x / benchmark) BLOCKED — butuh emulator Pixel 6 Pro (port 5556). Detail: artifacts/customer-mobile-uiux-audit-2026/.
+
 - [ ] **TEMBUS UI/UX Standardization** - detail eksekusi ada di [task-tembus-uiux-standardization.md](task-tembus-uiux-standardization.md); Phase 0 dan Phase 1 selesai, customer dashboard/home, customer service category/selector, dan customer package booking sudah migrated + Android customer/courier/merchant compile pass; scope sisa Phase 2 customer food/tambal/towing booking, payment/tracking, courier app, merchant app, dan web/admin/merchant portal bila surface ikut disentuh.
 
 - [ ] **P0 - E2E Multi-Service Courier Flow Repair** - detail eksekusi ada di [task-e2e-multi-service-courier-flow-repair.md](task-e2e-multi-service-courier-flow-repair.md); scope customer web/mobile, backend order/admin/payment/dispatch, courier app, merchant/admin ops, settlement, proof, notification, dan test Android/Playwright.
