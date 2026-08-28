@@ -238,7 +238,7 @@ export default function LoginPage() {
       {/* Background Decorative Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-primary/10 blur-[120px] rounded-full" />
-        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-blue-500/10 blur-[120px] rounded-full" />
+        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-primary/10 blur-[120px] rounded-full" />
       </div>
 
       <motion.div

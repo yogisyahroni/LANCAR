@@ -437,7 +437,7 @@ export default function OrderDetailPage() {
       case 'picked_up':
       case 'in_transit':
       case 'delivering':
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20 animate-pulse';
+        return 'bg-info/10 text-info border-info/20 animate-pulse';
       case 'completed':
       case 'delivered':
         return 'bg-green-500/10 text-green-500 border-green-500/20';

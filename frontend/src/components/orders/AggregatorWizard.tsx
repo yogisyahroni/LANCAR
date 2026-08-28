@@ -629,7 +629,7 @@ export function AggregatorWizard() {
                     onClick={() => setOrderMode("upload")}
                     className="group flex flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 p-8 transition-all hover:border-indigo-500/50 hover:bg-indigo-500/5"
                   >
-                    <div className="h-14 w-14 rounded-xl bg-blue-500/20 flex items-center justify-center transition-transform group-hover:scale-110">
+                    <div className="h-14 w-14 rounded-xl bg-primary/20 flex items-center justify-center transition-transform group-hover:scale-110">
                       <span className="text-3xl">📤</span>
                     </div>
                     <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground">Upload file orderan</span>

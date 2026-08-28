@@ -59,7 +59,7 @@ export const ShippingSelector: React.FC<ShippingSelectorProps> = ({ request, onS
               key={tariff.service_code}
               onClick={() => onSelect(tariff)}
               className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                isSelected ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-blue-300'
+                isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-gray-200 hover:border-blue-300'
               }`}
             >
               <div className="flex items-start justify-between">

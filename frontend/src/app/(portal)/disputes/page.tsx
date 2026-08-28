@@ -46,7 +46,7 @@ export default function DisputesPage() {
 
   const getStatusClass = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'open': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+      case 'open': return 'bg-info/10 text-info border-info/20';
       case 'investigating': return 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse';
       case 'resolved': return 'bg-green-500/10 text-green-500 border-green-500/20';
       case 'closed': return 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20';

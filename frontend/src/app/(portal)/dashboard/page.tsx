@@ -287,7 +287,7 @@ export default function DashboardPage() {
             <h3 className="text-base font-bold text-foreground mb-4">Status Pengiriman 3PL</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                {[
-                 { label: 'Menunggu Pickup', count: 45, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                 { label: 'Menunggu Pickup', count: 45, color: 'text-info', bg: 'bg-info/10' },
                  { label: 'Dalam Perjalanan', count: 128, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
                  { label: 'Selesai Terkirim', count: 542, color: 'text-muted-foreground', bg: 'bg-muted' },
                  { label: 'Retur/Gagal', count: 12, color: 'text-rose-500', bg: 'bg-rose-500/10' }
@@ -365,7 +365,7 @@ export default function DashboardPage() {
                 {formatIDR(totalSpend)}
               </h3>
             </div>
-            <div className="h-10 w-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500 group-hover:scale-105 transition-all">
+            <div className="h-10 w-10 bg-info/10 rounded-xl flex items-center justify-center text-info group-hover:scale-105 transition-all">
               <CreditCard className="h-5 w-5 shrink-0" />
             </div>
           </div>

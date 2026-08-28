@@ -248,7 +248,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
               "p-2 rounded-xl flex-shrink-0",
               notification.type === 'success' && "bg-emerald-500/10 text-emerald-500",
               notification.type === 'error' && "bg-rose-500/10 text-rose-500",
-              notification.type === 'info' && "bg-blue-500/10 text-blue-500"
+              notification.type === 'info' && "bg-info/10 text-info"
             )}>
               {notification.type === 'success' && <CheckCircle2 size={18} />}
               {notification.type === 'error' && <AlertCircle size={18} />}
@@ -336,7 +336,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 flex items-start gap-2.5">
+                <div className="p-3.5 rounded-2xl bg-info/5 dark:bg-info/10 border border-info/10 dark:border-info/20 flex items-start gap-2.5">
                   <ShieldCheck size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                   <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed">
                     Mendukung pembayaran via **QRIS**, Virtual Account (BCA, Mandiri, BNI, BRI), dan E-Wallet (GoPay, OVO, DANA).
