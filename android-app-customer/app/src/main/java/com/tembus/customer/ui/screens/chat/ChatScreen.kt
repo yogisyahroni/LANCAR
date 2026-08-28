@@ -693,7 +693,7 @@ private fun ChatLoadingSkeleton(modifier: Modifier = Modifier) {
                     .width(if (index % 2 == 0) 220.dp else 180.dp)
                     .height(if (index % 3 == 0) 58.dp else 44.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFFE5E7EB))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             )
         }
     }
@@ -876,7 +876,7 @@ private fun FoodOrderSummaryCardSkeleton() {
                     modifier = Modifier
                         .size(60.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFE5E7EB))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -893,7 +893,7 @@ private fun FoodOrderSummaryCardSkeleton() {
                         modifier = Modifier
                             .width(140.dp)
                             .height(16.dp)
-                            .background(Color(0xFFE5E7EB))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .clip(RoundedCornerShape(8.dp))
                     )
                     // Merchant name skeleton
@@ -901,21 +901,21 @@ private fun FoodOrderSummaryCardSkeleton() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(18.dp)
-                            .background(Color(0xFFE5E7EB))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     )
                     // Item count + Total skeleton
                     Box(
                         modifier = Modifier
                             .width(160.dp)
                             .height(16.dp)
-                            .background(Color(0xFFE5E7EB))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     )
                     // Order number skeleton
                     Box(
                         modifier = Modifier
                             .width(120.dp)
                             .height(14.dp)
-                            .background(Color(0xFFE5E7EB))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     )
                 }
 
@@ -924,7 +924,7 @@ private fun FoodOrderSummaryCardSkeleton() {
                     modifier = Modifier
                         .width(60.dp)
                         .height(32.dp)
-                        .background(Color(0xFFE5E7EB))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clip(RoundedCornerShape(8.dp))
                         .align(Alignment.Top)
                 )

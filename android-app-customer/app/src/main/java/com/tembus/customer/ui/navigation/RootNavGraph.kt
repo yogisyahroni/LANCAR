@@ -659,7 +659,7 @@ private fun ForegroundNotificationBanner(
                 .clickable { onOpen(event) },
             shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
         ) {
             Row(
