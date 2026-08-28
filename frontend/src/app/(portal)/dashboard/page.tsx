@@ -240,57 +240,57 @@ export default function DashboardPage() {
           exit={{ opacity: 0, y: -10 }}
           className="space-y-8"
         >
-          {/* Ekspedisi: COD & Financial Summary */}
+          {/* Ekspedisi: COD & Financial Summary — real customer data, no demo figures */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group">
               <div className="flex items-start justify-between z-10">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Total Order Ekspedisi</p>
-                  <h3 className="text-2xl font-extrabold text-foreground mt-2">715 Order</h3>
+                  <p className="text-xs font-medium text-muted-foreground">Total Order Kamu</p>
+                  <h3 className="text-2xl font-extrabold text-foreground mt-2">{dashboardStats ? (dashboardStats.active_orders + dashboardStats.completed_orders_month + dashboardStats.cancelled_orders_month) : orders.length}</h3>
                 </div>
                 <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
                   <Package className="h-5 w-5 shrink-0" />
                 </div>
               </div>
-              <div className="text-xs font-medium text-primary mt-2 z-10">Akumulasi semua pengiriman</div>
+              <div className="text-xs font-medium text-primary mt-2 z-10">Semua order terdaftar</div>
             </div>
             
             <div className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group">
               <div className="flex items-start justify-between z-10">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Total Ongkir Ekspedisi</p>
-                  <h3 className="text-2xl font-extrabold text-foreground mt-2">{formatIDR(18500000)}</h3>
+                  <p className="text-xs font-medium text-muted-foreground">Total Ongkir</p>
+                  <h3 className="text-2xl font-extrabold text-foreground mt-2">{formatIDR(totalSpend)}</h3>
                 </div>
-                <div className="h-10 w-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
+                <div className="h-10 w-10 bg-info/10 rounded-xl flex items-center justify-center text-info">
                   <CreditCard className="h-5 w-5 shrink-0" />
                 </div>
               </div>
-              <div className="text-xs font-medium text-emerald-500 mt-2 z-10">Bulan berjalan</div>
+              <div className="text-xs font-medium text-info mt-2 z-10">Akumulasi bulan berjalan</div>
             </div>
 
             <div className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group border-rose-500/20">
               <div className="flex items-start justify-between z-10">
                 <div>
-                  <p className="text-xs font-medium text-rose-500">Butuh Perhatian (Resolusi)</p>
-                  <h3 className="text-2xl font-extrabold text-foreground mt-2">12 Paket</h3>
+                  <p className="text-xs font-medium text-rose-500">Perlu Perhatian</p>
+                  <h3 className="text-2xl font-extrabold text-foreground mt-2">{cancelledOrdersCount}</h3>
                 </div>
                 <div className="h-10 w-10 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-500 animate-pulse">
                   <AlertCircle className="h-5 w-5 shrink-0" />
                 </div>
               </div>
-              <div className="text-xs font-medium text-rose-500 mt-2 z-10">Gagal kirim, retur, atau hilang</div>
+              <div className="text-xs font-medium text-rose-500 mt-2 z-10">Order dibatalkan bulan ini</div>
             </div>
           </div>
 
-          {/* Ekspedisi: Logistic Status Summary */}
+          {/* Ekspedisi: Status Pengiriman (real customer orders) */}
           <div className="glass-card rounded-2xl p-6">
-            <h3 className="text-base font-bold text-foreground mb-4">Status Pengiriman 3PL</h3>
+            <h3 className="text-base font-bold text-foreground mb-4">Status Order Kamu</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                {[
-                 { label: 'Menunggu Pickup', count: 45, color: 'text-info', bg: 'bg-info/10' },
-                 { label: 'Dalam Perjalanan', count: 128, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                 { label: 'Selesai Terkirim', count: 542, color: 'text-muted-foreground', bg: 'bg-muted' },
-                 { label: 'Retur/Gagal', count: 12, color: 'text-rose-500', bg: 'bg-rose-500/10' }
+                 { label: 'Aktif', count: activeOrdersCount, color: 'text-info', bg: 'bg-info/10' },
+                 { label: 'Selesai', count: completedOrdersCount, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                 { label: 'Dibatalkan', count: cancelledOrdersCount, color: 'text-rose-500', bg: 'bg-rose-500/10' },
+                 { label: 'Total', count: dashboardStats ? (dashboardStats.active_orders + dashboardStats.completed_orders_month + dashboardStats.cancelled_orders_month) : orders.length, color: 'text-muted-foreground', bg: 'bg-muted' }
                ].map((stat, idx) => (
                  <div key={idx} className="p-4 rounded-xl border border-border/40 flex items-center justify-between">
                    <span className="text-sm font-medium text-muted-foreground">{stat.label}</span>
