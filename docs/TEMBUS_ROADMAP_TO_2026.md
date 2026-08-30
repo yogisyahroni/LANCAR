@@ -432,7 +432,7 @@ android-app/.../ui/a11y/AccessibilityPreview.kt
 
 ## 2.2 Resilience Patterns
 
-**Status:** 🟡 **PARTIAL** — Circuit breaker Go ✅ (`integration-gateway/internal/provider/circuit_breaker.go`, wired Zenziva/JNT/JNE; ⚠️ duplikat mati di auth-service). Opossum di api-gateway terpasang sebagian (wrapper stub `return true`; proxy `/api/v1/customer` besar tanpa breaker). Retry `WithRetry` ada tapi **dead code**. **Midtrans = bare fetch tanpa timeout/retry/breaker** 🔴. Bulkhead ❌ nol. Rate limiter ✅ (global 100/mnt/IP, auth 30/15mnt, public per-user→device→IP + brute-force Redis; ⚠️ express-rate-limit in-memory store).
+**Status:** 🟡 **PARTIAL** — Circuit breaker Go ✅ (`integration-gateway/internal/provider/circuit_breaker.go`, wired Zenziva/JNT/JNE; ⚠️ duplikat mati di auth-service). Opossum di api-gateway terpasang sebagian (wrapper stub `return true`; proxy `/api/v1/customer` besar tanpa breaker). Retry `WithRetry` ada tapi **dead code** di integration-gateway. **Midtrans = ✅ RESOLVED (2026-08-30)** — sudah ada circuit breaker (`midtransBreaker`), retry (`resilience.WithRetry` + `DefaultRetryConfig`), dan 15s timeout HTTP client di `order-service/internal/infrastructure/payment_gateway/midtrans_gateway.go`; 8 unit test baru (`midtrans_gateway_test.go`) verifikasi SHA512 webhook signature + validation + breaker state. Bulkhead ❌ nol. Rate limiter ✅ (global 100/mnt/IP, auth 30/15mnt, public per-user→device→IP + brute-force Redis; ⚠️ express-rate-limit in-memory store).
 
 ### Circuit Breaker + Retry + Bulkhead
 **Files diubah:**
