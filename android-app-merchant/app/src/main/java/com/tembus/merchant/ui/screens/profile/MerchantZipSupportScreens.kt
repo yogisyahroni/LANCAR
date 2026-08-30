@@ -58,6 +58,8 @@ import com.tembus.merchant.data.model.MerchantOperatingHour
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryPale
+import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.Success
 import com.tembus.merchant.ui.theme.TembusRadius
 import java.util.Locale
 
@@ -153,7 +155,7 @@ fun OperatingHoursScreen(
                     }
                 }
                 state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                state.saveMessage?.let { Text(it, color = Color(0xFF15803D), style = MaterialTheme.typography.bodySmall) }
+                state.saveMessage?.let { Text(it, color = Color(0xFF16A34A), style = MaterialTheme.typography.bodySmall) }
                 Spacer(Modifier.height(20.dp))
                 Button(
                     onClick = { viewModel.save(draft.normalizedOperatingHours()) },
@@ -253,7 +255,7 @@ fun EditPublicProfileScreen(
                         Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
                     if (state.profileSaved) {
-                        Text("Public profile saved.", color = Color(0xFF15803D), style = MaterialTheme.typography.bodySmall)
+                        Text("Public profile saved.", color = Color(0xFF16A34A), style = MaterialTheme.typography.bodySmall)
                     }
                     Button(
                         onClick = { viewModel.updatePublicProfile(storeName, address) },
@@ -366,7 +368,7 @@ private fun MerchantReviewSummaryCard(
                     Icon(
                         if (index < average.toInt()) Icons.Filled.Star else Icons.Filled.StarOutline,
                         contentDescription = null,
-                        tint = Color(0xFFF97316),
+                        tint = Accent,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -432,7 +434,7 @@ private fun CustomerReviewCard(
                         Icon(
                             if (index < review.stars.coerceIn(0, 5)) Icons.Filled.Star else Icons.Filled.StarOutline,
                             contentDescription = null,
-                            tint = if (index < review.stars.coerceIn(0, 5)) Color(0xFFF97316) else MaterialTheme.colorScheme.outlineVariant,
+                            tint = if (index < review.stars.coerceIn(0, 5)) Accent else MaterialTheme.colorScheme.outlineVariant,
                             modifier = Modifier.size(16.dp)
                         )
                     }

@@ -49,6 +49,7 @@ import com.tembus.merchant.data.model.MerchantNotificationPreferences
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryPale
+import com.tembus.merchant.ui.theme.Error
 
 /** Native port of the ZIP Notifications screen, backed by persisted preferences. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -133,7 +134,7 @@ private fun NotificationPreferenceCard(
         Column {
             PreferenceRow(Icons.Filled.NotificationsActive, "New Order Alerts", "Sound and push notifications for incoming orders.", Primary, preferences.newOrderAlerts, onNewOrderAlertsChange)
             Divider()
-            PreferenceRow(Icons.Filled.Cancel, "Order Cancellations", "Alerts when a customer or driver cancels an order.", Color(0xFFB91C1C), preferences.orderCancellations, onOrderCancellationsChange)
+            PreferenceRow(Icons.Filled.Cancel, "Order Cancellations", "Alerts when a customer or driver cancels an order.", Error, preferences.orderCancellations, onOrderCancellationsChange)
             Divider()
             PreferenceRow(Icons.Filled.Summarize, "Daily Summary Reports", "End-of-day summary of sales and completed orders.", MaterialTheme.colorScheme.onSurfaceVariant, preferences.dailySummaryReports, onDailySummaryReportsChange)
             Divider()

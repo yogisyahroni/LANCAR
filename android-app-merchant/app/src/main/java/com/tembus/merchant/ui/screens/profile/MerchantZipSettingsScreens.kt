@@ -271,7 +271,7 @@ fun PaymentSettingsZipScreen(
                     }
                     state.paymentSaveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     if (state.paymentSaved) {
-                        Text("Payment settings saved.", color = Color(0xFF15803D))
+                        Text("Payment settings saved.", color = Color(0xFF16A34A))
                     }
                 }
             }
@@ -394,12 +394,12 @@ private fun LinkedBankCard(merchant: Merchant) {
                 )
                 Spacer(Modifier.size(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(if (merchant.bankAccountVerified) Color(0xFF15803D) else MaterialTheme.colorScheme.error))
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(if (merchant.bankAccountVerified) Color(0xFF16A34A) else MaterialTheme.colorScheme.error))
                     Spacer(Modifier.size(4.dp))
                     Text(
                         if (merchant.bankAccountVerified) "Verified & Active" else "Menunggu verifikasi admin",
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (merchant.bankAccountVerified) Color(0xFF15803D) else MaterialTheme.colorScheme.error
+                        color = if (merchant.bankAccountVerified) Color(0xFF16A34A) else MaterialTheme.colorScheme.error
                     )
                 }
             }
