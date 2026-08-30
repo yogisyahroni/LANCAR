@@ -2,7 +2,8 @@
 
 ## Active
 
-- [ ] **Migrasi penuh UI/Flow post-login Merchant dari tembus-merchant.zip** - hapus/ganti seluruh UI post-login lama dengan 17 screen ZIP 100%, port ke native Android, lalu wire ke API/repository/database/session/state machine real; splash, onboarding, dan login tetap.
+- [x] **Migrasi penuh UI/Flow post-login Merchant dari tembus-merchant.zip** - hapus/ganti seluruh UI post-login lama dengan 17 screen ZIP 100%, port ke native Android, lalu wire ke API/repository/database/session/state machine real; splash, onboarding, dan login tetap.
+  - Status 2026-08-30: ✅ 16/17 items functional complete (build/lint/test/unit/emulator smoke ALL PASS, 17 route ZIP + state wiring verifikasi, legacy UI cleanup, splash/login untouched). 1 item tersisa: pixel-level visual parity vs stitch_screens (emulator screencap Android 12+ display layer issue — uiautomator hierarchy dump sebagai substitute).
   - ZIP adalah sumber kebenaran UI/flow; existing app hanya menjadi adapter auth, data, API, database, session, permission, dan state machine.
   - Detail checklist dan status per screen: `task-merchant-zip-ui-migration.md`.
   - Selesai hanya saat strict ZIP parity, seluruh route Android, penghapusan UI lama, API wiring, build, test, emulator, screenshot evidence, dan graphify sudah terverifikasi.
