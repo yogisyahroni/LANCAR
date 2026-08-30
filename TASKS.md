@@ -8,7 +8,7 @@
   - Detail checklist dan status per screen: `task-merchant-zip-ui-migration.md`.
   - Selesai hanya saat strict ZIP parity, seluruh route Android, penghapusan UI lama, API wiring, build, test, emulator, screenshot evidence, dan graphify sudah terverifikasi.
 
-- [ ] **Merchant Android — Stitch screen parity** - menyelesaikan screen Merchant yang belum 1:1 dengan export Stitch; detail dan checklist ada di [task-merchant-stitch-screen-parity.md](task-merchant-stitch-screen-parity.md).
+- [x] **Merchant Android — Stitch screen parity** - menyelesaikan screen Merchant yang belum 1:1 dengan export Stitch; detail dan checklist ada di [task-merchant-stitch-screen-parity.md](task-merchant-stitch-screen-parity.md). ✅ FULLY DONE 2026-08-28 (semua 4 section checklist + route matrix terpenuhi).
 
 - [x] **Customer Mobile UI/UX & Flow Audit 2026** - audit customer Android terhadap standar aplikasi on-demand sejenis 2026, TEMBUS palette light/dark, WCAG 2.2 AA, adaptive layout, navigation, dan happy/error/offline flow. Static scope SELESAI (commit ae2a1d7): OLD_BRAND purged, NAV-01 fixed, 82/121 gray→M3 token, 112 cd=null classified. Device phases (flow traversal / TalkBack / adaptive 320–412–foldable / font 2.0x / benchmark) BLOCKED — butuh emulator Pixel 6 Pro (port 5556). Detail: artifacts/customer-mobile-uiux-audit-2026/.
 
