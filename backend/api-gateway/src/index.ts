@@ -1222,6 +1222,21 @@ app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_U
 // ─────────────────────────────────────────────
 // Merchant Routes (Merchant Service — FOOD-BIKE-019)
 // ─────────────────────────────────────────────
+// Merchant notification inbox/preferences are owned by order-service because
+// that service persists notification records and applies delivery policy.
+app.use('/api/v1/notifications', authenticateJWT);
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/notifications',
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('notifications', req, ORDER_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    }
+  }
+}));
+
 app.use('/api/v1/merchant', authenticateJWT);
 // NOTE: pakai pathFilter (BUKAN express app.use prefix) supaya full path
 // /api/v1/merchant/... diteruskan utuh — app.use prefix strip req.url jadi

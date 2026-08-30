@@ -6,6 +6,8 @@ import com.google.gson.annotations.SerializedName
 data class Merchant(
     @SerializedName("id") val id: String = "",
     @SerializedName("user_id") val userId: String = "",
+    @SerializedName("owner_email") val ownerEmail: String = "",
+    @SerializedName("owner_phone") val ownerPhone: String = "",
     @SerializedName("nama_toko") val namaToko: String = "",
     @SerializedName("alamat") val alamat: String = "",
     @SerializedName("lokasi_lat") val lokasiLat: Double? = null,
@@ -38,6 +40,8 @@ data class Merchant(
     @SerializedName("bank_account_number") val bankAccountNumber: String? = null,
     @SerializedName("bank_account_holder") val bankAccountHolder: String? = null,
     @SerializedName("bank_account_verified") val bankAccountVerified: Boolean = false,
+    @SerializedName("payout_schedule") val payoutSchedule: String = "daily",
+    @SerializedName("npwp") val npwp: String? = null,
     // X1/M1: jenis usaha — 'perorangan' (tanpa staff) | 'perusahaan' (wajib staff mgmt).
     @SerializedName("business_type") val businessType: String = "perorangan",
     @SerializedName("created_at") val createdAt: String? = null,
@@ -53,6 +57,47 @@ data class Merchant(
     val isCorporate: Boolean get() = businessType == "perusahaan"
 }
 
+data class MerchantNotification(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("title") val title: String = "",
+    @SerializedName("body") val body: String = "",
+    @SerializedName("type") val type: String = "",
+    @SerializedName("is_read") val isRead: Boolean = false,
+    @SerializedName("deep_link") val deepLink: String? = null,
+    @SerializedName("order_id") val orderId: String? = null,
+    @SerializedName("created_at") val createdAt: String = ""
+)
+
+data class NotificationListResponse(
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: List<MerchantNotification> = emptyList()
+)
+
+data class MarkNotificationReadRequest(
+    @SerializedName("notification_id") val notificationId: String
+)
+
+data class MerchantNotificationPreferences(
+    @SerializedName("user_id") val userId: String = "",
+    @SerializedName("new_order_alerts") val newOrderAlerts: Boolean = true,
+    @SerializedName("order_cancellations") val orderCancellations: Boolean = true,
+    @SerializedName("daily_summary_reports") val dailySummaryReports: Boolean = true,
+    @SerializedName("promotional_updates") val promotionalUpdates: Boolean = false,
+    @SerializedName("updated_at") val updatedAt: String = ""
+)
+
+data class NotificationPreferencesResponse(
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("data") val data: MerchantNotificationPreferences = MerchantNotificationPreferences()
+)
+
+data class UpdateNotificationPreferencesRequest(
+    @SerializedName("new_order_alerts") val newOrderAlerts: Boolean,
+    @SerializedName("order_cancellations") val orderCancellations: Boolean,
+    @SerializedName("daily_summary_reports") val dailySummaryReports: Boolean,
+    @SerializedName("promotional_updates") val promotionalUpdates: Boolean
+)
+
 /** Menu item — CRUD /api/v1/merchant/menu. */
 data class MenuItem(
     @SerializedName("id") val id: String = "",
@@ -60,6 +105,7 @@ data class MenuItem(
     @SerializedName("nama") val nama: String = "",
     @SerializedName("harga") val harga: Long = 0,
     @SerializedName("foto") val foto: String? = null,
+    @SerializedName("deskripsi") val deskripsi: String? = null,
     @SerializedName("kategori") val kategori: String = "",
     @SerializedName("prep_time_minutes") val prepTimeMinutes: Int = 15,
     @SerializedName("is_available") val isAvailable: Boolean = true,
@@ -72,6 +118,7 @@ data class MenuItemRequest(
     @SerializedName("nama") val nama: String,
     @SerializedName("harga") val harga: Long,
     @SerializedName("foto") val foto: String? = null,
+    @SerializedName("deskripsi") val deskripsi: String? = null,
     @SerializedName("kategori") val kategori: String,
     @SerializedName("prep_time_minutes") val prepTimeMinutes: Int,
     @SerializedName("is_available") val isAvailable: Boolean? = null
@@ -133,9 +180,40 @@ data class PauseRequest(
 
 /** FB-109: body PATCH /merchant/profile — update minimal order (IDR). */
 data class UpdateProfileRequest(
+    @SerializedName("nama_toko") val namaToko: String? = null,
+    @SerializedName("alamat") val alamat: String? = null,
     @SerializedName("min_order_idr") val minOrderIdr: Long? = null,
     @SerializedName("jam_buka") val jamBuka: String? = null,
-    @SerializedName("jam_tutup") val jamTutup: String? = null
+    @SerializedName("jam_tutup") val jamTutup: String? = null,
+    @SerializedName("payout_schedule") val payoutSchedule: String? = null,
+    @SerializedName("npwp") val npwp: String? = null
+)
+
+data class MerchantOperatingHour(
+    @SerializedName("weekday") val weekday: Int,
+    @SerializedName("is_open") val isOpen: Boolean,
+    @SerializedName("opens_at") val opensAt: String? = null,
+    @SerializedName("closes_at") val closesAt: String? = null
+)
+
+data class MerchantSpecialClosure(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("closure_date") val closureDate: String = "",
+    @SerializedName("label") val label: String = ""
+)
+
+data class MerchantOperatingHoursResponse(
+    @SerializedName("hours") val hours: List<MerchantOperatingHour> = emptyList(),
+    @SerializedName("closures") val closures: List<MerchantSpecialClosure> = emptyList()
+)
+
+data class ReplaceOperatingHoursRequest(
+    @SerializedName("hours") val hours: List<MerchantOperatingHour>
+)
+
+data class CreateSpecialClosureRequest(
+    @SerializedName("closure_date") val closureDate: String,
+    @SerializedName("label") val label: String
 )
 
 /** Reject order food — reason wajib (FOOD-BIKE-017/021). FB-122: reject_reason enum. */
@@ -174,6 +252,8 @@ data class MerchantOrder(
     @SerializedName("food_ready_at") val foodReadyAt: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("order_notes") val orderNotes: String? = null, // FB-121
+    @SerializedName("cancellation_reason") val cancellationReason: String? = null,
+    @SerializedName("reject_reason") val rejectReason: String? = null,
     @SerializedName("scheduled_at") val scheduledAt: String? = null, // FB-123: order terjadwal
     @SerializedName("items") val items: List<FoodOrderItem> = emptyList()
 )
@@ -255,6 +335,10 @@ data class StrukData(
     @SerializedName("order_id") val orderId: String = "",
     @SerializedName("order_number") val orderNumber: String = "",
     @SerializedName("status") val status: String = "",
+    @SerializedName("merchant_accepted_at") val merchantAcceptedAt: String? = null,
+    @SerializedName("food_ready_at") val foodReadyAt: String? = null,
+    @SerializedName("cancellation_reason") val cancellationReason: String? = null,
+    @SerializedName("reject_reason") val rejectReason: String? = null,
     @SerializedName("merchant_name") val merchantName: String = "",
     @SerializedName("merchant_address") val merchantAddress: String? = null,
     @SerializedName("customer_name") val customerName: String? = null,
@@ -287,12 +371,55 @@ data class TopSellingItem(
 )
 
 /** SalesReportSummary — ringkasan penjualan periode (response langsung, tanpa wrapper). */
+data class SalesReportPoint(
+    @SerializedName("day") val day: String = "",
+    @SerializedName("revenue_idr") val revenueIdr: Long = 0
+)
+
 data class SalesReportSummary(
     @SerializedName("period") val period: String = "daily",
     @SerializedName("total_orders") val totalOrders: Int = 0,
     @SerializedName("gmv_idr") val gmvIdr: Long = 0,
     @SerializedName("avg_order_value_idr") val avgOrderValueIdr: Long = 0,
-    @SerializedName("top_items") val topItems: List<TopSellingItem> = emptyList()
+    @SerializedName("top_items") val topItems: List<TopSellingItem> = emptyList(),
+    @SerializedName("daily_breakdown") val dailyBreakdown: List<SalesReportPoint> = emptyList()
+)
+
+/** Review customer merchant — GET /api/v1/merchant/reviews. */
+data class MerchantReview(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("order_number") val orderNumber: String = "",
+    @SerializedName("reviewer_name") val reviewerName: String = "Customer",
+    @SerializedName("stars") val stars: Int = 0,
+    @SerializedName("comment") val comment: String = "",
+    @SerializedName("tags") val tags: List<String> = emptyList(),
+    @SerializedName("created_at") val createdAt: String = "",
+    @SerializedName("reply") val reply: MerchantReviewReply? = null
+)
+
+data class MerchantReviewReply(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("body") val body: String = "",
+    @SerializedName("created_at") val createdAt: String = "",
+    @SerializedName("updated_at") val updatedAt: String = ""
+)
+
+data class MerchantRatingBucket(
+    @SerializedName("stars") val stars: Int = 0,
+    @SerializedName("count") val count: Int = 0
+)
+
+data class MerchantReviewReplyRequest(
+    @SerializedName("body") val body: String
+)
+
+data class MerchantReviewsResponse(
+    @SerializedName("avg_rating") val avgRating: Double = 0.0,
+    @SerializedName("rating_count") val ratingCount: Int = 0,
+    @SerializedName("reviews") val reviews: List<MerchantReview> = emptyList(),
+    @SerializedName("rating_distribution") val ratingDistribution: List<MerchantRatingBucket> = emptyList(),
+    @SerializedName("page") val page: Int = 1,
+    @SerializedName("page_size") val pageSize: Int = 20
 )
 
 // ── FB-113: Settlement / Payout Merchant ──

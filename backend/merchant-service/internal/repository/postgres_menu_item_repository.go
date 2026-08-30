@@ -20,13 +20,13 @@ func NewPostgresMenuItemRepository(db, readDB *sql.DB) domain.MenuItemRepository
 	return &postgresMenuItemRepository{db: db, readDB: readDB}
 }
 
-const menuItemColumns = `id, merchant_id, nama, harga, foto, kategori, prep_time_minutes, is_available, created_at, updated_at`
+const menuItemColumns = `id, merchant_id, nama, harga, foto, deskripsi, kategori, prep_time_minutes, is_available, created_at, updated_at`
 
 func scanMenuItem(row interface{ Scan(...any) error }) (*domain.MenuItem, error) {
 	var item domain.MenuItem
-	var foto sql.NullString
+	var foto, deskripsi sql.NullString
 	err := row.Scan(
-		&item.ID, &item.MerchantID, &item.Nama, &item.Harga, &foto,
+		&item.ID, &item.MerchantID, &item.Nama, &item.Harga, &foto, &deskripsi,
 		&item.Kategori, &item.PrepTimeMinutes, &item.IsAvailable,
 		&item.CreatedAt, &item.UpdatedAt,
 	)
@@ -36,19 +36,25 @@ func scanMenuItem(row interface{ Scan(...any) error }) (*domain.MenuItem, error)
 	if foto.Valid {
 		item.Foto = &foto.String
 	}
+	if deskripsi.Valid {
+		item.Deskripsi = &deskripsi.String
+	}
 	return &item, nil
 }
 
 func (r *postgresMenuItemRepository) Create(ctx context.Context, item *domain.MenuItem) error {
-	var foto sql.NullString
+	var foto, deskripsi sql.NullString
 	if item.Foto != nil {
 		foto = sql.NullString{String: *item.Foto, Valid: true}
 	}
+	if item.Deskripsi != nil {
+		deskripsi = sql.NullString{String: *item.Deskripsi, Valid: true}
+	}
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO merchant_menu_items (id, merchant_id, nama, harga, foto, kategori, prep_time_minutes, is_available)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO merchant_menu_items (id, merchant_id, nama, harga, foto, deskripsi, kategori, prep_time_minutes, is_available)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING created_at, updated_at`,
-		item.ID, item.MerchantID, item.Nama, item.Harga, foto, item.Kategori, item.PrepTimeMinutes, item.IsAvailable,
+		item.ID, item.MerchantID, item.Nama, item.Harga, foto, deskripsi, item.Kategori, item.PrepTimeMinutes, item.IsAvailable,
 	).Scan(&item.CreatedAt, &item.UpdatedAt)
 	return err
 }
@@ -85,21 +91,25 @@ func (r *postgresMenuItemRepository) ListByMerchant(ctx context.Context, merchan
 }
 
 func (r *postgresMenuItemRepository) Update(ctx context.Context, item *domain.MenuItem) error {
-	var foto sql.NullString
+	var foto, deskripsi sql.NullString
 	if item.Foto != nil {
 		foto = sql.NullString{String: *item.Foto, Valid: true}
+	}
+	if item.Deskripsi != nil {
+		deskripsi = sql.NullString{String: *item.Deskripsi, Valid: true}
 	}
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE merchant_menu_items SET
 			nama = COALESCE(NULLIF($3, ''), nama),
 			harga = CASE WHEN $4 = 0 THEN harga ELSE $4 END,
 			foto = CASE WHEN $5::text IS NULL THEN foto ELSE $5 END,
-			kategori = COALESCE(NULLIF($6, ''), kategori),
-			prep_time_minutes = CASE WHEN $7 = 0 THEN prep_time_minutes ELSE $7 END,
-			is_available = COALESCE($8, is_available),
+			deskripsi = CASE WHEN $6::text IS NULL THEN deskripsi ELSE $6 END,
+			kategori = COALESCE(NULLIF($7, ''), kategori),
+			prep_time_minutes = CASE WHEN $8 = 0 THEN prep_time_minutes ELSE $8 END,
+			is_available = COALESCE($9, is_available),
 			updated_at = NOW()
 		WHERE id = $1 AND merchant_id = $2`,
-		item.ID, item.MerchantID, item.Nama, item.Harga, foto, item.Kategori, item.PrepTimeMinutes, item.IsAvailable,
+		item.ID, item.MerchantID, item.Nama, item.Harga, foto, deskripsi, item.Kategori, item.PrepTimeMinutes, item.IsAvailable,
 	)
 	return err
 }

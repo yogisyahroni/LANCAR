@@ -11,55 +11,61 @@ import (
 // verification_status: pending | approved | rejected (FOOD-BIKE-046).
 // Merchant baru default pending, tidak bisa terima order sampai approved.
 type Merchant struct {
-	ID                 string     `json:"id"`
-	UserID             string     `json:"user_id"`
-	NamaToko           string     `json:"nama_toko"`
-	Alamat             string     `json:"alamat"`
-	LokasiLat          *float64   `json:"lokasi_lat,omitempty"`
-	LokasiLng          *float64   `json:"lokasi_lng,omitempty"`
-	JamBuka            *string    `json:"jam_buka,omitempty"`
-	JamTutup           *string    `json:"jam_tutup,omitempty"`
-	IsOpen             bool       `json:"is_open"`
+	ID         string   `json:"id"`
+	UserID     string   `json:"user_id"`
+	OwnerEmail string   `json:"owner_email,omitempty"`
+	OwnerPhone string   `json:"owner_phone,omitempty"`
+	NamaToko   string   `json:"nama_toko"`
+	Alamat     string   `json:"alamat"`
+	LokasiLat  *float64 `json:"lokasi_lat,omitempty"`
+	LokasiLng  *float64 `json:"lokasi_lng,omitempty"`
+	JamBuka    *string  `json:"jam_buka,omitempty"`
+	JamTutup   *string  `json:"jam_tutup,omitempty"`
+	IsOpen     bool     `json:"is_open"`
 	// FB-107: pause sementara sampai jam ini (NULL = tidak pause). Auto
 	// un-pause ketika waktu habis — tidak mengubah is_open / jam operasional.
-	PausedUntil        *time.Time `json:"paused_until,omitempty"`
+	PausedUntil *time.Time `json:"paused_until,omitempty"`
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa batas minimum.
-	MinOrderIDR        int64      `json:"min_order_idr"`
-	CompletionRatePct  float64    `json:"completion_rate_pct"`
+	MinOrderIDR       int64   `json:"min_order_idr"`
+	CompletionRatePct float64 `json:"completion_rate_pct"`
 	// Staffing (X1/M1): jenis usaha. 'perorangan' = owner langsung tanpa
 	// staff; 'perusahaan' = WAJIB punya staff management (merchant_staff).
-	BusinessType string `json:"business_type"`
-	VerificationStatus string     `json:"verification_status"`
+	BusinessType       string `json:"business_type"`
+	VerificationStatus string `json:"verification_status"`
 	// Rating restoran (FOOD-BIKE-059/060): di-update order-service tiap
 	// customer submit rating setelah order delivered.
-	AvgRating          float64    `json:"avg_rating"`
-	RatingCount        int        `json:"rating_count"`
+	AvgRating   float64 `json:"avg_rating"`
+	RatingCount int     `json:"rating_count"`
 	// Dokumen pangan (FB-092): UU 33/2014 + PP 39/2021 (halal BPJPH),
 	// PerBPOM 4/2024 (SPP-IRT / izin edar BPOM). Opsional saat daftar.
 	// ADR 003: SEMUA opsional — bukan gate buka toko.
-	HalalCertNumber   *string    `json:"halal_cert_number,omitempty"`
-	HalalExpiryDate   *string    `json:"halal_expiry_date,omitempty"` // YYYY-MM-DD
-	SppIrtNumber      *string    `json:"spp_irt_number,omitempty"`
-	SppIrtExpiryDate  *string    `json:"spp_irt_expiry_date,omitempty"` // YYYY-MM-DD
-	BpomNumber        *string    `json:"bpom_number,omitempty"`
-	BpomExpiryDate    *string    `json:"bpom_expiry_date,omitempty"` // YYYY-MM-DD
+	HalalCertNumber  *string `json:"halal_cert_number,omitempty"`
+	HalalExpiryDate  *string `json:"halal_expiry_date,omitempty"` // YYYY-MM-DD
+	SppIrtNumber     *string `json:"spp_irt_number,omitempty"`
+	SppIrtExpiryDate *string `json:"spp_irt_expiry_date,omitempty"` // YYYY-MM-DD
+	BpomNumber       *string `json:"bpom_number,omitempty"`
+	BpomExpiryDate   *string `json:"bpom_expiry_date,omitempty"` // YYYY-MM-DD
 	// ADR 003 (2026-08-10): status halal untuk label + filter customer.
 	// halal_certified | non_halal | unknown (default).
 	HalalStatus string `json:"halal_status"`
 	// Rekening bank untuk payout (FB-114) — di-update dari app; verifikasi
 	// ulang oleh admin saat rekening berubah.
-	BankName             *string  `json:"bank_name,omitempty"`
-	BankAccountNumber    *string  `json:"bank_account_number,omitempty"`
-	BankAccountHolder    *string  `json:"bank_account_holder,omitempty"`
-	BankAccountVerified  bool     `json:"bank_account_verified"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
+	BankName            *string   `json:"bank_name,omitempty"`
+	BankAccountNumber   *string   `json:"bank_account_number,omitempty"`
+	BankAccountHolder   *string   `json:"bank_account_holder,omitempty"`
+	BankAccountVerified bool      `json:"bank_account_verified"`
+	PayoutSchedule      string    `json:"payout_schedule"`
+	NPWP                *string   `json:"npwp,omitempty"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 // HalalStatusValue — status halal merchant (ADR 003, model Grab/GoFood):
-//   halal_certified = punya nomor + expiry valid (badge HALAL)
-//   non_halal       = self-declare merchant (badge NON-HALAL)
-//   unknown         = default, tanpa badge
+//
+//	halal_certified = punya nomor + expiry valid (badge HALAL)
+//	non_halal       = self-declare merchant (badge NON-HALAL)
+//	unknown         = default, tanpa badge
+//
 // Fallback dari kolom lama kalau halal_status belum terisi (migrasi parsial).
 func (m *Merchant) HalalStatusValue() string {
 	if m.HalalStatus == "halal_certified" || m.HalalStatus == "non_halal" {
@@ -106,6 +112,28 @@ type MerchantDocument struct {
 	UploadedAt time.Time `json:"uploaded_at"`
 }
 
+// MerchantOperatingHour adalah satu hari jadwal operasional. weekday mengikuti
+// time.Weekday: Minggu=0 sampai Sabtu=6. Waktu berformat HH:MM.
+type MerchantOperatingHour struct {
+	MerchantID string  `json:"merchant_id,omitempty"`
+	Weekday    int     `json:"weekday"`
+	IsOpen     bool    `json:"is_open"`
+	OpensAt    *string `json:"opens_at,omitempty"`
+	ClosesAt   *string `json:"closes_at,omitempty"`
+}
+
+// MerchantSpecialClosure menutup toko pada satu tanggal lokal (WIB).
+type MerchantSpecialClosure struct {
+	ID          string `json:"id"`
+	ClosureDate string `json:"closure_date"`
+	Label       string `json:"label"`
+}
+
+type MerchantOperatingHoursResponse struct {
+	Hours    []MerchantOperatingHour  `json:"hours"`
+	Closures []MerchantSpecialClosure `json:"closures"`
+}
+
 // MerchantRepository — interface akses data merchant.
 type MerchantRepository interface {
 	// Create membuat merchant baru dengan status pending + dokumen verifikasi
@@ -145,6 +173,14 @@ type MerchantRepository interface {
 	// ListForOperatingHoursSync merchant approved dengan jam_buka/jam_tutup
 	// terisi — kandidat auto-toggle is_open sesuai jam operasional (FB-095).
 	ListForOperatingHoursSync(ctx context.Context) ([]*Merchant, error)
+	// Operating hours ZIP: jadwal per hari + tanggal tutup khusus.
+	GetOperatingHours(ctx context.Context, merchantID string) ([]MerchantOperatingHour, error)
+	ReplaceOperatingHours(ctx context.Context, merchantID string, hours []MerchantOperatingHour) error
+	ListOperatingHoursForMerchants(ctx context.Context, merchantIDs []string) (map[string][]MerchantOperatingHour, error)
+	ListSpecialClosuresOn(ctx context.Context, merchantIDs []string, date string) (map[string]bool, error)
+	ListSpecialClosures(ctx context.Context, merchantID string) ([]MerchantSpecialClosure, error)
+	CreateSpecialClosure(ctx context.Context, merchantID, date, label string) (*MerchantSpecialClosure, error)
+	DeleteSpecialClosure(ctx context.Context, merchantID, closureID string) error
 }
 
 // Ensure sql import is used (tx helper di repository).

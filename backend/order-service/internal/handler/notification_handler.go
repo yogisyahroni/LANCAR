@@ -21,15 +21,20 @@ import (
 type NotificationHandler struct {
 	notifSvc       domain.NotificationService
 	orderRepo      domain.OrderRepository
+	prefsRepo      domain.NotificationRepository
 	internalAPIKey string
 }
 
-func NewNotificationHandler(svc domain.NotificationService, orderRepo domain.OrderRepository) *NotificationHandler {
-	return &NotificationHandler{
+func NewNotificationHandler(svc domain.NotificationService, orderRepo domain.OrderRepository, prefsRepo ...domain.NotificationRepository) *NotificationHandler {
+	h := &NotificationHandler{
 		notifSvc:       svc,
 		orderRepo:      orderRepo,
 		internalAPIKey: os.Getenv("INTERNAL_API_KEY"),
 	}
+	if len(prefsRepo) > 0 {
+		h.prefsRepo = prefsRepo[0]
+	}
+	return h
 }
 
 func (h *NotificationHandler) NotifyCustomerMerchantAccepted(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +103,6 @@ func (h *NotificationHandler) NotifyCustomerMerchantAccepted(w http.ResponseWrit
 	middleware.WriteSuccess(w, http.StatusOK, map[string]string{"status": "success", "message": "Notification sent"})
 }
 
-
 func (h *NotificationHandler) GetInbox(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
@@ -162,14 +166,24 @@ func (h *NotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Extract notification ID from path: /api/v1/notifications/{id}/read
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 6 {
-		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_PATH", "Invalid notification ID in path", middleware.GetCorrelationID(r.Context()))
+	// Route saat ini adalah /api/v1/notifications/read; terima ID dari body.
+	// Path lama /api/v1/notifications/{id}/read tetap didukung untuk kompatibilitas.
+	var req struct {
+		NotificationID string `json:"notification_id"`
+	}
+	_ = json.NewDecoder(io.LimitReader(r.Body, 64*1024)).Decode(&req)
+	notifIDStr := strings.TrimSpace(req.NotificationID)
+	if notifIDStr == "" {
+		pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(pathParts) >= 5 && pathParts[len(pathParts)-1] == "read" {
+			notifIDStr = pathParts[len(pathParts)-2]
+		}
+	}
+	if notifIDStr == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ID", "notification_id wajib diisi", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
-	notifIDStr := pathParts[4] // /api/v1/notifications/{id}/read
 	notifID, err := uuid.Parse(notifIDStr)
 	if err != nil {
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ID", "Invalid notification ID", middleware.GetCorrelationID(r.Context()))
@@ -182,6 +196,72 @@ func (h *NotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Request)
 	}
 
 	middleware.WriteSuccess(w, http.StatusOK, map[string]string{"status": "ok", "message": "Notification marked as read"})
+}
+
+func (h *NotificationHandler) GetMerchantPreferences(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	userID, ok := notificationUserID(w, r)
+	if !ok {
+		return
+	}
+	if h.prefsRepo == nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "notification preferences belum terpasang", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	prefs, err := h.prefsRepo.GetMerchantNotificationPreferences(r.Context(), userID)
+	if err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	middleware.WriteSuccess(w, http.StatusOK, prefs)
+}
+
+func (h *NotificationHandler) UpdateMerchantPreferences(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	userID, ok := notificationUserID(w, r)
+	if !ok {
+		return
+	}
+	if h.prefsRepo == nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "notification preferences belum terpasang", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	var prefs domain.MerchantNotificationPreferences
+	if err := json.NewDecoder(io.LimitReader(r.Body, 64*1024)).Decode(&prefs); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid JSON", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	prefs.UserID = userID
+	if err := h.prefsRepo.UpdateMerchantNotificationPreferences(r.Context(), &prefs); err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	updated, err := h.prefsRepo.GetMerchantNotificationPreferences(r.Context(), userID)
+	if err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	middleware.WriteSuccess(w, http.StatusOK, updated)
+}
+
+func notificationUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || userIDStr == "" {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", middleware.GetCorrelationID(r.Context()))
+		return uuid.Nil, false
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Invalid user ID", middleware.GetCorrelationID(r.Context()))
+		return uuid.Nil, false
+	}
+	return userID, true
 }
 
 // In a real application, you would also need admin handlers to manage templates.

@@ -282,7 +282,7 @@ func main() {
 		paymentLinkRepo,
 		pricingSvc,
 		orderSvc,
-		pgRepo,                                        // orderRepo — untuk UpdateOrderAWB
+		pgRepo, // orderRepo — untuk UpdateOrderAWB
 		paymentGw,
 		notificationSvc,
 		infrastructure.NewIntegrationGatewayClient(configRepo), // awbClient — HTTP ke integration-gateway
@@ -311,7 +311,7 @@ func main() {
 	orderSvc.SetDriverIncentiveServices(pointsSvc, penaltySvc)
 	// FOOD-BIKE-064: push FCM — register device token + notif merchant order masuk
 	deviceTokenRepo := repository.NewDeviceTokenRepository(db, readDB)
-	pushSvc := service.NewPushService(deviceTokenRepo, pgRepo)
+	pushSvc := service.NewPushService(deviceTokenRepo, pgRepo, notifRepo)
 	paymentSvc.SetPushService(pushSvc)
 	deviceTokenHandler := handler.NewDeviceTokenHandler(deviceTokenRepo)
 	aggregatorFinanceRepo := repository.NewAggregatorFinanceRepository(db)
@@ -327,7 +327,7 @@ func main() {
 	slaHandler := handler.NewSLAHandler(slaSvc)
 	trackingHandler := handler.NewTrackingHandler(trackingSvc)
 	aggregatorFinanceHandler := handler.NewAggregatorFinanceHandler(aggregatorFinanceSvc, aggregatorFinanceRepo)
-	notificationHandler := handler.NewNotificationHandler(notificationSvc, pgRepo)
+	notificationHandler := handler.NewNotificationHandler(notificationSvc, pgRepo, notifRepo)
 	insuranceHandler := handler.NewInsuranceHandler(insuranceSvc)
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
@@ -606,6 +606,13 @@ func main() {
 		if r.Method == http.MethodPatch {
 			notificationHandler.MarkAsRead(w, r)
 		}
+	})))
+	mux.HandleFunc("/api/v1/notifications/preferences", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			notificationHandler.GetMerchantPreferences(w, r)
+			return
+		}
+		notificationHandler.UpdateMerchantPreferences(w, r)
 	})))
 	// Tax Routes
 	mux.HandleFunc("POST /api/v1/tax/efaktur/export", middleware.BaseChain(middleware.AuthMiddleware(middleware.RoleCheck(middleware.RoleAdmin, middleware.RoleFinance)(taxHandler.GenerateEFakturExport))))

@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 enum class ReportPeriod(val label: String, val apiValue: String) {
-    DAILY("Hari Ini", "daily"),
-    WEEKLY("7 Hari", "weekly")
+    DAILY("Today", "daily"),
+    WEEKLY("This Week", "weekly")
 }
 
 data class ReportUiState(

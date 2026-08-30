@@ -2,6 +2,13 @@
 
 ## Active
 
+- [ ] **Migrasi penuh UI/Flow post-login Merchant dari tembus-merchant.zip** - hapus/ganti seluruh UI post-login lama dengan 17 screen ZIP 100%, port ke native Android, lalu wire ke API/repository/database/session/state machine real; splash, onboarding, dan login tetap.
+  - ZIP adalah sumber kebenaran UI/flow; existing app hanya menjadi adapter auth, data, API, database, session, permission, dan state machine.
+  - Detail checklist dan status per screen: `task-merchant-zip-ui-migration.md`.
+  - Selesai hanya saat strict ZIP parity, seluruh route Android, penghapusan UI lama, API wiring, build, test, emulator, screenshot evidence, dan graphify sudah terverifikasi.
+
+- [ ] **Merchant Android — Stitch screen parity** - menyelesaikan screen Merchant yang belum 1:1 dengan export Stitch; detail dan checklist ada di [task-merchant-stitch-screen-parity.md](task-merchant-stitch-screen-parity.md).
+
 - [x] **Customer Mobile UI/UX & Flow Audit 2026** - audit customer Android terhadap standar aplikasi on-demand sejenis 2026, TEMBUS palette light/dark, WCAG 2.2 AA, adaptive layout, navigation, dan happy/error/offline flow. Static scope SELESAI (commit ae2a1d7): OLD_BRAND purged, NAV-01 fixed, 82/121 gray→M3 token, 112 cd=null classified. Device phases (flow traversal / TalkBack / adaptive 320–412–foldable / font 2.0x / benchmark) BLOCKED — butuh emulator Pixel 6 Pro (port 5556). Detail: artifacts/customer-mobile-uiux-audit-2026/.
 
 - [ ] **TEMBUS UI/UX Standardization** - detail eksekusi ada di [task-tembus-uiux-standardization.md](task-tembus-uiux-standardization.md); Phase 0 dan Phase 1 selesai, customer dashboard/home, customer service category/selector, dan customer package booking sudah migrated + Android customer/courier/merchant compile pass; scope sisa Phase 2 customer food/tambal/towing booking, payment/tracking, courier app, merchant app, dan web/admin/merchant portal bila surface ikut disentuh.

@@ -39,6 +39,24 @@ interface TEMBUSApiService {
         @Body request: UpdateProfileRequest
     ): Response<Merchant>
 
+    @GET("api/v1/merchant/operating-hours")
+    suspend fun getOperatingHours(): Response<MerchantOperatingHoursResponse>
+
+    @PUT("api/v1/merchant/operating-hours")
+    suspend fun replaceOperatingHours(
+        @Body request: ReplaceOperatingHoursRequest
+    ): Response<MerchantOperatingHoursResponse>
+
+    @POST("api/v1/merchant/operating-hours/closures")
+    suspend fun createSpecialClosure(
+        @Body request: CreateSpecialClosureRequest
+    ): Response<MerchantSpecialClosure>
+
+    @DELETE("api/v1/merchant/operating-hours/closures/{id}")
+    suspend fun deleteSpecialClosure(
+        @Path("id") id: String
+    ): Response<SuccessResponse>
+
     @POST("api/v1/merchant/register")
     suspend fun registerMerchant(
         @Body request: RegisterMerchantRequest
@@ -173,6 +191,19 @@ interface TEMBUSApiService {
         @Query("period") period: String
     ): Response<SalesReportSummary>
 
+    // Review customer merchant dari merchant_ratings (tanpa data kontak).
+    @GET("api/v1/merchant/reviews")
+    suspend fun getCustomerReviews(
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 20
+    ): Response<MerchantReviewsResponse>
+
+    @POST("api/v1/merchant/reviews/{id}/reply")
+    suspend fun replyToCustomerReview(
+        @Path("id") reviewId: String,
+        @Body request: MerchantReviewReplyRequest
+    ): Response<MerchantReviewReply>
+
     // FB-113: riwayat pencairan/payout merchant.
     @GET("api/v1/merchant/settlements")
     suspend fun getSettlements(): Response<SettlementSummary>
@@ -186,6 +217,26 @@ interface TEMBUSApiService {
     // M7: riwayat permintaan pencairan merchant.
     @GET("api/v1/merchant/withdrawals")
     suspend fun getWithdrawals(): Response<List<MerchantWithdrawalRecord>>
+
+    // Merchant inbox memakai notification service yang sama dengan customer.
+    @GET("api/v1/notifications")
+    suspend fun getNotifications(
+        @Query("limit") limit: Int = 50,
+        @Query("offset") offset: Int = 0
+    ): Response<NotificationListResponse>
+
+    @PATCH("api/v1/notifications/read")
+    suspend fun markNotificationRead(
+        @Body request: MarkNotificationReadRequest
+    ): Response<SuccessResponse>
+
+    @GET("api/v1/notifications/preferences")
+    suspend fun getNotificationPreferences(): Response<NotificationPreferencesResponse>
+
+    @PATCH("api/v1/notifications/preferences")
+    suspend fun updateNotificationPreferences(
+        @Body request: UpdateNotificationPreferencesRequest
+    ): Response<NotificationPreferencesResponse>
 
     // ── Promo merchant (FB-099/100): self-serve, tanpa approval admin ──
     @GET("api/v1/merchant/promos")

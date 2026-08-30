@@ -20,6 +20,18 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun updateProfile(req: UpdateProfileRequest): Result<Merchant> =
         request { api.updateProfile(req) }
 
+    suspend fun getOperatingHours(): Result<MerchantOperatingHoursResponse> =
+        request { api.getOperatingHours() }
+
+    suspend fun replaceOperatingHours(hours: List<MerchantOperatingHour>): Result<MerchantOperatingHoursResponse> =
+        request { api.replaceOperatingHours(ReplaceOperatingHoursRequest(hours)) }
+
+    suspend fun createSpecialClosure(date: String, label: String): Result<MerchantSpecialClosure> =
+        request { api.createSpecialClosure(CreateSpecialClosureRequest(date, label)) }
+
+    suspend fun deleteSpecialClosure(id: String): Result<Boolean> =
+        request { api.deleteSpecialClosure(id) }.map { it.success }
+
     suspend fun registerMerchant(req: RegisterMerchantRequest): Result<Merchant> =
         request { api.registerMerchant(req) }
 
@@ -107,6 +119,12 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun getSalesReport(period: String = "daily"): Result<SalesReportSummary> =
         request { api.getSalesReport(period) }
 
+    suspend fun getCustomerReviews(page: Int = 1, pageSize: Int = 20): Result<MerchantReviewsResponse> =
+        request { api.getCustomerReviews(page, pageSize) }
+
+    suspend fun replyToCustomerReview(reviewId: String, body: String): Result<MerchantReviewReply> =
+        request { api.replyToCustomerReview(reviewId, MerchantReviewReplyRequest(body)) }
+
     // ── Settlement / payout (FB-113) ──
     suspend fun getSettlements(): Result<SettlementSummary> =
         request { api.getSettlements() }
@@ -118,6 +136,27 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     // M7: riwayat permintaan pencairan.
     suspend fun getWithdrawals(): Result<List<MerchantWithdrawalRecord>> =
         request { api.getWithdrawals() }
+
+    suspend fun getNotifications(limit: Int = 50, offset: Int = 0): Result<List<MerchantNotification>> =
+        request { api.getNotifications(limit, offset) }.map { it.data }
+
+    suspend fun markNotificationRead(id: String): Result<Boolean> =
+        request { api.markNotificationRead(MarkNotificationReadRequest(id)) }.map { it.success }
+
+    suspend fun getNotificationPreferences(): Result<MerchantNotificationPreferences> =
+        request { api.getNotificationPreferences() }.map { it.data }
+
+    suspend fun updateNotificationPreferences(prefs: MerchantNotificationPreferences): Result<MerchantNotificationPreferences> =
+        request {
+            api.updateNotificationPreferences(
+                UpdateNotificationPreferencesRequest(
+                    newOrderAlerts = prefs.newOrderAlerts,
+                    orderCancellations = prefs.orderCancellations,
+                    dailySummaryReports = prefs.dailySummaryReports,
+                    promotionalUpdates = prefs.promotionalUpdates
+                )
+            )
+        }.map { it.data }
 
     // ── Promo merchant (FB-099/100) ──
     suspend fun listPromos(page: Int = 1, pageSize: Int = 50): Result<List<MerchantPromo>> =

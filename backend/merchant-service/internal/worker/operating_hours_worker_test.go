@@ -3,6 +3,8 @@ package worker
 import (
 	"testing"
 	"time"
+
+	"tembus/merchant-service/internal/domain"
 )
 
 // ── FB-095: unit test logika jam operasional ──────────────────────────
@@ -18,6 +20,22 @@ import (
 
 func at(h, m int) time.Time {
 	return time.Date(2026, 8, 8, h, m, 0, 0, time.UTC)
+}
+
+func TestExpectedOpenForSchedule_UsesPreviousDayForOvernightShift(t *testing.T) {
+	open, close := "21:00", "02:00"
+	hours := []domain.MerchantOperatingHour{
+		// Monday opens late, Tuesday is deliberately closed.
+		{Weekday: int(time.Monday), IsOpen: true, OpensAt: &open, ClosesAt: &close},
+		{Weekday: int(time.Tuesday), IsOpen: false},
+	}
+	jakarta := time.FixedZone("WIB", 7*60*60)
+	if !expectedOpenForSchedule(hours, time.Date(2026, 9, 1, 1, 0, 0, 0, jakarta)) { // Tuesday 01:00
+		t.Fatal("overnight shift from Monday must remain open Tuesday 01:00")
+	}
+	if expectedOpenForSchedule(hours, time.Date(2026, 9, 2, 1, 0, 0, 0, jakarta)) { // Wednesday 01:00
+		t.Fatal("Tuesday closed must not inherit Monday's overnight shift")
+	}
 }
 
 func TestExpectedOpen(t *testing.T) {

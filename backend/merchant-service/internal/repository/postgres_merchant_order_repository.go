@@ -123,6 +123,8 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 		       COALESCE(to_char(o.food_ready_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
 		       COALESCE(to_char(o.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
 		       COALESCE(o.order_notes, ''),
+		       COALESCE(o.cancellation_reason, ''),
+		       COALESCE(o.reject_reason, ''),
 		       COALESCE(to_char(o.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '') -- FB-123
 		FROM orders o
 		LEFT JOIN users c ON c.id = o.customer_id
@@ -143,18 +145,20 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 	orderIDs := []string{}
 	for rows.Next() {
 		var v domain.MerchantOrderView
-		var acceptedAt, readyAt, createdAt, orderNotes, scheduledAt string
+		var acceptedAt, readyAt, createdAt, orderNotes, cancellationReason, rejectReason, scheduledAt string
 		if err := rows.Scan(
 			&v.ID, &v.OrderNumber, &v.Status,
 			&v.CustomerName, &v.CustomerPhone, &v.DropoffAddress,
 			&v.TotalPriceIDR, &v.DistanceKM,
 			&acceptedAt, &readyAt, &createdAt,
-			&orderNotes,
+			&orderNotes, &cancellationReason, &rejectReason,
 			&scheduledAt, // FB-123
 		); err != nil {
 			return nil, err
 		}
 		v.OrderNotes = orderNotes // FB-121
+		v.CancellationReason = cancellationReason
+		v.RejectReason = rejectReason
 		if scheduledAt != "" {
 			v.ScheduledAt = &scheduledAt // FB-123
 		}
@@ -288,7 +292,11 @@ func (r *postgresMerchantOrderRepository) GetOrderForStruk(ctx context.Context, 
 	var s domain.StrukData
 	var createdAt string
 	err := r.readDB.QueryRowContext(ctx, `
-		SELECT o.id, o.order_number, o.status, COALESCE(o.handover_token, ''),
+		SELECT o.id, o.order_number, o.status,
+		       COALESCE(to_char(o.merchant_accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		       COALESCE(to_char(o.food_ready_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		       COALESCE(o.cancellation_reason, ''), COALESCE(o.reject_reason, ''),
+		       COALESCE(o.handover_token, ''),
 		       COALESCE(o.total_price_idr, 0),
 		       COALESCE(o.dropoff_address, ''),
 		       COALESCE(c.full_name, ''),
@@ -301,7 +309,9 @@ func (r *postgresMerchantOrderRepository) GetOrderForStruk(ctx context.Context, 
 		WHERE o.id = $1 AND o.merchant_id = $2
 		  AND o.service_sub_type = 'food_delivery'`, orderID, merchantID,
 	).Scan(
-		&s.OrderID, &s.OrderNumber, &s.Status, &s.HandoverToken,
+		&s.OrderID, &s.OrderNumber, &s.Status,
+		&s.MerchantAcceptedAt, &s.FoodReadyAt,
+		&s.CancellationReason, &s.RejectReason, &s.HandoverToken,
 		&s.TotalPriceIDR, &s.DropoffAddress, &s.CustomerName,
 		&createdAt, &s.MerchantName, &s.MerchantAddress,
 	)

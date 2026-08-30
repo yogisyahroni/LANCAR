@@ -23,6 +23,12 @@ data class ProfileUiState(
     val isSavingBank: Boolean = false,
     val bankSaved: Boolean = false,
     val bankSaveError: String? = null,
+    val isSavingPayment: Boolean = false,
+    val paymentSaved: Boolean = false,
+    val paymentSaveError: String? = null,
+    val isSavingProfile: Boolean = false,
+    val profileSaved: Boolean = false,
+    val profileSaveError: String? = null,
     // FB-109: status update minimal order.
     val isSavingMinOrder: Boolean = false,
     val minOrderSaveError: String? = null
@@ -105,6 +111,50 @@ class ProfileViewModel(
 
     fun clearBankSaved() {
         _uiState.value = _uiState.value.copy(bankSaved = false, bankSaveError = null)
+    }
+
+    fun updatePaymentSettings(payoutSchedule: String, npwp: String?) {
+        _uiState.value = _uiState.value.copy(isSavingPayment = true, paymentSaved = false, paymentSaveError = null)
+        viewModelScope.launch {
+            merchantRepository.updateProfile(
+                UpdateProfileRequest(payoutSchedule = payoutSchedule, npwp = npwp)
+            ).onSuccess { updated ->
+                _uiState.value = _uiState.value.copy(
+                    merchant = updated,
+                    isSavingPayment = false,
+                    paymentSaved = true
+                )
+            }.onFailure { e ->
+                _uiState.value = _uiState.value.copy(
+                    isSavingPayment = false,
+                    paymentSaveError = e.message ?: "Gagal menyimpan pengaturan pembayaran"
+                )
+            }
+        }
+    }
+
+    fun clearPaymentSaved() {
+        _uiState.value = _uiState.value.copy(paymentSaved = false, paymentSaveError = null)
+    }
+
+    fun updatePublicProfile(name: String, address: String) {
+        _uiState.value = _uiState.value.copy(isSavingProfile = true, profileSaved = false, profileSaveError = null)
+        viewModelScope.launch {
+            merchantRepository.updateProfile(
+                UpdateProfileRequest(namaToko = name.trim(), alamat = address.trim())
+            ).onSuccess { updated ->
+                _uiState.value = _uiState.value.copy(
+                    merchant = updated,
+                    isSavingProfile = false,
+                    profileSaved = true
+                )
+            }.onFailure { e ->
+                _uiState.value = _uiState.value.copy(
+                    isSavingProfile = false,
+                    profileSaveError = e.message ?: "Gagal menyimpan profil publik"
+                )
+            }
+        }
     }
 
     // FB-109: update minimal order value (0 = tanpa minimum).

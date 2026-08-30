@@ -93,6 +93,27 @@ func (r *foodDocsRepo) ListForOperatingHoursSync(ctx context.Context) ([]*domain
 func (r *foodDocsRepo) UpdateBankAccount(ctx context.Context, merchantID string, req domain.UpdateBankAccountRequest, changed bool) error {
 	return nil
 }
+func (r *foodDocsRepo) GetOperatingHours(ctx context.Context, merchantID string) ([]domain.MerchantOperatingHour, error) {
+	return nil, nil
+}
+func (r *foodDocsRepo) ReplaceOperatingHours(ctx context.Context, merchantID string, hours []domain.MerchantOperatingHour) error {
+	return nil
+}
+func (r *foodDocsRepo) ListOperatingHoursForMerchants(ctx context.Context, merchantIDs []string) (map[string][]domain.MerchantOperatingHour, error) {
+	return map[string][]domain.MerchantOperatingHour{}, nil
+}
+func (r *foodDocsRepo) ListSpecialClosuresOn(ctx context.Context, merchantIDs []string, date string) (map[string]bool, error) {
+	return map[string]bool{}, nil
+}
+func (r *foodDocsRepo) ListSpecialClosures(ctx context.Context, merchantID string) ([]domain.MerchantSpecialClosure, error) {
+	return nil, nil
+}
+func (r *foodDocsRepo) CreateSpecialClosure(ctx context.Context, merchantID, date, label string) (*domain.MerchantSpecialClosure, error) {
+	return nil, nil
+}
+func (r *foodDocsRepo) DeleteSpecialClosure(ctx context.Context, merchantID, closureID string) error {
+	return nil
+}
 
 func newFoodDocsService(repo domain.MerchantRepository) domain.MerchantService {
 	return service.NewMerchantService(repo, nil, nil, nil)

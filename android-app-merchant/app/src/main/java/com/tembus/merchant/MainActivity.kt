@@ -1,6 +1,7 @@
 package com.tembus.merchant
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,6 +18,7 @@ import com.tembus.merchant.TEMBUSApplication
 import com.tembus.merchant.data.model.AppVersion
 import com.tembus.merchant.ui.components.UpdateDialog
 import com.tembus.merchant.ui.navigation.AppNavHost
+import com.tembus.merchant.ui.navigation.MerchantDeepLinkBus
 import com.tembus.merchant.ui.theme.TEMBUSMerchantTheme
 import com.tembus.merchant.util.UpdateManager
 import kotlinx.coroutines.launch
@@ -28,6 +30,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        MerchantDeepLinkBus.publish(intent?.data)
 
         val app = application as TEMBUSApplication
         updateManager = app.container.updateManager
@@ -82,5 +86,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        MerchantDeepLinkBus.publish(intent.data)
     }
 }

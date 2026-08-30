@@ -5,18 +5,22 @@ package domain
 // (berisi handover token — sama dengan yang di-scan driver saat pickup,
 // konsisten dengan FOOD-BIKE-032 & 069).
 type StrukData struct {
-	OrderID         string              `json:"order_id"`
-	OrderNumber     string              `json:"order_number"`
-	Status          string              `json:"status"`
-	MerchantName    string              `json:"merchant_name"`
-	MerchantAddress string              `json:"merchant_address,omitempty"`
-	CustomerName    string              `json:"customer_name,omitempty"`
-	DropoffAddress  string              `json:"dropoff_address,omitempty"`
-	HandoverToken   string              `json:"handover_token"`
-	QRCodeDataURI   string              `json:"qr_code_data_uri"`
-	SubtotalIDR     int64               `json:"subtotal_idr"`
-	DeliveryFeeIDR  int64               `json:"delivery_fee_idr"`
-	TotalPriceIDR   int64               `json:"total_price_idr"`
-	CreatedAt       string              `json:"created_at"`
-	Items           []FoodOrderItemView `json:"items"`
+	OrderID            string              `json:"order_id"`
+	OrderNumber        string              `json:"order_number"`
+	Status             string              `json:"status"`
+	MerchantAcceptedAt string              `json:"merchant_accepted_at,omitempty"`
+	FoodReadyAt        string              `json:"food_ready_at,omitempty"`
+	CancellationReason string              `json:"cancellation_reason,omitempty"`
+	RejectReason       string              `json:"reject_reason,omitempty"`
+	MerchantName       string              `json:"merchant_name"`
+	MerchantAddress    string              `json:"merchant_address,omitempty"`
+	CustomerName       string              `json:"customer_name,omitempty"`
+	DropoffAddress     string              `json:"dropoff_address,omitempty"`
+	HandoverToken      string              `json:"handover_token"`
+	QRCodeDataURI      string              `json:"qr_code_data_uri"`
+	SubtotalIDR        int64               `json:"subtotal_idr"`
+	DeliveryFeeIDR     int64               `json:"delivery_fee_idr"`
+	TotalPriceIDR      int64               `json:"total_price_idr"`
+	CreatedAt          string              `json:"created_at"`
+	Items              []FoodOrderItemView `json:"items"`
 }

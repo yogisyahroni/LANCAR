@@ -121,3 +121,40 @@ func (r *PostgresNotificationRepo) UpdatePreferences(ctx context.Context, prefs 
 	_, err := r.db.NamedExecContext(ctx, query, prefs)
 	return err
 }
+
+func (r *PostgresNotificationRepo) GetMerchantNotificationPreferences(ctx context.Context, userID uuid.UUID) (*domain.MerchantNotificationPreferences, error) {
+	if _, err := r.db.ExecContext(ctx, `
+		INSERT INTO merchant_notification_preferences (
+			user_id, new_order_alerts, order_cancellations,
+			daily_summary_reports, promotional_updates
+		) VALUES ($1, TRUE, TRUE, TRUE, FALSE)
+		ON CONFLICT (user_id) DO NOTHING`, userID); err != nil {
+		return nil, err
+	}
+
+	var prefs domain.MerchantNotificationPreferences
+	if err := r.db.GetContext(ctx, &prefs, `
+		SELECT user_id, new_order_alerts, order_cancellations,
+			daily_summary_reports, promotional_updates, updated_at
+		FROM merchant_notification_preferences WHERE user_id = $1`, userID); err != nil {
+		return nil, err
+	}
+	return &prefs, nil
+}
+
+func (r *PostgresNotificationRepo) UpdateMerchantNotificationPreferences(ctx context.Context, prefs *domain.MerchantNotificationPreferences) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO merchant_notification_preferences (
+			user_id, new_order_alerts, order_cancellations,
+			daily_summary_reports, promotional_updates, updated_at
+		) VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			new_order_alerts = EXCLUDED.new_order_alerts,
+			order_cancellations = EXCLUDED.order_cancellations,
+			daily_summary_reports = EXCLUDED.daily_summary_reports,
+			promotional_updates = EXCLUDED.promotional_updates,
+			updated_at = NOW()`,
+		prefs.UserID, prefs.NewOrderAlerts, prefs.OrderCancellations,
+		prefs.DailySummaryReports, prefs.PromotionalUpdates)
+	return err
+}

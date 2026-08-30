@@ -13,6 +13,7 @@ type MenuItem struct {
 	Nama            string    `json:"nama"`
 	Harga           int64     `json:"harga"`
 	Foto            *string   `json:"foto,omitempty"`
+	Deskripsi       *string   `json:"deskripsi,omitempty"`
 	Kategori        string    `json:"kategori"`
 	PrepTimeMinutes int       `json:"prep_time_minutes"`
 	IsAvailable     bool      `json:"is_available"`

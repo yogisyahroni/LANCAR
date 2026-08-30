@@ -3,9 +3,12 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"tembus/merchant-service/internal/domain"
+
+	"github.com/lib/pq"
 )
 
 // postgresReportRepository — implementasi domain.MerchantReportRepository.
@@ -78,6 +81,46 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 		return nil, fmt.Errorf("sales report top items rows: %w", err)
 	}
 
+	// 3. Pendapatan per hari untuk grafik Wawasan. Data diambil dari order
+	// delivered riil; tidak ada titik/growth yang dibuat di sisi Android.
+	breakdownDays := 1
+	if period == "weekly" {
+		breakdownDays = 7
+	}
+	breakdownRows, err := r.readDB.QueryContext(ctx, `
+		WITH days AS (
+			SELECT generate_series(
+				date_trunc('day', NOW()) - ($2 - 1) * INTERVAL '1 day',
+				date_trunc('day', NOW()),
+				INTERVAL '1 day'
+			)::date AS day
+		)
+		SELECT TO_CHAR(days.day, 'YYYY-MM-DD'),
+		       COALESCE(SUM(o.total_price_idr), 0)
+		FROM days
+		LEFT JOIN orders o ON o.merchant_id = $1
+		  AND o.service_sub_type = 'food_delivery'
+		  AND o.status = 'delivered'
+		  AND o.created_at >= days.day
+		  AND o.created_at < days.day + INTERVAL '1 day'
+		GROUP BY days.day
+		ORDER BY days.day`, merchantID, breakdownDays)
+	if err != nil {
+		return nil, fmt.Errorf("sales report daily breakdown: %w", err)
+	}
+	defer breakdownRows.Close()
+	summary.DailyBreakdown = []domain.SalesReportPoint{}
+	for breakdownRows.Next() {
+		var point domain.SalesReportPoint
+		if err := breakdownRows.Scan(&point.Day, &point.RevenueIDR); err != nil {
+			return nil, fmt.Errorf("scan sales report daily breakdown: %w", err)
+		}
+		summary.DailyBreakdown = append(summary.DailyBreakdown, point)
+	}
+	if err := breakdownRows.Err(); err != nil {
+		return nil, fmt.Errorf("sales report daily breakdown rows: %w", err)
+	}
+
 	return &summary, nil
 }
 
@@ -114,7 +157,7 @@ func (r *postgresReportRepository) Settlements(ctx context.Context, merchantID s
 	records := []*domain.SettlementRecord{}
 	for rows.Next() {
 		var (
-			rec             domain.SettlementRecord
+			rec              domain.SettlementRecord
 			holding, settled sql.NullString
 		)
 		if err := rows.Scan(
@@ -183,9 +226,9 @@ func (r *postgresReportRepository) ListWithdrawals(ctx context.Context, merchant
 	records := []*domain.MerchantWithdrawalRecord{}
 	for rows.Next() {
 		var (
-			rec       domain.MerchantWithdrawalRecord
-			reject    sql.NullString
-			disbRef   sql.NullString
+			rec     domain.MerchantWithdrawalRecord
+			reject  sql.NullString
+			disbRef sql.NullString
 		)
 		if err := rows.Scan(
 			&rec.ID, &rec.AmountIDR, &rec.BankName, &rec.BankAccountNumber,
@@ -205,6 +248,123 @@ func (r *postgresReportRepository) ListWithdrawals(ctx context.Context, merchant
 		return nil, fmt.Errorf("withdrawals rows: %w", err)
 	}
 	return records, nil
+}
+
+// Reviews mengambil review merchant dari merchant_ratings. Query hanya join
+// full_name dan order_number untuk kebutuhan tampilan; email/phone tidak ikut.
+func (r *postgresReportRepository) Reviews(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MerchantReview, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT r.id::text,
+		       COALESCE(o.order_number, ''),
+		       COALESCE(NULLIF(u.full_name, ''), 'Customer'),
+		       r.stars,
+		       COALESCE(r.comment, ''),
+		       r.tags,
+		       TO_CHAR(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       reply.id::text,
+		       reply.body,
+		       TO_CHAR(reply.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       TO_CHAR(reply.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM merchant_ratings r
+		JOIN users u ON u.id = r.rated_by
+		LEFT JOIN orders o ON o.id = r.order_id
+		LEFT JOIN merchant_rating_replies reply ON reply.merchant_rating_id = r.id
+		WHERE r.merchant_id = $1
+		ORDER BY r.created_at DESC
+		LIMIT $2 OFFSET $3
+	`, merchantID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("merchant reviews query: %w", err)
+	}
+	defer rows.Close()
+
+	reviews := []*domain.MerchantReview{}
+	for rows.Next() {
+		var review domain.MerchantReview
+		var comment, createdAt, replyID, replyBody, replyCreatedAt, replyUpdatedAt sql.NullString
+		var tags pq.StringArray
+		if err := rows.Scan(&review.ID, &review.OrderNumber, &review.ReviewerName,
+			&review.Stars, &comment, &tags, &createdAt, &replyID, &replyBody, &replyCreatedAt, &replyUpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan merchant review: %w", err)
+		}
+		if comment.Valid {
+			review.Comment = comment.String
+		}
+		if createdAt.Valid {
+			review.CreatedAt = createdAt.String
+		}
+		if tags != nil {
+			review.Tags = []string(tags)
+		}
+		if replyID.Valid {
+			review.Reply = &domain.MerchantReviewReply{
+				ID: replyID.String, Body: replyBody.String,
+				CreatedAt: replyCreatedAt.String, UpdatedAt: replyUpdatedAt.String,
+			}
+		}
+		reviews = append(reviews, &review)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("merchant reviews rows: %w", err)
+	}
+	return reviews, nil
+}
+
+func (r *postgresReportRepository) RatingDistribution(ctx context.Context, merchantID string) ([]domain.MerchantRatingBucket, error) {
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT stars, COUNT(*)
+		FROM merchant_ratings
+		WHERE merchant_id = $1
+		GROUP BY stars
+		ORDER BY stars DESC
+	`, merchantID)
+	if err != nil {
+		return nil, fmt.Errorf("merchant rating distribution query: %w", err)
+	}
+	defer rows.Close()
+	buckets := []domain.MerchantRatingBucket{}
+	for rows.Next() {
+		var bucket domain.MerchantRatingBucket
+		if err := rows.Scan(&bucket.Stars, &bucket.Count); err != nil {
+			return nil, fmt.Errorf("scan merchant rating distribution: %w", err)
+		}
+		buckets = append(buckets, bucket)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("merchant rating distribution rows: %w", err)
+	}
+	return buckets, nil
+}
+
+func (r *postgresReportRepository) UpsertReviewReply(ctx context.Context, merchantID, userID, reviewID, body string) (*domain.MerchantReviewReply, error) {
+	var reply domain.MerchantReviewReply
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO merchant_rating_replies (merchant_rating_id, merchant_id, author_user_id, body)
+		SELECT rating.id, rating.merchant_id, $2, $3
+		FROM merchant_ratings rating
+		WHERE rating.id = $1 AND rating.merchant_id = $4
+		ON CONFLICT (merchant_rating_id) DO UPDATE
+		SET body = EXCLUDED.body, author_user_id = EXCLUDED.author_user_id, updated_at = NOW()
+		RETURNING id::text, body,
+		          TO_CHAR(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		          TO_CHAR(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+	`, reviewID, userID, body, merchantID).Scan(&reply.ID, &reply.Body, &reply.CreatedAt, &reply.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("review tidak ditemukan atau bukan milik merchant")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("upsert merchant review reply: %w", err)
+	}
+	return &reply, nil
 }
 
 func (r *postgresReportRepository) SalesReportRows(ctx context.Context, merchantID, period string) ([]*domain.SalesReportRow, error) {

@@ -84,13 +84,36 @@ func (w *OperatingHoursWorker) runOnce() {
 		return
 	}
 
-	now := time.Now()
+	jakarta, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		jakarta = time.FixedZone("WIB", 7*60*60)
+	}
+	now := time.Now().In(jakarta)
+	merchantIDs := make([]string, 0, len(merchants))
+	for _, merchant := range merchants {
+		merchantIDs = append(merchantIDs, merchant.ID)
+	}
+	schedules, err := w.repo.ListOperatingHoursForMerchants(ctx, merchantIDs)
+	if err != nil {
+		log.Printf("[OperatingHoursWorker] gagal query jadwal mingguan: %v", err)
+		return
+	}
+	closures, err := w.repo.ListSpecialClosuresOn(ctx, merchantIDs, now.Format("2006-01-02"))
+	if err != nil {
+		log.Printf("[OperatingHoursWorker] gagal query penutupan khusus: %v", err)
+		return
+	}
 	var opened, closed int
 	for _, m := range merchants {
 		if m.JamBuka == nil || m.JamTutup == nil {
 			continue
 		}
 		open := expectedOpen(*m.JamBuka, *m.JamTutup, now)
+		if closure := closures[m.ID]; closure {
+			open = false
+		} else if schedule, exists := schedules[m.ID]; exists {
+			open = expectedOpenForSchedule(schedule, now)
+		}
 		if open && !m.IsOpen {
 			// ADR 003: dokumen pangan BUKAN lagi gate buka toko — semua status
 			// halal boleh auto-buka (label & filter di sisi customer).
@@ -112,4 +135,52 @@ func (w *OperatingHoursWorker) runOnce() {
 	if opened > 0 || closed > 0 {
 		log.Printf("[OperatingHoursWorker] %d toko dibuka, %d toko ditutup otomatis", opened, closed)
 	}
+}
+
+func expectedOpenForSchedule(hours []domain.MerchantOperatingHour, now time.Time) bool {
+	byWeekday := make(map[int]domain.MerchantOperatingHour, len(hours))
+	for _, hour := range hours {
+		byWeekday[hour.Weekday] = hour
+	}
+	weekday := int(now.Weekday())
+	if hour, ok := byWeekday[weekday]; ok && hour.IsOpen && hour.OpensAt != nil && hour.ClosesAt != nil {
+		if isOpenInOwnCalendarDay(*hour.OpensAt, *hour.ClosesAt, now) {
+			return true
+		}
+	}
+	// Shift yang melewati tengah malam tetap berlaku setelah berganti hari.
+	previousWeekday := (weekday + 6) % 7
+	previous, ok := byWeekday[previousWeekday]
+	if !ok || !previous.IsOpen || previous.OpensAt == nil || previous.ClosesAt == nil || *previous.OpensAt < *previous.ClosesAt {
+		return false
+	}
+	return isOpenFromPreviousCalendarDay(*previous.OpensAt, *previous.ClosesAt, now)
+}
+
+// Untuk shift lintas tengah malam, bagian setelah 00:00 dimiliki jadwal hari
+// sebelumnya. expectedOpen sendiri tidak tahu konteks weekday sehingga tidak
+// cukup dipakai langsung pada schedule mingguan.
+func isOpenInOwnCalendarDay(opensAt, closesAt string, now time.Time) bool {
+	open, close, current, ok := clockMinutes(opensAt, closesAt, now)
+	if !ok {
+		return false
+	}
+	if open < close {
+		return current >= open && current < close
+	}
+	return current >= open
+}
+
+func isOpenFromPreviousCalendarDay(opensAt, closesAt string, now time.Time) bool {
+	open, close, current, ok := clockMinutes(opensAt, closesAt, now)
+	return ok && open > close && current < close
+}
+
+func clockMinutes(opensAt, closesAt string, now time.Time) (int, int, int, bool) {
+	open, errOpen := time.Parse("15:04", opensAt)
+	close, errClose := time.Parse("15:04", closesAt)
+	if errOpen != nil || errClose != nil || (open.Hour() == close.Hour() && open.Minute() == close.Minute()) {
+		return 0, 0, 0, false
+	}
+	return open.Hour()*60 + open.Minute(), close.Hour()*60 + close.Minute(), now.Hour()*60 + now.Minute(), true
 }

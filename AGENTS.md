@@ -44,6 +44,18 @@ Obsidian vault adalah **source of truth**. Setiap sesi WAJIB:
 - `make test; make lint` sebelum declare selesai
 - Bahasa: Indonesia
 
+## 🧠 Enterprise Skills Pack (AUTO-AKTIF di dev session)
+8 skill dari AI_AGENT_SKILL_PACK_PORTABLE.md — wajib load & follow saat nulis code/test/merge/CI/UI/DB:
+1. `enterprise-testing-2026` — testing pyramid, TDD, coverage>=90% gate, no fake coverage
+2. `file-integrity-anti-regression` — NO placeholders/truncation, import sentinel, full files
+3. `clean-architecture-backend` — controller->service->repo, e2e wiring, structured logging
+4. `postgresql-integrity` — migration-first, no N+1, indexing, pooling
+5. `devops-git-cicd` — multistage Docker, conventional commits, feature branches, health checks
+6. `observability-sre` — 4 golden signals, OTel, PII redaction
+7. `security-hardening-zerotrust` — JWT+cookies, rate limit, parameterized SQL, no secrets
+8. `anti-ai-slop-uiux-2026` — distinctive fonts, asymmetric, motion, WCAG AA, no slop
+UNIVERSAL WORKFLOW (setiap request): Intent Decoding -> Dependency Mapping -> Architectural Blueprint -> Execution (complete+tested) -> Self-Healing (max 3 retry).
+CARA KERJA (user 2026-08-26): CI hijau = wajib; roadmap proper-split (god-file -> <=400 line modules) = prioritas LEBIH tinggi. JANGAN malas (thin-wrapper). SELALU verify CI (`gh run`) hijau SEBELUM push staging.
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 object TembusRadius {
+    // Stitch merchant screens use compact operational surfaces, not pill-like cards.
     val Card = 8.dp
     val Sheet = 8.dp
     val Button = 8.dp
@@ -23,13 +24,14 @@ object TembusRadius {
 }
 
 object TembusSpacing {
+    val Base = 4.dp
     val XSmall = 4.dp
     val Small = 8.dp
-    val Medium = 12.dp
-    val Large = 16.dp
-    val XLarge = 20.dp
-    val Edge = 18.dp
-    val Screen = 24.dp
+    val Medium = 16.dp
+    val Large = 24.dp
+    val XLarge = 32.dp
+    val Edge = 16.dp
+    val Screen = 16.dp
     val Section = 32.dp
 }
 

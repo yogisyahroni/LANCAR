@@ -148,6 +148,18 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/pause", middleware.BaseChain(h.Pause))
 	mux.HandleFunc("/api/v1/merchant/resume", middleware.BaseChain(h.Resume))
 	mux.HandleFunc("/api/v1/merchant/food-docs", middleware.BaseChain(h.UpdateFoodDocs))
+	mux.HandleFunc("/api/v1/merchant/operating-hours", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.GetOperatingHours(w, r)
+		case http.MethodPut:
+			h.ReplaceOperatingHours(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	mux.HandleFunc("/api/v1/merchant/operating-hours/closures", middleware.BaseChain(h.CreateSpecialClosure))
+	mux.HandleFunc("/api/v1/merchant/operating-hours/closures/{id}", middleware.BaseChain(h.DeleteSpecialClosure))
 
 	// FB-110: upload foto menu (multipart → URL publik)
 	mux.HandleFunc("/api/v1/merchant/menu/upload", middleware.BaseChain(h.UploadMenuItemPhoto))
@@ -230,6 +242,8 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/reports", middleware.BaseChain(h.GetSalesReport))
 	mux.HandleFunc("/api/v1/merchant/reports/export", middleware.BaseChain(h.ExportSalesReport))
 	mux.HandleFunc("/api/v1/merchant/settlements", middleware.BaseChain(h.GetSettlements))
+	mux.HandleFunc("/api/v1/merchant/reviews", middleware.BaseChain(h.GetCustomerReviews))
+	mux.HandleFunc("/api/v1/merchant/reviews/{id}/reply", middleware.BaseChain(h.ReplyToCustomerReview))
 	mux.HandleFunc("/api/v1/merchant/withdraw", middleware.BaseChain(h.RequestWithdrawal))
 	mux.HandleFunc("/api/v1/merchant/withdrawals", middleware.BaseChain(h.ListWithdrawals))
 

@@ -11,17 +11,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 
 enum class OrderFilter(val label: String, val status: String?) {
     ALL("Semua", null),
     NEW("Baru", "pending_merchant"),
     ACTIVE("Aktif", null), // prepared special: preparing|searching|accepted|picking_up|picked_up|delivering
     DONE("Selesai", "delivered"),
-    REJECTED("Ditolak", "cancelled_by_merchant")
+    // Backend menyimpan reject merchant sebagai cancelled + reject_reason.
+    REJECTED("Ditolak", "cancelled")
 }
 
 data class HomeUiState(
     val merchant: Merchant? = null,
+    val report: com.tembus.merchant.data.model.SalesReportSummary? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val orders: List<MerchantOrder> = emptyList(),
@@ -50,10 +53,15 @@ class HomeViewModel(
     fun load() {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
+            val reportDeferred = async {
+                merchantRepository.getSalesReport("daily").getOrNull()
+            }
             merchantRepository.getProfile()
                 .onSuccess { profile ->
+                    val report = reportDeferred.await()
                     _uiState.value = _uiState.value.copy(
                         merchant = profile,
+                        report = report,
                         needsRegistration = false,
                         isLoading = false
                     )
@@ -85,7 +93,9 @@ class HomeViewModel(
             OrderFilter.NEW -> "pending_merchant"
             OrderFilter.ALL -> null
             OrderFilter.DONE -> "delivered"
-            OrderFilter.REJECTED -> "cancelled_by_merchant"
+            // Filter status dilakukan server-side, lalu dibatasi lagi ke order
+            // yang punya reject_reason agar pembatalan customer tidak ikut.
+            OrderFilter.REJECTED -> "cancelled"
             OrderFilter.ACTIVE -> null // filter manual di sisi client untuk status aktif
         }
         viewModelScope.launch {
@@ -101,10 +111,10 @@ class HomeViewModel(
                             .getOrElse { emptyList() }
                         loaded = orders + scheduled
                     }
-                    val filtered = if (filter == OrderFilter.ACTIVE) {
-                        loaded.filter { it.status in activeStatuses }
-                    } else {
-                        loaded
+                    val filtered = when (filter) {
+                        OrderFilter.ACTIVE -> loaded.filter { it.status in activeStatuses }
+                        OrderFilter.REJECTED -> loaded.filter { it.isMerchantRejected() }
+                        else -> loaded
                     }
                     _uiState.value = _uiState.value.copy(orders = filtered, isLoading = false)
 
@@ -274,3 +284,6 @@ class HomeViewModel(
         )
     }
 }
+
+private fun MerchantOrder.isMerchantRejected(): Boolean =
+    status == "cancelled_by_merchant" || !rejectReason.isNullOrBlank()

@@ -7,32 +7,34 @@ import (
 
 // MerchantOrderView — tampilan order food untuk merchant (ringkasan + items).
 type MerchantOrderView struct {
-	ID                string  `json:"id"`
-	OrderNumber       string  `json:"order_number"`
-	Status            string  `json:"status"`
-	CustomerName      string  `json:"customer_name,omitempty"`
-	CustomerPhone     string  `json:"customer_phone,omitempty"`
-	DropoffAddress    string  `json:"dropoff_address,omitempty"`
-	TotalPriceIDR     int64   `json:"total_price_idr"`
-	DistanceKM        float64 `json:"distance_km"`
+	ID                 string  `json:"id"`
+	OrderNumber        string  `json:"order_number"`
+	Status             string  `json:"status"`
+	CustomerName       string  `json:"customer_name,omitempty"`
+	CustomerPhone      string  `json:"customer_phone,omitempty"`
+	DropoffAddress     string  `json:"dropoff_address,omitempty"`
+	TotalPriceIDR      int64   `json:"total_price_idr"`
+	DistanceKM         float64 `json:"distance_km"`
 	MerchantAcceptedAt *string `json:"merchant_accepted_at,omitempty"`
-	FoodReadyAt       *string `json:"food_ready_at,omitempty"`
-	CreatedAt         string  `json:"created_at"`
-	OrderNotes        string  `json:"order_notes,omitempty"` // FB-121
+	FoodReadyAt        *string `json:"food_ready_at,omitempty"`
+	CreatedAt          string  `json:"created_at"`
+	OrderNotes         string  `json:"order_notes,omitempty"` // FB-121
+	CancellationReason string  `json:"cancellation_reason,omitempty"`
+	RejectReason       string  `json:"reject_reason,omitempty"`
 	// FB-123: order terjadwal — scheduled_at (UTC ISO). NULL = pesan langsung.
-	ScheduledAt *string `json:"scheduled_at,omitempty"`
+	ScheduledAt *string             `json:"scheduled_at,omitempty"`
 	Items       []FoodOrderItemView `json:"items"`
 }
 
 // FoodOrderItemView — item dalam order food (dari food_order_items snapshot).
 type FoodOrderItemView struct {
 	// FB-087: menu_item_id diperlukan UI edit order untuk PUT items baru.
-	MenuItemID string                     `json:"menu_item_id"`
-	ItemName   string                     `json:"item_name"`
-	Quantity   int                        `json:"quantity"`
-	ItemPrice  int64                      `json:"item_price"`
-	Subtotal   int64                      `json:"subtotal"`
-	Notes      string                     `json:"notes,omitempty"`
+	MenuItemID string `json:"menu_item_id"`
+	ItemName   string `json:"item_name"`
+	Quantity   int    `json:"quantity"`
+	ItemPrice  int64  `json:"item_price"`
+	Subtotal   int64  `json:"subtotal"`
+	Notes      string `json:"notes,omitempty"`
 	// FB-108-FIX: varian/opsi terpilih (snapshot saat order dibuat).
 	Variants []FoodOrderItemVariantView `json:"variants,omitempty"`
 }
@@ -108,6 +110,16 @@ type MerchantService interface {
 	RequestWithdrawal(ctx context.Context, userID string, input CreateMerchantWithdrawalInput) (*MerchantWithdrawalRecord, int64, error)
 	// ListWithdrawals riwayat permintaan pencairan merchant (M7).
 	ListWithdrawals(ctx context.Context, userID string, limit int) ([]*MerchantWithdrawalRecord, error)
+	// GetCustomerReviews mengambil ringkasan + review customer dari merchant_ratings.
+	GetCustomerReviews(ctx context.Context, userID string, page, pageSize int) (*MerchantReviewsResponse, error)
+	// ReplyToCustomerReview membuat atau mengubah tanggapan merchant pada review miliknya.
+	ReplyToCustomerReview(ctx context.Context, userID, reviewID string, input CreateMerchantReviewReplyInput) (*MerchantReviewReply, error)
+
+	// Operating hours ZIP: jadwal per hari dan penutupan tanggal khusus.
+	GetOperatingHours(ctx context.Context, userID string) (*MerchantOperatingHoursResponse, error)
+	ReplaceOperatingHours(ctx context.Context, userID string, hours []MerchantOperatingHour) (*MerchantOperatingHoursResponse, error)
+	CreateSpecialClosure(ctx context.Context, userID string, input CreateMerchantSpecialClosureInput) (*MerchantSpecialClosure, error)
+	DeleteSpecialClosure(ctx context.Context, userID, closureID string) error
 
 	// Edit order (FB-087)
 	// GetOrderEdit mengambil data order untuk layar edit merchant (status

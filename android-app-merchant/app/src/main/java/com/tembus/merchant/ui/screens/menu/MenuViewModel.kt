@@ -15,7 +15,10 @@ data class MenuUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val actionLoadingId: String? = null,
-    val actionError: String? = null
+    val actionError: String? = null,
+    val isSaving: Boolean = false,
+    val saveError: String? = null,
+    val saveCompleted: Boolean = false
 )
 
 class MenuViewModel(
@@ -30,30 +33,51 @@ class MenuViewModel(
     }
 
     fun load() {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        _uiState.value = _uiState.value.copy(
+            isLoading = true,
+            errorMessage = null,
+            actionLoadingId = null
+        )
         viewModelScope.launch {
             merchantRepository.listMenu(pageSize = 100)
                 .onSuccess { items ->
-                    _uiState.value = _uiState.value.copy(items = items, isLoading = false)
+                    _uiState.value = _uiState.value.copy(
+                        items = items,
+                        isLoading = false,
+                        actionLoadingId = null
+                    )
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
                         errorMessage = e.message ?: "Gagal memuat menu",
-                        isLoading = false
+                        isLoading = false,
+                        actionLoadingId = null
                     )
                 }
         }
     }
 
     fun createItem(request: MenuItemRequest) {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        if (_uiState.value.isSaving) return
+        _uiState.value = _uiState.value.copy(
+            isSaving = true,
+            saveError = null,
+            saveCompleted = false,
+            errorMessage = null
+        )
         viewModelScope.launch {
             merchantRepository.createMenuItem(request)
-                .onSuccess { load() }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        saveCompleted = true
+                    )
+                    load()
+                }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
-                        errorMessage = e.message ?: "Gagal tambah menu",
-                        isLoading = false
+                        isSaving = false,
+                        saveError = e.message ?: "Gagal tambah menu"
                     )
                 }
         }
@@ -64,14 +88,26 @@ class MenuViewModel(
         merchantRepository.uploadMenuPhoto(file)
 
     fun updateItem(id: String, request: MenuItemRequest) {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        if (_uiState.value.isSaving) return
+        _uiState.value = _uiState.value.copy(
+            isSaving = true,
+            saveError = null,
+            saveCompleted = false,
+            errorMessage = null
+        )
         viewModelScope.launch {
             merchantRepository.updateMenuItem(id, request)
-                .onSuccess { load() }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        saveCompleted = true
+                    )
+                    load()
+                }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
-                        errorMessage = e.message ?: "Gagal ubah menu",
-                        isLoading = false
+                        isSaving = false,
+                        saveError = e.message ?: "Gagal ubah menu"
                     )
                 }
         }
@@ -107,5 +143,9 @@ class MenuViewModel(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    fun clearSaveState() {
+        _uiState.value = _uiState.value.copy(saveError = null, saveCompleted = false)
     }
 }

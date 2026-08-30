@@ -14,7 +14,8 @@ data class PromoUiState(
     val items: List<MerchantPromo> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val actionLoadingId: String? = null
+    val actionLoadingId: String? = null,
+    val createCompleted: Boolean = false
 )
 
 /**
@@ -48,10 +49,13 @@ class PromoViewModel(
     }
 
     fun createPromo(request: MerchantPromoRequest) {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null, createCompleted = false)
         viewModelScope.launch {
             merchantRepository.createPromo(request)
-                .onSuccess { load() }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(createCompleted = true)
+                    load()
+                }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
                         errorMessage = e.message ?: "Gagal buat promo",
@@ -91,5 +95,9 @@ class PromoViewModel(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    fun clearCreateCompleted() {
+        _uiState.value = _uiState.value.copy(createCompleted = false)
     }
 }

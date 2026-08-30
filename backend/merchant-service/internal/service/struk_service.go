@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 
 	"tembus/merchant-service/internal/domain"
 
@@ -48,12 +49,17 @@ func (s *merchantServiceImpl) GetStruk(ctx context.Context, userID, orderID stri
 		return nil, err
 	}
 
-	// QR berisi handover token — sama dengan yang di-scan driver saat pickup
-	// (konsisten dengan FOOD-BIKE-032 validasi barcode & FOOD-BIKE-069).
-	qr, err := generateQRCodeDataURI(struk.HandoverToken, 256)
-	if err != nil {
-		return nil, fmt.Errorf("generate QR struk: %w", err)
+	// Order canceled/rejected tidak pernah memiliki handover token. Detail
+	// tetap harus bisa dibuka untuk menampilkan status dan alasan, tetapi QR
+	// hanya dibuat untuk order yang benar-benar siap dipickup.
+	if strings.TrimSpace(struk.HandoverToken) != "" {
+		// QR berisi handover token — sama dengan yang di-scan driver saat pickup
+		// (konsisten dengan FOOD-BIKE-032 validasi barcode & FOOD-BIKE-069).
+		qr, err := generateQRCodeDataURI(struk.HandoverToken, 256)
+		if err != nil {
+			return nil, fmt.Errorf("generate QR struk: %w", err)
+		}
+		struk.QRCodeDataURI = qr
 	}
-	struk.QRCodeDataURI = qr
 	return struk, nil
 }

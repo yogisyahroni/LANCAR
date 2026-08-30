@@ -13,9 +13,12 @@ import (
 
 type mockReportRepo struct {
 	domain.MerchantReportRepository
-	salesReport    func(ctx context.Context, merchantID, period string) (*domain.SalesReportSummary, error)
-	salesReportRows func(ctx context.Context, merchantID, period string) ([]*domain.SalesReportRow, error)
-	settlements    func(ctx context.Context, merchantID string, limit int) ([]*domain.SettlementRecord, error)
+	salesReport        func(ctx context.Context, merchantID, period string) (*domain.SalesReportSummary, error)
+	salesReportRows    func(ctx context.Context, merchantID, period string) ([]*domain.SalesReportRow, error)
+	settlements        func(ctx context.Context, merchantID string, limit int) ([]*domain.SettlementRecord, error)
+	reviews            func(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MerchantReview, error)
+	ratingDistribution func(ctx context.Context, merchantID string) ([]domain.MerchantRatingBucket, error)
+	upsertReviewReply  func(ctx context.Context, merchantID, userID, reviewID, body string) (*domain.MerchantReviewReply, error)
 }
 
 func (m *mockReportRepo) SalesReport(ctx context.Context, merchantID, period string) (*domain.SalesReportSummary, error) {
@@ -28,6 +31,27 @@ func (m *mockReportRepo) SalesReportRows(ctx context.Context, merchantID, period
 
 func (m *mockReportRepo) Settlements(ctx context.Context, merchantID string, limit int) ([]*domain.SettlementRecord, error) {
 	return m.settlements(ctx, merchantID, limit)
+}
+
+func (m *mockReportRepo) Reviews(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MerchantReview, error) {
+	if m.reviews == nil {
+		return nil, nil
+	}
+	return m.reviews(ctx, merchantID, limit, offset)
+}
+
+func (m *mockReportRepo) RatingDistribution(ctx context.Context, merchantID string) ([]domain.MerchantRatingBucket, error) {
+	if m.ratingDistribution == nil {
+		return []domain.MerchantRatingBucket{}, nil
+	}
+	return m.ratingDistribution(ctx, merchantID)
+}
+
+func (m *mockReportRepo) UpsertReviewReply(ctx context.Context, merchantID, userID, reviewID, body string) (*domain.MerchantReviewReply, error) {
+	if m.upsertReviewReply == nil {
+		return nil, errors.New("reply mock belum dikonfigurasi")
+	}
+	return m.upsertReviewReply(ctx, merchantID, userID, reviewID, body)
 }
 
 func newReportTestService(merchant *domain.Merchant, summary *domain.SalesReportSummary, rows []*domain.SalesReportRow, repoErr error) *merchantServiceImpl {
@@ -224,5 +248,75 @@ func TestListSettlements_RepoError(t *testing.T) {
 	_, err := svc.ListSettlements(context.Background(), "user-1")
 	if err == nil || !strings.Contains(err.Error(), "db down") {
 		t.Fatalf("expected repo error, got: %v", err)
+	}
+}
+
+func TestGetCustomerReviews_Sukses(t *testing.T) {
+	m := approvedMerchant()
+	m.AvgRating = 4.5
+	m.RatingCount = 2
+	want := []*domain.MerchantReview{{ID: "r1", ReviewerName: "Siti", Stars: 5, Comment: "Enak"}}
+	rr := &mockReportRepo{
+		reviews: func(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MerchantReview, error) {
+			if merchantID != m.ID || limit != 20 || offset != 20 {
+				t.Fatalf("pagination/repository args tidak sesuai: merchant=%s limit=%d offset=%d", merchantID, limit, offset)
+			}
+			return want, nil
+		},
+	}
+	svc := &merchantServiceImpl{
+		merchantRepo: &mockMerchantRepoForStruk{getByUserID: func(ctx context.Context, userID string) (*domain.Merchant, error) { return m, nil }},
+		reportRepo:   rr,
+	}
+	got, err := svc.GetCustomerReviews(context.Background(), "user-1", 2, 20)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.AvgRating != 4.5 || got.RatingCount != 2 || got.Page != 2 || len(got.Reviews) != 1 || got.Reviews[0].Comment != "Enak" {
+		t.Fatalf("response review tidak sesuai: %+v", got)
+	}
+}
+
+func TestGetCustomerReviews_MerchantPending(t *testing.T) {
+	m := approvedMerchant()
+	m.VerificationStatus = "pending"
+	svc := &merchantServiceImpl{
+		merchantRepo: &mockMerchantRepoForStruk{getByUserID: func(ctx context.Context, userID string) (*domain.Merchant, error) { return m, nil }},
+		reportRepo:   &mockReportRepo{},
+	}
+	_, err := svc.GetCustomerReviews(context.Background(), "user-1", 1, 20)
+	if err == nil || !strings.Contains(err.Error(), "belum disetujui") {
+		t.Fatalf("expected pending merchant error, got: %v", err)
+	}
+}
+
+func TestReplyToCustomerReview_Sukses(t *testing.T) {
+	m := approvedMerchant()
+	rr := &mockReportRepo{
+		upsertReviewReply: func(ctx context.Context, merchantID, userID, reviewID, body string) (*domain.MerchantReviewReply, error) {
+			if merchantID != m.ID || reviewID != "review-1" || body != "Terima kasih" {
+				t.Fatalf("argumen reply tidak sesuai: merchant=%s review=%s body=%q", merchantID, reviewID, body)
+			}
+			return &domain.MerchantReviewReply{ID: "reply-1", Body: body}, nil
+		},
+	}
+	svc := &merchantServiceImpl{
+		merchantRepo: &mockMerchantRepoForStruk{getByUserID: func(ctx context.Context, userID string) (*domain.Merchant, error) { return m, nil }},
+		reportRepo:   rr,
+	}
+	reply, err := svc.ReplyToCustomerReview(context.Background(), "user-1", "review-1", domain.CreateMerchantReviewReplyInput{Body: "  Terima kasih  "})
+	if err != nil || reply == nil || reply.Body != "Terima kasih" {
+		t.Fatalf("reply gagal: reply=%+v err=%v", reply, err)
+	}
+}
+
+func TestReplyToCustomerReview_BodyKosong(t *testing.T) {
+	svc := &merchantServiceImpl{
+		merchantRepo: &mockMerchantRepoForStruk{getByUserID: func(ctx context.Context, userID string) (*domain.Merchant, error) { return approvedMerchant(), nil }},
+		reportRepo:   &mockReportRepo{},
+	}
+	_, err := svc.ReplyToCustomerReview(context.Background(), "user-1", "review-1", domain.CreateMerchantReviewReplyInput{Body: " "})
+	if err == nil || !strings.Contains(err.Error(), "wajib diisi") {
+		t.Fatalf("expected empty reply validation error, got: %v", err)
 	}
 }

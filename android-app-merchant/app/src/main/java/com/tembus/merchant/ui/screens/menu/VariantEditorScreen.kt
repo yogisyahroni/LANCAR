@@ -1,5 +1,6 @@
 package com.tembus.merchant.ui.screens.menu
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -8,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.TembusRadius
 import com.tembus.merchant.ui.theme.Primary
+import com.tembus.merchant.ui.theme.PrimaryPale
 
 /**
  * VariantEditorScreen — FB-108: editor grup varian menu item.
@@ -38,13 +41,15 @@ fun VariantEditorScreen(
     state.errorMessage?.let { msg ->
         AlertDialog(
             onDismissRequest = viewModel::clearError,
-            confirmButton = { TextButton(onClick = viewModel::clearError) { Text("OK") } },
+                confirmButton = { TextButton(onClick = viewModel::clearError) { Text("OK") } },
+                dismissButton = { TextButton(onClick = viewModel::load) { Text("Coba Lagi") } },
             title = { Text("Perhatian") },
             text = { Text(msg) }
         )
     }
 
     Scaffold(
+        containerColor = PrimaryPale,
         topBar = {
             TopAppBar(
                 title = { Text("Atur Varian Menu", fontWeight = FontWeight.SemiBold) },
@@ -76,6 +81,7 @@ fun VariantEditorScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(PrimaryPale)
                 .padding(padding)
         ) {
             when {
@@ -85,7 +91,7 @@ fun VariantEditorScreen(
                 state.saved -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("✓", fontSize = 48.sp, color = Primary, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Primary, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(8.dp))
                             Text("Varian berhasil disimpan", fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(4.dp))
@@ -152,7 +158,9 @@ private fun VariantGroupCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(TembusRadius.Card)
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

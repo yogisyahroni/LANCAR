@@ -155,10 +155,136 @@ func (s *merchantServiceImpl) UpdateProfile(ctx context.Context, userID string, 
 		}
 		m.MinOrderIDR = *req.MinOrderIDR
 	}
+	if req.PayoutSchedule != nil {
+		if *req.PayoutSchedule != "daily" && *req.PayoutSchedule != "weekly" && *req.PayoutSchedule != "monthly" {
+			return nil, errors.New("payout_schedule harus daily, weekly, atau monthly")
+		}
+		m.PayoutSchedule = *req.PayoutSchedule
+	}
+	if req.NPWP != nil {
+		value := strings.TrimSpace(*req.NPWP)
+		if len(value) > 32 {
+			return nil, errors.New("npwp maksimal 32 karakter")
+		}
+		if value == "" {
+			m.NPWP = nil
+		} else {
+			m.NPWP = &value
+		}
+	}
 	if err := s.merchantRepo.Update(ctx, m); err != nil {
 		return nil, err
 	}
 	return s.merchantRepo.GetByID(ctx, m.ID)
+}
+
+// GetOperatingHours menyediakan konfigurasi jadwal ZIP. Merchant lama yang
+// belum pernah menyimpan jadwal per-hari tetap menampilkan konfigurasi nyata
+// jam_buka/jam_tutup mereka sebagai fallback, bukan data contoh.
+func (s *merchantServiceImpl) GetOperatingHours(ctx context.Context, userID string) (*domain.MerchantOperatingHoursResponse, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	hours, err := s.merchantRepo.GetOperatingHours(ctx, m.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(hours) == 0 {
+		hours = defaultOperatingHours(m.JamBuka, m.JamTutup)
+	}
+	closures, err := s.merchantRepo.ListSpecialClosures(ctx, m.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.MerchantOperatingHoursResponse{Hours: hours, Closures: closures}, nil
+}
+
+func (s *merchantServiceImpl) ReplaceOperatingHours(ctx context.Context, userID string, hours []domain.MerchantOperatingHour) (*domain.MerchantOperatingHoursResponse, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(hours) != 7 {
+		return nil, errors.New("jadwal harus memuat tepat tujuh hari")
+	}
+	seen := make(map[int]bool, 7)
+	var firstOpen *domain.MerchantOperatingHour
+	for i := range hours {
+		hour := &hours[i]
+		if hour.Weekday < 0 || hour.Weekday > 6 || seen[hour.Weekday] {
+			return nil, errors.New("weekday jadwal tidak valid atau duplikat")
+		}
+		seen[hour.Weekday] = true
+		hour.MerchantID = m.ID
+		if !hour.IsOpen {
+			hour.OpensAt, hour.ClosesAt = nil, nil
+			continue
+		}
+		if hour.OpensAt == nil || hour.ClosesAt == nil || !validClock(*hour.OpensAt) || !validClock(*hour.ClosesAt) || *hour.OpensAt == *hour.ClosesAt {
+			return nil, errors.New("jam buka dan tutup harus valid serta tidak boleh sama")
+		}
+		if firstOpen == nil {
+			copy := *hour
+			firstOpen = &copy
+		}
+	}
+	if err := s.merchantRepo.ReplaceOperatingHours(ctx, m.ID, hours); err != nil {
+		return nil, err
+	}
+	// Kompatibilitas dengan consumer lama dan worker: simpan satu rentang nyata
+	// dari hari aktif pertama, sementara worker memakai tabel baru bila tersedia.
+	if firstOpen != nil {
+		m.JamBuka, m.JamTutup = firstOpen.OpensAt, firstOpen.ClosesAt
+		if err := s.merchantRepo.Update(ctx, m); err != nil {
+			return nil, err
+		}
+	}
+	return s.GetOperatingHours(ctx, userID)
+}
+
+func (s *merchantServiceImpl) CreateSpecialClosure(ctx context.Context, userID string, input domain.CreateMerchantSpecialClosureInput) (*domain.MerchantSpecialClosure, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	label := strings.TrimSpace(input.Label)
+	if len(label) == 0 || len(label) > 120 {
+		return nil, errors.New("label penutupan harus 1-120 karakter")
+	}
+	if _, err := time.Parse("2006-01-02", input.ClosureDate); err != nil {
+		return nil, errors.New("closure_date harus berformat YYYY-MM-DD")
+	}
+	return s.merchantRepo.CreateSpecialClosure(ctx, m.ID, input.ClosureDate, label)
+}
+
+func (s *merchantServiceImpl) DeleteSpecialClosure(ctx context.Context, userID, closureID string) error {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if _, err := uuid.Parse(closureID); err != nil {
+		return errors.New("id penutupan tidak valid")
+	}
+	return s.merchantRepo.DeleteSpecialClosure(ctx, m.ID, closureID)
+}
+
+func defaultOperatingHours(opensAt, closesAt *string) []domain.MerchantOperatingHour {
+	hours := make([]domain.MerchantOperatingHour, 7)
+	open := opensAt != nil && closesAt != nil && validClock(*opensAt) && validClock(*closesAt) && *opensAt != *closesAt
+	for weekday := 0; weekday < 7; weekday++ {
+		hours[weekday] = domain.MerchantOperatingHour{Weekday: weekday, IsOpen: open}
+		if open {
+			hours[weekday].OpensAt = opensAt
+			hours[weekday].ClosesAt = closesAt
+		}
+	}
+	return hours
+}
+
+func validClock(value string) bool {
+	_, err := time.Parse("15:04", value)
+	return err == nil
 }
 
 func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isOpen bool) (*domain.Merchant, error) {
@@ -262,13 +388,13 @@ func (s *merchantServiceImpl) UpdateFoodDocs(ctx context.Context, userID string,
 
 	// Patch: gabungkan nilai lama + baru (request menang kalau diisi)
 	merged := domain.UpdateFoodDocsRequest{
-		HalalCertNumber:    m.HalalCertNumber,
-		HalalExpiryDate:    m.HalalExpiryDate,
-		SppIrtNumber:       m.SppIrtNumber,
-		SppIrtExpiryDate:   m.SppIrtExpiryDate,
-		BpomNumber:         m.BpomNumber,
-		BpomExpiryDate:     m.BpomExpiryDate,
-		HalalStatus:        m.HalalStatusPtr(),
+		HalalCertNumber:  m.HalalCertNumber,
+		HalalExpiryDate:  m.HalalExpiryDate,
+		SppIrtNumber:     m.SppIrtNumber,
+		SppIrtExpiryDate: m.SppIrtExpiryDate,
+		BpomNumber:       m.BpomNumber,
+		BpomExpiryDate:   m.BpomExpiryDate,
+		HalalStatus:      m.HalalStatusPtr(),
 	}
 	if req.HalalCertNumber != nil {
 		merged.HalalCertNumber = req.HalalCertNumber
@@ -516,6 +642,7 @@ func (s *merchantServiceImpl) CreateMenuItem(ctx context.Context, userID string,
 		Nama:            req.Nama,
 		Harga:           req.Harga,
 		Foto:            req.Foto,
+		Deskripsi:       req.Deskripsi,
 		Kategori:        strings.TrimSpace(req.Kategori),
 		PrepTimeMinutes: req.PrepTimeMinutes,
 		IsAvailable:     available,
@@ -550,6 +677,9 @@ func (s *merchantServiceImpl) UpdateMenuItem(ctx context.Context, userID string,
 	}
 	if req.Foto != nil {
 		item.Foto = req.Foto
+	}
+	if req.Deskripsi != nil {
+		item.Deskripsi = req.Deskripsi
 	}
 	if req.Kategori != nil {
 		item.Kategori = *req.Kategori
@@ -800,10 +930,10 @@ func (s *merchantServiceImpl) triggerOrderMatching(orderID string) {
 
 // rejectReasonEnum — kode enum alasan reject merchant (FB-122).
 var rejectReasonEnum = map[string]string{
-	"stok_habis":    "Stok menu habis",
-	"terlalu_sibuk": "Merchant terlalu sibuk",
+	"stok_habis":     "Stok menu habis",
+	"terlalu_sibuk":  "Merchant terlalu sibuk",
 	"tutup_mendadak": "Tutup mendadak",
-	"lainnya":       "Lainnya",
+	"lainnya":        "Lainnya",
 }
 
 // normalizeRejectReason — validasi & normalisasi kode enum reject.
@@ -833,9 +963,9 @@ func (s *merchantServiceImpl) triggerRefundOnMerchantReject(orderID, reason stri
 		orderServiceURL = "http://order-service:8083"
 	}
 	payload, _ := json.Marshal(map[string]interface{}{
-		"order_id":                  orderID,
-		"reason":                    "Pesanan ditolak merchant: " + reason,
-		"original_status":           "pending_merchant",
+		"order_id":                   orderID,
+		"reason":                     "Pesanan ditolak merchant: " + reason,
+		"original_status":            "pending_merchant",
 		"charge_cancellation_fee_to": "merchant", // FB-082: fee jadi piutang merchant
 	})
 

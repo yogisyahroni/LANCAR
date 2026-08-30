@@ -264,6 +264,22 @@ private fun StrukContent(
 
                 StrukRow("No. Order", struk.orderNumber)
                 struk.customerName?.let { StrukRow("Customer", it) }
+                struk.dropoffAddress?.takeIf { it.isNotBlank() }?.let { StrukRow("Alamat antar", it) }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(color = Color(0xFFE1E7EF))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Status pesanan", fontWeight = FontWeight.SemiBold, color = Color.Black)
+                StrukRow("Status", struk.merchantStatusLabel())
+                struk.merchantAcceptedAt?.takeIf { it.isNotBlank() }?.let { StrukRow("Diterima merchant", it) }
+                struk.foodReadyAt?.takeIf { it.isNotBlank() }?.let { StrukRow("Siap diproses", it) }
+                if (!struk.rejectReason.isNullOrBlank() || !struk.cancellationReason.isNullOrBlank()) {
+                    StrukRow(
+                        if (!struk.rejectReason.isNullOrBlank()) "Alasan penolakan" else "Alasan pembatalan",
+                        struk.cancellationReason?.takeIf { it.isNotBlank() }
+                            ?: struk.rejectReason.orEmpty().rejectReasonLabel()
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
                 HorizontalDivider(color = Color(0xFFE1E7EF))
@@ -411,6 +427,24 @@ private fun StrukContent(
 
         Spacer(modifier = Modifier.height(16.dp))
     }
+}
+
+private fun StrukData.merchantStatusLabel(): String = when {
+    status == "cancelled" && !rejectReason.isNullOrBlank() -> "Ditolak merchant"
+    status == "cancelled" -> "Dibatalkan customer"
+    status == "pending_merchant" -> "Menunggu konfirmasi"
+    status == "preparing" || status == "accepted" -> "Sedang diproses"
+    status == "searching" || status == "assigned" || status == "picked_up" || status == "in_transit" || status == "delivering" -> "Dalam pengantaran"
+    status == "delivered" -> "Selesai"
+    else -> status.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
+private fun String.rejectReasonLabel(): String = when (this) {
+    "stok_habis" -> "Stok menu habis"
+    "terlalu_sibuk" -> "Terlalu sibuk"
+    "tutup_mendadak" -> "Tutup mendadak"
+    "lainnya" -> "Alasan lainnya"
+    else -> this
 }
 
 @Composable

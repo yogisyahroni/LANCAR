@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"tembus/merchant-service/internal/domain"
+
+	"github.com/lib/pq"
 )
 
 // postgresMerchantRepository — implementasi domain.MerchantRepository.
@@ -74,18 +76,21 @@ func (r *postgresMerchantRepository) Create(ctx context.Context, m *domain.Merch
 	return tx.Commit()
 }
 
-const merchantColumns = `id, user_id, nama_toko, alamat,
-	ST_Y(lokasi::geometry), ST_X(lokasi::geometry),
-	to_char(jam_buka, 'HH24:MI'), to_char(jam_tutup, 'HH24:MI'),
-	is_open, paused_until, min_order_idr, completion_rate_pct, verification_status,
-	avg_rating, rating_count,
-	halal_cert_number, to_char(halal_expiry_date, 'YYYY-MM-DD'),
-	spp_irt_number, to_char(spp_irt_expiry_date, 'YYYY-MM-DD'),
-	bpom_number, to_char(bpom_expiry_date, 'YYYY-MM-DD'),
-	halal_status,
-	bank_name, bank_account_number, bank_account_holder, bank_account_verified,
-	business_type,
-	created_at, updated_at`
+const merchantColumns = `m.id, m.user_id,
+	COALESCE(u.email, ''), COALESCE(u.phone_number, ''),
+	m.nama_toko, m.alamat,
+	ST_Y(m.lokasi::geometry), ST_X(m.lokasi::geometry),
+	to_char(m.jam_buka, 'HH24:MI'), to_char(m.jam_tutup, 'HH24:MI'),
+	m.is_open, m.paused_until, m.min_order_idr, m.completion_rate_pct, m.verification_status,
+	m.avg_rating, m.rating_count,
+	m.halal_cert_number, to_char(m.halal_expiry_date, 'YYYY-MM-DD'),
+	m.spp_irt_number, to_char(m.spp_irt_expiry_date, 'YYYY-MM-DD'),
+	m.bpom_number, to_char(m.bpom_expiry_date, 'YYYY-MM-DD'),
+	m.halal_status,
+	m.bank_name, m.bank_account_number, m.bank_account_holder, m.bank_account_verified,
+	m.business_type,
+	m.payout_schedule, m.npwp,
+	m.created_at, m.updated_at`
 
 func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error) {
 	var m domain.Merchant
@@ -98,8 +103,10 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var halalStatus sql.NullString
 	var bankName, bankAccountNumber, bankAccountHolder sql.NullString
 	var businessType sql.NullString
+	var payoutSchedule sql.NullString
+	var npwp sql.NullString
 	err := row.Scan(
-		&m.ID, &m.UserID, &m.NamaToko, &m.Alamat,
+		&m.ID, &m.UserID, &m.OwnerEmail, &m.OwnerPhone, &m.NamaToko, &m.Alamat,
 		&lat, &lng,
 		&jamBuka, &jamTutup,
 		&m.IsOpen, &pausedUntil, &m.MinOrderIDR, &m.CompletionRatePct, &m.VerificationStatus,
@@ -108,6 +115,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&halalStatus,
 		&bankName, &bankAccountNumber, &bankAccountHolder, &m.BankAccountVerified,
 		&businessType,
+		&payoutSchedule, &npwp,
 		&m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
@@ -178,11 +186,18 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	if businessType.Valid {
 		m.BusinessType = businessType.String
 	}
+	if payoutSchedule.Valid {
+		m.PayoutSchedule = payoutSchedule.String
+	}
+	if npwp.Valid {
+		value := npwp.String
+		m.NPWP = &value
+	}
 	return &m, nil
 }
 
 func (r *postgresMerchantRepository) GetByID(ctx context.Context, id string) (*domain.Merchant, error) {
-	row := r.readDB.QueryRowContext(ctx, `SELECT `+merchantColumns+` FROM merchants WHERE id = $1`, id)
+	row := r.readDB.QueryRowContext(ctx, `SELECT `+merchantColumns+` FROM merchants m JOIN users u ON u.id = m.user_id WHERE m.id = $1`, id)
 	m, err := scanMerchant(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -191,7 +206,7 @@ func (r *postgresMerchantRepository) GetByID(ctx context.Context, id string) (*d
 }
 
 func (r *postgresMerchantRepository) GetByUserID(ctx context.Context, userID string) (*domain.Merchant, error) {
-	row := r.readDB.QueryRowContext(ctx, `SELECT `+merchantColumns+` FROM merchants WHERE user_id = $1`, userID)
+	row := r.readDB.QueryRowContext(ctx, `SELECT `+merchantColumns+` FROM merchants m JOIN users u ON u.id = m.user_id WHERE m.user_id = $1`, userID)
 	m, err := scanMerchant(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -219,9 +234,11 @@ func (r *postgresMerchantRepository) Update(ctx context.Context, m *domain.Merch
 			jam_buka = CASE WHEN $5::text IS NULL THEN jam_buka ELSE $5::time END,
 			jam_tutup = CASE WHEN $6::text IS NULL THEN jam_tutup ELSE $6::time END,
 			min_order_idr = $7, -- FB-109 (0 = tanpa minimum)
+			payout_schedule = COALESCE(NULLIF($8, ''), payout_schedule),
+			npwp = CASE WHEN $9::text IS NULL THEN npwp ELSE NULLIF($9, '') END,
 			updated_at = NOW()
 		WHERE id = $1`,
-		m.ID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup, m.MinOrderIDR,
+		m.ID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup, m.MinOrderIDR, m.PayoutSchedule, m.NPWP,
 	)
 	return err
 }
@@ -293,9 +310,9 @@ func (r *postgresMerchantRepository) SetPaused(ctx context.Context, id string, u
 
 func (r *postgresMerchantRepository) ListByVerificationStatus(ctx context.Context, status string, limit, offset int) ([]*domain.Merchant, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
-		SELECT `+merchantColumns+` FROM merchants
-		WHERE ($1 = 'all' OR verification_status = $1)
-		ORDER BY created_at DESC
+		SELECT `+merchantColumns+` FROM merchants m JOIN users u ON u.id = m.user_id
+		WHERE ($1 = 'all' OR m.verification_status = $1)
+		ORDER BY m.created_at DESC
 		LIMIT $2 OFFSET $3`, status, limit, offset)
 	if err != nil {
 		return nil, err
@@ -416,10 +433,10 @@ func (r *postgresMerchantRepository) UpdateFoodDocs(ctx context.Context, m *doma
 // oleh worker (badge hilang, toko TETAP jalan — pola GoFood).
 func (r *postgresMerchantRepository) ListCertifiedWithExpiredHalal(ctx context.Context) ([]*domain.Merchant, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
-		SELECT `+merchantColumns+` FROM merchants
-		WHERE halal_status = 'halal_certified'
-		  AND halal_cert_number IS NOT NULL AND halal_cert_number <> ''
-		  AND halal_expiry_date IS NOT NULL AND halal_expiry_date < CURRENT_DATE`)
+		SELECT `+merchantColumns+` FROM merchants m JOIN users u ON u.id = m.user_id
+		WHERE m.halal_status = 'halal_certified'
+		  AND m.halal_cert_number IS NOT NULL AND m.halal_cert_number <> ''
+		  AND m.halal_expiry_date IS NOT NULL AND m.halal_expiry_date < CURRENT_DATE`)
 	if err != nil {
 		return nil, err
 	}
@@ -448,9 +465,9 @@ func (r *postgresMerchantRepository) SetHalalStatus(ctx context.Context, id, sta
 // terisi → kandidat auto-toggle is_open sesuai jam operasional oleh worker.
 func (r *postgresMerchantRepository) ListForOperatingHoursSync(ctx context.Context) ([]*domain.Merchant, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
-		SELECT `+merchantColumns+` FROM merchants
-		WHERE verification_status = 'approved'
-		  AND jam_buka IS NOT NULL AND jam_tutup IS NOT NULL`)
+		SELECT `+merchantColumns+` FROM merchants m JOIN users u ON u.id = m.user_id
+		WHERE m.verification_status = 'approved'
+		  AND m.jam_buka IS NOT NULL AND m.jam_tutup IS NOT NULL`)
 	if err != nil {
 		return nil, err
 	}
@@ -465,4 +482,157 @@ func (r *postgresMerchantRepository) ListForOperatingHoursSync(ctx context.Conte
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+func (r *postgresMerchantRepository) GetOperatingHours(ctx context.Context, merchantID string) ([]domain.MerchantOperatingHour, error) {
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT merchant_id::text, weekday, is_open,
+			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI')
+		FROM merchant_operating_hours
+		WHERE merchant_id = $1
+		ORDER BY weekday`, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanOperatingHours(rows)
+}
+
+func (r *postgresMerchantRepository) ReplaceOperatingHours(ctx context.Context, merchantID string, hours []domain.MerchantOperatingHour) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err = tx.ExecContext(ctx, `DELETE FROM merchant_operating_hours WHERE merchant_id = $1`, merchantID); err != nil {
+		return err
+	}
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO merchant_operating_hours (merchant_id, weekday, is_open, opens_at, closes_at)
+		VALUES ($1, $2, $3, $4::time, $5::time)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, hour := range hours {
+		if _, err = stmt.ExecContext(ctx, merchantID, hour.Weekday, hour.IsOpen, hour.OpensAt, hour.ClosesAt); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (r *postgresMerchantRepository) ListOperatingHoursForMerchants(ctx context.Context, merchantIDs []string) (map[string][]domain.MerchantOperatingHour, error) {
+	result := make(map[string][]domain.MerchantOperatingHour, len(merchantIDs))
+	if len(merchantIDs) == 0 {
+		return result, nil
+	}
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT merchant_id::text, weekday, is_open,
+			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI')
+		FROM merchant_operating_hours
+		WHERE merchant_id = ANY($1)
+		ORDER BY merchant_id, weekday`, pq.Array(merchantIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	hours, err := scanOperatingHours(rows)
+	if err != nil {
+		return nil, err
+	}
+	for _, hour := range hours {
+		result[hour.MerchantID] = append(result[hour.MerchantID], hour)
+	}
+	return result, nil
+}
+
+func (r *postgresMerchantRepository) ListSpecialClosuresOn(ctx context.Context, merchantIDs []string, date string) (map[string]bool, error) {
+	result := make(map[string]bool, len(merchantIDs))
+	if len(merchantIDs) == 0 {
+		return result, nil
+	}
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT merchant_id::text FROM merchant_special_closures
+		WHERE merchant_id = ANY($1) AND closure_date = $2::date`, pq.Array(merchantIDs), date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var merchantID string
+		if err := rows.Scan(&merchantID); err != nil {
+			return nil, err
+		}
+		result[merchantID] = true
+	}
+	return result, rows.Err()
+}
+
+func (r *postgresMerchantRepository) ListSpecialClosures(ctx context.Context, merchantID string) ([]domain.MerchantSpecialClosure, error) {
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT id::text, TO_CHAR(closure_date, 'YYYY-MM-DD'), label
+		FROM merchant_special_closures
+		WHERE merchant_id = $1
+		ORDER BY closure_date`, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	closures := make([]domain.MerchantSpecialClosure, 0)
+	for rows.Next() {
+		var closure domain.MerchantSpecialClosure
+		if err := rows.Scan(&closure.ID, &closure.ClosureDate, &closure.Label); err != nil {
+			return nil, err
+		}
+		closures = append(closures, closure)
+	}
+	return closures, rows.Err()
+}
+
+func (r *postgresMerchantRepository) CreateSpecialClosure(ctx context.Context, merchantID, date, label string) (*domain.MerchantSpecialClosure, error) {
+	var closure domain.MerchantSpecialClosure
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO merchant_special_closures (merchant_id, closure_date, label)
+		VALUES ($1, $2::date, $3)
+		RETURNING id::text, TO_CHAR(closure_date, 'YYYY-MM-DD'), label`, merchantID, date, label).
+		Scan(&closure.ID, &closure.ClosureDate, &closure.Label)
+	if err != nil {
+		return nil, err
+	}
+	return &closure, nil
+}
+
+func (r *postgresMerchantRepository) DeleteSpecialClosure(ctx context.Context, merchantID, closureID string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM merchant_special_closures WHERE id = $1 AND merchant_id = $2`, closureID, merchantID)
+	if err != nil {
+		return err
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func scanOperatingHours(rows *sql.Rows) ([]domain.MerchantOperatingHour, error) {
+	hours := make([]domain.MerchantOperatingHour, 0)
+	for rows.Next() {
+		var hour domain.MerchantOperatingHour
+		var opensAt, closesAt sql.NullString
+		if err := rows.Scan(&hour.MerchantID, &hour.Weekday, &hour.IsOpen, &opensAt, &closesAt); err != nil {
+			return nil, err
+		}
+		if opensAt.Valid {
+			hour.OpensAt = &opensAt.String
+		}
+		if closesAt.Valid {
+			hour.ClosesAt = &closesAt.String
+		}
+		hours = append(hours, hour)
+	}
+	return hours, rows.Err()
 }

@@ -178,6 +178,71 @@ func (s *merchantServiceImpl) ListWithdrawals(ctx context.Context, userID string
 	return s.reportRepo.ListWithdrawals(ctx, m.ID, limit)
 }
 
+// GetCustomerReviews — review customer dari merchant_ratings, bukan data statis.
+func (s *merchantServiceImpl) GetCustomerReviews(ctx context.Context, userID string, page, pageSize int) (*domain.MerchantReviewsResponse, error) {
+	if s.reportRepo == nil || s.merchantRepo == nil {
+		return nil, errors.New("repository not wired")
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m == nil {
+		return nil, errors.New("merchant belum terdaftar")
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	reviews, err := s.reportRepo.Reviews(ctx, m.ID, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return nil, err
+	}
+	distribution, err := s.reportRepo.RatingDistribution(ctx, m.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.MerchantReviewsResponse{
+		AvgRating: m.AvgRating, RatingCount: m.RatingCount,
+		Reviews: reviews, RatingDistribution: distribution, Page: page, PageSize: pageSize,
+	}, nil
+}
+
+func (s *merchantServiceImpl) ReplyToCustomerReview(ctx context.Context, userID, reviewID string, input domain.CreateMerchantReviewReplyInput) (*domain.MerchantReviewReply, error) {
+	if s.reportRepo == nil || s.merchantRepo == nil {
+		return nil, errors.New("repository not wired")
+	}
+	if strings.TrimSpace(reviewID) == "" {
+		return nil, errors.New("review id wajib diisi")
+	}
+	input.Body = strings.TrimSpace(input.Body)
+	if input.Body == "" {
+		return nil, errors.New("tanggapan wajib diisi")
+	}
+	if len([]rune(input.Body)) > 1000 {
+		return nil, errors.New("tanggapan maksimal 1000 karakter")
+	}
+	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m == nil {
+		return nil, errors.New("merchant belum terdaftar")
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	return s.reportRepo.UpsertReviewReply(ctx, m.ID, userID, reviewID, input.Body)
+}
+
 // ExportSalesReportCSV — baris transaksi periode dalam format CSV.
 // Header: order_number, created_at, status, item_name, quantity,
 // item_price_idr, subtotal_idr, order_total_idr.

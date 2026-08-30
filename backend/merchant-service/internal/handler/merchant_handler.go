@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -18,7 +19,7 @@ import (
 // Identity user diambil dari header X-User-ID (di-set API Gateway setelah
 // verifikasi JWT) — pola sama persis dengan payment-service.
 type MerchantHandler struct {
-	svc      domain.MerchantService
+	svc       domain.MerchantService
 	uploadSvc *service.MenuPhotoStorage
 }
 
@@ -131,6 +132,71 @@ func (h *MerchantHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	h.respondJSON(w, http.StatusOK, m)
+}
+
+func (h *MerchantHandler) GetOperatingHours(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	response, err := h.svc.GetOperatingHours(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, response)
+}
+
+func (h *MerchantHandler) ReplaceOperatingHours(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var input domain.ReplaceMerchantOperatingHoursInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	response, err := h.svc.ReplaceOperatingHours(r.Context(), userID, input.Hours)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, response)
+}
+
+func (h *MerchantHandler) CreateSpecialClosure(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var input domain.CreateMerchantSpecialClosureInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	closure, err := h.svc.CreateSpecialClosure(r.Context(), userID, input)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusCreated, closure)
+}
+
+func (h *MerchantHandler) DeleteSpecialClosure(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.svc.DeleteSpecialClosure(r.Context(), userID, r.PathValue("id")); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			h.respondError(w, http.StatusNotFound, "Penutupan tidak ditemukan")
+			return
+		}
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 // ToggleOpen godoc
@@ -537,6 +603,7 @@ func (h *MerchantHandler) MarkReady(w http.ResponseWriter, r *http.Request) {
 	}
 	h.respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
+
 // @Summary Update rekening bank merchant
 // @Description Update rekening bank untuk payout settlement (FB-114).
 // @Tags merchant
@@ -731,6 +798,65 @@ func (h *MerchantHandler) GetSettlements(w http.ResponseWriter, r *http.Request)
 	h.respondJSON(w, http.StatusOK, summary)
 }
 
+// GetCustomerReviews godoc
+// @Summary Review customer merchant
+// @Description Ringkasan rating dan review customer dari merchant_ratings.
+// @Tags merchant
+// @Produce json
+// @Param page query int false "Nomor halaman"
+// @Param page_size query int false "Jumlah per halaman (maks 100)"
+// @Success 200 {object} domain.MerchantReviewsResponse
+// @Router /merchant/reviews [get]
+func (h *MerchantHandler) GetCustomerReviews(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	page, pageSize := parsePagination(r)
+	result, err := h.svc.GetCustomerReviews(r.Context(), userID, page, pageSize)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, result)
+}
+
+// ReplyToCustomerReview godoc
+// @Summary Balas review customer
+// @Description Menyimpan atau memperbarui tanggapan merchant untuk review miliknya.
+// @Tags merchant
+// @Accept json
+// @Produce json
+// @Param id path string true "ID review"
+// @Param request body domain.CreateMerchantReviewReplyInput true "tanggapan merchant"
+// @Success 200 {object} domain.MerchantReviewReply
+// @Router /merchant/reviews/{id}/reply [post]
+func (h *MerchantHandler) ReplyToCustomerReview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var body domain.CreateMerchantReviewReplyInput
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	reply, err := h.svc.ReplyToCustomerReview(r.Context(), userID, r.PathValue("id"), body)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, reply)
+}
+
 // RequestWithdrawal godoc
 // @Summary Ajukan pencairan saldo merchant (M7)
 // @Description Merchant ajukan penarikan saldo tersedia ke rekening.
@@ -759,9 +885,9 @@ func (h *MerchantHandler) RequestWithdrawal(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	h.respondJSON(w, http.StatusAccepted, map[string]interface{}{
-		"message":          "Permintaan pencairan diterima",
-		"withdrawal":       rec,
-		"available_idr":    available,
+		"message":       "Permintaan pencairan diterima",
+		"withdrawal":    rec,
+		"available_idr": available,
 	})
 }
 

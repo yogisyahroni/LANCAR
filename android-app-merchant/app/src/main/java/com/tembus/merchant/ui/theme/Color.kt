@@ -93,6 +93,6 @@ val CourierPanel = Color(0xF20B1F17)
 val CustomerHeroStart = Primary
 val CustomerHeroEnd = PrimaryLight
 
-// LEGACY merchant — masih dirujuk komponen lama (jangan dihapus tanpa migrasi)
-val NavBackground = Color(0xFF05080D)
+// Legacy alias kept for migrated callers; Merchant shell uses MaterialTheme.surface.
+val NavBackground = Surface
 val GreenText = Color(0xFF2E5D39)

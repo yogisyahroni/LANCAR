@@ -35,7 +35,8 @@ type RegisterMerchantRequest struct {
 
 // UpdateFoodDocsRequest — update/upload dokumen pangan merchant (FB-092).
 // ADR 003: SEMUA dokumen opsional (soft-gate). halal_status menentukan label:
-//   "halal_certified" (nomor+expiry valid, otomatis) | "non_halal" | "unknown".
+//
+//	"halal_certified" (nomor+expiry valid, otomatis) | "non_halal" | "unknown".
 type UpdateFoodDocsRequest struct {
 	HalalCertNumber    *string `json:"halal_cert_number,omitempty"`
 	HalalExpiryDate    *string `json:"halal_expiry_date,omitempty"`
@@ -54,14 +55,25 @@ type UpdateFoodDocsRequest struct {
 
 // UpdateMerchantRequest — update profil merchant (nama, alamat, lokasi, jam).
 type UpdateMerchantRequest struct {
-	NamaToko    *string  `json:"nama_toko,omitempty"`
-	Alamat      *string  `json:"alamat,omitempty"`
-	LokasiLat   *float64 `json:"lokasi_lat,omitempty"`
-	LokasiLng   *float64 `json:"lokasi_lng,omitempty"`
-	JamBuka     *string  `json:"jam_buka,omitempty"`
-	JamTutup    *string  `json:"jam_tutup,omitempty"`
+	NamaToko  *string  `json:"nama_toko,omitempty"`
+	Alamat    *string  `json:"alamat,omitempty"`
+	LokasiLat *float64 `json:"lokasi_lat,omitempty"`
+	LokasiLng *float64 `json:"lokasi_lng,omitempty"`
+	JamBuka   *string  `json:"jam_buka,omitempty"`
+	JamTutup  *string  `json:"jam_tutup,omitempty"`
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
-	MinOrderIDR *int64   `json:"min_order_idr,omitempty"`
+	MinOrderIDR    *int64  `json:"min_order_idr,omitempty"`
+	PayoutSchedule *string `json:"payout_schedule,omitempty"`
+	NPWP           *string `json:"npwp,omitempty"`
+}
+
+type ReplaceMerchantOperatingHoursInput struct {
+	Hours []MerchantOperatingHour `json:"hours"`
+}
+
+type CreateMerchantSpecialClosureInput struct {
+	ClosureDate string `json:"closure_date"`
+	Label       string `json:"label"`
 }
 
 // CreateMenuItemRequest — body buat/update menu item.
@@ -69,6 +81,7 @@ type CreateMenuItemRequest struct {
 	Nama            string  `json:"nama"`
 	Harga           int64   `json:"harga"`
 	Foto            *string `json:"foto,omitempty"`
+	Deskripsi       *string `json:"deskripsi,omitempty"`
 	Kategori        string  `json:"kategori"`
 	PrepTimeMinutes int     `json:"prep_time_minutes"`
 	IsAvailable     *bool   `json:"is_available,omitempty"`
@@ -79,6 +92,7 @@ type UpdateMenuItemRequest struct {
 	Nama            *string `json:"nama,omitempty"`
 	Harga           *int64  `json:"harga,omitempty"`
 	Foto            *string `json:"foto,omitempty"`
+	Deskripsi       *string `json:"deskripsi,omitempty"`
 	Kategori        *string `json:"kategori,omitempty"`
 	PrepTimeMinutes *int    `json:"prep_time_minutes,omitempty"`
 	IsAvailable     *bool   `json:"is_available,omitempty"`
@@ -103,11 +117,11 @@ type ReplaceMenuItemVariantsRequest struct {
 
 // ReplaceVariantGroup — satu grup varian lengkap dengan opsi-opsinya.
 type ReplaceVariantGroup struct {
-	Nama       string                    `json:"nama" validate:"required,max=80"`
-	IsRequired bool                      `json:"is_required"`
-	MinSelect  int                       `json:"min_select"`
-	MaxSelect  int                       `json:"max_select"`
-	Options    []ReplaceVariantOption    `json:"options"`
+	Nama       string                 `json:"nama" validate:"required,max=80"`
+	IsRequired bool                   `json:"is_required"`
+	MinSelect  int                    `json:"min_select"`
+	MaxSelect  int                    `json:"max_select"`
+	Options    []ReplaceVariantOption `json:"options"`
 }
 
 // ReplaceVariantOption — satu opsi varian (harga delta IDR, >= 0).
@@ -155,8 +169,8 @@ type UpdateMerchantPromoRequest struct {
 // Dipakai payout settlement (FB-113). Rekening baru butuh verifikasi ulang
 // (bank_account_verified di-reset false sampai admin approve).
 type UpdateBankAccountRequest struct {
-	BankName            string `json:"bank_name"`
-	BankAccountNumber   string `json:"bank_account_number"`
-	BankAccountHolder   string `json:"bank_account_holder"`
-	RekeningBankURL     string `json:"rekening_bank_url,omitempty"` // foto buku tabungan baru (opsional)
+	BankName          string `json:"bank_name"`
+	BankAccountNumber string `json:"bank_account_number"`
+	BankAccountHolder string `json:"bank_account_holder"`
+	RekeningBankURL   string `json:"rekening_bank_url,omitempty"` // foto buku tabungan baru (opsional)
 }

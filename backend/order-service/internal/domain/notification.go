@@ -66,6 +66,18 @@ type UserNotificationPreference struct {
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// MerchantNotificationPreferences menyimpan preferensi operasional merchant.
+// Dipisahkan dari preferensi channel legacy agar empat kontrol di aplikasi
+// merchant dapat disimpan secara independen.
+type MerchantNotificationPreferences struct {
+	UserID              uuid.UUID `json:"user_id" db:"user_id"`
+	NewOrderAlerts      bool      `json:"new_order_alerts" db:"new_order_alerts"`
+	OrderCancellations  bool      `json:"order_cancellations" db:"order_cancellations"`
+	DailySummaryReports bool      `json:"daily_summary_reports" db:"daily_summary_reports"`
+	PromotionalUpdates  bool      `json:"promotional_updates" db:"promotional_updates"`
+	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
+}
+
 func (p *UserNotificationPreference) IsChannelEnabled(channel NotificationChannel) bool {
 	switch channel {
 	case ChannelEmail:
@@ -102,4 +114,6 @@ type NotificationRepository interface {
 	ListTemplates(ctx context.Context) ([]NotificationTemplate, error)
 	GetPreferences(ctx context.Context, userID uuid.UUID) (*UserNotificationPreference, error)
 	UpdatePreferences(ctx context.Context, prefs *UserNotificationPreference) error
+	GetMerchantNotificationPreferences(ctx context.Context, userID uuid.UUID) (*MerchantNotificationPreferences, error)
+	UpdateMerchantNotificationPreferences(ctx context.Context, prefs *MerchantNotificationPreferences) error
 }

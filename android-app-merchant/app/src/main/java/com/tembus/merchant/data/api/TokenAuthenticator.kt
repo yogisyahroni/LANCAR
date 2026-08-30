@@ -32,8 +32,10 @@ class TokenAuthenticator(
     override fun authenticate(route: Route?, response: Response): Request? {
         val request = response.request
 
-        // Jangan retry endpoint refresh itu sendiri (hindari infinite loop).
-        if (request.url.encodedPath.contains("/auth/refresh")) return null
+        // Endpoint publik tidak boleh memicu refresh atau menghapus sesi.
+        // Pengecekan update berjalan saat MainActivity dibuat; bila endpoint
+        // itu sementara gagal/401, merchant tetap harus mempertahankan sesi.
+        if (isPublicEndpoint(request.url.encodedPath)) return null
 
         val sentAuth = request.header("Authorization")
         val sentToken = sentAuth?.removePrefix("Bearer ").orEmpty()
@@ -84,4 +86,9 @@ class TokenAuthenticator(
             false
         }
     }
+
+    private fun isPublicEndpoint(path: String): Boolean =
+        path.contains("/auth/refresh") ||
+            path == "/api/v1/system/latest-version" ||
+            path == "/api/v1/config/runtime"
 }

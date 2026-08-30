@@ -22,10 +22,15 @@ import (
 type pushService struct {
 	deviceTokenRepo domain.DeviceTokenRepository
 	orderRepo       domain.OrderRepository
+	prefsRepo       domain.NotificationRepository
 }
 
-func NewPushService(dtr domain.DeviceTokenRepository, or domain.OrderRepository) domain.PushService {
-	return &pushService{deviceTokenRepo: dtr, orderRepo: or}
+func NewPushService(dtr domain.DeviceTokenRepository, or domain.OrderRepository, prefsRepo ...domain.NotificationRepository) domain.PushService {
+	s := &pushService{deviceTokenRepo: dtr, orderRepo: or}
+	if len(prefsRepo) > 0 {
+		s.prefsRepo = prefsRepo[0]
+	}
+	return s
 }
 
 func (s *pushService) NotifyMerchantNewOrder(ctx context.Context, orderID string) error {
@@ -40,6 +45,18 @@ func (s *pushService) NotifyMerchantNewOrder(ctx context.Context, orderID string
 	ownerID, err := s.deviceTokenRepo.GetMerchantOwnerUserID(ctx, *order.MerchantID)
 	if err != nil {
 		return fmt.Errorf("resolve merchant owner: %w", err)
+	}
+	if s.prefsRepo != nil {
+		prefs, prefErr := s.prefsRepo.GetMerchantNotificationPreferences(ctx, ownerID)
+		if prefErr != nil {
+			// Preferensi tidak boleh membuat order/payment gagal. Migration
+			// membuat row default; fail-open menjaga push tetap terkirim bila
+			// ada deployment lama yang belum menjalankan migration.
+			slog.Warn("merchant_notification_preferences_unavailable", "merchant_id", *order.MerchantID, "error", prefErr)
+		} else if !prefs.NewOrderAlerts {
+			slog.Info("push_merchant_skipped_by_preference", "merchant_id", *order.MerchantID, "order_id", orderID)
+			return nil
+		}
 	}
 
 	tokens, err := s.deviceTokenRepo.GetDeviceTokensByUserIDs(ctx, []uuid.UUID{ownerID})

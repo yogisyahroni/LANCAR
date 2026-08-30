@@ -102,7 +102,9 @@ class VariantEditorViewModel(
 
     fun updateGroupMaxSelect(index: Int, max: String) {
         val groups = _uiState.value.groups.toMutableList()
-        if (index in groups.indices) groups[index] = groups[index].copy(maxSelect = max)
+        if (index in groups.indices) {
+            groups[index] = groups[index].copy(maxSelect = max.filter { it.isDigit() })
+        }
         _uiState.value = _uiState.value.copy(groups = groups)
     }
 
@@ -116,7 +118,7 @@ class VariantEditorViewModel(
 
     fun removeOption(groupIndex: Int, optionIndex: Int) {
         val groups = _uiState.value.groups.toMutableList()
-        if (groupIndex in groups.indices) {
+        if (groupIndex in groups.indices && optionIndex in groups[groupIndex].options.indices) {
             groups[groupIndex].options.removeAt(optionIndex)
             _uiState.value = _uiState.value.copy(groups = groups)
         }
@@ -139,17 +141,25 @@ class VariantEditorViewModel(
     }
 
     fun save() {
+        if (_uiState.value.saving) return
         val state = _uiState.value
-        // Validasi lokal: grup kosong diabaikan, grup dengan nama harus punya opsi bernama.
-        val validGroups = state.groups.filter { it.nama.isNotBlank() }
-        for (g in validGroups) {
+        // Grup benar-benar kosong boleh diabaikan, tetapi input setengah jadi
+        // harus diperbaiki supaya tidak diam-diam hilang saat replace atomic.
+        val enteredGroups = state.groups.filter {
+            it.nama.isNotBlank() || it.options.any { option -> option.nama.isNotBlank() }
+        }
+        for (g in enteredGroups) {
+            if (g.nama.isBlank()) {
+                _uiState.value = state.copy(errorMessage = "Nama grup wajib diisi")
+                return
+            }
             if (g.options.none { it.nama.isNotBlank() }) {
                 _uiState.value = state.copy(errorMessage = "Varian \"${g.nama}\" minimal punya 1 opsi")
                 return
             }
         }
         val request = ReplaceVariantsRequest(
-            variants = validGroups.map { g ->
+            variants = enteredGroups.map { g ->
                 VariantGroupRequest(
                     nama = g.nama.trim(),
                     isRequired = g.isRequired,

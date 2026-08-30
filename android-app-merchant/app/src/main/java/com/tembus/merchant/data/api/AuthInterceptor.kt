@@ -14,9 +14,16 @@ import okhttp3.Response
 class AuthInterceptor(private val sessionManager: AuthSessionManager) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val token = runBlocking { sessionManager.authToken.first() }
-
         val originalRequest = chain.request()
+
+        // Login, register, OTP, dan refresh adalah endpoint publik. Jangan
+        // membawa bearer token lama ke request login; token yang sudah expired
+        // atau dicabut dapat membuat auth-service menolak proses login baru.
+        if (isPublicEndpoint(originalRequest.url.encodedPath)) {
+            return chain.proceed(originalRequest)
+        }
+
+        val token = runBlocking { sessionManager.authToken.first() }
 
         if (token.isNullOrEmpty()) {
             return chain.proceed(originalRequest)
@@ -36,4 +43,9 @@ class AuthInterceptor(private val sessionManager: AuthSessionManager) : Intercep
 
         return chain.proceed(authorizedRequest)
     }
+
+    private fun isPublicEndpoint(path: String): Boolean =
+        path.contains("/auth/") ||
+            path == "/api/v1/system/latest-version" ||
+            path == "/api/v1/config/runtime"
 }
