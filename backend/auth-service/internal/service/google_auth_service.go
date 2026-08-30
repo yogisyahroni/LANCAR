@@ -209,7 +209,7 @@ func (s *GoogleAuthService) StartGoogleAuth(ctx context.Context, req *domain.Goo
 	// Build authorization URL
 	webClientID := os.Getenv("GOOGLE_CUSTOMER_WEB_CLIENT_ID")
 	if webClientID == "" {
-		webClientID = "YOUR_GOOGLE_WEB_CLIENT_ID"
+	return nil, errors.New("GOOGLE_CUSTOMER_WEB_CLIENT_ID not configured, contact admin")
 	}
 	redirectURI := req.RedirectURI
 	if redirectURI == "" {
