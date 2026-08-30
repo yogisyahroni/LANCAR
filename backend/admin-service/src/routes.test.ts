@@ -38,6 +38,11 @@ jest.mock('./controllers', () => ({
   getThreeLegsReadiness: jest.fn((req, res) => res.status(200).json({ readiness: true })),
   createFlag: jest.fn((req, res) => res.status(201).json({ key: 'new-flag' })),
   getAllLogs: jest.fn((req, res) => res.status(200).json([])),
+  // Public tracking controller (namespace for /api/v1/tracking/public)
+  publicTracking: {
+    publicTrackingRateLimiter: jest.fn((req, res, next) => next()),
+    getPublicTrackingByResi: jest.fn((req, res) => res.status(200).json({ id: '1' })),
+  },
   // Settings & system config controllers
   getSystemConfigs: jest.fn((req, res) => res.status(200).json([])),
   updateSystemConfig: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
@@ -368,6 +373,18 @@ describe('Admin Service Routes', () => {
     expect(res.status).toBe(200);
     expect(controllers.updateCourierPayoutRequestStatus).toHaveBeenCalled();
   });
+
+  it('exposes public tracking by resi (cek resi publik)', async () => {
+    const res = await request(app).get('/api/v1/tracking/public?resi=TRK-001');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: '1' });
+  });
+
+  it('validates resi parameter on public tracking', async () => {
+      const res = await request(app).get('/api/v1/tracking/public?resi=');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ id: '1' });
+    });
 
   afterAll(async () => {
     // Close connections to prevent open handles
