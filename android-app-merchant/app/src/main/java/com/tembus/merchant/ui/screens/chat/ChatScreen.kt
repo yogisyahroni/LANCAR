@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -110,9 +111,13 @@ fun ChatScreen(
             }
 
             else -> {
-                state.error?.let {
+                state.error?.let { error ->
                     TextButton(onClick = { viewModel.clearError() }) {
-                        Text("⚠️ ${it}", color = MaterialTheme.colorScheme.error)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(4.dp))
+                            Text(error, color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
 
@@ -128,7 +133,7 @@ fun ChatScreen(
             if (state.messages.isEmpty()) {
                 item {
                     Text(
-                        text = "Belum ada pesan. Sapa customer untuk konfirmasi pesanan 👋",
+                        text = "Belum ada pesan. Sapa customer untuk konfirmasi pesanan",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier

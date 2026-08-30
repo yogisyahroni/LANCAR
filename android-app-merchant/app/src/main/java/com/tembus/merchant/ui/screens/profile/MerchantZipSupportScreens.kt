@@ -314,7 +314,7 @@ fun CustomerReviewsScreen(
                         ReviewFilterChip("Semua", state.activeFilter == CustomerReviewFilter.ALL) {
                             viewModel.setFilter(CustomerReviewFilter.ALL)
                         }
-                        ReviewFilterChip("5 ★", state.activeFilter == CustomerReviewFilter.FIVE_STARS) {
+                        ReviewFilterChip("5 Bintang", state.activeFilter == CustomerReviewFilter.FIVE_STARS) {
                             viewModel.setFilter(CustomerReviewFilter.FIVE_STARS)
                         }
                         ReviewFilterChip("Belum Dibalas", state.activeFilter == CustomerReviewFilter.UNREPLIED) {
