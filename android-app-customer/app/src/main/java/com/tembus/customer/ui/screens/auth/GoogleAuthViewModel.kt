@@ -190,14 +190,19 @@ class GoogleAuthViewModel @Inject constructor(
         val data = completeResult.getOrThrow()
         when (data.status) {
             "authenticated" -> {
-                if (data.accessToken != null) {
-                    viewModelScope.launch {
-                        authSessionManager.saveSession(
-                            token = data.accessToken,
-                            id = data.user?.id ?: "",
-                            name = data.user?.fullName ?: ""
-                        )
-                    }
+                val token = data.accessToken
+                if (token == null) {
+                    _googleAuthState.value = GoogleAuthUiState.Error(
+                        "Login berhasil tapi sesi tidak valid. Coba lagi."
+                    )
+                    return
+                }
+                viewModelScope.launch {
+                    authSessionManager.saveSession(
+                        token = token,
+                        id = data.user?.id ?: "",
+                        name = data.user?.fullName ?: ""
+                    )
                 }
                 pendingNonce = null
                 pendingTransactionId = null
