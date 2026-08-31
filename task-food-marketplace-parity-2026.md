@@ -2312,3 +2312,658 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - Country expansion must be config-driven and must not fork the app into Indonesia/SG/MY/etc codebases unless platform constraints truly require separate binaries.
 - Every high-blast-radius experience revision has preview, audit, staged rollout, observability and rollback.
 - Global readiness is proven through market launch drills, regional failure drills and transaction reconciliation—not by feature count alone.
+
+---
+
+# PART R — ADMIN EXPERIENCE CONTROL PLANE / GUI OPERATIONS
+
+> **Non-negotiable product requirement:** setelah `APP-2026-*` selesai, setiap perubahan runtime experience yang memang didukung schema/component pada binary terpasang **wajib dapat dilakukan dari Admin Web GUI**. API tetap ada sebagai backend contract, tetapi operasi normal marketing/product/ops tidak boleh membutuhkan Postman, curl, SQL, edit database, edit JSON manual di server, perubahan environment variable, commit code, rebuild APK, atau release store.
+>
+> Admin Experience adalah **control plane**, bukan business-truth engine. Admin dapat mengatur presentation, exposure, targeting, rollout dan campaign. Harga, promo eligibility final, order state, payment, refund, fraud, settlement dan authorization tetap divalidasi service authoritative masing-masing.
+
+## ADMEXP-2026-001 — Integrate App Experience into existing Admin navigation [P0]
+
+**Existing Admin files to edit**
+- `admin-dashboard/src/App.tsx`
+- `admin-dashboard/src/components/DashboardLayout.tsx`
+- `admin-dashboard/src/lib/api.ts`
+- `admin-dashboard/src/pages/Banners.tsx`
+- `admin-dashboard/src/pages/Promos.tsx`
+- `admin-dashboard/src/pages/FeatureFlags.tsx`
+
+**Recommended new Admin pages/components**
+- `admin-dashboard/src/pages/experience/AppExperience.tsx`
+- `admin-dashboard/src/pages/experience/HomeLayout.tsx`
+- `admin-dashboard/src/pages/experience/Campaigns.tsx`
+- `admin-dashboard/src/pages/experience/ServiceVisibility.tsx`
+- `admin-dashboard/src/pages/experience/ExperienceAssets.tsx`
+- `admin-dashboard/src/pages/experience/ExperienceApprovals.tsx`
+- `admin-dashboard/src/pages/experience/ExperienceRevisions.tsx`
+- `admin-dashboard/src/pages/experience/ExperienceAnalytics.tsx`
+- `admin-dashboard/src/components/experience/ExperienceShell.tsx`
+- `admin-dashboard/src/components/experience/ExperienceStatusBadge.tsx`
+
+**Required Admin navigation**
+- `App Experience → Overview`
+- `App Experience → Home Layout`
+- `App Experience → Banners & Promo Content`
+- `App Experience → Campaign Intro`
+- `App Experience → Service Visibility`
+- `App Experience → Feature Flags`
+- `App Experience → Kill Switches`
+- `App Experience → Audience & Targeting`
+- `App Experience → Scheduling`
+- `App Experience → Asset Library`
+- `App Experience → Deep Links`
+- `App Experience → Design Tokens`
+- `App Experience → App Version Policy`
+- `App Experience → Preview`
+- `App Experience → Approval Queue`
+- `App Experience → Revisions & Rollback`
+- `App Experience → Analytics`
+
+**Checklist**
+- [ ] Tambahkan satu group/menu `APP EXPERIENCE` di sidebar atau sub-navigation yang jelas di bawah Marketing & Promosi; jangan menyembunyikan control plane di Settings generik.
+- [ ] Tambahkan protected routes pada `App.tsx` untuk seluruh halaman Experience.
+- [ ] Existing `Banners`, `Promos`, dan `FeatureFlags` tidak boleh menjadi source of truth paralel yang menghasilkan conflict; reuse/shared-data-layer, migrate, atau redirect ke control plane baru.
+- [ ] Existing admin users melihat menu sesuai permission; menu yang tidak authorized tidak hanya disembunyikan tetapi backend juga menolak akses.
+- [ ] Active market/surface context selalu terlihat agar admin tahu apakah sedang mengubah Indonesia Customer Android, Singapore Customer Web, Courier Android, dll.
+
+---
+
+## ADMEXP-2026-002 — Explicit Admin RBAC / scope matrix [P0]
+
+**Files to inspect/edit**
+- `admin-dashboard/src/store/useAuthStore.ts`
+- `admin-dashboard/src/App.tsx`
+- `admin-dashboard/src/components/DashboardLayout.tsx`
+- auth/role policy implementation in backend auth/admin middleware
+
+**Recommended new files**
+- `admin-dashboard/src/lib/experiencePermissions.ts`
+- `backend/experience-service/internal/domain/admin_permission.go`
+- `backend/experience-service/internal/service/admin_authorization_service.go`
+
+**Target permission capabilities**
+- `experience.read`
+- `experience.draft.write`
+- `experience.asset.write`
+- `experience.targeting.write`
+- `experience.feature_flag.write`
+- `experience.kill_switch.execute`
+- `experience.submit_approval`
+- `experience.approve`
+- `experience.publish`
+- `experience.rollback`
+- `experience.global.publish`
+- `experience.version_policy.write`
+
+**Suggested role semantics — map to existing centralized auth model rather than hardcoding duplicates if equivalent roles already exist**
+- `marketing_editor`: banner/copy/assets/campaign draft; no global publish.
+- `product_editor`: home composition, service exposure, staged rollout draft.
+- `ops_admin`: operational notice and authorized emergency kill switches.
+- `country_admin`: mutate only assigned market(s).
+- `experience_approver`: approve high-impact changes within allowed scope.
+- `experience_publisher`: publish approved revisions within allowed scope.
+- `super_admin`: global emergency/admin authority with mandatory audit.
+
+**Checklist**
+- [ ] Market scope and surface scope enforced server-side.
+- [ ] Indonesia admin cannot mutate Singapore/Malaysia/global configuration without explicit global scope.
+- [ ] Global/high-blast-radius publish supports maker-checker/two-person approval.
+- [ ] Where maker-checker is required, author cannot approve their own revision.
+- [ ] Kill-switch permissions are narrower than ordinary marketing edit permission.
+- [ ] Every denied action returns typed reason and is auditable.
+
+---
+
+## ADMEXP-2026-003 — Admin Experience API contract for every GUI action [P0]
+
+**Recommended backend files**
+- `backend/experience-service/internal/handler/admin_experience_handler.go`
+- `backend/experience-service/internal/handler/admin_asset_handler.go`
+- `backend/experience-service/internal/handler/admin_approval_handler.go`
+- `backend/experience-service/internal/handler/admin_rollout_handler.go`
+- `backend/experience-service/internal/service/admin_experience_service.go`
+- `backend/experience-service/internal/service/admin_experience_service_test.go`
+- `docs/contracts/admin-experience-api-2026.md`
+
+**Required API capability — exact path may follow existing gateway conventions**
+- `GET /admin/experience/manifests`
+- `GET /admin/experience/manifests/{id}`
+- `POST /admin/experience/manifests`
+- `PUT/PATCH /admin/experience/manifests/{id}` for draft only
+- `POST /admin/experience/manifests/{id}/validate`
+- `POST /admin/experience/manifests/{id}/preview`
+- `POST /admin/experience/manifests/{id}/submit-approval`
+- `POST /admin/experience/manifests/{id}/approve`
+- `POST /admin/experience/manifests/{id}/reject`
+- `POST /admin/experience/manifests/{id}/publish`
+- `POST /admin/experience/manifests/{id}/rollback`
+- `GET/POST /admin/experience/assets`
+- `GET /admin/experience/revisions`
+- `GET /admin/experience/audit`
+- `GET/POST /admin/experience/deep-links`
+- `GET/POST /admin/experience/rollouts`
+- `GET/POST /admin/experience/kill-switches`
+
+**Checklist**
+- [ ] Every production-changing button in Admin maps to an authenticated API operation; no direct DB writes from browser.
+- [ ] Draft edit uses optimistic concurrency/revision/ETag so two admins cannot silently overwrite each other.
+- [ ] Publish/rollback/kill-switch mutations are idempotent or protected against duplicate click/retry.
+- [ ] API returns validation errors at field/component level so Admin can highlight the exact problem.
+- [ ] Every mutation stores actor, role, market, surface, request id, previous revision, new revision, reason and timestamp.
+- [ ] API cannot publish a manifest that bypasses schema/permission/approval rules.
+
+---
+
+## ADMEXP-2026-004 — App Experience Overview / operational cockpit [P0]
+
+**Recommended page**
+- `admin-dashboard/src/pages/experience/AppExperience.tsx`
+
+**Overview must show**
+- active revision by market/surface
+- currently scheduled campaigns
+- campaigns expiring soon
+- active canary/staged rollouts
+- active kill switches
+- latest publish/rollback actor and time
+- manifest fetch/render health
+- unsupported/minimum app-version distribution warning
+- broken asset/deep-link/schema warning
+- draft awaiting approval count
+
+**Checklist**
+- [ ] Admin can filter by country/market, city/zone, surface, locale and app version.
+- [ ] Clear separation of `LIVE`, `SCHEDULED`, `CANARY`, `DRAFT`, `AWAITING_APPROVAL`, `ROLLED_BACK`, `EXPIRED`.
+- [ ] Overview links directly to offending revision/campaign/asset instead of only showing aggregate errors.
+- [ ] Global overview never implies one market config is active everywhere.
+
+---
+
+## ADMEXP-2026-005 — Home Layout drag/drop editor [P0/P1]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/HomeLayout.tsx`
+- `admin-dashboard/src/components/experience/HomeLayoutBuilder.tsx`
+- `admin-dashboard/src/components/experience/ComponentPalette.tsx`
+- `admin-dashboard/src/components/experience/SectionPropertyEditor.tsx`
+
+**Allowed initial components must match `APP-2026-003` whitelist**
+- `hero_banner`
+- `campaign_strip`
+- `promo_carousel`
+- `service_grid`
+- `quick_actions`
+- `info_card`
+- `notice`
+- `spacer`
+
+**Per-section Admin fields**
+- section id/internal name
+- component type
+- enabled state
+- order/position
+- localized title/subtitle/copy as supported
+- asset reference where applicable
+- CTA/deep-link reference where applicable
+- safe design-token preset
+- market/city/locale/app-version targeting override where allowed
+- start/end schedule where allowed
+
+**Required Admin workflow**
+`App Experience → Home Layout → select market/surface → edit/drag sections → configure properties → Preview → Validate → Save Draft → Submit Approval/Publish`
+
+**Checklist**
+- [ ] Drag/drop reorder produces deterministic ordered schema, not pixel coordinates.
+- [ ] Admin cannot add arbitrary component names not supported by registered schema.
+- [ ] Required/safety-critical fallback sections cannot be accidentally deleted when the binary requires them.
+- [ ] Duplicate/conflicting section IDs rejected.
+- [ ] Device/app-version preview updates before publish.
+- [ ] Reordering existing supported components requires no mobile rebuild.
+
+---
+
+## ADMEXP-2026-006 — Banner / promo content editor with field-level specification [P0]
+
+**Existing files to integrate**
+- `admin-dashboard/src/pages/Banners.tsx`
+- `admin-dashboard/src/pages/Promos.tsx`
+
+**Recommended new/shared files**
+- `admin-dashboard/src/pages/experience/Campaigns.tsx`
+- `admin-dashboard/src/components/experience/BannerEditor.tsx`
+- `admin-dashboard/src/components/experience/PromoContentEditor.tsx`
+
+**Required fields**
+
+**General**
+- internal campaign name
+- campaign id/reference
+- status: draft/scheduled/live/paused/expired
+- target surface
+- placement: `hero`, `header`, `carousel`, `campaign_strip`
+
+**Content**
+- image/animation asset
+- fallback asset
+- localized title
+- localized subtitle/body
+- optional badge
+- CTA label
+- typed CTA/deep-link destination
+- accessibility/alt label where surface supports it
+
+**Audience**
+- market/country
+- city/zone
+- locale
+- platform/surface
+- min/max app version
+- new/existing user or allowed non-sensitive cohort
+- experiment/cohort reference if applicable
+
+**Schedule & frequency**
+- starts_at
+- ends_at
+- timezone
+- frequency cap
+- max impressions where applicable
+
+**Release**
+- internal preview only
+- percentage rollout
+- approval state
+- publish action
+- pause action
+- rollback target
+
+**Checklist**
+- [ ] Admin can create, duplicate, edit draft, schedule, preview, pause and retire banner without code change.
+- [ ] Asset dimensions/size/content type validated before save/publish.
+- [ ] Invalid deep link blocks publish.
+- [ ] Promo UI copy may advertise an offer but final discount remains validated by Promo/Pricing backend.
+- [ ] Impression/click analytics attach campaign id + revision.
+
+---
+
+## ADMEXP-2026-007 — Campaign Intro editor for splash-like campaigns [P1]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/CampaignIntro.tsx`
+- `admin-dashboard/src/components/experience/CampaignIntroEditor.tsx`
+
+**Required fields**
+- campaign id/name
+- primary image/animation asset
+- low-bandwidth/fallback asset
+- localized headline/body
+- dismissible/skippable policy
+- display duration/max duration within safe bounds
+- starts_at/ends_at/timezone
+- market/city/locale
+- min/max app version
+- target cohort
+- frequency cap per user/device policy
+- maximum impressions where applicable
+- asset prefetch window
+- emergency kill-switch state
+
+**Checklist**
+- [ ] Admin preview clearly labels this as **post-native-splash campaign intro**, not OS launch splash.
+- [ ] Admin cannot configure network fetch as a mandatory startup blocker.
+- [ ] Expired/unavailable asset automatically falls back/skip according to policy.
+- [ ] Campaign can be scheduled days ahead and assets prefetched before activation.
+- [ ] Kill action is available to authorized ops/publisher without app release.
+
+---
+
+## ADMEXP-2026-008 — Service Visibility + semantically distinct kill switches [P0]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/ServiceVisibility.tsx`
+- `admin-dashboard/src/pages/experience/KillSwitches.tsx`
+- `admin-dashboard/src/components/experience/ServiceExposureEditor.tsx`
+- `admin-dashboard/src/components/experience/KillSwitchConfirmation.tsx`
+
+**Service visibility fields**
+- service id/category
+- enabled/disabled for discovery
+- order/position
+- marketing label/subtitle/badge
+- market/country
+- city/zone
+- surface
+- app-version range
+- rollout percentage/cohort
+- starts_at/ends_at
+- fallback behavior
+
+**Kill-switch types must be explicit**
+- `marketing_hide`: hide entry/promo only; transaction capability unchanged.
+- `new_order_gate`: prevent **new** order creation for selected service/market while preserving active-order access.
+- `provider_gate`: disable a provider/carrier/payment/map capability when applicable without pretending the whole service is down.
+- `checkout_gate`: stop new checkout/payment initiation safely when explicitly required.
+
+**Checklist**
+- [ ] Active orders, tracking, proof, support and refund/recovery entry remain reachable when discovery/new-order entry is disabled.
+- [ ] Admin UI explains blast radius before execution and requires reason.
+- [ ] High-impact kill switch supports expiry/auto-revert or explicit review time where useful.
+- [ ] Business backend still validates service/provider availability; hiding UI is not the sole enforcement.
+- [ ] Kill-switch action emits high-severity audit/notification to appropriate ops channel/dashboard.
+
+---
+
+## ADMEXP-2026-009 — Audience & targeting builder + scheduling calendar [P0/P1]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/AudienceTargeting.tsx`
+- `admin-dashboard/src/pages/experience/ExperienceSchedule.tsx`
+- `admin-dashboard/src/components/experience/TargetingEditor.tsx`
+- `admin-dashboard/src/components/experience/ScheduleEditor.tsx`
+- `admin-dashboard/src/components/experience/TargetingSummary.tsx`
+
+**Targeting dimensions**
+- market/country
+- city/zone
+- locale
+- surface/platform
+- min/max app version
+- service usage cohort where privacy-safe
+- new/existing user
+- merchant/courier role where surface applicable
+- explicit experiment assignment
+- percentage rollout bucket
+
+**Checklist**
+- [ ] Complex targeting resolves server-side; browser/client does not receive unnecessary sensitive rule data.
+- [ ] Sensitive personal attributes are unavailable in marketing targeting UI.
+- [ ] Start/end schedule always shows effective timezone and converted admin-local preview.
+- [ ] Conflict detector warns when two active campaigns compete for the same exclusive placement.
+- [ ] Default/fallback audience/config is visible before publish.
+- [ ] Preview can simulate at least one matching and one non-matching audience case.
+
+---
+
+## ADMEXP-2026-010 — Asset Library GUI [P0]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/ExperienceAssets.tsx`
+- `admin-dashboard/src/components/experience/AssetUploader.tsx`
+- `admin-dashboard/src/components/experience/AssetDetailDrawer.tsx`
+- `admin-dashboard/src/components/experience/AssetUsagePanel.tsx`
+
+**Admin must support**
+- upload approved image/animation types
+- preview asset
+- title/internal label
+- content type/dimensions/filesize/checksum display
+- surface/placement compatibility hints
+- low-bandwidth variant
+- usage references: which live/draft revisions use the asset
+- lifecycle: active/deprecated/scheduled deletion
+
+**Checklist**
+- [ ] Oversized/unsupported/corrupt files rejected before becoming publishable.
+- [ ] Admin cannot delete an asset still referenced by live or retained rollback revision.
+- [ ] Asset replacement creates a new immutable version/reference; do not silently mutate historical campaign content.
+- [ ] CDN/object-storage credential never reaches browser.
+- [ ] Asset upload and publish are separately permissioned where appropriate.
+
+---
+
+## ADMEXP-2026-011 — Typed Deep Link Registry and tester [P0]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/DeepLinks.tsx`
+- `admin-dashboard/src/components/experience/DeepLinkPicker.tsx`
+- `admin-dashboard/src/components/experience/DeepLinkTester.tsx`
+- `backend/experience-service/internal/domain/deep_link.go`
+- `backend/experience-service/internal/service/deep_link_service.go`
+
+**Checklist**
+- [ ] Admin selects typed/registered route such as service home, promo detail, order history, support, etc.; no arbitrary code target.
+- [ ] Required route parameters validated before save.
+- [ ] Route registry is aware of minimum app/schema version that supports destination.
+- [ ] External URL uses allowlisted HTTPS domain/scheme only.
+- [ ] Tester shows destination/fallback behavior for selected platform/app version.
+- [ ] Removing/deprecating a route identifies campaigns still referencing it.
+
+---
+
+## ADMEXP-2026-012 — Safe runtime Design Token editor [P1]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/DesignTokens.tsx`
+- `admin-dashboard/src/components/experience/DesignTokenEditor.tsx`
+- `admin-dashboard/src/components/experience/ContrastPreview.tsx`
+
+**Checklist**
+- [ ] Admin may select only predefined token enums/ranges from `APP-2026-006`; never arbitrary CSS/Kotlin instructions.
+- [ ] Core brand/safety/transaction-screen token locks are visible and cannot be overridden by marketing role.
+- [ ] Contrast/accessibility validator runs before publish.
+- [ ] Preview covers light/dark/system modes if supported.
+- [ ] Token change participates in revision/approval/rollback like any other experience change.
+
+---
+
+## ADMEXP-2026-013 — App Version Policy GUI [P0]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/AppVersionPolicy.tsx`
+- `admin-dashboard/src/components/experience/AppVersionPolicyEditor.tsx`
+
+**Required fields per platform/market**
+- latest version
+- recommended version
+- minimum supported version
+- update mode: `none|soft|hard`
+- localized title/body
+- store destination
+- effective start/end when applicable
+- exempt/internal cohort if explicitly approved
+- active-order/support fallback behavior
+
+**Checklist**
+- [ ] Admin sees estimated affected version distribution before hard update publish.
+- [ ] Hard update requires elevated permission + confirmation + reason + approval where configured.
+- [ ] System blocks unsafe hard-update rule if it would make active-order/support recovery unreachable.
+- [ ] Version policy is market/platform scoped; Android rule does not silently affect web/iOS/future surfaces.
+
+---
+
+## ADMEXP-2026-014 — Real preview simulator before publish [P0]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/ExperiencePreviewPage.tsx`
+- `admin-dashboard/src/components/experience/ExperiencePreview.tsx`
+- `admin-dashboard/src/components/experience/PreviewContextPicker.tsx`
+- `admin-dashboard/src/components/experience/RevisionDiffPreview.tsx`
+
+**Preview context selectors**
+- surface/platform
+- device-size preset
+- market/country
+- city/zone
+- locale
+- app version/schema capability
+- new/existing/cohort profile
+- light/dark mode where applicable
+
+**Checklist**
+- [ ] Preview resolves the same manifest schema/rules as production resolver, not a disconnected mock implementation.
+- [ ] Admin can compare `current live` vs `candidate revision` side-by-side/diff.
+- [ ] Unsupported component for selected old app version is visibly shown as skipped/fallback.
+- [ ] Broken asset/deep-link/contrast/schedule targeting appears as blocking validation before publish.
+- [ ] Preview never counts as real campaign impression/exposure metric.
+
+---
+
+## ADMEXP-2026-015 — Approval → canary → publish → rollback workflow [P0]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/ExperienceApprovals.tsx`
+- `admin-dashboard/src/components/experience/ApprovalTimeline.tsx`
+- `admin-dashboard/src/components/experience/PublishDialog.tsx`
+- `admin-dashboard/src/components/experience/RolloutEditor.tsx`
+- `admin-dashboard/src/components/experience/RollbackDialog.tsx`
+
+**Required lifecycle**
+`DRAFT → VALIDATED → PREVIEWED → AWAITING_APPROVAL → APPROVED → SCHEDULED/CANARY → LIVE → PAUSED/EXPIRED/ROLLED_BACK`
+
+**Checklist**
+- [ ] Save Draft never changes live user experience.
+- [ ] Submit Approval freezes candidate revision or creates immutable candidate snapshot.
+- [ ] Approver sees diff, audience, schedule, rollout percentage, affected surfaces and risk/blast-radius summary.
+- [ ] Canary can target internal users or small deterministic percentage before general release.
+- [ ] Percentage rollout supports staged increase without rebuilding manifest content.
+- [ ] Publish is atomic from revision perspective: users resolve either old known-good or new complete revision, never half-edited state.
+- [ ] Rollback selects an immutable known-good revision and records rollback reason.
+- [ ] Optional automated rollback guardrail can trigger on configured crash/render/fetch failure thresholds, with alert/audit.
+
+---
+
+## ADMEXP-2026-016 — Revision history, field-level diff and audit trail [P0]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/ExperienceRevisions.tsx`
+- `admin-dashboard/src/components/experience/RevisionHistory.tsx`
+- `admin-dashboard/src/components/experience/RevisionDiff.tsx`
+- `backend/experience-service/internal/domain/experience_audit.go`
+
+**Checklist**
+- [ ] Every draft/publish/approval/reject/pause/rollback/kill-switch action records actor + timestamp + reason.
+- [ ] Diff shows previous vs new content, targeting, schedule, assets, deep links, flags and token changes.
+- [ ] Historical published revision is immutable.
+- [ ] Admin can filter history by campaign, market, surface, actor, date and action.
+- [ ] Audit history cannot be deleted through normal Experience UI.
+- [ ] Rollback link only appears for compatible known-good revisions.
+
+---
+
+## ADMEXP-2026-017 — Experience Analytics and release guardrails in Admin [P0/P1]
+
+**Recommended files**
+- `admin-dashboard/src/pages/experience/ExperienceAnalytics.tsx`
+- `admin-dashboard/src/components/experience/ExperienceHealthPanel.tsx`
+- `admin-dashboard/src/components/experience/CampaignMetricsPanel.tsx`
+
+**Metrics by revision/campaign/market/app-version where applicable**
+- manifest fetch success/latency/cache hit
+- parse/schema fallback
+- component render failure
+- broken asset rate
+- deep-link failure rate
+- campaign impression/click/dismiss
+- startup impact
+- crash/error guardrail
+- experiment exposure where applicable
+
+**Checklist**
+- [ ] Admin can drill from anomaly to exact live revision/campaign.
+- [ ] Marketing metrics and reliability metrics shown separately; high CTR does not hide crash regression.
+- [ ] Rollback CTA available from a failing revision health view only to authorized role.
+- [ ] Alert threshold/config change itself is audited.
+
+---
+
+## ADMEXP-2026-018 — Existing Banners / Promos / FeatureFlags migration and one-source-of-truth gate [P0]
+
+**Existing files to inspect/edit**
+- `admin-dashboard/src/pages/Banners.tsx`
+- `admin-dashboard/src/pages/Promos.tsx`
+- `admin-dashboard/src/pages/FeatureFlags.tsx`
+- corresponding backend endpoints/repositories currently backing these pages
+
+**Checklist**
+- [ ] Inventory current banner/promo/feature-flag persistence and API ownership before creating new tables/services.
+- [ ] Reuse existing proven primitives where semantics match.
+- [ ] Define which existing data migrates into Experience Service and which remains authoritative in Promo/business service.
+- [ ] Promo **financial rule/eligibility** remains in Promo/Pricing domain; Experience Service only controls promo presentation/exposure.
+- [ ] Feature flags with platform/runtime semantics are consolidated or bridged so UI does not write two independent flag stores.
+- [ ] Old direct-write route/page is deprecated/redirected only after migration/backfill and compatibility tests pass.
+- [ ] No period where two admin screens can publish conflicting live banner/service visibility truth without deterministic precedence.
+
+---
+
+## ADMEXP-2026-019 — Admin-to-App Experience E2E / permission / rollback suite [P0]
+
+**Recommended tests**
+- `frontend/e2e/admin-experience-flow.spec.ts`
+- `frontend/e2e/admin-experience-rbac.spec.ts`
+- `frontend/e2e/admin-experience-rollback.spec.ts`
+- `backend/experience-service/internal/service/admin_experience_e2e_test.go`
+
+**Mandatory scenarios**
+- [ ] Marketing editor creates banner draft → preview → submits approval → publisher publishes → eligible app fetches revision → banner renders.
+- [ ] Reorder Home Layout through Admin → publish → app changes order without binary release.
+- [ ] Schedule campaign for future time → not visible before start → visible in correct timezone → disappears/expires correctly.
+- [ ] City-targeted campaign appears in matching city and not in non-matching city.
+- [ ] Old app version safely skips unsupported component while newer version renders it.
+- [ ] Invalid deep link/asset/schema blocks publish with field-level Admin error.
+- [ ] Unauthorized role cannot publish/rollback/kill-switch even by calling endpoint directly.
+- [ ] Two admins editing same draft produces explicit conflict rather than lost update.
+- [ ] Canary revision affects only assigned cohort/percentage.
+- [ ] Rollback from Admin restores last-known-good manifest and clients recover.
+- [ ] `new_order_gate` prevents new order entry but active order/tracking/support remains accessible.
+- [ ] Promo banner can be published while pricing backend still rejects user who is financially ineligible.
+
+---
+
+## ADMEXP-2026-020 — GUI-only operational acceptance gate [P0 release gate]
+
+> Task ini dianggap selesai hanya jika operator non-engineer dapat menjalankan seluruh routine runtime experience operation dari Admin Web end-to-end. Keberadaan API saja **tidak memenuhi acceptance**.
+
+**Must be executable from Admin GUI without Postman/SQL/code/rebuild**
+- [ ] Replace hero/header banner.
+- [ ] Change localized banner copy and CTA.
+- [ ] Reorder supported home sections.
+- [ ] Add/remove supported promo/info component from Home.
+- [ ] Launch/schedule/pause campaign intro after native splash.
+- [ ] Target campaign by market/city/locale/app version/cohort.
+- [ ] Change existing service badge/subtitle/order.
+- [ ] Marketing-hide an existing service entry.
+- [ ] Execute authorized `new_order_gate`/provider kill switch with explicit blast-radius warning.
+- [ ] Start 1%/5%/25%/100% staged rollout.
+- [ ] Configure soft-update/minimum-version policy according to permission.
+- [ ] Upload/select/version campaign assets.
+- [ ] Select/test typed deep link.
+- [ ] Preview exact market/surface/app-version candidate.
+- [ ] Submit for approval and approve/reject according to RBAC.
+- [ ] Publish/schedule production revision.
+- [ ] Inspect revision diff and audit log.
+- [ ] Roll back to last-known-good revision.
+- [ ] See release health/analytics by revision.
+
+**Final acceptance**
+- [ ] Product/Marketing/Ops runbook documents the click path for every operation above.
+- [ ] A staging drill is recorded where a non-engineer performs banner change → targeted publish → app verification → rollback without engineering intervention.
+- [ ] No required routine Experience operation depends on manually editing server JSON/config/env.
+- [ ] Any action that still requires an app update is explicitly labeled in Admin as `Requires App Release` rather than presented as a broken remote-config option.
+
+---
+
+# ADMIN EXPERIENCE IMPLEMENTATION ORDER
+
+1. `ADMEXP-2026-001/002/003` — navigation, RBAC and Admin API contract first.
+2. `ADMEXP-2026-018` — inventory/migrate existing Banners, Promos and FeatureFlags so no duplicate source of truth is created.
+3. `ADMEXP-2026-004/005/006/007` — overview, Home Layout, banner/promo and campaign-intro editors.
+4. `ADMEXP-2026-008/009` — service visibility, kill switches, targeting and scheduling.
+5. `ADMEXP-2026-010/011/012/013` — assets, deep links, safe tokens and version policy.
+6. `ADMEXP-2026-014/015/016` — real preview, approval/canary/publish/rollback and revision diff/audit.
+7. `ADMEXP-2026-017` — experience health/analytics/rollback guardrails.
+8. `ADMEXP-2026-019/020` — Admin-to-App E2E plus GUI-only operational release gate.
+
+# ADMIN EXPERIENCE GUARDRAILS
+
+- Admin GUI is the operational surface; Experience Service API is the authoritative control-plane backend.
+- Existing `Banners`, `Promos`, and `FeatureFlags` must be integrated/migrated, not blindly duplicated.
+- Admin may compose only component types shipped in supported app binaries.
+- Admin may change presentation/exposure; it cannot directly rewrite price, ledger, payment, refund, order state or authorization truth.
+- `marketing_hide` is not equal to `new_order_gate`; kill-switch semantics must be explicit in UI and backend.
+- Active transaction recovery must survive any discovery/marketing kill switch.
+- Every production mutation has RBAC, validation, audit, revision and rollback semantics.
+- High-blast-radius/global change uses maker-checker approval and staged rollout where appropriate.
+- Preview must use production-equivalent manifest resolver/schema rules, not a fake visual mock disconnected from runtime behavior.
+- Routine runtime experience operations are not considered production-ready until a non-engineer can execute them through Admin Web without engineering-only tools.
