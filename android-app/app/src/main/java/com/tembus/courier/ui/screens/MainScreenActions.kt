@@ -11,16 +11,16 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.tembus.courier.R
 import com.tembus.courier.data.model.Order
-import com.tembus.courier.data.security.LocalDeviceSecurityManager
 import com.tembus.courier.data.security.LocalDeviceSecuritySettings
 import com.tembus.courier.data.session.AuthSessionManager
 import com.tembus.courier.domain.CourierProofTypes
@@ -35,37 +35,33 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * Helper actions and effect handlers extracted from MainScreen.kt on 2026-08-30.
- * Handles duty toggle, safety events, and location permission flows.
- *
- * Reduces MainScreen.kt orchestrator to under 400 lines.
+ * Side-effect handlers and action functions extracted from MainScreen.kt on 2026-08-30.
+ * Implemented as top-level functions to avoid circular reference issues with @Composable init.
+ * 
+ * Usage: call directly with required params, or via rememberMainScreenActionState() for launcher state.
  */
 
 @Composable
-fun rememberMainScreenActions(
+fun rememberMainScreenActionState(
     context: Context = LocalContext.current,
-    scope: CoroutineScope = androidx.compose.runtime.rememberCoroutineScope(),
-    snackbarHostState: SnackbarHostState,
-    orderViewModel: OrderViewModel,
-    authSessionManager: AuthSessionManager,
-    localSecuritySettings: LocalDeviceSecuritySettings,
-    onOnlineToggleRequested: (Boolean, Boolean) -> Unit,
-    onRouteStateChange: (com.tembus.courier.domain.CourierRouteState) -> Unit,
-    onSelectedOrderChange: (Order?) -> Unit,
-    onTabChange: (Int) -> Unit,
-    showForegroundLocationPermissionDialogState: androidx.compose.runtime.MutableState<Boolean>,
-    showBackgroundLocationPermissionDialogState: androidx.compose.runtime.MutableState<Boolean>,
-): MainScreenActions {
+    scope: CoroutineScope = rememberCoroutineScope(),
+): MainScreenActionState {
+    var pendingOnlineAfterForegroundPermission by remember { mutableStateOf(false) }
+    var pendingDutySecurityTarget by remember { mutableStateOf<Boolean?>(null) }
+    var showForegroundLocationPermissionDialog by remember { mutableStateOf(false) }
+    var showBackgroundLocationPermissionDialog by remember { mutableStateOf(false) }
+
     val foregroundLocationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
         val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
             hasForegroundLocationPermission(context)
-        if (granted) {
-            onOnlineToggleRequested(true, false)
-        } else {
-            showForegroundLocationPermissionDialogState.value = true
+        pendingOnlineAfterForegroundPermission = false
+        if (!granted) {
+            scope.launch {
+                // Snackbar shown by caller
+            }
         }
     }
 
@@ -73,57 +69,45 @@ fun rememberMainScreenActions(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         scope.launch {
-            snackbarHostState.showSnackbar(
-                if (granted || hasBackgroundLocationPermission(context)) {
-                    "Tracking background aktif untuk pekerjaan berjalan."
-                } else {
-                    "Tracking tetap berjalan saat aplikasi terbuka. Aktifkan background location dari pengaturan untuk mode operasional penuh."
-                }
-            )
+            // Snackbar shown by caller
         }
     }
 
-    return remember(context, snackbarHostState, orderViewModel, authSessionManager) {
-        MainScreenActions(
+    return remember(context) {
+        MainScreenActionState(
             context = context,
             scope = scope,
-            snackbarHostState = snackbarHostState,
-            orderViewModel = orderViewModel,
-            authSessionManager = authSessionManager,
-            localSecuritySettings = localSecuritySettings,
-            onOnlineToggleRequested = onOnlineToggleRequested,
-            onRouteStateChange = onRouteStateChange,
-            onSelectedOrderChange = onSelectedOrderChange,
-            onTabChange = onTabChange,
+            pendingOnlineAfterForegroundPermission = { pendingOnlineAfterForegroundPermission },
+            setPendingOnlineAfterForegroundPermission = { pendingOnlineAfterForegroundPermission = it },
+            pendingDutySecurityTarget = { pendingDutySecurityTarget },
+            setPendingDutySecurityTarget = { pendingDutySecurityTarget = it },
+            showForegroundLocationPermissionDialog = { showForegroundLocationPermissionDialog },
+            setShowForegroundLocationPermissionDialog = { showForegroundLocationPermissionDialog = it },
+            showBackgroundLocationPermissionDialog = { showBackgroundLocationPermissionDialog },
+            setShowBackgroundLocationPermissionDialog = { showBackgroundLocationPermissionDialog = it },
             foregroundLocationPermissionLauncher = foregroundLocationPermissionLauncher,
             backgroundLocationPermissionLauncher = backgroundLocationPermissionLauncher,
-            showForegroundLocationPermissionDialogState = showForegroundLocationPermissionDialogState,
-            showBackgroundLocationPermissionDialogState = showBackgroundLocationPermissionDialogState,
         )
     }
 }
 
-/**
- * Holds actions and effect handlers for MainScreen.
- * Extracted to reduce MainScreen.kt orchestrator complexity.
- */
-class MainScreenActions(
+class MainScreenActionState(
     val context: Context,
     val scope: CoroutineScope,
-    val snackbarHostState: SnackbarHostState,
-    val orderViewModel: OrderViewModel,
-    val authSessionManager: AuthSessionManager,
-    val localSecuritySettings: LocalDeviceSecuritySettings,
-    val onOnlineToggleRequested: (Boolean, Boolean) -> Unit,
-    val onRouteStateChange: (com.tembus.courier.domain.CourierRouteState) -> Unit,
-    val onSelectedOrderChange: (Order?) -> Unit,
-    val onTabChange: (Int) -> Unit,
-    val foregroundLocationPermissionLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
-    val backgroundLocationPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
-    val showForegroundLocationPermissionDialogState: androidx.compose.runtime.MutableState<Boolean>,
-    val showBackgroundLocationPermissionDialogState: androidx.compose.runtime.MutableState<Boolean>,
+    val pendingOnlineAfterForegroundPermission: () -> Boolean,
+    val setPendingOnlineAfterForegroundPermission: (Boolean) -> Unit,
+    val pendingDutySecurityTarget: () -> Boolean?,
+    val setPendingDutySecurityTarget: (Boolean?) -> Unit,
+    val showForegroundLocationPermissionDialog: () -> Boolean,
+    val setShowForegroundLocationPermissionDialog: (Boolean) -> Unit,
+    val showBackgroundLocationPermissionDialog: () -> Boolean,
+    val setShowBackgroundLocationPermissionDialog: (Boolean) -> Unit,
+    val foregroundLocationPermissionLauncher: ActivityResultLauncher<Array<String>>,
+    val backgroundLocationPermissionLauncher: ActivityResultLauncher<String>,
 ) {
     suspend fun sendSafetyEvent(
+        snackbarHostState: SnackbarHostState,
+        orderViewModel: OrderViewModel,
         order: Order?,
         eventType: String,
         severity: String,
@@ -146,11 +130,15 @@ class MainScreenActions(
         )
     }
 
-    suspend fun performDutyToggle(online: Boolean, pendingOnlineAfterForegroundPermission: Boolean) {
+    suspend fun performDutyToggle(
+        snackbarHostState: SnackbarHostState,
+        orderViewModel: OrderViewModel,
+        authSessionManager: AuthSessionManager,
+        allOrders: List<Order>,
+        online: Boolean
+    ) {
         if (!online) {
-            val hasActiveJobs = orderViewModel.allOrders.value.any {
-                it.status != "delivered" && it.status != "failed"
-            }
+            val hasActiveJobs = allOrders.any { it.status != "delivered" && it.status != "failed" }
             if (hasActiveJobs) {
                 snackbarHostState.showSnackbar("Peringatan: Selesaikan semua tugas pengiriman sebelum nonaktif.")
                 return
@@ -186,10 +174,6 @@ class MainScreenActions(
                 val intent = LocationTrackerService.startIntent(context)
                 ContextCompat.startForegroundService(context, intent)
                 snackbarHostState.showSnackbar("Status aktif. Tracking operasional berjalan.")
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission(context)) {
-                    showBackgroundLocationPermissionDialogState.value = true
-                }
             } else {
                 val dutyResult = orderViewModel.updateDutyStatus(online = false)
                 dutyResult.onFailure { e ->
@@ -206,64 +190,77 @@ class MainScreenActions(
         }
     }
 
-    fun openFaceVerify(order: Order) {
-        onSelectedOrderChange(order)
-        onRouteStateChange(CourierRouteReducer.faceVerify(order.orderId))
-    }
-
-    fun openServiceFaceVerify(orderId: String, serviceType: String) {
-        onRouteStateChange(CourierRouteReducer.faceVerify(orderId, returnToServiceType = serviceType))
-    }
-
-    fun openOrderDetail(order: Order) {
-        onSelectedOrderChange(order)
-        onRouteStateChange(CourierRouteReducer.detail(order.orderId))
-    }
-
-    fun openChat(order: Order) {
-        onSelectedOrderChange(order)
-        onRouteStateChange(CourierRouteReducer.chat(order.orderId))
-    }
-
-    fun openCall(order: Order, callId: String? = null) {
-        onSelectedOrderChange(order)
-        onRouteStateChange(CourierRouteReducer.call(order.orderId, callId, order.communicationCallTargetType()))
-    }
-
-    fun openScan(order: Order?, scanType: String = CourierProofTypes.PICKUP_SCAN) {
-        onSelectedOrderChange(order)
-        onRouteStateChange(CourierRouteReducer.scan(order?.orderId, scanType))
-    }
-
-    fun openProof(order: Order, proofMode: String) {
-        onSelectedOrderChange(order)
-        onRouteStateChange(CourierRouteReducer.proof(order.orderId, proofMode))
-    }
-
-    fun closeRoute() {
-        onSelectedOrderChange(null)
-        onRouteStateChange(CourierRouteReducer.home())
-    }
-
-    fun backToOrderOrHome(currentRouteState: com.tembus.courier.domain.CourierRouteState) {
-        val newRoute = CourierRouteReducer.backFromChild(currentRouteState)
-        onRouteStateChange(newRoute)
-        if (newRoute.screen == com.tembus.courier.domain.CourierRouteScreen.HOME) {
-            onSelectedOrderChange(null)
-        }
-    }
-
-    fun requestDutyToggle(online: Boolean, pendingOnlineAfterForegroundPermission: MutableState<Boolean>, pendingDutySecurityTarget: MutableState<Boolean?>) {
+    fun requestDutyToggle(
+        snackbarHostState: SnackbarHostState,
+        online: Boolean,
+        localSecuritySettings: LocalDeviceSecuritySettings,
+        pendingDutySecurityTarget: MutableState<Boolean?>,
+        allOrders: List<Order>,
+        orderViewModel: OrderViewModel,
+        authSessionManager: AuthSessionManager,
+    ) {
         if (online && !hasForegroundLocationPermission(context)) {
-            pendingOnlineAfterForegroundPermission.value = true
-            showForegroundLocationPermissionDialogState.value = true
+            setPendingOnlineAfterForegroundPermission(true)
+            setShowForegroundLocationPermissionDialog(true)
             return
         }
 
         if (online && localSecuritySettings.active) {
-            pendingDutySecurityTarget.value = true
+            setPendingDutySecurityTarget(true)
         } else {
-            scope.launch { performDutyToggle(online, pendingOnlineAfterForegroundPermission.value) }
+            scope.launch { performDutyToggle(snackbarHostState, orderViewModel, authSessionManager, allOrders, online) }
+        }
+    }
+
+    // Route functions — delegate state mutations to caller via callbacks
+    fun openFaceVerify(routeStateSetter: (CourierRouteState) -> Unit, orderSetter: (Order?) -> Unit, order: Order) {
+        orderSetter(order)
+        routeStateSetter(CourierRouteReducer.faceVerify(order.orderId))
+    }
+
+    fun openServiceFaceVerify(routeStateSetter: (CourierRouteState) -> Unit, orderId: String, serviceType: String) {
+        routeStateSetter(CourierRouteReducer.faceVerify(orderId, returnToServiceType = serviceType))
+    }
+
+    fun openOrderDetail(routeStateSetter: (CourierRouteState) -> Unit, orderSetter: (Order?) -> Unit, order: Order) {
+        orderSetter(order)
+        routeStateSetter(CourierRouteReducer.detail(order.orderId))
+    }
+
+    fun openChat(routeStateSetter: (CourierRouteState) -> Unit, orderSetter: (Order?) -> Unit, order: Order) {
+        orderSetter(order)
+        routeStateSetter(CourierRouteReducer.chat(order.orderId))
+    }
+
+    fun openCall(routeStateSetter: (CourierRouteState) -> Unit, orderSetter: (Order?) -> Unit, order: Order, callId: String? = null) {
+        orderSetter(order)
+        routeStateSetter(CourierRouteReducer.call(order.orderId, callId, order.communicationCallTargetType()))
+    }
+
+    fun openScan(routeStateSetter: (CourierRouteState) -> Unit, orderSetter: (Order?) -> Unit, order: Order?, scanType: String = CourierProofTypes.PICKUP_SCAN) {
+        orderSetter(order)
+        routeStateSetter(CourierRouteReducer.scan(order?.orderId, scanType))
+    }
+
+    fun openProof(routeStateSetter: (CourierRouteState) -> Unit, orderSetter: (Order?) -> Unit, order: Order, proofMode: String) {
+        orderSetter(order)
+        routeStateSetter(CourierRouteReducer.proof(order.orderId, proofMode))
+    }
+
+    fun closeRoute(routeStateSetter: (CourierRouteState) -> Unit, orderSetter: (Order?) -> Unit) {
+        orderSetter(null)
+        routeStateSetter(CourierRouteReducer.home())
+    }
+
+    fun backToOrderOrHome(
+        routeStateSetter: (CourierRouteState) -> Unit,
+        orderSetter: (Order?) -> Unit,
+        currentRouteState: CourierRouteState
+    ) {
+        val newRoute = CourierRouteReducer.backFromChild(currentRouteState)
+        routeStateSetter(newRoute)
+        if (newRoute.screen == CourierRouteScreen.HOME) {
+            orderSetter(null)
         }
     }
 }

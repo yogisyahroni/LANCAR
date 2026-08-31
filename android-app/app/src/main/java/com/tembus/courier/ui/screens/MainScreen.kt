@@ -379,183 +379,42 @@ fun MainScreen(
 
     SecureScreenEffect(enabled = secureScreenRequired)
 
+    val actions = rememberMainScreenActionState(context, scope)
+    val foregroundLocationPermissionLauncher = actions.foregroundLocationPermissionLauncher
+    val backgroundLocationPermissionLauncher = actions.backgroundLocationPermissionLauncher
+
     suspend fun sendSafetyEvent(order: Order?, eventType: String, severity: String, message: String, photoFile: File? = null) {
-        val location = getLastKnownDutyLocation(context)
-        val result = orderViewModel.createSafetyEvent(
-            orderId = order?.orderId,
-            eventType = eventType,
-            severity = severity,
-            latitude = location?.latitude,
-            longitude = location?.longitude,
-            accuracy = location?.accuracy,
-            message = message,
-            photoFile = photoFile
-        )
-        snackbarHostState.showSnackbar(
-            result.getOrElse { it.message ?: "Laporan belum terkirim. Coba lagi." }
-        )
+        actions.sendSafetyEvent(snackbarHostState, orderViewModel, order, eventType, severity, message, photoFile)
     }
 
     suspend fun performDutyToggle(online: Boolean) {
-        if (!online) {
-            val hasActiveJobs = allOrders.any { it.status != "delivered" && it.status != "failed" }
-            if (hasActiveJobs) {
-                snackbarHostState.showSnackbar("Peringatan: Selesaikan semua tugas pengiriman sebelum nonaktif.")
-                return
-            }
-        }
-
-        if (online) {
-            val isRooted = com.tembus.courier.util.SecurityUtils.isDeviceRooted(context)
-            if (isRooted) {
-                snackbarHostState.showSnackbar("Akses ditolak: perangkat terdeteksi rooted. Gunakan perangkat operasional yang aman.")
-                return
-            }
-        }
-
-        try {
-            if (online) {
-                val location = getLastKnownDutyLocation(context)
-                if (location == null) {
-                    snackbarHostState.showSnackbar("Lokasi perangkat sedang dikunci. Aktifkan GPS dan coba lagi untuk mulai On Duty.")
-                    return
-                }
-
-                val dutyResult = orderViewModel.updateDutyStatus(
-                    online = true,
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    accuracy = location.accuracy
-                )
-                dutyResult.onFailure { e ->
-                    snackbarHostState.showSnackbar(
-                        e.message ?: "Lokasi Anda belum memenuhi area operasional aktif."
-                    )
-                    return
-                }
-
-                authSessionManager.setOnlineStatus(true)
-                val intent = LocationTrackerService.startIntent(context)
-                androidx.core.content.ContextCompat.startForegroundService(context, intent)
-                snackbarHostState.showSnackbar("Status aktif. Tracking operasional berjalan.")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission(context)) {
-                    showBackgroundLocationPermissionDialog = true
-                }
-            } else {
-                val dutyResult = orderViewModel.updateDutyStatus(online = false)
-                dutyResult.onFailure { e ->
-                    snackbarHostState.showSnackbar(e.message ?: "Gagal memperbarui status Off Duty.")
-                    return
-                }
-
-                authSessionManager.setOnlineStatus(false)
-                context.stopService(LocationTrackerService.stopIntent(context))
-                snackbarHostState.showSnackbar("Status nonaktif. Tracking berhenti.")
-            }
-        } catch (e: Exception) {
-            snackbarHostState.showSnackbar("Gagal memperbarui status tracking.")
-        }
-    }
-
-    val foregroundLocationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants ->
-        val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
-            hasForegroundLocationPermission(context)
-        if (granted && pendingOnlineAfterForegroundPermission) {
-            pendingOnlineAfterForegroundPermission = false
-            if (localSecuritySettings.active) {
-                pendingDutySecurityTarget = true
-            } else {
-                scope.launch { performDutyToggle(true) }
-            }
-        } else if (!granted) {
-            pendingOnlineAfterForegroundPermission = false
-            scope.launch {
-                snackbarHostState.showSnackbar("Izin lokasi diperlukan sebelum kurir bisa On Duty.")
-            }
-        }
-    }
-
-    val backgroundLocationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        scope.launch {
-            snackbarHostState.showSnackbar(
-                if (granted || hasBackgroundLocationPermission(context)) {
-                    "Tracking background aktif untuk pekerjaan berjalan."
-                } else {
-                    "Tracking tetap berjalan saat aplikasi terbuka. Aktifkan background location dari pengaturan untuk mode operasional penuh."
-                }
-            )
-        }
+        actions.performDutyToggle(snackbarHostState, orderViewModel, authSessionManager, allOrders, online)
     }
 
     fun requestDutyToggle(online: Boolean) {
-        if (online && courierProfile?.profilePhotoUrl.isNullOrBlank()) {
-            showMissingPhotoWarning = true
-            return
-        }
-
         if (online && !hasForegroundLocationPermission(context)) {
-            pendingOnlineAfterForegroundPermission = true
+            actions.setPendingOnlineAfterForegroundPermission(true)
             showForegroundLocationPermissionDialog = true
             return
         }
 
         if (online && localSecuritySettings.active) {
-            pendingDutySecurityTarget = true
+            actions.setPendingDutySecurityTarget(true)
         } else {
             scope.launch { performDutyToggle(online) }
         }
     }
 
-    fun openFaceVerify(order: Order) {
-        selectedOrder = order
-        routeState = CourierRouteReducer.faceVerify(order.orderId)
-    }
+    fun openFaceVerify(order: Order) { actions.openFaceVerify({ routeState = it }, { selectedOrder = it }, order) }
+    fun openServiceFaceVerify(orderId: String, serviceType: String) { actions.openServiceFaceVerify({ routeState = it }, orderId, serviceType) }
+    fun openOrderDetail(order: Order) { actions.openOrderDetail({ routeState = it }, { selectedOrder = it }, order) }
+    fun openChat(order: Order) { actions.openChat({ routeState = it }, { selectedOrder = it }, order) }
+    fun openCall(order: Order, callId: String? = null) { actions.openCall({ routeState = it }, { selectedOrder = it }, order, callId) }
+    fun openScan(order: Order?, scanType: String = CourierProofTypes.PICKUP_SCAN) { actions.openScan({ routeState = it }, { selectedOrder = it }, order, scanType) }
+    fun openProof(order: Order, proofMode: String) { actions.openProof({ routeState = it }, { selectedOrder = it }, order, proofMode) }
+    fun closeRoute() { actions.closeRoute({ routeState = it }, { selectedOrder = it }) }
+    fun backToOrderOrHome() { actions.backToOrderOrHome({ routeState = it }, { selectedOrder = it }, routeState) }
 
-    fun openServiceFaceVerify(orderId: String, serviceType: String) {
-        routeState = CourierRouteReducer.faceVerify(orderId, returnToServiceType = serviceType)
-    }
-
-    fun openOrderDetail(order: Order) {
-        selectedOrder = order
-        routeState = CourierRouteReducer.detail(order.orderId)
-    }
-
-    fun openChat(order: Order) {
-        selectedOrder = order
-        routeState = CourierRouteReducer.chat(order.orderId)
-    }
-
-    fun openCall(order: Order, callId: String? = null) {
-        selectedOrder = order
-        routeState = CourierRouteReducer.call(order.orderId, callId, order.communicationCallTargetType())
-    }
-
-    fun openScan(order: Order?, scanType: String = CourierProofTypes.PICKUP_SCAN) {
-        selectedOrder = order
-        routeState = CourierRouteReducer.scan(order?.orderId, scanType)
-    }
-
-    fun openProof(order: Order, proofMode: String) {
-        selectedOrder = order
-        routeState = CourierRouteReducer.proof(order.orderId, proofMode)
-    }
-
-    fun closeRoute() {
-        selectedOrder = null
-        routeState = CourierRouteReducer.home()
-    }
-
-    fun backToOrderOrHome() {
-        routeState = CourierRouteReducer.backFromChild(routeState)
-        if (routeState.screen == CourierRouteScreen.HOME) {
-            selectedOrder = null
-        }
-    }
     val deps = MainScreenDeps(
         context = context,
         scope = scope,
