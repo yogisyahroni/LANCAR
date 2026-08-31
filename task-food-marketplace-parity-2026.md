@@ -3516,3 +3516,838 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Remote banner/theme/token publication cannot introduce a protected contrast failure without being blocked by validation.
 - [ ] Automated accessibility checks and visual theme regression run in CI.
 - [ ] Manual WCAG 2.1 AA audit matrix for key routes/states is signed off before production release.
+
+---
+
+# PART T — LANCAR DESIGN SYSTEM + COMMERCE ADS PLATFORM
+
+> **Goal:** LANCAR harus mempunyai design system dan monetization platform milik sendiri. Benchmark seperti Grab/Gojek/Uber dipakai untuk memahami pola operasional, bukan untuk menyalin proprietary UI, naming, layout, atau internal component vocabulary. Seluruh Customer, Food, Paket, Tambal Ban, Towing, Ekspedisi, Merchant, Courier, Customer Web, dan Admin harus berbagi foundations yang sama, lalu memakai service-specific patterns sesuai kebutuhan domain.
+>
+> **Figma reference:** `LANCAR Design System 2026 — Super App + Commerce Ads` — `https://www.figma.com/design/9JTlREMJNVkLYchQD1QcpV`. Figma adalah design source/reference; production truth tetap component/token contract yang versioned dan diuji di code.
+>
+> **Ads boundary:** `LANCAR Platform Promo ≠ Merchant Promo ≠ Sponsored Advertising ≠ Organic Ranking`. Paid visibility tidak boleh mengubah rating, ETA, serviceability, availability, delivery fee, financial eligibility, atau fakta organik lain.
+
+## T0 — Audited baseline / existing assets to preserve and harden
+
+Customer Android sudah memiliki fondasi theme/design primitives:
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/theme/Color.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/theme/Theme.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/theme/TembusDesign.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/theme/TembusElevation.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/theme/Type.kt`
+
+Known cleanup:
+- `DashboardScreen.kt` masih mempunyai benchmark-leaking names seperti `GojekTopBar`/`GojekServiceGrid`.
+- `FoodHomeScreen.kt` masih mempunyai per-screen styling/fallback termasuk emoji fallback; ini harus dipindahkan ke approved design-system components/assets.
+- Merchant Android sudah mempunyai domain **Promo** di `ui/screens/promo`; Ads tidak boleh dibangun sebagai alias/toggle tambahan pada Merchant Promo.
+- `FOOD-2026-023` tetap valid sebagai Food integration point, tetapi implementasi lengkap sponsored placement mengikuti `ADS-2026-*` di Part T ini.
+
+- [ ] Pertahankan existing WCAG-aware color/theme work yang benar; jangan rewrite hanya untuk mengganti nama.
+- [ ] Inventory component/theme duplicates sebelum membuat primitives baru.
+- [ ] Rename benchmark-specific internal component/function names menjadi LANCAR vocabulary tanpa mengubah behavior secara buta.
+- [ ] Jangan menjadikan emoji/random SVG sebagai production functional design language; gunakan approved icon/placeholder/illustration contract.
+
+---
+
+## DS-2026-001 — Establish LANCAR Design System as one governed product [P0]
+
+**Recommended docs**
+- `docs/design/lancar-design-system-2026.md`
+- `docs/design/design-system-governance.md`
+- `docs/design/component-lifecycle.md`
+- `docs/design/service-patterns.md`
+
+**Surfaces in scope**
+- Customer Android
+- Customer Web
+- Merchant Android
+- Courier Android
+- Admin Dashboard
+
+**Required layers**
+1. Foundations
+2. Semantic tokens
+3. Core components
+4. Commerce components
+5. Logistics components
+6. Emergency/service components
+7. Super-App patterns
+8. Service-specific patterns
+9. Monetization/Sponsored patterns
+10. Accessibility and content rules
+
+**Checklist**
+- [ ] Satu design-system version/release note menjelaskan breaking/deprecated component changes.
+- [ ] Component memiliki owner, status `experimental|stable|deprecated`, supported surfaces, accessibility contract dan code mapping.
+- [ ] Feature team tidak membuat “mini design system” sendiri di Food/Towing/Tambal.
+- [ ] Service-specific pattern boleh berbeda journey/density, tetapi foundations/component semantics tetap LANCAR.
+- [ ] Design system review menjadi gate untuk component type baru yang akan dipakai remote App Experience.
+
+---
+
+## DS-2026-002 — Canonical semantic tokens across Figma + Android + Web + Admin [P0]
+
+**Files to edit**
+- Customer Android files under `android-app-customer/.../ui/theme/`
+- equivalent Merchant/Courier theme files after inventory
+- `frontend/src/app/globals.css`
+- `admin-dashboard/src/index.css`
+
+**Recommended new files**
+- `design-tokens/lancar.tokens.json`
+- `scripts/design/export-design-tokens.mjs`
+- `scripts/design/validate-design-tokens.mjs`
+- `docs/design/token-naming.md`
+
+**Token families**
+- color semantic roles
+- spacing
+- radius
+- typography
+- elevation
+- motion duration/easing
+- size/touch target
+- icon sizes
+- content width/grid
+- scrim/overlay
+
+**Checklist**
+- [ ] Token names describe role, not raw color, e.g. `color.action.primary`, `color.text.secondary`, `surface.raised`.
+- [ ] Light/Dark/System values map from one semantic contract.
+- [ ] Android/Web/Admin generated or manually synced values are testable against canonical token source.
+- [ ] Figma token naming maps one-to-one or through documented transform to code tokens.
+- [ ] Token validation includes WCAG protected pairs from Part S.
+- [ ] No service invents a new “primary green/orange” without design-system approval.
+
+---
+
+## DS-2026-003 — Core component library + state matrix [P0]
+
+**Customer Android recommended package**
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/designsystem/`
+- `.../components/LancarButton.kt`
+- `.../components/LancarIconButton.kt`
+- `.../components/LancarSearchField.kt`
+- `.../components/LancarTextField.kt`
+- `.../components/LancarChip.kt`
+- `.../components/LancarCard.kt`
+- `.../components/LancarBadge.kt`
+- `.../components/LancarAppBar.kt`
+- `.../components/LancarBottomNavigation.kt`
+- `.../components/LancarModal.kt`
+- `.../components/LancarToast.kt`
+- `.../components/LancarSkeleton.kt`
+- `.../components/LancarEmptyState.kt`
+
+**Web equivalents**
+- `frontend/src/components/design-system/`
+- `admin-dashboard/src/components/design-system/` for shared concepts with Admin-specific density variants
+
+**Mandatory states**
+- default
+- pressed/active
+- hover where applicable
+- focused
+- selected
+- disabled
+- loading
+- success
+- warning
+- error
+
+- [ ] Every reusable component has Light/Dark and accessibility acceptance.
+- [ ] 48dp/appropriate platform touch-target baseline for primary mobile controls.
+- [ ] Component API uses semantic props (`variant`, `state`, `size`) rather than arbitrary color parameters.
+- [ ] Component does not expose raw styling hooks that let product screens bypass protected design/accessibility constraints without documented escape hatch.
+
+---
+
+## DS-2026-004 — Commerce + marketplace component family [P1]
+
+**Recommended Customer Android components**
+- `.../designsystem/commerce/MerchantCard.kt`
+- `.../designsystem/commerce/MenuItemCard.kt`
+- `.../designsystem/commerce/PromoCard.kt`
+- `.../designsystem/commerce/SponsoredMerchantCard.kt`
+- `.../designsystem/commerce/RatingSummary.kt`
+- `.../designsystem/commerce/EtaDistanceRow.kt`
+- `.../designsystem/commerce/PriceSummary.kt`
+- `.../designsystem/commerce/VoucherChip.kt`
+- `.../designsystem/commerce/CartBar.kt`
+- `.../designsystem/commerce/SponsoredLabel.kt`
+
+**Checklist**
+- [ ] Organic `MerchantCard` dan Sponsored variant berbagi content anatomy; Sponsored selalu menambahkan disclosure yang tidak bisa dimatikan oleh merchant creative.
+- [ ] Rating, distance, ETA, open/closed, halal, delivery fee berasal dari authoritative/source-defined data, bukan ad payload.
+- [ ] Promo discount badge tidak berarti sponsored dan Sponsored label tidak berarti merchant sedang memberi discount.
+- [ ] Image aspect, text truncation, fallback image, favorite button dan accessibility semantics distandarkan.
+
+---
+
+## DS-2026-005 — Logistics + emergency component family [P1]
+
+**Recommended components**
+- `AddressCard`
+- `RouteSummary`
+- `PackageSummary`
+- `CourierCard`
+- `CarrierRateCard`
+- `TrackingTimeline`
+- `ProofCard`
+- `QuoteBreakdown`
+- `VehicleCard`
+- `TechnicianCard`
+- `IncidentSummary`
+- `RequoteApprovalCard`
+- `SafetyNotice`
+
+**Checklist**
+- [ ] Paket/Aggregator/Tambal/Towing reuse primitives where semantics match.
+- [ ] Emergency components prioritize location, capability, ETA, price trust and action over promotional decoration.
+- [ ] Carrier comparison preserves provider truth and is not silently influenced by merchant/commerce Ads Service.
+- [ ] Proof/requote/safety components have high-contrast and explicit state/action semantics.
+
+---
+
+## DS-2026-006 — Super-App surface composition standard [P0/P1]
+
+**Files to edit**
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceGridMenu.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceIcons.kt`
+- runtime Experience components from `APP-2026-*`
+
+**Canonical Home information hierarchy**
+1. identity/context + universal search
+2. primary LANCAR service grid
+3. active transaction/utility modules when applicable
+4. LANCAR-owned platform campaign/promo
+5. contextual discovery
+6. bounded Sponsored inventory
+7. organic recommendations
+8. additional contextual modules
+9. navigation
+
+**Checklist**
+- [ ] Home does not become a vertical Food clone; it represents all LANCAR services.
+- [ ] Active-order/recovery information outranks monetization.
+- [ ] Universal search understands service intent or routes to a safe service-aware result.
+- [ ] `GojekTopBar`, `GojekServiceGrid` and similar benchmark-specific internal names are renamed to LANCAR design-system terminology.
+- [ ] Home layout can be server-configured only through whitelisted LANCAR components from App Experience.
+- [ ] Paid modules remain visually bounded by `ADS-2026-004` inventory rules.
+
+---
+
+## DS-2026-007 — Food discovery pattern: visual-rich but structured [P0/P1]
+
+**Files to edit**
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodHomeScreen.kt`
+- `MerchantDetailScreen.kt`
+- Food search/filter/discovery ViewModel/repository paths
+
+**Canonical pattern**
+`delivery destination → search → delivery/pickup/filter modes → cuisine/category discovery → editorial/platform promo → bounded sponsored discovery → organic personalized ranking → deal/collection modules → more organic discovery`
+
+**Checklist**
+- [ ] Food home can use richer imagery than transactional services without fragmenting core LANCAR typography/spacing/button language.
+- [ ] Replace emoji fallback with design-system-approved merchant/menu placeholder asset or deterministic neutral placeholder.
+- [ ] Merchant image/card anatomy uses shared commerce components.
+- [ ] Sponsored slots are clearly labeled and never indistinguishable from organic ranking.
+- [ ] Search/filter controls remain sticky/usable without large promotional hero blocking discovery.
+- [ ] Checkout/payment/tracking surfaces return to calm transaction style and are ad-free.
+
+---
+
+## DS-2026-008 — Paket / Aggregator / Tambal / Towing service-pattern standard [P1]
+
+**Pattern rules**
+- Paket On-Demand: route + package facts + quote + trust.
+- Aggregator: compare provider/service + provenance + carrier lifecycle clarity.
+- Tambal Ban: emergency shortest path; problem + location + technician capability.
+- Towing: safety + vehicle compatibility + inspection/proof + route.
+
+**Checklist**
+- [ ] One visual system, different information priority per vertical.
+- [ ] Do not give every vertical a unique arbitrary header color/layout merely to “look different”.
+- [ ] Service identity comes from icon, title, contextual accent/illustration and content—not a separate mini-brand.
+- [ ] Tambal/Towing active booking/service flow contains zero paid advertising.
+- [ ] Aggregator carrier-rate comparison contains zero paid carrier ranking unless a future separate regulated/sponsored-carrier product is explicitly designed, disclosed and approved.
+
+---
+
+## DS-2026-009 — Iconography, illustration and media governance for mobile super-app [P1]
+
+**Checklist**
+- [ ] Android functional icons use one approved family/style; decorative 3D/service illustrations are not used as replacements for critical action icons.
+- [ ] Five primary services have distinct canonical icon + label mapping across Home, history, detail and notifications.
+- [ ] Marketing campaign art can change remotely but must respect safe aspect ratios/text zones/accessibility fallback.
+- [ ] Define image aspect-ratio presets for hero banner, merchant card, sponsored card, category tile, campaign intro and empty state.
+- [ ] Define low-bandwidth/static fallback for animated creative.
+- [ ] External merchant creative cannot upload arbitrary UI-like fake buttons, system dialogs or misleading notification treatments.
+
+---
+
+## DS-2026-010 — Figma library governance + design/code traceability [P1]
+
+**Current Figma reference**
+- `https://www.figma.com/design/9JTlREMJNVkLYchQD1QcpV`
+
+**Required Figma structure**
+- Foundations & Components
+- Customer Super-App Patterns
+- Commerce Ads & Merchant
+- expand additional pages/libraries when Figma plan limits allow
+
+**Checklist**
+- [ ] Stable Figma component uses naming that maps to code component name/role.
+- [ ] Variant names map to semantic code props when practical.
+- [ ] Component descriptions include usage/do-not-use/accessibility notes.
+- [ ] Design review links Figma node/component reference to implementation task/PR for material UI changes.
+- [ ] Introduce Code Connect/component mapping only after component APIs stabilize; do not connect temporary mock components.
+- [ ] Figma library is reference/source for visual intent, but cannot override server business truth or accessibility contract.
+
+---
+
+## DS-2026-011 — Design-system adoption / benchmark-name eradication gate [P0/P1]
+
+**Scope**
+- Customer Android first
+- Customer Web second
+- Merchant/Courier/Admin as each shared component stabilizes
+
+**Checklist**
+- [ ] Inventory duplicated Button/Card/Search/Chip/AppBar/Badge/Navigation patterns.
+- [ ] Migrate highest-frequency screens before low-traffic settings screens.
+- [ ] Replace internal names copied from competitor/benchmark with `Lancar*` or semantic domain names.
+- [ ] No visual rewrite may change transaction/business behavior unless separately covered by domain task.
+- [ ] Remove legacy primitive only after call sites and screenshot/accessibility regression tests pass.
+
+---
+
+## DS-2026-012 — Mobile design-system release gate [P0]
+
+**Recommended tests/docs**
+- Android screenshot/golden tests or equivalent for stable components
+- `docs/design/mobile-component-acceptance.md`
+- `docs/design/design-qa-checklist.md`
+
+**Checklist**
+- [ ] Light/Dark/System visual review for supported mobile surfaces.
+- [ ] Font scale/dynamic text review.
+- [ ] 48dp touch target and TalkBack semantics review.
+- [ ] Loading/error/empty/offline states included, not only happy state.
+- [ ] Long localization/RTL readiness tested for reusable primitives.
+- [ ] Every new remote component type passes design-system + accessibility approval before App Experience allowlist publication.
+
+---
+
+# COMMERCE ADS PLATFORM
+
+## ADS-2026-001 — Separate Platform Promo, Merchant Promo, Sponsored Ads and Organic Ranking [P0]
+
+**Existing files/domains to inspect**
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/promo/CreatePromoZipScreen.kt`
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/promo/PromoViewModel.kt`
+- merchant promo backend/repository/API ownership
+- Admin `Promos.tsx` / `Banners.tsx`
+- Food discovery/ranking code
+
+**Domain contract**
+- `platform_promo`: LANCAR-funded/owned campaign exposure.
+- `merchant_promo`: merchant/customer financial offer; authoritative Promo/Pricing domain.
+- `sponsored_ad`: merchant/brand pays for eligible visibility; authoritative Ads domain.
+- `organic_rank`: non-paid discovery rank.
+
+**Checklist**
+- [ ] One entity may participate in promo and sponsored campaign simultaneously, but accounting/attribution remains separate.
+- [ ] Organic relevance score is never overwritten with fake higher rating/ETA due to ad spend.
+- [ ] Experience Service owns placement/component presentation; Ads Service owns sponsored eligibility/delivery/budget truth.
+- [ ] Promo Service/Pricing owns discount financial eligibility.
+- [ ] Customer payload explicitly identifies content source/type.
+
+---
+
+## ADS-2026-002 — Dedicated Ads Service / canonical campaign model [P0/P1]
+
+**Recommended new service/files**
+- `backend/ads-service/cmd/api/main.go`
+- `backend/ads-service/internal/domain/campaign.go`
+- `backend/ads-service/internal/domain/ad_group.go`
+- `backend/ads-service/internal/domain/creative.go`
+- `backend/ads-service/internal/domain/placement.go`
+- `backend/ads-service/internal/domain/audience.go`
+- `backend/ads-service/internal/domain/budget.go`
+- `backend/ads-service/internal/domain/bid.go`
+- `backend/ads-service/internal/domain/ad_event.go`
+- `backend/ads-service/internal/service/campaign_service.go`
+- `backend/ads-service/internal/service/delivery_service.go`
+- `backend/ads-service/internal/service/budget_service.go`
+- `backend/ads-service/internal/repository/ads_repository.go`
+- `backend/ads-service/internal/handler/ads_handler.go`
+- `backend/ads-service/internal/service/campaign_service_test.go`
+- `database/migrations/<timestamp>_add_ads_campaigns.sql`
+- `database/migrations/<timestamp>_add_ads_delivery_events.sql`
+- `docs/contracts/commerce-ads-2026.md`
+
+**Campaign must support**
+- owner/merchant/brand account
+- market/city/branch
+- objective
+- placements
+- audience
+- budget model
+- bid strategy
+- schedule/timezone/daypart
+- creative
+- status/lifecycle
+- policy/moderation status
+- campaign version
+- attribution settings/version
+
+- [ ] Ads service cannot mutate Food order state, rating, ETA or merchant availability.
+- [ ] Campaign mutations are audited/idempotent where applicable.
+- [ ] Campaign owner can access only their campaign/performance data.
+
+---
+
+## ADS-2026-003 — Merchant campaign lifecycle [P1]
+
+**Required lifecycle**
+`DRAFT → VALIDATING → REVIEW/POLICY_CHECK → SCHEDULED → ACTIVE → PAUSED → ENDED`
+
+Additional states:
+- `REJECTED`
+- `BUDGET_EXHAUSTED`
+- `PAYMENT_HOLD`
+- `SUSPENDED`
+- `ARCHIVED`
+
+**Campaign creation flow**
+1. objective
+2. placement
+3. eligible branch/location
+4. audience
+5. budget
+6. bid strategy
+7. schedule/daypart
+8. creative
+9. preview
+10. review/policy
+11. launch
+
+- [ ] Draft never spends money or serves impression.
+- [ ] Expired/end-time campaign cannot continue serving due to stale cache.
+- [ ] Pause takes effect within documented SLA.
+- [ ] Budget exhausted stops new eligible spend atomically/degraded-safe.
+- [ ] Campaign edit that materially changes targeting/budget/creative creates auditable revision.
+
+---
+
+## ADS-2026-004 — Ad inventory, density and anti-clutter policy [P0 product guardrail]
+
+> Angka di bawah adalah **initial LANCAR product policy**, bukan klaim bahwa semua competitor memakai angka yang sama. Nilai dapat dieksperimenkan hanya di dalam safe bounds dan tidak boleh membuat paid content mendominasi discovery.
+
+**Initial safe rules**
+- Super-App Home first viewport: maksimum **1 paid/sponsored module**.
+- Tidak boleh ada dua sponsored modules berurutan di Home.
+- Food discovery: organic result harus terlihat di first screen; paid/native sponsored cards tidak boleh mengambil seluruh visible result set.
+- Search: paid result diberi reserved/capped positions; jangan mengisi semua posisi teratas dengan sponsored.
+- Rolling discovery density default ceiling: sponsored content tidak lebih dari **25%** eligible discovery cards over a reasonable rolling window; exact window/config documented and experiment-controlled.
+- Checkout/payment/order tracking/support/claim/active order: **ad-free**.
+- Tambal Ban/Towing emergency booking, matching dan active service: **ad-free**.
+- Aggregator carrier-rate comparison: **ad-free by default**.
+
+**Recommended config**
+- `backend/ads-service/internal/domain/inventory_policy.go`
+- `backend/ads-service/internal/service/inventory_service.go`
+- `admin-dashboard/src/pages/ads/InventoryPolicy.tsx`
+
+**Checklist**
+- [ ] Ad inventory is slot/placement based, not “append every active campaign”.
+- [ ] Placement has max ads, adjacency rule, frequency cap, fallback and eligibility contract.
+- [ ] Experience Service reserves sponsored-capable modules, but Ads Service selects content within inventory policy.
+- [ ] Empty inventory falls back to organic/house content without blank gap.
+- [ ] High paid density experiment cannot bypass protected minimum organic content.
+
+---
+
+## ADS-2026-005 — Eligibility, relevance, quality and auction/ranking [P1]
+
+**Recommended files**
+- `backend/ads-service/internal/domain/ad_candidate.go`
+- `backend/ads-service/internal/service/eligibility_service.go`
+- `backend/ads-service/internal/service/ranking_service.go`
+- `backend/ads-service/internal/service/auction_service.go`
+- `backend/ads-service/internal/service/auction_service_test.go`
+
+**Candidate gating before bid/rank**
+- merchant/branch active
+- open/serviceable for user context where placement requires it
+- relevant service/category/search intent
+- menu/catalog availability where applicable
+- campaign active and policy-approved
+- budget available
+- merchant/account not risk-suspended
+- creative valid for placement/app version
+
+**Ranking principle**
+`ad_rank = bid/economic signal × relevance × quality × contextual eligibility`
+
+- [ ] Highest payer does not automatically win if relevance/quality/eligibility is poor.
+- [ ] Ad ranking cannot falsify organic rating/ETA/serviceability.
+- [ ] Define deterministic tie-break and auction/version logging.
+- [ ] Safe fallback exists when ranking/auction dependency fails.
+- [ ] Cold-start/small merchants are not permanently excluded solely because large advertisers have more historical data; quality/relevance rules documented.
+
+---
+
+## ADS-2026-006 — Budget, bidding, pacing and spend reservation [P0/P1]
+
+**Supported strategies as platform matures**
+- automatic/spend-based
+- goal-based
+- manual max bid/cap
+
+**Supported budget concepts**
+- daily budget
+- total campaign budget
+- optional account ad balance/credit line per market policy
+- currency-aware money model from `GLOB-2026-002`
+
+**Recommended files**
+- `backend/ads-service/internal/domain/spend.go`
+- `backend/ads-service/internal/service/pacing_service.go`
+- `backend/ads-service/internal/service/spend_service.go`
+- `backend/ads-service/internal/service/spend_concurrency_test.go`
+
+**Checklist**
+- [ ] Spend cannot exceed configured hard budget due to concurrent impressions/clicks.
+- [ ] Budget reservation/charge/release is idempotent.
+- [ ] Pacing prevents entire daily budget from being consumed immediately unless intentionally configured.
+- [ ] Timezone-aware daily budget reset.
+- [ ] Bid changes create versioned audit context.
+- [ ] Currency never inferred from merchant locale string.
+
+---
+
+## ADS-2026-007 — Ad delivery API + signed impression/click context [P0/P1]
+
+**Recommended API capability**
+- `GET /api/v1/ads/placements/{placement}` with user/session/context resolved server-side
+- `POST /api/v1/ads/impressions`
+- `POST /api/v1/ads/clicks`
+
+**Recommended client files**
+- `android-app-customer/.../data/ads/AdsApi.kt`
+- `android-app-customer/.../data/ads/AdsRepository.kt`
+- `android-app-customer/.../ui/designsystem/commerce/SponsoredMerchantCard.kt`
+- `android-app-customer/.../ui/experience/components/DynamicSponsoredModule.kt`
+- `frontend/src/lib/ads/adsClient.ts` if Customer Web receives sponsored surfaces later
+
+**Checklist**
+- [ ] Delivery response contains opaque `ad_delivery_token`/equivalent binding campaign, creative, placement and selection context.
+- [ ] Client cannot declare arbitrary merchant as sponsored or choose billing price.
+- [ ] Impression counted only when defined viewability/visibility condition occurs, not merely response fetch.
+- [ ] Click event deduplicated/replay-protected.
+- [ ] Order conversion attribution is joined server-side to actual order events, not trusted from client `conversion=true` payload.
+- [ ] Cache respects campaign/budget/eligibility freshness and cannot overserve expired campaign indefinitely.
+
+---
+
+## ADS-2026-008 — Mandatory Sponsored/Iklan disclosure + accessibility [P0 release gate]
+
+**Checklist**
+- [ ] Every paid placement displays persistent `Sponsored`/localized equivalent or `Iklan` according to product/legal language.
+- [ ] Label is visible before/without opening detail and cannot be hidden by merchant creative.
+- [ ] Sponsored label meets Part S contrast requirements in Light/Dark.
+- [ ] Screen reader/accessibility semantics identify the item as sponsored where applicable.
+- [ ] Platform Promo uses different semantics such as `Promo LANCAR`, not `Sponsored`.
+- [ ] Merchant Promo discount badge is independent of Sponsored label.
+- [ ] Native sponsored card remains visually integrated enough to be usable but never intentionally disguised as organic.
+
+---
+
+## ADS-2026-009 — Attribution, conversion and performance model [P1]
+
+**Recommended files**
+- `backend/ads-service/internal/domain/attribution.go`
+- `backend/ads-service/internal/service/attribution_service.go`
+- `backend/ads-service/internal/service/reporting_service.go`
+- `docs/contracts/ads-attribution-2026.md`
+
+**Metrics**
+- impressions
+- viewable impressions where defined
+- clicks
+- CTR
+- orders/conversions
+- CVR
+- spend
+- CPC/CPM/CPO as relevant
+- attributed GMV/revenue
+- ROAS
+- new-customer orders
+- repeat-customer orders
+- incrementality/holdout where experimentation permits
+
+**Checklist**
+- [ ] Attribution window/version explicit and immutable for historical report interpretation.
+- [ ] Same order cannot be double-attributed to multiple campaigns under one attribution model unless multi-touch is explicitly supported.
+- [ ] Cancelled/refunded/fraudulent orders handled consistently in performance metrics.
+- [ ] Organic baseline and paid-attributed performance are reported separately.
+- [ ] Dashboard explains metric definitions; do not report “ROAS” from client clicks alone.
+
+---
+
+## ADS-2026-010 — Ads billing, ledger and reconciliation [P0/P1]
+
+**Integration**
+- Ads Service
+- Payment/Ledger domain
+- Merchant finance statement
+- Admin finance reconciliation
+
+**Recommended files**
+- `backend/ads-service/internal/domain/ad_charge.go`
+- `backend/ads-service/internal/service/ad_billing_service.go`
+- `backend/ads-service/internal/service/ad_reconciliation_service.go`
+- `database/migrations/<timestamp>_add_ad_charges_and_credits.sql`
+
+**Checklist**
+- [ ] Every billable event has immutable campaign/account/placement/cost/currency/billing-model/version reference.
+- [ ] Duplicate impression/click callback does not double-charge.
+- [ ] Invalid/fraud-filtered traffic can create audited credit/reversal rather than destructive ledger edit.
+- [ ] Merchant statement separates Ads spend from merchant promo subsidy/food settlement.
+- [ ] Finance can reconcile served/billable events ↔ ads ledger ↔ merchant balance/payment.
+- [ ] Account cannot spend beyond allowed balance/credit policy.
+
+---
+
+## ADS-2026-011 — Ads fraud, invalid traffic and abuse controls [P0/P1]
+
+**Signals**
+- repeated/self clicks
+- bot/device patterns
+- click farms
+- impossible impression cadence
+- merchant employee/device abuse
+- coordinated account behavior
+- fake conversion/order loop
+- creative policy abuse
+
+**Recommended files**
+- `backend/ads-service/internal/service/invalid_traffic_service.go`
+- integration with `backend/risk-service/` from `GLOB-2026-007`
+- `admin-dashboard/src/pages/ads/InvalidTraffic.tsx`
+
+**Checklist**
+- [ ] Invalid traffic can be excluded before/after provisional billing according to documented reconciliation flow.
+- [ ] Merchant cannot earn better ad quality by generating fake orders/clicks.
+- [ ] Risk decision and reason are auditable and appeal/reviewable where appropriate.
+- [ ] Device/user privacy minimization applies; do not collect unnecessary fingerprinting data merely for ads.
+
+---
+
+## ADS-2026-012 — Merchant Android Ads Manager [P1]
+
+**Existing domain to keep separate**
+- `android-app-merchant/.../ui/screens/promo/`
+
+**Recommended new files**
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/ads/AdsHomeScreen.kt`
+- `.../ads/AdsCampaignListScreen.kt`
+- `.../ads/AdsCampaignCreateScreen.kt`
+- `.../ads/AdsCampaignDetailScreen.kt`
+- `.../ads/AdsCampaignPerformanceScreen.kt`
+- `.../ads/AdsViewModel.kt`
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/data/ads/AdsRepository.kt`
+- `android-app-merchant/app/src/main/java/com/tembus/merchant/data/ads/AdsApi.kt`
+
+**Merchant GUI must support**
+- create campaign
+- choose objective
+- choose placement
+- eligible branch/location
+- audience
+- daily/total budget
+- bid strategy
+- start/end/daypart
+- creative selection/upload from allowed library
+- preview
+- launch
+- pause/resume
+- clone
+- stop/end
+- performance/spend/balance
+
+**Checklist**
+- [ ] Merchant clearly understands “Promo” vs “Iklan” as separate products/menu.
+- [ ] Estimated reach/performance is labeled estimate, never guaranteed order count.
+- [ ] Budget hard cap and billing model visible before launch.
+- [ ] Campaign cannot advertise closed/ineligible branch without defined scheduled behavior.
+- [ ] Merchant sees rejection/suspension reason and remediation path.
+
+---
+
+## ADS-2026-013 — Admin Ads Control Plane / moderation / inventory / finance [P0/P1]
+
+**Recommended Admin navigation**
+- `Commerce Ads → Overview`
+- `Commerce Ads → Campaigns`
+- `Commerce Ads → Creatives & Moderation`
+- `Commerce Ads → Inventory & Placements`
+- `Commerce Ads → Bid/Pacing Policy`
+- `Commerce Ads → Invalid Traffic`
+- `Commerce Ads → Billing & Credits`
+- `Commerce Ads → Analytics`
+- `Commerce Ads → Audit`
+
+**Recommended files**
+- `admin-dashboard/src/pages/ads/AdsOverview.tsx`
+- `admin-dashboard/src/pages/ads/Campaigns.tsx`
+- `admin-dashboard/src/pages/ads/CreativeModeration.tsx`
+- `admin-dashboard/src/pages/ads/InventoryPolicy.tsx`
+- `admin-dashboard/src/pages/ads/BidPolicy.tsx`
+- `admin-dashboard/src/pages/ads/InvalidTraffic.tsx`
+- `admin-dashboard/src/pages/ads/AdsBilling.tsx`
+- `admin-dashboard/src/pages/ads/AdsAnalytics.tsx`
+
+**Checklist**
+- [ ] Admin can suspend campaign/account/creative with actor+reason+scope+expiry/audit.
+- [ ] Inventory limits cannot be raised beyond protected global bounds by ordinary marketing role.
+- [ ] Creative moderation checks misleading content, prohibited content, image quality, destination and accessibility requirements.
+- [ ] Billing adjustment uses credit/debit ledger action, not silent spend edit.
+- [ ] Admin can inspect why a campaign was/was not eligible for sampled request using privacy-safe debug context.
+- [ ] High-blast-radius bid/inventory policy changes use maker-checker/rollout/audit where appropriate.
+
+---
+
+## ADS-2026-014 — Privacy-safe audience targeting [P0/P1]
+
+**Allowed dimensions subject to market/privacy policy**
+- market/city/zone
+- service area
+- new vs returning customer relationship to merchant
+- contextual search/category intent
+- time/daypart
+- app surface/version
+- privacy-safe behavior cohort defined by governed data platform
+
+**Checklist**
+- [ ] Sensitive personal attributes are not exposed in Merchant Ads Manager targeting.
+- [ ] Merchant does not receive individual user identity/list from ad targeting.
+- [ ] Complex audience evaluation happens server-side.
+- [ ] Consent/market policy determines whether personalization signals are usable.
+- [ ] Provide contextual/non-personalized fallback where required.
+- [ ] Ads targeting data obeys retention/deletion rules from global compliance/data tasks.
+
+---
+
+## ADS-2026-015 — Ads experimentation and marketplace health guardrails [P1]
+
+**Integration**
+- `GLOB-2026-008` Experiment platform
+- `GLOB-2026-005` governed event taxonomy
+
+**Experimentable dimensions within protected bounds**
+- sponsored density
+- placement position
+- label wording/presentation if legally equivalent
+- ranking weights
+- pacing
+- bidding strategy UX
+- merchant campaign onboarding
+
+**Guardrail metrics**
+- organic CTR/conversion
+- search abandonment
+- customer retention
+- cancellation/refund
+- merchant concentration/fairness
+- support contacts
+- app performance/crash
+- complaint/hide-ad rate when supported
+
+- [ ] Revenue uplift alone cannot approve a harmful ad-density experiment.
+- [ ] Protected ad-free transaction/emergency zones cannot be overridden by ordinary experiment.
+- [ ] Experiment assignment/exposure recorded separately from billable ad impression.
+
+---
+
+## ADS-2026-016 — Commerce Ads observability / SLO / capacity [P0/P1]
+
+**Metrics**
+- placement request latency/success
+- no-fill rate
+- candidate count
+- eligibility rejection reasons
+- auction latency
+- pacing/budget exhaustion
+- overspend prevented
+- impression/click event loss/replay
+- attribution backlog
+- billing mismatch
+- invalid-traffic rate
+
+**Checklist**
+- [ ] Ads failure degrades to organic content; it must not break Food/Home core discovery.
+- [ ] Ads Service timeout has strict budget and circuit breaker.
+- [ ] Budget/charge path receives stronger consistency than non-critical reporting path.
+- [ ] Load test covers campaign launch peak + high Home/Food request QPS.
+- [ ] Ad delivery outage does not affect checkout/order/payment availability.
+
+---
+
+## ADS-2026-017 — Commerce Ads E2E / concurrency / trust suite [P0 release gate]
+
+**Recommended tests**
+- `backend/ads-service/internal/service/ads_e2e_test.go`
+- `backend/ads-service/internal/service/budget_concurrency_test.go`
+- `android-app-customer/app/src/androidTest/java/com/tembus/customer/ads/SponsoredDiscoveryTest.kt`
+- `android-app-merchant/app/src/androidTest/java/com/tembus/merchant/ads/AdsCampaignFlowTest.kt`
+- `admin-dashboard/e2e/ads-control-plane.spec.ts`
+
+**Mandatory scenarios**
+- [ ] Merchant creates draft → configures placement/audience/budget/schedule → launches → eligible sponsored item appears with label.
+- [ ] Ineligible/out-of-area/closed merchant does not serve despite high bid.
+- [ ] Campaign budget exhausted stops billable delivery.
+- [ ] Concurrent clicks/impressions do not overspend/double-charge.
+- [ ] Pause/end propagates within target SLA.
+- [ ] Expired campaign cannot be served from stale cache.
+- [ ] Invalid traffic is excluded/credited according to policy.
+- [ ] Sponsored Food card cannot modify organic rating/ETA/serviceability.
+- [ ] Organic content remains visible under maximum allowed sponsored density.
+- [ ] Tambal Ban/Towing active flows contain zero ad placement.
+- [ ] Checkout/payment/tracking contain zero ad placement.
+- [ ] Ads service outage falls back to organic discovery without breaking screen.
+- [ ] Attribution uses real server order result and handles cancellation/refund correctly.
+
+---
+
+# DESIGN SYSTEM + ADS IMPLEMENTATION ORDER
+
+1. `DS-2026-001/002/003` — lock design-system governance, semantic tokens and core components.
+2. `DS-2026-011/012` — begin measured adoption and regression gate; remove benchmark-specific internal naming.
+3. `DS-2026-004/006/007` — commerce components + Super-App Home + Food discovery pattern.
+4. `DS-2026-005/008/009/010` — logistics/emergency patterns, media/icon governance and Figma traceability.
+5. Finish Food organic discovery/ranking (`FOOD-2026-014`) before monetization can influence the feed.
+6. `ADS-2026-001/002/003/004` — domain separation, Ads Service, campaign lifecycle and protected inventory rules.
+7. `ADS-2026-005/006/007/008` — eligibility/ranking, budget/pacing, delivery events and disclosure.
+8. `ADS-2026-010/011/014/016` — billing, invalid traffic, privacy and reliability.
+9. `ADS-2026-012/013` — Merchant Ads Manager + Admin Ads Control Plane.
+10. `ADS-2026-009/015` — attribution/reporting and experimentation after trustworthy events exist.
+11. `ADS-2026-017` — full release gate before real paid campaigns.
+
+# DESIGN SYSTEM + ADS FINAL GUARDRAILS
+
+- LANCAR takes **product principles**, not competitor UI implementation or naming.
+- One Design System governs shared primitives; service patterns govern information priority.
+- Food may be visually richer; emergency and transaction surfaces remain calmer and more utility-first.
+- Promo and Sponsored are separate products with separate accounting and disclosure.
+- Experience Service controls where a sponsored-capable slot exists; Ads Service controls which paid candidate may fill it.
+- Organic ranking remains independently measurable and cannot be rewritten as “paid = best”.
+- Paid visibility never falsifies rating, ETA, availability, price, delivery fee or serviceability.
+- Sponsored content is always disclosed and frequency/density capped.
+- Active order, checkout/payment/support/claim and emergency roadside/towing flows remain ad-free.
+- Ads failure always degrades to organic content, never to broken Customer experience.
+- No merchant/Admin campaign configuration may bypass WCAG 2.1 AA, app-version compatibility, privacy, risk, inventory or financial invariants.
