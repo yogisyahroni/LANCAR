@@ -227,8 +227,12 @@ backend/order-service/internal/domain/
 
 > **⚠️ BASELINE REPAIR (2026-08-26):** Modul Android `staging` ternyata TIDAK compile karena sesi refactor sebelumnya menghapus `OnDemandMapScreens.kt` / `PayoutScreens.kt` / `OnDemandHubScreens.kt` (roadmap tandai ✅ "terdistribusi") tapi meninggalkan reference ke symbol yang hilang di `MainScreen.kt` / `MainScreenEffects.kt` / `MainScreenModalScreens.kt` / `WalletScreens.kt` / `ProfileScreens.kt`. Symbol yang di-recreate (dari git history `cfdf1d0`/`852e73a`): `ACTIVE_ON_DEMAND_STATUSES`, `DutyLocation`, `hasForegroundLocationPermission`, `hasBackgroundLocationPermission`, `getLastKnownDutyLocation`, `resolveMaxActiveOnDemandJobs`, `normalizedVehicleGroup`, `PUSH_SYNC_MIN_INTERVAL_MS`, `ON_DEMAND_OFFER_TTL_SECONDS`, extension `Order.communicationCallTargetType/IsDeliveryGroup/ShouldCallRecipient/CallTargetLabel/ChatTitle` → `MainScreenHelpers.kt`; `PayoutAccountPanel`, `EarningsLedgerRow`, `MiniProfileStat` → `ProfileWalletHelpers.kt`. Semua `internal` (private boundary rusak akibat split). Setelah repair: `compileDebugKotlin` harus hijau sebelum lanjut god-file Android berikutnya.
 
-### Task — Split `MainScreen.kt` (1024 baris)
-**Status:** 🟡 **PARTIAL** — 1024 → **939 baris** (target ≤250). Ekstraksi `HomeContent` → `MainHomeContent.kt` + inline `NavigationBar` → `main/MainBottomNav.kt` (keduanya `internal`, same-package). Sisa `MainScreen()` masih monolitik: ~375 baris state wiring (ViewModel collect + MutableState) yang irreducibel + Scaffold + `when(selectedTab)` content router. Per `android-kotlin-refactor` skill pitfall #4, single-giant-composable butuh sub-composable extraction via deps state-holder untuk capai ≤250 — pekerjaan lanjutan.
+### Task — Split `MainScreen.kt` (966 → ≤300 baris)
+**Status:** 🟡 **PARTIAL** — 966 → **812 baris** (target ≤300). Ekstraksi incremental:
+1. ✅ `MainScreenModals.kt` (55 lines) — dialog + error state composable
+2. ✅ `MainScreenActions.kt` (288 lines) — sendSafetyEvent, performDutyToggle, requestDutyToggle, route functions (class-based, no circular dep)
+3. ✅ Delegate 177 lines helper body → 36 lines delegation (compile bersih, commit `0a3f1ed`)
+4. ⏳ Next: extract `when(selectedTab)` content (HomeContent/OrdersContent/WalletContent/ProfileContent duplikat) → `MainScreenTabContent.kt` (target hemat 250+ lines)
 
 **File lama:** `android-app/app/src/main/java/com/tembus/courier/ui/screens/MainScreen.kt`
 
