@@ -228,12 +228,14 @@ backend/order-service/internal/domain/
 > **⚠️ BASELINE REPAIR (2026-08-26):** Modul Android `staging` ternyata TIDAK compile karena sesi refactor sebelumnya menghapus `OnDemandMapScreens.kt` / `PayoutScreens.kt` / `OnDemandHubScreens.kt` (roadmap tandai ✅ "terdistribusi") tapi meninggalkan reference ke symbol yang hilang di `MainScreen.kt` / `MainScreenEffects.kt` / `MainScreenModalScreens.kt` / `WalletScreens.kt` / `ProfileScreens.kt`. Symbol yang di-recreate (dari git history `cfdf1d0`/`852e73a`): `ACTIVE_ON_DEMAND_STATUSES`, `DutyLocation`, `hasForegroundLocationPermission`, `hasBackgroundLocationPermission`, `getLastKnownDutyLocation`, `resolveMaxActiveOnDemandJobs`, `normalizedVehicleGroup`, `PUSH_SYNC_MIN_INTERVAL_MS`, `ON_DEMAND_OFFER_TTL_SECONDS`, extension `Order.communicationCallTargetType/IsDeliveryGroup/ShouldCallRecipient/CallTargetLabel/ChatTitle` → `MainScreenHelpers.kt`; `PayoutAccountPanel`, `EarningsLedgerRow`, `MiniProfileStat` → `ProfileWalletHelpers.kt`. Semua `internal` (private boundary rusak akibat split). Setelah repair: `compileDebugKotlin` harus hijau sebelum lanjut god-file Android berikutnya.
 
 ### Task — Split `MainScreen.kt` (966 → ≤300 baris)
-**Status:** 🟡 **PARTIAL** — 966 → **726 baris** (target ≤300). Ekstraksi incremental (4 file, all compile green):
-1. ✅ `MainScreenModals.kt` (55 lines) — dialog composables (MainScreenLogoutDialog, MainScreenMissingPhotoWarning, MainScreenInlineError)
-2. ✅ `MainScreenActions.kt` (288 lines) — action handler class: sendSafetyEvent, performDutyToggle, requestDutyToggle, route functions
-3. ✅ `MainScreenProfileHelpers.kt` (124 lines) — buildProfileContentParams() eliminates duplicate ProfileContent param list
-4. ✅ `MainScreenTabContent.kt` (219 lines) — reusable tab content router (HomeContent/OrdersContent/WalletContent/ProfileContent)
-5. ⏳ Next: integrate MainScreenTabContent call to replace inline when(selectedTab) block (~200 lines savings)
+**Status:** 🟡 **PARTIAL** — 966 → **654 baris** (target ≤300). 5 file ekstraksi (semua compile green):
+1. ✅ `MainScreenModals.kt` (45 lines) — dialog composables + inline error
+2. ✅ `MainScreenActions.kt` (265 lines) — action handler class + route functions
+3. ✅ `MainScreenProfileHelpers.kt` (124 lines) — buildProfileContentParams() (eliminates 100+ duplicate ProfileContent lines)
+4. ✅ `MainScreenTabContent.kt` (238 lines) — tab content router (HomeContent/OrdersContent/WalletContent/ProfileContent)
+5. ✅ `MainScreenBottomBar.kt` (52 lines) — MainScreenBottomNavBar() (regular courier navigation)
+6. ⏳ Remaining: integrate MainScreenTabContent + MainScreenBottomBar (already done). Extract state collection (~50 lines) + TopAppBar (~50 lines) — blocked by composable lifecycle constraints (state must be inline).
+7. ⏳ Target ≤300 butuh full rewrite (riskante — pernah gagal 13+ error previously)
 
 **File lama:** `android-app/app/src/main/java/com/tembus/courier/ui/screens/MainScreen.kt`
 
