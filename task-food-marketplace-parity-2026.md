@@ -4351,3 +4351,2029 @@ Additional states:
 - Active order, checkout/payment/support/claim and emergency roadside/towing flows remain ad-free.
 - Ads failure always degrades to organic content, never to broken Customer experience.
 - No merchant/Admin campaign configuration may bypass WCAG 2.1 AA, app-version compatibility, privacy, risk, inventory or financial invariants.
+
+---
+
+# PART U — UNIVERSAL SEARCH & DISCOVERY PLATFORM
+
+> **Goal:** satu search/discovery capability untuk seluruh super-app. Query customer tidak boleh dipaksa mengetahui struktur internal service. Search memahami intent, location, serviceability, open/closed state dan relevance, kemudian mengembalikan hasil organik yang terukur. Sponsored integration mengikuti `ADS-*` dan tidak boleh menggantikan organic truth.
+>
+> **Architecture rule:** mulai sebagai bounded module di ownership yang paling tepat bila traffic masih kecil. Extract menjadi `backend/search-service/` hanya ketika indexing scale, query latency, ownership, deployment cadence atau failure domain memang membutuhkan separation. Jangan membuat microservice hanya untuk memenuhi diagram.
+
+## SEARCH-2026-001 — Canonical searchable entity + index contract [P0/P1]
+
+**Recommended new docs/files**
+- `docs/contracts/search-index-2026.md`
+- `backend/search-service/internal/domain/search_document.go` when extraction justified
+- `backend/search-service/internal/domain/search_query.go`
+- `backend/search-service/internal/service/search_service.go`
+
+**Searchable entity types**
+- `service`
+- `merchant`
+- `merchant_branch`
+- `food_item`
+- `food_category`
+- `promo_collection`
+- `address/place` where appropriate
+- `help/support_topic` for universal help search if enabled
+
+**Checklist**
+- [ ] Every document has stable entity id, entity type, market, locale, status, serviceability/geography fields, source version and updated_at.
+- [ ] Search index is derivative; Merchant/Order/Geo/Promo authoritative services remain source of truth.
+- [ ] Search result never fabricates price, ETA, availability, rating or discount.
+- [ ] Index schema is versioned and supports zero-downtime rebuild/migration.
+- [ ] Deleted/suspended/closed entity is removed or made ineligible within documented freshness SLA.
+
+---
+
+## SEARCH-2026-002 — Universal query understanding, autocomplete, typo tolerance and intent routing [P1]
+
+**Recommended files**
+- `backend/search-service/internal/service/query_understanding_service.go`
+- `backend/search-service/internal/service/autocomplete_service.go`
+- `backend/search-service/internal/service/spell_service.go`
+- `android-app-customer/.../ui/search/UniversalSearchScreen.kt`
+- `android-app-customer/.../ui/search/UniversalSearchViewModel.kt`
+
+**Examples**
+- `ayam geprk` → Food / Ayam Geprek candidates
+- `ban bocor` → Tambal Ban intent
+- `towing mobil` → Towing intent
+- `kirim paket bandung` → Paket/Aggregator intent depending origin/destination/context
+
+**Checklist**
+- [ ] Autocomplete supports recent/popular/contextual suggestions without exposing another user's data.
+- [ ] Typo/synonym handling is locale aware.
+- [ ] Query understanding may return service intent + structured filters, but user can still correct result/filter.
+- [ ] Ambiguous query does not silently trigger transaction; it opens discovery/result selection.
+- [ ] Search history can be cleared and follows privacy/retention policy.
+
+---
+
+## SEARCH-2026-003 — Geo/serviceability/open-now eligibility before ranking [P0/P1]
+
+**Integration**
+- `routing-service` / Part Y Geo
+- Merchant operating hours
+- service availability/capability
+
+**Checklist**
+- [ ] User location/address context is resolved once and passed as canonical geo context.
+- [ ] Merchant/service outside service area is excluded or explicitly labeled unavailable, not ranked as actionable.
+- [ ] `open_now` uses authoritative branch hours/temporary closure.
+- [ ] Distance/ETA filters use Geo source and provenance.
+- [ ] Search remains useful without precise location permission through saved/manual area selection.
+
+---
+
+## SEARCH-2026-004 — Organic ranking + personalization with protected truth [P1]
+
+**Recommended files**
+- `backend/search-service/internal/domain/rank_context.go`
+- `backend/search-service/internal/service/organic_ranking_service.go`
+- `backend/search-service/internal/service/ranking_service_test.go`
+
+**Possible signals**
+- text relevance
+- serviceability
+- distance/ETA
+- merchant/item quality
+- open state
+- user context/preferences with consent
+- conversion/engagement signals with bias controls
+- freshness/popularity
+
+**Checklist**
+- [ ] Organic score is independent from paid bid.
+- [ ] Ranking version is logged per result page/request.
+- [ ] Cold-start and new/small merchant treatment documented so historical scale does not permanently lock them out.
+- [ ] Personalization has non-personalized fallback.
+- [ ] Ranking outage falls back to deterministic safe order rather than breaking discovery.
+
+---
+
+## SEARCH-2026-005 — Event-driven indexing, freshness and rebuild [P0/P1]
+
+**Integration**
+- `GLOB-2026-005` canonical event platform
+- Merchant catalog/branch events
+- service configuration events
+
+**Checklist**
+- [ ] Index updates consume versioned domain events or authoritative snapshot sync.
+- [ ] Duplicate/out-of-order index events are safe.
+- [ ] Rebuild can create new index version then atomically switch alias/reference.
+- [ ] Index freshness/staleness metrics per entity type.
+- [ ] Search result revalidates transactional truth before checkout/order.
+
+---
+
+## SEARCH-2026-006 — Sponsored search integration without corrupting organic results [P0/P1]
+
+**Checklist**
+- [ ] Ads Service receives eligible search context, not permission to rewrite organic score.
+- [ ] Sponsored positions are explicitly capped by `ADS-2026-004`.
+- [ ] Sponsored item still passes serviceability/open/relevance/quality gating.
+- [ ] Persistent `Sponsored/Iklan` disclosure.
+- [ ] Organic result set remains independently measurable.
+- [ ] Ads outage returns organic-only search.
+
+---
+
+## SEARCH-2026-007 — Admin search merchandising with bounded authority [P1]
+
+**Recommended Admin pages**
+- `admin-dashboard/src/pages/search/SearchOverview.tsx`
+- `admin-dashboard/src/pages/search/Synonyms.tsx`
+- `admin-dashboard/src/pages/search/MerchandisingRules.tsx`
+- `admin-dashboard/src/pages/search/SearchQuality.tsx`
+
+**Checklist**
+- [ ] Admin can manage synonyms/misspellings/curated collections by market/locale.
+- [ ] Manual pin/boost has reason, scope, expiry and audit.
+- [ ] Admin cannot alter rating/ETA/price truth through merchandising.
+- [ ] Emergency/service intent aliases reviewed separately from marketing keywords.
+- [ ] Search config supports preview/test query before publish.
+
+---
+
+## SEARCH-2026-008 — Search analytics, quality and privacy [P1]
+
+**Metrics**
+- query volume
+- zero-result rate
+- reformulation rate
+- autocomplete acceptance
+- click-through
+- conversion
+- abandonment
+- latency
+- index freshness
+- organic vs sponsored separately
+
+**Checklist**
+- [ ] Raw query retention/minimization policy defined because search text may contain PII.
+- [ ] Sensitive query text is access restricted and not exposed casually to merchants.
+- [ ] Quality dashboard supports market/locale/service breakdown.
+- [ ] Search analytics uses governed event definitions.
+
+---
+
+## SEARCH-2026-009 — Search reliability and E2E gate [P0/P1]
+
+**Mandatory scenarios**
+- [ ] Typo query returns relevant result.
+- [ ] Closed/out-of-area merchant is not actionable.
+- [ ] Index delay does not bypass authoritative checkout validation.
+- [ ] Ranking service failure falls back safely.
+- [ ] Ads failure leaves organic results usable.
+- [ ] Old app can consume backward-compatible result envelope.
+- [ ] Latency/load test uses projected city/multi-city query QPS rather than arbitrary toy traffic.
+
+---
+
+# PART V — COMMUNICATION PLATFORM
+
+> **Goal:** Push, in-app inbox, chat, masked contact, SMS/email/WhatsApp/provider fallback menggunakan satu event/template/delivery contract. Setiap vertical tidak boleh membuat notification retry/preferences/template logic sendiri-sendiri.
+
+## COMM-2026-001 — Canonical communication event and orchestration [P0]
+
+**Recommended new service after inventory if no equivalent exists**
+- `backend/communication-service/cmd/api/main.go`
+- `backend/communication-service/internal/domain/message.go`
+- `backend/communication-service/internal/domain/channel.go`
+- `backend/communication-service/internal/domain/delivery.go`
+- `backend/communication-service/internal/service/orchestrator.go`
+- `backend/communication-service/internal/repository/communication_repository.go`
+- `docs/contracts/communication-platform-2026.md`
+
+**Checklist**
+- [ ] Producer sends semantic event/template reference, not provider-specific FCM/SMS payload.
+- [ ] Message carries recipient, market, locale, category, priority, entity/order reference, template version and correlation id.
+- [ ] Critical transaction communication and marketing communication are separate categories/policies.
+- [ ] Duplicate event cannot spam duplicate customer notification.
+- [ ] Delivery state is observable: queued/sent/delivered/read/failed/suppressed where channel supports it.
+
+---
+
+## COMM-2026-002 — Push token lifecycle + Android/iOS-ready provider abstraction [P0]
+
+**Checklist**
+- [ ] Device token registered per account/device/app/surface/version.
+- [ ] Invalid/uninstalled token retired automatically.
+- [ ] Account switch/logout prevents notification leakage to previous account.
+- [ ] Push provider adapter supports retry and provider error classification.
+- [ ] Push deep link references typed route/entity and snapshot-reconciles before action.
+- [ ] Push is not authoritative state mutation.
+
+---
+
+## COMM-2026-003 — First-class in-app inbox / notification center [P1]
+
+**Recommended client files**
+- customer `.../ui/screens/inbox/InboxScreen.kt`
+- merchant/courier equivalents where needed
+
+**Checklist**
+- [ ] Persistent inbox separates Orders, Safety/Support, Promotions and System messages.
+- [ ] Read/unread state syncs across devices where product requires it.
+- [ ] Expired campaign message can remain historical without offering invalid CTA.
+- [ ] Accessibility/localization/design-system compliant.
+- [ ] Admin can inspect aggregate delivery health without browsing private user inbox content unnecessarily.
+
+---
+
+## COMM-2026-004 — Order-scoped chat + contact masking [P0/P1]
+
+**Recommended new modules/files**
+- `backend/communication-service/internal/domain/conversation.go`
+- `backend/communication-service/internal/service/chat_service.go`
+- customer/courier/merchant chat UI packages
+
+**Checklist**
+- [ ] Conversation is scoped to order/service participants and lifecycle.
+- [ ] AuthZ revalidated for every send/read operation.
+- [ ] File/image attachment size/type/malware policy.
+- [ ] Contact details are masked according to lifecycle/privacy policy.
+- [ ] Block/report/escalate path into Support/Safety.
+- [ ] Retention differs for ordinary chat vs safety evidence where legally justified.
+
+---
+
+## COMM-2026-005 — Masked calling and external channel adapters [P1]
+
+**Channels as market capability**
+- masked telephony
+- SMS
+- email
+- WhatsApp/business messaging where contractually/legal supported
+
+**Checklist**
+- [ ] Provider-specific API/signature/error mapping remains in adapter boundary.
+- [ ] Real phone number disclosure minimized.
+- [ ] Channel availability/cost/consent is market scoped.
+- [ ] Fallback chain is explicit by message category; do not send marketing via transactional fallback without consent.
+- [ ] Provider outage/circuit-breaker does not block core order state.
+
+---
+
+## COMM-2026-006 — Template, localization and content governance [P0/P1]
+
+**Recommended Admin pages**
+- `admin-dashboard/src/pages/communication/Templates.tsx`
+- `admin-dashboard/src/pages/communication/DeliveryHealth.tsx`
+
+**Checklist**
+- [ ] Templates versioned by market/locale/channel/category.
+- [ ] Required variables typed and validated before publish.
+- [ ] Financial/legal/safety copy uses protected approval path.
+- [ ] Marketing templates honor Experience/CRM targeting and consent.
+- [ ] Preview renders channel-specific truncation/format before publish.
+
+---
+
+## COMM-2026-007 — Preferences, consent, quiet hours and critical exceptions [P0/P1]
+
+**Checklist**
+- [ ] Customer can control permitted optional categories/channels where applicable.
+- [ ] Critical order/safety/security messages cannot be silently suppressed by a generic marketing opt-out when legally/product required.
+- [ ] Quiet hours are timezone aware and category aware.
+- [ ] Preference changes audited and propagated quickly.
+- [ ] Consent policy comes from market compliance configuration.
+
+---
+
+## COMM-2026-008 — Delivery retry, receipts, observability and cost [P0]
+
+**Metrics**
+- queue age
+- send latency
+- provider success/error
+- delivery/read rate where available
+- suppression reason
+- retry/dead-letter
+- cost by channel/market/template
+
+**Checklist**
+- [ ] Exponential/retry policy avoids notification storms.
+- [ ] Permanent provider errors do not retry forever.
+- [ ] Dead-letter/replay is idempotent.
+- [ ] Communication outage degrades non-critical messages while preserving order truth.
+
+---
+
+## COMM-2026-009 — Communication privacy, abuse and moderation [P0/P1]
+
+**Checklist**
+- [ ] Rate limit unsolicited chat/contact attempts.
+- [ ] Harassment/spam reporting links to Safety/Reputation.
+- [ ] Merchant/courier cannot export personal contact list from platform messaging.
+- [ ] Attachment/content moderation policy documented.
+- [ ] Support access to conversation is role/need based and audited.
+
+---
+
+## COMM-2026-010 — Cross-channel E2E release gate [P0]
+
+**Mandatory scenarios**
+- [ ] Order event → push + inbox → typed deep link → authoritative snapshot.
+- [ ] Invalid push token retired.
+- [ ] Duplicate event sends one effective message.
+- [ ] Chat unauthorized participant rejected.
+- [ ] Masked call does not expose raw phone number through normal UI/API.
+- [ ] Provider outage follows configured fallback without duplicate spam.
+- [ ] Marketing opt-out suppresses marketing but not required safety/order communication.
+
+---
+
+# PART W — GLOBAL PAYMENT ORCHESTRATION PLATFORM
+
+> **Audited direction:** `backend/payment-service/` already exists with domain/service structure, wallet, disbursement and ledger primitives. Evolve it first. Do not create a second payment source of truth unless scale/ownership requires extraction. Payment orchestration is distinct from order pricing and from merchant/courier settlement accounting.
+
+## PAYPLAT-2026-001 — Provider capability adapter contract [P0]
+
+**Existing service to extend**
+- `backend/payment-service/`
+
+**Recommended new files**
+- `backend/payment-service/internal/domain/provider.go`
+- `backend/payment-service/internal/domain/payment_capability.go`
+- `backend/payment-service/internal/provider/provider_registry.go`
+- `docs/contracts/payment-provider-adapter-2026.md`
+
+**Capabilities as applicable**
+- create/authorize
+- capture
+- void
+- refund
+- tokenized method
+- recurring/mandate where supported
+- 3DS/challenge
+- bank transfer/VA
+- QR/real-time payment
+- webhook
+- chargeback/dispute
+
+**Checklist**
+- [ ] Provider that lacks capability never fakes it.
+- [ ] Credentials/signatures server-side.
+- [ ] Native provider transaction/reference preserved.
+- [ ] Provider adapter has timeout/retry/circuit breaker and contract tests.
+
+---
+
+## PAYPLAT-2026-002 — Canonical Payment Intent state machine [P0]
+
+**Recommended files**
+- `backend/payment-service/internal/domain/payment_intent.go`
+- `backend/payment-service/internal/service/payment_intent_service.go`
+- `backend/payment-service/internal/service/payment_intent_service_test.go`
+
+**Target states**
+`CREATED → REQUIRES_ACTION/PROCESSING → AUTHORIZED/PAID → CAPTURED/SETTLED`
+with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIALLY_REFUNDED`, `REFUNDED`, `CHARGEBACK` as model requires.
+
+**Checklist**
+- [ ] Order references payment intent; client does not set `paid=true`.
+- [ ] Provider webhook and client-return races are idempotent.
+- [ ] Late callback cannot revive cancelled/expired intent incorrectly.
+- [ ] State transitions preserve provider raw status + normalized status.
+
+---
+
+## PAYPLAT-2026-003 — Smart provider routing, health and failover [P0/P1]
+
+**Recommended files**
+- `backend/payment-service/internal/service/provider_router.go`
+- `backend/payment-service/internal/service/provider_health_service.go`
+
+**Possible routing context**
+- market/currency
+- payment method
+- provider capability
+- health/error rate/latency
+- contractual cost
+- risk/compliance
+- merchant/service constraints
+
+**Checklist**
+- [ ] Routing rule version logged per payment intent.
+- [ ] Failover only before irreversible provider mutation unless idempotency/lookup proves safe.
+- [ ] Do not create two successful charges while “retrying another provider”.
+- [ ] Provider health can disable new attempts while callback/reconciliation remains active.
+- [ ] Admin override has scope, reason, expiry and audit.
+
+---
+
+## PAYPLAT-2026-004 — Tokenization, sensitive-card boundary and authentication [P0]
+
+**Checklist**
+- [ ] Raw PAN/card secrets never traverse or persist in systems that can use provider tokenization/hosted field instead.
+- [ ] PCI scope documented per market/provider integration.
+- [ ] 3DS/SCA/challenge state explicitly modeled where applicable.
+- [ ] Saved method tokens scoped to customer/provider/market and revocable.
+- [ ] Logs/telemetry redact sensitive payment payloads.
+
+---
+
+## PAYPLAT-2026-005 — Refund, reversal, chargeback and processor dispute [P0]
+
+> Processor/payment `chargeback/dispute` is a financial rail event. It is distinct from customer support case or carrier claim even if they are linked.
+
+**Checklist**
+- [ ] Partial/full refund uses immutable ledger entries and provider reference.
+- [ ] Duplicate refund request/callback cannot double credit.
+- [ ] Chargeback lifecycle and evidence deadline modeled.
+- [ ] Support/Admin links payment dispute to order/case without editing provider state manually.
+- [ ] Won/lost chargeback reconciles ledger and merchant/platform liability policy.
+
+---
+
+## PAYPLAT-2026-006 — Market payment-method catalog and eligibility [P0]
+
+**Checklist**
+- [ ] Market config determines allowed methods/provider routes/currency/min-max amount.
+- [ ] Customer only sees methods valid for market/order/value/risk context.
+- [ ] Method availability can be remotely disabled without losing active payment recovery.
+- [ ] No hardcoded `Rp` or Indonesian-only method assumption in payment domain.
+
+---
+
+## PAYPLAT-2026-007 — Wallet/credits/escrow-like balances with clear legal boundary [P0/P1]
+
+**Existing files to inspect**
+- `backend/payment-service/internal/domain/wallet.go`
+- `backend/payment-service/internal/service/wallet_service.go`
+- `backend/payment-service/internal/domain/ledger.go`
+
+**Checklist**
+- [ ] Define balance types: customer credit/refund credit, merchant payable, courier earnings, Ads balance, promotional credit as separate ledgers/owners where semantics differ.
+- [ ] Never silently mix promotional credit with withdrawable cash.
+- [ ] Hold/reserve/release/settle operations idempotent and concurrency tested.
+- [ ] Regulatory/licensing implications reviewed before offering stored-value behavior in a new market.
+
+---
+
+## PAYPLAT-2026-008 — Payment reconciliation and provider settlement truth [P0]
+
+**Checklist**
+- [ ] Reconcile internal intent/ledger ↔ provider transaction ↔ provider settlement/report/bank movement where accessible.
+- [ ] Missing/duplicate/mismatched payment enters exception queue.
+- [ ] Reconciliation supports timezone/currency/provider batching differences.
+- [ ] Manual correction is compensating entry, not history overwrite.
+
+---
+
+## PAYPLAT-2026-009 — Admin Payment Operations control plane [P0/P1]
+
+**Recommended Admin pages**
+- `admin-dashboard/src/pages/payments/PaymentHealth.tsx`
+- `admin-dashboard/src/pages/payments/PaymentIntents.tsx`
+- `admin-dashboard/src/pages/payments/ProviderRouting.tsx`
+- `admin-dashboard/src/pages/payments/Chargebacks.tsx`
+- `admin-dashboard/src/pages/payments/PaymentExceptions.tsx`
+
+**Checklist**
+- [ ] Provider health/circuit state visible.
+- [ ] Intent timeline shows internal+provider events.
+- [ ] Refund/void actions permissioned/idempotent/audited.
+- [ ] No ordinary admin can mark payment successful manually.
+- [ ] Routing/config high-impact changes use approval/rollout.
+
+---
+
+## PAYPLAT-2026-010 — Payment chaos/concurrency/E2E release gate [P0]
+
+**Mandatory scenarios**
+- [ ] Duplicate create/callback/refund.
+- [ ] Client closes app during challenge then resumes.
+- [ ] Provider timeout before known result → lookup/reconcile, not blind second charge.
+- [ ] Provider outage routes only when safe.
+- [ ] Late successful callback after customer-visible timeout reconciles correctly.
+- [ ] Multi-currency rounding/reconciliation.
+- [ ] Chargeback and refund cannot double compensate.
+- [ ] Load test covers peak checkout + webhook callbacks.
+
+---
+
+# PART X — TRUST & SAFETY PLATFORM
+
+> **Boundary:** Risk (`GLOB-2026-007`) predicts/controls suspicious behavior. Trust & Safety handles human safety, dangerous incidents, harassment, accident, emergency escalation and evidence. Support (`GLOB-2026-010`) handles general cases. The three systems integrate but are not aliases.
+
+## SAFE-2026-001 — Canonical safety incident + severity model [P0]
+
+**Recommended new module/service**
+- `backend/safety-service/internal/domain/incident.go`
+- `backend/safety-service/internal/domain/severity.go`
+- `backend/safety-service/internal/service/incident_service.go`
+- `docs/contracts/safety-incident-2026.md`
+
+**Checklist**
+- [ ] Incident links actor(s), order/service, location snapshot, time, category, severity, evidence references and escalation state.
+- [ ] Severity drives SLA/notification/escalation, not arbitrary UI color.
+- [ ] Safety state is separate from order state; incident creation does not silently complete/cancel order.
+- [ ] Evidence immutability/retention/access policy defined.
+
+---
+
+## SAFE-2026-002 — Customer Safety Center [P0/P1]
+
+**Customer capability**
+- share active service/trip status
+- emergency contact entry
+- report safety issue
+- contact support/safety
+- SOS/emergency action where market/legal/operationally supported
+
+**Checklist**
+- [ ] Safety Center remains reachable during active order even if service entry is killed/hidden.
+- [ ] Critical action shows exact consequence and does not depend on advertising/remote marketing content.
+- [ ] Location sharing is scoped/expiring/revocable.
+- [ ] Accessibility and accidental-tap protection appropriate to action severity.
+
+---
+
+## SAFE-2026-003 — Courier/technician/operator Safety Center [P0]
+
+**Incident examples**
+- unsafe pickup/dropoff
+- harassment/threat
+- accident
+- vehicle breakdown
+- dangerous item/scene
+- customer/merchant aggression
+- suspected fraud with immediate safety concern
+
+**Checklist**
+- [ ] Courier can report without abandoning authoritative order silently.
+- [ ] Emergency workflow can pause/hold/reassign through explicit order APIs when policy allows.
+- [ ] Safety report cannot be retaliatorily exposed to counterparty.
+- [ ] Offline-safe minimal incident capture where connectivity is poor.
+
+---
+
+## SAFE-2026-004 — Share-trip/service and trusted emergency-contact capability [P1]
+
+**Checklist**
+- [ ] Share token contains minimum necessary route/status/identity data.
+- [ ] Token expires/revokes when service ends or user revokes.
+- [ ] Viewer cannot mutate order/contact participants.
+- [ ] Emergency contacts are user-managed and privacy scoped.
+- [ ] Public share page rate-limited and protected from enumeration.
+
+---
+
+## SAFE-2026-005 — SOS/emergency escalation adapter [P0/P1]
+
+**Checklist**
+- [ ] Market-specific emergency integration/call center/provider is configured, not hardcoded globally.
+- [ ] SOS action records timestamp/location/order/context and delivery/escalation status.
+- [ ] If external emergency integration unavailable, UI presents safe fallback instructions/contact path approved per market.
+- [ ] Never promise emergency response capability that operations cannot actually provide.
+- [ ] Regular support queue cannot silently absorb P0 safety incident without escalation.
+
+---
+
+## SAFE-2026-006 — Contact masking / privacy during live service [P0]
+
+**Checklist**
+- [ ] Phone/contact sharing minimized and lifecycle scoped.
+- [ ] Masked call/chat preferred where available.
+- [ ] Contact access expires after configured recovery window.
+- [ ] Support override to reveal sensitive contact requires elevated policy and audit if ever allowed.
+
+---
+
+## SAFE-2026-007 — Safety evidence, media integrity and retention [P0]
+
+**Checklist**
+- [ ] Photo/video/audio/document metadata binds incident/order/actor/time.
+- [ ] Upload validates type/size/malware and protects object URL.
+- [ ] Original evidence immutable; redacted derivative used for ordinary support where possible.
+- [ ] Legal hold/retention policy market scoped.
+- [ ] Evidence access/download audited.
+
+---
+
+## SAFE-2026-008 — Safety Operations control plane [P0]
+
+**Recommended Admin pages**
+- `admin-dashboard/src/pages/safety/SafetyQueue.tsx`
+- `admin-dashboard/src/pages/safety/SafetyIncident.tsx`
+- `admin-dashboard/src/pages/safety/SafetyAnalytics.tsx`
+
+**Checklist**
+- [ ] Queue sorted by severity/SLA, not just newest first.
+- [ ] Incident timeline includes communications, evidence, order actions and reviewer actions.
+- [ ] Role-based sensitive-data reveal.
+- [ ] Escalate/transfer/resolve/reopen with reasons and audit.
+- [ ] Safety admin cannot directly rewrite payment/order state; uses authorized domain actions.
+
+---
+
+## SAFE-2026-009 — Safety ↔ Risk ↔ Reputation ↔ Support integration [P0/P1]
+
+**Checklist**
+- [ ] Safety incident can emit governed risk/reputation signals after appropriate review.
+- [ ] Unverified allegation is not automatically permanent ban/rating truth.
+- [ ] Risk decision can trigger safety review without exposing secret risk logic to counterparty.
+- [ ] Appeals/review path exists for material enforcement.
+- [ ] Support case references safety incident but ordinary support agents see only necessary data.
+
+---
+
+## SAFE-2026-010 — Safety drill/E2E release gate [P0]
+
+**Mandatory scenarios**
+- [ ] Customer emergency report during active Towing.
+- [ ] Courier unsafe-location report during Paket.
+- [ ] Safety incident survives socket/network reconnect.
+- [ ] Safety evidence access is denied to unauthorized role.
+- [ ] Kill-switch/new-order outage does not remove active Safety Center.
+- [ ] High-severity incident appears in Ops within target SLA.
+- [ ] Market without SOS integration uses approved fallback instead of fake success.
+
+---
+
+# PART Y — GEO & LOCATION INTELLIGENCE PLATFORM
+
+> **Audited direction:** `backend/routing-service/` already exists with routing selector and zone resolver. Extend this service first. Geo platform should abstract provider choice and canonical location truth for all verticals; customer apps must not become provider-specific map clients for transactional decisions.
+
+## GEO-2026-001 — Canonical location/address/place contract [P0]
+
+**Recommended files**
+- `backend/routing-service/internal/domain/location.go`
+- `backend/routing-service/internal/domain/address.go`
+- `docs/contracts/geo-location-2026.md`
+
+**Checklist**
+- [ ] Location separates display address, normalized address components, lat/lng, accuracy/source, place/provider ids, timezone and market.
+- [ ] `0,0` is invalid transactional location.
+- [ ] Coordinates and text address version together; changing one invalidates dependent quote/route where needed.
+- [ ] Provider-native ids are metadata, not canonical primary business key.
+
+---
+
+## GEO-2026-002 — Map/geocode/routing provider adapter + health selection [P0]
+
+**Files to inspect/edit**
+- `backend/routing-service/internal/routing/selector.go`
+- `backend/integration-gateway/internal/provider/maps_factory.go`
+- existing TomTom/maps provider code
+
+**Checklist**
+- [ ] Capability-based providers for geocode/reverse/routing/traffic/map tiles where applicable.
+- [ ] Provider health/latency/quota/circuit state visible.
+- [ ] Failover preserves semantic contract and provider attribution/licensing requirements.
+- [ ] Secret API keys remain server-side unless provider requires client public key with restrictions.
+- [ ] Provider outage never fabricates route/ETA.
+
+---
+
+## GEO-2026-003 — Geocode, reverse geocode and address normalization [P0]
+
+**Checklist**
+- [ ] Manual text search returns candidate list; user confirms ambiguous result.
+- [ ] Reverse geocode preserves pin coordinates even when address label changes.
+- [ ] Market address parser supports local hierarchy/postal conventions.
+- [ ] Provider response cached with TTL/licensing constraints.
+- [ ] Address confidence/source exposed where operationally useful.
+
+---
+
+## GEO-2026-004 — Routing, traffic, ETA source and map matching [P0/P1]
+
+**Checklist**
+- [ ] Route result stores provider/source/version/time and route summary.
+- [ ] Traffic-aware ETA is source/time specific and never treated as permanent fact.
+- [ ] Courier GPS can be map-matched/smoothed without rewriting raw telemetry.
+- [ ] Stale GPS and low-accuracy state explicit.
+- [ ] Route recalculation policy avoids excessive provider cost/rate-limit.
+
+---
+
+## GEO-2026-005 — Service zones/geofence platform [P0]
+
+**Files to inspect/edit**
+- `backend/routing-service/internal/routing/zone_resolver.go`
+- Admin maps/zones pages
+
+**Checklist**
+- [ ] Polygon/multipolygon zones versioned and market scoped.
+- [ ] Service/capability/provider availability can reference zones.
+- [ ] Boundary behavior tested deterministically.
+- [ ] Zone publish has preview/diff/approval/rollback for high-impact changes.
+- [ ] Active order is not invalidated blindly when zone config changes.
+
+---
+
+## GEO-2026-006 — Pickup-pin quality and location confidence [P1]
+
+**Signals**
+- GPS accuracy
+- distance between pin and typed address/place
+- road accessibility
+- building/entrance notes
+- historical successful pickup point where privacy-safe
+
+**Checklist**
+- [ ] Low-confidence pickup prompts user correction before expensive dispatch when practical.
+- [ ] Courier/customer can suggest corrected pickup pin with auditable acceptance flow.
+- [ ] Pin correction can requote/re-route when material.
+- [ ] Do not auto-move customer pin silently based only on map matching.
+
+---
+
+## GEO-2026-007 — Geo privacy, precision and retention [P0]
+
+**Checklist**
+- [ ] Raw continuous courier location retention is purpose/market scoped.
+- [ ] Customer background location uses least privilege.
+- [ ] Analytics receives coarsened/pseudonymous location where exact coordinates unnecessary.
+- [ ] Public tracking/share surfaces reduce precision when full precision is unnecessary.
+- [ ] Admin access to historical exact route/location audited.
+
+---
+
+## GEO-2026-008 — Geo Operations Admin control plane [P0/P1]
+
+**Recommended Admin capability**
+- provider health/quota
+- zones/service areas
+- geocode quality exceptions
+- route/ETA error samples
+- pickup-pin issue queue
+- provider config/version
+
+**Checklist**
+- [ ] Ops can disable degraded provider capability without editing env manually.
+- [ ] Zone changes have impact estimate and affected services/markets.
+- [ ] Admin never edits an active order coordinate through generic zone editor.
+
+---
+
+## GEO-2026-009 — Geo contract/load/chaos gate [P0]
+
+**Mandatory scenarios**
+- [ ] Primary map provider timeout → safe fallback/unavailable state.
+- [ ] Same address normalized consistently across Food/Paket/Towing.
+- [ ] Zone boundary tests.
+- [ ] Stale/low-accuracy GPS displayed correctly.
+- [ ] Provider change does not change canonical client contract.
+- [ ] Load test covers search/geocode/quote/tracking route demand.
+
+---
+
+# PART Z — PRICING, INCENTIVES & MARKETPLACE ECONOMICS
+
+> **Goal:** pricing, courier earnings, merchant commission, customer fees and incentives menjadi versioned policy-as-data dengan financial reconciliation. Dynamic marketplace economics may react to supply/demand, but never become an opaque uncontrolled multiplier.
+
+## ECON-2026-001 — Canonical pricing-policy engine and component taxonomy [P0]
+
+**Recommended files**
+- `backend/order-service/internal/domain/pricing_policy.go`
+- `backend/order-service/internal/service/pricing_policy_service.go`
+- `docs/contracts/marketplace-pricing-2026.md`
+
+**Component examples**
+- base fare
+- distance/time
+- platform/service fee
+- merchant commission
+- courier earning
+- toll/add-on
+- insurance
+- tax
+- promo/subsidy
+- demand/supply adjustment
+
+**Checklist**
+- [ ] Every quote stores rule/policy version.
+- [ ] Customer total, merchant payable, courier earning and platform amount reconcile from explicit components.
+- [ ] No hidden client-calculated fee.
+- [ ] Price component labels/localization configurable per market while financial semantics remain stable.
+
+---
+
+## ECON-2026-002 — Real-time supply/demand marketplace metrics [P1]
+
+**Checklist**
+- [ ] Supply defined from truly available/capable couriers, not all registered accounts.
+- [ ] Demand defined by service/zone/time window with event freshness.
+- [ ] Metrics include match time, acceptance, no-supply, idle time and ETA.
+- [ ] Delayed data has staleness indicator and cannot drive extreme pricing silently.
+
+---
+
+## ECON-2026-003 — Bounded dynamic/peak pricing policy [P1]
+
+**Checklist**
+- [ ] Dynamic adjustment has configured floor/ceiling, zone, service, time and market scope.
+- [ ] Rule version and trigger context logged per quote.
+- [ ] Customer sees material price before confirmation; requote required if changed.
+- [ ] Emergency/Towing/Tambal pricing policy reviewed for fairness/consumer protection per market.
+- [ ] Ordinary experiment cannot exceed protected caps.
+
+---
+
+## ECON-2026-004 — Courier earnings model [P0/P1]
+
+**Checklist**
+- [ ] Offer shows estimated earning/components before accept where product policy requires.
+- [ ] Actual earning adjustment is policy driven and auditable.
+- [ ] Cancellation/waiting/toll/return/extra service compensation explicit.
+- [ ] Earnings do not depend on client-computed amount.
+- [ ] Multi-service capability can have different earning rule without code fork.
+
+---
+
+## ECON-2026-005 — Courier incentives, quests, guarantees and supply shaping [P1]
+
+**Recommended module/files**
+- `backend/order-service/internal/domain/incentive.go` or dedicated incentives module when scale requires
+- `admin-dashboard/src/pages/economics/Incentives.tsx`
+
+**Checklist**
+- [ ] Incentive has market/zone/service/cohort/schedule/target/budget/version.
+- [ ] Progress server-authoritative and replay-safe.
+- [ ] Budget liability reserved/reconciled.
+- [ ] Fraud/collusion/self-order protection.
+- [ ] Incentive cannot force unsafe driving or impossible completion target.
+
+---
+
+## ECON-2026-006 — Merchant commission and commercial contract policy [P1]
+
+**Checklist**
+- [ ] Commission/fee contract versioned by merchant/market/service/effective date.
+- [ ] Food order settlement stores applied commercial terms.
+- [ ] Ads spend remains separate from commission.
+- [ ] Manual commercial override requires approved contract/reference and audit.
+- [ ] Historical orders never reprice when merchant contract changes later.
+
+---
+
+## ECON-2026-007 — Customer fee transparency and cancellation economics [P0/P1]
+
+**Checklist**
+- [ ] Quote shows material fees before pay.
+- [ ] Cancellation fee eligibility based on state/time/cost incurred and market policy.
+- [ ] Customer receives reason/breakdown for charged cancellation fee.
+- [ ] Fee waiver/compensation uses audited policy/credit, not silent total overwrite.
+
+---
+
+## ECON-2026-008 — Marketplace fairness and concentration guardrails [P1]
+
+**Metrics**
+- courier earning distribution
+- merchant exposure concentration
+- no-supply zones
+- customer price distribution
+- cancellation/acceptance changes
+- new/small merchant discovery
+
+**Checklist**
+- [ ] Revenue uplift alone cannot approve harmful pricing/incentive experiment.
+- [ ] Monitor extreme outliers by market/zone/service.
+- [ ] Organic merchant discovery remains independent from commercial commission amount.
+- [ ] Pricing policy changes can be rolled back quickly.
+
+---
+
+## ECON-2026-009 — Economics Admin control plane + maker-checker [P0/P1]
+
+**Recommended Admin pages**
+- `admin-dashboard/src/pages/economics/PricingPolicies.tsx`
+- `admin-dashboard/src/pages/economics/SurgePolicies.tsx`
+- `admin-dashboard/src/pages/economics/Incentives.tsx`
+- `admin-dashboard/src/pages/economics/CommissionContracts.tsx`
+- `admin-dashboard/src/pages/economics/UnitEconomics.tsx`
+
+**Checklist**
+- [ ] Draft/preview/simulate/approve/publish/rollback.
+- [ ] Admin sees example quotes and affected market/zone/service before publish.
+- [ ] Protected floor/ceiling cannot be bypassed by ordinary role.
+- [ ] Policy change audit includes business reason.
+
+---
+
+## ECON-2026-010 — Experimentation with financial guardrails [P1]
+
+**Checklist**
+- [ ] Experiment assignment and pricing rule version both recorded.
+- [ ] User/courier treatment remains deterministic during defined quote/order window.
+- [ ] Guardrails include cancellation, ETA, support, courier earnings and margin.
+- [ ] Experiment can be killed without corrupting active quote/order contract.
+
+---
+
+## ECON-2026-011 — Unit economics and financial reconciliation [P0/P1]
+
+**Required decomposition**
+`customer paid → tax/provider fee/promo subsidy → merchant payable → courier payable → carrier payable → Ads/other charges → platform contribution`
+
+**Checklist**
+- [ ] Unit economics computed from ledger truth, not analytics guess.
+- [ ] Contribution metrics by market/service/order cohort have consistent definition.
+- [ ] Negative-margin/outlier orders trace back to exact policy/version/components.
+- [ ] Finance and Product use same financial definitions.
+
+---
+
+## ECON-2026-012 — Pricing/incentive concurrency/E2E gate [P0]
+
+**Mandatory scenarios**
+- [ ] Quote under policy version A remains auditable after version B publish.
+- [ ] Concurrent incentive completion cannot double pay.
+- [ ] Demand signal stale → bounded fallback.
+- [ ] Surge cap enforced under peak load.
+- [ ] Cancellation fee and compensation reconcile.
+- [ ] Merchant commission change does not alter historical settlement.
+
+---
+
+# PART AA — COURIER PLATFORM LIFECYCLE
+
+> **Goal:** Courier Android bukan hanya job receiver. Supply-side lifecycle harus lengkap dari onboarding, identity/vehicle/capability, availability, offers, earnings, safety, quality, suspension sampai appeal. One courier may have multiple capabilities; capability is never inferred from app installation alone.
+
+## COURIER-2026-001 — Canonical courier profile/onboarding state [P0]
+
+**Recommended domain**
+- courier profile ownership in existing backend; create dedicated courier service only if ownership/scale justifies it
+- `docs/contracts/courier-lifecycle-2026.md`
+
+**States**
+`DRAFT → SUBMITTED → VERIFYING → ACTIVE` with `REJECTED`, `NEEDS_UPDATE`, `SUSPENDED`, `DEACTIVATED` as applicable.
+
+**Checklist**
+- [ ] Profile separates identity, contact, market, home/operating zones, capabilities, vehicle and verification status.
+- [ ] Activation is server authoritative.
+- [ ] Required onboarding differs by market/service capability.
+
+---
+
+## COURIER-2026-002 — Identity, document and vehicle verification [P0]
+
+**Checklist**
+- [ ] Document type/expiry/verification source/status modeled.
+- [ ] Vehicle make/model/type/plate/capacity attributes structured.
+- [ ] Expired/revoked document changes eligibility through policy, not client toggle.
+- [ ] Sensitive documents use compliance storage/access/retention controls.
+- [ ] Reverification reminders use Communication platform.
+
+---
+
+## COURIER-2026-003 — Capability certification matrix [P0]
+
+**Capabilities examples**
+- Food
+- Paket On-Demand
+- Tambal Ban motor
+- Tambal Ban mobil
+- Towing motor
+- Towing mobil
+
+**Checklist**
+- [ ] Capability has status, evidence/certification, effective/expiry and market scope.
+- [ ] Matching always checks capability server-side.
+- [ ] UI shows why capability unavailable and remediation path.
+- [ ] Capability can be paused/suspended independently when appropriate.
+
+---
+
+## COURIER-2026-004 — Availability / online / work-state contract [P0]
+
+**Checklist**
+- [ ] Online state separate from active-job state.
+- [ ] Stale heartbeat/location transitions courier to unavailable by policy.
+- [ ] Break/offline/limited capability state explicit.
+- [ ] App restart/network loss snapshot-recovers current job before accepting another.
+- [ ] One courier cannot accept incompatible simultaneous jobs outside batching policy.
+
+---
+
+## COURIER-2026-005 — Offer lifecycle, acceptance and fairness [P0/P1]
+
+**Checklist**
+- [ ] Offer has id/expiry/service/route/earning/proof/capability requirements.
+- [ ] Accept race atomic and idempotent.
+- [ ] Expired offer cannot create ghost assignment.
+- [ ] Offer strategy/rule version logged.
+- [ ] Acceptance/cancellation performance signals do not create unexplained permanent lockout; policy documented.
+
+---
+
+## COURIER-2026-006 — Earnings, wallet, payout and statement [P0]
+
+**Integration**
+- `payment-service`
+- `ECON-*`
+
+**Checklist**
+- [ ] Per-job earning breakdown immutable after settlement except compensating adjustment.
+- [ ] Wallet available/pending/held/withdrawn states explicit.
+- [ ] Payout/disbursement idempotent.
+- [ ] Statement shows order/incentive/adjustment/tax/fee separately.
+- [ ] Courier cannot withdraw promotional/non-withdrawable balance accidentally.
+
+---
+
+## COURIER-2026-007 — Incentives and supply education [P1]
+
+**Checklist**
+- [ ] Incentive progress/readiness shown clearly.
+- [ ] Dynamic educational/operational modules may use App Experience but cannot alter job state.
+- [ ] Zone demand insight labeled estimate and freshness/source indicated.
+- [ ] Gamification does not encourage unsafe driving.
+
+---
+
+## COURIER-2026-008 — Performance/quality scorecard [P1]
+
+**Metrics may include**
+- completion
+- preventable cancellation
+- pickup/delivery SLA
+- proof quality
+- customer/merchant rating
+- safety/support incidents after review
+
+**Checklist**
+- [ ] Metric definition/window visible to courier where used for enforcement.
+- [ ] One anomalous rating does not automatically cause opaque punishment.
+- [ ] Quality score versioned and appealable for material decisions.
+- [ ] Service-specific metrics separated where needed.
+
+---
+
+## COURIER-2026-009 — Suspension, restriction and appeal [P0/P1]
+
+**Checklist**
+- [ ] Enforcement can target account, market or capability with reason/effective period.
+- [ ] Active job safe completion/reassignment policy before immediate suspension where possible.
+- [ ] Courier sees actionable reason category unless disclosure would compromise investigation/security.
+- [ ] Appeal/review timeline audited.
+- [ ] Reinstatement restores only approved capabilities.
+
+---
+
+## COURIER-2026-010 — Courier Support + Safety integration [P0]
+
+**Checklist**
+- [ ] Active-job help routes to correct operational/safety queue.
+- [ ] Courier can report merchant/customer/location/service issue structurally.
+- [ ] Support actions use domain APIs for reassign/cancel/compensation.
+- [ ] Evidence/chat/location references available according to role.
+
+---
+
+## COURIER-2026-011 — Multi-market/localization/working eligibility [P1]
+
+**Checklist**
+- [ ] Courier cannot simply switch country/market when regulatory verification differs.
+- [ ] Market-specific vehicle/document/tax/payout requirements configurable.
+- [ ] Currency/timezone/localized earnings statement correct.
+- [ ] Cross-border working eligibility explicitly modeled if ever supported.
+
+---
+
+## COURIER-2026-012 — Courier lifecycle E2E release gate [P0]
+
+**Mandatory scenarios**
+- [ ] Apply → verify → capability activate → go online → receive eligible offer → complete → earn → withdraw.
+- [ ] Expired document disables only applicable work according to policy.
+- [ ] Wrong vehicle/capability offer rejected server-side.
+- [ ] Offline/restart recovers active job.
+- [ ] Suspension/appeal/reinstatement audited.
+- [ ] Safety incident does not disappear when job state changes.
+
+---
+
+# PART AB — MERCHANT PLATFORM LIFECYCLE
+
+> **Goal:** Merchant Food menjadi complete business platform: KYB, branch/staff, catalog, operating state, orders, finance, Promo, Ads, quality, integrations, suspension dan support. Existing `backend/merchant-service/` remains primary ownership unless a domain genuinely separates.
+
+## MERCH-2026-001 — KYB/onboarding/contract lifecycle [P0/P1]
+
+**Checklist**
+- [ ] Merchant legal profile, owner/operator, market, verification, bank/payout and commercial-contract references structured.
+- [ ] `DRAFT/SUBMITTED/VERIFYING/ACTIVE/REJECTED/SUSPENDED` lifecycle.
+- [ ] Verification requirement market scoped.
+- [ ] Commercial terms have effective version/date.
+- [ ] Activation cannot be self-toggled from Merchant app.
+
+---
+
+## MERCH-2026-002 — Branch + staff/device RBAC [P0/P1]
+
+**Checklist**
+- [ ] Merchant account can own multiple branches.
+- [ ] Staff roles: owner/manager/kitchen/cashier/marketing/finance as appropriate.
+- [ ] Branch/device session permissions server enforced.
+- [ ] Staff removal/revocation propagates promptly.
+- [ ] High-risk bank/payout/config changes require stronger authentication/approval.
+
+---
+
+## MERCH-2026-003 — Catalog quality, inventory and menu governance [P0/P1]
+
+**Checklist**
+- [ ] Item/category/variant/modifier/image/status schemas canonical.
+- [ ] Inventory/sold-out/schedule integrates `FOOD-2026-012/015`.
+- [ ] Invalid/misleading prohibited item moderation path.
+- [ ] Catalog change version/event feeds Search index.
+- [ ] Bulk edit/import has per-row validation and rollback/retry safety.
+
+---
+
+## MERCH-2026-004 — Operating state/readiness capability [P0]
+
+**Checklist**
+- [ ] Open/closed/busy/paused/temp-closed/holiday states distinct.
+- [ ] Busy modifies prep capacity/ETA; Pause stops new orders.
+- [ ] Scheduled state changes timezone aware.
+- [ ] Admin/support override reasoned/audited.
+- [ ] Search/Ads eligibility reacts to authoritative operating state.
+
+---
+
+## MERCH-2026-005 — Settlement, finance statement and bank-account lifecycle [P0]
+
+**Checklist**
+- [ ] Order sales, commission, tax, promo subsidy, refund, Ads spend, adjustment and payout separated.
+- [ ] Bank account change protected by auth/risk/cooldown policy as applicable.
+- [ ] Settlement discrepancy queue.
+- [ ] Historical statement immutable; corrections via adjustment entries.
+- [ ] Multi-currency/market support from `GLOB-2026-002`.
+
+---
+
+## MERCH-2026-006 — Merchant quality / operational score [P1]
+
+**Possible inputs**
+- acceptance/timeout
+- prep accuracy
+- item unavailable
+- customer review
+- refund/cancel
+- safety/policy issues after review
+
+**Checklist**
+- [ ] Quality score is not just star rating.
+- [ ] Metric/version/window documented.
+- [ ] Quality can gate Ads/search eligibility only through explicit policy.
+- [ ] Appeal/review path for material enforcement.
+
+---
+
+## MERCH-2026-007 — Promo / Ads / organic ranking boundary [P0/P1]
+
+**Checklist**
+- [ ] Merchant UI has separate `Promo` and `Iklan` products.
+- [ ] Promo changes financial offer; Ads purchases eligible visibility; organic ranking remains independent.
+- [ ] Ads creative cannot fake discount/ETA/rating.
+- [ ] Merchant sees attributable paid vs organic performance separately.
+
+---
+
+## MERCH-2026-008 — Suspension, policy enforcement and appeal [P0/P1]
+
+**Checklist**
+- [ ] Enforcement scope can be merchant/branch/item/Ads capability.
+- [ ] Active orders have safe fulfillment/cancellation policy before branch deactivation.
+- [ ] Reason/evidence/actor/effective period audited.
+- [ ] Merchant receives remediation/appeal path where appropriate.
+
+---
+
+## MERCH-2026-009 — POS/KDS/integration platform readiness [P1/P2]
+
+**Checklist**
+- [ ] External integration uses capability adapter + idempotency + health.
+- [ ] Catalog/inventory ownership conflict rules explicit.
+- [ ] POS ack failure cannot make customer believe order accepted when merchant never received it.
+- [ ] Integration reconciliation/health visible to Merchant/Admin.
+
+---
+
+## MERCH-2026-010 — Merchant lifecycle E2E release gate [P0/P1]
+
+**Mandatory scenarios**
+- [ ] Onboard → verify → branch setup → catalog → open → receive order → prepare → settle.
+- [ ] Busy/Pause/Search/Ads eligibility consistent.
+- [ ] Staff unauthorized finance action rejected.
+- [ ] Catalog event updates Search without bypassing checkout truth.
+- [ ] Settlement/refund/Ads charges reconcile.
+- [ ] Suspension safely handles active orders and appeal.
+
+---
+
+# PART AC — MOBILE RELIABILITY & RELEASE ENGINEERING
+
+> **Goal:** global marketplace tidak boleh dinilai hanya dari backend. Customer/Courier/Merchant Android harus punya measurable crash, ANR, startup, memory, battery, network, offline, size dan release-quality budgets.
+
+## MOBILE-2026-001 — Mobile performance budgets [P0]
+
+**Recommended docs**
+- `docs/mobile/performance-budgets.md`
+- `docs/mobile/device-support-matrix.md`
+
+**Metrics**
+- crash-free sessions/users
+- ANR rate
+- cold/warm startup
+- frame jank
+- memory peak
+- battery/location cost
+- network bytes/request count
+- APK/AAB/download size
+
+**Checklist**
+- [ ] Budgets defined per app/surface and measured on representative low/mid/high device tiers.
+- [ ] Regression threshold gates release, not dashboard-only observation.
+- [ ] Performance target uses percentile, not only average.
+
+---
+
+## MOBILE-2026-002 — Crash/ANR observability and symbolication [P0]
+
+**Checklist**
+- [ ] Crash/ANR linked to app version, device/OS, market, screen/feature flag/experience revision where safe.
+- [ ] Release artifact has mapping/symbol metadata retained.
+- [ ] PII/secrets excluded from crash logs.
+- [ ] Critical regression can stop staged rollout.
+
+---
+
+## MOBILE-2026-003 — Startup architecture and first-usable-screen budget [P0]
+
+**Checklist**
+- [ ] Startup critical path measured.
+- [ ] Remote config/campaign/analytics do not block first usable screen.
+- [ ] Lazy initialize non-critical SDKs.
+- [ ] Startup offline uses packaged/LKG config.
+- [ ] Startup trace identifies slow dependency.
+
+---
+
+## MOBILE-2026-004 — Battery, location, background work and memory [P0]
+
+**Checklist**
+- [ ] Customer app does not run continuous background location without active justified use.
+- [ ] Courier active-job location frequency adapts to lifecycle/accuracy/battery policy.
+- [ ] Background workers obey OS constraints/backoff.
+- [ ] Large images/maps/animations use bounded memory/cache.
+- [ ] Leak detection/testing in development/CI where practical.
+
+---
+
+## MOBILE-2026-005 — Network resilience/data saver/offline contract [P0]
+
+**Checklist**
+- [ ] API timeout/retry/cancellation policy shared.
+- [ ] Safe GET/snapshot caching separated from mutation queue.
+- [ ] Mutation retry only for idempotent/safe operations.
+- [ ] Data saver reduces campaign/media prefetch.
+- [ ] Slow/offline state has explicit UI and recovery.
+
+---
+
+## MOBILE-2026-006 — App size and modular delivery discipline [P1]
+
+**Checklist**
+- [ ] Track APK/AAB/module size per release.
+- [ ] Remove duplicate icon/image/font/SDK dependencies.
+- [ ] Large optional features evaluated for modular/on-demand delivery if platform supports and complexity justified.
+- [ ] Do not trade transaction reliability for aggressive dynamic code delivery.
+
+---
+
+## MOBILE-2026-007 — Device/OS/form-factor compatibility matrix [P0/P1]
+
+**Checklist**
+- [ ] Define minimum/target Android versions from actual market/device data.
+- [ ] Test low-memory/low-end, mid-range, flagship, tablet/foldable where supported.
+- [ ] Permission behavior across OS versions tested.
+- [ ] Dark/Light/System + dynamic text + rotation/resume/process death scenarios.
+- [ ] Unsupported device gets clear compatibility handling.
+
+---
+
+## MOBILE-2026-008 — Staged store release + rollback/compatibility [P0]
+
+**Checklist**
+- [ ] Internal → alpha/beta → percentage production rollout.
+- [ ] Crash/ANR/payment/create-order guardrails evaluated before increasing percentage.
+- [ ] Backend remains backward compatible during rollout window.
+- [ ] Bad app version can be soft/hard gated according to `APP-2026-015` while preserving active-order/support recovery.
+- [ ] Release notes/artifact/version traceable to commit/config schema.
+
+---
+
+## MOBILE-2026-009 — Client telemetry and privacy-safe performance tracing [P0/P1]
+
+**Checklist**
+- [ ] Screen/API/startup/frame metrics use governed event names.
+- [ ] Trace links client request to backend correlation id where practical.
+- [ ] User content/PII not embedded in metric labels.
+- [ ] High-cardinality dimensions controlled.
+
+---
+
+## MOBILE-2026-010 — Mobile release acceptance suite [P0]
+
+**Mandatory scenarios**
+- [ ] Fresh install/offline launch.
+- [ ] Upgrade from minimum supported prior version.
+- [ ] Process death during active order then recovery.
+- [ ] Network switch/loss during payment/order tracking.
+- [ ] Low-memory/background resume.
+- [ ] Dynamic Experience revision fallback.
+- [ ] Performance budget and accessibility/golden tests green on representative matrix.
+
+---
+
+# PART AD — SECURITY ENGINEERING & SOFTWARE SUPPLY CHAIN
+
+> **Goal:** `SEC-*` transactional controls diperluas menjadi secure software-delivery program. Security harus mencakup secrets, service identity, dependencies, build provenance, container/image, infrastructure, WAF/DDoS, vulnerability management dan incident response.
+
+## SECPLAT-2026-001 — Threat-model program per critical domain [P0]
+
+**Recommended docs**
+- `docs/security/threat-model-order.md`
+- `docs/security/threat-model-payment.md`
+- `docs/security/threat-model-auth.md`
+- `docs/security/threat-model-admin.md`
+- `docs/security/threat-model-provider-webhooks.md`
+
+**Checklist**
+- [ ] Identify assets/trust boundaries/attackers/abuse cases/controls.
+- [ ] Re-review after material architecture/payment/auth/provider changes.
+- [ ] High-risk threat has owner/remediation/test.
+- [ ] Threat model includes insider/admin misuse, not internet attacker only.
+
+---
+
+## SECPLAT-2026-002 — Secrets/KMS/key rotation [P0]
+
+**Checklist**
+- [ ] Production secrets stored in managed secret/KMS mechanism, not repository/env files committed to source.
+- [ ] Provider/payment/webhook keys have owner, rotation schedule and revocation procedure.
+- [ ] Application logs never print secret values.
+- [ ] Rotation can overlap old/new credential safely where provider supports it.
+- [ ] Emergency credential compromise runbook tested.
+
+---
+
+## SECPLAT-2026-003 — Service-to-service identity and least privilege [P0]
+
+**Checklist**
+- [ ] Internal request identity authenticated; network location alone is insufficient trust.
+- [ ] mTLS/workload identity/signed service credentials selected based on infra.
+- [ ] Service scopes restrict actions, especially payment/refund/admin/provider mutation.
+- [ ] Credential lifetime minimized and rotated.
+- [ ] Internal auth failures observable without logging secrets.
+
+---
+
+## SECPLAT-2026-004 — Encryption and data classification enforcement [P0]
+
+**Checklist**
+- [ ] TLS in transit for external/internal sensitive paths.
+- [ ] At-rest encryption for databases/object storage/backups according to data class.
+- [ ] PII/sensitive/financial/safety evidence classification from `GLOB-2026-005` enforced in access/retention.
+- [ ] Backup encryption/key recovery procedure tested.
+
+---
+
+## SECPLAT-2026-005 — SAST/SCA/secrets scanning/SBOM [P0]
+
+**Recommended CI controls**
+- static analysis
+- dependency CVE scanning
+- secret scanning
+- license policy
+- SBOM generation
+
+**Checklist**
+- [ ] Critical/high vulnerability has remediation SLA and exception process.
+- [ ] CI blocks known leaked secret patterns.
+- [ ] SBOM stored per release artifact.
+- [ ] Dependency upgrade test covers customer/merchant/courier/backend critical paths.
+
+---
+
+## SECPLAT-2026-006 — Build provenance, artifact/container signing [P0/P1]
+
+**Checklist**
+- [ ] Production artifact built by controlled CI from traceable commit.
+- [ ] Container/image digest immutable in deployment manifest.
+- [ ] Artifact/image signing or equivalent provenance verification adopted as infrastructure matures.
+- [ ] Deployment does not pull mutable `latest` for critical service.
+- [ ] Rollback artifact remains available and verifiable.
+
+---
+
+## SECPLAT-2026-007 — Edge security, WAF, DDoS and abuse rate limits [P0]
+
+**Checklist**
+- [ ] Public API inventory and rate-limit policy by endpoint/client risk.
+- [ ] OTP/login/search/geocode/quote/tracking/webhook endpoints protected appropriately.
+- [ ] WAF/DDoS controls do not block provider callbacks without tested allow/verification strategy.
+- [ ] Abuse protection has fail-safe for active order/payment recovery.
+
+---
+
+## SECPLAT-2026-008 — Vulnerability management + penetration testing [P0/P1]
+
+**Checklist**
+- [ ] Vulnerability intake, severity, owner, SLA and retest process.
+- [ ] Regular external/internal penetration test before major expansion/payment changes.
+- [ ] Scope includes mobile API, web, admin, auth, payment, provider webhooks.
+- [ ] Security findings tracked to closure with evidence.
+
+---
+
+## SECPLAT-2026-009 — Security incident response [P0]
+
+**Recommended runbook**
+- `docs/runbooks/security-incident.md`
+
+**Checklist**
+- [ ] Severity/classification, incident commander, containment, credential rotation, evidence preservation and communication defined.
+- [ ] Audit logs centralized/immutable enough for investigation.
+- [ ] Data breach/privacy notification obligations mapped per market.
+- [ ] Tabletop drill performed before multi-country launch.
+
+---
+
+## SECPLAT-2026-010 — Privileged Admin/PAM controls [P0]
+
+**Checklist**
+- [ ] Admin high-risk actions require strong authentication/session controls.
+- [ ] Least privilege/RBAC and maker-checker for global finance/config/safety changes.
+- [ ] Break-glass account tightly controlled, alerted and audited.
+- [ ] Privileged session/action logging retention policy.
+- [ ] No shared super-admin credential.
+
+---
+
+## SECPLAT-2026-011 — Compliance/security evidence program [P1]
+
+**Checklist**
+- [ ] Keep evidence for access review, key rotation, vulnerability scan, backup restore, incident drill, change approval and vendor review.
+- [ ] PCI/ISO/SOC or local regulatory program pursued only when business/market requires it; architecture should support evidence without checkbox theater.
+- [ ] Vendor/provider security risk reviewed for payment/maps/logistics/communication critical dependencies.
+
+---
+
+## SECPLAT-2026-012 — Security release gate [P0]
+
+**Checklist**
+- [ ] No unresolved critical vulnerability/secret leak.
+- [ ] AuthZ negative tests green.
+- [ ] Webhook replay/signature tests green.
+- [ ] Dependency/SBOM scan attached to release.
+- [ ] Backup/restore and security incident contact current.
+- [ ] High-risk exception has explicit owner/expiry/approval.
+
+---
+
+# PART AE — REPUTATION, REVIEWS & MODERATION PLATFORM
+
+> **Goal:** star rating bukan satu-satunya trust signal. Customer, courier, merchant and provider quality use contextual, versioned reputation signals. Enforcement must separate unverified allegation, measured performance and reviewed safety/policy findings.
+
+## REP-2026-001 — Canonical cross-actor reputation signal model [P1]
+
+**Recommended files**
+- `backend/reputation-service/internal/domain/signal.go` when extraction justified
+- `backend/reputation-service/internal/domain/reputation_snapshot.go`
+- `docs/contracts/reputation-2026.md`
+
+**Checklist**
+- [ ] Signal has subject, source, service, market, time, confidence/review status and version.
+- [ ] Raw signals immutable; aggregate snapshot recomputable/versioned.
+- [ ] Sensitive safety/risk reason not exposed through public rating.
+
+---
+
+## REP-2026-002 — Multi-dimensional ratings [P1]
+
+**Examples**
+- Food quality vs delivery quality
+- courier professionalism vs delivery condition
+- technician repair quality
+- towing handling/vehicle condition
+
+**Checklist**
+- [ ] Rating tied to completed eligible transaction.
+- [ ] One order cannot submit unlimited duplicate rating.
+- [ ] Rating edit window/version policy explicit.
+- [ ] Public aggregate requires sufficient sample/privacy policy.
+
+---
+
+## REP-2026-003 — Review moderation and merchant response [P1]
+
+**Checklist**
+- [ ] Report review categories and moderation state.
+- [ ] Spam/harassment/PII/prohibited content handling.
+- [ ] Merchant response is clearly identified and cannot edit customer review.
+- [ ] Moderation action reason/audit/appeal where appropriate.
+
+---
+
+## REP-2026-004 — Retaliation, coercion and rating abuse protection [P0/P1]
+
+**Checklist**
+- [ ] Detect reciprocal/coordinated rating abuse where signals justify.
+- [ ] Courier/merchant cannot require a rating before completing service.
+- [ ] Customer cannot use rating threat to demand off-platform compensation without support path.
+- [ ] Suspected abuse feeds Risk/Moderation, not automatic hidden punishment only.
+
+---
+
+## REP-2026-005 — Quality score separate from star rating [P1]
+
+**Checklist**
+- [ ] Merchant/courier quality may combine operational metrics, reviews and verified incidents.
+- [ ] Formula/rule version logged.
+- [ ] Quality score used for Ads/Search/matching only through explicit policy.
+- [ ] Cold-start handling prevents impossible “no history = bad” assumption.
+
+---
+
+## REP-2026-006 — Enforcement and appeal integration [P0/P1]
+
+**Checklist**
+- [ ] Material restriction references reviewed evidence/signal set.
+- [ ] Unverified report can trigger investigation/temporary safety action but is not silently permanent truth.
+- [ ] Appeal records reviewer/outcome/reason.
+- [ ] Reversed enforcement recomputes relevant reputation state.
+
+---
+
+## REP-2026-007 — Admin moderation/control plane [P1]
+
+**Recommended pages**
+- `admin-dashboard/src/pages/reputation/Reviews.tsx`
+- `admin-dashboard/src/pages/reputation/ModerationQueue.tsx`
+- `admin-dashboard/src/pages/reputation/ReputationDebug.tsx`
+
+**Checklist**
+- [ ] Search/filter by actor/order/service/market/status.
+- [ ] Moderation action RBAC/audit.
+- [ ] Privacy-safe view of why aggregate changed.
+- [ ] No direct arbitrary star-rating overwrite by ordinary admin.
+
+---
+
+## REP-2026-008 — Reputation analytics/model governance [P1]
+
+**Checklist**
+- [ ] Monitor score distribution/fairness/drift by market/service.
+- [ ] ML-assisted moderation/ranking has human review/fallback for material enforcement.
+- [ ] Model/rule version and feature provenance logged.
+- [ ] Sensitive/protected attributes excluded unless explicitly lawful/necessary.
+
+---
+
+## REP-2026-009 — Reputation E2E gate [P1]
+
+**Mandatory scenarios**
+- [ ] Completed Food order submits separate food/delivery rating.
+- [ ] Duplicate rating rejected/deduped.
+- [ ] Reported review enters moderation without disappearing silently.
+- [ ] Verified abuse affects quality only through policy/version.
+- [ ] Successful appeal removes/reverses enforcement effect as designed.
+
+---
+
+# PART AF — LOYALTY, CRM, REFERRAL & MEMBERSHIP PLATFORM
+
+> **Goal:** retention/growth menjadi cross-service platform, bukan voucher logic tersebar di Food. Loyalty value, referral liability, membership entitlement and CRM communication must reconcile with Finance, Promo, Risk and Communication.
+
+## CRM-2026-001 — Loyalty account + immutable points/benefit ledger [P1/P2]
+
+**Recommended module/service when product launches**
+- `backend/loyalty-service/internal/domain/account.go`
+- `backend/loyalty-service/internal/domain/ledger.go`
+- `backend/loyalty-service/internal/service/loyalty_service.go`
+
+**Checklist**
+- [ ] Earn/redeem/expire/reverse are ledger entries.
+- [ ] Points/benefits are not confused with withdrawable cash.
+- [ ] Currency-equivalent benefit liability explicit when applicable.
+- [ ] Duplicate order event cannot double earn.
+
+---
+
+## CRM-2026-002 — Cross-service referral program + anti-abuse [P1/P2]
+
+**Checklist**
+- [ ] Referral code/invite attribution immutable after defined rule/window.
+- [ ] Reward conditions server authoritative.
+- [ ] Self-referral/device/payment/address abuse signals integrate Risk.
+- [ ] Reward budget/subsidy reconciled.
+- [ ] Market eligibility and legal copy configurable.
+
+---
+
+## CRM-2026-003 — Membership / subscription entitlement platform [P2]
+
+**Integration**
+- evolves `FOOD-2026-021` into cross-service entitlement
+
+**Checklist**
+- [ ] Membership plan/version/market/currency/billing cycle/benefit catalog.
+- [ ] Benefit eligibility authoritative per order/service.
+- [ ] Free-delivery/subsidy cost attributed correctly.
+- [ ] Cancel/renew/grace/refund states explicit.
+- [ ] Payment failure does not leave ghost entitlement.
+
+---
+
+## CRM-2026-004 — Lifecycle CRM campaign orchestration [P1/P2]
+
+**Campaign examples**
+- onboarding
+- activation
+- repeat purchase
+- win-back
+- service cross-sell
+- merchant/courier education where appropriate
+
+**Checklist**
+- [ ] CRM targeting uses governed non-sensitive segments and consent.
+- [ ] Delivery through Communication Platform.
+- [ ] UI exposure may use Experience Service.
+- [ ] Frequency caps across overlapping campaigns.
+- [ ] Conversion/holdout measured through Experiment/Data platform.
+
+---
+
+## CRM-2026-005 — Voucher/promo budget and stacking policy [P0/P1]
+
+**Checklist**
+- [ ] Define stack/exclusion priority across platform promo, merchant promo, membership, loyalty and referral credit.
+- [ ] Pricing backend calculates final eligible discount.
+- [ ] Budget/quota reservation concurrency safe.
+- [ ] Refund/cancel reverses liability consistently.
+- [ ] Client cannot compose unsupported promo stack.
+
+---
+
+## CRM-2026-006 — Churn/win-back personalization privacy guardrails [P1/P2]
+
+**Checklist**
+- [ ] Churn/propensity score is recommendation signal, not sensitive enforcement.
+- [ ] Consent/personalization policy market scoped.
+- [ ] Non-personalized campaign fallback.
+- [ ] User can control optional marketing communication.
+- [ ] Do not expose inferred user segment to merchant.
+
+---
+
+## CRM-2026-007 — Merchant-funded/co-funded campaign accounting [P1/P2]
+
+**Checklist**
+- [ ] Platform-funded vs merchant-funded vs co-funded amount explicit.
+- [ ] Merchant agreement/budget version referenced.
+- [ ] Promo subsidy separated from Ads spend.
+- [ ] Settlement statement reconciles contribution per order.
+
+---
+
+## CRM-2026-008 — CRM/Loyalty Admin control plane [P1]
+
+**Recommended pages**
+- `admin-dashboard/src/pages/crm/Campaigns.tsx`
+- `admin-dashboard/src/pages/crm/Loyalty.tsx`
+- `admin-dashboard/src/pages/crm/Referrals.tsx`
+- `admin-dashboard/src/pages/crm/Memberships.tsx`
+- `admin-dashboard/src/pages/crm/PromoBudgets.tsx`
+
+**Checklist**
+- [ ] Draft/preview/audience/budget/schedule/approval/stop.
+- [ ] Estimated audience is not guaranteed conversion.
+- [ ] Sensitive targeting dimensions unavailable.
+- [ ] Financial campaign changes maker-checker where material.
+
+---
+
+## CRM-2026-009 — CRM experimentation and incrementality [P2]
+
+**Checklist**
+- [ ] Holdout/control supported for major subsidy campaigns where practical.
+- [ ] Measure incremental orders/revenue, not redeemed coupon only.
+- [ ] Guardrail margin/refund/support/spam complaints.
+- [ ] Experiment cannot bypass promo financial limits.
+
+---
+
+## CRM-2026-010 — Loyalty/referral finance and reconciliation [P1/P2]
+
+**Checklist**
+- [ ] Outstanding loyalty/referral/membership liability measurable.
+- [ ] Earn/redeem/reversal ↔ order/payment/refund reconciliation.
+- [ ] Expiry/breakage accounting policy documented with Finance/legal.
+- [ ] Manual credit uses reasoned ledger adjustment.
+
+---
+
+## CRM-2026-011 — CRM/Loyalty E2E gate [P1/P2]
+
+**Mandatory scenarios**
+- [ ] Qualifying order earns once.
+- [ ] Cancel/refund reverses according to policy.
+- [ ] Referral abuse blocked/reviewed.
+- [ ] Membership benefit applies only while entitlement valid.
+- [ ] Overlapping promo stack respects canonical priority/budget.
+- [ ] Marketing opt-out respected across CRM channels.
+
+---
+
+# PART AG — BLUEPRINT → REALITY: GLOBAL MARKETPLACE EXECUTION GATES
+
+> **Purpose:** memastikan master task ini menghasilkan platform nyata, bukan “architecture checklist theater”. Sebuah capability tidak dianggap selesai hanya karena service/file/diagram dibuat. Production evidence, operations, financial reconciliation, reliability and actual user/courier/merchant journey are required.
+
+## REALITY-2026-001 — Platform capability/ownership registry [P0]
+
+**Recommended docs**
+- `docs/architecture/platform-capability-map.md`
+- `docs/architecture/service-ownership-map.md`
+
+**Checklist**
+- [ ] Map every capability to source-of-truth owner, API/event contract, storage owner, operational owner and dependent surfaces.
+- [ ] Identify duplicate sources of truth before new implementation.
+- [ ] Customer/Merchant/Courier/Admin ownership explicitly included, not backend only.
+- [ ] Critical capability has named on-call/operational responsibility before production.
+
+---
+
+## REALITY-2026-002 — Modular-first / microservice extraction threshold [P0 architecture guardrail]
+
+**Rule**
+Start with clean bounded modules in existing services when ownership and scale permit. Extract to a separate service only when one or more are materially true:
+- independent scaling need
+- independent availability/failure domain
+- separate security/compliance boundary
+- clear team/ownership boundary
+- deployment cadence conflict
+- data/storage model materially independent
+
+**Checklist**
+- [ ] New microservice PR documents why existing service/module is insufficient.
+- [ ] Extraction includes contract, migration, observability, deployment, rollback and ownership plan.
+- [ ] Avoid distributed transaction complexity unless business benefit justifies it.
+- [ ] No service created only because another global company has one.
+
+---
+
+## REALITY-2026-003 — Evidence-based Definition of Done [P0]
+
+**Task may close only with applicable evidence**
+- implementation PR/commit
+- unit/integration/contract tests
+- E2E/staging run
+- migration/backfill evidence
+- dashboard/alert/SLO
+- runbook
+- security/privacy review
+- financial reconciliation evidence
+- design/accessibility acceptance
+- rollback/recovery validation
+
+- [ ] Documentation-only work may close documentation task, but not implementation capability task.
+- [ ] “Endpoint exists” is insufficient if client/ops flow is unwired.
+- [ ] “Screen exists” is insufficient if backend still mocks/fabricates truth.
+
+---
+
+## REALITY-2026-004 — Environment promotion model [P0]
+
+**Target environments**
+`local/dev → integration → staging → pre-production/sandbox-live-like → production`
+
+**Checklist**
+- [ ] Environment config/secrets/provider endpoints isolated.
+- [ ] Production data is not casually copied into lower environment.
+- [ ] Migrations rehearsed on production-like schema volume.
+- [ ] Payment/logistics/maps provider sandbox→production cutover documented.
+- [ ] Feature flags/canary control release independently from code deployment when applicable.
+
+---
+
+## REALITY-2026-005 — Production Readiness Review per critical capability [P0]
+
+**Review questions**
+- owner/on-call?
+- SLO/alerts?
+- capacity?
+- dependency outage behavior?
+- data backup/restore?
+- security/privacy?
+- idempotency/concurrency?
+- financial reconciliation?
+- admin/support recovery?
+- rollback/kill switch?
+
+- [ ] No P0 critical capability launches solely from feature team sign-off.
+- [ ] Review outcome/action owners recorded.
+- [ ] Known risk has explicit acceptance/expiry, not permanent “temporary” workaround.
+
+---
+
+## REALITY-2026-006 — Scale/capacity tiers driven by measured demand [P0/P1]
+
+**Stages**
+- internal/dev traffic
+- closed beta/single area
+- city production
+- multi-city
+- national
+- multi-country
+- multi-region
+
+**Checklist**
+- [ ] Each stage has projected peak QPS/order concurrency/socket/location events/provider callbacks and storage growth.
+- [ ] Load tests use next-stage forecast + safety margin, not arbitrary impressive number.
+- [ ] Database/queue/cache/provider quotas evaluated before stage promotion.
+- [ ] Capacity result includes cost and bottleneck, not pass/fail only.
+
+---
+
+## REALITY-2026-007 — City/market launch control room [P0]
+
+**Required launch views**
+- create-order/payment success
+- courier supply/match/no-supply
+- merchant acceptance/prep
+- ETA/SLA
+- provider health
+- cancellation/refund
+- support/safety queue
+- reconciliation mismatch
+- crash/ANR
+
+**Checklist**
+- [ ] Launch-day owner for Product/Ops/Engineering/Finance/Support/Safety.
+- [ ] Kill switches and rollback owners known.
+- [ ] Metric threshold defines pause/rollback/escalation.
+- [ ] Market launch retrospective updates master blueprint/runbooks.
+
+---
+
+## REALITY-2026-008 — Mandatory failure/operations drills [P0]
+
+**Drills**
+- payment provider outage
+- map provider outage
+- carrier API/webhook outage
+- Redis/queue degradation
+- database failover/restore
+- notification outage
+- bad App Experience revision
+- bad mobile release
+- safety escalation
+- reconciliation mismatch
+
+**Checklist**
+- [ ] Drill produces timestamped evidence, gaps, owner and remediation date.
+- [ ] Re-run after material remediation.
+- [ ] No “we have a runbook” substitute for at least staging/tabletop/production-safe rehearsal according to risk.
+
+---
+
+## REALITY-2026-009 — Cost and unit-economics observability [P1]
+
+**Track by service/market where useful**
+- infra cost
+- maps/geocode cost
+- communication cost
+- payment provider cost
+- carrier integration cost
+- promo subsidy
+- courier incentives
+- support cost proxy
+- contribution margin
+
+**Checklist**
+- [ ] Cost metric linked to actual usage units.
+- [ ] Growth experiment cannot ignore exploding provider/infra cost.
+- [ ] Cost anomaly alerting for unexpected provider/traffic spike.
+- [ ] Financial truth comes from ledger/provider invoice reconciliation where applicable.
+
+---
+
+## REALITY-2026-010 — Quarterly platform maturity scorecard [P1]
+
+**Dimensions**
+- transaction correctness
+- reliability/SRE
+- security/privacy
+- mobile quality
+- marketplace liquidity
+- payment/finance
+- support/safety
+- developer velocity
+- global configuration/compliance
+- cost efficiency
+
+**Checklist**
+- [ ] Score backed by measurable evidence, not feature count.
+- [ ] Red area creates prioritized remediation task.
+- [ ] Benchmark competitors only for capability principles/public expectations; internal maturity target remains LANCAR-defined.
+
+---
+
+## REALITY-2026-011 — No fake completeness gate [P0]
+
+- [ ] A task cannot be marked complete because recommended file exists with stub/TODO.
+- [ ] Mock/static/fake success prohibited from production path.
+- [ ] Admin GUI requirement is not satisfied by raw API/Postman.
+- [ ] “ML-ready” is not satisfied by an empty model-service shell.
+- [ ] “Multi-country” is not satisfied by locale dropdown while currency/tax/payment/compliance remain Indonesia-only.
+- [ ] “Multi-region” is not satisfied by deploying same stateless API twice while data/failover semantics remain undefined.
+
+---
+
+## REALITY-2026-012 — Global marketplace milestone order [P0 program plan]
+
+**Milestone 0 — Transaction truth**
+- CORE P0
+- Paket/Food/Tambal/Towing/Aggregator P0
+- payment/reconciliation/proof/idempotency/state correctness
+
+**Milestone 1 — Indonesia production marketplace**
+- Courier/Merchant lifecycle P0
+- Search/Communication/Geo core
+- Safety/Support
+- mobile reliability/security
+- Admin/Ops control planes
+
+**Milestone 2 — Marketplace optimization**
+- economics/incentives
+- organic ranking/personalization
+- Ads
+- experimentation
+- loyalty/CRM
+- marketplace intelligence
+
+**Milestone 3 — Multi-market platform**
+- market config
+- multi-currency/tax/payment method orchestration
+- compliance/localization
+- provider abstraction
+- market launch gate
+
+**Milestone 4 — Multi-region/global resilience**
+- data residency
+- regional failover
+- global SRE/capacity/chaos
+- developer platform
+- global support/safety operations
+
+- [ ] Do not move to a milestone merely because previous tasks are coded; mandatory release/evidence gates must be green.
+- [ ] Product expansion can run in parallel only where it does not compromise P0 transaction/safety/finance work.
+
+---
+
+# GLOBAL MARKETPLACE PLATFORM IMPLEMENTATION ORDER — CONSOLIDATED
+
+1. Finish **Milestone 0 transaction truth**: CORE + five vertical P0 + Aggregator fake-success/provider truth + payment/reconciliation/proof/idempotency.
+2. Build shared **Geo + Communication + Search baseline**, because almost every super-app experience depends on them.
+3. Complete **Courier + Merchant lifecycle P0**, so marketplace supply is governed rather than treated as screens only.
+4. Complete **Trust & Safety + Support + Security + Mobile Reliability P0** before broad public scale.
+5. Harden **Payment Orchestration** on the existing `backend/payment-service/`; do not fork payment truth.
+6. Implement **Pricing/Economics** with explicit courier/merchant/customer/ledger components.
+7. Finish **Design System + Runtime Experience + Admin GUI + WCAG** so product operations can move safely without app rebuild.
+8. Establish **Organic Search/Discovery quality** before letting Ads materially influence ranking surfaces.
+9. Launch **Commerce Ads** only after inventory, billing, invalid traffic, attribution and organic-health gates are green.
+10. Add **Reputation + Experimentation + Marketplace Intelligence** after governed event data is trustworthy.
+11. Add **Loyalty/CRM/Membership** with finance/risk/communication integration, not isolated voucher tables.
+12. Execute **Multi-market** configuration, money/tax/payment/compliance/localization and market launch drills.
+13. Execute **Multi-region** data residency/failover/capacity/chaos only after real market demand justifies it.
+14. Promote **External Developer API** after internal contracts and operational SLOs are stable.
+15. Use `REALITY-2026-*` evidence gates continuously; architecture is considered real only when production behavior, operations and reconciliation prove it.
+
+# GLOBAL MARKETPLACE PLATFORM FINAL GUARDRAILS
+
+- Build **capabilities**, not competitor clones.
+- Keep one authoritative owner for every business truth.
+- Prefer modular boundaries before premature service extraction.
+- Price, ETA, availability, payment, order state, earnings, provider status and entitlement are always server authoritative.
+- Search, Ads, CRM and Experience may influence discovery/presentation; none may fabricate transactional truth.
+- Safety and active-order recovery outrank growth/Ads/experiments.
+- Payment retry/failover must never create duplicate charge.
+- Courier capability and Merchant operating status are server enforced.
+- Geo provider abstraction must never turn missing route/ETA into invented values.
+- Dynamic/surge pricing is bounded, versioned, explainable enough for support/audit, and financially reconciled.
+- Reputation enforcement distinguishes measured fact, reviewed incident and unverified allegation.
+- Security controls apply to CI/artifacts/infrastructure/admin, not API auth only.
+- Mobile quality is a release gate, not post-launch polish.
+- Multi-country means market config + money + tax + payment + compliance + localization + operations; locale alone is insufficient.
+- Multi-region means real data/failover semantics and drills; duplicate deployments alone are insufficient.
+- No critical task closes without applicable implementation/test/ops/security/financial evidence.
