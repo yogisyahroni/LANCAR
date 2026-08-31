@@ -1562,3 +1562,753 @@ A task is complete only when applicable boxes below are true:
 - Keep `backend/order-service/internal/domain/tambalban.go` shared with Towing until divergence justifies split.
 - Prefer shared quote/idempotency/transition/adjustment services where invariants are genuinely shared.
 - Existing courier Towing flow should be hardened, not discarded.
+
+---
+
+# PART P — INTERNATIONAL / UBER-CLASS PLATFORM READINESS
+
+> **Target:** bagian ini bukan sekadar menambah fitur customer. Tujuannya membuat LANCAR dapat berekspansi lintas negara/region tanpa fork aplikasi atau hardcode market, dan mempunyai control plane, reliability, risk, experimentation, support, data, serta developer surface yang dibutuhkan platform global.
+
+## GLOB-2026-001 — Global market configuration plane [P0]
+
+**Recommended new service/files — create only if no equivalent config service exists**
+- `backend/platform-config-service/cmd/api/main.go`
+- `backend/platform-config-service/internal/domain/market.go`
+- `backend/platform-config-service/internal/domain/market_service_config.go`
+- `backend/platform-config-service/internal/domain/legal_document.go`
+- `backend/platform-config-service/internal/service/market_config_service.go`
+- `backend/platform-config-service/internal/repository/market_config_repository.go`
+- `backend/platform-config-service/internal/handler/market_config_handler.go`
+- `backend/platform-config-service/internal/service/market_config_service_test.go`
+- `admin-dashboard/src/pages/settings/MarketConfiguration.tsx`
+- `database/migrations/<timestamp>_add_market_configuration.sql`
+- `docs/contracts/market-configuration-2026.md`
+
+**Checklist**
+- [ ] Every market has canonical ISO country/region code, currency, default locale, timezone, measurement system, phone/address rules and launch state.
+- [ ] Service availability is config-as-data per market/city; do not fork code for a country.
+- [ ] Payment methods, logistics providers, map providers, tax policy references, insurance policy references and service hours are market scoped.
+- [ ] Legal/privacy/terms document version and effective date are market scoped and auditable.
+- [ ] Market config has version, effective-from, rollback version, actor and approval audit.
+- [ ] Clients receive only public market config; credentials/secrets remain server-side.
+- [ ] Unknown market or incomplete config fails closed for transactional features rather than falling back to Indonesia assumptions.
+
+---
+
+## GLOB-2026-002 — Multi-currency money, tax, FX and settlement model [P0]
+
+**Files to edit**
+- `backend/order-service/internal/domain/pricing.go`
+- `backend/order-service/internal/domain/payment.go`
+- `backend/order-service/internal/domain/ledger.go`
+- `backend/order-service/internal/domain/payout.go`
+- `backend/order-service/internal/service/pricing_service.go`
+- `backend/order-service/internal/service/payment_service.go`
+- `backend/order-service/internal/service/payout_service.go`
+- `backend/order-service/internal/service/reconciliation_service.go`
+- `frontend/src/components/orders/OrderSummary.tsx`
+- `android-app-customer/app/src/main/java/com/tembus/customer/data/model/CustomerModels.kt`
+
+**Recommended new files**
+- `backend/order-service/internal/domain/money.go`
+- `backend/order-service/internal/domain/tax.go`
+- `backend/order-service/internal/domain/fx.go`
+- `backend/order-service/internal/service/tax_service.go`
+- `backend/order-service/internal/service/fx_service.go`
+- `database/migrations/<timestamp>_add_money_currency_and_tax_context.sql`
+
+**Checklist**
+- [ ] Money uses integer minor units/decimal-safe representation with ISO-4217 currency; never binary float for financial truth.
+- [ ] Quote/order/payment/refund/payout/ledger always carry currency explicitly.
+- [ ] Currency exponent/rounding rules are currency-aware.
+- [ ] Cross-currency flows record source amount, target amount, FX rate source, timestamp, spread/fee and locked rate reference.
+- [ ] Tax calculation is jurisdiction-aware and stores tax rule/version used for the transaction.
+- [ ] Settlement/reconciliation never compare amounts from different currencies without explicit conversion context.
+- [ ] Client formatting uses server amount+currency, not hardcoded `Rp`.
+
+---
+
+## GLOB-2026-003 — Global identity, KYC/KYB, consent and compliance boundary [P0]
+
+**Files to edit**
+- `backend/auth-service/`
+- `backend/merchant-service/`
+- courier onboarding/document modules under `android-app/`
+- `admin-dashboard/src/pages/settings/security.tsx`
+
+**Recommended new service/files if no compliance domain exists**
+- `backend/compliance-service/cmd/api/main.go`
+- `backend/compliance-service/internal/domain/compliance_profile.go`
+- `backend/compliance-service/internal/domain/consent.go`
+- `backend/compliance-service/internal/domain/verification_requirement.go`
+- `backend/compliance-service/internal/service/compliance_service.go`
+- `backend/compliance-service/internal/handler/compliance_handler.go`
+- `docs/contracts/compliance-market-policy-2026.md`
+
+**Checklist**
+- [ ] Customer/courier/merchant verification requirements are market/role based.
+- [ ] Consent captures document version, locale, timestamp, actor and purpose.
+- [ ] Data retention/deletion/export rules are market scoped.
+- [ ] Sensitive verification artifacts use least-privilege access and dedicated retention policy.
+- [ ] Launching a new market requires explicit compliance checklist instead of inheriting Indonesian rules silently.
+- [ ] Restricted/regulated service categories can be disabled per market without app rebuild.
+
+---
+
+## GLOB-2026-004 — Multi-region architecture, data residency and disaster recovery [P0]
+
+**Recommended new infra/docs — adapt to existing deployment tooling rather than duplicating it**
+- `infra/regions/README.md`
+- `infra/regions/region-catalog.yaml`
+- `infra/terraform/modules/regional-stack/`
+- `infra/terraform/modules/global-routing/`
+- `infra/terraform/modules/data-replication/`
+- `docs/architecture/multi-region-2026.md`
+- `docs/runbooks/region-failover.md`
+- `docs/runbooks/data-residency.md`
+
+**Checklist**
+- [ ] Define region affinity for user/order/provider data.
+- [ ] Define which datasets may replicate cross-region and which must remain resident.
+- [ ] Define RPO/RTO per domain instead of one global number.
+- [ ] Global routing can stop sending traffic to an unhealthy region.
+- [ ] Queue/event replication semantics are documented for failover and replay.
+- [ ] Regional outage can degrade non-critical features while preserving safe order/payment state.
+- [ ] Disaster recovery drill is exercised, measured and audited.
+- [ ] Failover does not duplicate order, payment, payout, AWB or carrier mutation.
+
+---
+
+## GLOB-2026-005 — Canonical event and data platform [P0/P1]
+
+**Files to edit**
+- `backend/datalake-worker/`
+- analytics/event emission in Order, Merchant, Courier, Payment and Integration Gateway services
+- `admin-dashboard/src/pages/Analytics.tsx`
+
+**Recommended new files**
+- `docs/contracts/event-taxonomy-2026.md`
+- `docs/contracts/pii-classification-2026.md`
+- `backend/datalake-worker/internal/domain/event_envelope.go`
+- `backend/datalake-worker/internal/service/event_validator.go`
+- `backend/datalake-worker/internal/service/event_validator_test.go`
+
+**Checklist**
+- [ ] Canonical event envelope includes event id, type, schema version, occurred_at, produced_at, market, service, actor pseudonymous id, entity id and correlation/trace id.
+- [ ] Event schemas are versioned/backward compatible.
+- [ ] PII classification and retention are explicit per field/event.
+- [ ] Duplicate/replayed events are identifiable.
+- [ ] Analytics definitions for GMV, completed order, cancellation, refund, active courier/merchant and SLA are globally consistent.
+- [ ] ML/experimentation consumes governed events, not ad-hoc production DB queries.
+
+---
+
+## GLOB-2026-006 — Marketplace intelligence: dispatch, ETA, supply-demand and batching [P1]
+
+**Files to edit**
+- `backend/order-service/internal/service/matching_service.go`
+- `backend/order-service/internal/service/order_matching.go`
+- `backend/order-service/internal/service/tracking_service.go`
+- `backend/order-service/internal/repository/maps_repository.go`
+
+**Recommended new service/files when data volume justifies separation**
+- `backend/marketplace-intelligence-service/cmd/api/main.go`
+- `backend/marketplace-intelligence-service/internal/domain/dispatch_candidate.go`
+- `backend/marketplace-intelligence-service/internal/domain/eta_prediction.go`
+- `backend/marketplace-intelligence-service/internal/service/dispatch_service.go`
+- `backend/marketplace-intelligence-service/internal/service/eta_service.go`
+- `backend/marketplace-intelligence-service/internal/service/demand_forecast_service.go`
+- `backend/marketplace-intelligence-service/internal/service/dispatch_service_test.go`
+
+**Checklist**
+- [ ] Dispatch candidate scoring can consider ETA, distance, vehicle/capability, workload, acceptance probability, completion probability and marketplace constraints.
+- [ ] Food matching can combine merchant prep readiness, courier arrival prediction, waiting risk and batching compatibility.
+- [ ] ETA model separates prediction from authoritative order state and exposes confidence/source.
+- [ ] Model/rule version is logged per decision for audit and experiment analysis.
+- [ ] Cold-start/rule-based fallback exists when ML service is unavailable.
+- [ ] Intelligence service failure cannot corrupt order state; safe deterministic fallback exists.
+
+---
+
+## GLOB-2026-007 — Central fraud/risk decision engine [P0/P1]
+
+**Recommended new service/files**
+- `backend/risk-service/cmd/api/main.go`
+- `backend/risk-service/internal/domain/risk_signal.go`
+- `backend/risk-service/internal/domain/risk_decision.go`
+- `backend/risk-service/internal/service/risk_service.go`
+- `backend/risk-service/internal/service/rule_engine.go`
+- `backend/risk-service/internal/repository/risk_repository.go`
+- `backend/risk-service/internal/handler/risk_handler.go`
+- `admin-dashboard/src/pages/RiskReview.tsx`
+- `database/migrations/<timestamp>_add_risk_decisions.sql`
+
+**Checklist**
+- [ ] Risk signals can cover account/device/payment/promo/GPS/handoff/refund/claim/provider/collusion patterns.
+- [ ] Standard decisions: `ALLOW`, `CHALLENGE`, `REVIEW`, `HOLD`, `BLOCK` with reason codes.
+- [ ] Transactional service asks risk engine at defined checkpoints rather than scattering fraud if-statements.
+- [ ] Risk timeout has explicit fail-open/fail-closed policy per operation and market.
+- [ ] Manual review records reviewer, evidence, decision and reason.
+- [ ] Sensitive attributes are not used for targeting/decision unless legally justified and explicitly governed.
+
+---
+
+## GLOB-2026-008 — Experimentation and feature-flag platform [P1]
+
+**Recommended new service/files**
+- `backend/experiment-service/cmd/api/main.go`
+- `backend/experiment-service/internal/domain/experiment.go`
+- `backend/experiment-service/internal/domain/assignment.go`
+- `backend/experiment-service/internal/service/assignment_service.go`
+- `backend/experiment-service/internal/handler/experiment_handler.go`
+- `admin-dashboard/src/pages/Experiments.tsx`
+- `database/migrations/<timestamp>_add_experiments_and_assignments.sql`
+
+**Checklist**
+- [ ] Deterministic user/entity assignment with stable bucketing.
+- [ ] Target by market, city, app version, service, user cohort and safe product attributes.
+- [ ] Mutually-exclusive experiment namespaces supported where needed.
+- [ ] Exposure event is recorded only when user actually sees/uses treatment.
+- [ ] Guardrail metrics include crash/error, cancellation, refund, ETA/SLA and support contact—not conversion alone.
+- [ ] Kill switch can immediately disable a treatment.
+- [ ] Experiment config cannot change financial truth or bypass server validation.
+
+---
+
+## GLOB-2026-009 — SRE, capacity, chaos and error-budget program [P0]
+
+**Recommended new docs/config**
+- `docs/sre/service-catalog.md`
+- `docs/sre/slo-catalog.md`
+- `docs/sre/error-budget-policy.md`
+- `docs/runbooks/incident-command.md`
+- `docs/runbooks/payment-provider-outage.md`
+- `docs/runbooks/maps-provider-outage.md`
+- `docs/runbooks/logistics-provider-outage.md`
+- `docs/runbooks/database-failover.md`
+- `tests/load/`
+- `tests/chaos/`
+
+**Checklist**
+- [ ] Every critical service has owner, dependency map, SLI/SLO and alerting threshold.
+- [ ] Capacity model covers quote, order create, tracking, socket, payment callback and provider webhook peaks.
+- [ ] Backpressure/load shedding protects transactional writes under overload.
+- [ ] Circuit breaker/bulkhead/retry budgets prevent cascading failure.
+- [ ] Chaos tests cover Redis, database replica, queue, maps, payment, carrier and notification failures.
+- [ ] Error budget influences release pace for unstable critical services.
+- [ ] Production incident has timeline, owner, severity, communication and postmortem workflow.
+
+---
+
+## GLOB-2026-010 — First-class customer/merchant/courier support case platform [P0]
+
+**Recommended new service/files**
+- `backend/support-service/cmd/api/main.go`
+- `backend/support-service/internal/domain/case.go`
+- `backend/support-service/internal/domain/case_action.go`
+- `backend/support-service/internal/service/case_service.go`
+- `backend/support-service/internal/handler/case_handler.go`
+- `admin-dashboard/src/pages/Cases.tsx`
+- `admin-dashboard/src/components/CaseTimeline.tsx`
+- `database/migrations/<timestamp>_add_support_cases.sql`
+
+**Checklist**
+- [ ] Case links order, payment, refund, courier, merchant, carrier, proof, claim and reconciliation references without copying inconsistent state.
+- [ ] Suggested/allowed actions are policy-driven by service/state/market.
+- [ ] Support can resolve common edge cases without direct DB/SQL mutation.
+- [ ] Compensation/refund actions call audited financial APIs and remain idempotent.
+- [ ] SLA, ownership, escalation and reopen history are tracked.
+- [ ] Sensitive proof/payment data is role restricted.
+
+---
+
+## GLOB-2026-011 — External developer API + webhook platform [P1]
+
+**Recommended new files/service boundary**
+- `backend/api-gateway/` for public routing/auth enforcement
+- `backend/developer-platform-service/cmd/api/main.go`
+- `backend/developer-platform-service/internal/domain/api_client.go`
+- `backend/developer-platform-service/internal/domain/webhook_subscription.go`
+- `backend/developer-platform-service/internal/service/webhook_delivery_service.go`
+- `backend/developer-platform-service/internal/handler/developer_handler.go`
+- `docs/developer/openapi.yaml`
+- `docs/developer/webhooks.md`
+- `docs/developer/idempotency.md`
+- `docs/developer/sandbox.md`
+
+**Checklist**
+- [ ] External clients use scoped credentials/OAuth-equivalent, not internal API keys.
+- [ ] Public API versioning/backward compatibility policy documented.
+- [ ] Quote/create/get/cancel/track operations use idempotency and ownership scopes.
+- [ ] Webhooks are signed, replay-protected, retryable and have delivery logs.
+- [ ] Sandbox/test environment uses non-financial/provider-safe behavior.
+- [ ] Rate limits/quotas and abuse controls per client.
+- [ ] Developer API cannot bypass normal pricing/payment/risk/state invariants.
+
+---
+
+## GLOB-2026-012 — Global localization, RTL and accessibility system [P1]
+
+**Files to edit**
+- Android string/resources under customer, merchant and courier apps
+- customer/merchant/courier formatting utilities
+- `frontend/` localization setup
+
+**Recommended new docs/files**
+- `docs/product/localization-guidelines.md`
+- `docs/product/translation-key-governance.md`
+
+**Checklist**
+- [ ] Core UI uses localization keys, not hardcoded Indonesian/English strings.
+- [ ] Date/time/timezone/currency/number/address/phone formatting is locale aware.
+- [ ] Layout is tested for long translations and RTL before entering RTL markets.
+- [ ] Dynamic marketing content supports locale fallback chain.
+- [ ] Critical legal/financial copy is versioned and market approved.
+- [ ] Accessibility baseline remains valid after dynamic content/localization.
+
+---
+
+## GLOB-2026-013 — API/app compatibility and global release governance [P0]
+
+**Recommended new docs/tests**
+- `docs/architecture/api-versioning-policy.md`
+- `docs/release/mobile-compatibility-matrix.md`
+- `tests/contract/backward-compatibility/`
+
+**Checklist**
+- [ ] Backend supports documented minimum client versions during rollout window.
+- [ ] Additive API changes are preferred; breaking changes require explicit version/migration path.
+- [ ] Server knows app version/schema capability before returning unsupported dynamic features.
+- [ ] Old app remains safely usable or receives explicit upgrade-required state; it must not silently misprice/misrender an order.
+- [ ] Country launch has rollout/canary/rollback plan independent from mobile store release cadence.
+
+---
+
+## GLOB-2026-014 — Market launch readiness gate [P0 release gate]
+
+**Recommended new docs**
+- `docs/runbooks/launch-new-market.md`
+- `docs/checklists/market-launch-readiness.md`
+
+**Checklist**
+- [ ] Market config/compliance/payment/maps/providers/tax/support/on-call/data residency complete.
+- [ ] Localized customer/courier/merchant flows pass E2E.
+- [ ] Currency/tax/refund/payout reconciliation passes.
+- [ ] Provider and payment sandbox/live credential cutover rehearsed.
+- [ ] Load/capacity and region-failover checks pass.
+- [ ] Kill switches and rollback tested before launch.
+- [ ] Market can be disabled/degraded without shipping a new app binary.
+
+---
+
+# PART Q — RUNTIME-CONFIGURABLE / SERVER-DRIVEN APPS
+
+> **Goal:** marketing, product dan operations dapat mengubah non-code experience seperti banner, promo, urutan section, visibility service, campaign intro, copy, CTA, deep link, theme token tertentu dan rollout audience **tanpa build/release app baru**, tetapi transaction core tetap native + server-authoritative.
+>
+> **Hard boundary:** remote config **bukan remote-code delivery**. Jangan mengirim executable code/JavaScript untuk mengganti native transaction logic. Jangan memakai arbitrary WebView/HTML sebagai cara untuk melewati Play Store/App Store review.
+
+## APP-2026-001 — Experience Configuration Service / control plane [P0]
+
+**Recommended new service/files — use existing config/CMS service if equivalent already exists**
+- `backend/experience-service/cmd/api/main.go`
+- `backend/experience-service/internal/domain/experience_manifest.go`
+- `backend/experience-service/internal/domain/experience_section.go`
+- `backend/experience-service/internal/domain/experience_targeting.go`
+- `backend/experience-service/internal/domain/experience_asset.go`
+- `backend/experience-service/internal/service/experience_service.go`
+- `backend/experience-service/internal/service/publish_service.go`
+- `backend/experience-service/internal/repository/experience_repository.go`
+- `backend/experience-service/internal/handler/experience_handler.go`
+- `backend/experience-service/internal/service/experience_service_test.go`
+- `database/migrations/<timestamp>_add_experience_manifests.sql`
+- `docs/contracts/app-experience-schema-2026.md`
+
+**Manifest must support**
+- `manifest_id`
+- `schema_version`
+- `revision`
+- `market/country`
+- `locale`
+- `surface` (`customer_android`, `customer_web`, `merchant_android`, `courier_android`)
+- `min_app_version`
+- optional `max_app_version`
+- `starts_at/ends_at`
+- `ttl/cache_policy`
+- `targeting/experiment reference`
+- `sections/components`
+- `asset references`
+- `checksum/signature`
+- `published_at/published_by`
+
+**Checklist**
+- [ ] Draft/preview/publish/rollback lifecycle.
+- [ ] Immutable published revision for audit.
+- [ ] Client receives one resolved manifest appropriate to market/locale/version/cohort.
+- [ ] Server rejects invalid component/property combinations before publication.
+- [ ] Publish does not allow remote mutation of order/payment/state-machine rules.
+
+---
+
+## APP-2026-002 — Customer Android runtime-config SDK + last-known-good cache [P0]
+
+**Files to edit**
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceGridMenu.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt`
+
+**Recommended new files**
+- `android-app-customer/app/src/main/java/com/tembus/customer/data/config/ExperienceConfigApi.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/data/config/ExperienceConfigRepository.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/data/config/ExperienceConfigStore.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/data/config/model/ExperienceManifest.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/domain/config/ExperienceConfigManager.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/ExperienceRenderer.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/AppStartupCoordinator.kt`
+- `android-app-customer/app/src/test/java/com/tembus/customer/config/ExperienceConfigManagerTest.kt`
+
+**Checklist**
+- [ ] App starts from packaged defaults or last-known-good config; startup never waits indefinitely for network config.
+- [ ] Refresh config asynchronously using ETag/revision/TTL.
+- [ ] Cache is atomic: partially downloaded manifest/assets never replace last-known-good revision.
+- [ ] Unsupported schema/component/property is ignored or falls back safely, never crashes home.
+- [ ] Config is scoped by market/locale/app version/surface.
+- [ ] Logout/account switch clears user-targeted assignment data that must not leak between accounts.
+
+---
+
+## APP-2026-003 — Server-driven home composition [P0/P1]
+
+**Files to edit**
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceGridMenu.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceIcons.kt`
+
+**Recommended new files**
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/DynamicHomeRenderer.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/components/DynamicHeroBanner.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/components/DynamicPromoCarousel.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/components/DynamicServiceGrid.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/components/DynamicInfoCard.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/components/DynamicQuickActions.kt`
+
+**Initial safe component whitelist**
+- `hero_banner`
+- `campaign_strip`
+- `promo_carousel`
+- `service_grid`
+- `quick_actions`
+- `info_card`
+- `notice`
+- `spacer`
+
+**Checklist**
+- [ ] Backend can reorder/hide/show configured home sections without binary update.
+- [ ] Service card visibility/order/subtitle/badge can be market/campaign targeted while actual service availability is revalidated by authoritative backend.
+- [ ] Renderer only accepts precompiled whitelisted native component types.
+- [ ] Unknown component type is skipped with telemetry.
+- [ ] Remote config may change presentation, not price/order eligibility truth.
+- [ ] Packaged safe home remains available if remote experience service is down.
+
+---
+
+## APP-2026-004 — Dynamic campaign intro / splash-like screen without rebuild [P1]
+
+> **Platform limitation:** Android/iOS native OS launch splash must remain a local installed resource/theme and cannot depend on arbitrary remote network content at process start. The flexible solution is a **campaign intro layer immediately after native splash**, driven from cached remote config/assets.
+
+**Files to edit**
+- customer app launch/navigation flow under `android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/`
+- existing Android launch theme/splash resources under `android-app-customer/app/src/main/res/`
+
+**Recommended new files**
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/CampaignIntroScreen.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/CampaignIntroViewModel.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/domain/config/StartupCampaignPolicy.kt`
+
+**Checklist**
+- [ ] Native OS splash remains minimal/static/local for reliable startup.
+- [ ] Optional campaign intro can use remotely managed image/animation asset and localized copy from cached manifest.
+- [ ] Network fetch does not block first usable app screen; show campaign only when config+asset are already valid/cached or quickly available by policy.
+- [ ] Campaign supports start/end time, market, locale, cohort, min app version, frequency cap, max impressions and dismiss/skip policy.
+- [ ] Missing/expired/corrupt asset skips campaign and proceeds normally.
+- [ ] Campaign can be remotely killed instantly.
+- [ ] Next-campaign assets can be prefetched so a new promo can appear on subsequent launch without app update.
+
+---
+
+## APP-2026-005 — Dynamic header banner, promo, CTA and deep-link actions [P0]
+
+**Recommended new files**
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/components/DynamicHeaderBanner.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/experience/components/DynamicPromoCard.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RemoteDeepLinkResolver.kt`
+- `android-app-customer/app/src/test/java/com/tembus/customer/navigation/RemoteDeepLinkResolverTest.kt`
+
+**Checklist**
+- [ ] Banner image/copy/badge/CTA/deep-link can change remotely.
+- [ ] Internal destination uses allowlisted typed route, not arbitrary string execution.
+- [ ] External URL uses explicit domain allowlist and safe browser handoff.
+- [ ] Promo banner eligibility is presentation-only; final promo/discount is validated by promo/pricing backend.
+- [ ] Banner supports impression/click analytics with manifest revision + campaign id.
+- [ ] Broken target cannot trap/crash user; fallback action is no-op or safe landing page.
+
+---
+
+## APP-2026-006 — Remote design tokens with hard safety bounds [P1]
+
+**Recommended new files**
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/theme/RuntimeDesignTokens.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/theme/RuntimeThemeProvider.kt`
+- `docs/contracts/runtime-design-tokens.md`
+
+**Allowed examples**
+- campaign accent/background token
+- banner/card corner preset
+- spacing preset
+- campaign illustration asset
+- badge style preset
+
+**Checklist**
+- [ ] Core brand/accessibility tokens have safe packaged defaults.
+- [ ] Remote values are constrained by enum/range/contrast validation, not arbitrary styling instructions.
+- [ ] Critical transaction screens may opt out of campaign theming.
+- [ ] Unsupported theme token falls back safely.
+- [ ] Do not remotely download executable UI code or arbitrary font binaries.
+
+---
+
+## APP-2026-007 — Feature flags, kill switches and staged rollout [P0]
+
+**Files to edit**
+- experience/config service from `APP-2026-001`
+- relevant service availability/config endpoints
+- Customer Android, Merchant Android, Courier Android and Customer Web entry points
+
+**Checklist**
+- [ ] Flags support `off`, `on`, percentage rollout, market/city, app version and cohort conditions.
+- [ ] Emergency kill switch can hide/disable non-safe entry point without waiting for store release.
+- [ ] Transaction already in progress is not abandoned because its entry flag turns off; active-order recovery remains accessible.
+- [ ] Flag evaluation revision is logged for debugging/experiments.
+- [ ] Financial/security invariant cannot be disabled by a marketing feature flag.
+- [ ] High-blast-radius flags require elevated approval and rollback plan.
+
+---
+
+## APP-2026-008 — Safe audience targeting and scheduling [P0/P1]
+
+**Checklist**
+- [ ] Targeting may use market, city/zone, locale, app version, service usage cohort, new/existing user, merchant/courier role and explicit experiment assignment.
+- [ ] Targeting rules have start/end timezone-aware schedule.
+- [ ] Do not use sensitive personal attributes for marketing targeting.
+- [ ] Server resolves complex targeting; client should not receive unnecessary audience-rule data.
+- [ ] Preview tool can simulate market/version/cohort before publish.
+- [ ] Default/fallback audience always defined.
+
+---
+
+## APP-2026-009 — Admin CMS: draft → preview → approve → publish → rollback [P0]
+
+**Recommended new admin files**
+- `admin-dashboard/src/pages/AppExperience.tsx`
+- `admin-dashboard/src/pages/AppExperienceEditor.tsx`
+- `admin-dashboard/src/components/experience/ExperiencePreview.tsx`
+- `admin-dashboard/src/components/experience/TargetingEditor.tsx`
+- `admin-dashboard/src/components/experience/AssetPicker.tsx`
+- `admin-dashboard/src/components/experience/RevisionHistory.tsx`
+
+**Checklist**
+- [ ] Non-engineering user can create/schedule banner/campaign/home layout from approved component schema.
+- [ ] Preview customer Android/web surfaces for selected market/locale/app version.
+- [ ] Publish validation blocks missing asset, invalid deeplink, unsupported schema, bad schedule and inaccessible contrast.
+- [ ] Revision history shows who changed what and supports one-click rollback to known-good revision.
+- [ ] Two-step approval available for global/high-impact campaign.
+- [ ] Publish can be canaried to internal/test cohort before public rollout.
+
+---
+
+## APP-2026-010 — Asset CDN, integrity, prefetch and lifecycle [P0]
+
+**Recommended new files/service ownership**
+- `backend/experience-service/internal/service/asset_service.go`
+- `backend/experience-service/internal/domain/asset.go`
+- `docs/runbooks/experience-asset-publishing.md`
+
+**Checklist**
+- [ ] Remote image/animation assets use HTTPS CDN/object storage; app never needs secret bucket credential.
+- [ ] Manifest records content type, dimensions/aspect expectation, size limit, checksum/version and expiry/cache policy.
+- [ ] Client validates content type/size and uses disk cache with bounded eviction.
+- [ ] Prefetch only eligible upcoming assets; do not waste bandwidth downloading every campaign globally.
+- [ ] Deleted/rolled-back campaign does not break old cached manifest; asset lifecycle respects manifest retention window.
+- [ ] Low-bandwidth/data-saver fallback uses lighter asset or no campaign.
+
+---
+
+## APP-2026-011 — Remote-config security boundary / no remote code [P0]
+
+**Files to edit**
+- `backend/experience-service/`
+- customer config renderer/deep-link resolver
+- `backend/api-gateway/` validation/rate-limit boundary as applicable
+
+**Checklist**
+- [ ] Manifest has strict schema and maximum payload/component/asset limits.
+- [ ] Payload/cache can be integrity-checked by revision/hash/signature strategy.
+- [ ] Remote config never contains secrets, arbitrary JavaScript, SQL, shell, reflection target or executable bytecode.
+- [ ] Arbitrary WebView HTML is not allowed for core order/payment/identity flows.
+- [ ] Deep links and external domains are allowlisted.
+- [ ] Server sanitizes user-visible remote text/URLs and prevents unsafe schemes.
+- [ ] Compromised CMS account blast radius is limited by role/approval/audit/kill switch.
+
+---
+
+## APP-2026-012 — Experience observability + automated rollback guardrails [P0]
+
+**Files to edit**
+- `backend/experience-service/`
+- `frontend/src/lib/clientLogger.ts`
+- customer Android analytics/logging layer
+- `admin-dashboard/src/pages/Analytics.tsx`
+
+**Checklist**
+- [ ] Measure manifest fetch success/latency/cache-hit/parse failure/schema fallback.
+- [ ] Measure section render failure, broken asset, deeplink failure, campaign impression/click/dismiss.
+- [ ] Dashboard can break metrics by manifest revision/market/app version.
+- [ ] Crash/startup/network regression after a revision is detectable quickly.
+- [ ] High-impact revision can automatically or manually rollback when guardrail threshold trips.
+- [ ] Experiment/marketing metrics never replace core reliability guardrails.
+
+---
+
+## APP-2026-013 — Cross-surface runtime config parity [P1]
+
+**Surfaces**
+- Customer Android
+- Customer Web
+- Merchant Android
+- Courier Android
+
+**Recommended new files after customer implementation stabilizes**
+- merchant-side config repository/renderer under `android-app-merchant/.../data/config/` and `.../ui/experience/`
+- courier-side config repository/renderer under `android-app/.../data/config/` and `.../ui/experience/`
+- `frontend/src/lib/experience/experienceClient.ts`
+- `frontend/src/components/experience/ExperienceRenderer.tsx`
+
+**Checklist**
+- [ ] One backend experience service supports surface-specific schemas; do not force customer-home components onto courier/merchant.
+- [ ] Merchant can receive dynamic operational notice/campaign/help content without changing kitchen/order state logic.
+- [ ] Courier can receive dynamic safety/education/incentive/info modules without changing active-job state machine.
+- [ ] Customer Web and Android can share campaign id/eligibility while rendering native surface-appropriate components.
+
+---
+
+## APP-2026-014 — Dynamic localized content packs [P1]
+
+**Checklist**
+- [ ] Marketing/banner/help copy can be published per locale without app release.
+- [ ] Locale fallback order is explicit, e.g. `id-ID → id → default`.
+- [ ] Missing translation does not expose raw localization key.
+- [ ] Legal/financial/consent copy uses approved versioned content path, not casual marketing CMS override.
+- [ ] Remote copy has length constraints so layout remains stable.
+
+---
+
+## APP-2026-015 — Minimum-version, soft-update and hard-update control [P0]
+
+**Recommended new fields**
+- `latest_version`
+- `min_supported_version`
+- `recommended_version`
+- `update_mode`: `none|soft|hard`
+- localized release/update message
+- store destination per platform/market
+
+**Checklist**
+- [ ] Soft update is dismissible and never impersonates transaction failure.
+- [ ] Hard update only used when old binary is genuinely unsafe/incompatible.
+- [ ] Active order/support access strategy is defined before hard-blocking an old app.
+- [ ] Version rule is market/platform scoped.
+- [ ] Remote config is not used as a way to avoid required store review for new native capability/code.
+
+---
+
+## APP-2026-016 — Runtime experience contract/E2E/fuzz tests [P0]
+
+**Recommended new tests**
+- `backend/experience-service/internal/service/experience_contract_test.go`
+- `android-app-customer/app/src/test/java/com/tembus/customer/config/ExperienceManifestParsingTest.kt`
+- `android-app-customer/app/src/androidTest/java/com/tembus/customer/RuntimeExperienceFlowTest.kt`
+- `frontend/e2e/runtime-experience.spec.ts`
+
+**Mandatory scenarios**
+- [ ] First install offline uses packaged default.
+- [ ] Cached manifest renders while network refresh fails.
+- [ ] New compatible revision updates banner/home order without app release.
+- [ ] Invalid/unknown component safely skipped.
+- [ ] Corrupt/oversized asset safely rejected.
+- [ ] Campaign starts/expires by schedule correctly across timezone.
+- [ ] Kill switch removes entry point but active order remains reachable.
+- [ ] Old app ignores unsupported new component and remains usable.
+- [ ] Bad revision rollback restores known-good experience.
+- [ ] Promo shown remotely but server rejects ineligible promo at transaction boundary.
+
+---
+
+# WHAT CAN CHANGE WITHOUT APP UPDATE
+
+After `APP-2026-*` is implemented, these are intended to be remotely changeable within prebuilt component/schema limits:
+
+- [ ] Hero/header banners.
+- [ ] Promo carousel/cards.
+- [ ] Campaign intro immediately after native splash.
+- [ ] Marketing images/animations and localized copy.
+- [ ] Home section ordering.
+- [ ] Show/hide existing service entry by market/rollout/kill-switch policy.
+- [ ] Service badge/subtitle/marketing label.
+- [ ] Existing CTA/deeplink destination from allowlisted routes.
+- [ ] Campaign schedule/frequency/target cohort.
+- [ ] Safe design-token presets.
+- [ ] Feature exposure/experiment assignment.
+- [ ] Operational notices/help content.
+- [ ] Soft/hard minimum-version message/control.
+
+# WHAT STILL REQUIRES AN APP UPDATE
+
+- [ ] New executable/native business logic.
+- [ ] New component type not already supported by the installed renderer.
+- [ ] New OS permission/capability/SDK/native library.
+- [ ] New payment/identity capability requiring native SDK or platform entitlement.
+- [ ] New deep-link/navigation capability not present in installed app.
+- [ ] Fundamental transaction-state/order logic changes.
+- [ ] Arbitrary replacement of the OS-controlled native launch splash with network content.
+- [ ] Arbitrary new app icon unless the platform-specific alternate icon/alias assets were already shipped and supported.
+
+---
+
+# GLOBAL EXPANSION IMPLEMENTATION ORDER
+
+1. Finish existing Indonesia P0 transactional blockers first; global scale must not be built on fake-success or weak transaction invariants.
+2. `APP-2026-001/002/007/011/015/016` — safe remote-config foundation, cache, kill switch, security, compatibility and tests.
+3. `APP-2026-003/004/005/009/010/012` — dynamic home/campaign/CMS/assets/observability.
+4. `GLOB-2026-001/002/003/013` — market config, money/tax, compliance and compatibility.
+5. `GLOB-2026-009` + existing observability — SRE/SLO/capacity/chaos before multi-region launch.
+6. `GLOB-2026-004` — multi-region/data residency/failover.
+7. `GLOB-2026-005/008` — governed data + experimentation.
+8. `GLOB-2026-007` — centralized risk engine.
+9. `GLOB-2026-006` — marketplace intelligence/ML once trustworthy data volume exists.
+10. `GLOB-2026-010` — first-class support case platform.
+11. `GLOB-2026-011` — external developer API/webhooks after internal contracts stabilize.
+12. `GLOB-2026-012/014` — localization/RTL/accessibility + full new-market launch gate.
+
+---
+
+# GLOBAL / RUNTIME EXPERIENCE GUARDRAILS
+
+- Remote config controls **presentation and exposure**, not authoritative price/payment/order state.
+- Native OS splash remains local; use a cached **campaign intro** after native splash for remotely changeable promotion.
+- Never block startup on a fresh remote-config network request; use packaged defaults + last-known-good cache + async refresh.
+- Server-driven UI uses a strict **whitelist of precompiled native components**. Unknown components are skipped safely.
+- A remotely hidden service must not hide an already-active order or support path.
+- Feature flags cannot bypass fraud, authorization, proof, payment or state-machine invariants.
+- Marketing promo eligibility shown in UI must still be revalidated by authoritative promo/pricing backend.
+- Country expansion must be config-driven and must not fork the app into Indonesia/SG/MY/etc codebases unless platform constraints truly require separate binaries.
+- Every high-blast-radius experience revision has preview, audit, staged rollout, observability and rollback.
+- Global readiness is proven through market launch drills, regional failure drills and transaction reconciliation—not by feature count alone.
