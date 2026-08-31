@@ -615,160 +615,68 @@ fun MainScreen(
                     onRetry = { orderViewModel.fetchOrdersFromBackend() },
                     onDismiss = { inlineErrorMessage = null }
                 )
-                
-                BatteryOptimizationCard()
-                
-                when (selectedTab) {
-                    0 -> HomeContent(
-                    courierName = displayCourierName,
+
+                MainScreenTabContent(
+                    paddingValues = paddingValues,
+                    context = context,
+                    scope = scope,
+                    snackbarHostState = snackbarHostState,
+                    selectedTab = selectedTab,
                     courierRole = courierRole,
-                    totalOrders = roleOrders.size,
-                    pendingCount = rolePendingOrders.size,
-                    deliveredCount = roleDeliveredToday.size,
-                    todayEarningsIdr = roleEarningsToday,
-                    orders = roleOrders,
-                    offers = if (courierRole == "on_demand") onDemandOffers else emptyList(),
-                    services = onDemandServices,
+                    isOnDemandCourier = isOnDemandCourier,
+                    displayCourierName = displayCourierName,
+                    courierProfile = courierProfile,
+                    roleOrders = roleOrders,
+                    rolePendingOrders = rolePendingOrders,
+                    roleDeliveredToday = roleDeliveredToday,
+                    roleEarningsToday = roleEarningsToday,
+                    allOrders = allOrders,
+                    onDemandOffers = onDemandOffers,
+                    onDemandServices = onDemandServices,
                     capabilityProfile = capabilityProfile,
                     courierVehicleType = courierVehicleType,
-            routePreviews = routePreviews,
-            activeRoutePlan = activeRoutePlan,
-            hotspots = onDemandHotspots,
-            mapsProviderConfig = mapsProviderConfig,
+                    routePreviews = routePreviews,
+                    activeRoutePlan = activeRoutePlan,
+                    onDemandHotspots = onDemandHotspots,
+                    mapsProviderConfig = mapsProviderConfig,
                     isOnline = isOnline,
-                    onOnlineToggle = { online -> requestDutyToggle(online) },
-                    onCapturePod = { order ->
-                        openProof(order, CourierProofTypes.DELIVERY_POD_PHOTO)
-                    },
-                    onOpenDelivery = { order ->
-                        if (order.isMaintenanceService()) {
-                            routeState = if (order.serviceCode?.startsWith("towing") == true) {
-                                CourierRouteReducer.towingFlow(order.orderId)
-                            } else {
-                                CourierRouteReducer.tambalBanFlow(order.orderId)
-                            }
-                        } else {
-                            openOrderDetail(order)
-                        }
-                    },
-                    onViewOrders = { selectedTab = 1 },
-                    onScanPackage = {
-                        openScan(null, CourierProofTypes.PICKUP_SCAN)
-                    }
-                )
-                    1 -> OrdersContent(
-                    orders = roleOrders,
-                    courierRole = courierRole,
                     isSyncing = isSyncing,
-                    isOnline = isOnline,
                     lastRemoteSyncAt = lastRemoteSyncAt,
-                    onOrderClick = { order ->
-                        openOrderDetail(order)
-                    },
-                    onSync = { orderViewModel.syncPendingOrders() },
-                    onRefresh = { orderViewModel.fetchOrdersFromBackend() }
+                    localSecurityManager = localSecurityManager,
+                    localSecuritySettings = localSecuritySettings,
+                    authSessionManager = authSessionManager,
+                    orderViewModel = orderViewModel,
+                    earningsLedger = earningsLedger,
+                    payoutSummary = payoutSummary,
+                    payoutRequests = payoutRequests,
+                    isPayoutSubmitting = isPayoutSubmitting,
+                    performanceSummary = performanceSummary,
+                    inlineErrorMessage = inlineErrorMessage,
+                    showLogoutDialog = showLogoutDialogState,
+                    pendingDutySecurityTarget = pendingDutySecurityTargetState,
+                    routeState = routeState,
+                    onRouteStateChange = { routeState = it },
+                    onSelectedOrderChange = { selectedOrder = it },
+                    onOpenOrdersTab = { selectedTab = 1 },
+                    onTabChange = { selectedTab = it },
+                    onToggleOnline = { requestDutyToggle(it) },
+                    onOpenOrderDetail = { openOrderDetail(it) },
+                    onOpenProof = { o, p -> openProof(o, p) },
+                    onOpenScan = { o, s -> openScan(o, s) },
+                    onOnlineToggleRequested = { online, pending ->
+                        if (online && !hasForegroundLocationPermission(context)) {
+                            pendingOnlineAfterForegroundPermission = true
+                            showForegroundLocationPermissionDialog = true
+                        } else if (online && localSecuritySettings.active) {
+                            pendingDutySecurityTarget = true
+                        } else {
+                            scope.launch { actions.performDutyToggle(snackbarHostState, orderViewModel, authSessionManager, allOrders, online) }
+                        }
+                    }
                 )
-                    2 -> if (isOnDemandCourier) {
-                        WalletContent(
-                            courierName = displayCourierName,
-                            todayEarningsIdr = roleEarningsToday,
-                            totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
-                            localSecurityManager = localSecurityManager,
-                            earningsLedger = earningsLedger,
-                            payoutSummary = payoutSummary,
-                            payoutRequests = payoutRequests,
-                            isPayoutSubmitting = isPayoutSubmitting,
-                            onRefreshPayout = { orderViewModel.fetchPayoutState() },
-                            onRequestPayout = { amountIdr, pin ->
-                                orderViewModel.submitPayoutRequest(amountIdr, pin)
-                            }
-                        )
-                    } else {
-                        val profileParams = buildProfileContentParams(
-                            context = context,
-                            scope = scope,
-                            snackbarHostState = snackbarHostState,
-                            courierName = displayCourierName,
-                            courierRole = courierRole,
-                            courierProfile = courierProfile,
-                            localSecurityManager = localSecurityManager,
-                            roleOrders = rolePendingOrders,
-                            allOrders = allOrders,
-                            roleEarningsToday = roleEarningsToday,
-                            performanceSummary = performanceSummary,
-                            capabilityProfile = capabilityProfile,
-                            authSessionManager = authSessionManager,
-                            orderViewModel = orderViewModel,
-                            localSecuritySettings = localSecuritySettings,
-                            showLogoutDialog = showLogoutDialogState,
-                            onRouteStateChange = { routeState = it },
-                        )
-                        ProfileContent(
-                            courierProfile = profileParams.courierProfile,
-                            courierName = profileParams.courierName,
-                            courierRole = profileParams.courierRole,
-                            localSecurityManager = profileParams.localSecurityManager,
-                            pendingSyncCount = profileParams.pendingSyncCount,
-                            todayEarningsIdr = profileParams.todayEarningsIdr,
-                            totalEarningsIdr = profileParams.totalEarningsIdr,
-                            performanceSummary = profileParams.performanceSummary,
-                            capabilityProfile = profileParams.capabilityProfile,
-                            authToken = profileParams.authToken,
-                            onCompleteTraining = profileParams.onCompleteTraining,
-                            onLogout = profileParams.onLogout,
-                            onSyncNow = profileParams.onSyncNow,
-                            onOptimizeBattery = profileParams.onOptimizeBattery,
-                            onClearCache = profileParams.onClearCache,
-                            onUpdateCapacity = profileParams.onUpdateCapacity,
-                            onRequestServiceUpgrade = profileParams.onRequestServiceUpgrade,
-                            onUpdateRadius = profileParams.onUpdateRadius
-                        )
-                    }
-                    3 -> {
-                        val profileParams = buildProfileContentParams(
-                            context = context,
-                            scope = scope,
-                            snackbarHostState = snackbarHostState,
-                            courierName = displayCourierName,
-                            courierRole = courierRole,
-                            courierProfile = courierProfile,
-                            localSecurityManager = localSecurityManager,
-                            roleOrders = rolePendingOrders,
-                            allOrders = allOrders,
-                            roleEarningsToday = roleEarningsToday,
-                            performanceSummary = performanceSummary,
-                            capabilityProfile = capabilityProfile,
-                            authSessionManager = authSessionManager,
-                            orderViewModel = orderViewModel,
-                            localSecuritySettings = localSecuritySettings,
-                            showLogoutDialog = showLogoutDialogState,
-                            onRouteStateChange = { routeState = it },
-                        )
-                        ProfileContent(
-                            courierProfile = profileParams.courierProfile,
-                            courierName = profileParams.courierName,
-                            courierRole = profileParams.courierRole,
-                            localSecurityManager = profileParams.localSecurityManager,
-                            pendingSyncCount = profileParams.pendingSyncCount,
-                            todayEarningsIdr = profileParams.todayEarningsIdr,
-                            totalEarningsIdr = profileParams.totalEarningsIdr,
-                            performanceSummary = profileParams.performanceSummary,
-                            capabilityProfile = profileParams.capabilityProfile,
-                            authToken = profileParams.authToken,
-                            onCompleteTraining = profileParams.onCompleteTraining,
-                            onLogout = profileParams.onLogout,
-                            onSyncNow = profileParams.onSyncNow,
-                            onOptimizeBattery = profileParams.onOptimizeBattery,
-                            onClearCache = profileParams.onClearCache,
-                            onUpdateCapacity = profileParams.onUpdateCapacity,
-                            onRequestServiceUpgrade = profileParams.onRequestServiceUpgrade,
-                            onUpdateRadius = profileParams.onUpdateRadius
-                        )
-                    }
-                }
             }
         }
-        
+
         MainScreenMissingPhotoWarning(
             show = showMissingPhotoWarning,
             onDismiss = { showMissingPhotoWarning = false }
