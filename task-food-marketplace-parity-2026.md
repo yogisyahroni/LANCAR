@@ -1,7 +1,7 @@
 # Task — LANCAR Multi-Service Marketplace 2026: End-to-End Parity, UI/UX & Production Hardening
 
 > **Historical filename retained intentionally:** `task-food-marketplace-parity-2026.md`.
-> File ini awalnya hanya audit Food. Mulai revisi ini, file yang sama menjadi **master implementation checklist** untuk seluruh marketplace LANCAR agar histori task Food tidak terputus.
+> File ini awalnya audit Food. File yang sama sekarang menjadi **master implementation checklist** untuk seluruh marketplace LANCAR agar histori task Food tidak terputus.
 
 **Status:** OPEN  
 **Priority:** P0 → P2  
@@ -13,66 +13,121 @@
 
 ---
 
-## 0. Cara Menggunakan Master Task Ini
+# 0. CARA MENGGUNAKAN MASTER TASK
 
-- [ ] Semua checkbox harus tetap kosong sampai implementasi, test, dan acceptance criteria benar-benar selesai.
-- [ ] Jangan menandai task selesai hanya karena screen atau endpoint sudah ada; task selesai jika flow transaksi nyata aman terhadap retry, race condition, state mismatch, kegagalan provider, dan rekonsiliasi finansial.
-- [ ] Edit file existing terlebih dahulu bila ownership masih tepat; buat file baru hanya jika separation of concern memang membaik.
-- [ ] Jika task merekomendasikan file baru, gunakan nama file rekomendasi di bawah kecuali ada alasan arsitektural kuat untuk memilih nama lain.
-- [ ] Setiap API baru harus backward-compatible atau mempunyai migration/versioning plan yang eksplisit.
-- [ ] Harga, ETA, availability, order state, payout, refund, dan provider status harus server-authoritative.
-- [ ] Realtime/WebSocket/push adalah transport optimasi, bukan source of truth; semua client harus dapat recovery dari REST snapshot.
-- [ ] Semua mutation finansial dan order creation wajib mempunyai idempotency strategy.
+- [ ] Semua checkbox tetap kosong sampai implementasi, test, observability, dan acceptance criteria benar-benar selesai.
+- [ ] Screen/endpoint yang sudah terlihat bukan berarti flow production-ready.
+- [ ] Harga, ETA, availability, order state, payout, refund, carrier status, dan financial result harus server-authoritative.
+- [ ] Semua order creation dan mutation finansial wajib mempunyai idempotency strategy.
+- [ ] Realtime/WebSocket/push hanyalah transport optimasi; REST snapshot tetap authoritative recovery path.
 - [ ] Semua manual override admin wajib menyimpan actor, reason, previous value, new value, timestamp, dan correlation/trace id.
-- [ ] Jangan launch production sebelum seluruh task **P0** dan mandatory E2E scenarios green.
+- [ ] Edit file existing jika ownership masih tepat; buat file baru hanya jika separation of concern membaik.
+- [ ] Nama file baru di task adalah rekomendasi implementasi dan harus dicek terhadap tree/schema terbaru sebelum dibuat.
+- [ ] Jangan launch production sebelum seluruh P0 dan mandatory E2E scenario applicable green.
 
 ---
 
-## 1. Audited Baseline — Temuan Penting Saat Ini
+# 1. BATAS DOMAIN YANG WAJIB DIPEGANG
 
-### 1.1 Aggregator Customer Web — P0 gap nyata
+## 1.1 Paket On-Demand ≠ Aggregator Antar-Kota
 
-`frontend/src/components/orders/AggregatorWizard.tsx` saat ini sudah mempunyai wizard UI, bulk upload/polling, pilihan provider, tarif, dan review; tetapi flow manual masih melakukan simulated delay lalu redirect sukses tanpa create-order nyata. File yang sama juga masih menggunakan origin `CGK`, mock city list, provider list statik, dan direct browser call ke Nominatim.
+### Paket On-Demand
 
-- [ ] Perlakukan manual fake-success sebagai production blocker.
-- [ ] Hilangkan fixed-origin `CGK` dan derive origin dari alamat/lokasi pickup yang tervalidasi.
-- [ ] Hilangkan provider/city hardcode dari production path.
-- [ ] Hilangkan direct third-party geocoding dari browser; gunakan backend/integration contract.
+Paket On-Demand adalah pengiriman lokal/instant yang lifecycle utamanya dikontrol LANCAR dan kurir LANCAR.
 
-### 1.2 Towing — jangan rewrite module courier dari nol
+Canonical happy path:
 
-Courier sudah mempunyai dedicated Towing domain/UI flow (`TowingFlow.kt`, `TowingFlowScreen.kt`, `TowingFlowViewModel.kt`, inspection, progress, report card, proof uploader, POD). Customer saat ini masuk melalui generic `ServiceBookingScreen.kt`/`ServiceBookingViewModel.kt` menggunakan `serviceSubType`.
+`customer → pickup/dropoff → package facts → quote → payment → matching → courier pickup → PIN/QR/proof → live GPS → POD → completed → settlement`
 
-- [ ] Pertahankan existing courier Towing flow dan harden kontrak/state/proof-nya.
-- [ ] Fokus gap pada customer booking metadata, quote/requote, matching, consent perubahan harga, tracking, dan backend lifecycle.
-- [ ] Jangan membuat duplicate Towing module jika generic service booking masih dapat dipisahkan dengan bersih.
+Exception yang relevan:
 
-### 1.3 Tambal Ban + Towing backend memang berbagi contract
+`cancel → failed pickup → failed delivery → internal recovery/re-attempt/support → resolved`
 
-`backend/order-service/internal/domain/tambalban.go` dan `handler/tambalban_handler.go` saat ini menampung subtype Tambal Ban dan Towing, availability, settlement, dan service report.
+- [ ] Jangan menjadikan **return-to-sender** sebagai state wajib/happy path Paket On-Demand.
+- [ ] Return lokal boleh ada sebagai **salah satu recovery decision** jika failed delivery membutuhkan barang dikembalikan kepada sender.
+- [ ] Jangan menjadikan istilah `dispute` sebagai CTA default customer Paket On-Demand; gunakan `Bantuan`, `Laporkan Masalah`, atau `Ajukan Klaim` sesuai konteks.
+- [ ] Lost/damaged Paket On-Demand adalah internal incident/claim LANCAR, bukan carrier claim eksternal.
 
-- [ ] Jangan memecah file hanya karena nama `tambalban`; split Towing menjadi domain terpisah hanya jika rule/state/pricing sudah cukup berbeda dan shared file menjadi sulit dipelihara.
+### Aggregator Paket Antar-Kota
 
-### 1.4 Paket On-Demand mempunyai fondasi address/booking cukup kuat
+Aggregator adalah orchestration layer untuk ekspedisi/3PL eksternal. Setelah handoff ke carrier, lifecycle mengikuti fakta, capability, SLA, dan policy provider yang dipilih.
 
-Customer Android sudah memiliki Booking flow, address book, price estimate, voucher/insurance, tracking, detail, dan customer web mempunyai OnDemand forms.
+Canonical high-level path:
 
-- [ ] Audit idempotency, quote snapshot, pickup proof, state recovery, financial invariants, dan parity web sebelum menyebut flow production-ready.
+`customer → origin/destination → package facts → compare carrier rates → select provider service → payment → create shipment/AWB → first-mile/handoff → carrier lifecycle → delivered/exception → provider-driven resolution → reconciliation`
 
-### 1.5 Food task lama dipertahankan
+- [ ] Return-to-sender, carrier claim, lost, damaged, delivery attempt, POD carrier, COD, insurance, cancellation, pickup request, dan exception mengikuti capability/policy provider.
+- [ ] LANCAR tidak boleh mengarang aturan global yang bertentangan dengan carrier.
+- [ ] LANCAR menyimpan normalized status untuk UX, tetapi raw provider status/code/payload reference tetap disimpan.
 
-Task `FOOD-2026-001` sampai `FOOD-2026-026` tetap dipertahankan di file ini, tetapi sekarang setiap task diberi ownership/file scope yang lebih eksplisit dan dihubungkan dengan shared platform tasks.
+---
+
+# 2. AUDITED BASELINE — TEMUAN PENTING
+
+## 2.1 Aggregator Customer Web — P0 blocker
+
+`frontend/src/components/orders/AggregatorWizard.tsx` sudah mempunyai wizard, bulk upload/polling, pilihan provider, tarif, dan review; tetapi manual flow masih memiliki simulated success/redirect tanpa persisted create-order nyata. Flow juga masih perlu dibersihkan dari fixed origin/mock/static provider truth.
+
+- [ ] Hilangkan fake success.
+- [ ] Hilangkan fixed-origin `CGK` dari production path.
+- [ ] Provider/city/service option berasal dari backend/provider capability, bukan daftar statik UI.
+- [ ] Browser tidak memanggil third-party geocoding/provider API secara langsung jika secret/rate-policy seharusnya server-side.
+
+## 2.2 Integration Gateway sudah punya fondasi adapter
+
+Existing core:
+
+- `backend/integration-gateway/internal/domain/provider.go`
+- `backend/integration-gateway/internal/handler/logistics_handler.go`
+- `backend/integration-gateway/internal/handler/tracking_webhook_handler.go`
+- `backend/integration-gateway/internal/provider/jne_adapter.go`
+- `backend/integration-gateway/internal/provider/jnt_adapter.go`
+- `backend/integration-gateway/internal/provider/circuit_breaker.go`
+- `backend/integration-gateway/internal/provider/retry_http.go`
+
+Current `Logistics3PLProvider` sudah mempunyai `CheckTariff`, `CreateOrder`, `TrackOrder`, tetapi contract masih terlalu kecil untuk menjadi universal carrier platform.
+
+- [ ] Pertahankan Integration Gateway sebagai boundary external logistics.
+- [ ] Jangan pindahkan JNE/J&T-specific mapping ke customer app atau core order UI.
+- [ ] Refactor menuju capability-based provider architecture pada `AGG-2026-010` s.d. `AGG-2026-013`.
+
+## 2.3 Provider-specific approximation harus dihilangkan
+
+Contoh audited gap:
+
+- J&T adapter masih memiliki ETA fallback hardcoded `1-3 hari`.
+- JNE/J&T tracking mapping masih terlalu cepat menyederhanakan banyak event menjadi `MANIFESTED/IN_TRANSIT/DELIVERED`.
+
+- [ ] Jangan fabricate provider SLA jika API/provider config resmi tidak memberi nilai.
+- [ ] Jika ETA tidak tersedia, return `null/unavailable` dengan source metadata yang jelas.
+- [ ] Simpan raw provider event sebelum normalize.
+
+## 2.4 Towing jangan rewrite dari nol
+
+Courier sudah mempunyai dedicated Towing flow (`TowingFlow.kt`, `TowingFlowScreen.kt`, `TowingFlowViewModel.kt`, inspection, loading/unloading proof, progress, report, POD).
+
+- [ ] Harden kontrak/state/proof existing.
+- [ ] Perbaiki customer booking metadata, capability matching, quote/requote, consent adjustment, tracking, dan claim.
+
+## 2.5 Tambal Ban + Towing backend memang berbagi contract
+
+Existing shared files:
+
+- `backend/order-service/internal/domain/tambalban.go`
+- `backend/order-service/internal/handler/tambalban_handler.go`
+
+- [ ] Jangan split hanya karena nama file.
+- [ ] Split Towing hanya jika state/pricing/dependencies sudah materially berbeda.
+
+## 2.6 Food task lama dipertahankan
+
+- [ ] ID `FOOD-2026-001` sampai `FOOD-2026-026` tetap menjadi referensi continuity.
 
 ---
 
 # PART A — CROSS-SERVICE PLATFORM FOUNDATION
 
-## P0 — Shared Transaction Safety
-
-### CORE-2026-001 — Canonical service-aware order contract
-
-**Problem**  
-Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak logic masih berbagi generic order fields. Risiko utamanya adalah service-specific facts dipaksa ke field yang salah, UI menebak jenis order, dan perubahan satu layanan merusak layanan lain.
+## CORE-2026-001 — Canonical service-aware order contract [P0]
 
 **Files to edit**
 - `backend/order-service/internal/domain/order.go`
@@ -95,25 +150,19 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/domain/order_contract.go`
 - `docs/contracts/order-state-contract-2026.md`
 
-**Implementation checklist**
-- [ ] Tetapkan canonical `service_category`: `package_on_demand`, `food`, `tambal_ban`, `aggregator`, `towing`.
-- [ ] Tetapkan `service_code/service_sub_type` sebagai detail spesifik, bukan pengganti category.
-- [ ] Pisahkan common order envelope: id, customer, monetary state, lifecycle state, timestamps, actor ownership, quote id, correlation id.
-- [ ] Tambahkan typed service metadata: parcel/package facts, food facts, roadside facts, aggregator/provider facts, towing facts.
-- [ ] Jangan menyimpan towing/tambal metadata utama sebagai fake package description string jika field structured tersedia.
-- [ ] Pastikan client yang belum mengenal subtype baru tetap bisa render generic order detail tanpa crash.
-- [ ] Tambahkan `contract_version` atau equivalent untuk perubahan payload besar.
-- [ ] Dokumentasikan fields mandatory/optional per service.
-- [ ] Tambahkan backward compatibility mapper untuk order existing.
-
-**Acceptance criteria**
-- [ ] Satu endpoint order detail dapat mengidentifikasi lima service secara deterministik tanpa heuristic berdasarkan text.
-- [ ] Tidak ada required Towing/Tambal Ban fact yang hanya hidup di free-text `item_description`.
-- [ ] Android customer, courier, web, dan admin merender unknown/new subtype dengan degraded-safe UI.
+**Checklist**
+- [ ] Canonical `service_category`: `package_on_demand`, `food`, `tambal_ban`, `aggregator`, `towing`.
+- [ ] `service_code/service_sub_type` menjadi detail service, bukan pengganti category.
+- [ ] Common envelope: id, customer, order state, money state, timestamps, actor ownership, quote id, state version, correlation id.
+- [ ] Typed service metadata: parcel facts, food facts, roadside facts, aggregator/provider facts, towing facts.
+- [ ] Towing/Tambal required facts tidak hanya hidup di `item_description` free-text.
+- [ ] Tambahkan `contract_version` atau equivalent untuk perubahan payload material.
+- [ ] Legacy mapper/backfill tidak mengarang data yang tidak diketahui.
+- [ ] Unknown/new subtype dirender degraded-safe oleh Android/Web/Courier/Admin.
 
 ---
 
-### CORE-2026-002 — Shared idempotency for order + financial mutations
+## CORE-2026-002 — Shared idempotency [P0]
 
 **Files to edit**
 - `backend/order-service/internal/service/order_create.go`
@@ -123,7 +172,6 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/handler/order_handler.go`
 - `backend/order-service/internal/handler/food_handler.go`
 - `backend/order-service/internal/middleware/redis_helper.go`
-- `backend/order-service/cmd/api/main.go`
 - `android-app-customer/app/src/main/java/com/tembus/customer/data/repository/OrderRepository.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/data/api/TEMBUSApiService.kt`
 - `frontend/src/lib/api.ts`
@@ -134,22 +182,18 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/repository/idempotency_repository.go`
 - `database/migrations/<timestamp>_add_order_idempotency_keys.sql`
 
-**Implementation checklist**
-- [ ] Require idempotency key pada create Paket, Food, Tambal Ban, Aggregator manual/bulk child create, dan Towing.
-- [ ] Simpan `key + actor/customer + operation + request_fingerprint + result_reference + expiry`.
-- [ ] Same key + same fingerprint mengembalikan result awal.
-- [ ] Same key + payload berbeda menghasilkan typed conflict.
-- [ ] Client menyimpan key sampai request memperoleh terminal acknowledgement; retry timeout tidak membuat key baru.
-- [ ] Deduplicate payment callback/webhook, refund, payout, carrier webhook, and service adjustment mutation.
-- [ ] Tambahkan concurrency test minimal 10 request paralel untuk order creation.
-
-**Acceptance criteria**
-- [ ] Double tap/retry 10× menghasilkan tepat 1 order dan 1 financial obligation.
-- [ ] Duplicate callback tidak membuat ledger entry, dispatch, AWB, refund, atau payout ganda.
+**Checklist**
+- [ ] Require idempotency key pada semua create-order dan financial mutation applicable.
+- [ ] Persist key + actor + operation + request fingerprint + result reference + expiry.
+- [ ] Same key/same fingerprint returns original result.
+- [ ] Same key/different payload returns conflict.
+- [ ] Client mempertahankan key selama retry dari satu user intent.
+- [ ] Deduplicate payment callback, refund, payout, carrier webhook/event, AWB create, service adjustment.
+- [ ] 10 parallel/repeated creates menghasilkan tepat satu order/financial obligation.
 
 ---
 
-### CORE-2026-003 — Server-authoritative quote contract untuk semua layanan
+## CORE-2026-003 — Server-authoritative quote [P0]
 
 **Files to edit**
 - `backend/order-service/internal/domain/pricing.go`
@@ -157,9 +201,7 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/handler/order_handler.go`
 - `backend/order-service/internal/handler/food_handler.go`
 - `backend/order-service/internal/handler/tambalban_handler.go`
-- `backend/order-service/internal/repository/maps_repository.go`
 - `android-app-customer/app/src/main/java/com/tembus/customer/data/repository/OrderRepository.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/data/api/TEMBUSApiService.kt`
 - `frontend/src/hooks/useLogisticsTariff.ts`
 - `frontend/src/components/orders/OrderSummary.tsx`
 
@@ -169,17 +211,16 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/repository/quote_repository.go`
 - `database/migrations/<timestamp>_add_order_quote_snapshots.sql`
 
-**Implementation checklist**
-- [ ] Quote menghasilkan `quote_id`, service/category, normalized input fingerprint, price components, total, currency, ETA/range, policy/rule version, dan expiry.
-- [ ] Order creation wajib consume valid quote atau menghasilkan explicit `REQUOTE_REQUIRED`.
-- [ ] Address/location, package facts, food cart, courier/provider choice, voucher, schedule, toll estimate, dan service subtype yang berubah harus invalidate quote.
-- [ ] Jangan percaya total dari client.
-- [ ] Persist quote snapshot yang digunakan order untuk audit dispute.
-- [ ] Surface per-komponen harga dengan label yang sama di Android/Web/Admin.
+**Checklist**
+- [ ] Quote berisi `quote_id`, service/category, input fingerprint, price components, total, currency, ETA/source, policy/rule version, expiry.
+- [ ] Create order consumes valid quote atau returns `REQUOTE_REQUIRED` dengan diff yang dapat ditampilkan.
+- [ ] Address/package/cart/provider/courier/voucher/schedule/toll/service change invalidates quote sesuai rule.
+- [ ] Client total tidak pernah authoritative.
+- [ ] Quote snapshot yang benar-benar dipakai order disimpan untuk audit/support.
 
 ---
 
-### CORE-2026-004 — Canonical state machine + actor authorization
+## CORE-2026-004 — Canonical state machine + actor authorization [P0]
 
 **Files to edit**
 - `backend/order-service/internal/domain/order.go`
@@ -201,18 +242,17 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/service/order_transition_service_test.go`
 - `database/migrations/<timestamp>_add_order_state_version.sql`
 
-**Implementation checklist**
-- [ ] Definisikan allowed transition per service dan actor: customer, merchant, courier, provider webhook, system worker, admin override.
-- [ ] Gunakan optimistic state version/row locking untuk mencegah race.
-- [ ] Terminal state tidak boleh mundur karena delayed socket/webhook.
-- [ ] State + audit event + required ledger/proof pointer harus transactional.
-- [ ] Invalid transition menghasilkan typed error, bukan silent ignore kecuali duplicate event yang memang idempotent.
-- [ ] Admin override wajib reason dan audit.
-- [ ] Dokumentasikan state mapping ke customer-friendly label.
+**Checklist**
+- [ ] Allowed transition defined per service + actor.
+- [ ] Optimistic version/row locking prevents race.
+- [ ] Terminal state tidak mundur karena delayed/replayed event.
+- [ ] State + audit + required proof/ledger effects transactional.
+- [ ] Duplicate event idempotent; invalid transition typed error.
+- [ ] Admin override reasoned/audited.
 
 ---
 
-### CORE-2026-005 — Payment, refund, payout, settlement & reconciliation invariants
+## CORE-2026-005 — Payment/refund/payout/settlement/reconciliation invariants [P0]
 
 **Files to edit**
 - `backend/order-service/internal/domain/payment.go`
@@ -223,9 +263,6 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/service/refund_service.go`
 - `backend/order-service/internal/service/payout_service.go`
 - `backend/order-service/internal/service/merchant_settlement_service.go`
-- `backend/order-service/internal/handler/payment_handler.go`
-- `backend/order-service/internal/handler/refund_handler.go`
-- `backend/order-service/internal/handler/payout_handler.go`
 - `admin-dashboard/src/pages/finance/reconciliationPanel.tsx`
 - `admin-dashboard/src/pages/finance/ledgerPanel.tsx`
 - `admin-dashboard/src/pages/finance/treasury/ManualReviewSection.tsx`
@@ -237,17 +274,16 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/service/reconciliation_service_test.go`
 - `database/migrations/<timestamp>_add_reconciliation_exceptions.sql`
 
-**Implementation checklist**
-- [ ] Definisikan invariants untuk unpaid/pending/paid/refunding/refunded/settled/failed.
-- [ ] Reconcile `order total ↔ payment ↔ voucher/subsidy ↔ courier earning ↔ merchant payable ↔ carrier payable ↔ platform revenue ↔ tax ↔ refund`.
-- [ ] Order completed dengan money-state mismatch harus masuk exception queue, bukan dianggap normal.
-- [ ] Manual correction menggunakan compensating ledger entry; jangan overwrite history.
-- [ ] Refund partial dan cancellation fee harus deterministik per service.
-- [ ] Dashboard dapat filter discrepancy berdasarkan service/category/provider/date.
+**Checklist**
+- [ ] Model unpaid/pending/paid/refunding/refunded/settled/failed explicitly.
+- [ ] Reconcile order total ↔ payment ↔ subsidy/voucher ↔ courier ↔ merchant ↔ carrier ↔ platform ↔ tax ↔ refund.
+- [ ] Completed-with-money-mismatch masuk exception queue.
+- [ ] Manual correction menggunakan compensating entry, bukan overwrite history.
+- [ ] Dashboard filter discrepancy by service/provider/date.
 
 ---
 
-### CORE-2026-006 — Proof, PIN/QR, signature & chain-of-custody contract
+## CORE-2026-006 — Proof/PIN/QR/signature chain-of-custody [P0]
 
 **Files to edit**
 - `backend/order-service/internal/handler/proof_handler.go`
@@ -258,7 +294,6 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/pod/ProofOfDeliveryViewModel.kt`
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/pod/SignaturePad.kt`
 - `android-app/app/src/main/java/com/tembus/courier/data/repository/ServiceReportProofUploader.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailScreen.kt`
 
 **Recommended new files**
 - `backend/order-service/internal/domain/handoff.go`
@@ -266,17 +301,16 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/service/handoff_service_test.go`
 - `database/migrations/<timestamp>_add_handoff_verification.sql`
 
-**Implementation checklist**
-- [ ] Buat proof requirement matrix per service/stage.
-- [ ] PIN/QR one-time harus bind order + actor + expected stage + expiry + attempts.
-- [ ] Replay/wrong courier/wrong order/expired token ditolak.
-- [ ] Proof upload harus mempunyai ownership validation dan immutable evidence reference setelah stage final.
-- [ ] Completion harus ditolak bila mandatory proof belum lengkap.
-- [ ] Customer detail menampilkan proof summary yang aman, bukan raw internal storage URL bila tidak perlu.
+**Checklist**
+- [ ] Proof requirement matrix per service/stage.
+- [ ] One-time token binds order + actor + stage + expiry + attempts.
+- [ ] Replay/wrong actor/wrong order rejected.
+- [ ] Proof immutable after stage final.
+- [ ] Completion blocked if mandatory proof missing.
 
 ---
 
-### CORE-2026-007 — Realtime ordering, offline recovery & snapshot reconciliation
+## CORE-2026-007 — Realtime/offline recovery [P0]
 
 **Files to edit**
 - `backend/order-service/internal/handler/websocket_handler.go`
@@ -288,19 +322,17 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `android-app/app/src/main/java/com/tembus/courier/worker/OrderSyncWorker.kt`
 - `frontend/src/hooks/useWebSocket.ts`
 - `frontend/src/lib/socket.ts`
-- `admin-dashboard/src/hooks/useSocket.ts`
 
-**Implementation checklist**
-- [ ] Event mempunyai monotonic sequence/version per order atau equivalent ordering contract.
-- [ ] Client ignore duplicate/older event.
-- [ ] Socket reconnect selalu fetch REST snapshot authoritative.
-- [ ] Push notification tidak boleh mengubah state lokal tanpa snapshot bila event stale/ambiguous.
-- [ ] Offline mutation policy jelas: queue only safe/idempotent actions; destructive action harus reconfirm.
-- [ ] Instrument disconnect, reconnect, reconciliation mismatch, event lag.
+**Checklist**
+- [ ] Event ordering/version contract.
+- [ ] Ignore duplicate/older events.
+- [ ] Reconnect fetches authoritative snapshot.
+- [ ] Push tidak mutasi state authoritative secara buta.
+- [ ] Offline only queues safe/idempotent mutation.
 
 ---
 
-### CORE-2026-008 — Typed recoverable errors across Android/Web/Courier
+## CORE-2026-008 — Typed recoverable errors [P0]
 
 **Files to edit**
 - `backend/order-service/internal/domain/errors.go`
@@ -310,47 +342,39 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `frontend/src/lib/api.ts`
 - `android-app/app/src/main/java/com/tembus/courier/ui/components/ErrorReference.kt`
 
-**Implementation checklist**
-- [ ] Standarkan code untuk `REQUOTE_REQUIRED`, `OUT_OF_SERVICE_AREA`, `NO_COURIER`, `PROVIDER_UNAVAILABLE`, `ITEM_UNAVAILABLE`, `INVALID_TRANSITION`, `PAYMENT_PENDING`, `PAYMENT_RECONCILIATION_REQUIRED`, `PROOF_REQUIRED`, `HANDOFF_INVALID`, `SCHEDULE_INVALID`, `CAPABILITY_MISMATCH`.
-- [ ] Error response selalu bawa correlation id.
-- [ ] Customer-facing UI menampilkan next action, bukan raw backend error.
-- [ ] Log internal tidak membocorkan token, payment secret, phone lengkap, atau location lebih detail dari kebutuhan observability.
+**Checklist**
+- [ ] Standardize `REQUOTE_REQUIRED`, `OUT_OF_SERVICE_AREA`, `NO_COURIER`, `PROVIDER_UNAVAILABLE`, `ITEM_UNAVAILABLE`, `INVALID_TRANSITION`, `PAYMENT_PENDING`, `PROOF_REQUIRED`, `HANDOFF_INVALID`, `SCHEDULE_INVALID`, `CAPABILITY_MISMATCH`, `CARRIER_RATE_EXPIRED`, `CARRIER_EVENT_UNKNOWN`.
+- [ ] Error carries correlation id.
+- [ ] Client renders next action, not raw internal error.
 
 ---
 
 # PART B — PAKET ON-DEMAND END-TO-END
 
-## P0
-
-### PKG-2026-001 — Coordinate-safe pickup & destination
+## PKG-2026-001 — Coordinate-safe pickup & destination [P0]
 
 **Files to edit**
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/booking/BookingScreen.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/booking/BookingViewModel.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/booking/BookingComponents.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/booking/BookingHelpers.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/profile/AddressBookScreen.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/profile/AddressBookViewModel.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/data/repository/OrderRepository.kt`
 - `frontend/src/components/orders/AddressPicker.tsx`
 - `frontend/src/components/orders/OnDemandOrderForm.tsx`
 - `frontend/src/components/orders/OnDemandOrderFormContent.tsx`
-- `frontend/src/app/(portal)/alamat/page.tsx`
 
-**Implementation checklist**
-- [ ] Pickup/dropoff disimpan sebagai atomic address object: id/label/lat/lng/city/postal/receiver/contact/instruction.
-- [ ] Mengganti saved address mengganti coordinates dan invalidate quote.
-- [ ] Manual text tidak dapat submit sebelum pin/geocode ter-resolve.
-- [ ] Permission denied mempunyai saved/manual map fallback.
-- [ ] Reject coordinate `0,0`, stale GPS, dan out-of-service-area.
-- [ ] Final review menampilkan kedua pin/alamat sebelum order.
+**Checklist**
+- [ ] Atomic pickup/dropoff object: id/label/lat/lng/city/postal/receiver/contact/instruction.
+- [ ] Saved/manual/pinned address updates coordinates and invalidates quote.
+- [ ] Manual text cannot submit without resolved coordinate.
+- [ ] Reject `0,0`, stale GPS, out-of-service-area.
+- [ ] Final route review before order.
 
 ---
 
-### PKG-2026-002 — Package facts + server quote parity Android/Web
+## PKG-2026-002 — Package facts + quote parity Android/Web [P0]
 
 **Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/VehicleDetailInput.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/booking/BookingViewModel.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/data/model/CustomerModels.kt`
 - `frontend/src/components/orders/OrderSchemas.ts`
@@ -359,17 +383,14 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/service/pricing_service.go`
 - `backend/order-service/internal/handler/parcel_handler.go`
 
-**Implementation checklist**
-- [ ] Capture berat, dimensi, volumetric weight, quantity, category, item value, fragile/dangerous flag, size tier, receiver, delivery-code requirement.
-- [ ] Jelaskan actual vs volumetric chargeable weight di UI bila relevan.
-- [ ] Quote menampilkan base, distance, dynamic/surge, platform, insurance, discount, tax, total, expiry.
-- [ ] Jika package facts berubah setelah quote, force requote.
-- [ ] Server menolak client total yang tidak cocok dengan quote.
-- [ ] Android dan Web menggunakan terminology/price breakdown yang sama.
+**Checklist**
+- [ ] Weight, dimensions, volumetric weight, quantity, category, item value, fragile/prohibited flags, size tier, receiver, delivery-code policy.
+- [ ] Package-fact change forces requote.
+- [ ] Android/Web show same authoritative breakdown.
 
 ---
 
-### PKG-2026-003 — Create → payment → matching tanpa duplicate assignment
+## PKG-2026-003 — Create → payment → matching without duplicate assignment [P0]
 
 **Files to edit**
 - `android-app-customer/app/src/main/java/com/tembus/customer/data/repository/OrderRepository.kt`
@@ -379,19 +400,17 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/handler/order_handler.go`
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/OnDemandOfferScreens.kt`
 - `android-app/app/src/main/java/com/tembus/courier/ui/components/OnDemandIncomingOfferSwipePanel.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/OrderViewModel.kt`
 
-**Implementation checklist**
-- [ ] Create consumes valid quote + idempotency key.
-- [ ] Dispatch hanya dimulai sesuai payment policy yang disepakati.
-- [ ] Matching validate service capability, vehicle, radius, availability, and active-order constraints.
-- [ ] Accept race dari dua courier menghasilkan satu winner atomically.
-- [ ] No-courier mempunyai customer-visible retry/expand/cancel path.
-- [ ] Reassignment tidak menduplikasi payout reservation.
+**Checklist**
+- [ ] Create consumes quote + idempotency key.
+- [ ] Matching validates capability/vehicle/radius/availability.
+- [ ] Two-courier accept race has one atomic winner.
+- [ ] No-supply has retry/expand/cancel policy.
+- [ ] Reassign does not duplicate payout reservation.
 
 ---
 
-### PKG-2026-004 — Pickup verification & chain of custody
+## PKG-2026-004 — Pickup verification & custody [P0]
 
 **Files to edit**
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/MandatoryPickupChecklist.kt`
@@ -399,39 +418,37 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/scan/ScanScreen.kt`
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/OnDemandProofPanel.kt`
 - `backend/order-service/internal/handler/proof_handler.go`
-- `backend/order-service/internal/service/order_service.go`
 
-**Implementation checklist**
-- [ ] Courier mark arrived sebelum pickup verification.
-- [ ] Validate package identity/condition/quantity where required.
-- [ ] PIN/QR atau proof equivalent wajib sebelum `picked_up`.
-- [ ] Wrong/replayed code tidak boleh di-bypass oleh client state.
-- [ ] Pickup proof/audit event immutable setelah handoff.
+**Checklist**
+- [ ] Arrived precedes pickup verification.
+- [ ] Package identity/condition/quantity checked when required.
+- [ ] PIN/QR/proof before `picked_up`.
+- [ ] Pickup evidence immutable.
 
 ---
 
-### PKG-2026-005 — Live tracking, ETA & communication
+## PKG-2026-005 — Live tracking, ETA & communication [P0]
 
 **Files to edit**
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/tracking/TrackingScreen.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/tracking/TrackingViewModel.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/data/model/OrderTrackingDetail.kt`
 - `backend/order-service/internal/service/tracking_service.go`
 - `backend/order-service/internal/handler/tracking_handler.go`
 - `frontend/src/app/track/[token]/page.tsx`
 - `frontend/src/app/(portal)/orders/[id]/RouteSnapshotPanel.tsx`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/DeliveryMapCard.kt`
 
-**Implementation checklist**
-- [ ] ETA bersumber dari backend route/state, bukan formula UI.
-- [ ] Tampilkan staleness jika courier GPS terlambat.
-- [ ] Mask contact data sesuai lifecycle dan privacy policy.
-- [ ] Public tracking token scoped, expiring/revocable, dan tidak mengekspos internal identifiers berlebihan.
-- [ ] Socket offline recover melalui REST snapshot.
+**Checklist**
+- [ ] ETA backend sourced.
+- [ ] Show GPS staleness.
+- [ ] Mask contact by lifecycle/privacy policy.
+- [ ] Public tracking token scoped/expiring/revocable.
+- [ ] Offline reconnect uses snapshot.
 
 ---
 
-### PKG-2026-006 — Delivery/POD/failed delivery/return flow
+## PKG-2026-006 — Delivery / POD / Failed Delivery / Recovery Flow [P0]
+
+> **Important:** ini adalah Paket On-Demand LANCAR. `return-to-sender` bukan mandatory carrier lifecycle. Return hanya salah satu possible recovery decision setelah failed delivery.
 
 **Files to edit**
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/pod/ProofOfDeliveryScreen.kt`
@@ -440,19 +457,24 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailScreen.kt`
 - `frontend/src/app/(portal)/orders/[id]/OrderDetailContent.tsx`
 - `backend/order-service/internal/handler/proof_handler.go`
+- `backend/order-service/internal/service/order_service.go`
 
-**Implementation checklist**
-- [ ] POD policy dapat meminta photo/signature/PIN berdasarkan risk/service config.
-- [ ] Failed delivery membutuhkan reason + evidence + next action: retry/return/support.
-- [ ] Recipient mismatch mempunyai safe handoff rule.
-- [ ] Payout/settlement tidak final sebelum proof/state invariant terpenuhi.
-- [ ] Customer dapat membuka dispute dari final proof summary.
+**Recommended new file if recovery rules become complex**
+- `backend/order-service/internal/service/ondemand_delivery_recovery_service.go`
+
+**Checklist**
+- [ ] POD may require photo/signature/PIN based on service/risk policy.
+- [ ] Failed delivery records structured reason + evidence.
+- [ ] Recovery options are policy driven: `retry`, `contact receiver`, `return_to_sender`, `cancel`, `support_review`.
+- [ ] `return_to_sender` only appears when applicable; do not force every failed delivery into return.
+- [ ] Recipient mismatch follows safe handoff rule.
+- [ ] Settlement does not finalize without required proof/state invariants.
+- [ ] Customer CTA is `Bantuan/Laporkan Masalah/Ajukan Klaim`, not generic marketplace dispute.
+- [ ] Internal lost/damaged claim links to LANCAR evidence and operational incident, not external carrier workflow.
 
 ---
 
-## P1 — Paket Customer Web Parity & UI/UX
-
-### PKG-2026-007 — Customer Web full parity dengan Paket Android
+## PKG-2026-007 — Customer Web parity [P1]
 
 **Files to edit**
 - `frontend/src/app/(portal)/orders/new/ondemand/page.tsx`
@@ -462,24 +484,21 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `frontend/src/components/orders/OrderSummary.tsx`
 - `frontend/src/components/orders/PaymentModal.tsx`
 - `frontend/src/app/(portal)/orders/page.tsx`
-- `frontend/src/app/(portal)/orders/[id]/page.tsx`
 - `frontend/src/app/(portal)/orders/[id]/OrderDetailContent.tsx`
-- `frontend/e2e/customer-flow.spec.ts`
 
 **Recommended new files**
 - `frontend/e2e/ondemand-package-flow.spec.ts`
 - `frontend/src/hooks/useCreateOnDemandOrder.ts`
 
-**Implementation checklist**
-- [ ] Full web journey: login → alamat → package facts → quote → payment → order created → history → detail → tracking → completion/dispute.
-- [ ] Refresh/back/duplicate submit tidak menciptakan order ganda.
-- [ ] Mobile responsive dan keyboard-accessible.
-- [ ] Android/Web memakai server quote dan state label yang sama.
-- [ ] Error state mempunyai retry/requote/cancel action yang jelas.
+**Checklist**
+- [ ] Web journey: login → address → package facts → quote → payment → created → history → detail → tracking → completed/support if needed.
+- [ ] Refresh/back/retry is idempotent.
+- [ ] Mobile responsive and keyboard-accessible.
+- [ ] Web/Android share price/state semantics.
 
 ---
 
-### PKG-2026-008 — Paket UI/UX trust pass
+## PKG-2026-008 — Paket UI/UX trust pass [P1]
 
 **Files to edit**
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceGridMenu.kt`
@@ -490,96 +509,70 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `frontend/src/app/(portal)/dashboard/page.tsx`
 - `frontend/src/app/(portal)/orders/page.tsx`
 
-**Implementation checklist**
-- [ ] Bedakan jelas `Paket Instan` vs `Ekspedisi Antar-Kota` dari icon, subtitle, ETA expectation, dan price model.
-- [ ] Booking menggunakan progressive disclosure; jangan tampilkan semua field sekaligus.
-- [ ] Review selalu menampilkan route, package summary, service, ETA, price, receiver, cancellation policy.
-- [ ] History mempunyai badge service dan status yang konsisten.
-- [ ] Destructive action tidak ditempatkan berdekatan dengan primary CTA tanpa confirmation.
+**Checklist**
+- [ ] Distinguish `Paket Instan` from `Ekspedisi Antar-Kota` by icon/subtitle/ETA/price expectation.
+- [ ] Progressive disclosure.
+- [ ] Final review: route, package summary, ETA, total, receiver, cancellation policy.
+- [ ] History badges are service-aware.
 
 ---
 
 # PART C — FOOD MARKETPLACE 2026
 
-> ID Food lama dipertahankan untuk continuity. Task berikut sekarang harus mengikuti `CORE-*` contract di atas.
+> Food tetap mengikuti `CORE-*` foundation.
 
-## P0 — Food Production Blockers
-
-### FOOD-2026-001 — Coordinate-safe food checkout
+## FOOD-2026-001 — Coordinate-safe food checkout [P0]
 
 **Files to edit**
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodCheckoutScreen.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodViewModel.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/data/model/FoodModels.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/data/repository/OrderRepository.kt`
 - `backend/order-service/internal/handler/food_handler.go`
 - `backend/order-service/internal/service/order_food.go`
-- `backend/order-service/internal/repository/food_repository.go`
 
-**Implementation checklist**
-- [ ] Selected destination adalah atomic address+coordinate object.
-- [ ] Saved/manual/pinned address selalu mengganti coordinates delivery.
-- [ ] Discovery/current GPS tidak boleh diam-diam dipakai sebagai delivery coordinate.
-- [ ] Block missing/stale/out-of-range destination.
-- [ ] Address change invalidate quote/ETA.
-- [ ] Final pin/address confirmation sebelum place order.
+- [ ] Atomic address+coordinate destination.
+- [ ] Saved/manual/pinned change coordinates.
+- [ ] Discovery GPS not silently reused as checkout destination.
+- [ ] Address change requotes.
 
----
-
-### FOOD-2026-002 — Authoritative pre-order Food Quote
+## FOOD-2026-002 — Authoritative Food Quote [P0]
 
 **Files to edit**
 - `backend/order-service/internal/handler/food_handler.go`
 - `backend/order-service/internal/service/order_food.go`
 - `backend/order-service/internal/repository/food_repository.go`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodCheckoutScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodViewModel.kt`
 
-**Recommended new file only if shared `quote_service.go` cannot express Food rules cleanly**
+**Recommended new file only if shared quote cannot express Food cleanly**
 - `backend/order-service/internal/service/food_quote_service.go`
 
-**Implementation checklist**
-- [ ] Quote validates merchant open/busy/paused state, item, variant, quantity, stock, voucher, destination, radius, taxes, fees, schedule.
-- [ ] Return subtotal, add-ons, delivery, platform/service, tax, discount, final total, ETA range, expiry.
-- [ ] Create consumes quote or returns explicit requote diff.
-- [ ] Client-calculated totals never authoritative.
+- [ ] Validate merchant/item/variant/stock/voucher/radius/tax/fee/schedule.
+- [ ] Return itemized total + ETA + expiry.
+- [ ] Create consumes quote/requote diff.
 
----
-
-### FOOD-2026-003 — Idempotent Food order creation
+## FOOD-2026-003 — Idempotent Food create [P0]
 
 **Files to edit**
 - `backend/order-service/internal/service/order_food.go`
 - `backend/order-service/internal/handler/food_handler.go`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodViewModel.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/data/repository/OrderRepository.kt`
 
-**Implementation checklist**
-- [ ] Apply `CORE-2026-002` to Food create/payment callback.
-- [ ] 10 repeated identical create requests produce one order.
-- [ ] Duplicate callback cannot duplicate merchant notification or courier dispatch.
+- [ ] Apply CORE idempotency.
+- [ ] Duplicate callback cannot duplicate notification/dispatch/ledger.
 
----
-
-### FOOD-2026-004 — Secure merchant → courier/customer handoff
+## FOOD-2026-004 — Secure merchant handoff [P0]
 
 **Files to edit**
 - `backend/order-service/internal/service/order_food.go`
 - `backend/order-service/internal/handler/proof_handler.go`
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/StitchOrdersDashboardScreen.kt`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/struk/MerchantZipOrderDetailScreens.kt`
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/scan/ScanScreen.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/FoodItemsCard.kt`
 
-**Implementation checklist**
-- [ ] One-time PIN/QR binds order, merchant, expected courier/customer, state, expiry, attempt count.
-- [ ] Verification and `picked_up` transition atomic.
-- [ ] Replay/wrong actor/wrong order rejected.
-- [ ] Support override requires reason + audit.
+- [ ] One-time PIN/QR binds order/merchant/courier or pickup customer/state/expiry.
+- [ ] Verify + picked_up atomic.
+- [ ] Replay/wrong actor rejected.
 
----
-
-### FOOD-2026-005 — Server-authoritative ETA & readiness prediction
+## FOOD-2026-005 — Server-authoritative ETA/readiness [P0]
 
 **Files to edit**
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodHomeScreen.kt`
@@ -587,252 +580,131 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodCheckoutScreen.kt`
 - `backend/order-service/internal/service/order_food.go`
 - `backend/order-service/internal/service/matching_service.go`
-- `backend/order-service/internal/repository/maps_repository.go`
 
-**Implementation checklist**
-- [ ] Remove fabricated client ETA formulas.
-- [ ] ETA includes prep + dispatch/supply + pickup travel + delivery route/traffic + batching + confidence.
-- [ ] Refresh after accept, courier assignment, ready, pickup, deviation, delay.
-- [ ] Log predicted vs actual per stage/area/merchant.
+- [ ] Remove fabricated client ETA.
+- [ ] ETA includes prep/supply/pickup travel/traffic/batching/confidence.
+- [ ] Measure predicted vs actual.
 
----
-
-### FOOD-2026-006 — Contactless delivery end-to-end
+## FOOD-2026-006 — Contactless end-to-end [P0]
 
 **Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodCheckoutScreen.kt`
+- `FoodCheckoutScreen.kt`
 - `backend/order-service/internal/domain/order_food.go`
 - `backend/order-service/internal/service/order_food.go`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/struk/MerchantZipOrderDetailScreens.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/OrderDetailScreen.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/pod/ProofOfDeliveryScreen.kt`
+- courier `ProofOfDeliveryScreen.kt`
 
-**Implementation checklist**
-- [ ] Contactless toggle + structured instruction persisted end-to-end.
+- [ ] Persist contactless + structured instructions.
 - [ ] Courier sees instruction before delivery.
-- [ ] POD supports contactless proof without forcing face-to-face signature.
+- [ ] Contactless-compatible POD.
 
----
-
-### FOOD-2026-007 — Canonical Food state machine + cross-app contract tests
+## FOOD-2026-007 — Canonical Food state machine + cross-app tests [P0]
 
 **Files to edit**
 - `backend/order-service/internal/domain/order_food.go`
 - `backend/order-service/internal/service/order_food.go`
 - `backend/order-service/internal/service/order_food_merchant.go`
 - `backend/order-service/internal/service/order_status_guard_test.go`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/HomeViewModel.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/OrderViewModel.kt`
 
 **Recommended new file**
 - `backend/order-service/internal/service/order_food_state_machine_test.go`
 
 **Mandatory scenarios**
-- [ ] Happy path payment → merchant accept → preparing → courier assign → secure pickup → delivery → settlement.
-- [ ] Customer double-tap/retry create.
-- [ ] Payment timeout/failure lalu late callback.
-- [ ] Merchant reject.
-- [ ] Merchant timeout/auto-cancel.
-- [ ] Item/variant becomes unavailable before confirm.
-- [ ] Substitution/edit with customer approval.
+- [ ] Happy path payment→accept→prepare→assign→handoff→delivery→settlement.
+- [ ] Duplicate create.
+- [ ] Payment fail/late callback.
+- [ ] Merchant reject/timeout.
+- [ ] Item unavailable/substitution.
 - [ ] Scheduled activation.
-- [ ] No courier / delayed dispatch.
-- [ ] Courier reject/reassignment.
-- [ ] Courier issue at pickup with evidence.
-- [ ] Early-ready and late-ready.
-- [ ] Invalid/replayed handoff token.
-- [ ] Contactless delivery.
+- [ ] No courier/reassign.
+- [ ] Wait/early-ready/late-ready.
+- [ ] Invalid/replayed handoff.
+- [ ] Contactless.
 - [ ] Partial refund/edit.
-- [ ] Food batching path.
-- [ ] Socket offline → reconnect → snapshot reconcile.
-- [ ] Duplicate/out-of-order notification/webhook.
+- [ ] Socket reconnect/out-of-order events.
 
----
-
-### FOOD-2026-008 — Customer location/privacy permission hardening
+## FOOD-2026-008 — Location/privacy permission hardening [P0]
 
 **Files to edit**
 - `android-app-customer/app/src/main/AndroidManifest.xml`
 - `android-app-customer/app/src/main/java/com/tembus/customer/receiver/BootReceiver.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/service/LocationTrackerService.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodHomeScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodCheckoutScreen.kt`
+- Food customer screens
 
-**Implementation checklist**
-- [ ] Audit need background location dan boot-start behavior.
-- [ ] Food browsing/checkout uses least privilege.
-- [ ] No persistent tracking after reboot tanpa justified user-visible feature.
-- [ ] Manual/saved-address works when permission denied.
-- [ ] Document retention, purpose, consent, telemetry granularity.
+- [ ] Least privilege location.
+- [ ] Manual/saved address works without location permission.
+- [ ] No unjustified boot background tracking.
 
----
-
-### FOOD-2026-009 — Food payment/refund/reconciliation invariants
+## FOOD-2026-009 — Food finance invariants [P0]
 
 **Files to edit**
 - `backend/order-service/internal/service/payment_service.go`
 - `backend/order-service/internal/service/refund_service.go`
 - `backend/order-service/internal/service/merchant_settlement_service.go`
-- `backend/order-service/internal/repository/merchant_settlement_repository.go`
 - `admin-dashboard/src/pages/MerchantSettlements.tsx`
 - `admin-dashboard/src/pages/finance/reconciliationPanel.tsx`
 
-**Implementation checklist**
-- [ ] Merchant reject/timeout/customer cancel/courier failure/edit/tip/refund/settlement all reconcile.
-- [ ] Promo subsidy and merchant payable are explicit ledger components.
-- [ ] Completed-with-unreconciled-money enters exception queue.
+- [ ] Reject/timeout/cancel/courier failure/edit/tip/refund/settlement reconcile.
+- [ ] Promo subsidy and merchant payable explicit.
 
----
+## FOOD-2026-010 — Customer Pickup/self-pickup [P1]
+- [ ] Delivery vs Pickup.
+- [ ] No courier fee/dispatch for Pickup.
+- [ ] Ready notification + pickup PIN/QR.
+- [ ] No-show/cancel policy.
 
-## P1 — Food Marketplace Parity
+## FOOD-2026-011 — Merchant Busy vs Paused [P1]
+- [ ] Busy extends prep/ETA while accepting orders.
+- [ ] Pause stops new orders.
+- [ ] Timed busy supported.
 
-### FOOD-2026-010 — Customer Pickup / self-pickup
-
-**Files to edit**
-- `FoodHomeScreen.kt`, `MerchantDetailScreen.kt`, `FoodCheckoutScreen.kt` under `android-app-customer/.../ui/screens/food/`
-- `backend/order-service/internal/domain/order_food.go`
-- `backend/order-service/internal/service/order_food.go`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/StitchOrdersDashboardScreen.kt`
-
-**Implementation checklist**
-- [ ] Delivery vs Pickup selectable before checkout.
-- [ ] Pickup has no courier dispatch/delivery fee.
-- [ ] Readiness notification + one-time pickup PIN/QR.
-- [ ] No-show/expiry/cancel policy defined.
-
-### FOOD-2026-011 — Merchant Busy mode distinct from Paused
-
-**Files to edit**
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/StitchOrdersDashboardScreen.kt`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/HomeViewModel.kt`
-- `backend/order-service/internal/service/order_food_merchant.go`
-- `backend/order-service/internal/service/matching_service.go`
-
-- [ ] Busy keeps store open but extends promised prep/ETA.
-- [ ] Busy can be timed and visible to customer/matching.
-- [ ] Pause stops new orders and remains separate state.
-
-### FOOD-2026-012 — Quantity-aware inventory & scheduled availability
-
-**Files to edit**
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/menu/MenuViewModel.kt`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/menu/MenuItemEditorZipContent.kt`
-- `backend/order-service/internal/repository/food_repository.go`
-- `backend/order-service/internal/service/order_food.go`
-
-- [ ] Optional stock/sales limits + reset window.
-- [ ] Scheduled item availability.
-- [ ] Atomic reserve/decrement/release under concurrency.
+## FOOD-2026-012 — Quantity-aware inventory [P1]
+- [ ] Stock/sales limit + reset schedule.
+- [ ] Atomic reserve/decrement/release.
 - [ ] Prevent oversell.
 
-### FOOD-2026-013 — Out-of-stock substitution/customer approval
+## FOOD-2026-013 — Substitution/customer approval [P1]
+- [ ] Merchant proposes item delta.
+- [ ] Customer approve/reject/timeout.
+- [ ] Price/promo/refund recalculated atomically.
 
-**Files to edit**
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/EditOrderScreen.kt`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/EditOrderViewModel.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailScreen.kt`
-- `backend/order-service/internal/service/order_food.go`
-- `backend/order-service/internal/service/refund_service.go`
+## FOOD-2026-014 — Discovery/ranking [P1]
+- [ ] Cuisine/filter/sort/recent/favorites/popular.
+- [ ] Server-ranked pagination.
+- [ ] Sponsored content labeled and separated from organic.
 
-- [ ] Merchant proposes remove/replace/quantity changes.
-- [ ] Customer sees delta total and approve/reject/timeout.
-- [ ] Promo/tax/payment/refund delta recompute atomically.
-- [ ] Courier informed if handoff contents materially change.
+## FOOD-2026-015 — Operating hours [P1]
+- [ ] Regular/holiday/temp closure/last-order/future schedule.
 
-### FOOD-2026-014 — Discovery/ranking 2026
+## FOOD-2026-016 — Food checkout options [P1]
+- [ ] Cutlery, merchant note, delivery note, gift/receiver privacy.
 
-**Files to edit**
-- `FoodHomeScreen.kt`, `FoodFavoritesScreen.kt`, `FoodViewModel.kt`, `MerchantDetailScreen.kt`
-- `backend/order-service/internal/repository/food_repository.go`
+## FOOD-2026-017 — Courier wait/merchant issue [P1]
+- [ ] Arrived, not-ready, wait timer, ready signal.
+- [ ] Structured pickup issues/evidence.
 
-- [ ] Cuisine/category/filter/sort by ETA/fee/rating/promo/open/halal/Pickup.
-- [ ] Reorder/recent/favorite/popular rails.
-- [ ] Server-ranked paginated results combine relevance + availability + ETA + distance.
-- [ ] Sponsored placement, jika ada, diberi label dan tidak mencemari organic score.
+## FOOD-2026-018 — Merchant kitchen cockpit [P1]
+- [ ] New/scheduled/preparing/ready/completed lanes.
+- [ ] SLA countdown and printer failure isolation.
 
-### FOOD-2026-015 — Operating hours maturity
+## FOOD-2026-019 — Ratings/reviews trust [P1]
+- [ ] Rating count/detail, merchant reply/report, food vs delivery rating, fraud controls.
 
-**Files to edit**
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/OperatingHoursDialog.kt`
-- `backend/order-service/internal/repository/food_repository.go`
-- `backend/order-service/internal/service/order_food.go`
+## FOOD-2026-020 — Group orders/split payment [P2]
+- [ ] Shared cart, deadline, creator control, optional split.
 
-- [ ] Regular hours, holiday closure, temporary closure, last-order cutoff, future schedule validation.
+## FOOD-2026-021 — Membership/free delivery [P2]
+- [ ] Entitlement + subsidy accounting + exclusions.
 
-### FOOD-2026-016 — Food-specific checkout options
+## FOOD-2026-022 — Personalized ranking [P2]
+- [ ] Privacy-aware signals + cold-start + experiment framework.
 
-**Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodCheckoutScreen.kt`
-- `backend/order-service/internal/domain/order_food.go`
+## FOOD-2026-023 — Sponsored placement [P2]
+- [ ] Ad labeling/campaign/attribution/fraud/organic isolation.
 
-- [ ] Cutlery toggle, merchant note, delivery note, gift/receiver privacy separated clearly.
+## FOOD-2026-024 — Multi-store/Mix & Match [P2]
+- [ ] Separate orchestration project; preserve single-merchant invariants.
 
-### FOOD-2026-017 — Courier waiting/merchant issue flow
-
-**Files to edit**
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/OrderDetailScreen.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/CourierIssueReportDialog.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/FoodItemsCard.kt`
-- `backend/order-service/internal/service/order_food.go`
-
-- [ ] `arrived_at_merchant`, `order_not_ready`, waiting timer, ready signal.
-- [ ] Structured issues: closed, item problem, excessive wait, wrong order, damaged packaging, handoff failure.
-- [ ] Waiting time feeds ops analytics/compensation policy.
-
-### FOOD-2026-018 — Merchant kitchen cockpit / SLA UX
-
-**Files to edit**
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/StitchOrdersDashboardScreen.kt`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/HomeViewModel.kt`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/data/notifications/OrderAlertNotifier.kt`
-- `android-app-merchant/app/src/main/java/com/tembus/merchant/data/printer/EscPos.kt`
-
-- [ ] Lanes: new, scheduled, preparing, ready/driver-arriving, completed.
-- [ ] Countdown based promised ready + courier ETA.
-- [ ] Accept/reject consequence clear.
-- [ ] Printer failure never blocks order state.
-
-### FOOD-2026-019 — Ratings/reviews trust surfaces
-
-**Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/MerchantDetailScreen.kt`
-- `backend/order-service/internal/service/order_rating.go`
-- merchant profile/review screen under `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/`
-
-- [ ] Rating count/detail, merchant reply/report, food vs delivery rating separation, spam/fraud controls.
-
----
-
-## P2 — Food Scale Features
-
-### FOOD-2026-020 — Group orders & optional split payment
-
-**Recommended new files**
-- `backend/order-service/internal/domain/group_order.go`
-- `backend/order-service/internal/service/group_order_service.go`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/GroupOrderScreen.kt`
-
-- [ ] Shared cart, participant deadline, creator controls, conflict-safe updates, optional split payment.
-
-### FOOD-2026-021 — Membership/free-delivery entitlement
-
-**Recommended new files**
-- `backend/order-service/internal/domain/membership.go`
-- `backend/order-service/internal/service/membership_service.go`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/membership/MembershipScreen.kt`
-
-- [ ] Entitlement, eligibility, subsidy accounting, transparent exclusions.
-
-### FOOD-2026-022 — Personalized ranking/recommendation
-- [ ] Privacy-aware signals, cold-start fallback, experiments, explainable controls.
-
-### FOOD-2026-023 — Sponsored merchant/menu placement
-- [ ] Explicit ad label, campaign/budget/attribution/fraud control, organic isolation.
-
-### FOOD-2026-024 — Multi-store / Mix & Match exploration
-- [ ] Treat as separate orchestration project; do not overload current single-merchant invariants prematurely.
-
-### FOOD-2026-025 — POS/KDS integration
+## FOOD-2026-025 — POS/KDS [P2]
 
 **Recommended new files**
 - `backend/integration-gateway/internal/domain/pos_provider.go`
@@ -840,22 +712,14 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 
 - [ ] Order injection/ack, catalog/stock sync, reconciliation, connector health.
 
-### FOOD-2026-026 — Adaptive UI/accessibility modernization
-
-**Files to edit**
-- Food screens in customer Android
-- Merchant Food screens
-- Courier Food order screens
-
-- [ ] Phone/tablet/foldable behavior, dynamic type, screen reader, touch targets, contrast, reduced-motion.
+## FOOD-2026-026 — Adaptive UI/accessibility [P2]
+- [ ] Phone/tablet/foldable, dynamic text, screen reader, touch target, contrast, reduced motion.
 
 ---
 
 # PART D — TAMBAL BAN END-TO-END
 
-## P0
-
-### TIRE-2026-001 — Emergency location + structured problem context
+## TIRE-2026-001 — Emergency location + structured problem [P0]
 
 **Files to edit**
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/TambalBanHomeScreen.kt`
@@ -863,45 +727,31 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceBookingScreen.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceBookingViewModel.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/VehicleDetailInput.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/data/model/ServiceModels.kt`
 
-**Implementation checklist**
-- [ ] Jangan gunakan `0.0,0.0` sebagai fallback location yang bisa lanjut transaksi.
-- [ ] Customer dapat koreksi pin bila GPS tidak tepat.
-- [ ] Capture vehicle type, tire position/count, symptom/damage, spare-tire availability, notes/photo if useful.
-- [ ] Tampilkan safety guidance singkat bila posisi kendaraan berbahaya tanpa membuat user melewati booking utama.
-- [ ] Selected location change invalidates technician list + quote.
+- [ ] No `0,0` transactional fallback.
+- [ ] User can correct pin.
+- [ ] Capture vehicle/tire/problem/spare/notes/photo where useful.
+- [ ] Location change refreshes technician/quote.
 
----
-
-### TIRE-2026-002 — Capability-safe technician discovery & selection
+## TIRE-2026-002 — Capability-safe technician discovery [P0]
 
 **Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/NearbyCouriersScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/NearbyCouriersViewModel.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/CourierDetailScreen.kt`
+- customer `NearbyCouriersScreen.kt`, `NearbyCouriersViewModel.kt`, `CourierDetailScreen.kt`
 - `backend/order-service/internal/domain/tambalban.go`
 - `backend/order-service/internal/handler/tambalban_handler.go`
 - `backend/order-service/internal/service/availability_service.go`
 - `backend/order-service/internal/service/matching_service.go`
 
-**Implementation checklist**
-- [ ] Technician result filters exact capability `tambal_ban_motor/mobil`.
-- [ ] Show rating count, ETA, distance, service price, vehicle compatibility, online/current workload state.
-- [ ] Expired/stale availability cannot be selected silently.
-- [ ] Preferred technician selection is server validated at create time.
-- [ ] If selected technician becomes unavailable, provide reselect/rematch flow.
+- [ ] Exact motor/mobil capability filtering.
+- [ ] ETA/distance/rating/service price/availability shown.
+- [ ] Preferred technician revalidated on create.
 
----
-
-### TIRE-2026-003 — Quote + on-site additional cost approval
+## TIRE-2026-003 — Quote + on-site adjustment approval [P0]
 
 **Files to edit**
-- `ServiceBookingScreen.kt` and `ServiceBookingViewModel.kt` under customer `ui/screens/service/`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/service/ServiceUpgradeScreen.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/service/ServiceUpgradeViewModel.kt`
+- customer `ServiceBookingScreen.kt`, `ServiceBookingViewModel.kt`
+- courier `ServiceUpgradeScreen.kt`, `ServiceUpgradeViewModel.kt`
 - `backend/order-service/internal/service/pricing_service.go`
-- `backend/order-service/internal/handler/tambalban_handler.go`
 
 **Recommended new files**
 - `backend/order-service/internal/domain/service_adjustment.go`
@@ -909,84 +759,41 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/handler/service_adjustment_handler.go`
 - `database/migrations/<timestamp>_add_service_adjustments.sql`
 
-**Implementation checklist**
-- [ ] Initial quote server-authoritative dan snapshot technician/service fee.
-- [ ] Material/repair upgrade setelah inspeksi harus dibuat sebagai structured adjustment proposal.
-- [ ] Proposal menunjukkan old total, additions, reason/material, new total, expiry.
-- [ ] Customer approve/reject eksplisit sebelum technician melakukan chargeable extra work.
-- [ ] Approval + financial adjustment + audit atomic/idempotent.
-- [ ] Technician tidak boleh mengubah total final hanya dari client UI.
+- [ ] Initial quote snapshot.
+- [ ] Extra material/work becomes structured adjustment.
+- [ ] Customer explicitly approves price delta.
+- [ ] Approval + money + audit is atomic/idempotent.
 
----
-
-### TIRE-2026-004 — Arrival → inspection → repair → proof → completion lifecycle
+## TIRE-2026-004 — Arrival→inspection→repair→proof→completion [P0]
 
 **Files to edit**
-- `android-app/app/src/main/java/com/tembus/courier/domain/TambalBanFlow.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/service/TambalBanFlowScreen.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/service/TambalBanFlowViewModel.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/service/InspectTireScreen.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/TambalBanReportCard.kt`
+- courier `TambalBanFlow.kt`, `TambalBanFlowScreen.kt`, `TambalBanFlowViewModel.kt`, `InspectTireScreen.kt`, `TambalBanReportCard.kt`
 - `backend/order-service/internal/domain/tambalban.go`
 - `backend/order-service/internal/handler/tambalban_handler.go`
 
-**Implementation checklist**
-- [ ] Canonical sequence: assigned → navigating → arrived/on-site → inspection → approved work → repair → after-proof → completed.
-- [ ] Before/after tire photo requirement configurable but server validated.
-- [ ] Materials/duration/notes are structured report fields.
-- [ ] Step cannot be skipped by reopening/deep-link client.
-- [ ] Customer tracking/detail exposes current human-readable service stage.
+- [ ] Server-enforced lifecycle.
+- [ ] Before/after proof as configured.
+- [ ] Structured material/duration/report.
+- [ ] Customer sees human-readable stages.
 
----
+## TIRE-2026-005 — Settlement/warranty/claim/rating [P0]
+- [ ] Settlement after proof invariant.
+- [ ] Customer sees final report + approved adjustment.
+- [ ] Warranty/claim, if offered, links immutable evidence.
+- [ ] Rating distinguishes technician service quality where useful.
 
-### TIRE-2026-005 — Payment, warranty/claim & rating
-
-**Files to edit**
-- `backend/order-service/internal/service/payment_service.go`
-- `backend/order-service/internal/service/payout_service.go`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceReportScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceReportViewModel.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailScreen.kt`
-- `frontend/src/app/(portal)/disputes/page.tsx` if web support is shared for claims
-
-**Recommended new files if warranty is a product requirement**
-- `backend/order-service/internal/domain/service_warranty.go`
-- `backend/order-service/internal/service/service_warranty_service.go`
-
-**Implementation checklist**
-- [ ] Settlement only after completion/proof invariant.
-- [ ] Customer sees final report and approved adjustments.
-- [ ] Claim/dispute links to immutable before/after evidence.
-- [ ] Rating can distinguish technician service quality from generic delivery rating.
-
----
-
-## P1 — Tambal Ban UI/UX
-
-### TIRE-2026-006 — Emergency-first UI/UX
-
-**Files to edit**
-- `TambalBanHomeScreen.kt`
-- `TambalBanSearchScreen.kt`
-- `NearbyCouriersScreen.kt`
-- `CourierDetailScreen.kt`
-- `ServiceBookingScreen.kt`
-- `ServiceTrackingScreen.kt`
-
-**Implementation checklist**
-- [ ] First screen asks what vehicle/problem/location, not operational jargon.
-- [ ] Technician cards prioritize ETA, capability, rating, total estimate.
-- [ ] Tracking prioritizes “petugas menuju Anda / tiba / inspeksi / pengerjaan / selesai”.
-- [ ] Additional charge approval uses high-clarity confirmation with reason and total delta.
-- [ ] Safety copy concise and contextual.
+## TIRE-2026-006 — Emergency-first UI/UX [P1]
+- [ ] First screen asks vehicle/problem/location.
+- [ ] Technician cards prioritize ETA/capability/rating/estimate.
+- [ ] Tracking language: menuju Anda→tiba→inspeksi→pengerjaan→selesai.
 
 ---
 
 # PART E — AGGREGATOR PAKET ANTAR-KOTA END-TO-END
 
-## P0
+> **Core principle:** Aggregator adalah universal carrier orchestration. Business layer LANCAR tidak boleh menjadi kumpulan `if provider == JNE/JNT/...`.
 
-### AGG-2026-001 — Remove hardcoded CGK, mock cities & static provider truth
+## AGG-2026-001 — Remove CGK/mock/static provider truth [P0]
 
 **Files to edit**
 - `frontend/src/components/orders/AggregatorWizard.tsx`
@@ -996,23 +803,21 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/handler/parcel_handler.go`
 - `backend/integration-gateway/internal/domain/provider.go`
 - `backend/integration-gateway/internal/handler/logistics_handler.go`
-- `backend/integration-gateway/cmd/api/main.go`
 
 **Recommended new files**
 - `frontend/src/hooks/useLogisticsLocations.ts`
 - `frontend/src/hooks/useLogisticsProviders.ts`
 - `frontend/src/types/logistics.ts`
 
-**Implementation checklist**
-- [ ] Derive origin city/code dari validated pickup address/location; jangan default `CGK` untuk semua user.
-- [ ] Destination uses provider-compatible canonical location code resolved by backend.
-- [ ] Provider list berasal dari backend capabilities/config, bukan static UI list.
-- [ ] Provider unavailable/circuit-open state terlihat dan tidak selectable.
-- [ ] City/location search paginated/searchable; jangan embed mock list sebagai production fallback.
+- [ ] Origin from validated pickup address/provider location mapping.
+- [ ] Destination resolved to canonical/provider-compatible location code.
+- [ ] Provider/service list comes from backend capability registry.
+- [ ] Provider circuit-open/unavailable not selectable.
+- [ ] No production mock city/provider fallback.
 
 ---
 
-### AGG-2026-002 — Backend-mediated geocoding/location normalization
+## AGG-2026-002 — Backend-mediated location normalization [P0]
 
 **Files to edit**
 - `frontend/src/components/orders/AggregatorWizard.tsx`
@@ -1022,19 +827,16 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/integration-gateway/internal/provider/tomtom.go`
 - `backend/order-service/internal/repository/maps_repository.go`
 
-**Recommended new file if integration contract needs dedicated location endpoint**
+**Recommended new file**
 - `backend/integration-gateway/internal/handler/logistics_location_handler.go`
 
-**Implementation checklist**
-- [ ] Remove browser direct request to Nominatim.
-- [ ] Geocode/reverse-geocode melalui controlled backend API dengan timeout/retry/rate policy.
-- [ ] Normalize city/district/postal/provider code separately from display label.
-- [ ] Cache safely where possible.
-- [ ] Never expose server provider key to browser.
+- [ ] Remove direct browser third-party geocode.
+- [ ] Normalize display label separately from city/district/postal/provider code.
+- [ ] Provider-location mapping is server controlled/cacheable/auditable.
 
 ---
 
-### AGG-2026-003 — Authoritative carrier rate snapshot
+## AGG-2026-003 — Authoritative carrier rate snapshot [P0]
 
 **Files to edit**
 - `frontend/src/components/orders/AggregatorWizard.tsx`
@@ -1044,7 +846,6 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/integration-gateway/internal/provider/jnt_adapter.go`
 - `backend/integration-gateway/internal/provider/logistics_test.go`
 - `backend/order-service/internal/handler/parcel_handler.go`
-- `backend/order-service/internal/service/pricing_service.go`
 - `backend/order-service/internal/service/payment_link_service.go`
 
 **Recommended new files**
@@ -1052,18 +853,15 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/service/aggregator_quote_service.go`
 - `backend/order-service/internal/service/aggregator_quote_service_test.go`
 
-**Implementation checklist**
-- [ ] Rate request includes normalized origin/destination, chargeable weight, dimensions, category/value, COD/insurance flags.
-- [ ] Persist selected provider service + gross/net tariff + ETA + provider/rule version + expiry.
-- [ ] Carrier rate changes after review produce requote instead of silent change.
-- [ ] Display provider ETA as provider promise/range; do not invent local ETA.
-- [ ] Circuit breaker/provider error becomes typed degraded state.
+- [ ] Rate input includes normalized origin/destination, chargeable weight, dimensions, value/category, insurance/COD flags as supported.
+- [ ] Persist provider code, native service code/name, optional normalized category, gross/net tariff, ETA/source, rule version, expiry.
+- [ ] Preserve native provider service codes such as JNE `REG/YES/...` or J&T equivalents.
+- [ ] Do not fabricate ETA. Remove hardcoded fallback such as generic `1-3 hari` unless it comes from explicit provider configuration with provenance.
+- [ ] Rate change after review returns requote.
 
 ---
 
-### AGG-2026-004 — Replace manual fake-success with real create-order
-
-**Current production blocker:** manual mode in `AggregatorWizard.tsx` currently simulates a delay then navigates to `/orders?success=true`.
+## AGG-2026-004 — Replace manual fake-success with real create [P0]
 
 **Files to edit**
 - `frontend/src/components/orders/AggregatorWizard.tsx`
@@ -1077,22 +875,15 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 **Recommended new file**
 - `frontend/src/hooks/useCreateAggregatorOrder.ts`
 
-**Implementation checklist**
-- [ ] Manual final submit calls real API using idempotency key + selected aggregator quote.
-- [ ] API returns persisted order id/reference before success navigation.
-- [ ] Payment policy explicitly handled before/after AWB creation.
-- [ ] Browser refresh/retry rehydrates existing transaction instead of creating duplicate.
-- [ ] Success page/history verifies order exists server-side.
-- [ ] Remove all fake delay/mock success from production path.
-
-**Acceptance criteria**
-- [ ] Network tab shows a real create mutation.
-- [ ] Created order appears in database/order API/history and survives logout/login.
+- [ ] Final submit calls real create mutation with quote + idempotency key.
+- [ ] Persisted order reference before success navigation.
+- [ ] Payment/AWB creation sequencing explicit.
+- [ ] Refresh/retry rehydrates transaction.
 - [ ] API failure cannot show success.
 
 ---
 
-### AGG-2026-005 — Bulk upload safety & resumable processing
+## AGG-2026-005 — Bulk upload safety/resume [P0]
 
 **Files to edit**
 - `frontend/src/components/orders/AggregatorWizard.tsx`
@@ -1101,32 +892,27 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `frontend/src/components/orders/bulk/ReviewStep.tsx`
 - `frontend/src/components/orders/bulk/PaymentStep.tsx`
 - `frontend/src/lib/csv.ts`
-- backend bulk endpoints wired by Order/API service
 
-**Recommended new tests**
+**Recommended tests**
 - `frontend/e2e/aggregator-bulk-flow.spec.ts`
 - `backend/order-service/internal/service/order_bulk_idempotency_test.go`
 
-**Implementation checklist**
-- [ ] Validate file schema, row count, duplicate client reference, phone/address/weight/destination before processing.
-- [ ] Show per-row valid/error status and downloadable error report.
-- [ ] Bulk process idempotent per job and per row.
-- [ ] Partial failure does not hide successful child orders.
-- [ ] Payment maps exact order set/version; adding/removing rows invalidates payment quote.
-- [ ] Polling can resume after refresh using persisted `job_id` scoped to owner.
-- [ ] No user can query another customer's job id.
+- [ ] Per-row validation/error report.
+- [ ] Job and child rows idempotent.
+- [ ] Partial success visible.
+- [ ] Payment binds exact job/order set version.
+- [ ] Job resume after refresh, owner scoped.
 
 ---
 
-### AGG-2026-006 — First-mile pickup → provider AWB → carrier handoff
+## AGG-2026-006 — First-mile pickup → AWB → carrier handoff [P0]
 
 **Files to edit**
 - `backend/order-service/internal/service/payment_link_service.go`
 - `backend/order-service/internal/service/resi_service.go`
 - `backend/order-service/internal/handler/resi_handler.go`
 - `backend/order-service/internal/handler/proof_handler.go`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/PackageChecklistCard.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/scan/ScanScreen.kt`
+- courier `PackageChecklistCard.kt`, `ScanScreen.kt`
 - `frontend/src/app/(portal)/resi/page.tsx`
 - `frontend/src/app/(portal)/resi/[id]/page.tsx`
 - `admin-dashboard/src/pages/settings/logisticsawb.tsx`
@@ -1135,16 +921,17 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/domain/carrier_handoff.go`
 - `backend/order-service/internal/service/carrier_handoff_service.go`
 
-**Implementation checklist**
-- [ ] Define who creates AWB and at what financial/order state.
-- [ ] AWB creation retry idempotent; do not generate multiple provider shipments.
-- [ ] First-mile courier pickup has chain-of-custody proof.
-- [ ] Carrier handoff records provider, AWB, handoff time/location/evidence/actor.
-- [ ] Once carrier accepts parcel, internal state maps cleanly into provider tracking state.
+**Checklist**
+- [ ] AWB creation state defined and idempotent.
+- [ ] Support three first-mile modes when provider capability allows: `lancar_pickup`, `provider_pickup`, `customer_dropoff`.
+- [ ] Mode comes from provider capability/service option, not hardcoded customer UI.
+- [ ] LANCAR first-mile chain of custody proof when LANCAR handles pickup.
+- [ ] Carrier handoff records provider/AWB/time/location/evidence/actor.
+- [ ] After carrier acceptance, provider events drive external lifecycle.
 
 ---
 
-### AGG-2026-007 — Normalize provider tracking webhooks
+## AGG-2026-007 — Normalize carrier events without losing raw truth [P0]
 
 **Files to edit**
 - `backend/integration-gateway/internal/handler/tracking_webhook_handler.go`
@@ -1154,23 +941,22 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/service/order_events.go`
 - `frontend/src/app/(portal)/orders/[id]/OrderDetailContent.tsx`
 - `frontend/src/app/(portal)/resi/[id]/page.tsx`
-- `frontend/src/app/cek-resi/page.tsx`
 
 **Recommended new files**
 - `backend/integration-gateway/internal/domain/carrier_event.go`
 - `backend/integration-gateway/internal/provider/carrier_event_normalizer.go`
 - `backend/integration-gateway/internal/provider/carrier_event_normalizer_test.go`
+- `database/migrations/<timestamp>_add_carrier_event_inbox.sql`
 
-**Implementation checklist**
-- [ ] Verify webhook authenticity/signature/provider allowlist where supported.
-- [ ] Persist provider event id/raw reference before processing for dedupe/audit.
-- [ ] Normalize picked-up/in-transit/hub/out-for-delivery/delivered/failed/return/lost/damaged.
-- [ ] Out-of-order provider event cannot regress terminal status.
-- [ ] Unknown provider status stored for investigation without corrupting customer state.
+- [ ] Persist event id/hash, raw provider status/code/description/location/timestamp and raw-payload reference before processing.
+- [ ] Normalize to canonical statuses but never discard raw values.
+- [ ] Provider event dedupe/replay protection.
+- [ ] Out-of-order event cannot regress terminal state.
+- [ ] Unknown status is stored/observable and shown as safe generic customer state rather than guessed.
 
 ---
 
-### AGG-2026-008 — COD, return, lost/damaged & claim finance flow
+## AGG-2026-008 — Provider-driven COD / return / lost / damaged / claim finance [P0]
 
 **Files to edit**
 - `backend/order-service/internal/domain/aggregator_finance.go`
@@ -1187,18 +973,16 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `backend/order-service/internal/service/aggregator_claim_service.go`
 - `backend/order-service/internal/handler/aggregator_claim_handler.go`
 
-**Implementation checklist**
-- [ ] COD eligibility/provider fee/remittance state modeled explicitly.
-- [ ] Return-to-sender has reason, fee owner, new tracking lifecycle.
-- [ ] Lost/damaged claim references item value, insurance, provider liability, evidence, payout state.
-- [ ] Provider reimbursement and customer refund never double-credit ledger.
-- [ ] Admin claim override auditable.
+**Checklist**
+- [ ] COD shown only when selected provider/service supports it.
+- [ ] Return-to-sender lifecycle follows provider status/policy and records fee owner.
+- [ ] Lost/damaged claim references carrier, AWB, item value, insurance, provider liability, evidence, claim reference/status.
+- [ ] Customer compensation/refund and provider reimbursement never double-credit ledger.
+- [ ] LANCAR does not impose one global retry/return SLA across all carriers unless contractually configured per provider.
 
 ---
 
-## P1 — Aggregator Customer Web UI/UX
-
-### AGG-2026-009 — Wizard redesign around logistics decisions, not internal fields
+## AGG-2026-009 — Aggregator customer web decision UX [P1]
 
 **Files to edit**
 - `frontend/src/app/(portal)/orders/new/aggregator/page.tsx`
@@ -1207,179 +991,231 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `frontend/src/components/orders/AddressPicker.tsx`
 - `frontend/src/components/orders/OrderSummary.tsx`
 
-**Implementation checklist**
-- [ ] Recommended step order: Pickup → Receiver/Package → Compare Carrier → Review & Pay.
-- [ ] Carrier cards show logo/name/service, ETA promise, chargeable weight, price, COD/insurance capabilities, known limitation.
-- [ ] Explain volumetric weight with compact helper, not logistics jargon dump.
-- [ ] Preserve form values on back/forward.
+- [ ] Steps: Pickup → Receiver/Package → Compare Carrier → Review & Pay.
+- [ ] Carrier cards show provider/service name, ETA/source, chargeable weight, price, capabilities, limitations.
+- [ ] First-mile LANCAR vs external-carrier stage visually distinct.
 - [ ] Success only after persisted order.
-- [ ] Clear distinction between first-mile status and external carrier status.
+
+---
+
+## AGG-2026-010 — Universal capability-based provider architecture [P0]
+
+**Problem**  
+`Logistics3PLProvider` yang hanya mempunyai `CheckTariff/CreateOrder/TrackOrder` terlalu sempit untuk carrier dengan pickup, webhook, POD, cancellation, COD, return, insurance, claim, label, atau capability berbeda. Sebaliknya satu giant interface akan memaksa provider mengimplementasikan fitur yang tidak mereka punya.
+
+**Files to edit**
+- `backend/integration-gateway/internal/domain/provider.go`
+- `backend/integration-gateway/internal/handler/logistics_handler.go`
+- `backend/integration-gateway/cmd/api/main.go`
+- `backend/integration-gateway/internal/provider/jne_adapter.go`
+- `backend/integration-gateway/internal/provider/jnt_adapter.go`
+
+**Recommended new files**
+- `backend/integration-gateway/internal/domain/logistics_provider.go`
+- `backend/integration-gateway/internal/domain/logistics_capability.go`
+- `backend/integration-gateway/internal/provider/logistics_registry.go`
+- `backend/integration-gateway/internal/service/logistics_orchestrator.go`
+- `docs/contracts/logistics-provider-adapter-2026.md`
+
+**Capability interfaces / contracts to support as applicable**
+- `TariffProvider`
+- `ShipmentProvider`
+- `TrackingPullProvider`
+- `TrackingWebhookProvider`
+- `PickupProvider`
+- `CancellationProvider`
+- `LabelProvider`
+- `PODProvider`
+- `InsuranceProvider`
+- `CODProvider`
+- `ReturnProvider`
+- `ClaimProvider`
+
+**Checklist**
+- [ ] Every provider has canonical provider id/code/name and declared capability set.
+- [ ] Provider that does not support a capability is not forced to fake it.
+- [ ] Orchestrator selects operation based on declared capability.
+- [ ] Customer-facing provider/service options are generated from backend registry/result.
+- [ ] Native provider service code/name is preserved.
+- [ ] Provider credentials/config live server-side.
+- [ ] Circuit breaker/retry/timeout policy configurable per provider.
+- [ ] Adding provider does not require edits in customer Android, customer web, payment core, or generic order detail unless genuinely introducing new UX capability.
+
+---
+
+## AGG-2026-011 — Provider-specific webhook adapters + polling fallback [P0]
+
+**Problem**  
+`tracking_webhook_handler.go` currently owns JNE/J&T parsing in a central switch. This will become unmaintainable as providers grow.
+
+**Files to edit**
+- `backend/integration-gateway/internal/handler/tracking_webhook_handler.go`
+- `backend/integration-gateway/cmd/api/main.go`
+- `backend/integration-gateway/internal/provider/jne_adapter.go`
+- `backend/integration-gateway/internal/provider/jnt_adapter.go`
+
+**Recommended new files**
+- `backend/integration-gateway/internal/domain/logistics_webhook.go`
+- `backend/integration-gateway/internal/provider/jne_webhook.go`
+- `backend/integration-gateway/internal/provider/jnt_webhook.go`
+- `backend/integration-gateway/internal/service/carrier_event_processor.go`
+- `backend/integration-gateway/internal/worker/tracking_poll_worker.go`
+
+**Checklist**
+- [ ] Provider-specific signature/auth verification belongs to provider webhook adapter.
+- [ ] Adapter parses native payload into canonical `CarrierEvent`.
+- [ ] Webhook-capable provider uses webhook as primary event source where appropriate.
+- [ ] Tracking-pull-only provider uses polling worker.
+- [ ] Webhook provider may still use periodic pull reconciliation if supported.
+- [ ] Provider with neither supported webhook nor pull is surfaced as degraded/manual tracking capability.
+- [ ] Central handler routes provider→adapter but does not contain growing provider-specific parsing switch.
+
+---
+
+## AGG-2026-012 — Raw + normalized carrier status model [P0]
+
+**Files to edit**
+- `backend/integration-gateway/internal/domain/provider.go`
+- `backend/integration-gateway/internal/handler/tracking_webhook_handler.go`
+- `backend/integration-gateway/internal/provider/jne_adapter.go`
+- `backend/integration-gateway/internal/provider/jnt_adapter.go`
+- `backend/order-service/internal/service/tracking_service.go`
+- `frontend/src/app/(portal)/orders/[id]/OrderDetailContent.tsx`
+- `frontend/src/app/(portal)/resi/[id]/page.tsx`
+
+**Recommended new files**
+- `backend/integration-gateway/internal/provider/status_mapper.go`
+- `backend/integration-gateway/internal/provider/status_mapper_test.go`
+
+**Canonical normalized status target**
+- `CREATED`
+- `AWB_ISSUED`
+- `PICKUP_SCHEDULED`
+- `PICKED_UP`
+- `HANDED_TO_CARRIER`
+- `IN_TRANSIT`
+- `AT_SORTING_CENTER`
+- `OUT_FOR_DELIVERY`
+- `DELIVERED`
+- `DELIVERY_FAILED`
+- `EXCEPTION`
+- `RETURN_REQUESTED`
+- `RETURN_IN_TRANSIT`
+- `RETURNED_TO_SENDER`
+- `LOST`
+- `DAMAGED`
+- `CANCELLED`
+- `UNKNOWN`
+
+**Checklist**
+- [ ] Store `provider_status`, `provider_status_code`, `provider_status_description`, `provider_location`, `provider_timestamp`.
+- [ ] Also store normalized LANCAR status.
+- [ ] Mapping is provider-specific/configurable/tested.
+- [ ] Customer UI can show friendly status plus useful provider detail.
+- [ ] Unknown raw status does not get incorrectly coerced to `IN_TRANSIT`.
+
+---
+
+## AGG-2026-013 — Provider onboarding = adapter only, no core rewrite [P0 release gate]
+
+**Recommended new tests/files**
+- `backend/integration-gateway/internal/provider/provider_contract_test.go`
+- `backend/integration-gateway/internal/provider/provider_fixture_test.go`
+- `backend/integration-gateway/internal/provider/testdata/jne/`
+- `backend/integration-gateway/internal/provider/testdata/jnt/`
+- `docs/runbooks/onboard-logistics-provider.md`
+
+**Checklist**
+- [ ] Contract test suite can be reused for a new provider adapter.
+- [ ] Fixtures cover rate, create shipment/AWB, tracking, errors, timeout, duplicate event, unknown status.
+- [ ] Capability matrix is validated at startup/config load.
+- [ ] New provider has health/readiness diagnostics.
+- [ ] Onboarding runbook documents credentials, base URL, sandbox/prod, location mapping, service mapping, webhook route/signature, polling, SLA source, COD/insurance/return/claim capabilities.
+- [ ] Demonstrate with one additional stub/fake provider that registration requires no customer UI/core order edits.
 
 ---
 
 # PART F — TOWING END-TO-END
 
-## P0
-
-### TOW-2026-001 — Structured Towing booking: exact pickup, destination, vehicle & incident facts
+## TOW-2026-001 — Structured Towing booking [P0]
 
 **Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceBookingScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceBookingViewModel.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/VehicleDetailInput.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/data/model/ServiceModels.kt`
+- customer `ServiceBookingScreen.kt`, `ServiceBookingViewModel.kt`, `VehicleDetailInput.kt`, `ServiceModels.kt`
 - `backend/order-service/internal/domain/tambalban.go`
 - `backend/order-service/internal/handler/tambalban_handler.go`
 
-**Recommended new customer files only if generic screen becomes too branch-heavy**
+**Recommended new customer files only if generic screen becomes branch-heavy**
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/TowingBookingScreen.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/TowingBookingViewModel.kt`
 
-**Implementation checklist**
-- [ ] Pickup pin can be corrected; reject `0,0` fallback.
-- [ ] Destination must be selected from normalized geocode/pin, not free text only.
-- [ ] Capture vehicle type, make/model if needed, wheel/steering condition, drivable/non-drivable, damage/incident notes, access constraints.
-- [ ] Replace parcel-shaped placeholders (`small`, zero weight/dimensions, recipient `Customer`, phone `-`) with proper structured service metadata or explicit nullable non-parcel fields.
-- [ ] Show route preview and selected towing provider/operator.
-- [ ] Customer contact comes from authenticated/customer/receiver profile, not placeholder string.
+- [ ] Exact pickup and normalized destination.
+- [ ] Vehicle type/make/model/condition/access constraints structured.
+- [ ] Remove parcel-shaped placeholders like `small`, zero dimensions, fake receiver/phone.
+- [ ] Route preview/operator visible.
 
----
+## TOW-2026-002 — Capability/vehicle-safe matching [P0]
+- [ ] Validate towing motor/mobil capability.
+- [ ] Capacity/vehicle compatibility.
+- [ ] Active job/radius/availability.
+- [ ] Incompatible preferred courier cannot be forced.
 
-### TOW-2026-002 — Capability & vehicle-safe towing matching
-
-**Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/NearbyCouriersScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/NearbyCouriersViewModel.kt`
-- `backend/order-service/internal/domain/tambalban.go`
-- `backend/order-service/internal/service/availability_service.go`
-- `backend/order-service/internal/service/matching_service.go`
-- `backend/order-service/internal/handler/tambalban_handler.go`
-- `android-app/app/src/main/java/com/tembus/courier/ui/components/service/ServiceModeSelector.kt`
-
-**Implementation checklist**
-- [ ] `towing_motor` and `towing_mobil` capability validated server-side.
-- [ ] Operator/vehicle capacity compatibility validated before offer/accept.
-- [ ] Current availability/active job/radius considered.
-- [ ] Customer cannot force an incompatible preferred courier id.
-- [ ] Reassignment preserves inspection/evidence ownership rules.
-
----
-
-### TOW-2026-003 — Route/toll-aware quote + explicit requote approval
+## TOW-2026-003 — Route/toll quote + explicit requote [P0]
 
 **Files to edit**
-- `ServiceBookingScreen.kt` and `ServiceBookingViewModel.kt` under customer service screens
+- customer service booking files
 - `backend/order-service/internal/service/pricing_service.go`
 - `backend/order-service/internal/handler/tambalban_handler.go`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/service/ServiceUpgradeScreen.kt`
+- courier `ServiceUpgradeScreen.kt`
 
-**Use shared recommended files from `TIRE-2026-003`**
-- `service_adjustment.go`
-- `service_adjustment_service.go`
-- `service_adjustment_handler.go`
+- [ ] Actual pickup→dropoff route.
+- [ ] Toll/service/operator/platform/insurance components.
+- [ ] No vague silent admin adjustment.
+- [ ] Customer consent for material increase.
 
-**Implementation checklist**
-- [ ] Quote is based on actual pickup→dropoff route, service subtype/operator price, distance, toll policy, platform fee, insurance if any.
-- [ ] Replace vague UI statement “biaya final dapat disesuaikan admin/support” with an explicit adjustment/requote protocol.
-- [ ] Route/toll/vehicle-condition change produces proposal with old/new total and reason.
-- [ ] Customer approval required before material charge increase except documented emergency policy.
-- [ ] Admin cannot mutate final amount silently.
-
----
-
-### TOW-2026-004 — Inspection → loading → transit → unloading → completion proof
+## TOW-2026-004 — Inspection→loading→transit→unloading→completion proof [P0]
 
 **Files to edit**
-- `android-app/app/src/main/java/com/tembus/courier/domain/TowingFlow.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/service/TowingFlowScreen.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/service/TowingFlowViewModel.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/service/InspectVehicleScreen.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/components/service/TowingProgressSteps.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/TowingReportCard.kt`
-- `android-app/app/src/main/java/com/tembus/courier/data/repository/ServiceReportProofUploader.kt`
+- courier `TowingFlow.kt`, `TowingFlowScreen.kt`, `TowingFlowViewModel.kt`, `InspectVehicleScreen.kt`, `TowingProgressSteps.kt`, `TowingReportCard.kt`, `ServiceReportProofUploader.kt`
 - `backend/order-service/internal/domain/tambalban.go`
 - `backend/order-service/internal/handler/tambalban_handler.go`
 
-**Implementation checklist**
-- [ ] Mandatory before-condition proof before loading.
-- [ ] Capture odometer/vehicle condition only where operationally useful.
-- [ ] Loading photo/timestamp precedes transit state.
-- [ ] Transit state cannot start if required loading proof missing.
-- [ ] Unloading proof + destination verification precedes completion.
-- [ ] Completion photo/signature policy server validated.
-- [ ] Customer can inspect final towing report after completion.
+- [ ] Before-condition proof.
+- [ ] Loading proof before transit.
+- [ ] Unloading/destination verification before complete.
+- [ ] Completion proof/signature server validated.
 
----
+## TOW-2026-005 — Damage claim protection [P0]
+- [ ] Before evidence immutable after transit begins.
+- [ ] Before/after same vehicle/order/operator.
+- [ ] Liability decision audited.
+- [ ] Compensation reconciles with settlement/insurance.
 
-### TOW-2026-005 — Damage dispute protection
+## TOW-2026-006 — Customer tracking parity [P0]
+- [ ] Human-readable stages: menuju pickup→tiba→inspeksi→loading→perjalanan→unloading→selesai.
+- [ ] ETA/route refresh.
+- [ ] Snapshot recovery.
 
-**Files to edit**
-- Towing files in `TOW-2026-004`
-- `frontend/src/app/(portal)/disputes/page.tsx` if shared customer dispute surface is used
-- `admin-dashboard/src/pages/Disputes.tsx`
-- `backend/order-service/internal/handler/proof_handler.go`
+## TOW-2026-007 — Conditional backend split [P1]
 
-**Recommended new files if claim logic diverges from generic dispute**
-- `backend/order-service/internal/domain/towing_claim.go`
-- `backend/order-service/internal/service/towing_claim_service.go`
-
-**Implementation checklist**
-- [ ] Before evidence becomes immutable once transit begins.
-- [ ] After evidence records same vehicle/order/operator.
-- [ ] Dispute workflow can compare before vs after proof.
-- [ ] Manual liability decision records actor/reason/evidence references.
-- [ ] Financial compensation reconciles with payment/insurance/settlement.
-
----
-
-### TOW-2026-006 — Customer service tracking parity
-
-**Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceTrackingScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceTrackingViewModel.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailScreen.kt`
-- `backend/order-service/internal/service/tracking_service.go`
-
-**Implementation checklist**
-- [ ] Human-readable stages: operator menuju pickup → tiba → inspeksi → loading → perjalanan → unloading → selesai.
-- [ ] Route/ETA refresh at meaningful transitions.
-- [ ] Show operator identity/capability and safe contact option.
-- [ ] Offline/reconnect recovery uses snapshot.
-
----
-
-## P1 — Towing architecture/UI
-
-### TOW-2026-007 — Conditional backend split when shared Tambal/Towing file becomes a liability
-
-**Current rule:** do **not** split merely for naming cleanliness.
-
-**Recommended new files only if complexity threshold is reached**
+**Recommended only if complexity threshold is reached**
 - `backend/order-service/internal/domain/towing.go`
 - `backend/order-service/internal/handler/towing_handler.go`
 - `backend/order-service/internal/service/towing_service.go`
 - `backend/order-service/internal/repository/towing_repository.go`
-- `backend/order-service/internal/service/towing_service_test.go`
 
-**Split trigger checklist**
-- [ ] Towing transition rules materially diverge from Tambal Ban.
-- [ ] Towing pricing/adjustment logic has independent dependencies.
-- [ ] Towing report/claim code dominates shared file.
-- [ ] Split preserves shared interfaces for availability/settlement where useful.
+- [ ] Split only if Towing state/pricing/dependency/claim logic materially diverges from Tambal Ban.
 
-### TOW-2026-008 — Towing UI/UX safety & trust pass
-
-- [ ] Customer sees pickup and destination visually before quote.
-- [ ] Vehicle compatibility is explained before operator selection.
-- [ ] Price adjustments always require explicit understandable consent.
-- [ ] Before-condition evidence is visible as a trust feature, not hidden operational metadata.
-- [ ] Destructive cancellation clearly explains fee before confirmation.
+## TOW-2026-008 — Towing UI/UX trust [P1]
+- [ ] Pickup/destination visible before quote.
+- [ ] Compatibility explained before operator selection.
+- [ ] Adjustment requires explicit consent.
+- [ ] Before-condition evidence is customer-visible trust surface.
 
 ---
 
-# PART G — CUSTOMER WEB PLATFORM (PAKET + AGGREGATOR)
+# PART G — CUSTOMER WEB PLATFORM
 
-## WEB-2026-001 — No fake or optimistic transaction success
+## WEB-2026-001 — No fake/optimistic transaction success [P0]
 
 **Files to edit**
 - `frontend/src/components/orders/AggregatorWizard.tsx`
@@ -1387,14 +1223,11 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `frontend/src/components/orders/PaymentModal.tsx`
 - `frontend/src/lib/api.ts`
 
-- [ ] Success state requires persisted server resource.
-- [ ] Network error/timeout shows pending/retry status rather than success.
-- [ ] Duplicate browser submit uses same idempotency key.
-- [ ] Reload after submit can resolve order by client transaction/idempotency reference.
+- [ ] Success requires persisted server resource.
+- [ ] Timeout shows pending/retry, not success.
+- [ ] Duplicate submit reuses idempotency key.
 
----
-
-## WEB-2026-002 — Service-aware history/detail/resi semantics
+## WEB-2026-002 — Service-aware history/detail/resi [P1]
 
 **Files to edit**
 - `frontend/src/app/(portal)/orders/page.tsx`
@@ -1410,100 +1243,56 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `frontend/src/components/orders/OrderTimeline.tsx`
 - `frontend/src/components/orders/OrderPriceBreakdown.tsx`
 
-- [ ] Paket Instan and Aggregator render correct service labels and stage vocabulary.
-- [ ] External carrier tracking is visually distinct from LANCAR first-mile status.
-- [ ] Price/refund/payment state is not mixed with delivery state.
-- [ ] Timeline handles unknown future states gracefully.
+- [ ] Paket Instan vs Aggregator uses correct vocabulary.
+- [ ] LANCAR first-mile vs external carrier visually distinct.
+- [ ] Money state separated from delivery state.
 
----
-
-## WEB-2026-003 — Accessibility, responsive & failure recovery baseline
-
-**Files to edit**
-- `frontend/src/components/a11y/FocusTrap.tsx`
-- `frontend/src/components/a11y/VisuallyHidden.tsx`
-- `frontend/src/components/a11y/useAnnounce.ts`
-- order pages/components listed above
-
-- [ ] Keyboard navigation, focus restore, form error association, screen-reader status announcement.
-- [ ] Mobile viewport does not hide sticky CTA or modal actions.
-- [ ] Loading skeleton does not look like final amount/status.
-- [ ] Empty/error/offline states have explicit recovery actions.
+## WEB-2026-003 — Accessibility/responsive/failure recovery [P1]
+- [ ] Keyboard/focus/form error/screen-reader status.
+- [ ] Sticky CTA/modal works mobile.
+- [ ] Error/offline states have explicit recovery.
 
 ---
 
 # PART H — SHARED CUSTOMER & COURIER UI/UX
 
-## UX-2026-001 — Customer Dashboard information architecture for 5 services
+## UX-2026-001 — Dashboard IA for 5 services [P1]
 
 **Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceGridMenu.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/ServiceIcons.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/Screen.kt`
+- customer `DashboardScreen.kt`, `ServiceGridMenu.kt`, `ServiceIcons.kt`, `RootNavGraph.kt`, `Screen.kt`
 
-- [ ] Five service entries have distinct labels, purpose, icon, and expectation.
-- [ ] Recommended naming: `Paket Instan`, `Food`, `Tambal Ban`, `Ekspedisi Antar-Kota`, `Towing`.
-- [ ] Do not use similar package icons/text for on-demand and aggregator without explanatory subtitle.
-- [ ] Emergency services Tambal Ban/Towing are easy to reach but not visually confused with normal delivery.
-- [ ] Deep link lands at correct service context.
+- [ ] Distinct labels/icons/purpose.
+- [ ] Recommended: `Paket Instan`, `Food`, `Tambal Ban`, `Ekspedisi Antar-Kota`, `Towing`.
+- [ ] Emergency services visually distinct.
 
----
-
-## UX-2026-002 — One history/detail shell, service-specific sections
+## UX-2026-002 — One order-detail shell, service-specific sections [P1]
 
 **Files to edit**
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/history/OrderHistoryScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailScreen.kt`
-- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailViewModel.kt`
+- customer `OrderHistoryScreen.kt`, `OrderDetailScreen.kt`, `OrderDetailViewModel.kt`
 
 **Recommended new files**
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailSections.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderActionPolicy.kt`
 
-- [ ] Shared shell handles status, price, timeline, support.
-- [ ] Service sections show only relevant fields: package, food, roadside, carrier, towing.
-- [ ] Action policy determines cancel/pay/track/rate/claim based on state+service, not scattered UI conditions.
-- [ ] Unsupported state never crashes screen.
+- [ ] Shared shell + typed service sections.
+- [ ] Action policy by state+service.
+- [ ] Unknown state safe.
 
----
+## UX-2026-003 — Courier service-mode clarity [P1]
+- [ ] Active capabilities clear before offers.
+- [ ] Offer shows service/capability/earnings/route/proof requirement.
+- [ ] Food/Paket/Tambal/Towing cues distinct.
 
-## UX-2026-003 — Courier service-mode clarity
-
-**Files to edit**
-- `android-app/app/src/main/java/com/tembus/courier/ui/components/service/ServiceModeSelector.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/components/OnDemandServiceActivationCard.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/components/OnDemandServiceToggleRow.kt`
-- `android-app/app/src/main/java/com/tembus/courier/ui/screens/order/OrderDetailScreen.kt`
-
-- [ ] Courier understands active capability/mode before receiving offer.
-- [ ] Offer card exposes service type, required capability, earnings, route, special proof requirement.
-- [ ] Food/Tambal/Towing/Paket visual cues differ enough to prevent wrong workflow.
-- [ ] Disabling capability stops new offers without breaking active job.
-
----
-
-## UX-2026-004 — Notification/deep-link consistency
-
-**Files to edit**
-- `backend/order-service/internal/service/push_service.go`
-- `backend/order-service/internal/handler/push_handler.go`
-- `android-app/app/src/main/java/com/tembus/courier/service/TEMBUSFirebaseMessagingService.kt`
-- `android-app/app/src/main/java/com/tembus/courier/notification/NotificationLaunchTarget.kt`
-- customer Android notification/deep-link handling
-- `frontend/src/components/PushNotificationPrompt.tsx`
-- `frontend/src/lib/deepLink.ts`
-
-- [ ] Every push contains service/category + order id + target route + event/state version.
+## UX-2026-004 — Notification/deep-link consistency [P1]
+- [ ] Push includes service/order/target/event version.
 - [ ] Stale push cannot regress UI.
-- [ ] Deep link to cancelled/completed order opens current detail snapshot gracefully.
+- [ ] Deep link always snapshot-reconciles.
 
 ---
 
 # PART I — ADMIN / OPERATIONS
 
-## OPS-2026-001 — Unified operational order timeline & service filter
+## OPS-2026-001 — Unified operational timeline [P0]
 
 **Files to edit**
 - `admin-dashboard/src/components/ActiveOrdersTable.tsx`
@@ -1512,154 +1301,101 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `admin-dashboard/src/pages/Disputes.tsx`
 - `admin-dashboard/src/components/LiveMap.tsx`
 - `admin-dashboard/src/lib/api.ts`
-- `backend/order-service/internal/handler/admin_handler.go`
-- `backend/order-service/internal/handler/analytics_handler.go`
 
-**Recommended new backend files if current admin API lacks timeline aggregate**
+**Recommended new backend files if needed**
 - `backend/order-service/internal/service/order_audit_service.go`
 - `backend/order-service/internal/handler/order_audit_handler.go`
 
-- [ ] Admin filters by 5 service categories + subtype/provider/merchant/courier/payment state.
-- [ ] One timeline shows business transitions, actor, proof, payment, refund, provider events, override.
-- [ ] Admin sees state version/correlation id for debugging but customer-inappropriate details stay hidden from customer UI.
-- [ ] Manual override action always reasoned/audited.
+- [ ] Filter by service/subtype/provider/merchant/courier/payment state.
+- [ ] Timeline shows actor/state/proof/payment/refund/provider events/override.
+- [ ] Provider raw event accessible to ops without leaking to normal customer surface.
 
----
+## OPS-2026-002 — Exception queues [P0]
 
-## OPS-2026-002 — Exception queues instead of silent stuck orders
-
-**Files to edit**
-- `admin-dashboard/src/pages/Orders.tsx`
-- `admin-dashboard/src/pages/FinanceContent.tsx`
-- `admin-dashboard/src/pages/finance/reconciliationPanel.tsx`
-- `admin-dashboard/src/pages/finance/treasury/ManualReviewSection.tsx`
-
-**Recommended new page if current Orders filters become overloaded**
+**Recommended page if current Orders overloaded**
 - `admin-dashboard/src/pages/OrderExceptions.tsx`
 
-**Exception checklist**
 - [ ] No courier/technician/operator.
-- [ ] Payment pending beyond SLA.
-- [ ] Paid but create/dispatch inconsistency.
-- [ ] Provider AWB failed/circuit open.
-- [ ] Carrier webhook unknown/out-of-order.
-- [ ] Food merchant timeout/late readiness.
-- [ ] Tambal/Towing adjustment awaiting approval too long.
-- [ ] Mandatory proof missing.
-- [ ] Completed but settlement/reconciliation mismatch.
+- [ ] Payment pending SLA breach.
+- [ ] Paid/create/dispatch mismatch.
+- [ ] AWB create failed/provider circuit open.
+- [ ] Unknown/out-of-order carrier event.
+- [ ] Merchant timeout/readiness issue.
+- [ ] Service adjustment awaiting approval.
+- [ ] Missing proof.
+- [ ] Completed but reconciliation mismatch.
 
 ---
 
-# PART J — OBSERVABILITY & BUSINESS METRICS
+# PART J — OBSERVABILITY
 
-## OBS-2026-001 — Common transaction telemetry
+## OBS-2026-001 — Common transaction telemetry [P0]
+- [ ] Quote latency/success/requote.
+- [ ] Duplicate prevented.
+- [ ] Create→payment→dispatch latency.
+- [ ] Match/reassign/no-supply.
+- [ ] Transition errors.
+- [ ] Realtime reconnect mismatch.
+- [ ] Financial exceptions.
+- [ ] Proof/handoff failures.
 
-**Files to edit**
-- `backend/order-service/internal/service/analytics_service.go`
-- `backend/order-service/internal/handler/analytics_handler.go`
-- `backend/order-service/cmd/api/main.go`
-- `frontend/src/lib/clientLogger.ts`
-- `admin-dashboard/src/lib/clientLogger.ts`
-- `admin-dashboard/src/pages/Analytics.tsx`
-
-- [ ] Quote latency/success/requote rate.
-- [ ] Idempotent duplicate attempts prevented.
-- [ ] Create-to-payment and payment-to-dispatch latency.
-- [ ] Matching time/reassign/no-supply rate.
-- [ ] State transition latency and invalid transition attempts.
-- [ ] Realtime disconnect/recovery mismatch.
-- [ ] Payment/refund/payout/reconciliation exceptions.
-- [ ] Proof/handoff failure/replay/override.
-- [ ] Crash/ANR/client network errors by service.
+## OBS-2026-002 — Service KPIs [P1]
+- [ ] Paket: match/pickup/delivery SLA, failed delivery, recovery path, POD issue.
+- [ ] Food: merchant response/prep accuracy/wait/handoff/refund.
+- [ ] Tambal: technician ETA/onsite/adjustment/claim.
+- [ ] Aggregator: provider rate success, provider mix, AWB failures, webhook/poll freshness, carrier SLA, return/lost/damaged, COD/claim reconciliation.
+- [ ] Towing: operator match/arrival/loading/transit/adjustment/damage claim.
 
 ---
 
-## OBS-2026-002 — Service-specific KPI dashboard
+# PART K — AUTOMATED TESTING / QA GATES
 
-- [ ] **Paket:** quote→order, match time, pickup SLA, delivery SLA, failed delivery, POD failure, cancellation reason.
-- [ ] **Food:** merchant acceptance/timeout, prep prediction accuracy, courier wait, handoff failures, delivery ETA error, refunds.
-- [ ] **Tambal Ban:** technician discovery→booking, technician ETA, onsite duration, adjustment approval, repeat claim.
-- [ ] **Aggregator:** rate-provider success, selected provider mix, AWB failure, carrier SLA, lost/damaged/return, COD reconciliation.
-- [ ] **Towing:** operator match, arrival SLA, loading time, transit ETA error, adjustment rate, damage dispute.
-
----
-
-# PART K — AUTOMATED TESTING / QA RELEASE GATES
-
-## QA-2026-001 — Paket Android E2E
+## QA-2026-001 — Paket Android E2E [P0]
 
 **Recommended new tests**
 - `android-app-customer/app/src/androidTest/java/com/tembus/customer/PackageOrderFlowTest.kt`
 - `backend/order-service/internal/service/order_package_e2e_test.go`
 
-- [ ] Saved/manual/current-location address.
-- [ ] Quote expiry/requote.
-- [ ] Double submit.
-- [ ] Payment pending/fail/late callback.
-- [ ] Courier accept race/reassign/no supply.
+- [ ] Address variants.
+- [ ] Quote expiry.
+- [ ] Duplicate submit.
+- [ ] Payment fail/late callback.
+- [ ] Courier race/reassign/no supply.
 - [ ] Pickup verification.
-- [ ] Offline/reconnect tracking.
-- [ ] Failed delivery/POD/dispute.
+- [ ] Offline tracking.
+- [ ] Failed delivery→retry/support/optional return resolution→POD as applicable.
 
-## QA-2026-002 — Food cross-app E2E
+## QA-2026-002 — Food cross-app E2E [P0]
+- [ ] Complete `FOOD-2026-007` mandatory scenarios.
 
-**Recommended new tests**
-- `backend/order-service/internal/service/order_food_e2e_test.go`
-- merchant/customer/courier instrumentation tests for critical handoff states.
+## QA-2026-003 — Tambal Ban E2E [P0]
+- [ ] GPS/manual pin/capability/unavailable technician/adjustment/proof/settlement/claim.
 
-- [ ] Complete all mandatory scenarios under `FOOD-2026-007`.
-
-## QA-2026-003 — Tambal Ban E2E
-
-**Recommended new tests**
-- `backend/order-service/internal/service/tambalban_e2e_test.go`
-- `android-app-customer/app/src/androidTest/java/com/tembus/customer/TambalBanFlowTest.kt`
-
-- [ ] GPS denied/manual pin.
-- [ ] Capability matching.
-- [ ] Technician becomes unavailable.
-- [ ] Quote + adjustment approve/reject.
-- [ ] Inspection/proof cannot skip.
-- [ ] Completion/settlement/claim.
-
-## QA-2026-004 — Aggregator Customer Web E2E
+## QA-2026-004 — Aggregator Web E2E [P0]
 
 **Recommended new file**
 - `frontend/e2e/aggregator-order-flow.spec.ts`
 
-- [ ] Real location/provider/rate.
-- [ ] Manual persisted create; explicitly fail test if only redirect occurs.
+- [ ] Real origin/provider/rate source.
+- [ ] Persisted manual create; fake redirect fails test.
 - [ ] Duplicate submit.
 - [ ] Provider unavailable/rate expiry.
-- [ ] Payment/AWB success and failure.
-- [ ] History/detail/resi tracking.
-- [ ] Carrier webhook progression and return/lost scenario.
+- [ ] Payment/AWB success/failure.
+- [ ] First-mile/handoff.
+- [ ] Provider webhook progression.
+- [ ] Polling-only provider progression.
+- [ ] Unknown status preserved safely.
+- [ ] Provider-driven return/lost/damaged scenario only when capability/policy applies.
 
-## QA-2026-005 — Towing E2E
+## QA-2026-005 — Towing E2E [P0]
+- [ ] Pickup/dropoff/capability/quote/requote/proof/transit/unloading/cancel/damage evidence.
 
-**Recommended new tests**
-- `backend/order-service/internal/service/towing_e2e_test.go`
-- `android-app-customer/app/src/androidTest/java/com/tembus/customer/TowingFlowTest.kt`
-- `android-app/app/src/androidTest/java/com/tembus/courier/TowingCourierFlowTest.kt`
-
-- [ ] Pickup/dropoff validation.
-- [ ] Capability match.
-- [ ] Route quote/requote approval.
-- [ ] Before proof → loading → transit → unloading → after proof/signature.
-- [ ] Cancel before/after operator departure.
-- [ ] Damage dispute evidence integrity.
-
-## QA-2026-006 — Paket Customer Web E2E
-
-**Recommended new file**
-- `frontend/e2e/ondemand-package-flow.spec.ts`
-
-- [ ] Create → quote → payment → history → detail → tracking → completion.
+## QA-2026-006 — Paket Web E2E [P0]
+- [ ] Create→quote→payment→history→tracking→completion.
 - [ ] Refresh/back/retry idempotency.
-- [ ] Address mismatch/requote.
-- [ ] Mobile responsive and keyboard navigation smoke test.
+- [ ] Failed delivery support path.
 
-## QA-2026-007 — Backend concurrency & replay suite
+## QA-2026-007 — Concurrency/replay suite [P0]
 
 **Recommended new files**
 - `backend/order-service/internal/service/order_concurrency_test.go`
@@ -1668,40 +1404,53 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 
 - [ ] Parallel create.
 - [ ] Parallel courier accept.
-- [ ] Duplicate payment/refund/provider callback.
-- [ ] Out-of-order state events.
-- [ ] Concurrent service adjustment approval/cancel.
-- [ ] Terminal-state immutability.
+- [ ] Duplicate payment/refund/carrier callbacks.
+- [ ] Out-of-order events.
+- [ ] Terminal immutability.
+
+## QA-2026-008 — Logistics provider contract suite [P0]
+
+**Files/recommended files**
+- `backend/integration-gateway/internal/provider/provider_contract_test.go`
+- `backend/integration-gateway/internal/provider/provider_fixture_test.go`
+- provider testdata directories
+
+- [ ] Every registered provider passes capability declaration validation.
+- [ ] Tariff mapping preserves native service code.
+- [ ] Missing ETA stays unavailable rather than fabricated.
+- [ ] Create shipment is idempotent or safely deduplicated by LANCAR reference.
+- [ ] Tracking normalization keeps raw truth.
+- [ ] Webhook signature/replay tests when webhook capability exists.
+- [ ] Polling tests when tracking-pull capability exists.
 
 ---
 
-# PART L — DATABASE / MIGRATION PLAN
+# PART L — DATABASE / MIGRATIONS
 
-## DATA-2026-001 — Schema changes required by hardening
+## DATA-2026-001 — Schema changes [P0]
 
 **Migration directory:** `database/migrations/`
 
-**Recommended migration names — create only after checking current schema to avoid duplicate columns/tables**
+**Recommended migration names — inspect existing schema first**
 - `database/migrations/<timestamp>_add_order_idempotency_keys.sql`
 - `database/migrations/<timestamp>_add_order_quote_snapshots.sql`
 - `database/migrations/<timestamp>_add_order_state_version.sql`
 - `database/migrations/<timestamp>_add_handoff_verification.sql`
 - `database/migrations/<timestamp>_add_service_adjustments.sql`
 - `database/migrations/<timestamp>_add_carrier_event_inbox.sql`
+- `database/migrations/<timestamp>_add_logistics_provider_capabilities.sql`
 - `database/migrations/<timestamp>_add_reconciliation_exceptions.sql`
 
-**Implementation checklist**
-- [ ] Inspect current schema/migrations first; reuse existing table when semantics match.
-- [ ] Every migration has safe up/down or documented irreversible strategy.
-- [ ] Backfill legacy orders without inventing false facts.
-- [ ] Add indexes/uniques needed for idempotency, provider event dedupe, owner queries, exception queues.
-- [ ] Large backfill separated from blocking schema migration if needed.
+- [ ] Reuse equivalent existing schema when semantics match.
+- [ ] Add unique/index for idempotency/event dedupe/owner queries.
+- [ ] Backfill legacy without fabricated facts.
+- [ ] Separate large backfill from blocking migration where necessary.
 
 ---
 
-# PART M — SECURITY, PRIVACY & FRAUD
+# PART M — SECURITY / PRIVACY / FRAUD
 
-## SEC-2026-001 — AuthZ, public-token & data-exposure hardening
+## SEC-2026-001 — AuthZ/public token/data exposure [P0]
 
 **Files to edit**
 - `backend/order-service/internal/middleware/auth_middleware.go`
@@ -1711,101 +1460,105 @@ Lima layanan mempunyai payload dan lifecycle yang berbeda, tetapi terlalu banyak
 - `frontend/src/lib/customerSession.ts`
 - `frontend/src/app/track/[token]/page.tsx`
 - `admin-dashboard/src/lib/csrf.ts`
-- `admin-dashboard/src/pages/settings/security.tsx`
 
-- [ ] Every order/proof/job/payment/refund/claim lookup verifies owner/role.
-- [ ] Public tracking token scoped+expiring/revocable.
-- [ ] Proof object access uses controlled URL policy.
-- [ ] Location retention/precision follows least privilege.
-- [ ] Rate limit geocode, quote, OTP, tracking/public endpoints, and abuse-prone mutations.
+- [ ] Owner/role check for order/proof/job/payment/refund/claim.
+- [ ] Public tracking token scoped/expiring/revocable.
+- [ ] Provider credentials never reach browser/client.
+- [ ] Rate limit geocode/quote/OTP/tracking/public mutation.
 
-## SEC-2026-002 — Cross-service fraud/abuse controls
-
-- [ ] Voucher/payment abuse signals do not block legitimate retries.
-- [ ] Fake GPS/impossible movement monitoring for courier operational review.
-- [ ] Handoff brute-force attempts rate-limited and audited.
-- [ ] Repeated cancellation after courier/operator departure surfaced for policy review.
-- [ ] Provider webhook signature/replay protection.
-- [ ] Manual financial override threshold can require elevated role/dual review where risk warrants it.
+## SEC-2026-002 — Cross-service abuse controls [P1]
+- [ ] Handoff brute-force rate-limited/audited.
+- [ ] Fake GPS/impossible movement ops signals.
+- [ ] Repeated post-dispatch cancellation surfaced.
+- [ ] Provider webhook signature/replay protection capability-aware.
+- [ ] High-risk financial override can require elevated/dual review.
 
 ---
 
-# PART N — FINAL UI/UX ACCEPTANCE BY SERVICE
+# PART N — FINAL UI/UX ACCEPTANCE
 
 ## N1 — Paket On-Demand
-- [ ] User can understand pickup, destination, package, vehicle/service, ETA, total, receiver, and cancellation before paying.
-- [ ] Tracking communicates one clear next step at every stage.
-- [ ] Web and Android tell the same price/state story.
+- [ ] User understands pickup/destination/package/service/ETA/total/receiver/cancellation before pay.
+- [ ] Tracking has one clear next step.
+- [ ] Failed delivery surfaces recovery/help, not external-carrier jargon.
+- [ ] Web/Android tell same state/price story.
 
 ## N2 — Food
-- [ ] Discovery → menu → customization → cart → destination → quote/payment → live order is understandable without operational jargon.
-- [ ] Merchant UI optimizes prep/SLA; courier UI optimizes pickup readiness/handoff; customer UI optimizes confidence.
+- [ ] Discovery→menu→cart→destination→quote/pay→tracking is understandable.
+- [ ] Merchant optimizes prep/SLA; courier optimizes pickup/handoff; customer optimizes confidence.
 
 ## N3 — Tambal Ban
-- [ ] Emergency booking is short, location-first, capability-aware, and does not hide additional cost approval.
-- [ ] Before/after service report creates visible trust.
+- [ ] Short emergency flow, capability-aware technician, explicit adjustment consent.
+- [ ] Before/after report builds trust.
 
 ## N4 — Aggregator
-- [ ] User understands LANCAR pickup vs external carrier delivery responsibilities.
-- [ ] Carrier comparison uses real rate/capability data.
-- [ ] Success cannot exist without persisted order/AWB path.
+- [ ] Customer understands LANCAR first-mile vs external carrier responsibility.
+- [ ] Carrier comparison is live/provider-derived.
+- [ ] Native carrier service name/code preserved.
+- [ ] Return/lost/damaged/COD/insurance only shown according to provider capability/policy.
+- [ ] Unknown provider event never becomes fabricated certainty.
 
 ## N5 — Towing
-- [ ] Pickup/destination/vehicle compatibility/route/price are clear before booking.
-- [ ] Any price increase is explicit and consented.
-- [ ] Inspection/loading/unloading evidence protects customer and operator.
+- [ ] Pickup/destination/compatibility/route/price clear.
+- [ ] Adjustment explicitly consented.
+- [ ] Inspection/loading/unloading evidence protects both sides.
 
 ---
 
 # PART O — GLOBAL DEFINITION OF DONE
 
-A feature/task is **not complete merely because UI exists**. It is complete only when all applicable boxes below are true:
+A task is complete only when applicable boxes below are true:
 
 - [ ] Domain/API contract documented.
 - [ ] Server-side validation implemented.
-- [ ] Authorization/ownership enforced.
-- [ ] Quote/pricing authoritative and auditable.
-- [ ] Idempotency/retry behavior defined and tested.
-- [ ] State transition invariant defined and tested.
+- [ ] AuthZ/ownership enforced.
+- [ ] Quote/pricing authoritative.
+- [ ] Idempotency/retry behavior tested.
+- [ ] State invariant tested.
 - [ ] Required customer/merchant/courier/web/admin surfaces wired.
 - [ ] Offline/reconnect behavior defined.
-- [ ] Realtime events cannot regress authoritative state.
-- [ ] Payment/refund/payout/settlement effect reconciled.
-- [ ] Manual override, if any, fully audited.
-- [ ] Proof/handoff requirement enforced server-side.
-- [ ] Typed actionable error states rendered by clients.
-- [ ] Unit tests added.
-- [ ] Integration/contract tests added.
-- [ ] Mandatory E2E scenario automated or has explicit staging validation script.
-- [ ] Observability metrics/logging added with correlation id.
-- [ ] Privacy/security review complete for new data.
-- [ ] No client-only fabricated price, ETA, availability, provider status, or order state remains in production path.
-- [ ] No fake success/mock transaction remains in production path.
+- [ ] Realtime cannot regress authoritative state.
+- [ ] Payment/refund/payout/settlement reconciled.
+- [ ] Manual override audited.
+- [ ] Proof/handoff enforced server-side.
+- [ ] Typed actionable errors rendered.
+- [ ] Unit/integration/contract tests added.
+- [ ] E2E or explicit staging validation exists.
+- [ ] Observability/correlation id exists.
+- [ ] Privacy/security review complete.
+- [ ] No client-fabricated price/ETA/availability/provider status/order state.
+- [ ] No fake transaction success.
+- [ ] Aggregator provider-specific rules remain inside adapter/config/provider mapping boundary rather than leaking into customer/core code.
 
 ---
 
-# Recommended Implementation Order
+# RECOMMENDED IMPLEMENTATION ORDER
 
-1. `AGG-2026-004` fake-success blocker + `AGG-2026-001/002` real origin/location source.
-2. `CORE-2026-001` canonical contract and `CORE-2026-002` idempotency.
-3. `CORE-2026-003/004` quote + state machine.
-4. `CORE-2026-005/006/007/008` finance, proof, realtime recovery, typed errors.
-5. Paket P0 + Customer Web parity.
-6. Food P0 tasks, then Food P1.
-7. Tambal Ban P0 including adjustment consent.
-8. Towing P0 including structured metadata and proof lifecycle.
-9. Aggregator AWB/provider webhook/claim hardening.
-10. Admin exception/reconciliation surfaces.
-11. Full E2E/concurrency suites.
-12. P1/P2 parity, accessibility, ranking/personalization/scale features.
+1. `AGG-2026-004` — remove fake success immediately.
+2. `AGG-2026-010` + `AGG-2026-013` — establish capability-based provider contract/onboarding gate before adding many carriers.
+3. `AGG-2026-001/002/003` — real origin/location/provider rate truth; remove fabricated ETA.
+4. `CORE-2026-001/002/003/004` — canonical contract, idempotency, quote, state machine.
+5. `CORE-2026-005/006/007/008` — finance, proof, recovery, errors.
+6. Paket P0 with revised internal failed-delivery recovery model.
+7. Food P0, then Food P1.
+8. Tambal Ban P0.
+9. Towing P0.
+10. `AGG-2026-006/007/008/011/012` — AWB/handoff/events/provider-driven exception finance.
+11. Admin exception/reconciliation.
+12. QA contract/concurrency/E2E gates.
+13. P1/P2 parity/accessibility/scale features.
 
 ---
 
-# Architecture Notes / Guardrails
+# ARCHITECTURE GUARDRAILS
 
-- Keep `backend/order-service/internal/domain/tambalban.go` shared with Towing **until** divergence justifies split; do not create duplicate business logic for cosmetic naming.
-- Prefer shared `quote_service.go`, `idempotency_service.go`, `order_transition_service.go`, and `service_adjustment_service.go` over five separate implementations unless service invariants genuinely differ.
-- `backend/integration-gateway` remains the correct boundary for external logistics/provider adapters (`jne_adapter.go`, `jnt_adapter.go`, maps/provider webhook normalization); Customer Web should not directly call third-party carrier/maps APIs.
-- Customer Web Aggregator must never again signal success based only on client timeout/redirect.
+- Paket On-Demand is **LANCAR-controlled local delivery**. Do not copy external carrier return/claim semantics into its normal lifecycle.
+- Aggregator is **universal carrier orchestration**. Carrier-specific API/service/status/policy belongs in Integration Gateway adapter/config mapping.
+- `backend/integration-gateway` remains boundary for JNE/J&T/SiCepat/AnterAja/Ninja/Pos/Lion/TIKI/etc integration.
+- New carrier should normally require a provider adapter, provider config/capabilities, mapping fixtures/tests, webhook/poll setup—not edits across customer app and order core.
+- Preserve provider-native service/status data alongside normalized LANCAR representation.
+- Never fabricate provider ETA/SLA/status.
+- Provider with fewer capabilities is valid; UI shows only supported features.
+- Keep `backend/order-service/internal/domain/tambalban.go` shared with Towing until divergence justifies split.
+- Prefer shared quote/idempotency/transition/adjustment services where invariants are genuinely shared.
 - Existing courier Towing flow should be hardened, not discarded.
-- Do not create every recommended migration/file automatically. First inspect whether equivalent schema/module already exists; recommended names are intended to make ownership explicit when a new file is actually needed.
