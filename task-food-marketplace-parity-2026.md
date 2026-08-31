@@ -2967,3 +2967,552 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - High-blast-radius/global change uses maker-checker approval and staged rollout where appropriate.
 - Preview must use production-equivalent manifest resolver/schema rules, not a fake visual mock disconnected from runtime behavior.
 - Routine runtime experience operations are not considered production-ready until a non-engineer can execute them through Admin Web without engineering-only tools.
+
+---
+
+# PART S — CUSTOMER WEB + ADMIN WEB THEME, ICONOGRAPHY & WCAG 2.1 AA
+
+> **Target:** Customer Web dan Admin Dashboard harus mempunyai visual system yang konsisten, profesional, scalable untuk global market, mendukung `Light`, `Dark`, dan `System` theme, serta memenuhi **WCAG 2.1 Level AA** pada seluruh state penting. Accessibility bukan kosmetik dan bukan final-polish-only; token, component, icon, form, chart, map, modal, campaign content, dan dynamic App Experience semuanya harus tunduk pada contract ini.
+>
+> **Style decision:** Customer Web menggunakan **Modern Marketplace / Calm Utility UI**: warm-neutral surfaces, green brand sebagai primary action, orange sebagai accent terbatas, medium information density, soft elevation, rounded but not playful, dan glass/transparency hanya untuk decorative/marketing surface yang contrast-nya dapat dijamin. Admin menggunakan **Modern Enterprise Operations Console**: solid surfaces, compact-but-readable density, hierarchy kuat, minimal decorative gradients/glass, tables/forms/status lebih dominan daripada decoration.
+
+## S0 — Audited baseline / known visual risks
+
+**Customer Web**
+- `frontend/src/app/globals.css` sudah mempunyai semantic-ish `:root` dan `.dark` tokens serta focus/reduced-motion baseline.
+- `frontend/src/app/layout.tsx` masih memaksa `<html className="dark ...">`, sehingga Light/System belum menjadi runtime mode yang benar.
+- Existing palette perlu diuji ulang sebagai pasangan, bukan menilai warna satu per satu. Approximate audit menunjukkan beberapa kombinasi berisiko/borderline: orange `#F97316` dengan white text sekitar `2.8:1`; orange focus ring di atas light background sekitar `2.6:1`; light muted text `#6B756F` pada `#F7F8F7` sekitar `4.48:1`; beberapa border/input colors terhadap background hanya sekitar `1.1–1.5:1`.
+
+**Admin Dashboard**
+- `admin-dashboard/src/index.css` mendefinisikan `:root/.dark`, tetapi `body` masih hardcoded dark (`#0B120E/#F4F7F5`).
+- `admin-dashboard/src/components/DashboardLayout.tsx` dan banyak existing page/component menggunakan hardcoded `bg-zinc-*`, `text-zinc-*`, `bg-white/5`, dll.; Light Mode tidak boleh ditambahkan hanya dengan toggle class tanpa refactor semantic tokens.
+- Existing `glass-card` Admin adalah dark-only utility dan tidak cocok menjadi default container untuk data-dense operations.
+
+**Icon baseline**
+- Customer Web dan Admin sudah memakai `lucide-react`; jadikan Lucide sebagai **single default functional icon family** agar tidak menambah icon pack kedua tanpa alasan.
+
+- [ ] Re-measure seluruh token pair dengan WCAG contrast calculator/script saat implementasi; angka approximate di atas hanya audit clue dan bukan substitute untuk automated + manual verification.
+- [ ] Existing good baseline seperti `:focus-visible` dan `prefers-reduced-motion` dipertahankan/hardened, bukan dihapus saat theme refactor.
+
+---
+
+## VISUAL-2026-001 — Lock visual language per surface [P0/P1]
+
+**Recommended docs**
+- `docs/design/web-ui-system-2026.md`
+- `docs/design/customer-web-style-guide.md`
+- `docs/design/admin-operations-style-guide.md`
+
+**Customer Web — required style**
+- clean marketplace / calm utility
+- primary brand green; accent orange only for emphasis/promo, not default body text
+- mostly solid `background/surface/card` hierarchy
+- soft shadows/elevation only when it communicates layering
+- border radius generally 8–12 px family; avoid random radius per page
+- medium density with generous transactional form spacing
+- one obvious primary CTA per decision step
+- limited gradients; never use gradient text for essential information
+- glassmorphism only for non-critical hero/marketing areas with guaranteed contrast layer
+
+**Admin — required style**
+- enterprise operations console
+- solid background/surface hierarchy; dense data without visual noise
+- tables/cards/forms use clear borders/surface elevation rather than transparent glass as primary separation
+- status chips, icons and text have semantic hierarchy
+- destructive/high-risk actions visually separated from ordinary primary action
+- charts/maps support operations but do not dominate workflow
+- no decorative gradient behind dense table/form content
+
+**Checklist**
+- [ ] Customer and Admin share brand language but do not force identical density/layout.
+- [ ] Critical transactional/operational content remains readable without blur/transparency support.
+- [ ] Decorative style never overrides accessibility or information hierarchy.
+- [ ] Define reference screenshots/components for both Light and Dark before migrating pages.
+
+---
+
+## VISUAL-2026-002 — Semantic color/token contract for both Light and Dark [P0]
+
+**Files to edit**
+- `frontend/src/app/globals.css`
+- `admin-dashboard/src/index.css`
+- component files containing repeated hardcoded theme colors
+
+**Recommended new/shared docs/files**
+- `docs/design/color-token-contract.md`
+- `frontend/src/lib/themeTokens.ts` only if runtime TS access is needed
+- `admin-dashboard/src/lib/themeTokens.ts` only if runtime TS access is needed
+- `scripts/a11y/check-color-tokens.mjs`
+
+**Required semantic token families**
+- `background`
+- `surface`
+- `surface-raised`
+- `surface-subtle`
+- `foreground`
+- `foreground-secondary`
+- `foreground-muted`
+- `border`
+- `border-strong`
+- `input-background`
+- `input-border`
+- `focus-ring`
+- `primary` + `on-primary`
+- `accent` + `on-accent`
+- `success` + `on-success` + `success-surface`
+- `warning` + `on-warning` + `warning-surface`
+- `error` + `on-error` + `error-surface`
+- `info` + `on-info` + `info-surface`
+- `selection`
+- `overlay/scrim`
+
+**Checklist**
+- [ ] Every semantic token has Light and Dark value with documented intended use.
+- [ ] `on-*` token chosen from contrast result, not assumption that white text always works.
+- [ ] Components consume semantic tokens; forbid raw `#hex`, `text-zinc-*`, `bg-zinc-*`, `text-white`, `bg-black` for ordinary themed surfaces except documented special cases.
+- [ ] Brand colors may remain fixed but their foreground/surface pairing changes if required for AA.
+- [ ] Borders required to identify controls/components meet non-text contrast; decorative separators may be lower only when not necessary to perceive the control.
+- [ ] Token checker fails CI for registered invalid contrast pairs.
+
+---
+
+## VISUAL-2026-003 — Customer Web Light / Dark / System theme architecture [P0]
+
+**Files to edit**
+- `frontend/src/app/layout.tsx`
+- `frontend/src/app/globals.css`
+- Customer Web header/profile/settings/navigation component containing theme control
+
+**Recommended new files**
+- `frontend/src/components/providers/ThemeProvider.tsx`
+- `frontend/src/components/ThemeToggle.tsx`
+- `frontend/src/lib/theme.ts`
+- `frontend/src/hooks/useTheme.ts`
+
+**Checklist**
+- [ ] Remove forced global `className="dark"` from root as the permanent theme decision.
+- [ ] Support explicit `light`, `dark`, `system` values.
+- [ ] `system` reacts to `prefers-color-scheme` changes.
+- [ ] User preference persists across sessions using appropriate local persistence/cookie strategy.
+- [ ] Avoid flash of incorrect theme before hydration; theme bootstrap runs early and safely.
+- [ ] SSR/client hydration does not produce persistent mismatch warning.
+- [ ] Theme toggle has accessible name/state and keyboard support.
+- [ ] If remote config provides market default theme, explicit user preference wins unless there is a documented product reason otherwise.
+
+---
+
+## VISUAL-2026-004 — Admin Dashboard true Light / Dark / System mode [P0]
+
+**Files to edit**
+- `admin-dashboard/src/index.css`
+- `admin-dashboard/src/App.tsx`
+- `admin-dashboard/src/components/DashboardLayout.tsx`
+- every page/component using hardcoded dark zinc/white surfaces in supported routes
+
+**Recommended new files**
+- `admin-dashboard/src/providers/ThemeProvider.tsx`
+- `admin-dashboard/src/components/ThemeToggle.tsx`
+- `admin-dashboard/src/lib/theme.ts`
+- `admin-dashboard/src/hooks/useTheme.ts`
+
+**Checklist**
+- [ ] Remove hardcoded dark `body` background/text and replace with semantic theme tokens.
+- [ ] Refactor sidebar/header/cards/tables/modals/toasts/forms to semantic tokens before claiming Light Mode support.
+- [ ] Support `light`, `dark`, `system`; persist admin preference.
+- [ ] Sidebar selected/hover/focus state readable in both themes.
+- [ ] Dense table rows, sticky headers, pagination, filters and dropdowns work in both themes.
+- [ ] Existing `glass-card` is no longer default operational card; use solid surface card for data-dense views.
+- [ ] Theme switching does not reset form state, filters, route or in-progress Admin Experience draft.
+
+---
+
+## A11Y-2026-001 — WCAG 2.1 AA contrast contract [P0 release gate]
+
+**Required minimums**
+- normal text: contrast ratio **≥ 4.5:1** against effective background
+- large text: contrast ratio **≥ 3:1**
+- meaningful UI component boundaries/states and essential graphical objects/icons: **≥ 3:1** against adjacent colors where WCAG 1.4.11 applies
+- focus indicator must be clearly visible; target **≥ 3:1** against adjacent surface as the internal design standard while also satisfying Focus Visible behavior
+
+**Checklist**
+- [ ] Validate final composited/effective color, including opacity, overlays, blur and image backgrounds.
+- [ ] Test default, hover, active, selected, focus, disabled, loading, error and success states.
+- [ ] Do not place white text on brand orange merely because it looks common; use measured `on-accent` token.
+- [ ] Muted/secondary text still meets text contrast when it conveys required information.
+- [ ] Placeholder is not used as the only label; placeholder readability does not replace persistent label requirement.
+- [ ] Required input outline/background/control boundary is perceptible at ≥3:1 when the boundary is necessary to identify the control.
+- [ ] Contrast validation covers Light and Dark independently; passing one theme does not approve the other.
+
+---
+
+## A11Y-2026-002 — Color must never be the only information channel [P0]
+
+**Checklist**
+- [ ] Success/warning/error/info use icon + text/label + color, not color alone.
+- [ ] Order/payment/provider statuses use readable label and optionally icon; green/red badge alone is insufficient.
+- [ ] Charts provide legend/label/pattern/shape or direct values so series are distinguishable without color perception alone.
+- [ ] Form errors include text and field relationship, not only red border.
+- [ ] Selected navigation/tab/row uses position/indicator/icon/text weight or other non-color cue.
+- [ ] Links inside body text are identifiable by more than a subtle hue difference; provide underline or equivalent non-color affordance at least in relevant states.
+
+---
+
+## A11Y-2026-003 — Typography, readable hierarchy and text-spacing resilience [P0/P1]
+
+**Files to edit**
+- shared typography styles/components Customer Web and Admin
+- page headings/forms/tables with arbitrary font sizes
+
+**Checklist**
+- [ ] Keep Inter/system sans baseline unless brand typography intentionally changes globally.
+- [ ] Define tokens for display/page title/section title/body/body-small/label/caption/table-cell.
+- [ ] Essential body/label text is not made tiny merely to fit dense Admin layouts.
+- [ ] Font weight hierarchy remains readable in both themes; do not depend on low-contrast gray for hierarchy alone.
+- [ ] Layout survives WCAG text-spacing overrides without clipping/overlap/loss of content.
+- [ ] Do not use uppercase + extreme tracking for long operational labels.
+- [ ] Truncated content has accessible/full-content path where information is required.
+
+---
+
+## ICON-2026-001 — One functional icon system: Lucide [P0/P1]
+
+**Current dependency to retain**
+- `lucide-react` in Customer Web
+- `lucide-react` in Admin Dashboard
+
+**Recommended docs/files**
+- `docs/design/iconography-2026.md`
+- `frontend/src/components/icons/AppIcon.tsx`
+- `admin-dashboard/src/components/icons/AppIcon.tsx`
+
+**Icon style contract**
+- default family: Lucide outline icons
+- typical inline icon: 16–18 px
+- nav/action icon: 18–20 px
+- service/section icon: 22–24 px
+- empty-state/decorative icon may be larger but must not look like a primary button
+- consistent stroke width approximately 1.75–2 unless icon-specific optical correction is documented
+
+**Checklist**
+- [ ] Do not mix Lucide line icon, filled Material icon, emoji and random SVG styles in one functional navigation system.
+- [ ] Decorative icon uses `aria-hidden="true"` when adjacent text already provides the name.
+- [ ] Icon-only button has accessible name (`aria-label`/equivalent) and visible tooltip where useful.
+- [ ] Essential meaning is not encoded only in icon shape; critical/destructive actions have visible label in high-risk contexts.
+- [ ] Custom SVG allowed only where Lucide lacks adequate service meaning; normalize viewBox/stroke/optical size and document it.
+- [ ] Icons inherit semantic foreground/status tokens rather than hardcoded colors.
+
+---
+
+## ICON-2026-002 — Customer Web service icon mapping [P1]
+
+**Recommended default functional mapping**
+- `Paket Instan` → `Package`
+- `Food` → `UtensilsCrossed`
+- `Tambal Ban` → `Wrench` or approved custom tire-service SVG if distinction is insufficient
+- `Ekspedisi Antar-Kota` → `Truck`
+- `Towing` → `CarFront` or approved custom towing SVG; always keep visible `Towing` label so it cannot be confused with generic car service
+
+**Common actions**
+- location → `MapPin`
+- tracking/route → `Navigation`
+- history → `History`
+- payment → `WalletCards`/`CreditCard` based on available library icon
+- receipt → `ReceiptText`/`Receipt`
+- support → `CircleHelp`
+- notification → `Bell`
+- search → `Search`
+- settings → `Settings`
+- security/proof → `ShieldCheck`
+
+**Checklist**
+- [ ] Service icon semantics consistent across dashboard, order creation, history/detail and empty states.
+- [ ] Do not reuse same generic truck icon for both Aggregator and Towing if surrounding context cannot distinguish them.
+- [ ] Marketing 3D/illustration assets may exist in hero/service campaign cards, but transactional navigation retains accessible functional icon + text.
+
+---
+
+## ICON-2026-003 — Admin navigation/action icon mapping [P1]
+
+**Use existing Lucide vocabulary where already present**
+- Dashboard → `LayoutDashboard`
+- Orders → `Package`
+- Couriers → `Truck` or current approved courier icon
+- Merchants → `Store`
+- Customers → `Users`
+- Finance/Payout → `DollarSign`/`Receipt` according to context
+- Pricing/Promo → `BadgePercent`
+- Marketing/Broadcast → `Megaphone`
+- Analytics → `BarChart3`
+- Risk/Safety → `ShieldAlert`
+- Audit → `History`
+- Maps/Zones → `Map`
+- Settings → `Settings`
+- App Experience → `Layers` or one approved single Lucide icon used consistently
+
+**Checklist**
+- [ ] One concept has one canonical icon throughout sidebar, page title and actions unless context materially changes meaning.
+- [ ] Avoid multiple near-identical icons for destructive actions; delete/cancel/block must be semantically explicit with labels/confirmation.
+- [ ] Table row action icons expose accessible names and keyboard focus.
+- [ ] Collapsed sidebar provides tooltip/accessibility name for every icon.
+
+---
+
+## A11Y-2026-004 — Keyboard, focus, forms and semantic controls [P0]
+
+**Checklist**
+- [ ] Entire Customer Web and Admin primary workflows operable keyboard-only per WCAG 2.1.1.
+- [ ] Focus order follows visual/logical reading order.
+- [ ] Focus is never removed without an accessible replacement; retain explicit `:focus-visible` system.
+- [ ] Modal traps focus while open and returns focus to invoking control on close.
+- [ ] Dropdown/menu/select is keyboard navigable and dismissible.
+- [ ] All inputs have programmatic + visible label; required/optional semantics clear.
+- [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate.
+- [ ] Checkbox/radio/switch expose name, role, state and disabled state correctly.
+- [ ] Icon-only controls have accessible name.
+- [ ] Skip-to-content or equivalent exists for long Customer/Admin shell navigation where appropriate.
+
+---
+
+## A11Y-2026-005 — Status, alerts, toasts and destructive workflows [P0]
+
+**Checklist**
+- [ ] Toast does not disappear before essential action/message can be perceived; critical error also persists in page context when needed.
+- [ ] Async success/error announcements use suitable live-region semantics without flooding screen readers.
+- [ ] Destructive Admin actions show icon + verb + target + impact; color alone is not confirmation.
+- [ ] `marketing_hide`, `new_order_gate`, `provider_gate`, `checkout_gate` remain visually/verbally distinct in both themes.
+- [ ] Warning/error text meets contrast even on tinted semantic surfaces.
+- [ ] Disabled state is visually distinct from enabled while preserving enough readability for context; do not use opacity so low that labels effectively disappear.
+
+---
+
+## A11Y-2026-006 — Tables, charts, maps and dense Admin data [P0/P1]
+
+**Tables**
+- [ ] Header/cell semantics are correct; sortable columns expose sort state.
+- [ ] Row hover/selection/focus states are distinguishable in both themes without color alone.
+- [ ] Sticky header/background does not become transparent over scrolling text.
+- [ ] Horizontal overflow has deliberate responsive strategy; essential actions remain reachable.
+
+**Charts**
+- [ ] Chart colors pass applicable non-text contrast against background where needed.
+- [ ] Meaning is available through legend/direct label/value/table/accessible summary, not color alone.
+- [ ] Tooltip is keyboard/accessibility reachable or equivalent data representation exists.
+
+**Maps**
+- [ ] Map controls, zoom buttons, markers and overlays remain visible in both themes.
+- [ ] Operational state is also available outside the map when map color/style alone would hide information.
+- [ ] Provider/map basemap dark mode does not reduce overlay label contrast below usable level.
+
+---
+
+## A11Y-2026-007 — Images, banners, glass surfaces and text-over-media [P0]
+
+**Checklist**
+- [ ] Text over banner/image/animation uses deterministic solid/scrim/gradient overlay whose final contrast is validated at worst-case image area.
+- [ ] Do not approve text-over-image by checking only one sample asset; CMS preview/validator must account for configured text surface.
+- [ ] Critical transactional copy is not placed directly on arbitrary campaign art.
+- [ ] Glass/translucent cards are prohibited for dense/critical content unless effective background contrast remains guaranteed.
+- [ ] Informative images have meaningful alt text; decorative images use empty alt/aria-hidden as appropriate.
+- [ ] Animation/campaign content honors reduced-motion strategy and has static fallback when needed.
+
+---
+
+## A11Y-2026-008 — Responsive reflow, zoom and viewport resilience [P0]
+
+**Checklist**
+- [ ] Customer Web critical flows work at narrow mobile viewport and desktop without loss of content/action.
+- [ ] Admin provides deliberate compact/mobile fallback for critical emergency/approval tasks even if full desktop is preferred.
+- [ ] Verify WCAG 1.4.10 reflow behavior at equivalent 320 CSS px width where applicable; no mandatory two-dimensional scrolling except content that inherently requires it such as maps/data tables with accessible alternative strategy.
+- [ ] Verify browser zoom to 200% without clipped modal, hidden CTA, overlapping labels or inaccessible sticky elements.
+- [ ] Text wrapping/localized long strings do not break icon/button alignment.
+
+---
+
+## A11Y-2026-009 — Theme-aware shared component acceptance matrix [P0]
+
+**Components to test in both Light and Dark**
+- buttons: primary/secondary/ghost/destructive/icon-only
+- links
+- inputs/textareas/selects/date inputs
+- checkbox/radio/switch
+- tabs
+- badges/status chips
+- cards
+- tables
+- pagination
+- dropdown/popover
+- modal/drawer
+- tooltip
+- toast/alert
+- breadcrumb
+- sidebar/navbar
+- search/filter bar
+- empty/loading/error states
+- skeletons
+- charts/maps
+- dynamic campaign/home components
+
+**States**
+- default
+- hover
+- active/pressed
+- selected/current
+- focus-visible
+- disabled
+- loading
+- error
+- success
+
+- [ ] No component is considered migrated until the matrix is green for both themes.
+
+---
+
+## A11Y-2026-010 — App Experience / CMS accessibility guardrails [P0]
+
+**Files to integrate**
+- `admin-dashboard/src/components/experience/ExperiencePreview.tsx`
+- `admin-dashboard/src/components/experience/BannerEditor.tsx`
+- `admin-dashboard/src/components/experience/DesignTokenEditor.tsx`
+- `backend/experience-service/` validation path
+
+**Checklist**
+- [ ] Admin preview can switch candidate content between Light/Dark/System contexts.
+- [ ] CMS blocks publish when configured text/on-surface combination fails registered AA contrast rule.
+- [ ] Banner editor requires alt/decorative semantics and safe text surface choice.
+- [ ] Runtime design-token editor cannot publish a token pair that breaks protected WCAG combinations.
+- [ ] Dynamic component schema includes accessible name/heading/alt fields where applicable.
+- [ ] New remote component type cannot become production-approved until accessibility contract is defined and tested.
+
+---
+
+## A11Y-2026-011 — Automated accessibility + contrast CI [P0]
+
+**Recommended dependencies/tooling**
+- add `@axe-core/playwright` to Customer Web test tooling
+- add Playwright + `@axe-core/playwright` to Admin if no equivalent E2E accessibility runner exists
+- consider `eslint-plugin-jsx-a11y` for static lint assistance; do not treat lint as full compliance
+
+**Recommended files**
+- `frontend/e2e/accessibility-theme.spec.ts`
+- `frontend/e2e/visual-theme-regression.spec.ts`
+- `admin-dashboard/playwright.config.ts` if absent
+- `admin-dashboard/e2e/accessibility-theme.spec.ts`
+- `admin-dashboard/e2e/visual-theme-regression.spec.ts`
+- `scripts/a11y/check-color-tokens.mjs`
+- `docs/accessibility/wcag-2.1-aa-web-checklist.md`
+- `docs/accessibility/manual-audit-matrix.md`
+
+**Checklist**
+- [ ] Automated scan covers representative authenticated/unauthenticated Customer routes and all high-risk Admin route groups.
+- [ ] Run scans in Light and Dark, plus System resolved to both variants in test.
+- [ ] CI fails on configured serious/critical automated accessibility regressions.
+- [ ] Color-token test computes ratios rather than relying on visual review.
+- [ ] Visual regression screenshots catch accidental white-on-white, black-on-black, dark-only component and transparent table regressions.
+- [ ] Automated tooling is explicitly documented as incomplete; manual keyboard/screen-reader/zoom/contrast review remains release requirement.
+
+---
+
+## A11Y-2026-012 — Route/state inventory and manual WCAG 2.1 AA audit [P0 release gate]
+
+**Customer Web minimum route groups**
+- landing/public
+- auth
+- customer dashboard
+- Paket On-Demand create/review/payment
+- Aggregator create/compare/review/payment
+- order history/detail
+- resi/tracking/public tracking
+- payment link/pay result
+- error/empty/offline states
+
+**Admin minimum route groups**
+- login/dashboard
+- orders/exceptions
+- couriers/merchants/customers
+- finance/tax/pricing/reconciliation
+- logistics/maps/zones
+- marketing/promos/banners/broadcasts
+- risk/safety/audit/settings
+- all new `App Experience` routes/editors/preview/approval/rollback
+
+**Checklist for every representative route**
+- [ ] Light screenshot/manual review.
+- [ ] Dark screenshot/manual review.
+- [ ] Keyboard-only completion of primary action.
+- [ ] Visible focus through entire path.
+- [ ] Contrast check for text/icons/controls/status.
+- [ ] Empty/loading/error/success state checked.
+- [ ] Modal/dropdown/toast checked where applicable.
+- [ ] 200% zoom checked.
+- [ ] Responsive/mobile or compact viewport checked where surface supports it.
+- [ ] Dynamic campaign/content variant checked if route can render remote content.
+
+---
+
+## A11Y-2026-013 — WCAG 2.1 AA semantic/assistive technology checklist [P0]
+
+**Key criteria to explicitly account for in implementation/review**
+- 1.3.1 Info and Relationships
+- 1.4.1 Use of Color
+- 1.4.3 Contrast (Minimum)
+- 1.4.10 Reflow
+- 1.4.11 Non-text Contrast
+- 1.4.12 Text Spacing
+- 2.1.1 Keyboard
+- 2.4.3 Focus Order
+- 2.4.6 Headings and Labels
+- 2.4.7 Focus Visible
+- 2.5.3 Label in Name
+- 3.3.1 Error Identification
+- 3.3.2 Labels or Instructions
+- 4.1.2 Name, Role, Value
+- 4.1.3 Status Messages
+
+- [ ] Use native semantic HTML/control first before custom ARIA recreation.
+- [ ] Heading hierarchy is meaningful; do not choose heading level for font size.
+- [ ] Landmarks/navigation/main regions are identifiable.
+- [ ] Accessible name of visible-label controls contains/matches visible label intent.
+- [ ] Status messages can be perceived without forcing focus jump.
+
+---
+
+## VISUAL-2026-005 — Hardcoded-color eradication and theme-safe lint/review policy [P0]
+
+**Scope**
+- `frontend/src/`
+- `admin-dashboard/src/`
+
+**Checklist**
+- [ ] Inventory raw hex/rgb/hsl and Tailwind palette utility usage in components.
+- [ ] Convert ordinary themed surface/text/border colors to semantic tokens.
+- [ ] Maintain small documented allowlist for brand artwork, carrier logos, map-provider styles, data visualization series and genuinely fixed external-brand colors.
+- [ ] New PR review rejects unexplained `text-white`, `bg-black`, `text-zinc-*`, `bg-zinc-*` on ordinary application components.
+- [ ] Add lint/script/check if practical to flag prohibited theme-hardcoded classes outside allowlisted files.
+
+---
+
+# WEB VISUAL / ACCESSIBILITY IMPLEMENTATION ORDER
+
+1. `VISUAL-2026-001/002` — lock style language and semantic token contract.
+2. `A11Y-2026-001` + token contrast script — fix palette pairings before mass component migration.
+3. `VISUAL-2026-003/004` — implement real Customer/Admin Light/Dark/System foundation and remove forced/hardcoded dark mode.
+4. `ICON-2026-001/002/003` — standardize Lucide icon family and service/admin mappings.
+5. `A11Y-2026-004/005/009` — shared interactive components, focus, forms, status states.
+6. `A11Y-2026-006/007/008` — tables/charts/maps/media/reflow.
+7. `A11Y-2026-010` — integrate accessibility validation into App Experience CMS/runtime config.
+8. `VISUAL-2026-005` — remove remaining hardcoded application colors with documented exceptions.
+9. `A11Y-2026-011/012/013` — automated CI + full manual route/state WCAG 2.1 AA gate.
+
+# WEB VISUAL / ACCESSIBILITY FINAL ACCEPTANCE
+
+- [ ] Customer Web supports Light, Dark and System without forced theme and without theme flash that harms usability.
+- [ ] Admin supports Light, Dark and System; no dark-only page/component remains in supported route inventory.
+- [ ] Text/background/icon/control pairs satisfy applicable WCAG 2.1 AA contrast rules in both themes.
+- [ ] No required information depends on color alone.
+- [ ] Functional icon system is consistently Lucide plus documented custom service exceptions only.
+- [ ] Customer service icons are semantically distinct and always accompanied by labels where ambiguity is possible.
+- [ ] Admin navigation/actions remain understandable when sidebar is expanded or collapsed.
+- [ ] Keyboard-only primary workflows are viable on both Customer and Admin.
+- [ ] Remote banner/theme/token publication cannot introduce a protected contrast failure without being blocked by validation.
+- [ ] Automated accessibility checks and visual theme regression run in CI.
+- [ ] Manual WCAG 2.1 AA audit matrix for key routes/states is signed off before production release.
