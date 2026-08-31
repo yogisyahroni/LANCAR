@@ -48,7 +48,7 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 1 | Split BookingScreen.kt (customer) | 🟡 PARTIAL — 2495 → 629 + `BookingHelpers.kt` (258) + `BookingComponents.kt` (1900); `compileDebugKotlin` BUILD SUCCESSFUL. Sisa: orchestrator main (~483) irreducibel state-wiring + imports |
 | 1 | Split OnDemandMapScreens.kt (courier) | 🟡 PARTIAL — 1614 → 160 (`OnDemandMapScreens.kt` pkg+imports) + 15 extracted internal composables (OnDemandMapHome 426, OnDemandNavigationModeCard 286, OnDemandMapDispatchCockpit 257, +12 kecil 10-80). `compileDebugKotlin` BUILD SUCCESSFUL. Sisa: OnDemandMapHome 426 irreducibel |
 | 1 | Split TrackingScreen.kt | 🟡 PARTIAL (1091→953 + TrackingComponents.kt + 15 test) |
-| 1 | Split MainScreen.kt | 🟡 PARTIAL (1024→939 + MainHomeContent + MainBottomNav) |
+| 1 | Split MainScreen.kt (courier) | 🟡 PARTIAL — 1024→953 (incremental extract MainScreenModals.kt: dialogs + inline error state extracted; compile bersih, 0 error) |
 | 1 | Split Finance.tsx / Settings.tsx | ✅ **DONE 2026-08-27** — TreasuryPanel.tsx 1054→9 section files (`finance/treasury/`: ServiceSettlement, AutoPayoutControl, ManualReviewSection, PayoutAccounts, RekeningGrid, EmergencyFund, PayoutReviews, PayoutGateway, TaxCompliance — all ≤400 LOC) + SettingsContent.tsx 2135→`useSettingsData` hook + 11 tab panels (`settings/`: general, logisticsawb, mapsprovider, featureflags, slaconfig, insurance, walletfees, parameters, security, team, auditlogs — all ≤400 LOC). Local `npm run build` EXIT 0 + CI/CD Staging GREEN (run 33042908191, branch `feat/finance-resplit`). Commits `45ad916`(Finance) + `fc65818`(Treasury+Settings). |
 | 1 | Split orders/[id]/page.tsx & OnDemandOrderForm.tsx | ✅ **DONE 2026-08-26** — `orders/[id]/page.tsx` 1530→540 (hooks+handlers) + `OrderDetailContent.tsx` 888 (pure JSX) + `orderDetailTypes/Utils.ts`/`RouteSnapshotPanel.tsx`; `OnDemandOrderForm.tsx` 1177→681 + `OnDemandOrderFormContent.tsx` 683. Both `tsc -b` EXIT 0, eslint 0 errors, vitest 6/6 PASS |
 | 1 | Split routes.ts admin-service | ✅ **DONE 2026-08-26** — 642→68-line aggregator + `routes/{auth,courier,notification,order,admin,public}.routes.ts`; `tsc --noEmit` EXIT 0, `npm test` 165/165 PASS. Preserved `requireAuth`/`requireTotp` gates |
@@ -135,7 +135,7 @@ Platform logistik on-demand multi-service (Parcel, Food, Tambal Ban, Towing) yan
 | `frontend/src/components/orders/OnDemandOrderForm.tsx` | **1177** | 🟠 P1 | ≤ 350 |
 | `android-app/.../PayoutScreens.kt` | **1092** | 🟠 P1 | ≤ 350 |
 | `android-app-customer/.../tracking/TrackingScreen.kt` | **953** (refactor 1091→953) | 🟠 P1 | ≤ 350 |
-| `android-app/.../MainScreen.kt` | **939** (refactor 1024→939) | 🔴 P0 | ≤ 300 |
+| `android-app/.../MainScreen.kt` | **953** (incremental extract MainScreenModals.kt — dialogs + error state extracted; compile bersih) | 🟡 PARTIAL | ≤ 300 |
 | `android-app/.../OnDemandHubScreens.kt` | **869** | 🟠 P1 | ≤ 350 |
 | `backend/order-service/internal/domain/order.go` | **662** | 🟠 P1 | ≤ 300 |
 | `backend/admin-service/src/routes.ts` | **619** | 🟡 P2 | ≤ 300 |
@@ -147,52 +147,8 @@ Platform logistik on-demand multi-service (Parcel, Food, Tambal Ban, Towing) yan
 ### Task — Split `courierAuth.controller.ts` (5445 baris)
 **Status:** ✅ **DONE** — 2026-08-25 (37 fungsi, `tsc --noEmit` + `npm run build` bersih, API publik utuh via facade)
 
-**File lama:** `backend/admin-service/src/controllers/courierAuth.controller.ts` *(sekarang jadi facade `export * from './courier'`)*
-
-**File baru (hasil aktual — 13 controller fokus + 1 shared, lebih granular dari rekomendasi 6 file):**
-```
-backend/admin-service/src/controllers/courier/
-  ├── _shared.ts                        (56 helper level-modul, diekspor sekali)
-  ├── courierAuth.controller.ts         (loginCourier, verifyCourierLoginOtp)
-  ├── courierProfile.controller.ts      (getMobileCourierProfile, updateMobileCourierCapacity)
-  ├── courierDuty.controller.ts         (updateMobileCourierDuty)
-  ├── courierOrders.controller.ts       (getMobileCourierOrders)
-  ├── courierServices.controller.ts     (getMobileCourierOnDemandServices, getMobileCourierHotspots)
-  ├── courierSafety.controller.ts       (createMobileCourierSafetyEvent, TripShare, getPublicTripShare, listAdminCourierSafetyEvents)
-  ├── courierEarnings.controller.ts     (ledger, payout summary/requests, createPayoutRequest)
-  ├── courierRouting.controller.ts      (routePreview, activeRoutePlan, performance)
-  ├── courierGrowth.controller.ts       (listAdminCourierGrowthConfigs, tier config, incentive)
-  ├── courierOnDemand.controller.ts     (dispatchNext/ToPreferred/advanceQueue)
-  ├── courierOffer.controller.ts        (notifyOffers, get/accept/reject offer)
-  ├── courierProof.controller.ts        (verifyFace, scanOrder, uploadPod, serviceReportProof, pickupCancelReasons)
-  ├── courierAccount.controller.ts      (statusTransitions, updateOrderStatus, cancelOnDemandPickup)
-  └── index.ts                          (barrel)
-```
-**Shared helpers:** `backend/admin-service/src/controllers/courier/_shared.ts`  
-**Update `routes.ts`:** TIDAK PERLU — facade `courierAuth.controller.ts` mempertahankan API `controllers.courierAuth.*` persis, sehingga `routes.ts` & `controllers/index.ts` tidak berubah. 4 test file (`courierAuth.controller.test.ts`, 3 e2e) tetap resolve facade.
-
 ### Task — Split `customerOrder.controller.ts` (5065 baris)
 **Status:** ✅ **DONE** — 2026-08-25 (39 fungsi, `tsc --noEmit` + `npm run build` bersih, API publik utuh via facade)
-
-**File lama:** `backend/admin-service/src/controllers/customerOrder.controller.ts` *(sekarang jadi facade `export * from './order'`)*
-
-**File baru (hasil aktual — 9 controller fokus + 1 shared, lebih granular dari rekomendasi 7 file):**
-```
-backend/admin-service/src/controllers/order/
-  ├── _shared.ts                            (60 helper level-modul, diekspor sekali)
-  ├── customerOrder.controller.ts           (create, cancel, list, getById, retryMatching)
-  ├── customerOrderPayment.controller.ts    (paymentSession, paymentStatus, confirm, midtransNotif, calculatePrice(s))
-  ├── customerOrderAddress.controller.ts    (create/update/delete/list addresses)
-  ├── customerOrderTracking.controller.ts   (tracking, syncCourier, mobileDetail, publicLink, umkmReport, dashboardStats)
-  ├── customerOrderChat.controller.ts       (chats, send, markRead, orderCall join/end)
-  ├── customerOrderReceiverLocation.controller.ts (receiver location request flow)
-  ├── customerOrderMobile.controller.ts     (getMobileCustomerOrders/Order/IncomingPackages)
-  ├── customerOrderProfile.controller.ts    (get/update mobile profile, upload photo)
-  ├── customerOrderFile.controller.ts       (uploadOrderFile)
-  └── index.ts                             (barrel)
-```
-**Shared helpers:** `backend/admin-service/src/controllers/order/_shared.ts`  
-**Update `routes.ts`:** TIDAK PERLU — facade `customerOrder.controller.ts` mempertahankan API `controllers.customerOrder.*` persis. Cross-controller deps (`courierAuth`, `deliveryServices`, `websocket`) di-rewire ke path benar (`../courierAuth.controller`, `../deliveryServices.controller`, `../../websocket`).
 
 ---
 

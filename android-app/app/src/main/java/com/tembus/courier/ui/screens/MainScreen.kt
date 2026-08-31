@@ -579,7 +579,6 @@ fun MainScreen(
         maxActiveOnDemandJobs = maxActiveOnDemandJobs,
         initialOrderId = initialOrderId,
         initialChatOrderId = initialChatOrderId,
-        initialInboxOpen = initialInboxOpen,
         onConsumedDeepLink = onConsumedDeepLink,
         authSessionManager = authSessionManager,
         onLogout = onLogout,
@@ -681,11 +680,36 @@ fun MainScreen(
                     onSelectTab = { selectedTab = it }
                 )
             } else {
-                MainBottomNav(
-                    selectedTab = selectedTab,
-                    pendingOrders = pendingOrders,
-                    onSelectTab = { selectedTab = it }
-                )
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
+                        label = { Text("Beranda") },
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 }
+                    )
+                    NavigationBarItem(
+                        icon = {
+                            BadgedBox(
+                                badge = {
+                                    if (pendingOrders.isNotEmpty()) {
+                                        Badge { Text("${pendingOrders.size}") }
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Default.LocalShipping, contentDescription = "Order")
+                            }
+                        },
+                        label = { Text("Order") },
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 }
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
+                        label = { Text("Profil") },
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 }
+                    )
+                }
             }
         }
     ) { paddingValues ->
@@ -727,16 +751,11 @@ fun MainScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                inlineErrorMessage?.let { message ->
-                    CourierInlineErrorState(
-                        message = message,
-                        onRetry = {
-                            inlineErrorMessage = null
-                            orderViewModel.fetchOrdersFromBackend()
-                        },
-                        onDismiss = { inlineErrorMessage = null }
-                    )
-                }
+                MainScreenInlineError(
+                    message = inlineErrorMessage,
+                    onRetry = { orderViewModel.fetchOrdersFromBackend() },
+                    onDismiss = { inlineErrorMessage = null }
+                )
                 
                 BatteryOptimizationCard()
                 
@@ -919,18 +938,10 @@ fun MainScreen(
             }
         }
         
-        if (showMissingPhotoWarning) {
-            AlertDialog(
-                onDismissRequest = { showMissingPhotoWarning = false },
-                title = { Text(text = "Akses Operasional Terkunci") },
-                text = { Text(text = "Anda belum melakukan foto. Tunggu sampai kami menghubungi Anda untuk sesi ambil foto dan jaket operasional di Basecamp kami.") },
-                confirmButton = {
-                    TextButton(onClick = { showMissingPhotoWarning = false }) {
-                        Text(text = "Mengerti")
-                    }
-                }
-            )
-        }
+        MainScreenMissingPhotoWarning(
+            show = showMissingPhotoWarning,
+            onDismiss = { showMissingPhotoWarning = false }
+        )
     }
 }
 
@@ -939,3 +950,4 @@ internal fun isCourierDataStale(lastRemoteSyncAt: Long?): Boolean {
     if (lastRemoteSyncAt == null) return true
     return System.currentTimeMillis() - lastRemoteSyncAt > 2 * 60 * 1000
 }
+
