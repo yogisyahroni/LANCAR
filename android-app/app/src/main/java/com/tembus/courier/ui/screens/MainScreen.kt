@@ -497,34 +497,21 @@ fun MainScreen(
                         actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     actions = {
-                        // Sync indicator
                         AnimatedVisibility(visible = isSyncing, enter = fadeIn(), exit = fadeOut()) {
                             CircularProgressIndicator(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .padding(end = 8.dp),
+                                modifier = Modifier.size(20.dp).padding(end = 8.dp),
                                 color = Color.White,
                                 strokeWidth = 2.dp
                             )
                         }
                         IconButton(onClick = { orderViewModel.fetchOrdersFromBackend() }) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Muat ulang"
-                            )
+                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Muat ulang")
                         }
                         IconButton(onClick = { routeState = CourierRouteReducer.inbox() }) {
-                            BadgedBox(
-                                badge = {
-                                    if (unreadNotificationCount > 0) {
-                                        Badge { Text("$unreadNotificationCount") }
-                                    }
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Notifications,
-                                    contentDescription = "Notifikasi"
-                                )
+                            BadgedBox(badge = {
+                                if (unreadNotificationCount > 0) Badge { Text("$unreadNotificationCount") }
+                            }) {
+                                Icon(imageVector = Icons.Default.Notifications, contentDescription = "Notifikasi")
                             }
                         }
                     }
@@ -539,36 +526,11 @@ fun MainScreen(
                     onSelectTab = { selectedTab = it }
                 )
             } else {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
-                        label = { Text("Beranda") },
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 }
-                    )
-                    NavigationBarItem(
-                        icon = {
-                            BadgedBox(
-                                badge = {
-                                    if (pendingOrders.isNotEmpty()) {
-                                        Badge { Text("${pendingOrders.size}") }
-                                    }
-                                }
-                            ) {
-                                Icon(Icons.Default.LocalShipping, contentDescription = "Order")
-                            }
-                        },
-                        label = { Text("Order") },
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 }
-                    )
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
-                        label = { Text("Profil") },
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 }
-                    )
-                }
+                MainScreenBottomNavBar(
+                    selectedTab = selectedTab,
+                    pendingOrders = pendingOrders,
+                    onTabChange = { selectedTab = it }
+                )
             }
         }
     ) { paddingValues ->
