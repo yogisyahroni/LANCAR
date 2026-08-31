@@ -684,115 +684,87 @@ fun MainScreen(
                             }
                         )
                     } else {
-                        ProfileContent(
-                            courierProfile = courierProfile,
+                        val profileParams = buildProfileContentParams(
+                            context = context,
+                            scope = scope,
+                            snackbarHostState = snackbarHostState,
                             courierName = displayCourierName,
                             courierRole = courierRole,
+                            courierProfile = courierProfile,
                             localSecurityManager = localSecurityManager,
-                            pendingSyncCount = rolePendingOrders.size,
-                            todayEarningsIdr = roleEarningsToday,
-                            totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
+                            roleOrders = rolePendingOrders,
+                            allOrders = allOrders,
+                            roleEarningsToday = roleEarningsToday,
                             performanceSummary = performanceSummary,
                             capabilityProfile = capabilityProfile,
-                            authToken = authSessionManager.getAuthTokenSync(),
-                            onCompleteTraining = {
-                                scope.launch {
-                                    val result = orderViewModel.completeTraining()
-                                    snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Training belum tersimpan." })
-                                }
-                            },
-                            onLogout = { showLogoutDialog = true },
-                            onSyncNow = { orderViewModel.syncPendingOrders() },
-                            onOptimizeBattery = {
-                                (context as? com.tembus.courier.ui.MainActivity)?.checkAndRequestBatteryWhitelist()
-                            },
-                            onClearCache = {
-                                try {
-                                    val deleted = context.cacheDir.deleteRecursively()
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            if (deleted) "Optimalisasi: Berhasil membersihkan berkas cache."
-                                            else "Beberapa cache sedang digunakan dan dilewati."
-                                        )
-                                    }
-                                } catch (e: Exception) {
-                                    scope.launch { snackbarHostState.showSnackbar("Gagal merestart cache.") }
-                                }
-                            },
-                            onUpdateCapacity = { maxWeightKg, maxPackages ->
-                                scope.launch {
-                                    val result = orderViewModel.updateCourierCapacity(maxWeightKg, maxPackages)
-                                    snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Gagal update kapasitas" }.toString())
-                                }
-                            },
-                            onRequestServiceUpgrade = { routeState = CourierRouteReducer.serviceUpgrade() },
-                            onUpdateRadius = { radiusKm ->
-                                scope.launch {
-                                    val result = orderViewModel.updateCourierRadius(radiusKm)
-                                    snackbarHostState.showSnackbar(
-                                        result.fold(
-                                            onSuccess = { "Radius diubah ke $radiusKm km" },
-                                            onFailure = { it.message ?: "Gagal update radius" }
-                                        )
-                                    )
-                                }
-                            }
-                            )
+                            authSessionManager = authSessionManager,
+                            orderViewModel = orderViewModel,
+                            localSecuritySettings = localSecuritySettings,
+                            showLogoutDialog = showLogoutDialogState,
+                            onRouteStateChange = { routeState = it },
+                        )
+                        ProfileContent(
+                            courierProfile = profileParams.courierProfile,
+                            courierName = profileParams.courierName,
+                            courierRole = profileParams.courierRole,
+                            localSecurityManager = profileParams.localSecurityManager,
+                            pendingSyncCount = profileParams.pendingSyncCount,
+                            todayEarningsIdr = profileParams.todayEarningsIdr,
+                            totalEarningsIdr = profileParams.totalEarningsIdr,
+                            performanceSummary = profileParams.performanceSummary,
+                            capabilityProfile = profileParams.capabilityProfile,
+                            authToken = profileParams.authToken,
+                            onCompleteTraining = profileParams.onCompleteTraining,
+                            onLogout = profileParams.onLogout,
+                            onSyncNow = profileParams.onSyncNow,
+                            onOptimizeBattery = profileParams.onOptimizeBattery,
+                            onClearCache = profileParams.onClearCache,
+                            onUpdateCapacity = profileParams.onUpdateCapacity,
+                            onRequestServiceUpgrade = profileParams.onRequestServiceUpgrade,
+                            onUpdateRadius = profileParams.onUpdateRadius
+                        )
                     }
-                    3 -> ProfileContent(
-                    courierProfile = courierProfile,
-                    courierName = displayCourierName,
-                    courierRole = courierRole,
-                    localSecurityManager = localSecurityManager,
-                    pendingSyncCount = rolePendingOrders.size,
-                    todayEarningsIdr = roleEarningsToday,
-                    totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
-                    performanceSummary = performanceSummary,
-                    capabilityProfile = capabilityProfile,
-                    authToken = authSessionManager.getAuthTokenSync(),
-                    onCompleteTraining = {
-                        scope.launch {
-                            val result = orderViewModel.completeTraining()
-                            snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Training belum tersimpan." })
-                        }
-                    },
-                    onLogout = { showLogoutDialog = true },
-                    onSyncNow = { orderViewModel.syncPendingOrders() },
-                    onOptimizeBattery = {
-                        (context as? com.tembus.courier.ui.MainActivity)?.checkAndRequestBatteryWhitelist()
-                    },
-                    onClearCache = {
-                        try {
-                            val deleted = context.cacheDir.deleteRecursively()
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    if (deleted) "Optimalisasi: Berhasil membersihkan berkas cache."
-                                    else "Beberapa cache sedang digunakan dan dilewati."
-                                )
-                            }
-                        } catch (e: Exception) {
-                            scope.launch { snackbarHostState.showSnackbar("Gagal merestart cache.") }
-                        }
-                    },
-                    onUpdateCapacity = { maxWeightKg, maxPackages ->
-                        scope.launch {
-                            val result = orderViewModel.updateCourierCapacity(maxWeightKg, maxPackages)
-                            snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Gagal update kapasitas" }.toString())
-                        }
-                    },
-                    onRequestServiceUpgrade = { routeState = CourierRouteReducer.serviceUpgrade() },
-                    onUpdateRadius = { radiusKm ->
-                        scope.launch {
-                            val result = orderViewModel.updateCourierRadius(radiusKm)
-                            snackbarHostState.showSnackbar(
-                                result.fold(
-                                    onSuccess = { "Radius diubah ke $radiusKm km" },
-                                    onFailure = { it.message ?: "Gagal update radius" }
-                                )
-                            )
-                        }
+                    3 -> {
+                        val profileParams = buildProfileContentParams(
+                            context = context,
+                            scope = scope,
+                            snackbarHostState = snackbarHostState,
+                            courierName = displayCourierName,
+                            courierRole = courierRole,
+                            courierProfile = courierProfile,
+                            localSecurityManager = localSecurityManager,
+                            roleOrders = rolePendingOrders,
+                            allOrders = allOrders,
+                            roleEarningsToday = roleEarningsToday,
+                            performanceSummary = performanceSummary,
+                            capabilityProfile = capabilityProfile,
+                            authSessionManager = authSessionManager,
+                            orderViewModel = orderViewModel,
+                            localSecuritySettings = localSecuritySettings,
+                            showLogoutDialog = showLogoutDialogState,
+                            onRouteStateChange = { routeState = it },
+                        )
+                        ProfileContent(
+                            courierProfile = profileParams.courierProfile,
+                            courierName = profileParams.courierName,
+                            courierRole = profileParams.courierRole,
+                            localSecurityManager = profileParams.localSecurityManager,
+                            pendingSyncCount = profileParams.pendingSyncCount,
+                            todayEarningsIdr = profileParams.todayEarningsIdr,
+                            totalEarningsIdr = profileParams.totalEarningsIdr,
+                            performanceSummary = profileParams.performanceSummary,
+                            capabilityProfile = profileParams.capabilityProfile,
+                            authToken = profileParams.authToken,
+                            onCompleteTraining = profileParams.onCompleteTraining,
+                            onLogout = profileParams.onLogout,
+                            onSyncNow = profileParams.onSyncNow,
+                            onOptimizeBattery = profileParams.onOptimizeBattery,
+                            onClearCache = profileParams.onClearCache,
+                            onUpdateCapacity = profileParams.onUpdateCapacity,
+                            onRequestServiceUpgrade = profileParams.onRequestServiceUpgrade,
+                            onUpdateRadius = profileParams.onUpdateRadius
+                        )
                     }
-                )
                 }
             }
         }
