@@ -424,6 +424,7 @@ Existing shared files:
 - [x] Package identity/condition/quantity checked when required. Existing authoritative proof path validates package code/identity and required package count before custody completion.
 - [x] PIN/QR/proof before `picked_up`. Pickup proof remains gated by arrival, face verification, package scan, and pickup photo before the order can progress.
 - [x] Pickup evidence immutable. `package_scans` is append-only during retention; the migration trigger rejects updates while existing retention cleanup may still delete expired records.
+- [ ] Authenticated staging E2E and service-visible migration/rollback proof captured.
 
 ---
 
