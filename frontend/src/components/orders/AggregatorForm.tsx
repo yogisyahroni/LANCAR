@@ -51,12 +51,13 @@ interface AggregatorFormProps {
   }) => void;
 }
 
-// ─── Constants ─────────────────────────────────────────────────────
-const PROVIDERS = [
-  { id: "jne",      name: "JNE",      fullName: "JNE Express",  color: "text-blue-400",   accent: "border-blue-400 bg-blue-400/10",     logo: "🚚" },
-  { id: "jnt",      name: "J&T",      fullName: "J&T Express",  color: "text-red-400",    accent: "border-red-400 bg-red-400/10",       logo: "🔴" },
-];
+interface ProviderOption {
+  code: string;
+  name: string;
+  capabilities?: string[];
+}
 
+// ─── Constants ─────────────────────────────────────────────────────
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatPrice(price: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -272,6 +273,8 @@ function AddressModal({
 
 // ─── Component ─────────────────────────────────────────────────────
 export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [providerError, setProviderError] = useState<string | null>(null);
   const [cities, setCities] = useState<CityOption[]>([]);
   const [originCode, setOriginCode] = useState("");
   const [destCode, setDestCode] = useState("");
@@ -292,7 +295,24 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
 
   const volumeCm3 = calcVolumeCm3(lengthCm, widthCm, heightCm);
   const vehicleRec = getVehicleRec(volumeCm3, weight);
-  const selectedProvider = PROVIDERS.find(p => p.id === selectedProviderId);
+  const selectedProvider = providers.find(p => p.code === selectedProviderId);
+
+  useEffect(() => {
+    let active = true;
+    api.get("/logistics/providers").then((res) => {
+      const data = res.data?.providers;
+      if (!active) return;
+      if (!Array.isArray(data) || data.length === 0 || data.some((provider) => !provider?.code || !provider?.name)) {
+        setProviderError("Daftar provider belum tersedia dari server.");
+        return;
+      }
+      setProviders(data as ProviderOption[]);
+      setProviderError(null);
+    }).catch(() => {
+      if (active) setProviderError("Daftar provider tidak dapat dimuat. Coba lagi setelah layanan aktif.");
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     setCities([]);
@@ -339,7 +359,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
 
         const allTariffs: TariffOption[] = items.map((item: any) => ({
           provider: selectedProviderId,
-          provider_name: PROVIDERS.find(p => p.id === selectedProviderId)?.fullName || selectedProviderId,
+          provider_name: providers.find(p => p.code === selectedProviderId)?.name || selectedProviderId,
           service: item.service_code || item.service || "reg",
           service_name: item.service_name || item.service || "Reguler",
           price: Number(item.tariff_gross || item.price || item.total_price_idr || 0),
@@ -411,24 +431,23 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
           <label className="text-sm font-semibold text-foreground">Pilih Ekspedisi</label>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {PROVIDERS.map((provider) => (
+          {providers.map((provider) => (
             <button
-              key={provider.id}
+              key={provider.code}
               type="button"
-              onClick={() => { setSelectedProviderId(provider.id); setTariffs([]); setSelectedIndex(null); }}
+              onClick={() => { setSelectedProviderId(provider.code); setTariffs([]); setSelectedIndex(null); }}
               className={[
                 "rounded-xl border-2 px-3 py-3.5 text-center transition-all duration-150",
-                selectedProviderId === provider.id
-                  ? provider.accent + " shadow-lg scale-[1.02]"
+                selectedProviderId === provider.code
+                  ? "border-indigo-400 bg-indigo-400/10 shadow-lg scale-[1.02]"
                   : "border-white/10 bg-background/40 hover:border-white/20 hover:bg-white/5",
               ].join(" ")}
             >
-              <span className="block text-xl mb-1">{provider.logo}</span>
-              <span className={`block text-sm font-bold ${selectedProviderId === provider.id ? provider.color : "text-foreground"}`}>
+              <span className="block text-sm font-bold text-foreground">
                 {provider.name}
               </span>
-              {selectedProviderId === provider.id && (
-                <Check className={`mx-auto mt-1 h-3 w-3 ${provider.color}`} />
+              {selectedProviderId === provider.code && (
+                <Check className="mx-auto mt-1 h-3 w-3 text-indigo-300" />
               )}
             </button>
           ))}
@@ -436,9 +455,10 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
         {selectedProvider && (
           <p className="mt-2 text-xs text-muted-foreground">
             Menampilkan layanan dari{" "}
-            <span className={`font-semibold ${selectedProvider.color}`}>{selectedProvider.fullName}</span>
+            <span className="font-semibold text-foreground">{selectedProvider.name}</span>
           </p>
         )}
+        {providerError && <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100" role="alert">{providerError}</p>}
       </div>
 
       {/* STEP 2 — Alamat Pengirim (Mengantar-style) */}
@@ -618,14 +638,14 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">5</span>
             <label className="text-sm font-semibold text-foreground">
-              Pilih Layanan {selectedProvider?.fullName}
+              Pilih Layanan {selectedProvider?.name}
             </label>
           </div>
 
           {isLoading ? (
             <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 px-4 py-5 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Memuat layanan {selectedProvider?.fullName}...
+              Memuat layanan {selectedProvider?.name}...
             </div>
           ) : error ? (
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-100">

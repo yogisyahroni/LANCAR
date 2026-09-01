@@ -35,10 +35,11 @@ import {
 } from "@/hooks/useCreateAggregatorOrder";
 
 // ─── Types & Constants ──────────────────────────────────────────────────
-const PROVIDERS = [
-  { id: "jne", name: "JNE Express", color: "text-blue-400", border: "border-blue-400" },
-  { id: "jnt", name: "J&T Express", color: "text-red-400", border: "border-red-400" },
-];
+type ProviderOption = {
+  code: string;
+  name: string;
+  capabilities?: string[];
+};
 
 type LogisticsCity = { code: string; name: string; type: "origin" | "destination" | "both" };
 
@@ -112,6 +113,8 @@ export function AggregatorWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [orderMode, setOrderMode] = useState<"manual" | "upload" | null>(null);
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [providerError, setProviderError] = useState<string | null>(null);
   const [cities, setCities] = useState<LogisticsCity[]>([]);
   const [cityError, setCityError] = useState<string | null>(null);
   const [tariffs, setTariffs] = useState<any[]>([]);
@@ -273,6 +276,25 @@ export function AggregatorWizard() {
   const pickup_location = watch("pickup_location");
   const dropoff_address = watch("dropoff_address");
   const dropoff_location = watch("dropoff_location");
+
+  useEffect(() => {
+    let active = true;
+    api.get("/logistics/providers")
+      .then((response) => {
+        const data = response.data?.providers;
+        if (!active) return;
+        if (!Array.isArray(data) || data.length === 0 || data.some((provider) => !provider?.code || !provider?.name)) {
+          setProviderError("Daftar provider belum tersedia dari server.");
+          return;
+        }
+        setProviders(data as ProviderOption[]);
+        setProviderError(null);
+      })
+      .catch(() => {
+        if (active) setProviderError("Daftar provider tidak dapat dimuat. Coba lagi setelah layanan aktif.");
+      });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     setCities([]);
@@ -611,6 +633,11 @@ export function AggregatorWizard() {
           {cityError}
         </div>
       )}
+      {providerError && (
+        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="alert">
+          {providerError}
+        </div>
+      )}
 
       <FormProvider {...methods}>
         <form onSubmit={(e) => { e.preventDefault(); onSubmitFinal(); }} className="space-y-6">
@@ -622,19 +649,19 @@ export function AggregatorWizard() {
               <div>
                 <label className="mb-3 block text-base font-semibold text-foreground">1. Pilih Ekspedisi</label>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {PROVIDERS.map((provider) => (
+                  {providers.map((provider) => (
                     <button
-                      key={provider.id}
+                      key={provider.code}
                       type="button"
-                      onClick={() => setValue("provider", provider.id, { shouldValidate: true })}
+                      onClick={() => setValue("provider", provider.code, { shouldValidate: true })}
                       className={[
                         "rounded-xl border-2 px-4 py-4 text-center transition-all",
-                        currentProvider === provider.id
-                          ? `${provider.border} bg-white/10 shadow-lg shadow-white/5`
+                        currentProvider === provider.code
+                          ? "border-indigo-400 bg-white/10 shadow-lg shadow-white/5"
                           : "border-white/10 bg-background/40 hover:bg-white/5 hover:border-white/20",
                       ].join(" ")}
                     >
-                      <span className={`block font-bold ${provider.color}`}>{provider.name}</span>
+                      <span className="block font-bold text-foreground">{provider.name}</span>
                     </button>
                   ))}
                 </div>
@@ -778,17 +805,17 @@ export function AggregatorWizard() {
                     <span className="text-base">🔄</span> Select Courier
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {PROVIDERS.map(p => (
+                    {providers.map(p => (
                       <span
-                        key={p.id}
+                        key={p.code}
                         className={[
                           "relative inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
-                          watch("provider") === p.id
-                            ? `${p.border} ${p.color} bg-white/5`
+                          watch("provider") === p.code
+                            ? "border-indigo-400 text-indigo-200 bg-white/5"
                             : "border-white/10 text-muted-foreground",
                         ].join(" ")}
                       >
-                        {watch("provider") === p.id && (
+                        {watch("provider") === p.code && (
                           <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-brand-emerald-500 flex items-center justify-center">
                             <Check className="h-2 w-2 text-white" />
                           </span>
@@ -1342,7 +1369,7 @@ export function AggregatorWizard() {
                 <div className="grid gap-4 text-sm sm:grid-cols-2">
                   <div>
                     <p className="text-xs text-muted-foreground">Provider / layanan</p>
-                    <p className="font-semibold">{watch("provider").toUpperCase()} · {tariffs.find((tariff) => tariff.service === watch("service_code"))?.service_name || watch("service_code")}</p>
+                    <p className="font-semibold">{providers.find((provider) => provider.code === watch("provider"))?.name || watch("provider").toUpperCase()} · {tariffs.find((tariff) => tariff.service === watch("service_code"))?.service_name || watch("service_code")}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Tarif provider</p>

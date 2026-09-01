@@ -57,11 +57,14 @@ type OptimizedRouteResult struct {
 	OptimizedIndices []int   `json:"optimized_indices"`
 }
 
-// Logistics3PLProvider defines the interface for an external 3PL logistics provider (e.g. JNE, J&T Express)
+// Logistics3PLProvider is kept as a compatibility composition for existing
+// integrations. New orchestration code should use the capability interfaces
+// and ProviderRegistration instead of assuming every provider supports all
+// operations.
 type Logistics3PLProvider interface {
-	CheckTariff(ctx context.Context, req TariffRequest) (*TariffResponse, error)
-	CreateOrder(ctx context.Context, req LogisticsOrderRequest) (*LogisticsOrderResponse, error)
-	TrackOrder(ctx context.Context, awb string) (*TrackingResponse, error)
+	TariffProvider
+	ShipmentProvider
+	TrackingPullProvider
 }
 
 type TariffRequest struct {
@@ -79,7 +82,7 @@ type TariffResponse struct {
 type TariffServiceOption struct {
 	ServiceCode   string `json:"service_code"`
 	ServiceName   string `json:"service_name"`
-	TariffGross   int64  `json:"tariff_gross"`   // Harga kotor dari provider (dalam IDR)
+	TariffGross   int64  `json:"tariff_gross"` // Harga kotor dari provider (dalam IDR)
 	EstimatedDays string `json:"estimated_days"`
 }
 
@@ -106,12 +109,12 @@ type LogisticsOrderRequest struct {
 }
 
 type LogisticsOrderResponse struct {
-	ReferenceID string  `json:"reference_id"`
-	AWBNumber   string  `json:"awb_number"`
-	Provider    string  `json:"provider"`
-	ServiceType string  `json:"service_type"`
-	BookingCode string  `json:"booking_code"`
-	TotalAmount int64   `json:"total_amount"`
+	ReferenceID string `json:"reference_id"`
+	AWBNumber   string `json:"awb_number"`
+	Provider    string `json:"provider"`
+	ServiceType string `json:"service_type"`
+	BookingCode string `json:"booking_code"`
+	TotalAmount int64  `json:"total_amount"`
 }
 
 type TrackingResponse struct {
