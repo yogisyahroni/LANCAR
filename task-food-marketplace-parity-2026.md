@@ -384,9 +384,9 @@ Existing shared files:
 - `backend/order-service/internal/handler/parcel_handler.go`
 
 **Checklist**
-- [ ] Weight, dimensions, volumetric weight, quantity, category, item value, fragile/prohibited flags, size tier, receiver, delivery-code policy.
-- [ ] Package-fact change forces requote.
-- [ ] Android/Web show same authoritative breakdown.
+- [x] Weight, dimensions, volumetric weight, quantity, category, item value, fragile/prohibited flags, size tier, receiver, delivery-code policy.
+- [x] Package-fact change forces requote.
+- [ ] Android/Web show same authoritative breakdown (local response/rendering is implemented; authenticated staging parity evidence is pending).
 
 ---
 
