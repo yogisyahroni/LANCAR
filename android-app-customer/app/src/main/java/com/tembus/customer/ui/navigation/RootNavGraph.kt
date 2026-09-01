@@ -129,26 +129,16 @@ fun RootNavGraph(
         if (lastHandledDeepLink.value == key) return@LaunchedEffect
         lastHandledDeepLink.value = key
 
-        val path = deepLink.pathSegments
-        when {
-            path.size >= 3 && path[0] == "orders" && path[2] == "chat" -> {
-                val orderId = path[1]
-                if (orderId.isNotBlank()) {
-                    navController.navigate(Screen.Chat.createRoute(orderId, null)) { launchSingleTop = true }
-                }
-            }
-            path.size >= 3 && path[0] == "orders" && path[2] == "tracking" -> {
-                val orderId = path[1]
-                if (orderId.isNotBlank()) {
-                    navController.navigate(Screen.Tracking.createRoute(orderId)) { launchSingleTop = true }
-                }
-            }
-            path.size >= 2 && path[0] == "orders" -> {
-                val orderId = path[1]
-                if (orderId.isNotBlank()) {
-                    navController.navigate(Screen.OrderDetail.createRoute(orderId)) { launchSingleTop = false }
-                }
-            }
+        when (val target = resolveCustomerDeepLink(deepLink.scheme, deepLink.host, deepLink.pathSegments, deepLink.getQueryParameter("promo"))) {
+            is CustomerDeepLinkTarget.Chat ->
+                navController.navigate(Screen.Chat.createRoute(target.orderId, null)) { launchSingleTop = true }
+            is CustomerDeepLinkTarget.Tracking ->
+                navController.navigate(Screen.Tracking.createRoute(target.orderId)) { launchSingleTop = true }
+            is CustomerDeepLinkTarget.OrderDetail ->
+                navController.navigate(Screen.OrderDetail.createRoute(target.orderId)) { launchSingleTop = false }
+            is CustomerDeepLinkTarget.Booking ->
+                navController.navigate(Screen.Booking.createRoute(promoCode = target.promo)) { launchSingleTop = true }
+            null -> Unit
         }
         onDeepLinkConsumed()
     }
