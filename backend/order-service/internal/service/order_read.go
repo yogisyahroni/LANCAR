@@ -55,12 +55,20 @@ func (s *orderServiceImpl) GetOrder(ctx context.Context, orderID string) (*domai
 			}
 		}
 	}
+	order.ApplyCanonicalOrderContract()
 
 	return order, nil
 }
 
 func (s *orderServiceImpl) ListOrders(ctx context.Context, userID string, filter map[string]interface{}) ([]*domain.Order, error) {
-	return s.orderRepo.ListByUserID(ctx, userID, filter)
+	orders, err := s.orderRepo.ListByUserID(ctx, userID, filter)
+	if err != nil {
+		return nil, err
+	}
+	for _, order := range orders {
+		order.ApplyCanonicalOrderContract()
+	}
+	return orders, nil
 }
 
 func (s *orderServiceImpl) GetCourierIDByUserID(ctx context.Context, userID string) (string, error) {

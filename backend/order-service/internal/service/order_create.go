@@ -111,6 +111,7 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		Height:                 estimate.Height,
 		Weight:                 estimate.Weight,
 		ItemDescription:        req.ItemDescription,
+		ItemCategory:           req.Category,
 		ItemImageURL:           req.ItemImageURL,
 		DistanceKM:             estimate.DistanceKM,
 		IncludedDistanceKM:     estimate.IncludedDistanceKM,
@@ -136,6 +137,8 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		QRCodeURL:              qrURL,
 		CreatedAt:              time.Now(),
 		UpdatedAt:              time.Now(),
+		QuoteID:                req.EstimateID,
+		CorrelationID:          uuid.New().String(),
 	}
 	if snapBytes, errSnap := json.Marshal(estimate); errSnap == nil {
 		order.PricingSnapshot = string(snapBytes)
@@ -265,6 +268,7 @@ func (s *orderServiceImpl) CreateInternalAggregatorOrder(ctx context.Context, us
 		HandoverToken:        handoverToken,
 		QRCodeURL:            qrURL,
 		PlatformFeeIDR:       req.LogisticsTariffIDR - req.LogisticsNetCostIDR,
+		CorrelationID:        uuid.New().String(),
 		CreatedAt:            time.Now(),
 		UpdatedAt:            time.Now(),
 	}
@@ -408,6 +412,8 @@ func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, r
 			SequenceNo:    &seq,
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
+			QuoteID:       dest.EstimateID,
+			CorrelationID: uuid.New().String(),
 		}
 		if snapBytes, errSnap := json.Marshal(estimate); errSnap == nil {
 			order.PricingSnapshot = string(snapBytes)

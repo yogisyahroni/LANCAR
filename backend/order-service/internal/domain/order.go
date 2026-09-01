@@ -56,6 +56,7 @@ type Order struct {
 	Height          float64     `json:"height,omitempty"`
 	Weight          float64     `json:"weight,omitempty"`
 	ItemDescription string      `json:"item_description,omitempty"`
+	ItemCategory    string      `json:"item_category,omitempty" db:"-"`
 	ItemImageURL    string      `json:"item_image_url,omitempty"`
 	// FB-121: catatan keseluruhan order (ditulis customer saat checkout).
 	OrderNotes         string  `json:"order_notes,omitempty"`
@@ -112,13 +113,21 @@ type Order struct {
 	RatingReminderCount    int          `json:"rating_reminder_count,omitempty"`   // Sudah berapa kali diingatkan
 	LastRatingReminderAt   *time.Time   `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
 	// Food delivery (FOOD-BIKE-006): service_sub_type + merchant fields
-	ServiceSubType     string     `json:"service_sub_type,omitempty" db:"service_sub_type"`
-	ServiceCode        string     `json:"service_code,omitempty" db:"service_code"`
-	MerchantID         *string    `json:"merchant_id,omitempty" db:"merchant_id"`
-	MerchantName       *string    `json:"merchant_name,omitempty" db:"merchant_name"` // LEFT JOIN merchants (FOOD-BIKE-060)
-	MerchantAcceptedAt *time.Time `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
-	PrepTimeMinutes    *int       `json:"prep_time_minutes,omitempty" db:"prep_time_minutes"`
-	FoodReadyAt        *time.Time `json:"food_ready_at,omitempty" db:"food_ready_at"`
+	ServiceSubType     string                   `json:"service_sub_type,omitempty" db:"service_sub_type"`
+	ServiceCode        string                   `json:"service_code,omitempty" db:"service_code"`
+	ServiceCategory    CanonicalServiceCategory `json:"service_category,omitempty" db:"service_category"`
+	ContractVersion    string                   `json:"contract_version" db:"contract_version"`
+	QuoteID            string                   `json:"quote_id,omitempty" db:"quote_id"`
+	StateVersion       int64                    `json:"state_version" db:"state_version"`
+	CorrelationID      string                   `json:"correlation_id,omitempty" db:"correlation_id"`
+	PaymentStatus      string                   `json:"payment_status,omitempty" db:"payment_status"`
+	ActorOwnership     OrderActorOwnership      `json:"actor_ownership" db:"-"`
+	ServiceMetadata    OrderServiceMetadata     `json:"service_metadata" db:"-"`
+	MerchantID         *string                  `json:"merchant_id,omitempty" db:"merchant_id"`
+	MerchantName       *string                  `json:"merchant_name,omitempty" db:"merchant_name"` // LEFT JOIN merchants (FOOD-BIKE-060)
+	MerchantAcceptedAt *time.Time               `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
+	PrepTimeMinutes    *int                     `json:"prep_time_minutes,omitempty" db:"prep_time_minutes"`
+	FoodReadyAt        *time.Time               `json:"food_ready_at,omitempty" db:"food_ready_at"`
 	// FB-089: contactless delivery — antar tanpa kontak fisik, POD tetap wajib.
 	Contactless     bool             `json:"contactless,omitempty" db:"contactless"`
 	TambalBanReport *TambalBanReport `json:"tambal_ban_report,omitempty"` // Laporan Tambal Ban

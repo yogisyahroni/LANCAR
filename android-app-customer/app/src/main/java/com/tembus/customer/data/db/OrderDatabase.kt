@@ -17,7 +17,7 @@ import com.tembus.customer.data.model.Order
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -73,6 +73,16 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_category` TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `contract_version` TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `state_version` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `quote_id` TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `correlation_id` TEXT DEFAULT NULL")
+            }
+        }
+
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
                 // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
@@ -88,7 +98,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     "order_database"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .build()
                 INSTANCE = instance
                 instance

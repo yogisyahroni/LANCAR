@@ -28,6 +28,12 @@ describe("customer order service presentation", () => {
     expect(getOrderServicePresentation({}).kind).toBe("unknown");
   });
 
+  it("uses the canonical category before legacy model hints", () => {
+    expect(getOrderServicePresentation({ service_category: "food", model: "p2p" }).kind).toBe("food");
+    expect(getOrderServicePresentation({ service_category: "towing" }).label).toBe("Towing");
+    expect(getOrderServicePresentation({ service_category: "future_service" }).kind).toBe("unknown");
+  });
+
   it("keeps food, instant, and named service labels tied to server metadata", () => {
     expect(getOrderServicePresentation({ service_code: "tembus_food", service_snapshot: { category: "food" } }).kind)
       .toBe("food");

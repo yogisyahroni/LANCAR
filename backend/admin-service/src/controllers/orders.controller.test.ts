@@ -55,7 +55,13 @@ describe('admin operational order controllers', () => {
     ]);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       total: 1,
-      data: [{ id: 'order-1', service_category: 'food' }],
+      data: [expect.objectContaining({
+        id: 'order-1',
+        service_category: 'food',
+        order_contract: expect.objectContaining({
+          service: expect.objectContaining({ category: 'food' }),
+        }),
+      })],
     }));
   });
 

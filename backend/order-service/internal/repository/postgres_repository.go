@@ -162,7 +162,16 @@ type execer interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
+func sqlNullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
 func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Order) error {
+	o.ApplyCanonicalOrderContract()
+	serviceMetadata, _ := json.Marshal(o.ServiceMetadata)
 	query := `INSERT INTO orders (
 				id, order_number, customer_id, model, status, 
 				pickup_location, pickup_address, pickup_city, pickup_zip_code,
@@ -181,6 +190,7 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 					order_notes,
 					-- FB-123: NULL = pesan langsung; diisi = terjadwal
 					scheduled_at,
+					service_category, contract_version, quote_id, state_version, correlation_id, service_metadata,
 					created_at, updated_at
 					) VALUES (
 					$1, $2, $3, $4, $5, 
@@ -191,7 +201,7 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 					$36, $37, $38, $39, $40, $41, $42, $43, $44,
 					$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55,
 					$56, $57, $58, $59, $60,
-					$61, $62, $63
+					$61, $62, $63, $64, $65, $66, $67, $68, $69
 					)`
 
 	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
@@ -226,6 +236,7 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 		o.Contactless,
 		o.OrderNotes,
 		o.ScheduledAt, // FB-123
+		o.ServiceCategory, o.ContractVersion, sqlNullableString(o.QuoteID), o.StateVersion, sqlNullableString(o.CorrelationID), serviceMetadata,
 		o.CreatedAt, o.UpdatedAt,
 	)
 	return err
@@ -251,6 +262,8 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				COALESCE(o.contactless, false),
 				COALESCE(o.order_notes, ''),
 				o.scheduled_at,
+				COALESCE(o.service_category, ''), COALESCE(o.contract_version, '2026-09-01'), COALESCE(o.quote_id, ''),
+				COALESCE(o.state_version, 1), COALESCE(o.correlation_id::text, ''), COALESCE(o.service_metadata, '{}'::jsonb),
 				COALESCE(m.nama_toko, ''),
 				o.created_at, o.updated_at
 				FROM orders o
@@ -259,6 +272,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 
 	o := &domain.Order{}
 	var courierID, merchantID string
+	var serviceMetadata []byte
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
 		&o.PickupLat, &o.PickupLng, &o.PickupAddress, &o.PickupCity, &o.PickupZipCode,
@@ -276,6 +290,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.Contactless,
 		&o.OrderNotes,
 		&o.ScheduledAt, // FB-123: NULL = pesan langsung
+		&o.ServiceCategory, &o.ContractVersion, &o.QuoteID, &o.StateVersion, &o.CorrelationID, &serviceMetadata,
 		&o.MerchantName,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
@@ -293,6 +308,8 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 	}
 	// FB-123: IsScheduled = turunan dari scheduled_at (computed).
 	o.IsScheduled = o.ScheduledAt != nil
+	_ = json.Unmarshal(serviceMetadata, &o.ServiceMetadata)
+	o.ApplyCanonicalOrderContract()
 	return o, nil
 }
 
@@ -335,6 +352,7 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 	if courierID != "" {
 		o.CourierID = &courierID
 	}
+	o.ApplyCanonicalOrderContract()
 	return o, nil
 }
 
@@ -350,27 +368,28 @@ func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order,
 				COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
 				FROM orders WHERE awb_number = $1`
 
-				o := &domain.Order{}
-				var courierID string
-				err := r.readDB.QueryRowContext(ctx, query, awb).Scan(
-				&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
-				&o.PickupLat, &o.PickupLng, &o.PickupAddress,
-				&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
-				&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
-				&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-				&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
-				)
-				if err != nil {
-				if err == sql.ErrNoRows {
-				return nil, nil
-				}
-				return nil, err
-				}
-				if courierID != "" {
-				o.CourierID = &courierID
-				}
-				return o, nil
-				}
+	o := &domain.Order{}
+	var courierID string
+	err := r.readDB.QueryRowContext(ctx, query, awb).Scan(
+		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
+		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
+		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if courierID != "" {
+		o.CourierID = &courierID
+	}
+	o.ApplyCanonicalOrderContract()
+	return o, nil
+}
 
 func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*domain.Order, error) {
 	query := `
@@ -411,6 +430,7 @@ func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*dom
 		if courierID != "" {
 			o.CourierID = &courierID
 		}
+		o.ApplyCanonicalOrderContract()
 		orders = append(orders, o)
 	}
 	return orders, nil
@@ -428,34 +448,35 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 				created_at, updated_at
 				FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
 
-				rows, err := r.readDB.QueryContext(ctx, query, userID)
-				if err != nil {
-				return nil, err
-				}
-				defer rows.Close()
+	rows, err := r.readDB.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-				orders := []*domain.Order{}
-				for rows.Next() {
-				o := &domain.Order{}
-				var courierID string
-				err := rows.Scan(
-				&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
-				&o.PickupLat, &o.PickupLng, &o.PickupAddress,
-				&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
-				&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
-				&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-				&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.CreatedAt, &o.UpdatedAt,
-				)
-				if err != nil {
-				return nil, err
-				}
-				if courierID != "" {
-				o.CourierID = &courierID
-				}
-				orders = append(orders, o)
-				}
-				return orders, nil
-				}
+	orders := []*domain.Order{}
+	for rows.Next() {
+		o := &domain.Order{}
+		var courierID string
+		err := rows.Scan(
+			&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+			&o.PickupLat, &o.PickupLng, &o.PickupAddress,
+			&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+			&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
+			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.CreatedAt, &o.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if courierID != "" {
+			o.CourierID = &courierID
+		}
+		o.ApplyCanonicalOrderContract()
+		orders = append(orders, o)
+	}
+	return orders, nil
+}
 
 func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
 	query := `UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3`

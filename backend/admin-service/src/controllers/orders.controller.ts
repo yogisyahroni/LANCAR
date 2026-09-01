@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
 import { securityLog } from '../security/logRedaction';
+import { withCanonicalOrderContract } from '../services/orderContract';
 
 const STUCK_REASON_SQL = `
   CASE
@@ -239,12 +240,18 @@ export const getAllOrders = async (req: Request, res: Response) => {
       WITH order_base AS (
       SELECT 
         o.id, 
+        o.customer_id,
         o.order_number,
         o.model, 
         o.service_category,
         o.service_code,
         o.service_sub_type,
         o.merchant_id,
+        o.contract_version,
+        o.quote_id,
+        o.state_version,
+        o.correlation_id,
+        o.service_metadata,
         o.logistics_provider,
         o.status, 
         o.total_price_idr as total_amount, 
@@ -382,7 +389,7 @@ export const getAllOrders = async (req: Request, res: Response) => {
     const result = await readDb.query(query, values);
 
     res.json({
-      data: result.rows,
+      data: result.rows.map((row) => withCanonicalOrderContract(row)),
       total,
       page,
       limit

@@ -285,6 +285,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		PrepTimeMinutes:    &prepMin,
 		ScheduledAt:        scheduledAt, // FB-123: NULL = pesan langsung
 		IsScheduled:        scheduledAt != nil,
+		CorrelationID:      uuid.New().String(),
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}

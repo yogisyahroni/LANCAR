@@ -1,6 +1,13 @@
 export type OrderPresentationInput = {
   model?: string | null;
+  service_category?: "package_on_demand" | "food" | "tambal_ban" | "aggregator" | "towing" | string | null;
   service_code?: string | null;
+  order_contract?: {
+    service?: {
+      category?: string | null;
+      degraded?: boolean;
+    } | null;
+  } | null;
   service_snapshot?: {
     name?: string | null;
     service_name?: string | null;
@@ -24,7 +31,12 @@ const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
 
 export function getOrderServicePresentation(order: OrderPresentationInput): OrderServicePresentation {
   const code = clean(order.service_code).toLowerCase();
-  const category = clean(order.service_snapshot?.service_category || order.service_snapshot?.category).toLowerCase();
+  const category = clean(
+    order.service_category ||
+    order.order_contract?.service?.category ||
+    order.service_snapshot?.service_category ||
+    order.service_snapshot?.category,
+  ).toLowerCase();
   const model = clean(order.model).toLowerCase();
   const provider = clean(order.logistics_provider);
   const serviceType = clean(order.logistics_service_type);
@@ -44,8 +56,12 @@ export function getOrderServicePresentation(order: OrderPresentationInput): Orde
     return { kind: "food", label: "Food delivery", description: "Pengantaran merchant oleh LANCAR" };
   }
 
-  if (model === "p2p" || code === "tembus_instant") {
+  if (category === "package_on_demand" || model === "p2p" || code === "tembus_instant") {
     return { kind: "instant", label: "Instan LANCAR", description: "First-mile dan last-mile oleh LANCAR" };
+  }
+
+  if (category === "tambal_ban" || category === "towing") {
+    return { kind: "service", label: category === "towing" ? "Towing" : "Tambal ban", description: "Layanan bantuan kendaraan LANCAR" };
   }
 
   const serviceName = clean(order.service_snapshot?.service_name || order.service_snapshot?.name);

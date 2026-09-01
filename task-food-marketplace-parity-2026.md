@@ -151,13 +151,13 @@ Existing shared files:
 - `docs/contracts/order-state-contract-2026.md`
 
 **Checklist**
-- [ ] Canonical `service_category`: `package_on_demand`, `food`, `tambal_ban`, `aggregator`, `towing`.
-- [ ] `service_code/service_sub_type` menjadi detail service, bukan pengganti category.
-- [ ] Common envelope: id, customer, order state, money state, timestamps, actor ownership, quote id, state version, correlation id.
-- [ ] Typed service metadata: parcel facts, food facts, roadside facts, aggregator/provider facts, towing facts.
-- [ ] Towing/Tambal required facts tidak hanya hidup di `item_description` free-text.
-- [ ] Tambahkan `contract_version` atau equivalent untuk perubahan payload material.
-- [ ] Legacy mapper/backfill tidak mengarang data yang tidak diketahui.
+- [x] Canonical `service_category`: `package_on_demand`, `food`, `tambal_ban`, `aggregator`, `towing`.
+- [x] `service_code/service_sub_type` menjadi detail service, bukan pengganti category.
+- [x] Common envelope: id, customer, order state, money state, timestamps, actor ownership, quote id, state version, correlation id.
+- [x] Typed service metadata: parcel facts, food facts, roadside facts, aggregator/provider facts, towing facts.
+- [x] Towing/Tambal required facts tidak hanya hidup di `item_description` free-text.
+- [x] Tambahkan `contract_version` atau equivalent untuk perubahan payload material.
+- [x] Legacy mapper/backfill tidak mengarang data yang tidak diketahui.
 - [ ] Unknown/new subtype dirender degraded-safe oleh Android/Web/Courier/Admin.
 
 ---

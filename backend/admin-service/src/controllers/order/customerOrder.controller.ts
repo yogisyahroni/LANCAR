@@ -34,6 +34,12 @@ import {
 import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
 import { assertProviderCapability, LogisticsCapabilityError } from '../../services/logisticsCapabilities';
+import {
+  buildOrderServiceMetadata,
+  normalizeServiceCategory,
+  ORDER_CONTRACT_VERSION,
+  withCanonicalOrderContract,
+} from '../../services/orderContract';
 import { validateTowingBookingContract } from './towingBookingContract';
 import { evaluateTowingQuoteConsent } from './towingQuotePolicy';
 
@@ -474,12 +480,16 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         dropoff_city,
         preferred_courier_id,
         toll_cost,
+        service_category,
+        contract_version,
+        correlation_id,
+        service_metadata,
         created_at
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
-        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, NOW()
+        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, NOW()
       ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
@@ -546,7 +556,29 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
           pickup_city || null,
           dropoff_city || null,
           resolvedPreferredCourierUserId,
-          Number(trustedPriceBreakdown.toll_cost_idr || 0)
+           Number(trustedPriceBreakdown.toll_cost_idr || 0),
+           normalizeServiceCategory({
+             model: service.route_model,
+             service_category: service.service_category,
+             service_code: service.code,
+             service_sub_type: String(service.code).startsWith('towing_') || String(service.code).startsWith('tambal_ban_') ? service.code : null,
+             logistics_provider,
+           }),
+           ORDER_CONTRACT_VERSION,
+           crypto.randomUUID(),
+           JSON.stringify(buildOrderServiceMetadata({
+             model: service.route_model,
+             service_category: service.service_category,
+             service_code: service.code,
+             service_sub_type: String(service.code).startsWith('towing_') || String(service.code).startsWith('tambal_ban_') ? service.code : null,
+             package_details: normalizePackageDetailsForOrder(package_details || {}, service, selectedTier, packageChargeableWeight, normalizedPackages),
+             item_description: package_details?.item_description,
+             item_image_url: package_details?.item_image_url,
+             logistics_provider,
+             logistics_service_type,
+             logistics_tariff_idr,
+             logistics_net_cost_idr,
+           }))
         ];
 
         const result = await client.query(insertQuery, values);
@@ -867,8 +899,9 @@ export const getCustomerOrders = async (req: Request, res: Response): Promise<vo
     const { status, search, startDate, endDate, model, limit, offset } = req.query;
 
     let queryStr = `
-      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name,
+      SELECT o.id, o.customer_id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name,
              o.model, o.service_code, o.service_snapshot, o.status, o.distance_km,
+             o.service_category, o.contract_version, o.quote_id, o.state_version, o.correlation_id, o.service_metadata,
              o.total_price_idr, o.route_snapshot, o.route_provider, o.route_profile,
              o.route_polyline, o.logistics_provider, o.logistics_service_type,
              o.awb_number, o.created_at, p.status AS payment_status
@@ -922,7 +955,7 @@ export const getCustomerOrders = async (req: Request, res: Response): Promise<vo
 
     const { rows } = await db.query(queryStr, params);
 
-    res.json({ success: true, orders: rows });
+    res.json({ success: true, orders: rows.map((row) => withCanonicalOrderContract(row)) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -940,7 +973,8 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     }
 
     const queryStr = `
-      SELECT o.id, o.order_number, o.awb_number, o.tracking_url, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.service_code, o.service_snapshot, o.status, o.distance_km,
+      SELECT o.id, o.customer_id, o.order_number, o.awb_number, o.tracking_url, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.service_code, o.service_snapshot, o.status, o.distance_km,
+             o.service_category, o.contract_version, o.quote_id, o.state_version, o.correlation_id, o.service_metadata,
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.base_price_idr, o.volumetric_surcharge_idr, o.insurance_premium_idr, o.total_price_idr, o.has_insurance, o.insured_value_idr, 
              o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at,
@@ -968,7 +1002,7 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
       return;
     }
 
-    const order = rows[0];
+    const order = withCanonicalOrderContract(rows[0]);
 
     // Get order events for timeline
     const eventQuery = `

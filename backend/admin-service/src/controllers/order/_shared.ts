@@ -4,6 +4,8 @@ import { securityLog } from '../../security/logRedaction';
 import type { PoolClient } from 'pg';
 import { db } from '../../db';
 
+import { withCanonicalOrderContract } from '../../services/orderContract';
+
 import { createNotification } from '../../notifications';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../../midtrans';
 
@@ -1366,7 +1368,9 @@ export const toMobileCustomerOrderDto = (row: any) => {
   const createdAtMs = row.created_at ? new Date(row.created_at).getTime() : Date.now();
   const updatedAtMs = row.updated_at ? new Date(row.updated_at).getTime() : createdAtMs;
 
+  const canonical = withCanonicalOrderContract(row);
   return {
+    ...canonical,
     local_id: 0,
     order_id: row.id,
     order_number: row.order_number || '',

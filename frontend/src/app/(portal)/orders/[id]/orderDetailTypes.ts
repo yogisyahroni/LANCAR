@@ -19,6 +19,54 @@ export interface CarrierEvent {
   received_at: string;
 }
 
+export type CanonicalServiceCategory = 'package_on_demand' | 'food' | 'tambal_ban' | 'aggregator' | 'towing';
+
+export interface OrderServiceMetadata {
+  parcel?: {
+    category?: string | null;
+    item_description?: string | null;
+    item_image_url?: string | null;
+    dimensions?: { length_cm?: number | null; width_cm?: number | null; height_cm?: number | null } | null;
+    weight_kg?: number | null;
+    package_count?: number | null;
+  };
+  food?: {
+    merchant_id?: string | null;
+    merchant_name?: string | null;
+    item_count?: number | null;
+    prep_time_minutes?: number | null;
+    contactless?: boolean | null;
+  };
+  roadside?: { service_sub_type?: string | null; vehicle_details?: Record<string, unknown> | null };
+  aggregator?: {
+    provider?: string | null;
+    service_type?: string | null;
+    tariff_idr?: number | null;
+    net_cost_idr?: number | null;
+    awb_number?: string | null;
+  };
+  towing?: { service_sub_type?: string | null; vehicle_details?: Record<string, unknown> | null };
+}
+
+export interface OrderContract {
+  contract_version: string;
+  id: string;
+  customer: { id: string | null };
+  service: {
+    category: CanonicalServiceCategory | null;
+    service_code: string | null;
+    service_sub_type: string | null;
+    metadata: OrderServiceMetadata;
+    degraded: boolean;
+  };
+  order_state: { status: string | null; state_version: number };
+  money_state: { currency: 'IDR'; total_price_idr: number | null; payment_status: string | null };
+  timestamps: { created_at: string | null; updated_at: string | null };
+  actor_ownership: { customer_id: string | null; merchant_id: string | null; courier_id: string | null };
+  quote_id: string | null;
+  correlation_id: string | null;
+}
+
 export interface Order {
   id: string;
   order_number: string;
@@ -27,7 +75,15 @@ export interface Order {
   recipient_name: string;
   recipient_phone_masked: string;
   model: string;
+  customer_id?: string | null;
+  contract_version?: string;
+  service_category?: CanonicalServiceCategory | null;
   service_code?: string | null;
+  state_version?: number;
+  quote_id?: string | null;
+  correlation_id?: string | null;
+  service_metadata?: OrderServiceMetadata;
+  order_contract?: OrderContract;
   service_snapshot?: {
     name?: string | null;
     service_name?: string | null;
