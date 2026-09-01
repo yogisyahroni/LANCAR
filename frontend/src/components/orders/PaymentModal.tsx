@@ -42,6 +42,39 @@ export function PaymentModal({
   const [isChecking, setIsChecking] = useState(false);
   const paymentCheckKeyRef = useRef<string>("");
   const checkInFlightRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
+        ));
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     paymentCheckKeyRef.current = "";
@@ -192,14 +225,19 @@ export function PaymentModal({
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-md"
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="payment-modal-title"
+            tabIndex={-1}
+            className="relative max-h-[min(90vh,720px)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-md"
           >
             <div className="flex items-start justify-between border-b border-white/10 p-5">
               <div>
-                <h2 className="text-xl font-bold tracking-tight text-foreground">Pembayaran Midtrans Snap</h2>
+                <h2 id="payment-modal-title" className="text-xl font-bold tracking-tight text-foreground">Pembayaran Midtrans Snap</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Pilih QRIS, e-wallet, virtual account, atau metode lain dari Snap.</p>
               </div>
-              <button type="button" onClick={onClose} className="rounded-full p-2 hover:bg-white/10" aria-label="Tutup pembayaran">
+              <button ref={closeButtonRef} type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label="Tutup pembayaran">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -217,7 +255,7 @@ export function PaymentModal({
               </div>
 
               {message && (
-                <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
+                <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200" role="status" aria-live="polite">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   {message}
                 </div>

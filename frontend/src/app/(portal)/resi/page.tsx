@@ -24,6 +24,7 @@ import {
 import Link from 'next/link';
 import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
 import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
+import { AsyncRecoveryState } from '@/components/ui/AsyncRecoveryState';
 
 interface Order {
   id: string;
@@ -55,6 +56,7 @@ export default function ResiPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   
   // Searching and Filtering
@@ -73,13 +75,13 @@ export default function ResiPage() {
 
   const fetchOrders = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get('/auth/web/orders');
       if (res.data && res.data.success && res.data.orders) {
         setOrders(res.data.orders);
       } else {
-        // API returned success:false or no orders — set empty, don't use mock data
-        setOrders([]);
+        throw new Error('Customer receipts response was not successful');
       }
     } catch (error: any) {
       clientLog.error('Failed to fetch customer receipts', { error });
@@ -89,7 +91,7 @@ export default function ResiPage() {
         message: error?.response?.data?.error || 'Tidak dapat memuat daftar resi. Periksa koneksi internet Anda.',
         type: 'error',
       });
-      // Show empty state — no mock data
+      setLoadError('Daftar resi belum dapat dimuat dari server. Data yang tampil tidak diisi dengan data contoh.');
       setOrders([]);
     } finally {
       setLoading(false);
@@ -228,6 +230,14 @@ export default function ResiPage() {
     return <CustomerPageSkeleton />;
   }
 
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <AsyncRecoveryState title="Daftar resi belum tersedia" message={loadError} onRetry={() => void fetchOrders()} retrying={loading} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 select-none">
       <motion.div
@@ -264,7 +274,9 @@ export default function ResiPage() {
         {/* Search Input */}
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none" />
+          <label htmlFor="resi-search" className="sr-only">Cari nomor resi atau nama penerima</label>
           <input
+            id="resi-search"
             type="text"
             placeholder="Cari No. Resi atau nama penerima..."
             value={search}
@@ -317,6 +329,7 @@ export default function ResiPage() {
               <tr className="bg-muted/40 border-b border-border/40 text-xs font-bold text-muted-foreground tracking-tight select-none">
                 <th className="px-5 py-3.5 w-12 text-center select-none">
                   <input
+                    aria-label="Pilih semua resi"
                     type="checkbox"
                     checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0}
                     onChange={toggleSelectAll}

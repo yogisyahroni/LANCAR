@@ -11,6 +11,7 @@ import { Search, Filter, Calendar, Download, Eye, ChevronLeft, ChevronRight, Lay
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
 import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
+import { AsyncRecoveryState } from '@/components/ui/AsyncRecoveryState';
 
 interface Order {
   id: string;
@@ -43,6 +44,7 @@ function OrderListContent() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
   // Pagination & Filter state from URL
@@ -72,6 +74,7 @@ function OrderListContent() {
 
   const fetchOrders = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams();
       if (searchParam) params.append('search', searchParam);
@@ -85,9 +88,12 @@ function OrderListContent() {
       const res = await api.get(`/auth/web/orders?${params.toString()}`);
       if (res.data && res.data.success) {
         setOrders(res.data.orders);
+      } else {
+        throw new Error('Customer orders response was not successful');
       }
     } catch (error: any) {
       clientLog.error('Failed to fetch customer orders', { error });
+      setLoadError('Daftar order belum dapat dimuat dari server. Data yang tampil tidak diisi dengan data contoh.');
       addNotification({ title: 'Gagal', message: 'Gagal mengambil data order.', type: 'error' });
     } finally {
       setLoading(false);
@@ -228,6 +234,8 @@ function OrderListContent() {
       {/* Tabs */}
       <div className="flex bg-muted/60 p-1 rounded-xl border border-border/40 select-none w-fit">
         <button
+          role="tab"
+          aria-selected={model === 'all'}
           onClick={() => updateFilters({ model: 'all', page: 1 })}
           className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
             model === 'all' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -236,6 +244,8 @@ function OrderListContent() {
           Semua
         </button>
         <button
+          role="tab"
+          aria-selected={model === 'p2p'}
           onClick={() => updateFilters({ model: 'p2p', page: 1 })}
           className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
             model === 'p2p' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -244,6 +254,8 @@ function OrderListContent() {
           🚀 Instan
         </button>
         <button
+          role="tab"
+          aria-selected={model === 'hub_and_spoke'}
           onClick={() => updateFilters({ model: 'hub_and_spoke', page: 1 })}
           className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
             model === 'hub_and_spoke' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -259,7 +271,9 @@ function OrderListContent() {
           {/* Search bar */}
           <div className="relative col-span-1 md:col-span-2">
             <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground select-none" />
+            <label htmlFor="order-search" className="sr-only">Cari order, resi, atau penerima</label>
             <input
+              id="order-search"
               type="text"
               placeholder="Cari order, resi, atau penerima (Tekan Enter)..."
               value={search}
@@ -380,6 +394,8 @@ function OrderListContent() {
       <div className="bg-card/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-sm overflow-hidden">
         {loading ? (
           <CustomerPageSkeleton />
+        ) : loadError ? (
+          <AsyncRecoveryState title="Daftar order belum tersedia" message={loadError} onRetry={() => void fetchOrders()} retrying={loading} />
         ) : orders.length === 0 ? (
           <div className="p-16 text-center text-muted-foreground flex flex-col items-center justify-center space-y-2">
             <p className="text-lg font-semibold text-white">Belum ada order</p>
@@ -392,6 +408,7 @@ function OrderListContent() {
                 <tr className="border-b border-white/10 bg-white/5">
                   <th className="px-5 py-4 w-12 text-center">
                     <input
+                      aria-label="Pilih semua order"
                       type="checkbox"
                       checked={orders.length > 0 && selectedOrders.length === orders.length}
                       onChange={toggleSelectAll}
@@ -439,6 +456,7 @@ function OrderListContent() {
                     >
                       <td className="px-5 py-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
                         <input
+                          aria-label={`Pilih order ${order.order_number}`}
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => toggleSelectOrder(order.id)}
@@ -489,6 +507,7 @@ function OrderListContent() {
                           href={`/orders/${order.id}`}
                           className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white/5 hover:bg-primary hover:text-primary-foreground border border-white/10 hover:border-primary transition-all duration-200"
                           title="Lihat Detail"
+                          aria-label={`Lihat detail order ${order.order_number}`}
                         >
                           <Eye className="h-4 w-4" />
                         </Link>

@@ -1443,7 +1443,7 @@ export function AggregatorWizard() {
           )}
 
           {/* Stepper Footer Controls */}
-          <div className="flex items-center justify-between pt-6 border-t border-white/10 mt-8">
+          <div className="sticky bottom-0 z-20 -mx-2 mt-8 flex items-center justify-between border-t border-white/10 bg-background/95 px-2 py-4 pt-6 backdrop-blur-md sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:pt-6">
             {step > 1 ? (
               <button
                 type="button"

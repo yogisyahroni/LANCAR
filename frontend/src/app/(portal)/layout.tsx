@@ -28,6 +28,7 @@ import {
   Link as LinkIcon
 } from 'lucide-react';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+import { NetworkStatusBanner } from '@/components/ui/AsyncRecoveryState';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import PushNotificationPrompt from '@/components/PushNotificationPrompt';
@@ -288,6 +289,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           />
         )}
       </AnimatePresence>
+
+      <NetworkStatusBanner />
 
       {/* Sidebar - Desktop */}
       <motion.aside
