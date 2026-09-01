@@ -929,7 +929,8 @@ Existing shared files:
 - [x] Mode comes from provider capability/service option, not hardcoded customer UI.
 - [x] LANCAR first-mile chain of custody proof when LANCAR handles pickup.
 - [x] Carrier handoff records provider/AWB/time/location/evidence/actor.
-- [ ] After carrier acceptance, provider events drive external lifecycle.
+- [x] After carrier acceptance, provider events invoke the acceptance recorder and normalized lifecycle consumer.
+- [ ] Authenticated staging/provider webhook verification covers acceptance → normalized lifecycle → tracking updates.
 
 ---
 
