@@ -30,7 +30,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -153,7 +154,7 @@ fun TowingFlowScreen(
                 title = { Text("Towing", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -371,7 +372,7 @@ private fun CustomerInfoCard(
                     }) {
                         Icon(
                             Icons.Default.Phone,
-                            contentDescription = "Telepon pelanggan",
+                            contentDescription = CourierTextCatalog.translate("Telepon pelanggan"),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }

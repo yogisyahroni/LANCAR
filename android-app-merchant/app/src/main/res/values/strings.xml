@@ -1,4 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">TEMBUS Merchant</string>
+    <string name="merchant_tab_orders">Pesanan</string>
+    <string name="merchant_tab_menu">Menu</string>
+    <string name="merchant_tab_insights">Wawasan</string>
+    <string name="merchant_tab_profile">Profil</string>
+    <string name="merchant_tab_staff">Staf</string>
+    <string name="merchant_store_profile">Profil Toko</string>
+    <string name="merchant_notifications">Notifikasi</string>
+    <string name="merchant_order_history">Riwayat Pesanan</string>
+    <string name="merchant_order_history_subtitle">Pesanan selesai dan berakhir</string>
+    <string name="merchant_store_information">Informasi Toko</string>
+    <string name="merchant_store_information_subtitle">Alamat, kontak, deskripsi</string>
+    <string name="merchant_operating_hours">Jam Operasional</string>
+    <string name="merchant_operating_hours_subtitle">Atur jam buka/tutup dan hari libur</string>
+    <string name="merchant_payment_settings">Pengaturan Pembayaran</string>
+    <string name="merchant_payment_settings_subtitle">Rekening bank dan pencairan</string>
+    <string name="merchant_notifications_subtitle">Peringatan pesanan dan preferensi email</string>
+    <string name="merchant_log_out">Keluar</string>
+    <string name="merchant_store_name_unavailable">Nama toko belum tersedia</string>
+    <string name="merchant_reviews_count">(%1$d ulasan)</string>
+    <string name="merchant_no_reviews">Belum ada ulasan</string>
+    <string name="merchant_edit_public_profile">Edit Profil Publik</string>
+    <string name="merchant_view_customer_reviews">Lihat ulasan pelanggan</string>
+    <string name="merchant_profile_unavailable">Profil toko belum tersedia</string>
+    <string name="merchant_register">Daftar sebagai merchant</string>
+    <string name="merchant_try_again">Coba Lagi</string>
+    <string name="merchant_language">Bahasa</string>
+    <string name="merchant_language_description">Pilih bahasa aplikasi</string>
+    <string name="merchant_back">Kembali</string>
 </resources>

@@ -34,8 +34,9 @@ async function getPaymentLink(id: string): Promise<PaymentLink | null> {
   }
 }
 
-export default async function PaymentLinkPage({ params }: { params: { id: string } }) {
-  const link = await getPaymentLink(params.id);
+export default async function PaymentLinkPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const link = await getPaymentLink(id);
 
   if (!link) {
     notFound();
@@ -59,9 +60,9 @@ export default async function PaymentLinkPage({ params }: { params: { id: string
       <div className="w-full max-w-md bg-[#1E293B]/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
         
         {/* Header Status */}
-        <div className={`p-6 text-center ${isPaid ? 'bg-emerald-500/10' : isExpired ? 'bg-red-500/10' : 'bg-primary/10'}`}>
+        <div className={`p-6 text-center ${isPaid ? 'bg-brand-emerald-500/10' : isExpired ? 'bg-red-500/10' : 'bg-primary/10'}`}>
           {isPaid ? (
-            <div className="flex flex-col items-center text-emerald-500">
+            <div className="flex flex-col items-center text-brand-emerald-500">
               <CheckCircle2 className="w-16 h-16 mb-2" />
               <h2 className="text-2xl font-bold">Pembayaran Berhasil</h2>
               <p className="text-sm opacity-80 mt-1 text-center">
@@ -144,7 +145,7 @@ export default async function PaymentLinkPage({ params }: { params: { id: string
             <div className="mt-4">
               <a 
                 href={`/track/${link.order_id}`}
-                className="w-full flex items-center justify-center gap-2 bg-emerald-500 text-white font-bold py-4 rounded-2xl hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/20"
+                className="w-full flex items-center justify-center gap-2 bg-brand-emerald-500 text-white font-bold py-4 rounded-2xl hover:bg-brand-emerald-600 transition-colors shadow-lg shadow-brand-emerald-500/20"
               >
                 <MapPin className="w-5 h-5" />
                 Lacak Pesanan (Live Tracking)

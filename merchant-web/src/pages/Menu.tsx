@@ -1,10 +1,49 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ImageOff, Loader2, Pencil, Plus, RefreshCw } from 'lucide-react'
+import { FileUp, ImageOff, Pencil, Plus, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import MenuEditor from '../components/MenuEditor'
+import { MerchantPageSkeleton } from '../components/Skeleton'
 import type { MenuItem, MenuListResponse } from '../lib/types'
 import { rupiah } from '../lib/types'
+
+interface BulkMenuRow {
+  nama: string
+  harga: number
+  kategori: string
+  prep_time_minutes: number
+}
+
+const parseCsvLine = (line: string) => {
+  const values: string[] = []
+  let value = ''
+  let quoted = false
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i]
+    if (char === '"' && line[i + 1] === '"' && quoted) { value += '"'; i += 1 }
+    else if (char === '"') quoted = !quoted
+    else if (char === ',' && !quoted) { values.push(value.trim()); value = '' }
+    else value += char
+  }
+  values.push(value.trim())
+  return values
+}
+
+const parseBulkMenuCsv = (text: string): BulkMenuRow[] => {
+  const lines = text.split(/\r?\n/).filter((line) => line.trim())
+  if (lines.length < 2) throw new Error('CSV harus memiliki header dan minimal satu baris menu')
+  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase())
+  const required = ['nama', 'harga', 'kategori']
+  if (required.some((header) => !headers.includes(header))) throw new Error('Header wajib: nama,harga,kategori (prep_time_minutes opsional)')
+  return lines.slice(1).map((line, index) => {
+    const values = parseCsvLine(line)
+    const get = (name: string) => values[headers.indexOf(name)] || ''
+    const harga = Number(get('harga').replace(/[^\d]/g, ''))
+    const prep = Number(get('prep_time_minutes') || 15)
+    if (get('nama').length < 2 || !harga || harga < 100 || !get('kategori') || !Number.isFinite(prep) || prep < 1) throw new Error(`Baris ${index + 2} tidak valid`)
+    return { nama: get('nama'), harga, kategori: get('kategori'), prep_time_minutes: Math.round(prep) }
+  })
+}
 
 export default function Menu() {
   const [items, setItems] = useState<MenuItem[]>([])
@@ -12,6 +51,9 @@ export default function Menu() {
   const [refreshing, setRefreshing] = useState(false)
   const [editing, setEditing] = useState<MenuItem | null>(null)
   const [showEditor, setShowEditor] = useState(false)
+  const [bulkRows, setBulkRows] = useState<BulkMenuRow[]>([])
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async (spinner = false) => {
     if (spinner) setRefreshing(true)
@@ -40,6 +82,32 @@ export default function Menu() {
     }
   }
 
+  const chooseBulkFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      setBulkError(null)
+      setBulkRows(parseBulkMenuCsv(await file.text()))
+    } catch (err) {
+      setBulkRows([])
+      setBulkError(err instanceof Error ? err.message : 'CSV tidak dapat dibaca')
+    }
+  }
+
+  const importBulkMenu = async () => {
+    if (bulkRows.length === 0) return
+    setImporting(true)
+    try {
+      for (const row of bulkRows) await api.post('/merchant/menu', { ...row, is_available: true, foto: null })
+      toast.success(`${bulkRows.length} menu berhasil diimpor`)
+      setBulkRows([])
+      await load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Import berhenti karena ada menu yang gagal disimpan'))
+    } finally { setImporting(false) }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -48,6 +116,10 @@ export default function Menu() {
           <p className="mt-1 text-sm text-zinc-500">{items.length} item · tandai habis bila stok kosong.</p>
         </div>
         <div className="flex gap-2">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-600 transition hover:border-emerald-900/30 hover:text-emerald-900">
+            <FileUp className="h-4 w-4" /> Import CSV
+            <input type="file" accept=".csv,text/csv" onChange={chooseBulkFile} className="sr-only" />
+          </label>
           <button onClick={() => load(true)} disabled={refreshing} className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-600 transition hover:border-emerald-900/30 hover:text-emerald-900 disabled:opacity-60">
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -60,8 +132,18 @@ export default function Menu() {
         </div>
       </div>
 
+      {(bulkRows.length > 0 || bulkError) && (
+        <section className="rounded-2xl border border-orange-200 bg-orange-50/60 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><p className="font-black text-orange-950">Preview import menu</p><p className="text-xs text-orange-800">Kolom: nama, harga, kategori, prep_time_minutes.</p></div>
+            {bulkRows.length > 0 && <button onClick={importBulkMenu} disabled={importing} className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{importing ? 'Mengimpor…' : `Impor ${bulkRows.length} menu`}</button>}
+          </div>
+          {bulkError ? <p className="mt-3 text-sm font-semibold text-red-700">{bulkError}</p> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[500px] text-left text-sm"><thead><tr className="text-xs uppercase text-orange-800"><th className="pb-2">Nama</th><th className="pb-2">Harga</th><th className="pb-2">Kategori</th><th className="pb-2">Prep</th></tr></thead><tbody>{bulkRows.slice(0, 10).map((row, index) => <tr key={`${row.nama}-${index}`} className="border-t border-orange-200"><td className="py-2 font-semibold">{row.nama}</td><td className="py-2">{rupiah(row.harga)}</td><td className="py-2">{row.kategori}</td><td className="py-2">{row.prep_time_minutes} menit</td></tr>)}</tbody></table>{bulkRows.length > 10 && <p className="mt-2 text-xs text-orange-800">Menampilkan 10 dari {bulkRows.length} baris.</p>}</div>}
+        </section>
+      )}
+
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-emerald-900" /></div>
+        <MerchantPageSkeleton />
       ) : items.length === 0 ? (
         <div className="rounded-[1.75rem] border border-zinc-100 bg-white p-12 text-center shadow-sm">
           <p className="font-bold text-zinc-700">Belum ada menu</p>

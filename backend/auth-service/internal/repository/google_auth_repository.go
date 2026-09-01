@@ -380,6 +380,18 @@ func (r *postgresRepo) IsCustomerGoogleRegistrationEnabled(ctx context.Context) 
 	return enabled
 }
 
+// IsCustomerAppleLoginEnabled returns whether customer Apple login is enabled.
+func (r *postgresRepo) IsCustomerAppleLoginEnabled(ctx context.Context) bool {
+	enabled, _ := r.IsFeatureFlagEnabled(ctx, "customer_apple_login_enabled", false)
+	return enabled
+}
+
+// IsCustomerAppleRegistrationEnabled returns whether customer Apple registration is enabled.
+func (r *postgresRepo) IsCustomerAppleRegistrationEnabled(ctx context.Context) bool {
+	enabled, _ := r.IsFeatureFlagEnabled(ctx, "customer_apple_registration_enabled", false)
+	return enabled
+}
+
 // IsCustomerAuthOTPRequired returns whether customer OTP is required.
 func (r *postgresRepo) IsCustomerAuthOTPRequired(ctx context.Context) bool {
 	enabled, _ := r.IsFeatureFlagEnabled(ctx, "customer_auth_otp_required", true) // defaulting to true for safety

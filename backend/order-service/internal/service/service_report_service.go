@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"tembus/order-service/internal/domain"
@@ -18,6 +19,14 @@ func NewServiceReportService(repo domain.ServiceReportRepository) domain.Service
 func (s *serviceReportServiceImpl) CreateTambalBanReport(ctx context.Context, report *domain.TambalBanReport) error {
 	if err := validateTambalBanReport(report); err != nil {
 		return err
+	}
+	if len(report.MaterialsUsedItems) > 0 {
+		encoded, err := json.Marshal(report.MaterialsUsedItems)
+		if err != nil {
+			return fmt.Errorf("%w: materials_used_items tidak valid", domain.ErrInvalidServiceReport)
+		}
+		encodedText := string(encoded)
+		report.MaterialsUsed = &encodedText
 	}
 	return s.repo.CreateTambalBanReport(ctx, report)
 }
@@ -74,6 +83,14 @@ func validateTowingReport(report *domain.TowingReport) error {
 	}
 	if report.CompletedAt == nil {
 		return fmt.Errorf("%w: completed_at wajib diisi", domain.ErrInvalidServiceReport)
+	}
+	if report.DamageReport != nil {
+		if len(report.DamageReport.Areas) == 0 {
+			return fmt.Errorf("%w: damage_report.areas wajib diisi", domain.ErrInvalidServiceReport)
+		}
+		if report.DamageReport.Severity != "none" && report.DamageReport.Severity != "minor" && report.DamageReport.Severity != "major" {
+			return fmt.Errorf("%w: damage_report.severity tidak valid", domain.ErrInvalidServiceReport)
+		}
 	}
 	return nil
 }

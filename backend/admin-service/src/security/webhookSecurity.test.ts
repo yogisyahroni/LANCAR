@@ -2,8 +2,12 @@ import crypto from 'crypto';
 import {
   hmacSha256Hex,
   insertWebhookAuditEvent,
+  requestIp,
+  requestUserAgent,
+  resolveRawBody,
   sha256Hex,
   timingSafeEqualHex,
+  updateWebhookAuditEvent,
   verifyMidtransSignature,
 } from './webhookSecurity';
 
@@ -32,6 +36,27 @@ describe('webhookSecurity', () => {
     expect(timingSafeEqualHex(signature, `sha256=${signature}`)).toBe(true);
     expect(timingSafeEqualHex(signature, signature.slice(2))).toBe(false);
     expect(timingSafeEqualHex(signature, 'not-hex')).toBe(false);
+    expect(timingSafeEqualHex('', signature)).toBe(false);
+    expect(timingSafeEqualHex(signature, '')).toBe(false);
+    expect(timingSafeEqualHex(signature, `${signature}00`)).toBe(false);
+  });
+
+  it('rejects incomplete or non-string Midtrans payload fields', () => {
+    expect(verifyMidtransSignature({}, 'server-key')).toBe(false);
+    expect(verifyMidtransSignature({ order_id: 123, status_code: '200', gross_amount: '1', signature_key: 'x' }, 'server-key')).toBe(false);
+    expect(verifyMidtransSignature({ order_id: '1', status_code: '200', gross_amount: '1', signature_key: 'x' }, '')).toBe(false);
+  });
+
+  it('resolves raw request metadata and applies safe fallbacks', () => {
+    const rawBody = Buffer.from('{"raw":true}');
+    expect(resolveRawBody({ rawBody, body: { ignored: true } } as any)).toBe(rawBody);
+    expect(resolveRawBody({ body: { ok: true } } as any).toString()).toBe('{"ok":true}');
+    expect(resolveRawBody({ body: null } as any).toString()).toBe('{}');
+    expect(requestIp({ headers: { 'x-forwarded-for': ' 10.0.0.1, 10.0.0.2' } } as any)).toBe('10.0.0.1');
+    expect(requestIp({ headers: {}, ip: '10.0.0.3' } as any)).toBe('10.0.0.3');
+    expect(requestIp(undefined)).toBeNull();
+    expect(requestUserAgent({ headers: { 'user-agent': 'agent' } } as any)).toBe('agent');
+    expect(requestUserAgent(undefined)).toBeNull();
   });
 
   it('inserts valid audit events with partial-conflict duplicate protection', async () => {
@@ -76,5 +101,26 @@ describe('webhookSecurity', () => {
 
     expect(result.duplicate).toBe(true);
     expect(result.id).toBeNull();
+  });
+
+  it('stores defaults and updates a processed audit event', async () => {
+    const query = jest.fn().mockResolvedValue({ rows: [{ id: 'audit-2' }] });
+    await insertWebhookAuditEvent(
+      { query },
+      { headers: {} } as any,
+      {
+        providerName: 'xendit',
+        providerEventId: null,
+        verificationStatus: 'invalid_payload',
+        payload: undefined,
+        rawBody: Buffer.from('{}'),
+      },
+    );
+    expect(query.mock.calls[0][1]).toEqual(expect.arrayContaining([null, 'received', null, null, null]));
+
+    await updateWebhookAuditEvent({ query }, 'audit-2', 'processed', 'OK');
+    await updateWebhookAuditEvent({ query }, null, 'failed');
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[1][1]).toEqual(['audit-2', 'processed', 'OK']);
   });
 });

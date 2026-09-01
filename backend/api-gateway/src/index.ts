@@ -31,6 +31,10 @@ import {
   spanIdFromTraceparent,
   traceIdFromTraceparent,
 } from './requestObservability';
+import { Bulkhead, resolveBulkheadLimit } from './resilience/bulkhead';
+import { createDirectProxyResilienceMiddleware, DirectProxyPolicy } from './resilience/directProxy';
+import { createWebSocketUpgradeHandler } from './resilience/webSocketUpgrade';
+import { rateLimitStoreOptions } from './redisRateLimitStore';
 
 
 
@@ -172,11 +176,11 @@ const upstreamUnavailableBody = (message: string) => ({
 });
 
 const createServiceBreaker = (serviceName: string, extraOptions: Record<string, unknown> = {}) => {
-  const breaker = new CircuitBreaker(async (_proxyReq: any) => {
-    // Health-tracking stub: actual proxying is handled by http-proxy-middleware.
-    // Failures are reported via breaker.fire() from the proxy event hooks.
-    // NOTE: keep the positional arg — opossum's generic infers fire()'s arity
-    // from this callback, and existing call sites pass fire(null).
+  const breaker = new CircuitBreaker(async (failure?: Error | null) => {
+    // Proxying is callback-based, so the breaker action is a health signal.
+    // A failure signal must reject the action; the previous always-resolved
+    // stub recorded every proxy error as a success and could never trip.
+    if (failure) throw failure;
     return true;
   }, { ...breakerOptions, ...extraOptions, name: serviceName });
 
@@ -192,7 +196,129 @@ const orderBreaker = createServiceBreaker('order-service');
 const adminBreaker = createServiceBreaker('admin-service');
 const paymentBreaker = createServiceBreaker('payment-service');
 const merchantBreaker = createServiceBreaker('merchant-service'); // FOOD-BIKE-019
+const routingBreaker = createServiceBreaker('routing-service');
 const customerMobileBreaker = createServiceBreaker('customer-mobile', customerProxyBreakerOptions);
+
+const authBulkhead = new Bulkhead(resolveBulkheadLimit('auth-service'));
+const orderBulkhead = new Bulkhead(resolveBulkheadLimit('order-service'));
+const adminBulkhead = new Bulkhead(resolveBulkheadLimit('admin-service'));
+const paymentBulkhead = new Bulkhead(resolveBulkheadLimit('payment-service'));
+const merchantBulkhead = new Bulkhead(resolveBulkheadLimit('merchant-service'));
+const routingBulkhead = new Bulkhead(resolveBulkheadLimit('routing-service'));
+const customerMobileBulkhead = new Bulkhead(resolveBulkheadLimit('customer-mobile'));
+const customerMobileInFlight = new WeakSet<object>();
+
+const recordBreakerFailure = (breaker: any, message = 'upstream proxy failure') => {
+  void breaker.fire(new Error(message)).catch(() => undefined);
+};
+
+const isOrderAdminProxyPath = (path: string) =>
+  path.startsWith('/api/v1/admin/couriers/performance') ||
+  (path.startsWith('/api/v1/admin/couriers/') && path.endsWith('/tier')) ||
+  path.startsWith('/api/v1/admin/relay-score/override') ||
+  path.startsWith('/api/v1/admin/payouts/trigger') ||
+  path.startsWith('/api/v1/admin/refunds/process') ||
+  path === '/api/v1/admin/sla/dashboard' ||
+  path.startsWith('/api/v1/admin/meeting-points') ||
+  path.startsWith('/api/v1/admin/pricing/config') ||
+  path.startsWith('/api/v1/admin/pricing/simulate');
+
+const directProxyPolicies: DirectProxyPolicy[] = [
+  // These proxy blocks already signal breaker failures in their own callbacks;
+  // this policy adds the missing open gate and bounded concurrency only.
+  {
+    matches: (path) => path.startsWith('/api/v1/system/') || path.startsWith('/api/v1/config/'),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: false,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/orders/') || path.startsWith('/api/v1/food') || path.startsWith('/api/v1/customer/nearby-couriers') || path.startsWith('/api/v1/customer/tambal-ban') || path.startsWith('/api/v1/customer/rating-reminders') || path.startsWith('/api/v1/courier/service-report') || path.startsWith('/api/v1/customer/couriers/'),
+    serviceName: 'order-service', breaker: orderBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: false,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/couriers'),
+    serviceName: 'order-service', breaker: orderBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/payment-links') || path.startsWith('/api/v1/products'),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: false,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/tracking'),
+    serviceName: 'order-service', breaker: orderBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: false,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/maps') || path.startsWith('/api/v1/public'),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: false,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/auth/web') || path.startsWith('/api/v1/auth/courier') || path.startsWith('/api/v1/auth/merchant'),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/mobile/notifications') || path.startsWith('/api/v1/mobile/feature-flags') || (path.startsWith('/api/v1/courier/') && !path.startsWith('/api/v1/courier/service-report')),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/admin') && !isOrderAdminProxyPath(path),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/payments/midtrans') || path.startsWith('/api/v1/payments/xendit'),
+    serviceName: 'payment-service', breaker: paymentBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('payment-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/routing'),
+    serviceName: 'routing-service', breaker: routingBreaker,
+    bulkhead: routingBulkhead, observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/mobile/chats/orders') || path.startsWith('/api/v1/mobile/orders'),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/notifications'),
+    serviceName: 'order-service', breaker: orderBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('order-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/api/v1/merchant'),
+    serviceName: 'merchant-service', breaker: merchantBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('merchant-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path === '/uploads' || path.startsWith('/uploads/'),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
+  },
+  {
+    matches: (path) => path === '/merchant-uploads' || path.startsWith('/merchant-uploads/'),
+    serviceName: 'merchant-service', breaker: merchantBreaker,
+    bulkhead: merchantBulkhead, observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/docs/auth'),
+    serviceName: 'auth-service', breaker: authBreaker,
+    bulkhead: authBulkhead,
+    observeResponse: true,
+  },
+  {
+    matches: (path) => path.startsWith('/docs/orders'),
+    serviceName: 'order-service', breaker: orderBreaker,
+    bulkhead: orderBulkhead,
+    observeResponse: true,
+  },
+];
 
 const requestLogContext = (req: Request) => {
   const activeTrace = getActiveTraceContext();
@@ -275,6 +401,7 @@ const authLimiter = rateLimit({
     code: 'ERR_TOO_MANY_REQUESTS',
     message: 'Too many authentication attempts, please try again later',
   },
+  ...rateLimitStoreOptions('auth', 15 * 60 * 1000),
 });
 
 const logProxyForward = (proxy: string, req: Request, target: string) => {
@@ -313,6 +440,7 @@ const generalLimiter = rateLimit({
     code: 'ERR_TOO_MANY_REQUESTS',
     message: 'Too many requests, please try again later',
   },
+  ...rateLimitStoreOptions('general', 60 * 1000),
 });
 
 const publicMapsLimiter = createPublicEndpointRateLimiter('maps', { recordEvent: recordPublicAbuseEvent });
@@ -429,13 +557,33 @@ const prepareProxyRequest = (proxyReq: any, req: Request) => {
 };
 
 // Helper for proxying with body fix and circuit breaker integration
-const proxyWithResilience = (target: string, breaker: any) => 
-  createProxyMiddleware({
+const proxyWithResilience = (target: string, breaker: any, bulkhead: Bulkhead) => {
+  // A proxy can emit both `error` and `close`/`finish` for one request. Keep
+  // ownership of the acquired slot per request so an upstream failure cannot
+  // release another request's slot while concurrent traffic is in flight.
+  const acquiredRequests = new WeakSet<object>();
+  const releaseForRequest = (req: object) => {
+    if (!acquiredRequests.has(req)) return;
+    acquiredRequests.delete(req);
+    bulkhead.release();
+  };
+
+  return createProxyMiddleware({
     target,
     changeOrigin: true,
     on: {
       proxyReq: (proxyReq: any, req: any, res: any) => {
         if (!breaker.opened) {
+          if (!bulkhead.tryAcquire()) {
+            res.status(503).json({
+              status: 'error',
+              code: 'ERR_BULKHEAD_FULL',
+              message: `Service at ${target} is at capacity. Please retry shortly.`,
+            });
+            proxyReq.destroy();
+            return;
+          }
+          acquiredRequests.add(req);
           // Transform 'phone' to 'phone_number' if present in the body
           if (req.body && req.body.phone && !req.body.phone_number) {
             req.body.phone_number = req.body.phone;
@@ -451,12 +599,14 @@ const proxyWithResilience = (target: string, breaker: any) =>
         }
       },
       proxyRes: (proxyRes: any, req: any, res: any) => {
+        releaseForRequest(req);
         if (proxyRes.statusCode >= 500) {
-          breaker.fire(); // Notify breaker of failure
+          void breaker.fire(new Error(`upstream ${proxyRes.statusCode}`)).catch(() => undefined);
         }
       },
       error: (err: Error, req: any, res: any) => {
-        breaker.fire(); // Notify breaker of failure
+        releaseForRequest(req);
+        void breaker.fire(err).catch(() => undefined);
         logProxyError('resilient_proxy', target, err, req as Request);
         if (res && typeof res.status === 'function') {
           res.status(502).json({
@@ -468,6 +618,9 @@ const proxyWithResilience = (target: string, breaker: any) =>
       }
     }
   });
+};
+
+app.use(createDirectProxyResilienceMiddleware(directProxyPolicies, recordBreakerFailure));
 
 
 // WebSocket Proxy for Admin Service (Socket.io)
@@ -477,6 +630,10 @@ const adminWsProxy = createProxyMiddleware({
   ws: true,
   changeOrigin: true,
 });
+const adminWsUpgrade = createWebSocketUpgradeHandler(
+  { serviceName: 'admin-service', breaker: adminBreaker, bulkhead: adminBulkhead },
+  adminWsProxy,
+);
 
 // Use the proxy for socket.io path
 app.use(adminWsProxy);
@@ -511,7 +668,7 @@ app.post(
   authLimiter,
   jsonParser,
   validate(OTPSendSchema),
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
@@ -519,14 +676,14 @@ app.post(
   authLimiter,
   jsonParser,
   validate(OTPVerifySchema),
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
   '/api/v1/auth/customer/login/start',
   authLimiter,
   jsonParser,
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 // Route eksplisit (bukan via app.use mount) — http-proxy-middleware v3 di Express 5
@@ -535,49 +692,63 @@ app.post(
   '/api/v1/auth/refresh',
   authLimiter,
   jsonParser,
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
   '/api/v1/auth/logout',
   authLimiter,
   jsonParser,
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
   '/api/v1/auth/customer/register/start',
   authLimiter,
   jsonParser,
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
   '/api/v1/auth/customer/otp/send',
   authLimiter,
   jsonParser,
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
   '/api/v1/auth/customer/otp/verify',
   authLimiter,
   jsonParser,
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
   '/api/v1/auth/customer/google/start',
   authLimiter,
   jsonParser,
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
   '/api/v1/auth/customer/google/complete',
   authLimiter,
   jsonParser,
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
+);
+
+app.post(
+  '/api/v1/auth/customer/apple/start',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
+);
+
+app.post(
+  '/api/v1/auth/customer/apple/complete',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
@@ -585,7 +756,7 @@ app.post(
   authLimiter,
   jsonParser,
   validate(PasswordResetRequestSchema),
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
@@ -593,14 +764,14 @@ app.post(
   authLimiter,
   jsonParser,
   validate(PasswordResetConfirmSchema),
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 app.post(
   '/api/v1/auth/register',
   jsonParser,
   validate(RegisterSchema),
-  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead)
 );
 
 // Pricing Estimate (Validation in Gateway)
@@ -610,7 +781,7 @@ app.post(
   jsonParser,
   publicPricingAbuseGuard,
   validate(PricingEstimateSchema),
-  proxyWithResilience(ORDER_SERVICE_URL, orderBreaker)
+  proxyWithResilience(ORDER_SERVICE_URL, orderBreaker, orderBulkhead)
 );
 
 // Order Creation (Validation in Gateway)
@@ -618,7 +789,7 @@ app.post(
   '/api/v1/orders',
   jsonParser,
   validate(CreateOrderSchema),
-  proxyWithResilience(ORDER_SERVICE_URL, orderBreaker)
+  proxyWithResilience(ORDER_SERVICE_URL, orderBreaker, orderBulkhead)
 );
 
 // --- PROXY ROUTES (Pass-through) ---
@@ -678,7 +849,7 @@ app.use(createProxyMiddleware({
 }));
 
 // Auth Service - General Routes
-app.use('/api/v1/auth', proxyWithResilience(AUTH_SERVICE_URL, authBreaker));
+app.use('/api/v1/auth', proxyWithResilience(AUTH_SERVICE_URL, authBreaker, authBulkhead));
 
 // Public Mobile Update Metadata
 app.use('/api/v1/system/latest-version', publicSystemLimiter);
@@ -695,11 +866,11 @@ app.use(createProxyMiddleware({
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
-        adminBreaker.fire(null);
+        recordBreakerFailure(adminBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      adminBreaker.fire(null);
+      recordBreakerFailure(adminBreaker);
       logProxyError('system_update', ADMIN_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
@@ -724,11 +895,11 @@ app.use(createProxyMiddleware({
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
-        orderBreaker.fire(null);
+        recordBreakerFailure(orderBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      orderBreaker.fire(null);
+      recordBreakerFailure(orderBreaker);
       logProxyError('orders', ORDER_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
@@ -755,11 +926,11 @@ app.use(createProxyMiddleware({
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
-        orderBreaker.fire(null);
+        recordBreakerFailure(orderBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      orderBreaker.fire(null);
+      recordBreakerFailure(orderBreaker);
       logProxyError('food', ORDER_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
@@ -797,11 +968,11 @@ app.use(createProxyMiddleware({
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
-        adminBreaker.fire(null);
+        recordBreakerFailure(adminBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      adminBreaker.fire(null);
+      recordBreakerFailure(adminBreaker);
       logProxyError('payment_links', ADMIN_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
@@ -847,11 +1018,11 @@ app.get(
       },
       proxyRes: (proxyRes: any) => {
         if (proxyRes.statusCode >= 500) {
-          adminBreaker.fire(null);
+          recordBreakerFailure(adminBreaker);
         }
       },
       error: (err: Error, req: any, res: any) => {
-        adminBreaker.fire(null);
+        recordBreakerFailure(adminBreaker);
         logProxyError('tracking_public', ADMIN_SERVICE_URL, err, req as Request);
         if (res && typeof res.status === 'function') {
           res.status(502).json({
@@ -882,11 +1053,11 @@ app.use(createProxyMiddleware({
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
-        orderBreaker.fire(null);
+        recordBreakerFailure(orderBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      orderBreaker.fire(null);
+      recordBreakerFailure(orderBreaker);
       logProxyError('tracking', ORDER_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(503).json(upstreamUnavailableBody('Tracking service is currently unavailable'));
@@ -915,11 +1086,11 @@ app.use(createProxyMiddleware({
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
-        orderBreaker.fire(null);
+        recordBreakerFailure(orderBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      orderBreaker.fire(null);
+      recordBreakerFailure(orderBreaker);
       logProxyError('orders_extra', ORDER_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
@@ -947,11 +1118,11 @@ app.use(createProxyMiddleware({
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
-        adminBreaker.fire(null);
+        recordBreakerFailure(adminBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      adminBreaker.fire(null);
+      recordBreakerFailure(adminBreaker);
       logProxyError('maps', ADMIN_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
@@ -978,11 +1149,11 @@ app.use(createProxyMiddleware({
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
-        adminBreaker.fire(null);
+        recordBreakerFailure(adminBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      adminBreaker.fire(null);
+      recordBreakerFailure(adminBreaker);
       logProxyError('public', ADMIN_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
@@ -1010,16 +1181,33 @@ app.use(createProxyMiddleware({
         proxyReq.destroy();
         return;
       }
+      if (!customerMobileBulkhead.tryAcquire()) {
+        res.status(503).json({
+          ...upstreamUnavailableBody('Customer service is at capacity. Please retry shortly.'),
+          error: { code: 'ERR_BULKHEAD_FULL', message: 'Customer service is at capacity. Please retry shortly.' },
+        });
+        proxyReq.destroy();
+        return;
+      }
+      customerMobileInFlight.add(req);
       logProxyForward('customer_mobile', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     },
-    proxyRes: (proxyRes: any) => {
+    proxyRes: (proxyRes: any, req: any) => {
+      if (customerMobileInFlight.has(req)) {
+        customerMobileBulkhead.release();
+        customerMobileInFlight.delete(req);
+      }
       if (proxyRes.statusCode >= 500) {
-        customerMobileBreaker.fire(null);
+        recordBreakerFailure(customerMobileBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      customerMobileBreaker.fire(null);
+      if (customerMobileInFlight.has(req)) {
+        customerMobileBulkhead.release();
+        customerMobileInFlight.delete(req);
+      }
+      recordBreakerFailure(customerMobileBreaker);
       logProxyError('customer_mobile', ADMIN_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(503).json(upstreamUnavailableBody('Customer service is currently unavailable'));
@@ -1085,11 +1273,11 @@ app.use(createProxyMiddleware({
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
-        orderBreaker.fire(null);
+        recordBreakerFailure(orderBreaker);
       }
     },
     error: (err: Error, req: any, res: any) => {
-      orderBreaker.fire(null);
+      recordBreakerFailure(orderBreaker);
       logProxyError('orders_admin', ORDER_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
@@ -1217,7 +1405,7 @@ app.use(createProxyMiddleware({
 // ─────────────────────────────────────────────
 // Wallet Routes (Payment Service)
 // ─────────────────────────────────────────────
-app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker));
+app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker, paymentBulkhead));
 
 // ─────────────────────────────────────────────
 // Merchant Routes (Merchant Service — FOOD-BIKE-019)
@@ -1319,6 +1507,6 @@ process.on('SIGINT', () => shutdownServer('SIGINT'));
 // Handle WebSocket upgrades
 server.on('upgrade', (req: any, socket: any, head: any) => {
   if (req.url?.startsWith('/socket.io')) {
-    adminWsProxy.upgrade(req, socket, head);
+    adminWsUpgrade(req, socket, head);
   }
 });

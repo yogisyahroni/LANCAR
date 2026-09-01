@@ -6,6 +6,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +64,11 @@ fun OrderScreen(
         )
     }
 
+    PullToRefreshBox(
+        isRefreshing = isSyncing,
+        onRefresh = onSync,
+        modifier = Modifier.fillMaxSize()
+    ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -78,7 +86,7 @@ fun OrderScreen(
             IconButton(onClick = { onSync() }) {
                 Icon(
                     imageVector = Icons.Default.Sync,
-                    contentDescription = "Sinkronkan order",
+                    contentDescription = CourierTextCatalog.translate("Sinkronkan order"),
                     tint = if (isSyncing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -112,6 +120,7 @@ fun OrderScreen(
                 modifier = Modifier.fillMaxSize()
             )
         }
+    }
     }
 }
 

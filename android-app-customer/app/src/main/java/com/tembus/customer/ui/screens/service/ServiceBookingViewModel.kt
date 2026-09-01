@@ -9,6 +9,7 @@ import com.tembus.customer.data.model.LocationPayload
 import com.tembus.customer.data.model.MapsGeocodeResult
 import com.tembus.customer.data.model.PackageDetailsPayload
 import com.tembus.customer.data.model.PriceBreakdown
+import com.tembus.customer.data.model.TambalBanMaterial
 import com.tembus.customer.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +34,9 @@ data class ServiceBookingUiState(
     val dropoffLat: Double = 0.0,
     val dropoffLng: Double = 0.0,
     val dropoffResults: List<MapsGeocodeResult> = emptyList(),
-    val isResolvingLocation: Boolean = false
+    val isResolvingLocation: Boolean = false,
+    val materials: List<TambalBanMaterial> = emptyList(),
+    val selectedMaterialCodes: Set<String> = emptySet()
 )
 
 data class ServicePriceEstimate(
@@ -44,6 +47,7 @@ data class ServicePriceEstimate(
     val distanceBase: Long = 0,
     val platformFee: Long = 0,
     val dynamicPrice: Long = 0,
+    val materialCost: Long = 0,
     val totalPrice: Long = 0
 )
 
@@ -66,6 +70,28 @@ class ServiceBookingViewModel @Inject constructor(
         }
         if (_uiState.value.customerAddress.isBlank()) {
             resolveAddress(lat, lng)
+        }
+    }
+
+    fun loadMaterials(serviceSubType: String) {
+        if (!serviceSubType.startsWith("tambal_ban")) return
+        viewModelScope.launch {
+            orderRepository.getTambalBanMaterials(serviceSubType)
+                .onSuccess { response -> _uiState.update { it.copy(materials = response.data) } }
+                .onFailure { e -> _uiState.update { it.copy(error = e.localizedMessage ?: "Gagal memuat katalog material") } }
+        }
+    }
+
+    fun toggleMaterial(code: String) {
+        _uiState.update { state ->
+            val next = state.selectedMaterialCodes.toMutableSet()
+            if (!next.add(code)) next.remove(code)
+            state.copy(
+                selectedMaterialCodes = next,
+                priceEstimate = null,
+                rawPriceBreakdown = null,
+                error = null
+            )
         }
     }
 
@@ -167,7 +193,8 @@ class ServiceBookingViewModel @Inject constructor(
                 dimensions = DimensionsPayload(0, 0, 0),
                 weightKg = 0.0,
                 serviceCode = serviceSubType,
-                courierId = courierId
+                courierId = courierId,
+                materialCodes = state.selectedMaterialCodes.toList()
             )
             orderRepository.calculateCustomerOrderPrice(req)
                 .onSuccess { breakdown ->
@@ -181,6 +208,7 @@ class ServiceBookingViewModel @Inject constructor(
                                 distanceKm = breakdown.distanceKm,
                                 platformFee = breakdown.platformFeeIdr,
                                 dynamicPrice = breakdown.dynamicPriceIdr,
+                                materialCost = breakdown.materialCostIdr,
                                 perKmRate = breakdown.serviceSnapshot?.perKmIdr ?: 0,
                                 // 0-1km = base fare produk (sudah termasuk di basePrice server)
                                 distanceBase = breakdown.serviceSnapshot?.baseFareIdr ?: 0
@@ -242,7 +270,8 @@ class ServiceBookingViewModel @Inject constructor(
                 ),
                 priceBreakdown = breakdown,
                 serviceCode = serviceSubType,
-                preferredCourierId = preferredCourierId
+                preferredCourierId = preferredCourierId,
+                materialCodes = state.selectedMaterialCodes.toList()
             )
 
             orderRepository.createCustomerOnDemandOrder(req).collectLatest { result ->

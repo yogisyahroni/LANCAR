@@ -159,39 +159,53 @@ type PriceRange struct {
 // ============================================================
 
 type TambalBanReport struct {
-	ID                  string     `json:"id" db:"id"`
-	OrderID             string     `json:"order_id" db:"order_id"`
-	CourierID           string     `json:"courier_id" db:"courier_id"`
-	TireConditionBefore *string    `json:"tire_condition_before,omitempty" db:"tire_condition_before"`
-	TirePhotoBeforeURL  *string    `json:"tire_photo_before_url,omitempty" db:"tire_photo_before_url"`
-	ServiceDurationMins *int       `json:"service_duration_minutes,omitempty" db:"service_duration_minutes"`
-	MaterialsUsed       *string    `json:"materials_used,omitempty" db:"materials_used"`
-	Notes               *string    `json:"notes,omitempty" db:"notes"`
-	TireConditionAfter  *string    `json:"tire_condition_after,omitempty" db:"tire_condition_after"`
-	TirePhotoAfterURL   *string    `json:"tire_photo_after_url,omitempty" db:"tire_photo_after_url"`
-	CompletedAt         *time.Time `json:"completed_at,omitempty" db:"completed_at"`
-	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
+	ID                  string  `json:"id" db:"id"`
+	OrderID             string  `json:"order_id" db:"order_id"`
+	CourierID           string  `json:"courier_id" db:"courier_id"`
+	TireConditionBefore *string `json:"tire_condition_before,omitempty" db:"tire_condition_before"`
+	TirePhotoBeforeURL  *string `json:"tire_photo_before_url,omitempty" db:"tire_photo_before_url"`
+	ServiceDurationMins *int    `json:"service_duration_minutes,omitempty" db:"service_duration_minutes"`
+	MaterialsUsed       *string `json:"materials_used,omitempty" db:"materials_used"`
+	// MaterialsUsedItems is the structured client contract. The legacy
+	// materials_used TEXT column remains the storage boundary for compatibility.
+	MaterialsUsedItems []string   `json:"materials_used_items,omitempty" db:"-"`
+	Notes              *string    `json:"notes,omitempty" db:"notes"`
+	TireConditionAfter *string    `json:"tire_condition_after,omitempty" db:"tire_condition_after"`
+	TirePhotoAfterURL  *string    `json:"tire_photo_after_url,omitempty" db:"tire_photo_after_url"`
+	CompletedAt        *time.Time `json:"completed_at,omitempty" db:"completed_at"`
+	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
 }
 
 type TowingReport struct {
-	ID                     string     `json:"id" db:"id"`
-	OrderID                string     `json:"order_id" db:"order_id"`
-	CourierID              string     `json:"courier_id" db:"courier_id"`
-	VehicleConditionBefore *string    `json:"vehicle_condition_before,omitempty" db:"vehicle_condition_before"`
-	VehiclePhotoBeforeURL  *string    `json:"vehicle_photo_before_url,omitempty" db:"vehicle_photo_before_url"`
-	OdometerReading        *int       `json:"odometer_reading,omitempty" db:"odometer_reading"`
-	LoadingPhotoURL        *string    `json:"loading_photo_url,omitempty" db:"loading_photo_url"`
-	LoadingStartedAt       *time.Time `json:"loading_started_at,omitempty" db:"loading_started_at"`
-	TransitStartedAt       *time.Time `json:"transit_started_at,omitempty" db:"transit_started_at"`
-	TransitEndedAt         *time.Time `json:"transit_ended_at,omitempty" db:"transit_ended_at"`
-	UnloadingPhotoURL      *string    `json:"unloading_photo_url,omitempty" db:"unloading_photo_url"`
-	UnloadingCompletedAt   *time.Time `json:"unloading_completed_at,omitempty" db:"unloading_completed_at"`
-	OdometerAfter          *int       `json:"odometer_after,omitempty" db:"odometer_after"`
-	CompletionPhotoURL     *string    `json:"completion_photo_url,omitempty" db:"completion_photo_url"`
-	SignatureURL           *string    `json:"signature_url,omitempty" db:"signature_url"`
-	CompletedAt            *time.Time `json:"completed_at,omitempty" db:"completed_at"`
-	Notes                  *string    `json:"notes,omitempty" db:"notes"`
-	CreatedAt              time.Time  `json:"created_at" db:"created_at"`
+	ID                     string              `json:"id" db:"id"`
+	OrderID                string              `json:"order_id" db:"order_id"`
+	CourierID              string              `json:"courier_id" db:"courier_id"`
+	VehicleConditionBefore *string             `json:"vehicle_condition_before,omitempty" db:"vehicle_condition_before"`
+	VehiclePhotoBeforeURL  *string             `json:"vehicle_photo_before_url,omitempty" db:"vehicle_photo_before_url"`
+	OdometerReading        *int                `json:"odometer_reading,omitempty" db:"odometer_reading"`
+	LoadingPhotoURL        *string             `json:"loading_photo_url,omitempty" db:"loading_photo_url"`
+	LoadingStartedAt       *time.Time          `json:"loading_started_at,omitempty" db:"loading_started_at"`
+	TransitStartedAt       *time.Time          `json:"transit_started_at,omitempty" db:"transit_started_at"`
+	TransitEndedAt         *time.Time          `json:"transit_ended_at,omitempty" db:"transit_ended_at"`
+	UnloadingPhotoURL      *string             `json:"unloading_photo_url,omitempty" db:"unloading_photo_url"`
+	UnloadingCompletedAt   *time.Time          `json:"unloading_completed_at,omitempty" db:"unloading_completed_at"`
+	OdometerAfter          *int                `json:"odometer_after,omitempty" db:"odometer_after"`
+	CompletionPhotoURL     *string             `json:"completion_photo_url,omitempty" db:"completion_photo_url"`
+	SignatureURL           *string             `json:"signature_url,omitempty" db:"signature_url"`
+	DamageReport           *TowingDamageReport `json:"damage_report,omitempty" db:"damage_report"`
+	CompletedAt            *time.Time          `json:"completed_at,omitempty" db:"completed_at"`
+	Notes                  *string             `json:"notes,omitempty" db:"notes"`
+	CreatedAt              time.Time           `json:"created_at" db:"created_at"`
+}
+
+// TowingDamageReport is the structured vehicle condition captured at
+// completion. Areas are controlled by the courier UI; notes preserve factual
+// detail without inventing a diagnosis.
+type TowingDamageReport struct {
+	Areas           []string `json:"areas"`
+	Severity        string   `json:"severity"`
+	SafeToTransport bool     `json:"safe_to_transport"`
+	Notes           string   `json:"notes,omitempty"`
 }
 
 // ============================================================

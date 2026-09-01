@@ -7,6 +7,7 @@ import android.content.Context
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -24,6 +25,8 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.*
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +59,7 @@ fun BusinessScreen(
     val scrollState = rememberScrollState()
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
             viewModel.updateForm { it.copy(imageUri = uri) }
@@ -70,7 +73,7 @@ fun BusinessScreen(
                 title = { Text("Generate Payment Link", fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -130,13 +133,17 @@ fun BusinessScreen(
                             .clip(RoundedCornerShape(16.dp))
                             .background(Color.Black.copy(alpha = 0.05f))
                             .border(1.dp, Color.Black.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                            .clickable { imagePickerLauncher.launch("image/*") },
+                            .clickable {
+                                imagePickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         if (form.imageUri != null) {
                             AsyncImage(
                                 model = form.imageUri,
-                                contentDescription = "Foto Barang",
+                                contentDescription = CustomerTextCatalog.translate("Foto Barang"),
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )

@@ -17,7 +17,6 @@ import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.data.repository.OrderRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import java.util.concurrent.TimeUnit
 
@@ -41,7 +40,7 @@ class CustomerResyncWorker @AssistedInject constructor(
                 }
             }
 
-            val historyResult = orderRepository.getOrderHistory().first()
+            val historyResult = orderRepository.refreshOrderHistoryFromServer()
             if (historyResult.isFailure) {
                 Log.w(TAG, "Order state sync failed: ${historyResult.exceptionOrNull()?.message}")
                 return Result.retry()

@@ -120,7 +120,9 @@ internal fun OnDemandTaskActions(
     onCallClick: () -> Unit,
     onSosClick: () -> Unit,
     onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit,
-    onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit
+    onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit,
+    onRetrySync: () -> Unit = {},
+    onUseServerVersion: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var showCancelPickupDialog by remember { mutableStateOf(false) }
@@ -186,7 +188,7 @@ internal fun OnDemandTaskActions(
                 )
             }
 
-            SyncStateNotice(order = order)
+            SyncStateNotice(order = order, onRetrySync = onRetrySync, onUseServerVersion = onUseServerVersion)
             OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone, isServiceOrder = false)
 
             if (!flowState.pickupDone) {
@@ -247,4 +249,3 @@ internal fun OnDemandTaskActions(
         )
     }
 }
-

@@ -34,6 +34,24 @@ const PROTECTED_PREFIXES = [
 // They belong in the admin-dashboard, not here
 const ADMIN_ONLY_PATHS = ['/analytics', '/feature-flags'];
 
+// PRD route aliases. Keep the deployed portal routes stable while allowing
+// deep links from the `/app/*` contract used by mobile/web handoff docs.
+const APP_ROUTE_ALIASES: Record<string, string> = {
+  '/app': '/dashboard',
+  '/app/dashboard': '/dashboard',
+  '/app/orders': '/orders',
+  '/app/profile': '/profil',
+  '/app/profil': '/profil',
+  '/app/addresses': '/alamat',
+  '/app/alamat': '/alamat',
+  '/app/vouchers': '/voucher',
+  '/app/voucher': '/voucher',
+  '/app/notifications': '/notifikasi',
+  '/app/notifikasi': '/notifikasi',
+  '/app/reports': '/laporan',
+  '/app/laporan': '/laporan',
+};
+
 // Session cookie names used by auth-service
 const SESSION_COOKIE_NAMES = ['tembus_web_session', 'tembus_session', 'session', 'customer_session'];
 
@@ -45,6 +63,13 @@ function hasSessionCookie(request: NextRequest): boolean {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const alias = APP_ROUTE_ALIASES[pathname];
+  if (alias) {
+    const url = request.nextUrl.clone();
+    url.pathname = alias;
+    return NextResponse.redirect(url);
+  }
 
   // Block admin-only pages from customer portal entirely
   if (ADMIN_ONLY_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {

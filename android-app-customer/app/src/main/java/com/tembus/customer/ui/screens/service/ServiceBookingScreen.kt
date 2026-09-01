@@ -20,13 +20,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -107,13 +109,17 @@ fun ServiceBookingScreen(
         }
     }
 
+    LaunchedEffect(serviceSubType) {
+        viewModel.loadMaterials(serviceSubType)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(formatServiceName(serviceSubType), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -136,6 +142,26 @@ fun ServiceBookingScreen(
                 notes = notes,
                 onNotesChange = { notes = it }
             )
+
+            if (!isTowing && uiState.materials.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Text("Material tambahan (opsional)", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Harga diambil dari katalog operasional dan dihitung ulang server saat cek harga.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                uiState.materials.forEach { material ->
+                    FilterChip(
+                        selected = material.code in uiState.selectedMaterialCodes,
+                        onClick = { viewModel.toggleMaterial(material.code) },
+                        label = { Text("${material.name} • Rp ${formatRupiah(material.priceIdr)}") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -360,6 +386,9 @@ fun ServiceBookingScreen(
                         )
                         if (estimate.dynamicPrice > 0) {
                             Text("Biaya dinamis: Rp ${formatRupiah(estimate.dynamicPrice)}", fontSize = 14.sp)
+                        }
+                        if (estimate.materialCost > 0) {
+                            Text("Material: Rp ${formatRupiah(estimate.materialCost)}", fontSize = 14.sp)
                         }
                         Text("Biaya layanan platform: Rp ${formatRupiah(estimate.platformFee)}", fontSize = 14.sp)
                         Spacer(Modifier.height(10.dp))

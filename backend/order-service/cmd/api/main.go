@@ -621,6 +621,7 @@ func main() {
 
 	// Insurance & Relay Score Routes
 	mux.HandleFunc("/api/v1/insurance/enroll-bpjs", middleware.BaseChain(middleware.AuthMiddleware(insuranceHandler.EnrollBPJSTK))) // Insurance & Relay Score Routes
+	mux.HandleFunc("/api/v1/insurance/orders/", middleware.BaseChain(middleware.AuthMiddleware(insuranceHandler.HandleOrderClaim)))
 	mux.HandleFunc("GET /api/v1/admin/couriers/performance", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.ListCourierPerformance)))
 	mux.HandleFunc("PUT /api/v1/admin/couriers/{id}/tier", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.AdminOverrideTier)))
 	mux.HandleFunc("/api/v1/admin/relay-score/override", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.AdminOverrideScore)))

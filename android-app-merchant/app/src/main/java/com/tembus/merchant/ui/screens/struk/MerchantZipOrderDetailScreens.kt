@@ -32,7 +32,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -80,7 +81,7 @@ private fun MerchantZipOrderDetailScreen(
                 title = { Text(if (orderNumber == "Order Detail") orderNumber else "#$orderNumber", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Go back"))
                     }
                 }
             )

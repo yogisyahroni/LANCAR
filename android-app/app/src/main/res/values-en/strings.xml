@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tembus Courier</string>
+    <string name="channel_orders_name">Order Assignments</string>
+    <string name="channel_orders_description">Notifications for new order assignments and updates</string>
+    <string name="channel_general_name">General Updates</string>
+    <string name="channel_general_description">General announcements and system updates</string>
+    <string name="permission_notification_title">Enable Notifications</string>
+    <string name="permission_notification_message">Allow TEMBUS to send you notifications about new orders and updates?</string>
+    <string name="action_accept">Accept</string>
+    <string name="action_decline">Decline</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_view">View</string>
+    <string name="notification_new_order_title">New Order Assigned!</string>
+    <string name="notification_new_order_body">You have a new delivery order. Tap to view details.</string>
+    <string name="notification_order_update_title">Order Update</string>
+    <string name="status_online">Online</string>
+    <string name="status_offline">Offline</string>
+    <string name="status_busy">Busy</string>
+    <string name="courier_tab_home">Home</string>
+    <string name="courier_tab_orders">Orders</string>
+    <string name="courier_tab_profile">Profile</string>
+    <string name="courier_language">Language</string>
+    <string name="courier_language_description">Choose the app language</string>
+    <string name="courier_close">Close</string>
+</resources>

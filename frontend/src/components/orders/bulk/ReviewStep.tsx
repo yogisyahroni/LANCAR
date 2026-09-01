@@ -104,7 +104,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         return (
           <div className="flex items-center gap-2">
             {status === 'valid' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <CheckCircle2 className="w-4 h-4 text-brand-emerald-500" />
             ) : (
               <div className="group relative flex items-center">
                 <AlertCircle className="w-4 h-4 text-destructive" />
@@ -274,7 +274,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         if (editingRowId === rowId) {
           return (
             <div className="flex gap-2">
-              <button onClick={saveEdit} disabled={isSaving} className="text-emerald-500 hover:text-emerald-400">
+              <button onClick={saveEdit} disabled={isSaving} className="text-brand-emerald-500 hover:text-brand-emerald-400">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               </button>
               <button onClick={cancelEdit} disabled={isSaving} className="text-muted-foreground hover:text-foreground">
@@ -317,7 +317,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         </div>
 
         <div className="flex gap-4">
-          <div className="flex flex-col items-center bg-emerald-500/10 text-emerald-500 px-4 py-2 rounded-lg border border-emerald-500/20">
+          <div className="flex flex-col items-center bg-brand-emerald-500/10 text-brand-emerald-500 px-4 py-2 rounded-lg border border-brand-emerald-500/20">
             <span className="text-xl font-bold">{validCount}</span>
             <span className="text-xs uppercase tracking-wider">Valid</span>
           </div>

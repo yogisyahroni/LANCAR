@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.Animatable
@@ -108,6 +109,7 @@ internal fun CourierNextActionPanel(
     onSecondaryClick: (() -> Unit)? = null,
     helperTextOverride: String? = null
 ) {
+    val haptic = LocalHapticFeedback.current
     val action = flowState.nextAction
     val hasAction = action.type != CourierNextActionType.NONE
     val secondary = flowState.secondaryAction
@@ -154,7 +156,10 @@ internal fun CourierNextActionPanel(
                     )
                 } else {
                     Button(
-                        onClick = onClick,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onClick()
+                        },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White)
@@ -167,7 +172,10 @@ internal fun CourierNextActionPanel(
                 // S2-OS-03: Secondary action for on-demand failed delivery
                 if (secondary != null && onSecondaryClick != null) {
                     OutlinedButton(
-                        onClick = onSecondaryClick,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSecondaryClick()
+                        },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -184,4 +192,3 @@ internal fun CourierNextActionPanel(
         }
     }
 }
-

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
+import { AdminPageSkeleton } from '../components/ui/Skeleton';
 interface Account {
   id: string;
   account_code: string;
@@ -133,7 +134,7 @@ export default function ChartOfAccounts() {
     }
   };
 
-  if (isLoading) return <div className="p-8">Loading accounts...</div>;
+  if (isLoading) return <AdminPageSkeleton />;
 
   return (
     <div className="p-8 max-w-7xl mx-auto">

@@ -4,6 +4,7 @@ import { AlertTriangle, Bike, CheckCircle2, Clock, ExternalLink, FileCheck2, Shi
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { AdminPageSkeleton } from '../components/ui/Skeleton'
 
 const documentLabels: Record<string, string> = {
   ktp: 'e-KTP Asli',
@@ -155,7 +156,7 @@ export default function CourierApplications() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
+      {isLoading ? <AdminPageSkeleton /> : <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
         <div className="rounded-3xl border border-white/10 bg-white/[0.03]">
           <div className="border-b border-white/10 p-5">
             <p className="text-sm font-bold text-zinc-100">{applications.length} kandidat {channelLabels[channel]}</p>
@@ -292,7 +293,7 @@ export default function CourierApplications() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

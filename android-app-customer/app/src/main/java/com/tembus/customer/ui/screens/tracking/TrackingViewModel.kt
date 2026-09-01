@@ -92,6 +92,19 @@ class TrackingViewModel @Inject constructor(
         realtimeJob = null
     }
 
+    /** Refreshes the visible tracking snapshot without restarting the realtime room. */
+    fun refresh(orderId: String? = _uiState.value.orderId) {
+        val targetOrderId = orderId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            fetchMapsProviderConfig()
+            fetchLatestOrder(targetOrderId)
+            fetchLatestTracking(targetOrderId)
+            fetchUnreadMessageState()
+            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
     private suspend fun fetchLatestTracking(orderId: String) {
         val result = repository.getTrackingData(orderId)
         

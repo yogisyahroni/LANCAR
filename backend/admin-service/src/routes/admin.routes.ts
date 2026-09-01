@@ -13,7 +13,10 @@ import { secureUploadSingle } from '../security/uploadSecurity';
 export const adminRoutes = Router();
 
 // Admin auth + role gate (from monolithic routes.ts line 268)
-adminRoutes.use(requireAuth, requireRole(['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'finance', 'cs_agent', 'zone_manager']));
+// All routes in this module are mounted under /admin. Scope the auth gate to
+// that prefix so public operational endpoints (notably /health) can still be
+// reached by container orchestrator health checks.
+adminRoutes.use('/admin', requireAuth, requireRole(['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'finance', 'cs_agent', 'zone_manager']));
 
 
 // Broadcast Center role set (extracted from monolithic routes.ts)
@@ -21,6 +24,8 @@ const BROADCAST_ROLES = ['super_admin', 'admin', 'ops_admin'];
 
 adminRoutes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
 adminRoutes.get('/admin/courier-safety-events', (req, res) => controllers.listAdminCourierSafetyEvents(req, res));
+adminRoutes.get('/admin/gps-risk-alerts', (req, res) => controllers.listAdminGpsRiskAlerts(req, res));
+adminRoutes.patch('/admin/gps-risk-alerts/:id', (req, res) => controllers.updateAdminGpsRiskAlert(req, res));
 adminRoutes.get('/admin/merchant-staff', requireRole(['super_admin']), (req, res) => controllers.listAdminMerchantStaff(req, res));
 adminRoutes.get('/admin/banners', requireRole(['super_admin']), (req, res) => controllers.listAdminBanners(req, res));
 adminRoutes.post('/admin/banners', requireRole(['super_admin']), (req, res) => controllers.createAdminBanner(req, res));
@@ -103,6 +108,9 @@ adminRoutes.patch('/admin/couriers/:id/service-capabilities', (req, res) => cont
 adminRoutes.patch('/admin/couriers/:id/profile-photo', ...secureUploadSingle('photo', 'profileImage'), (req, res) => controllers.updateCourierProfilePhoto(req, res));
 adminRoutes.get('/admin/couriers/:id/history', (req, res) => controllers.getCourierHistory(req, res));
 adminRoutes.get('/admin/couriers/export', (req, res) => controllers.exportCouriers(req, res));
+adminRoutes.get('/admin/courier-retention', (req, res) => controllers.listCourierRetention(req, res));
+adminRoutes.post('/admin/courier-retention/:courierProfileId/retraining', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.createCourierRetraining(req, res));
+adminRoutes.patch('/admin/courier-retention/retraining/:actionId', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.updateCourierRetraining(req, res));
 adminRoutes.get('/admin/merchants', (req, res) => controllers.listAdminMerchants(req, res));
 adminRoutes.get('/admin/merchants/performance', (req, res) => controllers.listMerchantPerformance(req, res));
 adminRoutes.get('/admin/driver-wallet-holds', (req, res) => controllers.listDriverWalletHolds(req, res));
@@ -227,8 +235,10 @@ adminRoutes.get('/admin/analytics/surge', (req, res) => controllers.getAnalytics
 adminRoutes.get('/admin/analytics/scan-accuracy', (req, res) => controllers.getAnalyticsScanAccuracy(req, res));
 adminRoutes.get('/admin/analytics/retention', (req, res) => controllers.getAnalyticsRetention(req, res));
 adminRoutes.get('/admin/analytics/heat-data', (req, res) => controllers.getHeatData(req, res));
+adminRoutes.get('/admin/analytics/live-active-orders', (req, res) => controllers.getLiveActiveOrders(req, res));
 adminRoutes.get('/admin/analytics/unit-economics', (req, res) => controllers.getUnitEconomics(req, res));
 adminRoutes.get('/admin/analytics/export', (req, res) => controllers.exportAnalytics(req, res));
+adminRoutes.get('/admin/analytics/custom-report', (req, res) => controllers.getCustomOrderReport(req, res));
 adminRoutes.get('/admin/analytics/reports', (req, res) => controllers.getScheduledReports(req, res));
 adminRoutes.post('/admin/analytics/reports', (req, res) => controllers.createScheduledReport(req, res));
 adminRoutes.patch('/admin/analytics/reports/:id', (req, res) => controllers.updateScheduledReport(req, res));

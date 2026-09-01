@@ -41,7 +41,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -136,7 +137,7 @@ fun CourierRatingDialog(
                     ) {
                         Icon(
                             Icons.Default.Close,
-                            contentDescription = "Ingatkan nanti",
+                            contentDescription = CustomerTextCatalog.translate("Ingatkan nanti"),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -184,7 +185,7 @@ private fun RatingSuccessContent(onDismiss: () -> Unit) {
     ) {
         Icon(
             imageVector = Icons.Default.CheckCircle,
-            contentDescription = "Sukses",
+            contentDescription = CustomerTextCatalog.translate("Sukses"),
             tint = Primary,
             modifier = Modifier.size(72.dp)
         )
@@ -270,7 +271,7 @@ private fun ColumnScope.RatingFormContent(
                     .data(courierPhotoUrl)
                     .crossfade(true)
                     .build(),
-                contentDescription = "Foto $courierName",
+                contentDescription = CustomerTextCatalog.translate("Foto $courierName"),
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
@@ -346,7 +347,7 @@ private fun ColumnScope.RatingFormContent(
             )
             Icon(
                 imageVector = if (isFilled) Icons.Default.Star else Icons.Outlined.StarOutline,
-                contentDescription = "$i bintang",
+                contentDescription = CustomerTextCatalog.translate("$i bintang"),
                 tint = if (isFilled) Color(0xFFFFBB00) else MaterialTheme.colorScheme.outline,
                 modifier = Modifier
                     .size(44.dp)

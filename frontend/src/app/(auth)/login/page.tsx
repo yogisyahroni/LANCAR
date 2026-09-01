@@ -12,6 +12,7 @@ import { clientLog } from '@/lib/clientLogger';
 import { customerGoogleAuthUrl } from '@/lib/runtimeConfig';
 import { useAuthStore } from '@/store/authStore';
 import { startGoogleAuth } from '@/lib/googleAuth';
+import { startAppleAuth } from '@/lib/appleAuth';
 import { getCustomerWebDeviceId, buildCustomerWebDeviceInfo } from '@/lib/customerDevice';
 import { exchangeSession } from '@/lib/customerSession';
 
@@ -66,6 +67,12 @@ export default function LoginPage() {
   const [pendingOtpIdentifier, setPendingOtpIdentifier] = useState<string | null>(null);
 
   const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('reason') === 'session-expired') {
+      setApiError('Sesi kamu sudah berakhir. Silakan masuk kembali untuk melanjutkan.');
+    }
+  }, []);
 
   const {
     register,
@@ -197,8 +204,25 @@ export default function LoginPage() {
     }
   };
 
+  const handleAppleSignIn = async () => {
+    try {
+      setApiError(null);
+      const deviceId = getCustomerWebDeviceId();
+      const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/apple-callback` : undefined;
+      const response = await startAppleAuth(deviceId, redirectUri);
+      if (response.authorization_url) {
+        window.location.href = response.authorization_url;
+      } else {
+        setApiError('Gagal mendapatkan tautan login Apple.');
+      }
+    } catch (error: any) {
+      clientLog.error('Apple Auth Start Error', { error });
+      setApiError(getApiErrorMessage(error, 'Gagal memulai login dengan Apple. Coba lagi.'));
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-8">
+    <main className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-8">
       {/* Background Decorative Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-primary/10 blur-[120px] rounded-full" />
@@ -267,7 +291,7 @@ export default function LoginPage() {
                         <KeyRound className="h-4 w-4 text-muted-foreground" />
                         Password
                       </label>
-                      <a href="/forgot-pin" className="text-sm text-primary hover:underline">
+                      <a href="/forgot-pin" className="auth-link text-sm hover:underline">
                         Forgot password?
                       </a>
                     </div>
@@ -410,14 +434,22 @@ export default function LoginPage() {
             Sign in with Google
           </button>
 
+          <button
+            onClick={handleAppleSignIn}
+            className="mt-3 w-full border border-border/40 bg-foreground text-background hover:opacity-90 active:scale-[0.98] font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-3 transition-all duration-200"
+          >
+            <span className="text-xl leading-none" aria-hidden="true">●</span>
+            Sign in with Apple
+          </button>
+
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Don't have an account?{' '}
-            <a href="/daftar" className="text-primary hover:underline font-medium">
+            <a href="/daftar" className="auth-link hover:underline font-medium">
               Sign up here
             </a>
           </div>
         </div>
       </motion.div>
-    </div>
+    </main>
   );
 }

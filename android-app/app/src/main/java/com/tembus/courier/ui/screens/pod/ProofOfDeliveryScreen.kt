@@ -22,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -138,7 +140,7 @@ fun ProofOfDeliveryScreen(
                 title = { Text(if (isPickupProof) "Foto Barang Saat Pickup" else "Bukti Terima") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Kembali"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -438,7 +440,7 @@ private fun CameraPreviewContent(
                     } else {
                         Icon(
                             imageVector = Icons.Default.CameraAlt,
-                            contentDescription = "Ambil foto bukti",
+                            contentDescription = CourierTextCatalog.translate("Ambil foto bukti"),
                             modifier = Modifier.size(40.dp),
                             tint = Primary
                         )
@@ -476,7 +478,7 @@ private fun ImagePreviewContent(
                     .data(uiState.capturedImageUri)
                     .crossfade(true)
                     .build(),
-                contentDescription = "Pratinjau foto bukti",
+                contentDescription = CourierTextCatalog.translate("Pratinjau foto bukti"),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )

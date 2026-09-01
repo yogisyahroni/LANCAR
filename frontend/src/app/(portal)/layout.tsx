@@ -5,8 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { api } from '@/lib/api';
-import { 
-  Loader2, 
+import {
   LayoutDashboard, 
   Package, 
   BarChart3, 
@@ -28,6 +27,7 @@ import {
   Ticket,
   Link as LinkIcon
 } from 'lucide-react';
+import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import PushNotificationPrompt from '@/components/PushNotificationPrompt';
@@ -258,8 +258,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen w-full bg-background p-6">
+        <CustomerPageSkeleton />
       </div>
     );
   }
@@ -549,7 +549,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                     {user?.awb_sender_name ? `PENGIRIM: ${user.awb_sender_name.toUpperCase()}` : 'STANDARD TIER'}
                   </p>
                 </div>
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 p-[1px] shadow-lg shadow-primary/10">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-brand-emerald-600 p-[1px] shadow-lg shadow-primary/10">
                   <div className="h-full w-full rounded-[11px] bg-background flex items-center justify-center overflow-hidden">
                      <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Customer')}&background=006437&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
                   </div>

@@ -49,7 +49,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -138,7 +139,7 @@ fun InAppCallScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -357,7 +358,7 @@ private fun CallActionPanel(
                 modifier = Modifier.size(60.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White)
             ) {
-                Icon(Icons.Default.CallEnd, contentDescription = "Akhiri", modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.CallEnd, contentDescription = CustomerTextCatalog.translate("Akhiri"), modifier = Modifier.size(28.dp))
             }
         }
         InAppCallState.INCOMING -> {
@@ -369,14 +370,14 @@ private fun CallActionPanel(
                     modifier = Modifier.size(62.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White)
                 ) {
-                    Icon(Icons.Default.CallEnd, contentDescription = "Tolak", modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.CallEnd, contentDescription = CustomerTextCatalog.translate("Tolak"), modifier = Modifier.size(28.dp))
                 }
                 FilledIconButton(
                     onClick = onAccept,
                     modifier = Modifier.size(62.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = Primary, contentColor = Color.White)
                 ) {
-                    Icon(Icons.Default.Call, contentDescription = "Terima", modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.Call, contentDescription = CustomerTextCatalog.translate("Terima"), modifier = Modifier.size(28.dp))
                 }
             }
         }
@@ -392,14 +393,14 @@ private fun CallActionPanel(
                         contentColor = if (micMuted) Color(0xFFFF6B00) else Primary
                     )
                 ) {
-                    Icon(if (micMuted) Icons.Default.MicOff else Icons.Default.Mic, contentDescription = "Mikrofon")
+                    Icon(if (micMuted) Icons.Default.MicOff else Icons.Default.Mic, contentDescription = CustomerTextCatalog.translate("Mikrofon"))
                 }
                 FilledIconButton(
                     onClick = onEnd,
                     modifier = Modifier.size(66.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White)
                 ) {
-                    Icon(Icons.Default.CallEnd, contentDescription = "Akhiri", modifier = Modifier.size(30.dp))
+                    Icon(Icons.Default.CallEnd, contentDescription = CustomerTextCatalog.translate("Akhiri"), modifier = Modifier.size(30.dp))
                 }
             }
         }

@@ -137,6 +137,65 @@ services:
       - tembus-private
     logging: *default-logging
 
+  prometheus:
+    <<: *app-security
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.0}
+    container_name: tembus-prod-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability:/etc/prometheus/rules:ro
+      - ./deploy/observability/prometheus-rules.yaml:/etc/prometheus/rules/prometheus-rules.yaml:ro
+      - tembus-prod-prometheus-data:/prometheus
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+    ports:
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - tembus-private
+    logging: *default-logging
+
+  grafana:
+    <<: *app-security
+    image: ${GRAFANA_IMAGE:-grafana/grafana:12.1.1}
+    container_name: tembus-prod-grafana
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required for production Grafana}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - tembus-prod-grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    ports:
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${GRAFANA_PORT:-3005}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - tembus-private
+    logging: *default-logging
+
   migrate:
     image: ghcr.io/pressly/goose:latest
     container_name: tembus-prod-migrate
@@ -151,6 +210,7 @@ services:
       - postgres
       - ${MIGRATION_DATABASE_DSN:?MIGRATION_DATABASE_DSN is required}
       - up
+      - -allow-missing
     networks:
       - tembus-private
     profiles:
@@ -188,6 +248,8 @@ services:
       VERIHUBS_APP_ID: ${VERIHUBS_APP_ID:-}
       VERIHUBS_API_KEY: ${VERIHUBS_API_KEY:-}
       VERIHUBS_API_URL: ${VERIHUBS_API_URL:-}
+      APPLE_CUSTOMER_WEB_CLIENT_ID: ${APPLE_CUSTOMER_WEB_CLIENT_ID:-}
+      APPLE_CUSTOMER_ANDROID_CLIENT_ID: ${APPLE_CUSTOMER_ANDROID_CLIENT_ID:-}
       # ─── OTP Provider (Zenziva WhatsApp/SMS) ───────────────────────────────
       # Aktifkan dengan OTP_PROVIDER=zenziva + isi semua ZENZIVA_* di .env.
       # Tanpa OTP_PROVIDER=zenziva, service fallback ke dry-run.
@@ -651,6 +713,10 @@ volumes:
     name: tembus-prod-auth-uploads
   tembus-prod-admin-uploads:
     name: tembus-prod-admin-uploads
+  tembus-prod-prometheus-data:
+    name: tembus-prod-prometheus-data
+  tembus-prod-grafana-data:
+    name: tembus-prod-grafana-data
 
 networks:
   tembus-private:

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { securityLog } from '../../security/logRedaction';
+import { getActorId } from '../../utils/authUtils';
 
 import { db } from '../../db';
 import { createNotification } from '../../notifications';
@@ -261,6 +262,97 @@ export const listAdminCourierSafetyEvents = async (_req: Request, res: Response)
   } catch (error) {
     securityLog.error('List admin courier safety events error:', error);
     res.status(500).json({ success: false, data: [], events: [], message: 'Internal Server Error' });
+  }
+};
+
+/**
+ * GET /admin/gps-risk-alerts
+ *
+ * Proof attempts are immutable evidence. This read model exposes the risky
+ * attempts together with a separate operator action state, so an alert can be
+ * acknowledged/resolved without rewriting the original evidence.
+ */
+export const listAdminGpsRiskAlerts = async (_req: Request, res: Response) => {
+  try {
+    const result = await db.query(
+      `SELECT cpa.id,
+              cpa.order_id,
+              o.order_number,
+              cpa.courier_id,
+              u.full_name AS courier_name,
+              cpa.proof_step,
+              cpa.proof_status,
+              cpa.rejection_reason,
+              cpa.distance_m,
+              cpa.radius_m,
+              cpa.latitude,
+              cpa.longitude,
+              cpa.accuracy_m,
+              cpa.spoof_risk,
+              cpa.created_at,
+              COALESCE(gra.status, 'open') AS action_status,
+              gra.note AS action_note,
+              gra.updated_at AS action_updated_at
+       FROM courier_proof_attempts cpa
+       JOIN users u ON u.id = cpa.courier_id
+       LEFT JOIN orders o ON o.id = cpa.order_id
+       LEFT JOIN courier_gps_risk_actions gra ON gra.proof_attempt_id = cpa.id
+       WHERE cpa.proof_status = 'rejected'
+         AND (cpa.spoof_risk IN ('high', 'critical')
+              OR cpa.rejection_reason IN ('outside_geofence', 'high_spoof_risk'))
+       ORDER BY cpa.created_at DESC
+       LIMIT 100`
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    securityLog.error('List admin GPS risk alerts error:', error);
+    res.status(500).json({ success: false, data: [], message: 'Internal Server Error' });
+  }
+};
+
+export const updateAdminGpsRiskAlert = async (req: Request, res: Response) => {
+  const proofAttemptId = String(req.params.id || '').trim();
+  const status = String(req.body?.status || '').trim().toLowerCase();
+  const note = req.body?.note ? String(req.body.note).trim().slice(0, 500) : null;
+  if (!proofAttemptId || !['acknowledged', 'resolved'].includes(status)) {
+    res.status(400).json({ success: false, message: 'status harus acknowledged atau resolved' });
+    return;
+  }
+
+  try {
+    const actorId = getActorId(req);
+    const exists = await db.query(
+      `SELECT id FROM courier_proof_attempts
+       WHERE id = $1 AND proof_status = 'rejected'
+         AND (spoof_risk IN ('high', 'critical')
+              OR rejection_reason IN ('outside_geofence', 'high_spoof_risk'))`,
+      [proofAttemptId]
+    );
+    if (exists.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'GPS risk alert tidak ditemukan' });
+      return;
+    }
+
+    const result = await db.query(
+      `INSERT INTO courier_gps_risk_actions (proof_attempt_id, status, actor_id, note, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (proof_attempt_id) DO UPDATE SET
+         status = EXCLUDED.status,
+         actor_id = EXCLUDED.actor_id,
+         note = EXCLUDED.note,
+         updated_at = NOW()
+       RETURNING proof_attempt_id, status, actor_id, note, updated_at`,
+      [proofAttemptId, status, actorId, note]
+    );
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+       VALUES ($1, $2, $3, $4)`,
+      [actorId, `courier.gps_risk.${status}`, proofAttemptId, JSON.stringify({ note })]
+    );
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    securityLog.error('Update admin GPS risk alert error:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
 

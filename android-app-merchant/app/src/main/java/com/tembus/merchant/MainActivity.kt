@@ -20,6 +20,7 @@ import com.tembus.merchant.ui.components.UpdateDialog
 import com.tembus.merchant.ui.navigation.AppNavHost
 import com.tembus.merchant.ui.navigation.MerchantDeepLinkBus
 import com.tembus.merchant.ui.theme.TEMBUSMerchantTheme
+import com.tembus.merchant.ui.localization.MerchantLocaleRuntime
 import com.tembus.merchant.util.UpdateManager
 import kotlinx.coroutines.launch
 
@@ -37,7 +38,8 @@ class MainActivity : ComponentActivity() {
         updateManager = app.container.updateManager
 
         setContent {
-            TEMBUSMerchantTheme {
+            MerchantLocaleRuntime {
+                TEMBUSMerchantTheme {
                 // Auto-update: cek setelah MainActivity tampil; dialog overlay
                 // di atas seluruh app (pola sama dengan customer/courier).
                 var updateInfo by remember { mutableStateOf<AppVersion?>(null) }
@@ -83,6 +85,7 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+                }
                 }
             }
         }

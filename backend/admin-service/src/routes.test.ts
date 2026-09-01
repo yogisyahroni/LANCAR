@@ -165,6 +165,13 @@ describe('Admin Service Routes', () => {
     (redis.get as jest.Mock).mockResolvedValue(null);
   });
 
+  it('keeps the public health endpoint reachable without admin auth', async () => {
+    const res = await request(app).get('/health');
+
+    expect(res.status).toBe(200);
+    expect(controllers.getSystemHealth).toHaveBeenCalled();
+  });
+
   it('should return all flags', async () => {
     const res = await request(app).get('/admin/feature-flags')
       .set(gatewayHeaders());

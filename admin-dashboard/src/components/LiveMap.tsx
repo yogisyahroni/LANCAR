@@ -30,6 +30,17 @@ type CourierPoint = {
   last_location_at?: string | null
 }
 
+type ActiveOrderPoint = {
+  id: string
+  order_number?: string | null
+  status?: string | null
+  service_category?: string | null
+  latitude: number | string | null
+  longitude: number | string | null
+  last_location_at?: string | null
+  courier_name?: string | null
+}
+
 const DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -51,6 +62,13 @@ const offlineCourierIcon = L.divIcon({
   html: `<div style="background-color: #71717A; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(113, 113, 122, 0.55);"></div>`,
   iconSize: [12, 12],
   iconAnchor: [6, 6]
+});
+
+const activeOrderIcon = L.divIcon({
+  className: 'custom-div-icon',
+  html: `<div style="background-color: #F97316; width: 14px; height: 14px; border-radius: 4px; border: 2px solid white; box-shadow: 0 0 10px rgba(249,115,22,.7); transform: rotate(45deg);"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7]
 });
 
 const isCourierOnline = (point: CourierPoint) => {
@@ -82,11 +100,19 @@ const shouldUseNextCourierPoint = (current: CourierPoint, next: CourierPoint) =>
 
 export default function LiveMap() {
   const [mapTheme, setMapTheme] = useState<'dark' | 'light'>('dark')
-  const { data: courierPoints = [], isLoading, isError } = useQuery({
+  const { data: courierPoints = [], isLoading, isError } = useQuery<CourierPoint[]>({
     queryKey: ['admin-live-courier-heat-data'],
     queryFn: async () => {
       const res = await api.get('/admin/analytics/heat-data')
       return Array.isArray(res.data) ? res.data : []
+    },
+    refetchInterval: 15000
+  })
+  const { data: activeOrders = [], isLoading: activeOrdersLoading, isError: activeOrdersError } = useQuery<ActiveOrderPoint[]>({
+    queryKey: ['admin-live-active-orders'],
+    queryFn: async () => {
+      const res = await api.get('/admin/analytics/live-active-orders')
+      return Array.isArray(res.data?.data) ? res.data.data : []
     },
     refetchInterval: 15000
   })
@@ -161,6 +187,23 @@ export default function LiveMap() {
             </Marker>
           )
         })}
+        {activeOrders.map((order) => {
+          const lat = Number(order.latitude)
+          const lng = Number(order.longitude)
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+          return (
+            <Marker key={`order:${order.id}`} position={[lat, lng]} icon={activeOrderIcon}>
+              <Popup>
+                <div className="text-zinc-900 font-sans">
+                  <p className="font-bold">Order {order.order_number || order.id.slice(0, 8)}</p>
+                  <p className="text-xs">Status: {order.status || 'aktif'}</p>
+                  <p className="text-xs">Kurir: {order.courier_name || 'Belum ditugaskan'}</p>
+                  {order.last_location_at && <p className="text-xs">Posisi: {new Date(order.last_location_at).toLocaleTimeString()}</p>}
+                </div>
+              </Popup>
+            </Marker>
+          )
+        })}
       </MapContainer>
 
       {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && !shouldRenderTomTom && (
@@ -175,6 +218,11 @@ export default function LiveMap() {
       {isError && (
         <div className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100">
           Lokasi kurir belum bisa dimuat.
+        </div>
+      )}
+      {activeOrdersError && (
+        <div className="absolute inset-x-4 top-36 z-[1000] rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 text-sm text-orange-100">
+          Layer order aktif belum bisa dimuat.
         </div>
       )}
 
@@ -217,6 +265,10 @@ export default function LiveMap() {
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-zinc-500" />
           <span>Tidak aktif ({offlineCourierCount})</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rotate-45 rounded-sm bg-orange-500" />
+          <span>Order aktif ({activeOrdersLoading ? '…' : activeOrders.length})</span>
         </div>
       </div>
     </div>

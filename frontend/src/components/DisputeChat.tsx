@@ -9,6 +9,7 @@ import { getSocket } from '@/lib/socket';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 // S3-CW-02: Maximum image file size allowed for dispute uploads (5 MB).
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -211,8 +212,10 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
         className="flex-1 overflow-y-auto p-4 space-y-4"
       >
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="animate-spin text-primary" size={24} />
+          <div className="space-y-3" aria-busy="true" aria-label="Memuat percakapan">
+            {[0, 1, 2].map((index) => (
+              <Skeleton key={index} className={`h-12 bg-white/10 ${index === 1 ? 'ml-auto w-3/4' : 'w-4/5'}`} />
+            ))}
           </div>
         ) : isError ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 text-center px-6">

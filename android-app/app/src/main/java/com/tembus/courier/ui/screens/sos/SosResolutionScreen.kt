@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,7 +96,7 @@ fun SosResolutionScreen(
                         Text("✅ Foto berhasil diambil", color = Color(0xFF4CAF50))
                     } else {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.CameraAlt, contentDescription = "Kamera")
+                            Icon(Icons.Default.CameraAlt, contentDescription = CourierTextCatalog.translate("Kamera"))
                             Spacer(Modifier.height(8.dp))
                             Text("Ketuk untuk mengambil foto dari Kamera")
                         }

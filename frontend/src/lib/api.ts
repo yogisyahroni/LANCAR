@@ -11,6 +11,8 @@ const PUBLIC_AUTH_PATHS = [
   '/auth/customer/google/complete',
   '/auth/customer/otp/send',
   '/auth/customer/otp/verify',
+  '/auth/customer/apple/start',
+  '/auth/customer/apple/complete',
   '/auth/otp/send',
   '/auth/otp/verify',
   '/auth/web/session/exchange',
@@ -176,7 +178,7 @@ api.interceptors.response.use(
           const { setAuth } = useAuthStore.getState();
           setAuth(false, null);
           if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-            window.location.href = '/login';
+            window.location.href = '/login?reason=session-expired';
           }
         }
         return Promise.reject(err);

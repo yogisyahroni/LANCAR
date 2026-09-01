@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { format, differenceInDays } from 'date-fns'
 import { toast } from 'sonner'
+import { AdminPageSkeleton } from '../components/ui/Skeleton'
 
 const queryErrorMessage = (error: any, fallback: string) =>
   error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
@@ -107,11 +108,7 @@ export default function Vouchers() {
   });
 
   if (isLoadingStats || isLoadingVouchers) {
-    return (
-      <div className="h-[80vh] flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
-      </div>
-    );
+    return <AdminPageSkeleton />;
   }
 
   const statCards = [

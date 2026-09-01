@@ -35,15 +35,15 @@ export function RouteSnapshotPanel({ order, tracking }: { order: Order; tracking
   const isCancelled = order.status.toLowerCase() === 'cancelled';
 
   return (
-    <div className={`rounded-2xl border ${isCancelled ? 'border-slate-500/20 bg-slate-500/10' : 'border-emerald-500/15 bg-emerald-500/[0.06]'} p-4 shadow-sm`}>
+    <div className={`rounded-2xl border ${isCancelled ? 'border-slate-500/20 bg-slate-500/10' : 'border-brand-emerald-500/15 bg-brand-emerald-500/[0.06]'} p-4 shadow-sm`}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className={`text-xs font-bold uppercase tracking-wider ${isCancelled ? 'text-slate-400' : 'text-emerald-300'}`}>Route snapshot</p>
+          <p className={`text-xs font-bold uppercase tracking-wider ${isCancelled ? 'text-slate-400' : 'text-brand-emerald-300'}`}>Route snapshot</p>
           <h3 className={`mt-1 text-base font-bold tracking-tight ${isCancelled ? 'text-slate-300' : 'text-white'}`}>{isCancelled ? 'Rute dibatalkan' : 'Rute pengiriman'}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{isCancelled ? '-' : distanceLabel} • {isCancelled ? '-' : etaLabel}</p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${isCancelled ? 'bg-slate-500/20 text-slate-300' : 'bg-emerald-500/10 text-emerald-300'}`}>
+          <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${isCancelled ? 'bg-slate-500/20 text-slate-300' : 'bg-brand-emerald-500/10 text-brand-emerald-300'}`}>
             {provider}
           </span>
           <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">

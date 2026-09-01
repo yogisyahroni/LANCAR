@@ -10,9 +10,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Text
+import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import com.tembus.courier.data.model.Order
+import com.tembus.courier.R
 
 /**
  * Regular courier bottom navigation (non-on-demand).
@@ -27,8 +29,8 @@ internal fun MainScreenBottomNavBar(
 ) {
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
-            label = { Text("Beranda") },
+            icon = { Icon(Icons.Default.Home, contentDescription = stringResource(R.string.courier_tab_home)) },
+            label = { Text(stringResource(R.string.courier_tab_home)) },
             selected = selectedTab == 0,
             onClick = { onTabChange(0) }
         )
@@ -36,15 +38,15 @@ internal fun MainScreenBottomNavBar(
             icon = {
                 BadgedBox(badge = {
                     if (pendingOrders.isNotEmpty()) Badge { Text("${pendingOrders.size}") }
-                }) { Icon(Icons.Default.LocalShipping, contentDescription = "Order") }
+                }) { Icon(Icons.Default.LocalShipping, contentDescription = stringResource(R.string.courier_tab_orders)) }
             },
-            label = { Text("Order") },
+            label = { Text(stringResource(R.string.courier_tab_orders)) },
             selected = selectedTab == 1,
             onClick = { onTabChange(1) }
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
-            label = { Text("Profil") },
+            icon = { Icon(Icons.Default.Person, contentDescription = stringResource(R.string.courier_tab_profile)) },
+            label = { Text(stringResource(R.string.courier_tab_profile)) },
             selected = selectedTab == 2,
             onClick = { onTabChange(2) }
         )

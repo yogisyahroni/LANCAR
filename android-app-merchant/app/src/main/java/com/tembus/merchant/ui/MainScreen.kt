@@ -1,17 +1,27 @@
 package com.tembus.merchant.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.merchant.ui.localization.MerchantText as Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.tembus.merchant.R
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.ui.screens.home.StitchOrdersDashboardScreen
@@ -21,8 +31,9 @@ import com.tembus.merchant.ui.screens.report.BusinessInsightsZipScreen
 import com.tembus.merchant.ui.screens.staff.StaffScreen
 import kotlinx.coroutines.launch
 
-private data class MainTab(val label: String, val icon: ImageVector, val key: String)
+private data class MainTab(val labelRes: Int, val icon: ImageVector, val key: String)
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MainScreen(
     merchantRepository: MerchantRepository,
@@ -36,6 +47,7 @@ fun MainScreen(
     onOpenEditPublicProfile: () -> Unit,
     onOpenCustomerReviews: () -> Unit,
     onOpenOrderHistory: () -> Unit,
+    onOpenLanguage: () -> Unit,
     onOpenCreatePromo: () -> Unit,
     onOpenCreateMenu: () -> Unit,
     onOpenEditMenu: (String) -> Unit,
@@ -61,13 +73,13 @@ fun MainScreen(
 
     // Tab dasar sesuai desain Stitch (4 tab utama)
     val baseTabs = listOf(
-        MainTab("Pesanan", Icons.Filled.ReceiptLong, "orders"),
-        MainTab("Menu", Icons.Filled.RestaurantMenu, "menu"),
-        MainTab("Wawasan", Icons.Filled.Assessment, "report"),
-        MainTab("Profil", Icons.Filled.Storefront, "profile")
+        MainTab(R.string.merchant_tab_orders, Icons.Filled.ReceiptLong, "orders"),
+        MainTab(R.string.merchant_tab_menu, Icons.Filled.RestaurantMenu, "menu"),
+        MainTab(R.string.merchant_tab_insights, Icons.Filled.Assessment, "report"),
+        MainTab(R.string.merchant_tab_profile, Icons.Filled.Storefront, "profile")
     )
     // M1: tab Staff HANYA untuk corporate (perusahaan). Individual TIDAK punya.
-    val staffTab = MainTab("Staff", Icons.Filled.Groups, "staff")
+    val staffTab = MainTab(R.string.merchant_tab_staff, Icons.Filled.Groups, "staff")
     val tabs = if (isCorporate) baseTabs + staffTab else baseTabs
 
     var selectedTab by rememberSaveable { mutableStateOf(0) }
@@ -75,9 +87,8 @@ fun MainScreen(
     // tapi amankan agar tidak out-of-range).
     val safeSelected = if (selectedTab >= tabs.size) 0 else selectedTab
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.weight(1f)) {
-            when (tabs[safeSelected].key) {
+    val renderScreen: @Composable () -> Unit = {
+        when (tabs[safeSelected].key) {
                 "orders" -> StitchOrdersDashboardScreen(
                     onOpenOrder = onOpenStruk,
                     onOpenNotifications = onOpenNotifications,
@@ -101,6 +112,7 @@ fun MainScreen(
                     onOpenEditPublicProfile = onOpenEditPublicProfile,
                     onOpenCustomerReviews = onOpenCustomerReviews,
                     onOpenOrderHistory = onOpenOrderHistory,
+                    onOpenLanguage = onOpenLanguage,
                     onGoToRegistration = onGoToRegistration
                 )
                 "staff" -> StaffScreen(
@@ -108,21 +120,92 @@ fun MainScreen(
                     repository = merchantRepository
                 )
             }
-        }
+    }
 
-        NavigationBar(
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 1.dp
-        ) {
-            tabs.forEachIndexed { index, tab ->
-                NavigationBarItem(
-                    selected = safeSelected == index,
-                    onClick = { selectedTab = index },
-                    icon = { Icon(tab.icon, contentDescription = tab.label) },
-                    label = { Text(tab.label) },
-                    colors = com.tembus.merchant.ui.theme.TembusComponentDefaults.bottomNavItemColors()
-                )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val useNavigationRail = maxWidth >= 600.dp
+        SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+            if (useNavigationRail) {
+                Row(Modifier.fillMaxSize()) {
+                    MerchantNavigation(
+                        tabs = tabs,
+                        selectedTab = safeSelected,
+                        onSelect = { selectedTab = it },
+                        useNavigationRail = true
+                    )
+                    Box(Modifier.weight(1f).fillMaxHeight()) { renderScreen() }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Box(modifier = Modifier.weight(1f)) { renderScreen() }
+                    MerchantNavigation(
+                        tabs = tabs,
+                        selectedTab = safeSelected,
+                        onSelect = { selectedTab = it },
+                        useNavigationRail = false
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun SharedTransitionScope.MerchantNavigation(
+    tabs: List<MainTab>,
+    selectedTab: Int,
+    onSelect: (Int) -> Unit,
+    useNavigationRail: Boolean
+) {
+    // AnimatedContent keeps the outgoing and incoming selected icons in the
+    // same SharedTransitionLayout, so the selection visibly travels between
+    // destinations instead of simply fading at its old position.
+    AnimatedContent(targetState = selectedTab, label = "merchant-navigation-selection") { selected ->
+        if (useNavigationRail) {
+            NavigationRail(modifier = Modifier.fillMaxHeight()) {
+                tabs.forEachIndexed { index, tab ->
+                    NavigationRailItem(
+                        selected = selected == index,
+                        onClick = { onSelect(index) },
+                        icon = {
+                            Icon(
+                                tab.icon,
+                                contentDescription = stringResource(tab.labelRes),
+                                modifier = if (selected == index) Modifier.sharedElement(
+                                    rememberSharedContentState("merchant-selected-tab-icon"),
+                                    this@AnimatedContent
+                                ) else Modifier
+                            )
+                        },
+                        label = { Text(stringResource(tab.labelRes)) }
+                    )
+                }
+            }
+        } else {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                tonalElevation = 1.dp
+            ) {
+                tabs.forEachIndexed { index, tab ->
+                    NavigationBarItem(
+                        selected = selected == index,
+                        onClick = { onSelect(index) },
+                        icon = {
+                            Icon(
+                                tab.icon,
+                                contentDescription = stringResource(tab.labelRes),
+                                modifier = if (selected == index) Modifier.sharedElement(
+                                    rememberSharedContentState("merchant-selected-tab-icon"),
+                                    this@AnimatedContent
+                                ) else Modifier
+                            )
+                        },
+                        label = { Text(stringResource(tab.labelRes)) },
+                        colors = com.tembus.merchant.ui.theme.TembusComponentDefaults.bottomNavItemColors()
+                    )
+                }
             }
         }
     }

@@ -38,11 +38,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,6 +86,8 @@ fun StoreInformationZipScreen(
     ZipSettingsScaffold(
         title = "Store Information",
         onBack = onBack,
+        isRefreshing = state.isLoading && state.merchant != null,
+        onRefresh = viewModel::load,
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
                 Button(
@@ -175,6 +179,8 @@ fun PaymentSettingsZipScreen(
     ZipSettingsScaffold(
         title = "Payment Settings",
         onBack = onBack,
+        isRefreshing = state.isLoading && state.merchant != null,
+        onRefresh = viewModel::load,
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
                 Button(
@@ -417,6 +423,8 @@ private fun maskAccountNumber(number: String): String {
 private fun ZipSettingsScaffold(
     title: String,
     onBack: () -> Unit,
+    isRefreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     bottomBar: @Composable (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
@@ -428,20 +436,26 @@ private fun ZipSettingsScaffold(
                 title = { Text(title, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Go back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryPale)
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { onRefresh?.invoke() },
+            modifier = Modifier.fillMaxSize()
         ) {
-            item { Spacer(Modifier.height(8.dp)) }
-            item { content() }
-            item { Spacer(Modifier.height(24.dp)) }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item { Spacer(Modifier.height(8.dp)) }
+                item { content() }
+                item { Spacer(Modifier.height(24.dp)) }
+            }
         }
     }
 }

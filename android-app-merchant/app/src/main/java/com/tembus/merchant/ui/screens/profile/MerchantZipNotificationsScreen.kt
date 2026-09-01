@@ -34,9 +34,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.data.model.MerchantNotificationPreferences
 import com.tembus.merchant.ui.appViewModel
+import com.tembus.merchant.ui.rememberMerchantHapticAction
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryPale
 import com.tembus.merchant.ui.theme.Error
@@ -59,7 +62,13 @@ fun NotificationsZipScreen(
     viewModel: NotificationsViewModel = appViewModel { NotificationsViewModel(it.merchantRepository) }
 ) {
     val state by viewModel.uiState.collectAsState()
+    val savePreferences = rememberMerchantHapticAction(viewModel::savePreferences)
 
+    PullToRefreshBox(
+        isRefreshing = state.isLoading,
+        onRefresh = viewModel::load,
+        modifier = Modifier.fillMaxSize()
+    ) {
     Scaffold(
         containerColor = PrimaryPale,
         topBar = {
@@ -67,7 +76,7 @@ fun NotificationsZipScreen(
                 title = { Text("Notifications", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Go back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryPale)
@@ -76,7 +85,7 @@ fun NotificationsZipScreen(
         bottomBar = {
             Surface(color = PrimaryPale, shadowElevation = 8.dp) {
                 Button(
-                    onClick = viewModel::savePreferences,
+                    onClick = savePreferences,
                     enabled = !state.isSaving && state.errorMessage == null,
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Primary)
@@ -115,6 +124,7 @@ fun NotificationsZipScreen(
             if (state.saved) Text("Preferences updated.", color = Primary)
             Spacer(Modifier.height(16.dp))
         }
+    }
     }
 }
 

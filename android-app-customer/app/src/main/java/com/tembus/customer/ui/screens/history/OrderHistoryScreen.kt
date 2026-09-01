@@ -14,9 +14,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,6 +57,11 @@ fun OrderHistoryScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val reorderState by viewModel.reorderState.collectAsState()
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state) {
+        if (isRefreshing && state !is HistoryUiState.Loading) isRefreshing = false
+    }
 
     Scaffold(
         containerColor = Background,
@@ -58,7 +70,7 @@ fun OrderHistoryScreen(
                 title = { Text("Riwayat Pesanan", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -69,13 +81,20 @@ fun OrderHistoryScreen(
             )
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(Background)
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                viewModel.fetchHistory()
+            },
+            modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
         ) {
-            when (val res = state) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Background)
+            ) {
+                when (val res = state) {
                 is HistoryUiState.Loading -> {
                     LoadingListPlaceholder(itemCount = 5)
                 }
@@ -103,6 +122,7 @@ fun OrderHistoryScreen(
                     }
                 }
                 else -> {}
+                }
             }
         }
     }

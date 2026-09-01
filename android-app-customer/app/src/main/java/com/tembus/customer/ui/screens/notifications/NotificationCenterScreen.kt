@@ -45,10 +45,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -110,7 +112,7 @@ fun NotificationCenterScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = OnSurface)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = OnSurface)
                     }
                 },
                 actions = {
@@ -124,6 +126,11 @@ fun NotificationCenterScreen(
             )
         }
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = state.isLoading && state.notifications.isNotEmpty(),
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize()
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -179,6 +186,7 @@ fun NotificationCenterScreen(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -317,7 +325,7 @@ private fun NotificationRow(
                 Text(formatNotificationDate(notification.createdAt), color = OnSurfaceVariant, fontSize = 11.sp)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onArchive, modifier = Modifier.size(34.dp)) {
-                    Icon(Icons.Default.DeleteOutline, contentDescription = "Arsipkan", tint = OnSurfaceVariant, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.DeleteOutline, contentDescription = CustomerTextCatalog.translate("Arsipkan"), tint = OnSurfaceVariant, modifier = Modifier.size(18.dp))
                 }
             }
         }

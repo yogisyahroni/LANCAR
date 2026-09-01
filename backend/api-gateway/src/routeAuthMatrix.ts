@@ -52,6 +52,8 @@ const authServicePublic = (method: string, path: string) => {
     { method: 'POST', path: '/api/v1/auth/customer/register/start' },
     { method: 'POST', path: '/api/v1/auth/customer/google/start' },
     { method: 'POST', path: '/api/v1/auth/customer/google/complete' },
+    { method: 'POST', path: '/api/v1/auth/customer/apple/start' },
+    { method: 'POST', path: '/api/v1/auth/customer/apple/complete' },
     { method: 'POST', path: '/api/v1/auth/customer/otp/send' },
     { method: 'POST', path: '/api/v1/auth/customer/otp/verify' },
     { method: 'POST', path: '/api/v1/auth/providers/zenziva/webhook' },

@@ -1,0 +1,41 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "tembus-prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "title": "API availability (5m)",
+      "type": "timeseries",
+      "targets": [{"expr": "tembus:sli:http_request_success_ratio:5m", "legendFormat": "availability"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "tembus-prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "title": "HTTP p95 latency (5m)",
+      "type": "timeseries",
+      "targets": [{"expr": "tembus:sli:http_request_latency_p95:5m", "legendFormat": "p95"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "tembus-prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+      "id": 3,
+      "title": "OTEL request throughput by service",
+      "type": "timeseries",
+      "targets": [{"expr": "sum by (service_name) (rate(tembus_http_server_request_duration_seconds_count[5m]))", "legendFormat": "{{service_name}}"}]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["tembus", "slo", "operations"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "Tembus Operations Overview",
+  "uid": "tembus-operations-overview",
+  "version": 1
+}

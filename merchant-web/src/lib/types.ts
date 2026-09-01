@@ -11,6 +11,9 @@ export interface AuthResponse {
   access_token?: string
   refresh_token?: string
   user?: AuthUser
+  data?: {
+    token?: string
+  }
 }
 
 export interface Merchant {
@@ -131,6 +134,21 @@ export interface MerchantOrder {
   items: FoodOrderItem[]
 }
 
+export interface MerchantStruk {
+  order_id: string
+  order_number: string
+  status: string
+  merchant_name: string
+  merchant_address?: string
+  customer_name?: string
+  dropoff_address?: string
+  subtotal_idr: number
+  delivery_fee_idr: number
+  total_price_idr: number
+  created_at: string
+  items: FoodOrderItem[]
+}
+
 export interface OrderListResponse {
   orders: MerchantOrder[]
   total: number
@@ -143,6 +161,79 @@ export interface SalesReportSummary {
   total_orders: number
   gmv_idr: number
   avg_order_value_idr: number
+  top_items?: { item_name: string; quantity: number; revenue_idr: number }[]
+  daily_breakdown?: { day: string; revenue_idr: number }[]
+  performance?: {
+    total_received: number
+    accepted: number
+    cancelled: number
+    rejected_by_merchant: number
+    acceptance_rate_pct: number
+    cancellation_rate_pct: number
+    avg_rating: number
+    rating_count: number
+  }
+  advanced?: {
+    repeat_customer_count: number
+    repeat_customer_rate_pct: number
+    peak_order_hour?: number
+    avg_accepted_ready_minutes?: number
+  }
+}
+
+export interface MerchantPromo {
+  id: string
+  menu_item_id?: string | null
+  discount_type: 'percent' | 'fixed' | 'buy1get1'
+  discount_value: number
+  max_discount_idr?: number | null
+  starts_at: string
+  ends_at: string
+  is_active: boolean
+}
+
+export interface SettlementRecord {
+  id: string
+  order_id?: string
+  net_payout_idr: number
+  merchant_fee_idr: number
+  promo_discount_idr?: number
+  status: string
+  settled_at?: string | null
+  created_at: string
+}
+
+export interface SettlementSummary {
+  total_idr: number
+  holding_idr: number
+  available_idr: number
+  records: SettlementRecord[]
+  tax?: {
+    taxable_sales_idr: number
+    ppn_idr: number
+    invoice_required: number
+    invoice_issued: number
+  }
+}
+
+export interface WithdrawalRecord {
+  id: string
+  amount_idr: number
+  bank_name: string
+  bank_account_number: string
+  bank_account_holder: string
+  status: string
+  rejection_reason?: string | null
+  created_at: string
+}
+
+export interface MerchantStaff {
+  id: string
+  role: 'manager' | 'kasir' | 'kitchen' | string
+  status: 'pending' | 'active' | 'revoked' | string
+  staff_name?: string | null
+  staff_email?: string | null
+  invited_at: string
 }
 
 export const REJECT_REASONS = [

@@ -46,6 +46,15 @@ type FoodOrderItemVariantView struct {
 	PriceDelta  int64  `json:"price_delta"`
 }
 
+// PartialRejectResult — hasil refund item yang tidak tersedia.
+type PartialRejectResult struct {
+	OrderID          string `json:"order_id"`
+	RefundID         string `json:"refund_id"`
+	AmountIDR        int64  `json:"amount_idr"`
+	RefundPercentage int    `json:"refund_percentage"`
+	Status           string `json:"status"`
+}
+
 // MerchantService — interface layanan merchant (FOOD-BIKE-017).
 type MerchantService interface {
 	// Register mendaftarkan merchant baru (status pending) + dokumen verifikasi.
@@ -129,4 +138,6 @@ type MerchantService interface {
 	// Berlaku hanya status pending_merchant; nilai baru TIDAK boleh melebihi
 	// nilai order awal (Grab pattern). Notif push otomatis ke customer.
 	EditOrderItems(ctx context.Context, userID, orderID string, req EditOrderItemsRequest) (*EditOrderResult, error)
+	// PartialRejectOrder membuat satu refund item tanpa membatalkan seluruh order.
+	PartialRejectOrder(ctx context.Context, userID, orderID string, req PartialRejectOrderRequest) (*PartialRejectResult, error)
 }

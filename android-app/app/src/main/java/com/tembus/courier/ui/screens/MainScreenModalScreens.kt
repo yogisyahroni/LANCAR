@@ -43,6 +43,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -318,6 +319,8 @@ internal fun MainScreenModalScreens(deps: MainScreenDeps) {
                 )
                 selectedOrder = selectedOrder?.copy(status = newStatus)
             },
+            onRetrySync = { orderViewModel.syncPendingOrders() },
+            onUseServerVersion = { orderViewModel.resolveConflictUsingServer(order.orderId) },
             onVerifyPickup = {
                 openScan(order, CourierProofTypes.PICKUP_SCAN)
             },
@@ -519,14 +522,15 @@ internal fun MainScreenModalScreens(deps: MainScreenDeps) {
         CompletionScreen(
             serviceType = serviceType,
             onBackClick = { routeState = CourierRouteReducer.home() },
-            onComplete = { notes, completionPhoto, signatureBitmap ->
+            onComplete = { notes, completionPhoto, signatureBitmap, damageReport ->
                 scope.launch {
                     orderViewModel.submitServiceReport(
                         orderId = orderId,
                         serviceType = serviceType,
                         notes = notes,
                         completionPhoto = completionPhoto,
-                        signatureBitmap = signatureBitmap
+                        signatureBitmap = signatureBitmap,
+                        damageReport = damageReport
                     )
                 }
                 routeState = CourierRouteReducer.home()

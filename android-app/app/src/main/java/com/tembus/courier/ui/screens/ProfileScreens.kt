@@ -43,6 +43,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -304,7 +306,7 @@ internal fun ProfileContent(
                                     .addHeader("Authorization", "Bearer $authToken")
                                     .crossfade(true)
                                     .build(),
-                                contentDescription = "Foto Profil",
+                                contentDescription = CourierTextCatalog.translate("Foto Profil"),
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
                             )
@@ -353,6 +355,8 @@ internal fun ProfileContent(
             securityManager = localSecurityManager,
             onNotice = {}
         )
+
+        CourierLanguagePickerCard()
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -526,7 +530,7 @@ internal fun ProfileContent(
                                 Text("$selectedRadius km", fontWeight = FontWeight.Bold)
                                 Icon(
                                     Icons.Default.ArrowDropDown,
-                                    contentDescription = "Pilih radius",
+                                    contentDescription = CourierTextCatalog.translate("Pilih radius"),
                                     modifier = Modifier.size(18.dp)
                                 )
                             }

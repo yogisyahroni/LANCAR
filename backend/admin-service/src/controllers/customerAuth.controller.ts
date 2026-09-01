@@ -3,6 +3,8 @@ import { securityLog } from '../security/logRedaction';
 import { db } from '../db';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import argon2 from 'argon2';
+import bcrypt from 'bcryptjs';
 import { issueCsrfTokenCookie, clearCsrfTokenCookie } from '../middleware/csrfProtection';
 import {
   AuthProtectionError,
@@ -310,6 +312,116 @@ export const logoutWeb = async (req: Request, res: Response) => {
   res.clearCookie('customer_session');
   clearCsrfTokenCookie(res);
   res.json({ message: 'Logout successful' });
+};
+
+export const getCustomerSessions = async (req: Request, res: Response) => {
+  const sessionToken = req.cookies?.customer_session;
+  if (!req.user?.id || !sessionToken) {
+    res.status(401).json({ error: 'Unauthorized: No customer session token provided' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT id, session_token, ip_address, user_agent, created_at
+       FROM web_sessions
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [req.user.id]
+    );
+
+    const sessions = result.rows.map((session) => ({
+      id: session.id,
+      device: session.user_agent || 'Perangkat tidak diketahui',
+      ip: session.ip_address || 'IP tidak tersedia',
+      location: 'Lokasi tidak tersedia',
+      timestamp: session.created_at,
+      is_current: session.session_token === sessionToken,
+    }));
+
+    res.json({ sessions });
+  } catch (error) {
+    securityLog.error('Customer sessions lookup error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const logoutOtherCustomerSessions = async (req: Request, res: Response) => {
+  const sessionToken = req.cookies?.customer_session;
+  if (!req.user?.id || !sessionToken) {
+    res.status(401).json({ error: 'Unauthorized: No customer session token provided' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `DELETE FROM web_sessions
+       WHERE user_id = $1 AND session_token <> $2
+       RETURNING id`,
+      [req.user.id, sessionToken]
+    );
+    res.json({ message: 'Other customer sessions logged out', revoked_count: result.rowCount || 0 });
+  } catch (error) {
+    securityLog.error('Customer sessions revoke error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const changeCustomerPin = async (req: Request, res: Response) => {
+  const currentPin = typeof req.body?.current_pin === 'string' ? req.body.current_pin : '';
+  const newPin = typeof req.body?.new_pin === 'string' ? req.body.new_pin : '';
+
+  if (!req.user?.id) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  if (!/^\d{6}$/.test(currentPin) || !/^\d{6}$/.test(newPin)) {
+    res.status(400).json({ error: 'PIN must be exactly 6 digits' });
+    return;
+  }
+  if (currentPin === newPin) {
+    res.status(400).json({ error: 'New PIN must be different from current PIN' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT pin_hash FROM users
+       WHERE id = $1 AND role = 'customer' AND deleted_at IS NULL`,
+      [req.user.id]
+    );
+    const storedHash = result.rows[0]?.pin_hash;
+    if (!storedHash) {
+      res.status(400).json({ error: 'Customer PIN has not been configured' });
+      return;
+    }
+
+    const isValid = storedHash.startsWith('$argon2')
+      ? await argon2.verify(storedHash, currentPin)
+      : await bcrypt.compare(currentPin, storedHash);
+    if (!isValid) {
+      res.status(401).json({ error: 'Current PIN is incorrect' });
+      return;
+    }
+
+    const nextHash = await argon2.hash(newPin, {
+      type: argon2.argon2id,
+      memoryCost: 64 * 1024,
+      timeCost: 3,
+      parallelism: 2,
+      hashLength: 32,
+    });
+    await db.query(
+      `UPDATE users SET pin_hash = $1, updated_at = NOW() WHERE id = $2`,
+      [nextHash, req.user.id]
+    );
+
+    res.json({ message: 'Customer PIN changed successfully' });
+  } catch (error) {
+    securityLog.error('Customer PIN change error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 };
 
 export const me = async (req: Request, res: Response) => {

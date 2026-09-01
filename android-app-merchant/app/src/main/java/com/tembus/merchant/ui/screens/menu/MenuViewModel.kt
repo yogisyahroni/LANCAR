@@ -18,7 +18,12 @@ data class MenuUiState(
     val actionError: String? = null,
     val isSaving: Boolean = false,
     val saveError: String? = null,
-    val saveCompleted: Boolean = false
+    val saveCompleted: Boolean = false,
+    val isImporting: Boolean = false,
+    val importTotal: Int = 0,
+    val importCompleted: Int = 0,
+    val importFailed: Int = 0,
+    val importErrors: List<String> = emptyList()
 )
 
 class MenuViewModel(
@@ -147,5 +152,30 @@ class MenuViewModel(
 
     fun clearSaveState() {
         _uiState.value = _uiState.value.copy(saveError = null, saveCompleted = false)
+    }
+
+    fun importItems(rows: List<MenuImportRow>) {
+        if (rows.isEmpty() || _uiState.value.isImporting) return
+        _uiState.value = _uiState.value.copy(isImporting = true, importTotal = rows.size, importCompleted = 0, importFailed = 0, importErrors = emptyList())
+        viewModelScope.launch {
+            var completed = 0
+            var failed = 0
+            val errors = mutableListOf<String>()
+            rows.forEach { row ->
+                merchantRepository.createMenuItem(row.request)
+                    .onSuccess { completed++ }
+                    .onFailure { error ->
+                        failed++
+                        errors += "Baris ${row.lineNumber}: ${error.message ?: "gagal disimpan"}"
+                    }
+                _uiState.value = _uiState.value.copy(importCompleted = completed, importFailed = failed)
+            }
+            _uiState.value = _uiState.value.copy(isImporting = false, importErrors = errors)
+            load()
+        }
+    }
+
+    fun clearImportResult() {
+        _uiState.value = _uiState.value.copy(importTotal = 0, importCompleted = 0, importFailed = 0, importErrors = emptyList())
     }
 }

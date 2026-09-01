@@ -48,7 +48,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -111,7 +112,7 @@ fun InAppCallScreen(
                 title = { Text("Panggilan TEMBUS", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Kembali"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -319,7 +320,7 @@ private fun CallActionPanel(
                 modifier = Modifier.size(60.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White)
             ) {
-                Icon(Icons.Default.CallEnd, contentDescription = "Akhiri", modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.CallEnd, contentDescription = CourierTextCatalog.translate("Akhiri"), modifier = Modifier.size(28.dp))
             }
         }
         InAppCallState.INCOMING -> {
@@ -331,14 +332,14 @@ private fun CallActionPanel(
                     modifier = Modifier.size(62.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White)
                 ) {
-                    Icon(Icons.Default.CallEnd, contentDescription = "Tolak", modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.CallEnd, contentDescription = CourierTextCatalog.translate("Tolak"), modifier = Modifier.size(28.dp))
                 }
                 FilledIconButton(
                     onClick = onAccept,
                     modifier = Modifier.size(62.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = Primary, contentColor = Color.White)
                 ) {
-                    Icon(Icons.Default.Call, contentDescription = "Terima", modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.Call, contentDescription = CourierTextCatalog.translate("Terima"), modifier = Modifier.size(28.dp))
                 }
             }
         }
@@ -354,14 +355,14 @@ private fun CallActionPanel(
                         contentColor = if (micMuted) Color(0xFFFF6B00) else Primary
                     )
                 ) {
-                    Icon(if (micMuted) Icons.Default.MicOff else Icons.Default.Mic, contentDescription = "Mikrofon")
+                    Icon(if (micMuted) Icons.Default.MicOff else Icons.Default.Mic, contentDescription = CourierTextCatalog.translate("Mikrofon"))
                 }
                 FilledIconButton(
                     onClick = onEnd,
                     modifier = Modifier.size(66.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White)
                 ) {
-                    Icon(Icons.Default.CallEnd, contentDescription = "Akhiri", modifier = Modifier.size(30.dp))
+                    Icon(Icons.Default.CallEnd, contentDescription = CourierTextCatalog.translate("Akhiri"), modifier = Modifier.size(30.dp))
                 }
             }
         }

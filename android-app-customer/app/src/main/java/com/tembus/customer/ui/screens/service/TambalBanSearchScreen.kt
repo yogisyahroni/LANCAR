@@ -27,7 +27,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -65,7 +66,7 @@ fun TambalBanSearchScreen(
                 title = { Text("Cari Teknisi", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -94,7 +95,7 @@ fun TambalBanSearchScreen(
                 trailingIcon = {
                     if (query.isNotBlank()) {
                         IconButton(onClick = { query = ""; viewModel.clear() }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Bersihkan")
+                            Icon(Icons.Default.Clear, contentDescription = CustomerTextCatalog.translate("Bersihkan"))
                         }
                     }
                 },

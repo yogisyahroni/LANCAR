@@ -2,6 +2,7 @@ package com.tembus.customer.ui.screens.detail
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
+import com.tembus.customer.ui.a11y.criticalAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,7 +43,7 @@ fun DisputeDialog(
     var mimeType by remember { mutableStateOf<String?>(null) }
     var agreed by remember { mutableStateOf(false) }
 
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         uri?.let {
             imageUri = it
             mimeType = context.contentResolver.getType(it) ?: "image/jpeg"
@@ -53,8 +57,8 @@ fun DisputeDialog(
         title = {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Laporkan Masalah", fontWeight = FontWeight.Bold)
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Tutup")
+                IconButton(onClick = onDismiss, modifier = Modifier.criticalAction("Tutup laporan masalah")) {
+                    Icon(Icons.Default.Close, contentDescription = CustomerTextCatalog.translate("Tutup"))
                 }
             }
         },
@@ -93,14 +97,16 @@ fun DisputeDialog(
                     Text("Upload Bukti Foto", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
 
-                Button(onClick = { imagePicker.launch("image/*") }) {
+                Button(onClick = {
+                    imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }, modifier = Modifier.criticalAction("Pilih bukti foto")) {
                     Text(if (imageUri != null) "Ganti Foto" else "Pilih Foto")
                 }
 
                 imageUri?.let {
                     Image(
                         painter = rememberAsyncImagePainter(it),
-                        contentDescription = "Preview",
+                        contentDescription = CustomerTextCatalog.translate("Preview"),
                         modifier = Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(8.dp)),
                         contentScale = ContentScale.Crop
                     )
@@ -128,6 +134,7 @@ fun DisputeDialog(
             Button(
                 onClick = { onSubmit(type, description, imageBytes, mimeType) },
                 enabled = isButtonEnabled,
+                modifier = Modifier.criticalAction("Kirim laporan masalah"),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
                 if (submitState is DisputeSubmitState.Loading) {

@@ -41,7 +41,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -114,7 +115,7 @@ fun MerchantDetailScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Primary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = Primary)
                 }
                 Text(
                     merchant?.name ?: "Detail Merchant",
@@ -127,7 +128,7 @@ fun MerchantDetailScreen(
                 )
                 Box {
                     IconButton(onClick = onCartClick) {
-                        Icon(Icons.Default.ShoppingCart, contentDescription = "Keranjang", tint = Primary)
+                        Icon(Icons.Default.ShoppingCart, contentDescription = CustomerTextCatalog.translate("Keranjang"), tint = Primary)
                     }
                     if (cartSize > 0) {
                         Box(
@@ -502,7 +503,7 @@ private fun ItemDetailSheet(
                     onClick = { if (quantity > 1) quantity-- },
                     enabled = quantity > 1
                 ) {
-                    Icon(Icons.Default.Remove, contentDescription = "Kurangi")
+                        Icon(Icons.Default.Remove, contentDescription = CustomerTextCatalog.translate("Kurangi"))
                 }
                 Text(
                     "$quantity",
@@ -511,7 +512,7 @@ private fun ItemDetailSheet(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 FilledTonalIconButton(onClick = { if (quantity < 99) quantity++ }) {
-                    Icon(Icons.Default.Add, contentDescription = "Tambah")
+                        Icon(Icons.Default.Add, contentDescription = CustomerTextCatalog.translate("Tambah"))
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
@@ -678,7 +679,7 @@ private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit, onClick: () -> Un
             shape = CircleShape,
             contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Tambah", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Add, contentDescription = CustomerTextCatalog.translate("Tambah"), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
         }
     }
 }

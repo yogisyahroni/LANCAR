@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.*
+import com.tembus.merchant.ui.localization.MerchantText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment

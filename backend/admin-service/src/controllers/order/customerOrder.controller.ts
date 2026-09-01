@@ -104,7 +104,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       logistics_net_cost_idr,
       pickup_city,
       dropoff_city,
-      preferred_courier_id
+      preferred_courier_id,
+      material_codes
     } = req.body;
 
     // Home services: harga jasa petugas dipakai utk hitung breakdown server-side
@@ -168,6 +169,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       itemValue: item_value,
       sizeTier: package_details?.size_tier || normalizedPackages[0]?.size_tier,
       courierId: courierIdForPricing,
+      materialCodes: material_codes ?? package_details?.service_material_codes,
     });
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
 
@@ -249,6 +251,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
                           included_distance_km: trustedPriceBreakdown.included_distance_km || 0,
                           platform_fee_pct: trustedPriceBreakdown.platform_fee_pct || 0,
                           platform_commission_pct: trustedPriceBreakdown.platform_commission_pct || 0,
+                          material_cost_idr: trustedPriceBreakdown.material_cost_idr || 0,
+                          materials: trustedPriceBreakdown.materials || [],
                         }
                       }
         };

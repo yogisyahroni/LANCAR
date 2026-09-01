@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
+import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { clientLog } from '@/lib/clientLogger';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { 
@@ -211,17 +212,7 @@ export default function ResiPage() {
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6 select-none animate-pulse">
-        <div className="h-10 bg-muted/50 rounded-xl w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="h-12 bg-muted/40 rounded-xl" />
-          <div className="h-12 bg-muted/40 rounded-xl" />
-          <div className="h-12 bg-muted/40 rounded-xl" />
-        </div>
-        <div className="h-[400px] bg-muted/40 border border-border/40 rounded-2xl" />
-      </div>
-    );
+    return <CustomerPageSkeleton />;
   }
 
   return (

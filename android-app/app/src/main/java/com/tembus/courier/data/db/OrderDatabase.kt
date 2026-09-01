@@ -25,7 +25,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 21,
+    version = 22,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -277,6 +277,21 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addOrderColumnIfMissing(
+                    db,
+                    "sync_conflict",
+                    "ALTER TABLE `orders` ADD COLUMN `sync_conflict` INTEGER NOT NULL DEFAULT 0"
+                )
+                addOrderColumnIfMissing(
+                    db,
+                    "sync_conflict_message",
+                    "ALTER TABLE `orders` ADD COLUMN `sync_conflict_message` TEXT"
+                )
+            }
+        }
+
         val MIGRATION_10_13 = object : Migration(10, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addVersion11Columns(db)
@@ -312,6 +327,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_18_19,
             MIGRATION_19_20,
             MIGRATION_20_21,
+            MIGRATION_21_22,
             MIGRATION_10_13,
             MIGRATION_11_13
         )

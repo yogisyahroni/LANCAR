@@ -270,6 +270,23 @@ class HomeViewModel(
         }
     }
 
+    fun partialRejectOrder(orderId: String, items: List<com.tembus.merchant.data.model.PartialRejectItemRequest>, reason: String) {
+        _uiState.value = _uiState.value.copy(actionOrderId = orderId, actionError = null)
+        viewModelScope.launch {
+            merchantRepository.partialRejectOrder(orderId, items, reason)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(actionOrderId = null)
+                    loadOrders()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        actionOrderId = null,
+                        actionError = e.message ?: "Gagal memproses item tidak tersedia"
+                    )
+                }
+        }
+    }
+
     fun clearActionError() {
         _uiState.value = _uiState.value.copy(actionError = null)
     }

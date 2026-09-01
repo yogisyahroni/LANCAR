@@ -93,6 +93,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun refresh() {
+        fetchChatHistory()
+        fetchOrderSummary()
+    }
+
     private fun fetchOrderSummary() {
         viewModelScope.launch {
             orderRepository.getOrderDetail(orderId).collectLatest { result ->

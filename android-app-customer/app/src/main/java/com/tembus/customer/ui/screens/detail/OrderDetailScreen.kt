@@ -10,6 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +33,7 @@ import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.Warning
+import com.tembus.customer.ui.a11y.criticalAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +50,11 @@ fun OrderDetailScreen(
     val context = LocalContext.current
     var showDisputeDialog by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state) {
+        if (state !is OrderDetailUiState.Loading) isRefreshing = false
+    }
 
     // S2-CUSTOMER-02: Predefined cancel reasons per skill 01 B.5
     val cancelReasons = remember {
@@ -118,8 +127,8 @@ fun OrderDetailScreen(
             TopAppBar(
                 title = { Text("Detail Pengiriman", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                    IconButton(onClick = onBackClick, modifier = Modifier.criticalAction("Kembali dari detail pesanan")) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -130,12 +139,20 @@ fun OrderDetailScreen(
             )
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(Background)
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                viewModel.fetchOrderDetail(orderId)
+            },
+            modifier = Modifier.fillMaxSize()
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .background(Background)
+            ) {
             when (val res = state) {
                 is OrderDetailUiState.Loading -> {
                     Text(
@@ -299,7 +316,7 @@ fun OrderDetailScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Button(
                                     onClick = { onTrackClick(order.orderId) },
-                                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                                    modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Lacak posisi kurir"),
                                     shape = RoundedCornerShape(TembusRadius.Button),
                                     colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
                                 ) {
@@ -311,7 +328,7 @@ fun OrderDetailScreen(
                                 if (canOpenConversation(order.status)) {
                                     OutlinedButton(
                                         onClick = { onChatClick(order.orderId, order.courierName) },
-                                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                                        modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Chat kurir"),
                                         shape = RoundedCornerShape(TembusRadius.Button),
                                         border = BorderStroke(1.dp, Primary)
                                     ) {
@@ -325,7 +342,7 @@ fun OrderDetailScreen(
                                 if (canCancelOrder(order.status)) {
                                     OutlinedButton(
                                         onClick = { showCancelDialog = true },
-                                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                                        modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Batalkan pesanan"),
                                         shape = RoundedCornerShape(TembusRadius.Button),
                                         border = BorderStroke(1.dp, Error),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)
@@ -345,7 +362,7 @@ fun OrderDetailScreen(
                                     ) && order.status.lowercase() == "delivered") {
                                     OutlinedButton(
                                         onClick = { /* Navigate to service report */ },
-                                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                                        modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Lihat laporan layanan"),
                                         shape = RoundedCornerShape(TembusRadius.Button),
                                         border = BorderStroke(1.dp, Primary),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Primary)
@@ -363,7 +380,7 @@ fun OrderDetailScreen(
                         // Tombol Bantuan / Komplain
                         TextButton(
                             onClick = { showDisputeDialog = true },
-                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                            modifier = Modifier.fillMaxWidth().height(48.dp).criticalAction("Laporkan masalah pesanan")
                         ) {
                             Icon(Icons.Default.ReportProblem, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                             Spacer(Modifier.width(8.dp))
@@ -372,6 +389,7 @@ fun OrderDetailScreen(
                     }
                 }
                 else -> {}
+            }
             }
         }
     }
@@ -534,6 +552,3 @@ fun RoutePoint(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Col
         }
     }
 }
-
-
-

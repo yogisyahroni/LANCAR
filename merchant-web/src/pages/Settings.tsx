@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import type { Merchant } from '../lib/types'
 import { rupiah } from '../lib/types'
+import { MerchantPageSkeleton } from '../components/Skeleton'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -68,7 +69,7 @@ export default function Settings() {
     }
   }, [merchant])
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-emerald-900" /></div>
+  if (loading) return <MerchantPageSkeleton />
   if (!merchant) return <p className="rounded-2xl border border-zinc-100 bg-white p-8 text-center text-sm text-zinc-500">Profil tidak dapat dimuat.</p>
 
   return (

@@ -389,8 +389,13 @@ interface TEMBUSApiService {
     // TAMBAL BAN & TOWING — Nearby Couriers
     // ============================================================
     
-    @POST("api/v1/customer/nearby-couriers")
-    suspend fun getNearbyCouriers(@Body request: Map<String, Any>): Response<NearbyCouriersResponse>
+    @GET("api/v1/customer/nearby-couriers")
+    suspend fun getNearbyCouriers(
+        @Query("service_sub_type") serviceSubType: String,
+        @Query("lat") lat: Double,
+        @Query("lng") lng: Double,
+        @Query("radius_km") radiusKm: Double = 5.0
+    ): Response<NearbyCouriersResponse>
 
     // ============================================================
     // TAMBAL BAN — Home + Detail Teknisi + Search (design Stitch UI/UX)
@@ -401,6 +406,11 @@ interface TEMBUSApiService {
         @Query("lat") lat: Double,
         @Query("lng") lng: Double
     ): Response<TambalBanHomeResponse>
+
+    @GET("api/v1/customer/tambal-ban/materials")
+    suspend fun getTambalBanMaterials(
+        @Query("service_code") serviceCode: String
+    ): Response<TambalBanMaterialsResponse>
 
     @GET("api/v1/customer/couriers/{id}")
     suspend fun getCourierDetail(
@@ -488,5 +498,4 @@ interface TEMBUSApiService {
     @GET("api/v1/customer/banners")
     suspend fun getBanners(): Response<GlobalBannerListResponse>
 }
-
 

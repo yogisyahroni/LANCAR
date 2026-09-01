@@ -41,11 +41,11 @@ func (h *StaffHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	}
 	// Jangan kirim invite_token ke response (staff perlu token via notif).
 	h.respondJSON(w, http.StatusCreated, map[string]interface{}{
-		"success":   true,
-		"staff_id":  staff.ID,
-		"role":      staff.Role,
-		"status":    staff.Status,
-		"message":   "Undangan dibuat. Token dikirim ke " + maskContact(req.Email, req.Phone) + ".",
+		"success":  true,
+		"staff_id": staff.ID,
+		"role":     staff.Role,
+		"status":   staff.Status,
+		"message":  "Undangan dibuat. Token dikirim ke " + maskContact(req.Email, req.Phone) + ".",
 	})
 }
 
@@ -59,16 +59,16 @@ func (h *StaffHandler) List(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusBadRequest, "merchant_id wajib")
 		return
 	}
-	list, err := h.staffSvc.ListStaff(r.Context(), userID, merchantID)
+	result, err := h.staffSvc.ListStaff(r.Context(), userID, merchantID)
 	if err != nil {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
 	}
-	out := make([]domain.StaffPublicView, 0, len(list))
-	for _, s := range list {
+	out := make([]domain.StaffPublicView, 0, len(result.Staff))
+	for _, s := range result.Staff {
 		out = append(out, s.ToPublic())
 	}
-	h.respondJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": out})
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": out, "can_manage": result.CanManage})
 }
 
 func (h *StaffHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {

@@ -107,3 +107,38 @@ func TestServiceReportRequiresTowingProofs(t *testing.T) {
 		t.Fatal("repo should be called for valid towing report")
 	}
 }
+
+func TestCreateTambalBanReportEncodesStructuredMaterialsForLegacyStorage(t *testing.T) {
+	repo := &fakeServiceReportRepo{}
+	svc := NewServiceReportService(repo)
+	now := time.Now()
+	report := &domain.TambalBanReport{
+		OrderID:            "order-materials",
+		TirePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		TirePhotoAfterURL:  reportStringPtr("/uploads/after.jpg"),
+		MaterialsUsedItems: []string{"patch_kit", "valve_core"},
+		CompletedAt:        &now,
+	}
+
+	if err := svc.CreateTambalBanReport(context.Background(), report); err != nil {
+		t.Fatalf("expected structured materials to be accepted: %v", err)
+	}
+	if report.MaterialsUsed == nil || *report.MaterialsUsed != `["patch_kit","valve_core"]` {
+		t.Fatalf("expected JSON materials in legacy storage field, got %v", report.MaterialsUsed)
+	}
+}
+
+func TestCreateTowingReportAcceptsStructuredDamageReport(t *testing.T) {
+	repo := &fakeServiceReportRepo{}
+	svc := NewServiceReportService(repo)
+	now := time.Now()
+	report := &domain.TowingReport{
+		OrderID: "order-damage", VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		CompletionPhotoURL: reportStringPtr("/uploads/completion.jpg"), SignatureURL: reportStringPtr("/uploads/signature.jpg"),
+		DamageReport: &domain.TowingDamageReport{Areas: []string{"front_bumper", "left_door"}, Severity: "minor", SafeToTransport: true},
+		CompletedAt:  &now,
+	}
+	if err := svc.CreateTowingReport(context.Background(), report); err != nil {
+		t.Fatalf("expected structured damage report to be accepted: %v", err)
+	}
+}

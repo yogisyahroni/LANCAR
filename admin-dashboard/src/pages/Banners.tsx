@@ -4,6 +4,7 @@ import { Megaphone, Plus, Trash2, Pencil, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { AdminPageSkeleton } from '../components/ui/Skeleton'
 
 type Banner = {
   id: string
@@ -125,7 +126,7 @@ export default function Banners() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-zinc-500">Loading...</p>
+        <AdminPageSkeleton />
       ) : banners.length === 0 ? (
         <p className="text-sm text-zinc-500">Belum ada banner. Klik "Banner Baru" untuk membuat.</p>
       ) : (

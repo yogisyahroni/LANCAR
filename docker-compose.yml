@@ -173,6 +173,7 @@ services:
     ports:
       - "${OTEL_COLLECTOR_BIND:-127.0.0.1}:${OTEL_COLLECTOR_GRPC_PORT:-4317}:4317"
       - "${OTEL_COLLECTOR_BIND:-127.0.0.1}:${OTEL_COLLECTOR_HTTP_PORT:-4318}:4318"
+      - "${OTEL_COLLECTOR_BIND:-127.0.0.1}:${OTEL_COLLECTOR_METRICS_PORT:-8889}:8889"
     healthcheck:
       test: ["CMD", "/otelcol-contrib", "--version"]
       interval: 15s
@@ -186,6 +187,64 @@ services:
           memory: 384M
         reservations:
           memory: 128M
+    networks:
+      - tembus-net
+
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.0}
+    container_name: tembus-prometheus
+    restart: unless-stopped
+    profiles:
+      - observability
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability:/etc/prometheus/rules:ro
+      - ./deploy/observability/prometheus-rules.yaml:/etc/prometheus/rules/prometheus-rules.yaml:ro
+      - tembus-prometheus-data:/prometheus
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+    ports:
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - tembus-net
+
+  grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana:12.1.1}
+    container_name: tembus-grafana
+    restart: unless-stopped
+    profiles:
+      - observability
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required for Grafana}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - tembus-grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    ports:
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${GRAFANA_PORT:-3005}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     networks:
       - tembus-net
 
@@ -205,6 +264,7 @@ services:
       postgres
       "host=db port=5432 user=${POSTGRES_USER:-postgres} password=${POSTGRES_PASSWORD:-1234} dbname=${POSTGRES_DB:-tembus} sslmode=disable"
       up
+      -allow-missing
     networks:
       - tembus-net
     profiles:
@@ -250,6 +310,8 @@ services:
       OTP_HASH_PEPPER: ${OTP_HASH_PEPPER:-}
       GOOGLE_CUSTOMER_WEB_CLIENT_ID: ${GOOGLE_CUSTOMER_WEB_CLIENT_ID:-}
       GOOGLE_CUSTOMER_ANDROID_CLIENT_ID: ${GOOGLE_CUSTOMER_ANDROID_CLIENT_ID:-}
+      APPLE_CUSTOMER_WEB_CLIENT_ID: ${APPLE_CUSTOMER_WEB_CLIENT_ID:-}
+      APPLE_CUSTOMER_ANDROID_CLIENT_ID: ${APPLE_CUSTOMER_ANDROID_CLIENT_ID:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: ${AUTH_OTEL_SERVICE_NAME:-auth-service}
@@ -595,17 +657,27 @@ services:
     container_name: tembus-gateway
     restart: unless-stopped
     depends_on:
-      - auth-service
-      - order-service
-      - admin-service
-      - routing-service
-      - payment-service
+      auth-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      admin-service:
+        condition: service_started
+      routing-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
     environment:
       AUTH_SERVICE_URL: "http://auth-service:8081"
       ORDER_SERVICE_URL: "http://order-service:8083"
       ADMIN_SERVICE_URL: "http://admin-service:3000"
       ROUTING_SERVICE_URL: "http://routing-service:8082"
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
+      # Always use the compose-network Redis hostname. The root .env may carry
+      # localhost for host-side tools, which is unreachable from this container.
+      REDIS_URL: "redis://redis:6379"
       # merchant-service di-containerize (tembus-merchant) — alamat internal docker network
       MERCHANT_SERVICE_URL: ${MERCHANT_SERVICE_URL:-http://merchant-service:8085}
       GATEWAY_PORT: 8080
@@ -778,6 +850,10 @@ volumes:
     name: tembus-admin-uploads
   tembus-merchant-uploads:
     name: tembus-merchant-uploads
+  tembus-prometheus-data:
+    name: tembus-prometheus-data
+  tembus-grafana-data:
+    name: tembus-grafana-data
 
 networks:
   tembus-net:

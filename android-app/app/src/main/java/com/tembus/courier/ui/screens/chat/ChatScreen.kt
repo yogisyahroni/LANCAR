@@ -16,6 +16,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -111,7 +113,7 @@ fun ChatScreen(
                         if (customerPhoto != null) {
                             AsyncImage(
                                 model = customerPhoto,
-                                contentDescription = "Foto ${order?.customerName ?: "Customer"}",
+                                contentDescription = CourierTextCatalog.translate("Foto ${order?.customerName ?: "Customer"}"),
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(RoundedCornerShape(20.dp)),
@@ -137,7 +139,7 @@ fun ChatScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Kembali",
+                            contentDescription = CourierTextCatalog.translate("Kembali"),
                             tint = Color.White
                         )
                     }
@@ -146,7 +148,7 @@ fun ChatScreen(
                     IconButton(onClick = onCallClick) {
                         Icon(
                             imageVector = Icons.Default.Phone,
-                            contentDescription = "Telepon dalam aplikasi",
+                            contentDescription = CourierTextCatalog.translate("Telepon dalam aplikasi"),
                             tint = Color.White
                         )
                     }
@@ -289,7 +291,7 @@ fun ChatScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Kirim",
+                            contentDescription = CourierTextCatalog.translate("Kirim"),
                             tint = Color.White
                         )
                     }
@@ -332,7 +334,7 @@ private fun CourierFoodOrderCard(
                 if (firstItemImageUrl != null) {
                     AsyncImage(
                         model = firstItemImageUrl,
-                        contentDescription = "Foto makanan",
+                        contentDescription = CourierTextCatalog.translate("Foto makanan"),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )

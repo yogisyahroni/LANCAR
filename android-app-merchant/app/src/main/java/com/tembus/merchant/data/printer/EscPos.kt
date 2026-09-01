@@ -10,6 +10,11 @@ import androidx.core.content.ContextCompat
 import com.tembus.merchant.data.model.StrukData
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -29,6 +34,9 @@ object EscPos {
 
     /** Lebar baris konten 58mm: 32 kolom huruf normal. */
     private const val WIDTH = 32
+    private const val CONNECT_TIMEOUT_MS = 15_000L
+    private const val WRITE_CHUNK_SIZE = 512
+    private val printMutex = Mutex()
 
     // ─── Daftar printer paired ──────────────────────────────────────────
     /** Semua perangkat Bluetooth yang sudah di-pairing (filter printer ringan). */
@@ -61,25 +69,37 @@ object EscPos {
      * @return error message kalau gagal, null kalau sukses.
      * Akses socket memerlukan BLUETOOTH_CONNECT — sudah di-guard oleh
      * StrukScreen permission launcher sebelum memanggil print(). */
-    suspend fun print(device: BluetoothDevice, struk: StrukData): String? = withContext(Dispatchers.IO) {
-        var socket: BluetoothSocket? = null
-        try {
-            socket = device.createRfcommSocketToServiceRecord(
-                java.util.UUID.fromString(SPP_UUID)
-            )
-            socket.connect()
-            val bytes = buildReceipt(struk)
-            socket.outputStream.write(bytes)
-            socket.outputStream.flush()
-            null
-        } catch (e: IOException) {
-            e.message ?: "Gagal terhubung ke printer"
-        } catch (e: SecurityException) {
-            "Izin Bluetooth tidak tersedia"
-        } finally {
+    suspend fun print(device: BluetoothDevice, struk: StrukData): String? = printMutex.withLock {
+        withContext(Dispatchers.IO) {
+            var socket: BluetoothSocket? = null
             try {
-                socket?.close()
-            } catch (_: IOException) {
+                socket = device.createRfcommSocketToServiceRecord(
+                    java.util.UUID.fromString(SPP_UUID)
+                )
+                withTimeout(CONNECT_TIMEOUT_MS) {
+                    runInterruptible { socket.connect() }
+                    val bytes = buildReceipt(struk)
+                    val output = socket.outputStream
+                    var offset = 0
+                    while (offset < bytes.size) {
+                        val length = minOf(WRITE_CHUNK_SIZE, bytes.size - offset)
+                        runInterruptible { output.write(bytes, offset, length) }
+                        offset += length
+                    }
+                    runInterruptible { output.flush() }
+                }
+                null
+            } catch (_: TimeoutCancellationException) {
+                "Waktu koneksi/cetak habis setelah ${CONNECT_TIMEOUT_MS / 1000} detik"
+            } catch (e: IOException) {
+                e.message ?: "Gagal terhubung ke printer"
+            } catch (e: SecurityException) {
+                "Izin Bluetooth tidak tersedia"
+            } finally {
+                try {
+                    socket?.close()
+                } catch (_: IOException) {
+                }
             }
         }
     }
@@ -90,9 +110,9 @@ object EscPos {
         val out = java.io.ByteArrayOutputStream()
 
         fun raw(vararg b: Int) {
-        val bytes = ByteArray(b.size) { b[it].toByte() }
-        out.write(bytes)
-    }
+            val bytes = ByteArray(b.size) { b[it].toByte() }
+            out.write(bytes)
+        }
         fun line(text: String, align: Int = 0, bold: Boolean = false, size: Int = 0) {
             raw(0x1B, 0x61, align)                       // ESC a (align 0=left 1=center 2=right)
             raw(0x1B, 0x45, if (bold) 1 else 0)          // ESC E (bold)

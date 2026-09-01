@@ -23,6 +23,8 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.Animatable
@@ -125,7 +127,9 @@ fun OrderDetailScreen(
     onSosClick: () -> Unit = {},
     onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit = { _, _, _, _ -> },
     onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit = { _, _, _ -> },
-    onLogLocalSecurity: (String, () -> Unit) -> Unit = { _, cb -> cb() }
+    onLogLocalSecurity: (String, () -> Unit) -> Unit = { _, cb -> cb() },
+    onRetrySync: () -> Unit = {},
+    onUseServerVersion: () -> Unit = {}
 ) {
     val context = LocalContext.current
     
@@ -234,7 +238,7 @@ fun OrderDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -310,7 +314,9 @@ fun OrderDetailScreen(
                     onCallClick = onCallClick,
                     onSosClick = onSosClick,
                     onReportIssue = onReportIssue,
-                    onCancelPickup = onCancelPickup
+                    onCancelPickup = onCancelPickup,
+                    onRetrySync = onRetrySync,
+                    onUseServerVersion = onUseServerVersion
                 )
             } else if (!isServiceOrder) {
                 OrderActions(
@@ -327,10 +333,11 @@ fun OrderDetailScreen(
                     onCapturePod = onCapturePod,
                     onChatClick = onChatClick,
                     onCallClick = onCallClick,
-                    onSosClick = onSosClick
+                    onSosClick = onSosClick,
+                    onRetrySync = onRetrySync,
+                    onUseServerVersion = onUseServerVersion
                 )
             }
         }
     }
 }
-

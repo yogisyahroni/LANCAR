@@ -116,10 +116,10 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
   if (paymentStatus === 'paid') {
     return (
       <div className="flex flex-col items-center justify-center py-16 animate-in zoom-in duration-500">
-        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+        <div className="w-20 h-20 bg-brand-emerald-500/20 rounded-full flex items-center justify-center mb-6">
+          <CheckCircle2 className="w-10 h-10 text-brand-emerald-500" />
         </div>
-        <h2 className="text-2xl font-bold text-emerald-500 mb-2">Pembayaran Berhasil!</h2>
+        <h2 className="text-2xl font-bold text-brand-emerald-500 mb-2">Pembayaran Berhasil!</h2>
         <p className="text-muted-foreground text-center max-w-md">
           {totalOrders} pesanan sudah dibuat dan masuk antrean dispatch. Mengalihkan ke riwayat pesanan...
         </p>

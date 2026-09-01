@@ -979,6 +979,43 @@ func (h *MerchantHandler) EditOrderItems(w http.ResponseWriter, r *http.Request)
 	h.respondJSON(w, http.StatusOK, result)
 }
 
+// PartialRejectOrder godoc
+// @Summary Refund item food yang tidak tersedia
+// @Description Merchant mengembalikan sebagian item tanpa membatalkan seluruh order.
+// @Tags merchant
+// @Accept json
+// @Produce json
+// @Param id path string true "Order ID"
+// @Param request body domain.PartialRejectOrderRequest true "Item tidak tersedia"
+// @Success 200 {object} domain.PartialRejectResult
+// @Router /merchant/orders/{id}/items/unavailable [post]
+func (h *MerchantHandler) PartialRejectOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	orderID := r.PathValue("id")
+	if orderID == "" {
+		h.respondError(w, http.StatusBadRequest, "order id wajib diisi")
+		return
+	}
+	var req domain.PartialRejectOrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	result, err := h.svc.PartialRejectOrder(r.Context(), userID, orderID, req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, result)
+}
+
 func parsePagination(r *http.Request) (int, int) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))

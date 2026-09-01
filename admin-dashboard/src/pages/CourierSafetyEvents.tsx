@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
-import { AlertOctagon, Clock, MapPin, Package, ShieldAlert, UserRound } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertOctagon, Clock, MapPin, Package, ShieldAlert, UserRound, MapPinned, Check } from 'lucide-react'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { toast } from 'sonner'
 
 const severityStyles: Record<string, string> = {
   critical: 'border-red-500/40 bg-red-500/10 text-red-200',
@@ -30,6 +31,7 @@ const formatDate = (value?: string) => {
 }
 
 export default function CourierSafetyEvents() {
+  const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['courier-safety-events'],
     queryFn: async () => {
@@ -37,6 +39,21 @@ export default function CourierSafetyEvents() {
       return res.data.data || []
     },
     refetchInterval: 30_000,
+  })
+
+  const { data: gpsRiskData, isLoading: isGpsRiskLoading } = useQuery({
+    queryKey: ['courier-gps-risk-alerts'],
+    queryFn: async () => (await api.get('/admin/gps-risk-alerts')).data.data || [],
+    refetchInterval: 30_000,
+  })
+  const gpsRiskMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'acknowledged' | 'resolved' }) =>
+      api.patch(`/admin/gps-risk-alerts/${id}`, { status }),
+    onSuccess: (_, variables) => {
+      toast.success(variables.status === 'resolved' ? 'GPS risk diselesaikan' : 'GPS risk di-acknowledge')
+      queryClient.invalidateQueries({ queryKey: ['courier-gps-risk-alerts'] })
+    },
+    onError: () => toast.error('Status GPS risk gagal diperbarui'),
   })
 
   const events = data || []
@@ -121,6 +138,45 @@ export default function CourierSafetyEvents() {
           </div>
         )}
       </div>
+
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-orange-300">Evidence control</p>
+            <h2 className="mt-1 text-xl font-black text-zinc-100">GPS / Geofence Risk</h2>
+            <p className="mt-1 text-sm text-zinc-500">Bukti tetap immutable; operator mengelola tindak lanjutnya di sini.</p>
+          </div>
+          <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-black text-orange-200">
+            {(gpsRiskData || []).filter((item: any) => item.action_status !== 'resolved').length} open
+          </span>
+        </div>
+        <div className="rounded-3xl border border-orange-500/20 bg-orange-500/[0.04]">
+          {isGpsRiskLoading ? (
+            <div className="p-8 text-center text-zinc-500">Memuat GPS risk...</div>
+          ) : (gpsRiskData || []).length === 0 ? (
+            <div className="flex flex-col items-center gap-2 p-8 text-zinc-500"><MapPinned className="h-8 w-8" /><p className="font-bold">Belum ada GPS risk alert</p></div>
+          ) : (
+            <div className="divide-y divide-white/10">
+              {(gpsRiskData || []).map((item: any) => (
+                <div key={item.id} className="grid gap-4 p-5 lg:grid-cols-[1.4fr_1fr_auto] lg:items-center">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-black text-zinc-100">{item.courier_name || 'Courier'} · {item.proof_step}</p>
+                      <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-red-200">{item.spoof_risk || item.rejection_reason}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-zinc-500">Order {item.order_number || item.order_id} · {item.distance_m ?? '-'}m / radius {item.radius_m ?? '-'}m · akurasi {item.accuracy_m ?? '-'}m</p>
+                  </div>
+                  <p className="text-xs text-zinc-400">Status tindak lanjut: <strong className="text-zinc-200">{item.action_status}</strong></p>
+                  <div className="flex justify-end gap-2">
+                    {item.action_status === 'open' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'acknowledged' })} disabled={gpsRiskMutation.isPending} className="rounded-xl border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:bg-white/10 disabled:opacity-50">Acknowledge</button>}
+                    {item.action_status !== 'resolved' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'resolved' })} disabled={gpsRiskMutation.isPending} className="inline-flex items-center gap-1 rounded-xl bg-orange-500 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-950 hover:bg-orange-400 disabled:opacity-50"><Check className="h-3 w-3" /> Resolve</button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

@@ -27,8 +27,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -52,6 +55,7 @@ import com.tembus.merchant.ui.theme.PrimaryPale
 import java.text.NumberFormat
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettlementZipScreen(
     onBack: () -> Unit,
@@ -60,13 +64,18 @@ fun SettlementZipScreen(
     val state by viewModel.uiState.collectAsState()
     var showWithdrawDialog by remember { mutableStateOf(false) }
 
+    PullToRefreshBox(
+        isRefreshing = state.isLoading && state.summary != null,
+        onRefresh = viewModel::load,
+        modifier = Modifier.fillMaxSize()
+    ) {
     Column(Modifier.fillMaxSize().background(PrimaryPale)) {
         Row(
             Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Kembali"))
             }
             Text("Payout History", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
@@ -89,6 +98,7 @@ fun SettlementZipScreen(
                         SettlementAmountCard("Paid out", summary.totalIdr, Modifier.weight(1f))
                         SettlementAmountCard("On hold", summary.holdingIdr, Modifier.weight(1f))
                     }
+                    TaxSummaryCard(summary.tax)
                     Button(
                         onClick = { showWithdrawDialog = true },
                         enabled = summary.availableIdr >= 10_000 && !state.isRequesting && state.merchant?.bankName != null,
@@ -123,6 +133,7 @@ fun SettlementZipScreen(
             }
         }
     }
+    }
 
     if (showWithdrawDialog && state.summary != null && state.merchant != null) {
         WithdrawalDialog(
@@ -146,6 +157,28 @@ private fun SettlementAmountCard(label: String, amount: Long, modifier: Modifier
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(formatIdr(amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun TaxSummaryCard(tax: com.tembus.merchant.data.model.MerchantTaxSummary) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(10.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Tax report", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Snapshot dari order food delivered", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Penjualan kena pajak")
+                Text(formatIdr(tax.taxableSalesIdr), fontWeight = FontWeight.SemiBold)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("PPN")
+                Text(formatIdr(tax.ppnIdr), fontWeight = FontWeight.SemiBold)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Invoice wajib / terbit", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${tax.invoiceRequired} / ${tax.invoiceIssued}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

@@ -37,9 +37,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -66,6 +68,11 @@ fun OrderHistoryZipScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
+    PullToRefreshBox(
+        isRefreshing = state.isLoading && state.orders.isNotEmpty(),
+        onRefresh = viewModel::load,
+        modifier = Modifier.fillMaxSize()
+    ) {
     Scaffold(
         containerColor = PrimaryPale,
         topBar = {
@@ -84,10 +91,10 @@ fun OrderHistoryZipScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Kembali")) }
                 },
                 actions = {
-                    IconButton(onClick = onOpenNotifications) { Icon(Icons.Filled.Notifications, contentDescription = "Notifikasi") }
+                    IconButton(onClick = onOpenNotifications) { Icon(Icons.Filled.Notifications, contentDescription = MerchantTextCatalog.translate("Notifikasi")) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryPale)
             )
@@ -139,6 +146,7 @@ fun OrderHistoryZipScreen(
                 }
             }
         }
+    }
     }
 }
 

@@ -126,6 +126,7 @@ func (s *orderServiceImpl) CheckReorder(ctx context.Context, orderID string) (*d
 			ItemName:     it.ItemName,
 			Quantity:     it.Quantity,
 			Notes:        it.Notes,
+			Variants:     it.Variants,
 			OldPrice:     it.ItemPrice,
 			NewPrice:     newPrice,
 			Available:    available,

@@ -44,6 +44,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -167,7 +169,7 @@ internal fun OnDemandBottomNavigation(
 ) {
     NavigationBar(containerColor = PrimaryDark, contentColor = Color.White) {
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Map, contentDescription = "Peta") },
+            icon = { Icon(Icons.Default.Map, contentDescription = CourierTextCatalog.translate("Peta")) },
             label = { Text("Peta") },
             selected = selectedTab == 0,
             onClick = { onSelectTab(0) },
@@ -184,7 +186,7 @@ internal fun OnDemandBottomNavigation(
                         }
                     }
                 ) {
-                    Icon(Icons.Default.History, contentDescription = "Riwayat")
+                    Icon(Icons.Default.History, contentDescription = CourierTextCatalog.translate("Riwayat"))
                 }
             },
             label = { Text("Riwayat") },
@@ -193,14 +195,14 @@ internal fun OnDemandBottomNavigation(
             colors = onDemandNavigationItemColors()
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = "Dompet") },
+            icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = CourierTextCatalog.translate("Dompet")) },
             label = { Text("Dompet") },
             selected = selectedTab == 2,
             onClick = { onSelectTab(2) },
             colors = onDemandNavigationItemColors()
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
+                icon = { Icon(Icons.Default.Person, contentDescription = CourierTextCatalog.translate("Profil")) },
             label = { Text("Profil") },
             selected = selectedTab == 3,
             onClick = { onSelectTab(3) },
@@ -208,4 +210,3 @@ internal fun OnDemandBottomNavigation(
         )
     }
 }
-

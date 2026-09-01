@@ -81,6 +81,25 @@ data class TambalBanHomeResponse(
 )
 
 @Serializable
+data class TambalBanMaterial(
+    @SerialName("code") val code: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("description") val description: String = "",
+    @SerialName("service_code") val serviceCode: String = "",
+    @SerialName("vehicle_type") val vehicleType: String = "",
+    @SerialName("price_idr") val priceIdr: Long = 0,
+    @SerialName("updated_at") val updatedAt: String? = null
+)
+
+@Serializable
+data class TambalBanMaterialsResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("service_code") val serviceCode: String = "",
+    @SerialName("data") val data: List<TambalBanMaterial> = emptyList(),
+    @SerialName("catalog_updated_at") val catalogUpdatedAt: String? = null
+)
+
+@Serializable
 data class CourierDetail(
     @SerialName("courier_id") val courierId: String = "",
     @SerialName("courier_name") val courierName: String = "",
@@ -158,9 +177,18 @@ data class TowingReport(
     @SerialName("unloading_photo_url") val unloadingPhotoUrl: String? = null,
     @SerialName("completion_photo_url") val completionPhotoUrl: String? = null,
     @SerialName("signature_url") val signatureUrl: String? = null,
+    @SerialName("damage_report") val damageReport: TowingDamageReport? = null,
     @SerialName("completed_at") val completedAt: String? = null,
     @SerialName("notes") val notes: String? = null,
     @SerialName("created_at") val createdAt: String = ""
+)
+
+@Serializable
+data class TowingDamageReport(
+    @SerialName("areas") val areas: List<String> = emptyList(),
+    @SerialName("severity") val severity: String = "",
+    @SerialName("safe_to_transport") val safeToTransport: Boolean = false,
+    @SerialName("notes") val notes: String = ""
 )
 
 // ============================================================

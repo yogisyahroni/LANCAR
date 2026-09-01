@@ -12,6 +12,18 @@
   --color-accent-soft: #FFF1E6;
   --color-accent-pale: #FFF8F2;
   --color-success: #16A34A;
+  /* Brand emerald palette: intentional product color, distinct from success. */
+  --color-brand-emerald-50: #ECFDF5;
+  --color-brand-emerald-100: #D1FAE5;
+  --color-brand-emerald-200: #A7F3D0;
+  --color-brand-emerald-300: #6EE7B7;
+  --color-brand-emerald-400: #34D399;
+  --color-brand-emerald-500: #10B981;
+  --color-brand-emerald-600: #059669;
+  --color-brand-emerald-700: #047857;
+  --color-brand-emerald-800: #065F46;
+  --color-brand-emerald-900: #064E3B;
+  --color-brand-emerald-950: #022C22;
   --color-warning: #F59E0B;
   --color-error: #DC2626;
   --color-info: #2563EB;
@@ -85,6 +97,15 @@
 body {
   @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-light transition-colors duration-200;
   font-family: var(--font-sans);
+}
+
+/* Auth links stay legible in both the light token set and the dark shell. */
+.auth-link {
+  color: var(--color-primary);
+}
+
+.dark .auth-link {
+  color: var(--color-brand-emerald-300);
 }
 
 /* Glassmorphism utilities adapted for light/dark mode */

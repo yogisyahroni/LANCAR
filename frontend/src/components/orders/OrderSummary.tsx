@@ -334,7 +334,7 @@ function RoadRoutePreview({
           <circle cx={routeMap.end.x} cy={routeMap.end.y} r="7" fill="#f97316" stroke="#fff7ed" strokeWidth="3" />
         </svg>
         {tileSource.provider === "none" ? (
-          <div className="absolute bottom-1 left-2 rounded bg-emerald-950/75 px-1.5 py-0.5 text-[10px] font-medium text-emerald-50">
+          <div className="absolute bottom-1 left-2 rounded bg-brand-emerald-950/75 px-1.5 py-0.5 text-[10px] font-medium text-brand-emerald-50">
             Peta sedang disiapkan
           </div>
         ) : (
@@ -484,7 +484,7 @@ export function OrderSummary({
 
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-3 flex items-start gap-2">
-            <BadgePercent className="mt-0.5 h-4 w-4 text-emerald-400" />
+            <BadgePercent className="mt-0.5 h-4 w-4 text-brand-emerald-400" />
             <div>
               <p className="text-sm font-semibold tracking-tight text-foreground">Kode promo</p>
               <p className="text-xs text-muted-foreground">Promo diverifikasi server sebelum checkout.</p>
@@ -497,20 +497,20 @@ export function OrderSummary({
               onChange={(event) => onPromoCodeChange(event.target.value.toUpperCase())}
               placeholder="TEMBUSHEMAT"
               disabled={!pricing || isLoading}
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-background px-3 py-2 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-background px-3 py-2 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-brand-emerald-400/60 focus:ring-2 focus:ring-brand-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
               maxLength={40}
             />
             <button
               type="button"
               onClick={onValidatePromo}
               disabled={!pricing || !promoCode.trim() || isLoading || isPromoChecking}
-              className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-200 transition-all hover:bg-emerald-500/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
+              className="rounded-xl border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-4 py-2 text-sm font-bold text-brand-emerald-200 transition-all hover:bg-brand-emerald-500/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
             >
               {isPromoChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cek"}
             </button>
           </div>
           {promoQuote?.eligible && (
-            <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+            <div className="mt-3 rounded-lg border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-2 text-xs text-brand-emerald-100">
               Promo aktif: hemat Rp {promoDiscountIdr.toLocaleString("id-ID")}
             </div>
           )}
@@ -531,7 +531,7 @@ export function OrderSummary({
                   type="button"
                   onClick={() => onPromoCodeChange(promo.code)}
                   disabled={!pricing || isLoading || isPromoChecking}
-                  className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-100 transition-all hover:bg-emerald-500/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
+                  className="rounded-full border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-1.5 text-xs font-bold text-brand-emerald-100 transition-all hover:bg-brand-emerald-500/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
                   title={promo.name}
                 >
                   {promo.code}
@@ -543,11 +543,11 @@ export function OrderSummary({
 
         {promoDiscountIdr > 0 && (
           <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-emerald-300">
+            <div className="flex items-center gap-2 text-brand-emerald-300">
               <BadgePercent className="h-4 w-4" />
               <span>Potongan Promo</span>
             </div>
-            <span className="font-semibold text-emerald-300">
+            <span className="font-semibold text-brand-emerald-300">
               - Rp {promoDiscountIdr.toLocaleString("id-ID")}
             </span>
           </div>
@@ -586,10 +586,10 @@ export function OrderSummary({
         )}
 
         {mode === 'instan' && (
-        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.06] p-4">
+        <div className="rounded-xl border border-brand-emerald-500/15 bg-brand-emerald-500/[0.06] p-4">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
-              <Route className="mt-0.5 h-4 w-4 text-emerald-400" />
+              <Route className="mt-0.5 h-4 w-4 text-brand-emerald-400" />
               <div>
                 <p className="text-sm font-semibold tracking-tight text-foreground">Preview rute</p>
                 <p className="text-xs text-muted-foreground">
@@ -599,7 +599,7 @@ export function OrderSummary({
                 </p>
               </div>
             </div>
-            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+            <span className="rounded-full bg-brand-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-emerald-300">
               {routeProvider}
             </span>
           </div>
@@ -639,9 +639,9 @@ export function OrderSummary({
       <div className="flex items-center justify-between">
         <span className="font-semibold text-foreground">Total Tagihan</span>
         <div className="text-right">
-          <span className="text-2xl font-bold tracking-tight text-emerald-500">
+          <span className="text-2xl font-bold tracking-tight text-brand-emerald-500">
             {isLoading ? (
-              <span className="inline-block h-8 w-24 animate-pulse rounded bg-emerald-500/20"></span>
+              <span className="inline-block h-8 w-24 animate-pulse rounded bg-brand-emerald-500/20"></span>
             ) : pricing ? (
               `Rp ${payableTotalIdr.toLocaleString('id-ID')}`
             ) : (

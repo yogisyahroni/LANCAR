@@ -602,7 +602,8 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       dimension_scan_verified,
             service_code,
             size_tier,
-            courier_id
+            courier_id,
+            material_codes
           } = req.body;
 
     const service = await findDeliveryServiceByCode(service_code);
@@ -651,6 +652,7 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       itemValue: item_value,
       sizeTier: size_tier,
       courierId: courier_id,
+      materialCodes: material_codes,
     });
 
     res.json(breakdown);
@@ -677,7 +679,8 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
       item_value,
       dimension_scan_verified,
       size_tier,
-      courier_id
+      courier_id,
+      material_codes
     } = req.body;
 
     const pickupPoint = normalizeCoordinatePayload(pickup);
@@ -743,6 +746,7 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
           sizeTier: size_tier,
           routeSnapshotOverride: routeSnapshot,
           courierId: courier_id,
+          materialCodes: material_codes,
         });
         return { ok: true as const, service_code: service.code, breakdown };
       } catch (error: any) {

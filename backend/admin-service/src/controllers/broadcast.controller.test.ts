@@ -1,3 +1,5 @@
+export {};
+
 const { db } = require('../db');
 const broadcastService = require('../services/broadcast.service');
 const broadcastTarget = require('../services/broadcastTarget.service');

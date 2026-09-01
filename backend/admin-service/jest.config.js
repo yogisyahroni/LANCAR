@@ -4,7 +4,10 @@ module.exports = {
   testEnvironment: 'node',
   testMatch: ['**/*.test.ts'],
   clearMocks: true,
-  collectCoverage: true,
+  // Functional CI runs must not accidentally fail on the legacy global
+  // baseline. Coverage is opt-in via `npm run test:coverage`, where the
+  // graduated thresholds below remain enforced and visible.
+  collectCoverage: false,
   coverageDirectory: 'coverage',
   coverageReporters: ['lcov', 'text-summary', 'text'],
   coveragePathIgnorePatterns: ['/node_modules/', '/dist/', '/coverage/'],

@@ -43,6 +43,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -257,7 +259,7 @@ internal fun CourierInlineErrorState(
                 Text("Coba Lagi")
             }
             IconButton(onClick = onDismiss, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Default.Close, contentDescription = "Tutup pesan")
+                Icon(Icons.Default.Close, contentDescription = CourierTextCatalog.translate("Tutup pesan"))
             }
         }
     }

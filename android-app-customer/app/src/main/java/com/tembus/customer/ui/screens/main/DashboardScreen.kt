@@ -3,17 +3,23 @@ package com.tembus.customer.ui.screens.main
 import android.Manifest
 import android.app.Activity
 import android.os.Build
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -51,9 +57,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.TextButton
@@ -123,7 +132,7 @@ private fun HomeStatusBarIcons() {
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
@@ -166,48 +175,44 @@ fun DashboardScreen(
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.LocalShipping, contentDescription = "Beranda") },
-                    label = { Text("Beranda") },
-                    selected = true,
-                    onClick = onHomeClick,
-                    colors = tembusNavigationColors()
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.History, contentDescription = "Riwayat") },
-                    label = { Text("Riwayat") },
-                    selected = false,
-                    onClick = onHistoryClick,
-                    colors = tembusNavigationColors()
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Store, contentDescription = "Bisnis") },
-                    label = { Text("Bisnis") },
-                    selected = false,
-                    onClick = onBusinessClick,
-                    colors = tembusNavigationColors()
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
-                    label = { Text("Profil") },
-                    selected = false,
-                    onClick = onProfileClick,
-                    colors = tembusNavigationColors()
-                )
-            }
-        }
-    ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { isRefreshing = true },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = paddingValues.calculateBottomPadding())
-        ) {
+    var selectedDestination by rememberSaveable { mutableStateOf("home") }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val useNavigationRail = maxWidth >= 600.dp
+        SharedTransitionLayout(Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = MaterialTheme.colorScheme.background,
+                bottomBar = {
+                    if (!useNavigationRail) {
+                        CustomerNavigation(
+                            selectedDestination = selectedDestination,
+                            onSelect = { selectedDestination = it },
+                            useNavigationRail = false,
+                            onHomeClick = onHomeClick,
+                            onHistoryClick = onHistoryClick,
+                            onBusinessClick = onBusinessClick,
+                            onProfileClick = onProfileClick
+                        )
+                    }
+                }
+            ) { paddingValues ->
+                Row(Modifier.fillMaxSize().padding(paddingValues)) {
+                    if (useNavigationRail) {
+                        CustomerNavigation(
+                            selectedDestination = selectedDestination,
+                            onSelect = { selectedDestination = it },
+                            useNavigationRail = true,
+                            onHomeClick = onHomeClick,
+                            onHistoryClick = onHistoryClick,
+                            onBusinessClick = onBusinessClick,
+                            onProfileClick = onProfileClick
+                        )
+                    }
+                    PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh = { isRefreshing = true },
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
@@ -279,6 +284,73 @@ fun DashboardScreen(
                     }
                 }
             }
+                    }
+                }
+            }
+        }
+    }
+}
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun SharedTransitionScope.CustomerNavigation(
+    selectedDestination: String,
+    onSelect: (String) -> Unit,
+    useNavigationRail: Boolean,
+    onHomeClick: () -> Unit,
+    onHistoryClick: () -> Unit,
+    onBusinessClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
+    data class NavItem(val key: String, val label: String, val icon: ImageVector, val onClick: () -> Unit)
+    val items = listOf(
+        NavItem("home", "Beranda", Icons.Default.LocalShipping, onHomeClick),
+        NavItem("history", "Riwayat", Icons.Default.History, onHistoryClick),
+        NavItem("business", "Bisnis", Icons.Default.Store, onBusinessClick),
+        NavItem("profile", "Profil", Icons.Default.Person, onProfileClick)
+    )
+    AnimatedContent(targetState = selectedDestination, label = "customer-navigation-selection") { selected ->
+        if (useNavigationRail) {
+            NavigationRail(Modifier.fillMaxHeight()) {
+                items.forEach { item ->
+                    NavigationRailItem(
+                        selected = selected == item.key,
+                        onClick = { onSelect(item.key); item.onClick() },
+                        icon = {
+                            Icon(
+                                item.icon,
+                                contentDescription = item.label,
+                                modifier = if (selected == item.key) Modifier.sharedElement(
+                                    rememberSharedContentState("customer-selected-tab-icon"),
+                                    this@AnimatedContent
+                                ) else Modifier
+                            )
+                        },
+                        label = { Text(item.label) }
+                    )
+                }
+            }
+        } else {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
+                items.forEach { item ->
+                    NavigationBarItem(
+                        icon = {
+                            Icon(
+                                item.icon,
+                                contentDescription = item.label,
+                                modifier = if (selected == item.key) Modifier.sharedElement(
+                                    rememberSharedContentState("customer-selected-tab-icon"),
+                                    this@AnimatedContent
+                                ) else Modifier
+                            )
+                        },
+                        label = { Text(item.label) },
+                        selected = selected == item.key,
+                        onClick = { onSelect(item.key); item.onClick() },
+                        colors = tembusNavigationColors()
+                    )
+                }
             }
         }
     }
@@ -366,7 +438,7 @@ private fun GojekTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
-                Icon(Icons.Default.Search, contentDescription = "Search", tint = Muted, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Search, contentDescription = CustomerTextCatalog.translate("Search"), tint = Muted, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Cari layanan, makanan...", color = Muted, fontSize = 14.sp)
             }
@@ -380,7 +452,7 @@ private fun GojekTopBar(
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f))
             ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = "Notifikasi", tint = MaterialTheme.colorScheme.onPrimary)
+                Icon(Icons.Default.NotificationsActive, contentDescription = CustomerTextCatalog.translate("Notifikasi"), tint = MaterialTheme.colorScheme.onPrimary)
             }
             if (notificationUnreadCount > 0) {
                 Box(
@@ -399,7 +471,7 @@ private fun GojekTopBar(
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f))
         ) {
-            Icon(Icons.Default.Person, contentDescription = "Profil", tint = MaterialTheme.colorScheme.onPrimary)
+            Icon(Icons.Default.Person, contentDescription = CustomerTextCatalog.translate("Profil"), tint = MaterialTheme.colorScheme.onPrimary)
         }
     }
 }

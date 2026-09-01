@@ -70,7 +70,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -282,328 +282,49 @@ fun BookingScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(top = 14.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item {
-                BookingProgressPills(
-                    state = uiState,
-                    currentStep = currentStep,
-                    onStepSelect = { step ->
-                        if (step == 1) {
-                            currentStep = 1
-                        } else if (step == 2) {
-                            if (uiState.isRouteComplete() && uiState.isPackageReady() && uiState.selectedPrice() != null) {
-                                currentStep = 2
-                            } else {
-                                Toast.makeText(context, "Lengkapi rute dan layanan pada Langkah 1 terlebih dahulu.", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                )
-            }
-            if (currentStep == 1) {
-                item {
-                    DeliveryDetailCard(
-                        state = uiState,
-                        onPickupClick = {
-                            keyboardController?.hide()
-                            focusManager.clearFocus()
-                            scope.launch { delay(150); showPickupSheet = true }
-                        },
-                        onDestinationClick = {
-                            keyboardController?.hide()
-                            focusManager.clearFocus()
-                            scope.launch { delay(150); showDestinationSheet = true }
-                        },
-                        onRequestLocationClick = {
-                            keyboardController?.hide()
-                            focusManager.clearFocus()
-                            scope.launch { delay(150); showLocationRequestSheet = true }
-                        }
-                    )
-                }
-                if (uiState.promoCode.isNotBlank()) {
-                    item {
-                        PreselectedPromoCard(
-                            promoCode = uiState.promoCode,
-                            onClear = viewModel::clearPromoCode
-                        )
-                    }
-                }
-                // FB-078: voucher diskon (opsional, terpisah dari promo)
-                item {
-                    VoucherCard(
-                        state = uiState,
-                        onCodeChange = viewModel::setVoucherCode,
-                        onApply = viewModel::validateVoucher,
-                        onClear = viewModel::clearVoucher
-                    )
-                }
-                if (uiState.isRouteComplete()) {
-                    item {
-                        PackageCard(
-                            state = uiState,
-                            onTierSelected = { code, weight, dimensions ->
-                                viewModel.setSizeTier(code, weight, dimensions)
-                            }
-                        )
-                    }
-                    item {
-                        ServiceInlinePreview(
-                            state = uiState,
-                            onChooseService = { openServicePicker() }
-                        )
-                    }
-                    if (uiState.isCalculatingRoute) {
-                        item {
-                            RoutePricingProgressCard()
-                        }
-                    } else if (uiState.selectedPrice() != null) {
-                        item {
-                            RoutePreviewCard(
-                                state = uiState,
-                                locationEnabled = locationPermissionState.status.isGranted
-                            )
-                        }
-                    } else if (uiState.isPackageReady() && uiState.priceBreakdowns.isEmpty()) {
-                        item {
-                            RouteUnavailableCard()
-                        }
-                    }
-                } else {
-                    item {
-                        BookingStepHintCard()
-                    }
-                }
-            } else if (currentStep == 2) {
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(TembusRadius.Card),
-                        colors = CardDefaults.cardColors(containerColor = PrimaryPale),
-                        border = BorderStroke(1.dp, Outline)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Rute & Layanan Terpilih", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Primary)
-                                Spacer(Modifier.height(4.dp))
-                                Text("${uiState.pickupAddress.take(22)}... ke ${uiState.destinationAddress.take(22)}...", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink)
-                                Text("${uiState.selectedService()?.name ?: "TEMBUS"} • ${uiState.selectedSizeTier()?.name ?: ""} (${uiState.packageWeight} kg)", fontSize = 12.sp, color = Muted)
-                            }
-                            TextButton(onClick = { currentStep = 1 }) {
-                                Text("Ubah", fontWeight = FontWeight.ExtraBold, color = Primary)
-                            }
-                        }
-                    }
-                }
-                item {
-                    RecipientCard(
-                        state = uiState,
-                        onNameChange = viewModel::setRecipientName,
-                        onPhoneChange = viewModel::setRecipientPhone,
-                        onItemChange = viewModel::setItemDescription
-                    )
-                }
-                item {
-                    AddOnCard(
-                        deliveryCodeEnabled = uiState.deliveryCodeEnabled,
-                        insuranceEnabled = uiState.insuranceEnabled,
-                        onDeliveryCodeChange = viewModel::toggleDeliveryCode,
-                        onInsuranceChange = viewModel::toggleInsurance
-                    )
-                }
-                if (uiState.promoCode.isNotBlank()) {
-                    item {
-                        PreselectedPromoCard(
-                            promoCode = uiState.promoCode,
-                            onClear = viewModel::clearPromoCode
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    if (showServiceSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showServiceSheet = false },
-            sheetState = rememberModalBottomSheetState(),
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            ServicePickerSheet(
-                state = uiState,
-                onSelect = {
-                    viewModel.selectService(it)
-                    showServiceSheet = false
-                }
-            )
-        }
-    }
-
-    if (showDestinationSheet) {
-        ModalBottomSheet(
-            onDismissRequest = {
-                viewModel.clearLocationSearch()
-                showDestinationSheet = false
+        BookingStepContent(
+            state = uiState,
+            currentStep = currentStep,
+            locationEnabled = locationPermissionState.status.isGranted,
+            contentPadding = padding,
+            context = context,
+            viewModel = viewModel,
+            onStepChange = { currentStep = it },
+            onOpenServicePicker = { openServicePicker() },
+            onPickupClick = {
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                scope.launch { delay(150); showPickupSheet = true }
             },
-            sheetState = rememberModalBottomSheetState(),
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            LocationInputSheet(
-                title = "Kirim paket ke mana?",
-                subtitle = "Cari alamat tujuan lalu pilih hasil yang paling sesuai agar harga dan rute dihitung dari data nyata.",
-                buttonLabel = "Gunakan alamat tujuan",
-                savedAddresses = uiState.addressBook.filter { it.kind == "receiver" || it.kind == "both" },
-                addressKind = "receiver",
-                geocodeResults = uiState.geocodeResults,
-                isSearchingLocation = uiState.isSearchingLocation,
-                geocodeError = uiState.geocodeError,
-                selectedMapLocation = uiState.mapPickerLocation,
-                selectedMapAddress = uiState.mapPickerAddress,
-                isResolvingMapPoint = uiState.isResolvingMapPoint,
-                onSearch = viewModel::searchAddress,
-                onGeocodeSelected = viewModel::selectGeocodeResult,
-                onSelect = { location, address ->
-                    viewModel.setDestination(location, address)
-                    viewModel.clearLocationSearch()
-                    showDestinationSheet = false
-                },
-                onSavedAddressSelected = { address ->
-                    viewModel.selectSavedAddress(address, asPickup = false)
-                    viewModel.clearLocationSearch()
-                    showDestinationSheet = false
-                },
-                onSaveAndSelect = { label, location, address ->
-                    viewModel.saveAddressAndSelect(
-                        label = label,
-                        location = location,
-                        address = address,
-                        kind = "receiver",
-                        asPickup = false
-                    )
-                    viewModel.clearLocationSearch()
-                    showDestinationSheet = false
-                }
-            )
-        }
-    }
-
-    if (showPickupSheet) {
-        ModalBottomSheet(
-            onDismissRequest = {
-                viewModel.clearLocationSearch()
-                showPickupSheet = false
+            onDestinationClick = {
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                scope.launch { delay(150); showDestinationSheet = true }
             },
-            sheetState = rememberModalBottomSheetState(),
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            LocationInputSheet(
-                title = "Ambil paket di mana?",
-                subtitle = "Cari alamat pickup lalu pilih hasil yang paling sesuai supaya kurir menerima lokasi penjemputan yang akurat.",
-                buttonLabel = "Gunakan alamat pickup",
-                savedAddresses = uiState.addressBook.filter { it.kind == "pickup" || it.kind == "both" },
-                addressKind = "pickup",
-                geocodeResults = uiState.geocodeResults,
-                isSearchingLocation = uiState.isSearchingLocation,
-                geocodeError = uiState.geocodeError,
-                selectedMapLocation = uiState.mapPickerLocation,
-                selectedMapAddress = uiState.mapPickerAddress,
-                isResolvingMapPoint = uiState.isResolvingMapPoint,
-                onSearch = viewModel::searchAddress,
-                onGeocodeSelected = viewModel::selectGeocodeResult,
-                onSelect = { location, address ->
-                    viewModel.setPickup(location, address)
-                    viewModel.clearLocationSearch()
-                    showPickupSheet = false
-                },
-                onSavedAddressSelected = { address ->
-                    viewModel.selectSavedAddress(address, asPickup = true)
-                    viewModel.clearLocationSearch()
-                    showPickupSheet = false
-                },
-                onSaveAndSelect = { label, location, address ->
-                    viewModel.saveAddressAndSelect(
-                        label = label,
-                        location = location,
-                        address = address,
-                        kind = "pickup",
-                        asPickup = true
-                    )
-                    viewModel.clearLocationSearch()
-                    showPickupSheet = false
-                }
-            )
-        }
+            onRequestLocationClick = {
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                scope.launch { delay(150); showLocationRequestSheet = true }
+            }
+        )
     }
 
-    if (showLocationRequestSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showLocationRequestSheet = false },
-            sheetState = rememberModalBottomSheetState(),
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            RequestReceiverLocationSheet(
-                link = uiState.receiverLocationLink?.url.orEmpty(),
-                status = uiState.receiverLocationLink?.status,
-                submittedAddress = uiState.receiverLocationLink?.submittedAddress,
-                submittedContactName = uiState.receiverLocationLink?.submittedContactName,
-                submittedContactPhone = uiState.receiverLocationLink?.submittedContactPhoneMasked,
-                expiresAt = uiState.receiverLocationLink?.expiresAt,
-                isLoading = uiState.isCreatingLocationLink,
-                onCreateLink = viewModel::createReceiverLocationLink,
-                onRefresh = viewModel::refreshReceiverLocationLink,
-                onRevoke = viewModel::revokeReceiverLocationLink,
-                onCopy = {
-                    val link = uiState.receiverLocationLink?.url.orEmpty()
-                    if (link.isNotBlank()) {
-                        clipboardManager.setText(AnnotatedString(link))
-                        Toast.makeText(context, "Link lokasi disalin", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                onShare = {
-                    val link = uiState.receiverLocationLink?.url.orEmpty()
-                    if (link.isNotBlank()) {
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(
-                                Intent.EXTRA_TEXT,
-                                "Halo, bantu isi titik tujuan pengiriman TEMBUS melalui link aman ini:\n$link"
-                            )
-                        }
-                        context.startActivity(Intent.createChooser(shareIntent, "Bagikan link lokasi"))
-                    }
-                }
-            )
-        }
-    }
-
-    if (showReviewSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showReviewSheet = false },
-            sheetState = rememberModalBottomSheetState(),
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            BookingReviewSheet(
-                state = uiState,
-                onSubmit = {
-                    viewModel.confirmBooking()
-                }
-            )
-        }
-    }
+    BookingModalSheets(
+        state = uiState,
+        viewModel = viewModel,
+        context = context,
+        clipboardManager = clipboardManager,
+        showServiceSheet = showServiceSheet,
+        showPickupSheet = showPickupSheet,
+        showDestinationSheet = showDestinationSheet,
+        showLocationRequestSheet = showLocationRequestSheet,
+        showReviewSheet = showReviewSheet,
+        onServiceSheetDismiss = { showServiceSheet = false },
+        onPickupSheetDismiss = { showPickupSheet = false },
+        onDestinationSheetDismiss = { showDestinationSheet = false },
+        onLocationRequestSheetDismiss = { showLocationRequestSheet = false },
+        onReviewSheetDismiss = { showReviewSheet = false }
+    )
 
     if (uiState.isLoading) {
         Box(
@@ -626,4 +347,3 @@ fun BookingScreen(
         }
     }
 }
-

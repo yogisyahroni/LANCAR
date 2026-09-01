@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { api, apiErrorMessage } from '../lib/api'
 import StatCard from '../components/StatCard'
 import StatusBadge from '../components/StatusBadge'
+import { MerchantPageSkeleton } from '../components/Skeleton'
 import type { Merchant, MerchantOrder, OrderListResponse, SalesReportSummary } from '../lib/types'
 import { rupiah } from '../lib/types'
 
@@ -83,7 +84,7 @@ export default function Dashboard() {
   }
 
   if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-emerald-900" /></div>
+    return <MerchantPageSkeleton />
   }
 
   if (!merchant) {

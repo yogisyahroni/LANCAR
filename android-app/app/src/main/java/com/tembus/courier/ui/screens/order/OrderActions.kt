@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.Animatable
@@ -115,7 +116,9 @@ internal fun OrderActions(
     onChatClick: () -> Unit,
     onCallClick: () -> Unit,
     onSosClick: () -> Unit,
-    onVerifyFace: () -> Unit = {}
+    onVerifyFace: () -> Unit = {},
+    onRetrySync: () -> Unit = {},
+    onUseServerVersion: () -> Unit = {}
 ) {
     val context = LocalContext.current
     Card(
@@ -166,7 +169,7 @@ internal fun OrderActions(
                 )
             }
 
-            SyncStateNotice(order = order)
+            SyncStateNotice(order = order, onRetrySync = onRetrySync, onUseServerVersion = onUseServerVersion)
             OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone, isServiceOrder = isServiceOrder)
 
             if (isServiceOrder) {
@@ -217,4 +220,3 @@ internal data class CourierIssueReason(
     val description: String,
     val severity: String
 )
-

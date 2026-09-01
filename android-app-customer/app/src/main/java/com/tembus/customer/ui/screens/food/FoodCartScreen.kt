@@ -26,7 +26,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,7 +68,7 @@ fun FoodCartScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Primary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = Primary)
                 }
                 Text(
                     "Keranjang",
@@ -203,11 +204,11 @@ private fun CartItemRow(
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Remove, contentDescription = "Kurangi", tint = Primary, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Remove, contentDescription = CustomerTextCatalog.translate("Kurangi"), tint = Primary, modifier = Modifier.size(16.dp))
             }
             Text(item.quantity.toString(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Add, contentDescription = "Tambah", tint = Accent, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Add, contentDescription = CustomerTextCatalog.translate("Tambah"), tint = Accent, modifier = Modifier.size(16.dp))
             }
         }
     }

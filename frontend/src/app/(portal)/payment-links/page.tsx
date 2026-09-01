@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { ShippingSelector } from '@/components/ShippingSelector';
 import { TariffRequest, TariffResponse } from '@/hooks/useLogisticsTariff';
@@ -106,11 +107,7 @@ export default function PaymentLinksPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="h-[80vh] flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
-      </div>
-    );
+    return <CustomerPageSkeleton />;
   }
 
   const filteredLinks = links?.filter((v: any) =>
@@ -180,7 +177,7 @@ export default function PaymentLinksPage() {
                     </div>
                     <span className={cn(
                       "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                      isPaid ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : 
+                      isPaid ? "bg-brand-emerald-500/10 text-brand-emerald-600 dark:text-brand-emerald-400" :
                       isExpired ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                     )}>
                       {link.status}
@@ -233,7 +230,7 @@ export default function PaymentLinksPage() {
                    disabled={isExpired || isPaid}
                    className={cn(
                        "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
-                       copiedId === link.id ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-black/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-primary/20 hover:text-primary-light border-black/5 dark:border-white/5 hover:border-primary/20",
+                       copiedId === link.id ? "bg-brand-emerald-500/20 text-brand-emerald-600 dark:text-brand-emerald-400 border-brand-emerald-500/30" : "bg-black/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-primary/20 hover:text-primary-light border-black/5 dark:border-white/5 hover:border-primary/20",
                        (isExpired || isPaid) ? "opacity-50 cursor-not-allowed" : ""
                    )}
                  >

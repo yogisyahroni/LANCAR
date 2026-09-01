@@ -31,6 +31,7 @@ import com.tembus.merchant.ui.screens.profile.OperatingHoursScreen
 import com.tembus.merchant.ui.screens.profile.StoreProfileZipScreen
 import com.tembus.merchant.ui.screens.profile.PaymentSettingsZipScreen
 import com.tembus.merchant.ui.screens.profile.StoreInformationZipScreen
+import com.tembus.merchant.ui.screens.profile.MerchantLanguageScreen
 import com.tembus.merchant.ui.screens.settlement.SettlementZipScreen
 import com.tembus.merchant.ui.screens.promo.CreatePromoZipScreen
 import com.tembus.merchant.ui.screens.report.BusinessInsightsZipScreen
@@ -84,6 +85,7 @@ object MerchantRoutes {
     const val OPERATING_HOURS = "operating_hours"
     const val EDIT_PUBLIC_PROFILE = "edit_public_profile"
     const val STORE_INFORMATION = "store_information"
+    const val LANGUAGE = "language"
     const val EDIT_MENU = "edit_menu/{menuId}"
     const val ADD_MENU = "add_menu"
     const val STRUK = "struk/{orderId}"
@@ -241,6 +243,9 @@ fun AppNavHost() {
                 onOpenOrderHistory = {
                     navController.navigate(MerchantRoutes.ORDER_HISTORY)
                 },
+                onOpenLanguage = {
+                    navController.navigate(MerchantRoutes.LANGUAGE)
+                },
                 onOpenCreatePromo = {
                     navController.navigate(MerchantRoutes.CREATE_PROMO)
                 },
@@ -320,6 +325,7 @@ fun AppNavHost() {
                 onOpenEditPublicProfile = { navController.navigate(MerchantRoutes.EDIT_PUBLIC_PROFILE) },
                 onOpenCustomerReviews = { navController.navigate(MerchantRoutes.CUSTOMER_REVIEWS) },
                 onOpenOrderHistory = { navController.navigate(MerchantRoutes.ORDER_HISTORY) },
+                onOpenLanguage = { navController.navigate(MerchantRoutes.LANGUAGE) },
                 onGoToRegistration = { navController.navigate(MerchantRoutes.REGISTRATION) }
             )
         }
@@ -433,6 +439,10 @@ fun AppNavHost() {
                 onBack = { navController.popBackStack() },
                 onEditPublicProfile = { navController.navigate(MerchantRoutes.EDIT_PUBLIC_PROFILE) }
             )
+        }
+
+        composable(MerchantRoutes.LANGUAGE) {
+            MerchantLanguageScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

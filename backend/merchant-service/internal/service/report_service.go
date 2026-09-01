@@ -76,7 +76,11 @@ func (s *merchantServiceImpl) ListSettlements(ctx context.Context, userID string
 	if err != nil {
 		return nil, err
 	}
-	summary := &domain.SettlementSummary{Records: records}
+	tax, err := s.reportRepo.TaxSummary(ctx, m.ID)
+	if err != nil {
+		return nil, err
+	}
+	summary := &domain.SettlementSummary{Records: records, Tax: tax}
 	for _, rec := range records {
 		switch rec.Status {
 		case "COMPLETED":

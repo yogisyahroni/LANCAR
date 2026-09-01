@@ -27,7 +27,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +55,7 @@ import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.Warning
 
 // FOOD-BIKE-070: Favorite merchants list
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FoodFavoritesScreen(
     onBack: () -> Unit,
@@ -79,7 +83,7 @@ fun FoodFavoritesScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Primary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = Primary)
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Favorit", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
@@ -88,6 +92,11 @@ fun FoodFavoritesScreen(
             }
         }
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = loading && favorites.isNotEmpty(),
+            onRefresh = viewModel::loadFavoriteMerchants,
+            modifier = Modifier.fillMaxSize()
+        ) {
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
                 loading && favorites.isEmpty() -> {
@@ -133,6 +142,7 @@ fun FoodFavoritesScreen(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -216,7 +226,7 @@ private fun FavoriteMerchantCard(
                     IconButton(onClick = onRemove) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
-                            contentDescription = "Hapus dari favorit",
+                            contentDescription = CustomerTextCatalog.translate("Hapus dari favorit"),
                             tint = Error
                         )
                     }

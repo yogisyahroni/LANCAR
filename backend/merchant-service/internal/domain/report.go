@@ -36,14 +36,39 @@ type SalesReportPoint struct {
 	RevenueIDR int64  `json:"revenue_idr"`
 }
 
+// SalesPerformance — metrik operasional merchant untuk periode yang dipilih.
+// Semua angka berasal dari orders/merchant_ratings, bukan data presentasi.
+type SalesPerformance struct {
+	TotalReceived       int     `json:"total_received"`
+	Accepted            int     `json:"accepted"`
+	Cancelled           int     `json:"cancelled"`
+	RejectedByMerchant  int     `json:"rejected_by_merchant"`
+	AcceptanceRatePct   float64 `json:"acceptance_rate_pct"`
+	CancellationRatePct float64 `json:"cancellation_rate_pct"`
+	AvgRating           float64 `json:"avg_rating"`
+	RatingCount         int     `json:"rating_count"`
+}
+
+// SalesAdvancedAnalytics — metrik lanjutan yang dihitung dari order delivered
+// pada periode yang dipilih. Nilai nullable dipakai untuk metrik yang memang
+// tidak dapat dihitung ketika periode belum memiliki transaksi.
+type SalesAdvancedAnalytics struct {
+	RepeatCustomerCount   int      `json:"repeat_customer_count"`
+	RepeatCustomerRatePct float64  `json:"repeat_customer_rate_pct"`
+	PeakOrderHour         *int     `json:"peak_order_hour,omitempty"`
+	AvgAcceptedReadyMins  *float64 `json:"avg_accepted_ready_minutes,omitempty"`
+}
+
 // SalesReportSummary — ringkasan penjualan periode.
 type SalesReportSummary struct {
-	Period           string             `json:"period"` // daily | weekly
-	TotalOrders      int                `json:"total_orders"`
-	GMVIDR           int64              `json:"gmv_idr"`
-	AvgOrderValueIDR int64              `json:"avg_order_value_idr"`
-	TopItems         []TopSellingItem   `json:"top_items"`
-	DailyBreakdown   []SalesReportPoint `json:"daily_breakdown"`
+	Period           string                 `json:"period"` // daily | weekly
+	TotalOrders      int                    `json:"total_orders"`
+	GMVIDR           int64                  `json:"gmv_idr"`
+	AvgOrderValueIDR int64                  `json:"avg_order_value_idr"`
+	TopItems         []TopSellingItem       `json:"top_items"`
+	DailyBreakdown   []SalesReportPoint     `json:"daily_breakdown"`
+	Performance      SalesPerformance       `json:"performance"`
+	Advanced         SalesAdvancedAnalytics `json:"advanced"`
 }
 
 // MerchantReview — satu review customer yang sudah tersimpan di merchant_ratings.
@@ -94,6 +119,8 @@ type MerchantReportRepository interface {
 	// Settlements ambil riwayat pencairan/payout merchant (FB-113),
 	// terbaru dulu, dibatasi [limit] baris.
 	Settlements(ctx context.Context, merchantID string, limit int) ([]*SettlementRecord, error)
+	// TaxSummary mengambil snapshot DPP/PPN dan status invoice order delivered.
+	TaxSummary(ctx context.Context, merchantID string) (MerchantTaxSummary, error)
 	// CreateWithdrawal buat permintaan pencairan saldo merchant (M7).
 	CreateWithdrawal(ctx context.Context, w *MerchantWithdrawalRequest) error
 	// ListWithdrawals riwayat permintaan pencairan merchant (M7), terbaru dulu.
@@ -134,6 +161,15 @@ type SettlementRecord struct {
 	CreatedAt         string  `json:"created_at"`
 }
 
+// MerchantTaxSummary — agregat pajak dari snapshot order delivered merchant.
+// Nilai tidak dihitung ulang dari rate saat ini agar historis tetap immutable.
+type MerchantTaxSummary struct {
+	TaxableSalesIDR int64 `json:"taxable_sales_idr"`
+	PPNIDR          int64 `json:"ppn_idr"`
+	InvoiceRequired int   `json:"invoice_required"`
+	InvoiceIssued   int   `json:"invoice_issued"`
+}
+
 // SettlementSummary — ringkasan + riwayat (respons endpoint settlements).
 type SettlementSummary struct {
 	// TotalIDR total yang sudah CAIR (COMPLETED).
@@ -143,6 +179,7 @@ type SettlementSummary struct {
 	// AvailableIDR saldo yang bisa ditarik = TotalIDR - HoldingIDR (M7).
 	AvailableIDR int64               `json:"available_idr"`
 	Records      []*SettlementRecord `json:"records"`
+	Tax          MerchantTaxSummary  `json:"tax"`
 }
 
 // MerchantWithdrawalRequest — input ajukan pencairan saldo merchant (M7).

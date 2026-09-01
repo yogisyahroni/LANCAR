@@ -1,4 +1,4 @@
-import { redactForLog, redactString } from './logRedaction';
+import { installConsoleRedaction, redactForLog, redactString, securityLog, writeStructuredLog } from './logRedaction';
 
 describe('log redaction', () => {
   it('redacts sensitive object keys and common credential patterns', () => {
@@ -67,5 +67,52 @@ describe('log redaction', () => {
     expect(redacted.cookie).toBe('[REDACTED]');
     expect(redacted.request_body).toBe('[REDACTED]');
     expect(redacted.response_body).toBe('[REDACTED]');
+  });
+
+  it('handles primitive, array, invalid observability, and circular values', () => {
+    expect(redactForLog(42)).toBe(42);
+    expect(redactForLog(true)).toBe(true);
+    expect(redactForLog(null)).toBeNull();
+    expect(redactForLog(undefined)).toBe('undefined');
+    expect(redactForLog(Symbol('value'))).toBe('Symbol(value)');
+    expect(redactForLog(['hello@tembus.id', { trace_id: 'unsafe trace id' }])).toEqual([
+      'he***@tembus.id',
+      { trace_id: '[REDACTED]' },
+    ]);
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(redactForLog(circular)).toEqual({ self: '[Circular]' });
+    expect(redactForLog({ request_id: 123, span_id: 'not-a-span' })).toEqual({
+      request_id: '[REDACTED]',
+      span_id: '[REDACTED]',
+    });
+  });
+
+  it('writes structured logs through each public logging entry point', () => {
+    const stdout = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    process.env.SERVICE_NAME = 'admin-test';
+
+    writeStructuredLog('info', 'safe user@tembus.id', { token: 'secret' });
+    securityLog.warn('warning');
+    securityLog.error('error');
+
+    expect(stdout).toHaveBeenCalledTimes(2);
+    expect(stderr).toHaveBeenCalledTimes(1);
+    expect(String(stdout.mock.calls[0][0])).toContain('admin-test');
+    expect(String(stdout.mock.calls[0][0])).toContain('[REDACTED]');
+    delete process.env.SERVICE_NAME;
+    stdout.mockRestore();
+    stderr.mockRestore();
+  });
+
+  it('installs console redaction once and routes console calls to structured output', () => {
+    const stdout = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    installConsoleRedaction();
+    installConsoleRedaction();
+    console.log('credential user@tembus.id', { password: 'secret' });
+    expect(stdout).toHaveBeenCalled();
+    expect(String(stdout.mock.calls.at(-1)?.[0])).toContain('[REDACTED]');
+    stdout.mockRestore();
   });
 });

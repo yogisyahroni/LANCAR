@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:chromium": "playwright test --project=chromium",
-    "test:e2e:compat": "playwright test --project=chromium --project=firefox --project=webkit"
+    "test:e2e:compat": "playwright test --project=chromium --project=firefox --project=webkit",
+    "test:e2e:visual": "playwright test --project=chromium --grep=@visual",
+    "test:e2e:a11y": "playwright test --project=chromium --grep=@a11y"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -19,6 +21,7 @@
     "axios": "^1.16.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
+    "lightningcss": "^1.32.0",
     "lucide-react": "^1.14.0",
     "next": "^16.2.12",
     "qrcode.react": "^4.2.0",
@@ -27,6 +30,7 @@
     "react-dom": "19.2.4",
     "react-dropzone": "^15.0.0",
     "react-hook-form": "^7.75.0",
+    "read-excel-file": "^9.3.10",
     "recharts": "^3.8.1",
     "socket.io-client": "^4.8.3",
     "swr": "^2.4.1",
@@ -36,6 +40,7 @@
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^14.2.4",
+    "@percy/playwright": "^1.0.7",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
@@ -45,6 +50,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.1",
+    "axe-core": "^4.11.4",
     "eslint": "^9",
     "eslint-config-next": "^16.2.12",
     "jsdom": "^29.1.1",

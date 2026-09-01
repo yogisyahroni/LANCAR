@@ -25,10 +25,14 @@ func NewPostgresReportRepository(db, readDB *sql.DB) domain.MerchantReportReposi
 // periodFilter — klausa waktu untuk daily (hari ini) / weekly (7 hari terakhir).
 // GMV = order delivered saja (penjualan riil merchant).
 func periodFilter(period string) string {
+	return periodFilterFor("o", period)
+}
+
+func periodFilterFor(alias, period string) string {
 	if period == "weekly" {
-		return `o.created_at >= (NOW() - INTERVAL '7 days')`
+		return fmt.Sprintf(`%s.created_at >= (NOW() - INTERVAL '7 days')`, alias)
 	}
-	return `o.created_at >= date_trunc('day', NOW())`
+	return fmt.Sprintf(`%s.created_at >= date_trunc('day', NOW())`, alias)
 }
 
 func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, period string) (*domain.SalesReportSummary, error) {
@@ -50,6 +54,102 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 	}
 	if summary.TotalOrders > 0 {
 		summary.AvgOrderValueIDR = summary.GMVIDR / int64(summary.TotalOrders)
+	}
+
+	// 1b. Metrik operasional: order masuk, acceptance/cancellation rate, dan
+	// rating. Query terpisah menjaga definisi GMV tetap delivered-only.
+	performanceFilter := periodFilterFor("o", period)
+	var knownCustomerCount int
+	if err := r.readDB.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT COUNT(*),
+		       COUNT(*) FILTER (WHERE o.merchant_accepted_at IS NOT NULL),
+		       COUNT(*) FILTER (WHERE o.status = 'cancelled'),
+		       COUNT(*) FILTER (WHERE o.reject_reason IS NOT NULL)
+		FROM orders o
+		WHERE o.merchant_id = $1
+		  AND o.service_sub_type = 'food_delivery'
+		  AND %s`, performanceFilter), merchantID).Scan(
+		&summary.Performance.TotalReceived,
+		&summary.Performance.Accepted,
+		&summary.Performance.Cancelled,
+		&summary.Performance.RejectedByMerchant,
+	); err != nil {
+		return nil, fmt.Errorf("sales report performance orders: %w", err)
+	}
+	if summary.Performance.TotalReceived > 0 {
+		denominator := float64(summary.Performance.TotalReceived)
+		summary.Performance.AcceptanceRatePct = float64(summary.Performance.Accepted) / denominator * 100
+		summary.Performance.CancellationRatePct = float64(summary.Performance.Cancelled) / denominator * 100
+	}
+	ratingFilter := periodFilterFor("r", period)
+	if err := r.readDB.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT COALESCE(AVG(r.stars), 0), COUNT(*)
+		FROM merchant_ratings r
+		WHERE r.merchant_id = $1 AND %s`, ratingFilter), merchantID).Scan(
+		&summary.Performance.AvgRating,
+		&summary.Performance.RatingCount,
+	); err != nil {
+		return nil, fmt.Errorf("sales report performance ratings: %w", err)
+	}
+
+	// 1c. Analytics lanjutan tetap berasal dari transaksi periode ini. Customer
+	// tanpa ID tidak dipaksa masuk ke metrik repeat agar denominator jujur.
+	if err := r.readDB.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT COUNT(*) FILTER (WHERE customer_orders > 1), COUNT(*)
+		FROM (
+			SELECT o.customer_id, COUNT(*) AS customer_orders
+			FROM orders o
+			WHERE o.merchant_id = $1
+			  AND o.service_sub_type = 'food_delivery'
+			  AND o.status = 'delivered'
+			  AND o.customer_id IS NOT NULL
+			  AND %s
+			GROUP BY o.customer_id
+		) customer_totals`, filter), merchantID).Scan(
+		&summary.Advanced.RepeatCustomerCount,
+		&knownCustomerCount,
+	); err != nil {
+		return nil, fmt.Errorf("sales report repeat customers: %w", err)
+	}
+	if knownCustomerCount > 0 {
+		summary.Advanced.RepeatCustomerRatePct = float64(summary.Advanced.RepeatCustomerCount) / float64(knownCustomerCount) * 100
+	} else {
+		summary.Advanced.RepeatCustomerRatePct = 0
+	}
+
+	var peakHour sql.NullInt64
+	if err := r.readDB.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT EXTRACT(HOUR FROM (o.created_at AT TIME ZONE 'Asia/Jakarta'))::int
+		FROM orders o
+		WHERE o.merchant_id = $1
+		  AND o.service_sub_type = 'food_delivery'
+		  AND o.status = 'delivered'
+		  AND %s
+		GROUP BY EXTRACT(HOUR FROM (o.created_at AT TIME ZONE 'Asia/Jakarta'))
+		ORDER BY COUNT(*) DESC, EXTRACT(HOUR FROM (o.created_at AT TIME ZONE 'Asia/Jakarta')) ASC
+		LIMIT 1`, filter), merchantID).Scan(&peakHour); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("sales report peak hour: %w", err)
+	}
+	if peakHour.Valid {
+		hour := int(peakHour.Int64)
+		summary.Advanced.PeakOrderHour = &hour
+	}
+
+	var avgReady sql.NullFloat64
+	if err := r.readDB.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT AVG(EXTRACT(EPOCH FROM (o.food_ready_at - o.merchant_accepted_at)) / 60.0)
+		FROM orders o
+		WHERE o.merchant_id = $1
+		  AND o.service_sub_type = 'food_delivery'
+		  AND o.status = 'delivered'
+		  AND o.food_ready_at IS NOT NULL
+		  AND o.merchant_accepted_at IS NOT NULL
+		  AND %s`, filter), merchantID).Scan(&avgReady); err != nil {
+		return nil, fmt.Errorf("sales report accepted ready time: %w", err)
+	}
+	if avgReady.Valid {
+		minutes := avgReady.Float64
+		summary.Advanced.AvgAcceptedReadyMins = &minutes
 	}
 
 	// 2. Item terlaris (top 10 by qty)
@@ -189,6 +289,30 @@ func (r *postgresReportRepository) Settlements(ctx context.Context, merchantID s
 		return nil, fmt.Errorf("settlements rows: %w", err)
 	}
 	return records, nil
+}
+
+// TaxSummary mengagregasi snapshot pajak order food delivered merchant.
+// Snapshot order dipakai langsung; rate pajak saat ini tidak diterapkan ulang.
+func (r *postgresReportRepository) TaxSummary(ctx context.Context, merchantID string) (domain.MerchantTaxSummary, error) {
+	var summary domain.MerchantTaxSummary
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(COALESCE(o.dpp_idr, 0)), 0),
+		       COALESCE(SUM(COALESCE(o.ppn_idr, 0)), 0),
+		       COUNT(*) FILTER (WHERE COALESCE(o.tax_invoice_required, FALSE)),
+		       COUNT(*) FILTER (WHERE COALESCE(o.tax_invoice_status, 'unissued') IN ('draft', 'exported', 'submitted', 'accepted'))
+		FROM orders o
+		WHERE o.merchant_id = $1
+		  AND o.service_sub_type = 'food_delivery'
+		  AND o.status = 'delivered'`, merchantID).Scan(
+		&summary.TaxableSalesIDR,
+		&summary.PPNIDR,
+		&summary.InvoiceRequired,
+		&summary.InvoiceIssued,
+	)
+	if err != nil {
+		return domain.MerchantTaxSummary{}, fmt.Errorf("merchant tax summary: %w", err)
+	}
+	return summary, nil
 }
 
 // CreateWithdrawal — simpan permintaan pencairan saldo merchant (M7).

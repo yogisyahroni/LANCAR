@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Store
@@ -33,8 +34,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,9 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.data.model.Merchant
+import com.tembus.merchant.R
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryPale
@@ -55,6 +60,7 @@ import com.tembus.merchant.ui.theme.PrimarySoft
  * Presentation follows the ZIP hierarchy; all displayed merchant values come from the API.
  */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun StoreProfileZipScreen(
     onOpenNotifications: () -> Unit,
     onOpenStoreInformation: () -> Unit,
@@ -63,6 +69,7 @@ fun StoreProfileZipScreen(
     onOpenEditPublicProfile: () -> Unit,
     onOpenCustomerReviews: () -> Unit,
     onOpenOrderHistory: () -> Unit,
+    onOpenLanguage: () -> Unit,
     onGoToRegistration: () -> Unit,
     viewModel: ProfileViewModel = appViewModel {
         ProfileViewModel(it.merchantRepository, it.authRepository, it.sessionManager)
@@ -70,13 +77,18 @@ fun StoreProfileZipScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    Column(Modifier.fillMaxSize().background(PrimaryPale)) {
-        StoreProfileZipTopBar(onOpenNotifications)
-        when {
+    PullToRefreshBox(
+        isRefreshing = state.isLoading && state.merchant != null,
+        onRefresh = viewModel::load,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(Modifier.fillMaxSize().background(PrimaryPale)) {
+            StoreProfileZipTopBar(onOpenNotifications)
+            when {
             state.isLoading -> LoadingProfile()
             state.needsRegistration -> RegistrationRequired(onGoToRegistration)
             state.merchant == null -> ProfileUnavailable(
-                message = state.errorMessage ?: "Profil toko belum tersedia dari backend.",
+                message = state.errorMessage ?: stringResource(R.string.merchant_profile_unavailable),
                 onRetry = viewModel::load
             )
             else -> StoreProfileZipContent(
@@ -88,8 +100,10 @@ fun StoreProfileZipScreen(
                 onOpenEditPublicProfile = onOpenEditPublicProfile,
                 onOpenCustomerReviews = onOpenCustomerReviews,
                 onOpenOrderHistory = onOpenOrderHistory,
+                onOpenLanguage = onOpenLanguage,
                 onLogout = viewModel::logout
             )
+            }
         }
     }
 }
@@ -107,9 +121,9 @@ private fun StoreProfileZipTopBar(onOpenNotifications: () -> Unit) {
             Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.padding(6.dp))
         }
         Spacer(Modifier.size(8.dp))
-        Text("Store Profile", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.merchant_store_profile), modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
         IconButton(onClick = onOpenNotifications) {
-            Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+            Icon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.merchant_notifications))
         }
     }
 }
@@ -124,6 +138,7 @@ private fun StoreProfileZipContent(
     onOpenEditPublicProfile: () -> Unit,
     onOpenCustomerReviews: () -> Unit,
     onOpenOrderHistory: () -> Unit,
+    onOpenLanguage: () -> Unit,
     onLogout: () -> Unit
 ) {
     LazyColumn(
@@ -141,41 +156,49 @@ private fun StoreProfileZipContent(
         item {
             StoreProfileOption(
                 icon = Icons.Filled.History,
-                title = "Order History",
-                subtitle = "Completed and ended orders",
+                title = stringResource(R.string.merchant_order_history),
+                subtitle = stringResource(R.string.merchant_order_history_subtitle),
                 onClick = onOpenOrderHistory
             )
         }
         item {
             StoreProfileOption(
                 icon = Icons.Filled.Store,
-                title = "Store Information",
-                subtitle = "Address, contact, description",
+                title = stringResource(R.string.merchant_store_information),
+                subtitle = stringResource(R.string.merchant_store_information_subtitle),
                 onClick = onOpenStoreInformation
             )
         }
         item {
             StoreProfileOption(
                 icon = Icons.Filled.Schedule,
-                title = "Operating Hours",
-                subtitle = "Set open/close times & holidays",
+                title = stringResource(R.string.merchant_operating_hours),
+                subtitle = stringResource(R.string.merchant_operating_hours_subtitle),
                 onClick = onOpenOperatingHours
             )
         }
         item {
             StoreProfileOption(
                 icon = Icons.Filled.AccountBalanceWallet,
-                title = "Payment Settings",
-                subtitle = "Bank accounts & payouts",
+                title = stringResource(R.string.merchant_payment_settings),
+                subtitle = stringResource(R.string.merchant_payment_settings_subtitle),
                 onClick = onOpenPaymentSettings
             )
         }
         item {
             StoreProfileOption(
                 icon = Icons.Filled.Notifications,
-                title = "Notifications",
-                subtitle = "Order alerts & email prefs",
+                title = stringResource(R.string.merchant_notifications),
+                subtitle = stringResource(R.string.merchant_notifications_subtitle),
                 onClick = onOpenNotifications
+            )
+        }
+        item {
+            StoreProfileOption(
+                icon = Icons.Filled.Language,
+                title = stringResource(R.string.merchant_language),
+                subtitle = stringResource(R.string.merchant_language_description),
+                onClick = onOpenLanguage
             )
         }
         item {
@@ -183,7 +206,7 @@ private fun StoreProfileZipContent(
                 onClick = onLogout,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Log out", color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.merchant_log_out), color = MaterialTheme.colorScheme.error)
             }
         }
         item { Spacer(Modifier.size(8.dp)) }
@@ -215,7 +238,7 @@ private fun StoreIdentityCard(
             }
             Spacer(Modifier.size(16.dp))
             Text(
-                merchant.namaToko.ifBlank { "Nama toko belum tersedia" },
+                merchant.namaToko.ifBlank { stringResource(R.string.merchant_store_name_unavailable) },
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -231,7 +254,7 @@ private fun StoreIdentityCard(
                 )
                 Spacer(Modifier.size(8.dp))
                 Text(
-                    if (merchant.ratingCount > 0) "(${merchant.ratingCount} Reviews)" else "Belum ada review",
+                    if (merchant.ratingCount > 0) stringResource(R.string.merchant_reviews_count, merchant.ratingCount) else stringResource(R.string.merchant_no_reviews),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -244,10 +267,10 @@ private fun StoreIdentityCard(
                     contentColor = Primary
                 )
             ) {
-                Text("Edit Public Profile")
+                Text(stringResource(R.string.merchant_edit_public_profile))
             }
             androidx.compose.material3.TextButton(onClick = onOpenCustomerReviews) {
-                Text("Lihat customer reviews")
+                Text(stringResource(R.string.merchant_view_customer_reviews))
             }
         }
     }
@@ -288,9 +311,9 @@ private fun RegistrationRequired(onGoToRegistration: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.size(48.dp))
         Spacer(Modifier.size(12.dp))
-        Text("Profil merchant belum tersedia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.merchant_profile_unavailable), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.size(16.dp))
-        Button(onClick = onGoToRegistration) { Text("Daftar sebagai merchant") }
+        Button(onClick = onGoToRegistration) { Text(stringResource(R.string.merchant_register)) }
     }
 }
 
@@ -301,6 +324,6 @@ private fun ProfileUnavailable(message: String, onRetry: () -> Unit) {
         Spacer(Modifier.size(12.dp))
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.size(12.dp))
-        OutlinedButton(onClick = onRetry) { Text("Coba Lagi") }
+        OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.merchant_try_again)) }
     }
 }

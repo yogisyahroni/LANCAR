@@ -1,0 +1,36 @@
+groups:
+  - name: tembus-slo-recording
+    interval: 30s
+    rules:
+      - record: tembus:sli:http_request_success_ratio:5m
+        expr: |
+          sum(rate(tembus_http_server_request_duration_seconds_count{http_status_code=~"2..|3.."}[5m]))
+          /
+          clamp_min(sum(rate(tembus_http_server_request_duration_seconds_count[5m])), 1)
+      - record: tembus:sli:http_request_latency_p95:5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(tembus_http_server_request_duration_seconds_bucket[5m])) by (le)
+          )
+
+  - name: tembus-slo-alerts
+    rules:
+      - alert: TembusApiAvailabilityBudgetBurn
+        expr: tembus:sli:http_request_success_ratio:5m < 0.995
+        for: 10m
+        labels:
+          severity: critical
+          slo: api-availability
+        annotations:
+          summary: "API availability turun di bawah 99.5%"
+          description: "Error budget API terbakar selama minimal 10 menit; cek service, database, dan dependency downstream."
+      - alert: TembusApiLatencyBudgetBurn
+        expr: tembus:sli:http_request_latency_p95:5m > 0.75
+        for: 10m
+        labels:
+          severity: warning
+          slo: api-latency
+        annotations:
+          summary: "P95 latency API melewati 750ms"
+          description: "Latency p95 melewati target API; audit query lambat, pool, dan downstream provider."

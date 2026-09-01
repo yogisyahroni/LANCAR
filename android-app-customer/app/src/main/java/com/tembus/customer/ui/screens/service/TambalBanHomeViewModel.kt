@@ -21,6 +21,7 @@ data class TambalBanHomeUiState(
     val services: List<TambalBanServiceProduct> = emptyList(),
     val couriers: List<NearbyCourier> = emptyList(),
     val priceRange: PriceRange? = null,
+    val towingAlternatives: List<NearbyCourier> = emptyList(),
     val error: String? = null
 )
 
@@ -45,6 +46,13 @@ class TambalBanHomeViewModel @Inject constructor(
                             priceRange = response.priceRange
                         )
                     }
+                    val alternatives = buildList {
+                        orderRepository.getNearbyCouriers("towing_motor", lat, lng)
+                            .onSuccess { addAll(it.couriers) }
+                        orderRepository.getNearbyCouriers("towing_mobil", lat, lng)
+                            .onSuccess { addAll(it.couriers) }
+                    }
+                    _uiState.update { it.copy(towingAlternatives = alternatives.distinctBy { courier -> courier.courierId }) }
                 }
                 .onFailure { e ->
                     _uiState.update {

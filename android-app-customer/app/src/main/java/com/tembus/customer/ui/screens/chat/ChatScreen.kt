@@ -17,6 +17,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
@@ -53,6 +56,7 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var textInput by remember { mutableStateOf("") }
+    var isRefreshing by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val conversation = uiState.conversation
     val showDeliveryGroupContext = conversation?.isGroup == true ||
@@ -100,6 +104,10 @@ fun ChatScreen(
         }
     }
 
+    LaunchedEffect(uiState.isLoading) {
+        if (!uiState.isLoading) isRefreshing = false
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -121,7 +129,7 @@ fun ChatScreen(
                             if (courierPhotoUrl != null) {
                                 AsyncImage(
                                     model = courierPhotoUrl,
-                                    contentDescription = "Foto kurir",
+                                    contentDescription = CustomerTextCatalog.translate("Foto kurir"),
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
                                         .size(40.dp)
@@ -138,7 +146,7 @@ fun ChatScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Person,
-                                        contentDescription = "Kurir",
+                                        contentDescription = CustomerTextCatalog.translate("Kurir"),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
                                     )
@@ -187,7 +195,7 @@ fun ChatScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 },
                 actions = {
@@ -196,7 +204,7 @@ fun ChatScreen(
                         IconButton(onClick = { /* TODO: call courier */ }) {
                             Icon(
                                 imageVector = Icons.Default.Call,
-                                contentDescription = "Telepon kurir",
+                                contentDescription = CustomerTextCatalog.translate("Telepon kurir"),
                                 tint = Primary
                             )
                         }
@@ -204,7 +212,7 @@ fun ChatScreen(
                         IconButton(onClick = { /* TODO: show menu */ }) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "Opsi lainnya",
+                                contentDescription = CustomerTextCatalog.translate("Opsi lainnya"),
                                 tint = Primary
                             )
                         }
@@ -212,7 +220,7 @@ fun ChatScreen(
                         IconButton(onClick = onInAppCallClick) {
                             Icon(
                                 imageVector = Icons.Default.Call,
-                                contentDescription = "Panggilan dalam aplikasi",
+                                contentDescription = CustomerTextCatalog.translate("Panggilan dalam aplikasi"),
                                 tint = Primary
                             )
                         }
@@ -225,12 +233,20 @@ fun ChatScreen(
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFF2F2F7)) // Soft subtle gray background
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                viewModel.refresh()
+            },
+            modifier = Modifier.fillMaxSize()
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .background(Color(0xFFF2F2F7)) // Soft subtle gray background
+            ) {
             AnimatedVisibility(visible = uiState.isSending) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
@@ -368,7 +384,7 @@ fun ChatScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
-                                    contentDescription = "Tambah lampiran",
+                                    contentDescription = CustomerTextCatalog.translate("Tambah lampiran"),
                                     tint = Primary,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -423,13 +439,14 @@ fun ChatScreen(
                             } else {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Send,
-                                    contentDescription = "Kirim",
+                                    contentDescription = CustomerTextCatalog.translate("Kirim"),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -521,7 +538,7 @@ private fun FailedMessageBanner(
                 Text("Coba", color = Primary, fontWeight = FontWeight.Bold)
             }
             IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color(0xFF92400E), modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Close, contentDescription = CustomerTextCatalog.translate("Tutup"), tint = Color(0xFF92400E), modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -757,7 +774,7 @@ private fun FoodOrderSummaryCard(
                     if (firstItemImageUrl != null) {
                         AsyncImage(
                             model = firstItemImageUrl,
-                            contentDescription = "Foto makanan",
+                            contentDescription = CustomerTextCatalog.translate("Foto makanan"),
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
                             placeholder = painterResource(R.drawable.ic_food_placeholder),
@@ -766,7 +783,7 @@ private fun FoodOrderSummaryCard(
                     } else {
                         Icon(
                             imageVector = Icons.Default.Fastfood,
-                            contentDescription = "Food",
+                            contentDescription = CustomerTextCatalog.translate("Food"),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(28.dp)
@@ -818,7 +835,7 @@ private fun FoodOrderSummaryCard(
                         )
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Salin nomor pesanan",
+                            contentDescription = CustomerTextCatalog.translate("Salin nomor pesanan"),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(14.dp)

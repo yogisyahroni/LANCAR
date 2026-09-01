@@ -44,6 +44,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -197,7 +199,7 @@ internal fun PayoutBalanceCard(
                     Text("Settlement pendapatan ke rekening terverifikasi", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f))
                 }
                 IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh pencairan", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Default.Refresh, contentDescription = CourierTextCatalog.translate("Refresh pencairan"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -339,4 +341,3 @@ internal fun PayoutBalanceCard(
         }
     }
 }
-

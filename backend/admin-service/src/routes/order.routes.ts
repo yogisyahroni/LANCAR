@@ -40,6 +40,7 @@ orderRoutes.post('/auth/web/disputes/:id/chats', verifyWebSession, (req, res) =>
 orderRoutes.post('/auth/web/disputes/:id/upload', verifyWebSession, ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.uploadDisputeFile(req, res));
 orderRoutes.get('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrders(req, res));
 orderRoutes.get('/api/v1/customer/orders/:id/tracking-detail', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrderTrackingDetail(req, res));
+orderRoutes.get('/api/v1/customer/tambal-ban/materials', requireMobileOrWebAuth, (req, res) => controllers.tambalBanMaterials.listTambalBanMaterials(req, res));
 orderRoutes.post('/api/v1/customer/orders/calculate', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrice(req, res));
 orderRoutes.post('/api/v1/customer/orders/calculate-all', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrices(req, res));
 orderRoutes.post('/api/v1/customer/orders', requireMobileOrWebAuth, requireIdempotencyKey('customer.order.create'), (req, res) => controllers.customerOrder.createCustomerOrder(req, res));

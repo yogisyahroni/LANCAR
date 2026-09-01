@@ -23,6 +23,7 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { api } from '@/lib/api';
 import { clientLog } from '@/lib/clientLogger';
 import Link from 'next/link';
+import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 
 interface Order {
   id: string;
@@ -154,23 +155,7 @@ export default function DashboardPage() {
 
   // Render skeletons while loading
   if (loading) {
-    return (
-      <div className="space-y-8 select-none">
-        <div className="flex flex-col gap-2">
-          <div className="h-9 bg-muted/60 rounded-xl w-64 animate-pulse" />
-          <div className="h-5 bg-muted/60 rounded-lg w-48 animate-pulse" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 bg-muted/40 border border-border/40 rounded-2xl animate-pulse" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 h-[420px] bg-muted/40 border border-border/40 rounded-2xl animate-pulse" />
-          <div className="h-[420px] bg-muted/40 border border-border/40 rounded-2xl animate-pulse" />
-        </div>
-      </div>
-    );
+    return <CustomerPageSkeleton />;
   }
 
   return (

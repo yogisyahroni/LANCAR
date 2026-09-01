@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
-import { downloadCsv, parseCsvText } from '@/lib/csv';
+import { parseCsvText } from '@/lib/csv';
+import readXlsxFile from 'read-excel-file/browser';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { 
   MapPin, 
   Plus, 
@@ -44,6 +46,15 @@ interface CustomerAddressApi {
   kind?: 'pickup' | 'receiver' | 'both';
   is_favorite?: boolean;
 }
+
+type ImportPreviewRow = {
+  rowNumber: number;
+  label: string;
+  recipientName: string;
+  address: string;
+  payload?: ReturnType<typeof buildAddressPayload>;
+  error?: string;
+};
 
 const mapAddressFromApi = (item: CustomerAddressApi): Address => ({
   id: item.id,
@@ -123,6 +134,9 @@ export default function AddressBookPage() {
   const [latitude, setLatitude] = useState(0);
   const [longitude, setLongitude] = useState(0);
   const [isDefault, setIsDefault] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreviewRow[] | null>(null);
+  const [importFileName, setImportFileName] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   const loadAddresses = async () => {
     setLoading(true);
@@ -297,22 +311,30 @@ export default function AddressBookPage() {
     }
   };
 
-  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddressImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const data = parseCsvText(String(evt.target?.result || ''));
+        const isSpreadsheet = /\.xlsx$/i.test(file.name);
+        const data = isSpreadsheet
+          ? (() => {
+              const rows = (evt.target?.result || []) as unknown[][];
+              const headers = (rows[0] || []).map((header) => String(header ?? '').trim());
+              return rows.slice(1).map((cells) => Object.fromEntries(
+                headers.map((header, columnIndex) => [header, cells[columnIndex] ?? ''])
+              ));
+            })()
+          : parseCsvText(String(evt.target?.result || ''));
 
         if (!data || data.length === 0) {
-          addNotification({ title: 'Gagal', message: 'File CSV kosong atau format tidak sesuai.', type: 'error' });
+              addNotification({ title: 'Gagal', message: 'File XLSX/CSV kosong atau format tidak sesuai.', type: 'error' });
           return;
         }
 
-        const validRows = data
-          .map((row) => {
+        const preview = data.map((row, index) => {
             const lbl = row.Label || row.label;
             const recName = row['Nama Penerima'] || row.recipient_name || row.nama;
             const ph = row.Telepon || row.phone || row.hp;
@@ -321,7 +343,13 @@ export default function AddressBookPage() {
             const lng = parseCoordinate(row.Longitude || row.longitude || row.lng);
 
             if (!lbl || !recName || !ph || !addrStr || lat === null || lng === null) {
-              return null;
+              return {
+                rowNumber: index + 2,
+                label: String(lbl || ''),
+                recipientName: String(recName || ''),
+                address: String(addrStr || ''),
+                error: 'Label, penerima, telepon, alamat, latitude, dan longitude wajib diisi.',
+              };
             }
 
             return buildAddressPayload({
@@ -333,23 +361,48 @@ export default function AddressBookPage() {
               longitude: lng,
               isDefault: false,
             });
-          })
-          .filter(Boolean);
+          }).map((row, index) => 'error' in row
+            ? row
+            : { rowNumber: index + 2, label: String(row.label), recipientName: String(row.contact_name), address: String(row.address), payload: row });
 
-        if (validRows.length === 0) {
-          addNotification({ title: 'Gagal', message: 'Tidak ada baris alamat valid di file CSV.', type: 'error' });
-          return;
-        }
-
-        await Promise.all(validRows.map((payload) => api.post('/customer/addresses', payload)));
-        await loadAddresses();
-        addNotification({ title: 'Sukses Import', message: `Berhasil menambahkan ${validRows.length} alamat baru dari CSV.`, type: 'success' });
+        setImportFileName(file.name);
+        setImportPreview(preview);
       } catch (err) {
-        addNotification({ title: 'Gagal', message: 'Tidak dapat membaca file CSV.', type: 'error' });
+        addNotification({ title: 'Gagal', message: 'Tidak dapat membaca file XLSX/CSV.', type: 'error' });
       }
     };
-    reader.readAsText(file);
+    if (/\.xlsx$/i.test(file.name)) {
+      readXlsxFile(file).then((rows) => {
+        reader.onload?.({ target: { result: rows } } as unknown as ProgressEvent<FileReader>);
+      }).catch(() => {
+        addNotification({ title: 'Gagal', message: 'Tidak dapat membaca file Excel.', type: 'error' });
+      });
+    } else reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const confirmAddressImport = async () => {
+    if (!importPreview) return;
+    const validRows = importPreview.filter((row): row is ImportPreviewRow & { payload: ReturnType<typeof buildAddressPayload> } => Boolean(row.payload));
+    if (validRows.length === 0) {
+      addNotification({ title: 'Gagal', message: 'Tidak ada baris alamat valid untuk diimport.', type: 'error' });
+      return;
+    }
+    setIsImporting(true);
+    let imported = 0;
+    let failed = 0;
+    for (const row of validRows) {
+      try {
+        await api.post('/customer/addresses', row.payload);
+        imported += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setIsImporting(false);
+    setImportPreview(null);
+    await loadAddresses();
+    addNotification({ title: failed ? 'Import selesai sebagian' : 'Sukses Import', message: `${imported} alamat tersimpan${failed ? `, ${failed} gagal` : ''}.`, type: failed ? 'error' : 'success' });
   };
 
   const handleDownloadTemplate = () => {
@@ -364,23 +417,21 @@ export default function AddressBookPage() {
       }
     ];
 
-    downloadCsv(`Template_Alamat_TEMBUS.csv`, templateData);
+    const headers = Object.keys(templateData[0]);
+    const csv = [headers, ...templateData.map((row) => headers.map((header) => row[header as keyof typeof row]))]
+      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'Template_Alamat_TEMBUS.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6 select-none animate-pulse">
-        <div className="h-10 bg-muted/60 rounded-xl w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="h-12 bg-muted/40 rounded-xl" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-44 bg-muted/40 border border-border/40 rounded-2xl" />
-          ))}
-        </div>
-      </div>
-    );
+    return <CustomerPageSkeleton />;
   }
 
   return (
@@ -400,15 +451,15 @@ export default function AddressBookPage() {
           </p>
         </div>
 
-        {/* Action button: add address & import CSV */}
+        {/* Action button: add address & import Excel/CSV */}
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 hover:bg-muted text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm select-none">
-            <Upload className="h-3.5 w-3.5" /> Import CSV
+            <Upload className="h-3.5 w-3.5" /> Import Excel/CSV
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="hidden select-none"
-              onChange={handleCsvImport}
+              onChange={handleAddressImport}
             />
           </label>
           <button
@@ -426,6 +477,19 @@ export default function AddressBookPage() {
           </button>
         </div>
       </motion.div>
+
+      {importPreview && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 space-y-4" role="dialog" aria-label="Preview import alamat">
+          <div className="flex items-start justify-between gap-4">
+            <div><p className="text-sm font-bold text-foreground">Preview {importFileName}</p><p className="text-xs text-muted-foreground mt-1">{importPreview.filter(row => row.payload).length} valid · {importPreview.filter(row => row.error).length} perlu diperbaiki</p></div>
+            <button type="button" onClick={() => setImportPreview(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Tutup preview"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="max-h-64 overflow-auto rounded-xl border border-border/40 bg-card/60">
+            <table className="w-full text-xs"><thead className="sticky top-0 bg-card text-muted-foreground"><tr><th className="p-3 text-left">Baris</th><th className="p-3 text-left">Label</th><th className="p-3 text-left">Penerima</th><th className="p-3 text-left">Status</th></tr></thead><tbody>{importPreview.map(row => <tr key={row.rowNumber} className="border-t border-border/30"><td className="p-3">{row.rowNumber}</td><td className="p-3">{row.label || '-'}</td><td className="p-3">{row.recipientName || '-'}</td><td className={`p-3 ${row.error ? 'text-destructive' : 'text-success'}`}>{row.error || 'Valid'}</td></tr>)}</tbody></table>
+          </div>
+          <div className="flex justify-end gap-3"><button type="button" onClick={() => setImportPreview(null)} className="px-4 py-2 text-xs font-semibold text-muted-foreground">Batal</button><button type="button" disabled={isImporting || !importPreview.some(row => row.payload)} onClick={confirmAddressImport} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50"><CheckCircle className="h-3.5 w-3.5" />{isImporting ? 'Menyimpan...' : 'Import baris valid'}</button></div>
+        </div>
+      )}
 
       {/* Filter search Bar */}
       <div className="relative select-none">

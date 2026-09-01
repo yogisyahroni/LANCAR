@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Filter,
   Loader2,
+  Ban,
   Users,
   BarChart3,
   Truck,
@@ -26,6 +27,7 @@ import { api } from '../lib/api'
 import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
+import { Skeleton } from './ui/Skeleton'
 
 // FB-123: scheduled_at (ISO UTC) → jam lokal "HH:mm".
 const formatScheduledTime = (iso?: string | null) => {
@@ -288,8 +290,63 @@ function RouteTelemetryPanel({ orderDetail }: { orderDetail: any }) {
       </div>
       <div className="relative flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-600">
         <MapPin size={14} className={hasRoute ? 'text-primary-light' : 'text-zinc-700'} />
-        Static placeholder map removed
+        Route geometry tetap berasal dari snapshot order; GPS trail ada di panel evidence.
       </div>
+    </div>
+  )
+}
+
+function GpsTrailPanel({ orderDetail }: { orderDetail: any }) {
+  const trail = Array.isArray(orderDetail?.gps_trail) ? orderDetail.gps_trail : []
+  const [selectedIndex, setSelectedIndex] = useState(Math.max(0, trail.length - 1))
+  const selected = trail[Math.min(selectedIndex, Math.max(0, trail.length - 1))]
+  const formatPoint = (point: any) => {
+    const latitude = readNumber(point?.latitude)
+    const longitude = readNumber(point?.longitude)
+    return latitude !== null && longitude !== null ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : 'Koordinat tidak tersedia'
+  }
+
+  return (
+    <div className="rounded-[40px] bg-zinc-900 border border-white/5 p-8 space-y-5 shadow-inner">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">GPS Evidence Trail</p>
+          <p className="mt-1 text-sm font-black text-white">{trail.length ? 'Breadcrumb trusted courier' : 'Belum ada GPS trail trusted'}</p>
+        </div>
+        <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary-light">
+          {trail.length} titik
+        </span>
+      </div>
+      {trail.length ? (
+        <>
+          <input
+            aria-label="Putar GPS trail"
+            type="range"
+            min={0}
+            max={trail.length - 1}
+            value={Math.min(selectedIndex, trail.length - 1)}
+            onChange={(event) => setSelectedIndex(Number(event.target.value))}
+            className="w-full accent-emerald-500"
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Posisi dipilih</p>
+              <p className="mt-1 text-xs font-mono text-zinc-200">{formatPoint(selected)}</p>
+            </div>
+            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Waktu</p>
+              <p className="mt-1 text-xs text-zinc-200">{selected?.recorded_at ? format(new Date(selected.recorded_at), 'dd MMM yyyy HH:mm:ss') : 'Tidak tersedia'}</p>
+            </div>
+            <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Akurasi / kecepatan</p>
+              <p className="mt-1 text-xs text-zinc-200">{selected?.accuracy_m ?? '—'} m • {selected?.speed_kmh ?? '—'} km/j</p>
+            </div>
+          </div>
+          <p className="text-[10px] leading-relaxed text-zinc-500">Slider memutar titik GPS yang tersimpan di `courier_locations`; telemetry spoofed dikeluarkan dari hasil.</p>
+        </>
+      ) : (
+        <p className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-zinc-500">Trail hanya muncul jika courier mengirim telemetry untuk order ini.</p>
+      )}
     </div>
   )
 }
@@ -538,6 +595,10 @@ export default function ActiveOrdersTable() {
   const [stuckFilter, setStuckFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [showForceCancel, setShowForceCancel] = useState(false)
+  const [forceCancelReason, setForceCancelReason] = useState('')
+  const [forceCancelRefundMode, setForceCancelRefundMode] = useState<'none' | 'full' | 'partial'>('none')
+  const [forceCancelItems, setForceCancelItems] = useState<Record<string, number>>({})
   const limit = 10
 
   // Fetch Orders — auto-refetch every 10s for near-realtime updates
@@ -595,6 +656,34 @@ export default function ActiveOrdersTable() {
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Failed to flag order')
     }
+  })
+
+  const forceCancelMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedOrderId) throw new Error('Order belum dipilih')
+      const refundItems = Object.entries(forceCancelItems)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([item_id, qty]) => ({ item_id, qty }))
+      return api.post(`/admin/orders/${selectedOrderId}/force-cancel`, {
+        reason: forceCancelReason.trim(),
+        refund_mode: forceCancelRefundMode,
+        ...(forceCancelRefundMode === 'partial' ? { refund_items: refundItems } : {}),
+        restock: true,
+      })
+    },
+    onSuccess: (response) => {
+      const refund = response.data?.data?.refund
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-order-detail', selectedOrderId] })
+      setShowForceCancel(false)
+      setForceCancelReason('')
+      setForceCancelRefundMode('none')
+      setForceCancelItems({})
+      toast.success(refund?.triggered ? 'Order dibatalkan dan refund diproses' : 'Order berhasil dibatalkan')
+    },
+    onError: (error: any) => {
+      toast.error(getErrorMessage(error, 'Force-cancel order gagal diproses'))
+    },
   })
 
   // Dedup by id sebagai defensive layer — backend seharusnya sudah unik,
@@ -672,7 +761,7 @@ export default function ActiveOrdersTable() {
       <div className="flex-1 overflow-x-auto">
         {isLoadingOrders ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-4">
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <Skeleton className="h-10 w-10 rounded-full" />
             <p className="text-xs font-black text-zinc-500 uppercase tracking-widest">Scanning Grid...</p>
           </div>
         ) : isOrdersError ? (
@@ -828,8 +917,8 @@ export default function ActiveOrdersTable() {
             >
               {isLoadingDetail ? (
                 <div className="flex-1 flex flex-col items-center justify-center space-y-6 py-40">
-                  <Loader2 className="w-16 h-16 text-primary animate-spin" />
-                  <p className="text-sm font-black text-zinc-500 uppercase tracking-[0.3em]">Downloading Order Context...</p>
+                  <Skeleton className="h-16 w-16 rounded-full" />
+                  <Skeleton className="h-3 w-52" />
                 </div>
               ) : isDetailError ? (
                 <ErrorState
@@ -1055,12 +1144,23 @@ export default function ActiveOrdersTable() {
                             {flagIssueMutation.isPending ? <Loader2 size={20} className="animate-spin" /> : <AlertCircle size={20} />}
                             Flag Issue
                           </button>
+                          {!['cancelled', 'failed', 'completed', 'delivered', 'pod_completed'].includes(String(orderDetail.status).toLowerCase()) && (
+                            <button
+                              type="button"
+                              onClick={() => setShowForceCancel(true)}
+                              className="w-full py-6 rounded-[32px] bg-red-500/10 text-red-300 border border-red-500/30 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-red-500/20 transition-all flex items-center justify-center gap-3"
+                            >
+                              <Ban size={20} />
+                              Force Cancel + Refund
+                            </button>
+                          )}
                         </div>
 
                         <TambalBanReportPanel report={orderDetail.tambal_ban_report} />
                         <TowingReportPanel report={orderDetail.towing_report} />
 
                         <OperationalMonitoringPanel orderDetail={orderDetail} />
+                        <GpsTrailPanel orderDetail={orderDetail} />
 
                         <div className="p-8 rounded-[40px] bg-zinc-900 border border-white/5 space-y-6 shadow-inner">
                           <div className="flex items-center justify-between gap-3">
@@ -1145,6 +1245,106 @@ export default function ActiveOrdersTable() {
                 </div>
               )}
             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showForceCancel && orderDetail && (
+          <div className="fixed inset-0 z-[240] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !forceCancelMutation.isPending && setShowForceCancel(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.form
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              onSubmit={(event) => {
+                event.preventDefault()
+                const selectedItems = Object.values(forceCancelItems).some((quantity) => quantity > 0)
+                if (forceCancelReason.trim().length < 10) {
+                  toast.error('Alasan wajib minimal 10 karakter')
+                  return
+                }
+                if (forceCancelRefundMode === 'partial' && !selectedItems) {
+                  toast.error('Pilih minimal satu item untuk refund partial')
+                  return
+                }
+                forceCancelMutation.mutate()
+              }}
+              className="glass-card w-full max-w-xl p-8 rounded-[32px] relative z-10 border-red-500/30 shadow-2xl space-y-6"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300">Admin action • audited</p>
+                  <h2 className="mt-2 text-2xl font-black text-zinc-100">Force cancel order?</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-500">Status order akan menjadi cancelled. Tindakan ini tidak tersedia untuk order terminal dan wajib memakai TOTP di backend.</p>
+                </div>
+                <Ban className="shrink-0 text-red-300" size={24} />
+              </div>
+
+              <label className="block space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Reason (min. 10 karakter)</span>
+                <textarea
+                  required
+                  minLength={10}
+                  value={forceCancelReason}
+                  onChange={(event) => setForceCancelReason(event.target.value)}
+                  rows={3}
+                  placeholder="Contoh: merchant tidak dapat memenuhi pesanan dan customer perlu dipulihkan dananya"
+                  className="w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200 outline-none focus:ring-2 focus:ring-red-500/40"
+                />
+              </label>
+
+              <label className="block space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Refund mode</span>
+                <select
+                  value={forceCancelRefundMode}
+                  onChange={(event) => setForceCancelRefundMode(event.target.value as 'none' | 'full' | 'partial')}
+                  className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-zinc-200 outline-none focus:ring-2 focus:ring-red-500/40"
+                >
+                  <option value="none">Tidak ada refund</option>
+                  <option value="full">Refund penuh</option>
+                  <option value="partial">Refund sebagian (per item)</option>
+                </select>
+              </label>
+
+              {forceCancelRefundMode === 'partial' && (
+                <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Item yang direfund</p>
+                  {Array.isArray(orderDetail.food_items) && orderDetail.food_items.length > 0 ? orderDetail.food_items.map((item: any, index: number) => {
+                    const itemId = String(item.id || item.menu_item_id || item.item_id || '')
+                    const maxQuantity = Math.max(1, Number(item.quantity) || 1)
+                    if (!itemId) return null
+                    return (
+                      <label key={`${itemId}-${index}`} className="flex items-center justify-between gap-3 text-sm text-zinc-300">
+                        <span className="min-w-0 truncate">{item.quantity || 1}× {item.item_name || 'Item menu'}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={maxQuantity}
+                          value={forceCancelItems[itemId] || 0}
+                          onChange={(event) => setForceCancelItems((current) => ({ ...current, [itemId]: Math.min(maxQuantity, Math.max(0, Number(event.target.value) || 0)) }))}
+                          className="w-20 rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-center text-sm text-zinc-200"
+                        />
+                      </label>
+                    )
+                  }) : <p className="text-xs text-zinc-500">Detail item makanan belum tersedia dari API order ini.</p>}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" disabled={forceCancelMutation.isPending} onClick={() => setShowForceCancel(false)} className="rounded-2xl border border-white/10 px-5 py-3 text-xs font-black uppercase tracking-widest text-zinc-400 hover:bg-white/5 disabled:opacity-50">Batal</button>
+                <button type="submit" disabled={forceCancelMutation.isPending} className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-600/20 hover:bg-red-500 disabled:opacity-50">
+                  {forceCancelMutation.isPending && <Loader2 size={15} className="animate-spin" />}
+                  Konfirmasi cancel
+                </button>
+              </div>
+            </motion.form>
           </div>
         )}
       </AnimatePresence>

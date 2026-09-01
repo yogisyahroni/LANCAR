@@ -5,6 +5,7 @@ import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { api } from "@/lib/api";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { 
   Loader2, 
   MapPin, 
@@ -491,7 +492,7 @@ export function AggregatorWizard() {
                       ].join(" ")}
                     >
                       {watch("vehicle_type") === vt && (
-                        <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                        <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-brand-emerald-500 flex items-center justify-center">
                           <Check className="h-2.5 w-2.5 text-white" />
                         </span>
                       )}
@@ -537,7 +538,7 @@ export function AggregatorWizard() {
                         ].join(" ")}
                       >
                         {watch("provider") === p.id && (
-                          <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
+                          <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-brand-emerald-500 flex items-center justify-center">
                             <Check className="h-2 w-2 text-white" />
                           </span>
                         )}
@@ -556,8 +557,8 @@ export function AggregatorWizard() {
                     {watch("schedule_type") === "now" ? "Penjemputan Sekarang" : "Penjemputan Terjadwal"}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-emerald-400" />
+                    <span className="h-5 w-5 rounded-full bg-brand-emerald-500/20 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-brand-emerald-400" />
                     </span>
                     <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground">
                       <span className="text-xs">✏️</span>
@@ -575,8 +576,8 @@ export function AggregatorWizard() {
                     <p className="text-xs text-muted-foreground/60 mt-0.5">📍 Belum Pinpoint</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-emerald-400" />
+                    <span className="h-5 w-5 rounded-full bg-brand-emerald-500/20 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-brand-emerald-400" />
                     </span>
                     <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground">
                       <span className="text-xs">✏️</span>
@@ -591,8 +592,8 @@ export function AggregatorWizard() {
                       <Clock className="h-3.5 w-3.5" /> Waktu
                     </span>
                     <span className="flex-1 text-sm">{watch("scheduled_at") || "—"}</span>
-                    <span className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-emerald-400" />
+                    <span className="h-5 w-5 rounded-full bg-brand-emerald-500/20 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-brand-emerald-400" />
                     </span>
                   </div>
                 )}
@@ -605,8 +606,8 @@ export function AggregatorWizard() {
                   <span className="flex-1 text-sm text-muted-foreground">
                     Parcel dapat diangkut dengan {watch("vehicle_type") === "Motor" ? "sepeda" : watch("vehicle_type") === "Mobil" ? "mobil" : "truk"}
                   </span>
-                  <span className="h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <Check className="h-3 w-3 text-emerald-400" />
+                  <span className="h-5 w-5 rounded-full bg-brand-emerald-500/20 flex items-center justify-center">
+                    <Check className="h-3 w-3 text-brand-emerald-400" />
                   </span>
                 </div>
               </div>
@@ -691,7 +692,7 @@ export function AggregatorWizard() {
                         <label className="mb-1 block text-sm font-medium text-muted-foreground">Provinsi / Kota / Kecamatan / Kelurahan / Kode Pos</label>
                         <p className="mb-2 text-xs text-muted-foreground/70">Masukkan nama kota / kecamatan (setidaknya 4 karakter)</p>
                         <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />
+                          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-emerald-400" />
                           <select
                             {...register("destination_code")}
                             className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
@@ -1022,9 +1023,10 @@ export function AggregatorWizard() {
                 <label className="mb-3 block text-base font-semibold text-foreground">Pilih Layanan</label>
                 
                 {isLoadingTariff ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 px-4 py-8 justify-center text-sm text-muted-foreground">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Menghitung ongkir terbaik...
+                  <div className="space-y-3 rounded-lg border border-white/10 bg-background/40 p-4" aria-busy="true" aria-label="Menghitung ongkir">
+                    <Skeleton className="h-4 w-44 bg-white/10" />
+                    <Skeleton className="h-12 w-full bg-white/10" />
+                    <Skeleton className="h-12 w-full bg-white/10" />
                   </div>
                 ) : tariffError ? (
                   <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-100">
@@ -1060,7 +1062,7 @@ export function AggregatorWizard() {
                           <div className="mt-3 flex items-end justify-between">
                             <div className="text-[10px]">
                               {idx === 0 && (
-                                <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-300">Termurah</span>
+                                <span className="rounded border border-brand-emerald-500/30 bg-brand-emerald-500/10 px-1.5 py-0.5 text-brand-emerald-300">Termurah</span>
                               )}
                             </div>
                             <p className="text-sm font-bold text-indigo-400">{formatPrice(tariff.price)}</p>
@@ -1152,7 +1154,7 @@ export function AggregatorWizard() {
               <button
                 type="submit"
                 disabled={isSubmitting || (orderMode === "upload" ? bulkRows.length === 0 : (isLoadingTariff || tariffs.length === 0))}
-                className="inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                className="inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg bg-brand-emerald-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-brand-emerald-600 transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TEMBUS Merchant</string>
+    <string name="merchant_tab_orders">Orders</string>
+    <string name="merchant_tab_menu">Menu</string>
+    <string name="merchant_tab_insights">Insights</string>
+    <string name="merchant_tab_profile">Profile</string>
+    <string name="merchant_tab_staff">Staff</string>
+    <string name="merchant_store_profile">Store Profile</string>
+    <string name="merchant_notifications">Notifications</string>
+    <string name="merchant_order_history">Order History</string>
+    <string name="merchant_order_history_subtitle">Completed and ended orders</string>
+    <string name="merchant_store_information">Store Information</string>
+    <string name="merchant_store_information_subtitle">Address, contact, description</string>
+    <string name="merchant_operating_hours">Operating Hours</string>
+    <string name="merchant_operating_hours_subtitle">Set open/close times and holidays</string>
+    <string name="merchant_payment_settings">Payment Settings</string>
+    <string name="merchant_payment_settings_subtitle">Bank accounts and payouts</string>
+    <string name="merchant_notifications_subtitle">Order alerts and email preferences</string>
+    <string name="merchant_log_out">Log out</string>
+    <string name="merchant_store_name_unavailable">Store name unavailable</string>
+    <string name="merchant_reviews_count">(%1$d reviews)</string>
+    <string name="merchant_no_reviews">No reviews yet</string>
+    <string name="merchant_edit_public_profile">Edit Public Profile</string>
+    <string name="merchant_view_customer_reviews">View customer reviews</string>
+    <string name="merchant_profile_unavailable">Store profile unavailable</string>
+    <string name="merchant_register">Register as a merchant</string>
+    <string name="merchant_try_again">Try Again</string>
+    <string name="merchant_language">Language</string>
+    <string name="merchant_language_description">Choose the app language</string>
+    <string name="merchant_back">Back</string>
+</resources>

@@ -1,0 +1,11 @@
+appId: com.tembus.courier
+name: Courier login surface
+
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "Username"
+- assertVisible:
+    text: "Password"
+- takeScreenshot: courier-login-surface

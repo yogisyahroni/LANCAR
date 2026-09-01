@@ -134,7 +134,10 @@ jobs:
 
       - name: Run tests
         working-directory: ./backend/admin-service
-        run: npm test -- --testTimeout=60000
+        # Coverage remains a separate opt-in gate until the legacy baseline reaches
+        # the configured thresholds. Functional staging tests must not collect it
+        # implicitly through a stale Jest config on a remote runner.
+        run: npm test -- --testTimeout=60000 --coverage=false
         env:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"

@@ -34,9 +34,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,6 +73,11 @@ fun BusinessInsightsZipScreen(
     val reportState by viewModel.uiState.collectAsState()
     val profileState by profileViewModel.uiState.collectAsState()
 
+    PullToRefreshBox(
+        isRefreshing = reportState.isLoading && reportState.report != null,
+        onRefresh = viewModel::load,
+        modifier = Modifier.fillMaxSize()
+    ) {
     Scaffold(
         containerColor = PrimaryPale,
         topBar = {
@@ -86,7 +93,7 @@ fun BusinessInsightsZipScreen(
                 },
                 actions = {
                     IconButton(onClick = onOpenNotifications) {
-                        Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                        Icon(Icons.Filled.Notifications, contentDescription = MerchantTextCatalog.translate("Notifications"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryPale)
@@ -119,6 +126,7 @@ fun BusinessInsightsZipScreen(
                 }
                 item { RevenueInsightCard(reportState.report) }
                 item { OrderCountCard(reportState.report) }
+                item { PerformanceCard(reportState.report?.performance) }
                 item { RatingCard(profileState.merchant, onOpenCustomerReviews) }
                 item { BoostSalesCard(onOpenCreatePromo) }
                 item { Text("Best Selling Items", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
@@ -132,6 +140,7 @@ fun BusinessInsightsZipScreen(
                 item { Spacer(Modifier.height(24.dp)) }
             }
         }
+    }
     }
 }
 
@@ -236,6 +245,44 @@ private fun OrderCountCard(report: SalesReportSummary?) {
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Filled.ShoppingBag, contentDescription = null, tint = Primary, modifier = Modifier.padding(12.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun PerformanceCard(performance: com.tembus.merchant.data.model.SalesPerformance?) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Performa Operasional", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Dari semua order food periode ini", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text("★ %.1f".format(java.util.Locale.US, performance?.avgRating ?: 0.0), color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PerformanceMetric("Order masuk", "${performance?.totalReceived ?: 0}", Modifier.weight(1f))
+                PerformanceMetric("Acceptance", "%.1f%%".format(java.util.Locale.US, performance?.acceptanceRatePct ?: 0.0), Modifier.weight(1f))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PerformanceMetric("Dibatalkan", "${performance?.cancelled ?: 0} (%.1f%%)".format(java.util.Locale.US, performance?.cancellationRatePct ?: 0.0), Modifier.weight(1f))
+                PerformanceMetric("Ditolak toko", "${performance?.rejectedByMerchant ?: 0}", Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PerformanceMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)) {
+        Column(Modifier.padding(10.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
     }
 }

@@ -14,6 +14,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.Response
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -50,6 +51,65 @@ class OrderRepository @Inject constructor(
      */
     suspend fun getOrderById(orderId: String): Order? = withContext(Dispatchers.IO) {
         orderDao.getOrderById(orderId)
+    }
+
+    /**
+     * Merge a server refresh without overwriting a local status/proof that is
+     * still queued. A status mismatch is retained as an explicit conflict.
+     */
+    suspend fun mergeRemoteOrders(remoteOrders: List<Order>) = withContext(Dispatchers.IO) {
+        val merged = remoteOrders.map { remote ->
+            val local = orderDao.getOrderById(remote.orderId)
+            if (local == null) {
+                remote.copy(needsSync = false, needsScanSync = false, needsPodSync = false)
+            } else {
+                val hasLocalMutation = local.needsSync || local.needsScanSync || local.needsPodSync
+                val statusConflict = local.needsSync && local.status != remote.status
+                remote.copy(
+                    localId = local.localId,
+                    status = if (hasLocalMutation) local.status else remote.status,
+                    updatedAt = if (hasLocalMutation) local.updatedAt else remote.updatedAt,
+                    needsSync = local.needsSync,
+                    needsScanSync = local.needsScanSync,
+                    needsPodSync = local.needsPodSync,
+                    scanLatitude = local.scanLatitude ?: remote.scanLatitude,
+                    scanLongitude = local.scanLongitude ?: remote.scanLongitude,
+                    scanType = local.scanType ?: remote.scanType,
+                    podImageUri = local.podImageUri ?: remote.podImageUri,
+                    podProofType = local.podProofType ?: remote.podProofType,
+                    pickupEvidenceUpdatedAt = local.pickupEvidenceUpdatedAt ?: remote.pickupEvidenceUpdatedAt,
+                    syncConflict = hasLocalMutation && (local.syncConflict || statusConflict),
+                    syncConflictMessage = when {
+                        statusConflict -> "Status server berubah menjadi '${remote.status}', tetapi perangkat masih menyimpan '${local.status}'."
+                        hasLocalMutation -> local.syncConflictMessage
+                        else -> null
+                    }
+                )
+            }
+        }
+        if (merged.isNotEmpty()) orderDao.upsertAll(merged)
+    }
+
+    suspend fun markSyncConflict(orderId: String, message: String) = withContext(Dispatchers.IO) {
+        orderDao.markSyncConflict(orderId, message)
+    }
+
+    suspend fun clearSyncConflict(orderId: String) = withContext(Dispatchers.IO) {
+        orderDao.clearSyncConflict(orderId)
+    }
+
+    suspend fun replaceWithServerOrder(serverOrder: Order) = withContext(Dispatchers.IO) {
+        val local = orderDao.getOrderById(serverOrder.orderId)
+        orderDao.upsert(
+            serverOrder.copy(
+                localId = local?.localId ?: serverOrder.localId,
+                needsSync = false,
+                needsScanSync = false,
+                needsPodSync = false,
+                syncConflict = false,
+                syncConflictMessage = null
+            )
+        )
     }
 
     /**
@@ -257,6 +317,8 @@ class OrderRepository @Inject constructor(
                 if (response.isSuccessful && response.body()?.success == true) {
                     orderDao.markAsSynced(listOf(order.orderId))
                     syncedOrderIds.add(order.orderId)
+                } else if (response.code() == 409) {
+                    orderDao.markSyncConflict(order.orderId, conflictMessage(response))
                 }
             }
 
@@ -279,6 +341,8 @@ class OrderRepository @Inject constructor(
                     if (response.isSuccessful && response.body()?.success == true) {
                         orderDao.markScanAsSynced(listOf(order.orderId))
                         syncedOrderIds.add(order.orderId)
+                    } else if (response.code() == 409) {
+                        orderDao.markSyncConflict(order.orderId, conflictMessage(response))
                     }
                 }
             }
@@ -324,6 +388,8 @@ class OrderRepository @Inject constructor(
                             } catch (e: Exception) {
                                 // Silent, non-blocking
                             }
+                        } else if (response.code() == 409) {
+                            orderDao.markSyncConflict(order.orderId, conflictMessage(response))
                         }
                     }
                 }
@@ -333,6 +399,12 @@ class OrderRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun conflictMessage(response: Response<*>): String {
+        val serverMessage = (response.body() as? com.tembus.courier.data.model.ApiResponse<*>)?.message
+        return serverMessage?.takeIf { it.isNotBlank() }
+            ?: "Server menolak perubahan lokal karena data sudah berubah. Pilih coba lagi atau gunakan versi server."
     }
 
     /**

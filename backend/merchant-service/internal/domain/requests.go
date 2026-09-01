@@ -143,6 +143,21 @@ type EditOrderItemsRequest struct {
 	Items []EditOrderItemRequest `json:"items"`
 }
 
+// PartialRejectItemRequest — item yang tidak tersedia setelah order masuk.
+// Quantity dibatasi server-side terhadap snapshot food_order_items.
+type PartialRejectItemRequest struct {
+	MenuItemID string `json:"menu_item_id"`
+	Quantity   int    `json:"quantity"`
+	Reason     string `json:"reason,omitempty"`
+}
+
+// PartialRejectOrderRequest — merchant mengembalikan sebagian item tanpa
+// membatalkan seluruh order.
+type PartialRejectOrderRequest struct {
+	Items  []PartialRejectItemRequest `json:"items"`
+	Reason string                     `json:"reason,omitempty"`
+}
+
 // CreateMerchantPromoRequest — body buat promo merchant (FB-099).
 // discount_type: percent | fixed | buy1get1. max_discount_idr hanya
 // relevan untuk percent (cap diskon). Harga tidak boleh negatif/nol.

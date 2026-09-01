@@ -15,6 +15,8 @@ const assertPolicy = (method, path, requirement, id) => {
 assertPolicy('POST', '/api/v1/auth/otp/send', 'public', 'auth-service-public');
 assertPolicy('POST', '/api/v1/auth/password-reset/request', 'public', 'auth-service-public');
 assertPolicy('POST', '/api/v1/auth/password-reset/confirm', 'public', 'auth-service-public');
+assertPolicy('POST', '/api/v1/auth/customer/apple/start', 'public', 'auth-service-public');
+assertPolicy('POST', '/api/v1/auth/customer/apple/complete', 'public', 'auth-service-public');
 assertPolicy('POST', '/api/v1/auth/courier/login', 'public', 'courier-auth-public');
 assertPolicy('GET', '/api/v1/system/latest-version', 'public', 'mobile-update-version-public');
 assertPolicy('GET', '/api/v1/maps/config', 'public', 'maps-public-runtime');

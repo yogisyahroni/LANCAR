@@ -143,7 +143,7 @@ function StatusStepper({ data }: { data: PublicResiData }) {
                 aria-current={isCurrent ? 'step' : undefined}
                 className={
                   reached
-                    ? 'flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-slate-950'
+                    ? 'flex h-8 w-8 items-center justify-center rounded-full bg-brand-emerald-500 text-slate-950'
                     : 'flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] text-slate-500'
                 }
               >
@@ -151,7 +151,7 @@ function StatusStepper({ data }: { data: PublicResiData }) {
               </span>
               <span
                 className={`max-w-[72px] text-center text-[10px] font-semibold leading-tight sm:max-w-none sm:text-xs ${
-                  reached ? 'text-emerald-300' : 'text-slate-500'
+                  reached ? 'text-brand-emerald-300' : 'text-slate-500'
                 }`}
               >
                 {step.label}
@@ -161,7 +161,7 @@ function StatusStepper({ data }: { data: PublicResiData }) {
               <div
                 aria-hidden="true"
                 className={`mx-1 mb-4 h-0.5 flex-1 rounded sm:mx-2 ${
-                  currentIndex > index ? 'bg-emerald-500' : 'bg-white/10'
+                  currentIndex > index ? 'bg-brand-emerald-500' : 'bg-white/10'
                 }`}
               />
             )}
@@ -240,7 +240,7 @@ function CekResiContent() {
           </nav>
         </header>
 
-        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-emerald-300 w-fit">
+        <div className="rounded-3xl border border-brand-emerald-500/20 bg-brand-emerald-500/10 p-3 text-brand-emerald-300 w-fit">
           <PackageSearch className="h-7 w-7" />
         </div>
         <h1 className="mt-4 text-3xl font-black tracking-tight">Lacak Kiriman</h1>
@@ -267,12 +267,12 @@ function CekResiContent() {
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Contoh: TB-12345678"
               aria-describedby="cek-resi-help"
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide outline-none transition-all placeholder:normal-case placeholder:text-slate-500 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide outline-none transition-all placeholder:normal-case placeholder:text-slate-500 focus:border-brand-emerald-400/60 focus:ring-2 focus:ring-brand-emerald-500/20"
             />
             <button
               type="submit"
               disabled={state.kind === 'loading'}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-black text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-emerald-500 px-6 py-3 text-sm font-black text-slate-950 transition-all hover:bg-brand-emerald-400 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
             >
               {state.kind === 'loading' ? (
                 <>
@@ -342,7 +342,7 @@ function CekResiContent() {
                     <p className="text-xs uppercase tracking-widest text-slate-500">Nomor resi</p>
                     <h2 className="mt-1 break-all text-2xl font-black tracking-tight">{state.data.resi}</h2>
                   </div>
-                  <span className="rounded-full bg-emerald-400/15 px-4 py-2 text-sm font-bold text-emerald-200">
+                  <span className="rounded-full bg-brand-emerald-400/15 px-4 py-2 text-sm font-bold text-brand-emerald-200">
                     {state.data.status_label || state.data.status || 'Menunggu update'}
                   </span>
                 </div>
@@ -389,11 +389,11 @@ function CekResiContent() {
                         <li key={`${entry.status}-${index}`} className="flex gap-3">
                           <span
                             className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-                              isFirst ? 'bg-emerald-400 ring-4 ring-emerald-500/20' : 'bg-slate-600'
+                              isFirst ? 'bg-brand-emerald-400 ring-4 ring-brand-emerald-500/20' : 'bg-slate-600'
                             }`}
                           />
                           <div>
-                            <p className={`text-sm ${isFirst ? 'font-bold text-emerald-200' : 'font-semibold text-slate-200'}`}>
+                            <p className={`text-sm ${isFirst ? 'font-bold text-brand-emerald-200' : 'font-semibold text-slate-200'}`}>
                               {entry.label || entry.status}
                             </p>
                             <p className="text-xs text-slate-500">{formatTime(entry.at)}</p>
@@ -411,11 +411,11 @@ function CekResiContent() {
         </div>
 
         {/* CTA login */}
-        <div className="mt-10 rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-white/[0.02] to-transparent p-6 text-center">
+        <div className="mt-10 rounded-3xl border border-brand-emerald-500/20 bg-gradient-to-br from-brand-emerald-500/10 via-white/[0.02] to-transparent p-6 text-center">
           <p className="text-sm text-slate-300">Ingin melihat detail order lengkap?</p>
           <Link
             href="/login"
-            className="mt-3 inline-flex items-center justify-center rounded-xl bg-emerald-500 px-6 py-3 text-sm font-black text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98]"
+            className="mt-3 inline-flex items-center justify-center rounded-xl bg-brand-emerald-500 px-6 py-3 text-sm font-black text-slate-950 transition-all hover:bg-brand-emerald-400 active:scale-[0.98]"
           >
             Masuk untuk detail lengkap
           </Link>

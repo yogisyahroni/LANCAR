@@ -230,6 +230,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/ready", middleware.BaseChain(h.MarkReady))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", middleware.BaseChain(h.RejectOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/struk", middleware.BaseChain(h.GetStruk))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/items/unavailable", middleware.BaseChain(h.PartialRejectOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/items", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			h.GetOrderEdit(w, r)

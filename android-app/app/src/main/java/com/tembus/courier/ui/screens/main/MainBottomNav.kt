@@ -10,7 +10,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.tembus.courier.data.model.Order
@@ -24,7 +25,7 @@ internal fun MainBottomNav(
 ) {
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
+            icon = { Icon(Icons.Default.Home, contentDescription = CourierTextCatalog.translate("Beranda")) },
             label = { Text("Beranda") },
             selected = selectedTab == 0,
             onClick = { onSelectTab(0) }
@@ -38,7 +39,7 @@ internal fun MainBottomNav(
                         }
                     }
                 ) {
-                    Icon(Icons.Default.LocalShipping, contentDescription = "Order")
+                    Icon(Icons.Default.LocalShipping, contentDescription = CourierTextCatalog.translate("Order"))
                 }
             },
             label = { Text("Order") },
@@ -46,7 +47,7 @@ internal fun MainBottomNav(
             onClick = { onSelectTab(1) }
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
+            icon = { Icon(Icons.Default.Person, contentDescription = CourierTextCatalog.translate("Profil")) },
             label = { Text("Profil") },
             selected = selectedTab == 2,
             onClick = { onSelectTab(2) }

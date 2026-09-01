@@ -22,6 +22,7 @@ import Disputes from './pages/Disputes'
 import Customers from './pages/Customers'
 import Analytics from './pages/Analytics'
 import Zones from './pages/Zones'
+import MeetingPoints from './pages/MeetingPoints'
 import Vouchers from './pages/Vouchers'
 import Promos from './pages/Promos'
 import Notifications from './pages/Notifications'
@@ -45,6 +46,9 @@ import PaymentLinks from './pages/PaymentLinks'
 import ResiTemplates from './pages/ResiTemplates'
 import LogisticsDiscount from './pages/LogisticsDiscount'
 import MerchantSettlements from './pages/MerchantSettlements'
+import CustomReports from './pages/CustomReports'
+import CampaignCalendar from './pages/CampaignCalendar'
+import CourierRetention from './pages/CourierRetention'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -202,6 +206,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/courier-retention" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'ops_admin', 'ops_security']}><CourierRetention /></ProtectedRoute>} />
           <Route 
             path="/pricing" 
             element={
@@ -258,6 +263,8 @@ function App() {
               </ProtectedRoute>
             } 
           />
+          <Route path="/custom-reports" element={<ProtectedRoute><CustomReports /></ProtectedRoute>} />
+          <Route path="/campaign-calendar" element={<ProtectedRoute><CampaignCalendar /></ProtectedRoute>} />
           <Route 
             path="/finance" 
             element={
@@ -321,6 +328,14 @@ function App() {
                 <Zones />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/meeting-points"
+            element={
+              <ProtectedRoute>
+                <MeetingPoints />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/warehouse-operations" 
@@ -427,4 +442,3 @@ function App() {
 }
 
 export default App
-

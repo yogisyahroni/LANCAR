@@ -6,6 +6,8 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,14 +19,15 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun EmergencyNavigationScreen(
     victimName: String,
-    victimLat: Double = -6.200000,
-    victimLng: Double = 106.816666,
+    victimLat: Double? = null,
+    victimLng: Double? = null,
     distanceMeters: Int,
     onCallVictim: () -> Unit,
     onArrived: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val isArrived = distanceMeters <= 50
+    val hasVictimLocation = victimLat != null && victimLng != null
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -40,23 +43,30 @@ fun EmergencyNavigationScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(
                     Icons.Default.Map,
-                    contentDescription = "Map",
+                    contentDescription = CourierTextCatalog.translate("Map"),
                     modifier = Modifier.size(64.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = {
-                    val uri = android.net.Uri.parse("geo:0,0?q=$victimLat,$victimLng(Lokasi+Darurat)")
-                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
-                    if (intent.resolveActivity(context.packageManager) != null) {
-                        context.startActivity(intent)
-                    } else {
-                        val fallbackUri = android.net.Uri.parse("https://www.openstreetmap.org/?mlat=$victimLat&mlon=$victimLng#map=18/$victimLat/$victimLng")
-                        val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, fallbackUri)
-                        context.startActivity(fallbackIntent)
+                    val lat = victimLat
+                    val lng = victimLng
+                    if (lat != null && lng != null) {
+                        val uri = android.net.Uri.parse("geo:0,0?q=$lat,$lng(Lokasi+Darurat)")
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                        if (intent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(intent)
+                        } else {
+                            val fallbackUri = android.net.Uri.parse("https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=18/$lat/$lng")
+                            val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, fallbackUri)
+                            context.startActivity(fallbackIntent)
+                        }
                     }
-                }) {
+                }, enabled = hasVictimLocation) {
                     Text("Buka Navigasi Peta")
+                }
+                if (!hasVictimLocation) {
+                    Text("Koordinat lokasi darurat belum tersedia dari server.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -92,7 +102,7 @@ fun EmergencyNavigationScreen(
                         onClick = onCallVictim,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Default.Call, contentDescription = "Telepon")
+                        Icon(Icons.Default.Call, contentDescription = CourierTextCatalog.translate("Telepon"))
                         Spacer(Modifier.width(8.dp))
                         Text("Telepon")
                     }
@@ -105,7 +115,7 @@ fun EmergencyNavigationScreen(
                             containerColor = Color(0xFF4CAF50)
                         )
                     ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = "Tiba")
+                        Icon(Icons.Default.CheckCircle, contentDescription = CourierTextCatalog.translate("Tiba"))
                         Spacer(Modifier.width(8.dp))
                         Text("Saya Tiba")
                     }

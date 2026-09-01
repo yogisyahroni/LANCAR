@@ -17,7 +17,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -59,7 +60,7 @@ fun ServiceReportScreen(
                 title = { Text("Laporan Layanan", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -150,6 +151,25 @@ fun ServiceReportScreen(
                     report.signatureUrl?.let { url ->
                         Spacer(Modifier.height(8.dp))
                         ServiceProofImage("Tanda tangan penerima", absoluteServiceUploadUrl(url), authToken)
+                    }
+
+                    report.damageReport?.let { damage ->
+                        Spacer(Modifier.height(10.dp))
+                        Text("Hasil pemeriksaan kendaraan", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        if (damage.areas.isNotEmpty()) {
+                            Text("Area: ${damage.areas.joinToString(", ")}", fontSize = 14.sp)
+                        }
+                        if (damage.severity.isNotBlank()) {
+                            Text("Tingkat kerusakan: ${damage.severity}", fontSize = 14.sp)
+                        }
+                        Text(
+                            if (damage.safeToTransport) "Aman untuk dipindahkan" else "Tidak dinyatakan aman untuk dipindahkan",
+                            fontSize = 14.sp,
+                            color = if (damage.safeToTransport) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                        if (damage.notes.isNotBlank()) {
+                            Text("Catatan pemeriksaan: ${damage.notes}", fontSize = 14.sp)
+                        }
                     }
                     
                     report.notes?.let { notes ->

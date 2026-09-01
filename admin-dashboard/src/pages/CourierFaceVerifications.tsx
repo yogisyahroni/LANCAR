@@ -4,6 +4,7 @@ import { CheckCircle2, Clock, XCircle, UserCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { AdminPageSkeleton } from '../components/ui/Skeleton'
 
 const resolveUploadUrl = (fileUrl?: string) => {
   if (!fileUrl) return ''
@@ -82,7 +83,7 @@ export default function CourierFaceVerifications() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
+      {isLoading ? <AdminPageSkeleton /> : <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] overflow-hidden flex flex-col h-[680px]">
           <div className="border-b border-white/10 p-5">
             <p className="text-sm font-bold text-zinc-100">{verifications.length} antrean verifikasi</p>
@@ -214,7 +215,7 @@ export default function CourierFaceVerifications() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

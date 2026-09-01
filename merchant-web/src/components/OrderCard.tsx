@@ -1,18 +1,23 @@
 import { useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Clock3, MapPin, Phone, Utensils } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Clock3, FileText, MapPin, Phone, Utensils } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import { REJECT_REASONS, rupiah } from '../lib/types'
 import type { MerchantOrder } from '../lib/types'
 
-export default function OrderCard({ order, onAccept, onReject, onReady }: {
+export default function OrderCard({ order, onAccept, onReject, onReady, onPrint, onPartialReject }: {
   order: MerchantOrder
   onAccept: (id: string) => Promise<void>
   onReject: (id: string, reason: string, detail: string) => Promise<void>
   onReady: (id: string) => Promise<void>
+  onPrint: (id: string) => Promise<void>
+  onPartialReject: (id: string, items: { menu_item_id: string; quantity: number; reason: string }[], reason: string) => Promise<void>
 }) {
   const [expanded, setExpanded] = useState(order.status === 'pending_merchant')
   const [busy, setBusy] = useState(false)
   const [showReject, setShowReject] = useState(false)
+  const [showPartialReject, setShowPartialReject] = useState(false)
+  const [partialItemIds, setPartialItemIds] = useState<Set<string>>(new Set())
+  const [partialReason, setPartialReason] = useState('Stok menu habis')
   const [reason, setReason] = useState<string>('stok_habis')
   const [detail, setDetail] = useState('')
 
@@ -74,6 +79,13 @@ export default function OrderCard({ order, onAccept, onReject, onReady }: {
                 <Phone className="h-4 w-4" /> Telepon
               </a>
             )}
+            <button
+              disabled={busy}
+              onClick={() => act(() => onPrint(order.id))}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-bold text-zinc-700 transition hover:border-emerald-900/30 hover:text-emerald-900 disabled:opacity-60"
+            >
+              <FileText className="h-4 w-4" /> Cetak struk
+            </button>
             {order.status === 'pending_merchant' && (
               <>
                 <button
@@ -86,6 +98,11 @@ export default function OrderCard({ order, onAccept, onReject, onReady }: {
                 {!showReject ? (
                   <button disabled={busy} onClick={() => setShowReject(true)} className="rounded-xl border border-red-200 px-5 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60">
                     Tolak
+                  </button>
+                ) : null}
+                {!showPartialReject && order.items.length > 0 ? (
+                  <button disabled={busy} onClick={() => setShowPartialReject(true)} className="rounded-xl border border-orange-200 px-5 py-2.5 text-sm font-bold text-orange-700 transition hover:bg-orange-50 disabled:opacity-60">
+                    Item tidak tersedia
                   </button>
                 ) : null}
               </>
@@ -136,6 +153,35 @@ export default function OrderCard({ order, onAccept, onReject, onReady }: {
                 <button onClick={() => setShowReject(false)} className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-bold text-zinc-600">
                   Batal
                 </button>
+              </div>
+            </div>
+          )}
+
+          {showPartialReject && (order.status === 'pending_merchant' || order.status === 'preparing') && (
+            <div className="mt-4 rounded-xl border border-orange-100 bg-orange-50/50 p-4">
+              <p className="text-sm font-bold text-orange-900">Item tidak tersedia</p>
+              <p className="mt-1 text-xs text-orange-800">Pilih item yang direfund. Order lain tetap diproses.</p>
+              <div className="mt-2 space-y-1.5">
+                {order.items.map((item, index) => {
+                  const key = item.menu_item_id || String(index)
+                  return (
+                    <label key={key} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-zinc-700 hover:bg-white">
+                      <input type="checkbox" checked={partialItemIds.has(key)} onChange={(event) => setPartialItemIds((current) => { const next = new Set(current); if (event.target.checked) next.add(key); else next.delete(key); return next })} className="accent-orange-600" />
+                      {item.quantity}× {item.item_name}
+                    </label>
+                  )
+                })}
+              </div>
+              <input value={partialReason} onChange={(event) => setPartialReason(event.target.value)} className="mt-2 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-orange-400" aria-label="Alasan item tidak tersedia" />
+              <div className="mt-3 flex gap-2">
+                <button
+                  disabled={busy || partialItemIds.size === 0 || !partialReason.trim()}
+                  onClick={() => act(async () => { await onPartialReject(order.id, order.items.filter((item, index) => partialItemIds.has(item.menu_item_id || String(index))).map((item) => ({ menu_item_id: item.menu_item_id, quantity: item.quantity, reason: partialReason.trim() })), partialReason.trim()); setShowPartialReject(false); setPartialItemIds(new Set()) })}
+                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-orange-700 disabled:opacity-60"
+                >
+                  Konfirmasi refund item
+                </button>
+                <button onClick={() => setShowPartialReject(false)} className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-bold text-zinc-600">Batal</button>
               </div>
             </div>
           )}

@@ -8,6 +8,10 @@ import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
 import Menu from './pages/Menu'
 import Settings from './pages/Settings'
+import Promo from './pages/Promo'
+import Reports from './pages/Reports'
+import Settlements from './pages/Settlements'
+import Staff from './pages/Staff'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -30,6 +34,10 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/pesanan" element={<Orders />} />
         <Route path="/menu" element={<Menu />} />
+        <Route path="/promo" element={<Promo />} />
+        <Route path="/laporan" element={<Reports />} />
+        <Route path="/settlement" element={<Settlements />} />
+        <Route path="/staff" element={<Staff />} />
         <Route path="/pengaturan" element={<Settings />} />
       </Route>
 

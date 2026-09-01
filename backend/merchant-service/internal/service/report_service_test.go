@@ -16,6 +16,7 @@ type mockReportRepo struct {
 	salesReport        func(ctx context.Context, merchantID, period string) (*domain.SalesReportSummary, error)
 	salesReportRows    func(ctx context.Context, merchantID, period string) ([]*domain.SalesReportRow, error)
 	settlements        func(ctx context.Context, merchantID string, limit int) ([]*domain.SettlementRecord, error)
+	taxSummary         func(ctx context.Context, merchantID string) (domain.MerchantTaxSummary, error)
 	reviews            func(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MerchantReview, error)
 	ratingDistribution func(ctx context.Context, merchantID string) ([]domain.MerchantRatingBucket, error)
 	upsertReviewReply  func(ctx context.Context, merchantID, userID, reviewID, body string) (*domain.MerchantReviewReply, error)
@@ -31,6 +32,13 @@ func (m *mockReportRepo) SalesReportRows(ctx context.Context, merchantID, period
 
 func (m *mockReportRepo) Settlements(ctx context.Context, merchantID string, limit int) ([]*domain.SettlementRecord, error) {
 	return m.settlements(ctx, merchantID, limit)
+}
+
+func (m *mockReportRepo) TaxSummary(ctx context.Context, merchantID string) (domain.MerchantTaxSummary, error) {
+	if m.taxSummary == nil {
+		return domain.MerchantTaxSummary{}, nil
+	}
+	return m.taxSummary(ctx, merchantID)
 }
 
 func (m *mockReportRepo) Reviews(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MerchantReview, error) {

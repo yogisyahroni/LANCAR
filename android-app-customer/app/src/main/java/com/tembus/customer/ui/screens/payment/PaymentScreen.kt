@@ -41,7 +41,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +68,7 @@ import com.tembus.customer.ui.security.LocalSecurityChallengeDialog
 import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.Warning
+import com.tembus.customer.ui.a11y.criticalAction
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -95,8 +97,8 @@ fun PaymentScreen(
             TopAppBar(
                 title = { Text("Pembayaran", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, contentDescription = "Tutup pembayaran")
+                    IconButton(onClick = onClose, modifier = Modifier.criticalAction("Tutup pembayaran")) {
+                        Icon(Icons.Default.Close, contentDescription = CustomerTextCatalog.translate("Tutup pembayaran"))
                     }
                 }
             )
@@ -240,6 +242,7 @@ private fun PaymentMethodChooser(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(58.dp)
+                        .criticalAction("Lanjutkan pembayaran")
                         .withTestTag("payment_pay_button"),
                     shape = RoundedCornerShape(TembusRadius.Button),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF07884A))
@@ -424,7 +427,7 @@ private fun PaymentMethodCard(
             if (selected) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Dipilih",
+                    contentDescription = CustomerTextCatalog.translate("Dipilih"),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -471,7 +474,7 @@ private fun PaymentMessageState(
         Spacer(modifier = Modifier.height(8.dp))
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(18.dp))
-        OutlinedButton(onClick = onAction, shape = RoundedCornerShape(TembusRadius.Button)) {
+        OutlinedButton(onClick = onAction, modifier = Modifier.criticalAction(actionLabel), shape = RoundedCornerShape(TembusRadius.Button)) {
             Text(actionLabel)
         }
     }

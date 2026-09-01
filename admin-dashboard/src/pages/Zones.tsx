@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { AdminPageSkeleton } from '../components/ui/Skeleton'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
 import {
@@ -141,11 +142,7 @@ export default function Zones() {
   );
 
   if (isLoading) {
-    return (
-      <div className="h-[80vh] flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
-      </div>
-    );
+    return <AdminPageSkeleton />;
   }
 
   return (

@@ -48,6 +48,7 @@ data class TambalBanFlowUiState(
         // Jenis kerusakan ban (design Stitch: Tubeless/Standar/Ganti/Isi Angin
         // → mekanisme existing: dipilih kurir saat inspeksi, dikirim di report)
         val damageType: String? = null,
+        val materialsUsedItems: List<String> = emptyList(),
         val inspectionBeforePhotoUrl: String? = null
     )
 
@@ -188,6 +189,9 @@ class TambalBanFlowViewModel @Inject constructor(
                         _uiState.value.damageType?.let {
                             reportRequest["tire_damage_type"] = it
                         }
+                        if (_uiState.value.materialsUsedItems.isNotEmpty()) {
+                            reportRequest["materials_used_items"] = _uiState.value.materialsUsedItems
+                        }
                         orderRepository.createTambalBanReport(orderId, reportRequest)
                             .onSuccess {
                                 orderRepository.updateOrderStatus(orderId, "completed")
@@ -211,6 +215,10 @@ class TambalBanFlowViewModel @Inject constructor(
 
     fun setDamageType(damageType: String) {
         _uiState.update { it.copy(damageType = damageType) }
+    }
+
+    fun setMaterialsUsed(materials: List<String>) {
+        _uiState.update { it.copy(materialsUsedItems = materials.distinct()) }
     }
 
     fun captureInspection(beforePhoto: Bitmap) {

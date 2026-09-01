@@ -96,7 +96,8 @@ func (s *staffServiceImpl) Invite(ctx context.Context, ownerUserID, merchantID s
 }
 
 // ListStaff — list staff toko. Akses: owner ATAU staff aktif dengan PermManageStaff.
-func (s *staffServiceImpl) ListStaff(ctx context.Context, requesterUserID, merchantID string) ([]*domain.MerchantStaff, error) {
+func (s *staffServiceImpl) ListStaff(ctx context.Context, requesterUserID, merchantID string) (*domain.StaffListResult, error) {
+	canManage := false
 	// Owner selalu boleh lihat.
 	m, err := s.merchantRepo.GetByID(ctx, merchantID)
 	if err != nil {
@@ -117,6 +118,9 @@ func (s *staffServiceImpl) ListStaff(ctx context.Context, requesterUserID, merch
 		if st == nil || st.MerchantID != merchantID || !st.HasPermission(domain.PermManageStaff) {
 			return nil, errors.New("tidak memiliki akses ke staff toko ini")
 		}
+		canManage = true
+	} else {
+		canManage = true
 	}
 	list, err := s.staffRepo.ListByMerchant(ctx, merchantID)
 	if err != nil {
@@ -128,7 +132,7 @@ func (s *staffServiceImpl) ListStaff(ctx context.Context, requesterUserID, merch
 	}); ok {
 		_ = repo.enrichNames(ctx, list)
 	}
-	return list, nil
+	return &domain.StaffListResult{Staff: list, CanManage: canManage}, nil
 }
 
 // AcceptInvite — staff menerima undangan → user_id diset, status active, role merchant_staff.

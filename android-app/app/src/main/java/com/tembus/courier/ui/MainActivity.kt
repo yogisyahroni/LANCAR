@@ -28,6 +28,7 @@ import com.tembus.courier.service.LocationTrackerService
 import com.tembus.courier.ui.screens.MainScreen
 import com.tembus.courier.ui.screens.auth.LoginScreen
 import com.tembus.courier.ui.theme.TEMBUSCourierTheme
+import com.tembus.courier.ui.localization.CourierLocaleRuntime
 import com.tembus.courier.ui.components.UpdateDialog
 import com.tembus.courier.data.model.AppVersion
 import com.tembus.courier.util.FirebaseInitializer
@@ -105,7 +106,8 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            TEMBUSCourierTheme {
+            CourierLocaleRuntime {
+                TEMBUSCourierTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -184,6 +186,7 @@ class MainActivity : FragmentActivity() {
                             }
                         )
                     }
+                }
                 }
             }
         }

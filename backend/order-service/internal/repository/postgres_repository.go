@@ -735,10 +735,14 @@ func (r *postgresRepo) DeleteMeetingPoint(ctx context.Context, id string) error 
 
 func (r *postgresRepo) GetMeetingPointAnalytics(ctx context.Context) ([]domain.MeetingPointAnalytics, error) {
 	query := `
-		SELECT mp.id, mp.name, COUNT(o.id) as usage_count, COALESCE(AVG(EXTRACT(EPOCH FROM (o.updated_at - o.created_at))/60), 0) as avg_wait_time
+		SELECT mp.id, mp.name,
+		       ST_Y(mp.location::geometry), ST_X(mp.location::geometry),
+		       COALESCE(mp.category, ''), COALESCE(mp.address, ''), COALESCE(mp.is_active, FALSE),
+		       COUNT(o.id) as usage_count,
+		       COALESCE(AVG(EXTRACT(EPOCH FROM (o.updated_at - o.created_at))/60), 0) as avg_wait_time
 		FROM meeting_points mp
 		LEFT JOIN orders o ON o.meeting_point_id = mp.id
-		GROUP BY mp.id, mp.name
+		GROUP BY mp.id, mp.name, mp.location, mp.category, mp.address, mp.is_active
 		ORDER BY usage_count DESC
 	`
 	rows, err := r.db.QueryContext(ctx, query)
@@ -750,7 +754,7 @@ func (r *postgresRepo) GetMeetingPointAnalytics(ctx context.Context) ([]domain.M
 	var analytics []domain.MeetingPointAnalytics
 	for rows.Next() {
 		var a domain.MeetingPointAnalytics
-		if err := rows.Scan(&a.MeetingPointID, &a.Name, &a.UsageCount, &a.AvgWaitTimeMin); err != nil {
+		if err := rows.Scan(&a.MeetingPointID, &a.Name, &a.Latitude, &a.Longitude, &a.Category, &a.Address, &a.IsActive, &a.UsageCount, &a.AvgWaitTimeMin); err != nil {
 			return nil, err
 		}
 		analytics = append(analytics, a)

@@ -201,4 +201,18 @@ jobs:
             validate --config=/etc/otelcol/config.yml
 
       - name: Docker Compose observability config check
-        run: docker compose config --quiet
+        run: GRAFANA_ADMIN_PASSWORD=ci-only-observability-password docker compose config --quiet
+
+      - name: Validate Prometheus configuration and rules
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+            -v "${{ github.workspace }}/observability:/etc/prometheus/rules:ro" \
+            -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/etc/prometheus/rules/prometheus-rules.yaml:ro" \
+            prom/prometheus:v3.5.0 \
+            promtool check config /etc/prometheus/prometheus.yml
+          docker run --rm \
+            -v "${{ github.workspace }}/observability:/etc/prometheus/rules:ro" \
+            -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/etc/prometheus/rules/prometheus-rules.yaml:ro" \
+            prom/prometheus:v3.5.0 \
+            promtool check rules /etc/prometheus/rules/prometheus-rules.yaml /etc/prometheus/rules/slo.yaml

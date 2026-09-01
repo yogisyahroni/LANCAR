@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Ticket,
   Map,
+  MapPin,
   ClipboardCheck,
   LogOut,
   UserCircle2,
@@ -35,7 +36,8 @@ import {
   Store,
   ShieldOff,
   Link as LinkIcon,
-  Megaphone
+  Megaphone,
+  Calendar
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -216,6 +218,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: ShieldAlert, label: "Face Verifications", path: "/courier-face-verifications" },
         { icon: ShieldAlert, label: "Courier Safety", path: "/courier-safety-events" },
         { icon: TrendingUp, label: "Courier Growth", path: "/courier-growth" },
+        { icon: ClipboardCheck, label: "Courier Retention", path: "/courier-retention", allowedRoles: ['super_admin', 'admin', 'ops_admin', 'ops_security'] },
       ]
     },
     {
@@ -240,6 +243,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Newspaper, label: "Berita & Artikel", path: "/news", restrictedRoles: ['cs_agent'] },
         { icon: Megaphone, label: "Global Banner", path: "/banners", allowedRoles: ['super_admin'] }, // A4
         { icon: Megaphone, label: "Broadcast Center", path: "/broadcasts", allowedRoles: ['super_admin', 'admin', 'ops_admin'] }, // 10.2
+        { icon: Calendar, label: "Campaign Calendar", path: "/campaign-calendar", allowedRoles: ['super_admin', 'admin', 'ops_admin'] },
         { icon: FileText, label: "Resi Templates", path: "/resi-templates", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
       ]
     },
@@ -247,6 +251,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: "ZONA & PEMETAAN",
       items: [
         { icon: Map, label: "Zones", path: "/zones" },
+        { icon: MapPin, label: "Meeting Points", path: "/meeting-points" },
         { icon: Map, label: "Maps Runtime", path: "/maps-runtime", restrictedRoles: ['finance', 'finance_admin'] },
       ]
     },
@@ -268,6 +273,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: "SISTEM & AUDIT",
       items: [
         { icon: BarChart3, label: "Analytics", path: "/analytics" },
+        { icon: FileText, label: "Custom Reports", path: "/custom-reports" },
         { icon: Bell, label: "Notifications", path: "/notifications" },
         { icon: FileText, label: "Perjanjian Hukum", path: "/agreements" },
         { icon: History, label: "Audit Logs", path: "/audit-logs", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },

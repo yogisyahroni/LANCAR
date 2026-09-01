@@ -18,6 +18,7 @@ import { api } from '../lib/api'
 import { toast } from 'sonner'
 import DisputeChat from '../components/DisputeChat'
 import { useAuthStore } from '../store/useAuthStore'
+import { AdminPageSkeleton } from '../components/ui/Skeleton'
 
 export default function Disputes() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null)
@@ -115,10 +116,7 @@ export default function Disputes() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-4">
-          <Loader2 className="animate-spin text-primary" size={40} />
-          <p className="text-sm font-bold uppercase tracking-[0.2em]">Loading disputes...</p>
-        </div>
+        <AdminPageSkeleton />
       ) : (
         <div className="grid grid-cols-1 gap-6">
           {disputes.map((dispute: any, i: number) => (

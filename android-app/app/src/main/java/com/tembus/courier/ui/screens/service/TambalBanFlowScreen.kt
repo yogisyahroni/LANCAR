@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,7 +35,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -81,6 +83,7 @@ fun TambalBanFlowScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedDamage by remember { mutableStateOf<String?>(null) }
+    var selectedMaterials by remember { mutableStateOf<Set<String>>(emptySet()) }
     var inspectionPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
     var pendingCriticalAction by remember { mutableStateOf<TambalBanNextActionType?>(null) }
 
@@ -164,7 +167,7 @@ fun TambalBanFlowScreen(
                 title = { Text("Tambal Ban", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -388,6 +391,41 @@ fun TambalBanFlowScreen(
                                 }
                             }
                         }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text("Material yang digunakan", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Pilih material yang benar-benar dipakai; daftar ini masuk ke laporan layanan.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val materialOptions = listOf(
+                            "patch_kit" to "Patch kit",
+                            "valve_core" to "Pentil / valve core",
+                            "rubber_strip" to "Karet tambal",
+                            "sealant" to "Cairan sealant"
+                        )
+                        materialOptions.forEach { (key, label) ->
+                            val selected = key in selectedMaterials
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable {
+                                        selectedMaterials = if (selected) selectedMaterials - key else selectedMaterials + key
+                                        viewModel.setMaterialsUsed(selectedMaterials.toList())
+                                    },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = selected,
+                                    onCheckedChange = {
+                                        selectedMaterials = if (selected) selectedMaterials - key else selectedMaterials + key
+                                        viewModel.setMaterialsUsed(selectedMaterials.toList())
+                                    }
+                                )
+                                Text(label, fontSize = 13.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -451,7 +489,7 @@ private fun CustomerInfoCard(
                     }) {
                         Icon(
                             Icons.Default.Phone,
-                            contentDescription = "Telepon pelanggan",
+                            contentDescription = CourierTextCatalog.translate("Telepon pelanggan"),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }

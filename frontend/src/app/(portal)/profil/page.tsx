@@ -144,6 +144,10 @@ export default function ProfilPage() {
         addNotification({ title: 'Info', message: 'Profil customer belum dapat dimuat dari server.', type: 'info' });
       });
 
+    api.get('/auth/web/sessions')
+      .then((res) => setLoginHistory(res.data?.sessions || []))
+      .catch(() => setLoginHistory([]));
+
     if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
       if (Notification.permission === 'granted') {
         navigator.serviceWorker.ready.then((reg) => {
@@ -267,7 +271,7 @@ export default function ProfilPage() {
   };
 
   // Tab Keamanan Handlers
-  const handleUpdatePin = (e: React.FormEvent) => {
+  const handleUpdatePin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPin || !newPin || !confirmPin) {
       addNotification({ title: 'Gagal', message: 'Harap lengkapi semua field PIN.', type: 'error' });
@@ -282,16 +286,29 @@ export default function ProfilPage() {
       return;
     }
 
-    addNotification({ title: 'Berhasil', message: 'PIN Keamanan Anda berhasil diubah.', type: 'success' });
-    setCurrentPin('');
-    setNewPin('');
-    setConfirmPin('');
+    try {
+      await api.post('/customer/security/pin', { current_pin: currentPin, new_pin: newPin });
+      addNotification({ title: 'Berhasil', message: 'PIN Keamanan Anda berhasil diubah.', type: 'success' });
+      setCurrentPin('');
+      setNewPin('');
+      setConfirmPin('');
+    } catch (error: any) {
+      addNotification({
+        title: 'Gagal',
+        message: error?.response?.data?.error || 'PIN tidak dapat diubah di server.',
+        type: 'error',
+      });
+    }
   };
 
-  const handleLogoutAllDevices = () => {
-    const activeCurrent = loginHistory.filter((item) => item.is_current);
-    setLoginHistory(activeCurrent);
-    addNotification({ title: 'Sukses', message: 'Berhasil logout dari semua perangkat lain.', type: 'success' });
+  const handleLogoutAllDevices = async () => {
+    try {
+      await api.post('/auth/web/sessions/logout-others');
+      setLoginHistory((current) => current.filter((item) => item.is_current));
+      addNotification({ title: 'Sukses', message: 'Berhasil logout dari semua perangkat lain.', type: 'success' });
+    } catch {
+      addNotification({ title: 'Gagal', message: 'Sesi perangkat lain belum dapat dikeluarkan.', type: 'error' });
+    }
   };
 
   // Tab Referral Handlers
@@ -744,7 +761,7 @@ export default function ProfilPage() {
                         </div>
 
                         {item.is_current ? (
-                          <span className="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold px-1.5 py-0.5 rounded-full select-none uppercase">
+                          <span className="text-[9px] bg-brand-emerald-500/10 text-brand-emerald-500 border border-brand-emerald-500/20 font-bold px-1.5 py-0.5 rounded-full select-none uppercase">
                             Sesi Aktif
                           </span>
                         ) : (
@@ -917,7 +934,7 @@ export default function ProfilPage() {
 
                     <div className="p-3.5 bg-muted/40 border border-border/40 rounded-xl space-y-1 select-none">
                       <span className="text-[10px] font-bold text-muted-foreground select-none uppercase block">Sudah Dicairkan</span>
-                      <p className="text-lg font-bold text-emerald-500 select-none">
+                      <p className="text-lg font-bold text-brand-emerald-500 select-none">
                         Rp{claimedRewards.toLocaleString('id-ID')}
                       </p>
                       <p className="text-[9px] text-muted-foreground select-none">Telah cair ke dompet</p>

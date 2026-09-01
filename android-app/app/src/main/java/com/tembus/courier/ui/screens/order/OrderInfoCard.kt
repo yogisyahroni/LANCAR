@@ -23,6 +23,8 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.Animatable
@@ -119,7 +121,7 @@ internal fun OrderInfoCard(order: Order) {
             if (!order.itemImageUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = order.itemImageUrl,
-                    contentDescription = "Foto Paket",
+                    contentDescription = CourierTextCatalog.translate("Foto Paket"),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp)
@@ -182,4 +184,3 @@ internal fun OrderInfoCard(order: Order) {
         }
     }
 }
-

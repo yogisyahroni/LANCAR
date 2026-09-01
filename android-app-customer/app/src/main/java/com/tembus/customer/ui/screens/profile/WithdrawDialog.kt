@@ -38,7 +38,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -183,7 +184,7 @@ fun WithdrawDialog(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Default.Lock,
-                            contentDescription = "Layar Aman",
+                            contentDescription = CustomerTextCatalog.translate("Layar Aman"),
                             tint = Color(0xFF4CAF50),
                             modifier = Modifier.size(12.dp)
                         )

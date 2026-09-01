@@ -162,7 +162,7 @@ export function PaymentModal({
               )}
 
               {state === "paid" && (
-                <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/20 bg-success/10 p-3 text-sm text-emerald-300">
+                <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/20 bg-success/10 p-3 text-sm text-brand-emerald-300">
                   <CheckCircle2 className="h-4 w-4" />
                   Pembayaran berhasil dikonfirmasi.
                 </div>

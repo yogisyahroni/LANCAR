@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -129,7 +131,7 @@ fun FaceVerificationScreen(
                 IconButton(onClick = onBack) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Kembali",
+                        contentDescription = CourierTextCatalog.translate("Kembali"),
                         tint = Color.White
                     )
                 }
@@ -198,7 +200,7 @@ fun FaceVerificationScreen(
                     // Preview foto yang diambil
                     androidx.compose.foundation.Image(
                         bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "Foto wajah",
+                        contentDescription = CourierTextCatalog.translate("Foto wajah"),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(240.dp)
@@ -217,7 +219,7 @@ fun FaceVerificationScreen(
                         ) {
                             Icon(
                                 Icons.Default.CheckCircle,
-                                contentDescription = "Terverifikasi",
+                                contentDescription = CourierTextCatalog.translate("Terverifikasi"),
                                 tint = Color.White,
                                 modifier = Modifier.size(72.dp)
                             )

@@ -2,6 +2,8 @@ package com.tembus.customer.ui.screens.service
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,31 +81,58 @@ fun TambalBanHomeScreen(
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var currentLat by remember { mutableStateOf(0.0) }
     var currentLng by remember { mutableStateOf(0.0) }
+    var locationError by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // Lokasi belum diizinkan — pakai default koordinat agar screen tetap jalan
-            currentLat = -6.200000
-            currentLng = 106.816666
-            viewModel.loadHome(currentLat, currentLng)
-            return@LaunchedEffect
+    fun loadFromCurrentLocation() {
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarseLocation = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasFineLocation && !hasCoarseLocation) {
+            locationError = "Izin lokasi diperlukan untuk menemukan teknisi di sekitar Anda."
+            return
         }
+        locationError = null
         fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
             .addOnSuccessListener { location ->
                 if (location != null) {
                     currentLat = location.latitude
                     currentLng = location.longitude
                     viewModel.loadHome(location.latitude, location.longitude)
+                } else {
+                    locationError = "Lokasi belum tersedia. Aktifkan GPS lalu coba lagi."
                 }
             }
             .addOnFailureListener {
-                // Lokasi gagal — coba default koordinat agar screen tetap jalan
-                currentLat = -6.200000
-                currentLng = 106.816666
-                viewModel.loadHome(currentLat, currentLng)
+                locationError = "Lokasi tidak dapat dibaca. Aktifkan GPS lalu coba lagi."
             }
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        ) {
+            loadFromCurrentLocation()
+        } else {
+            locationError = "Izin lokasi diperlukan untuk menemukan teknisi di sekitar Anda."
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            locationPermissionLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            )
+            return@LaunchedEffect
+        }
+        loadFromCurrentLocation()
     }
 
     Scaffold(
@@ -111,7 +141,7 @@ fun TambalBanHomeScreen(
                 title = { Text("Tambal Ban", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -156,13 +186,15 @@ fun TambalBanHomeScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .background(Color.White, RoundedCornerShape(TembusRadius.Input))
-                                    .clickable { onSearchClick(currentLat, currentLng) }
+                                    .clickable(enabled = currentLat != 0.0 && currentLng != 0.0) {
+                                        onSearchClick(currentLat, currentLng)
+                                    }
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
                                     Icons.Default.Search,
-                                    contentDescription = "Cari",
+                                    contentDescription = CustomerTextCatalog.translate("Cari"),
                                     tint = Color(0xFF008EB0),
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -181,6 +213,26 @@ fun TambalBanHomeScreen(
             // ===== LAYANAN (dari DB: tambal_ban_motor/mobil) =====
             item {
                 Text("Layanan Populer", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            locationError?.let { message ->
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(message, color = MaterialTheme.colorScheme.error)
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    locationPermissionLauncher.launch(
+                                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                                    )
+                                } else {
+                                    loadFromCurrentLocation()
+                                }
+                            }
+                        ) { Text("Coba lagi") }
+                    }
+                }
             }
             if (uiState.isLoading) {
                 item {
@@ -228,6 +280,24 @@ fun TambalBanHomeScreen(
                 }
             } else {
                 items(uiState.couriers) { courier ->
+                    CourierPriceCard(
+                        courier = courier,
+                        isSelected = false,
+                        onSelect = { onCourierSelected(courier) }
+                    )
+                }
+            }
+
+            if (uiState.towingAlternatives.isNotEmpty()) {
+                item {
+                    Text("Alternatif towing terdekat", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Petugas towing live dari lokasi GPS Anda jika layanan tambal ban tidak sesuai.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                items(uiState.towingAlternatives) { courier ->
                     CourierPriceCard(
                         courier = courier,
                         isSelected = false,

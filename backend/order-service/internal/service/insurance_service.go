@@ -2,7 +2,11 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -80,6 +84,9 @@ func (s *insuranceService) CalculateOrderPremium(ctx context.Context, declaredVa
 }
 
 func (s *insuranceService) CreateOrderInsurance(ctx context.Context, orderID uuid.UUID, declaredValue int) (*domain.OrderInsurance, error) {
+	if declaredValue <= 0 {
+		return nil, fmt.Errorf("%w: declared value must be positive", domain.ErrInsuranceClaimInvalid)
+	}
 	premium, coverageLimit := s.CalculateOrderPremium(ctx, declaredValue)
 
 	ins := &domain.OrderInsurance{
@@ -97,6 +104,81 @@ func (s *insuranceService) CreateOrderInsurance(ctx context.Context, orderID uui
 	}
 
 	return ins, nil
+}
+
+func (s *insuranceService) SubmitOrderInsuranceClaim(ctx context.Context, orderID, claimantID uuid.UUID, reason string, claimedAmount int, evidenceURLs json.RawMessage) (*domain.OrderInsuranceClaim, error) {
+	if orderID == uuid.Nil || claimantID == uuid.Nil || strings.TrimSpace(reason) == "" || claimedAmount <= 0 {
+		return nil, fmt.Errorf("%w: order, claimant, reason, and positive claimed amount are required", domain.ErrInsuranceClaimInvalid)
+	}
+
+	insurance, err := s.insuranceRepo.GetOrderInsuranceForCustomer(ctx, orderID, claimantID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrOrderInsuranceNotFound
+		}
+		return nil, fmt.Errorf("failed to load order insurance: %w", err)
+	}
+	if insurance == nil {
+		return nil, domain.ErrOrderInsuranceNotFound
+	}
+	if insurance.Status != domain.InsuranceStatusActive && insurance.Status != domain.InsuranceStatusPendingProviderActivation {
+		return nil, fmt.Errorf("%w: insurance status %q cannot accept a claim", domain.ErrInsuranceClaimInvalid, insurance.Status)
+	}
+	if claimedAmount > insurance.CoverageLimit {
+		return nil, fmt.Errorf("%w: claimed amount exceeds coverage limit", domain.ErrInsuranceClaimInvalid)
+	}
+	if len(evidenceURLs) == 0 {
+		evidenceURLs = json.RawMessage("[]")
+	}
+
+	claim := &domain.OrderInsuranceClaim{
+		ID:               uuid.New(),
+		OrderInsuranceID: insurance.ID,
+		OrderID:          orderID,
+		ClaimantID:       claimantID,
+		Reason:           strings.TrimSpace(reason),
+		ClaimedAmount:    claimedAmount,
+		EvidenceURLs:     evidenceURLs,
+		Status:           domain.InsuranceClaimStatusSubmitted,
+	}
+	if err := s.insuranceRepo.CreateOrderInsuranceClaim(ctx, claim); err != nil {
+		if errors.Is(err, domain.ErrInsuranceClaimExists) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to submit insurance claim: %w", err)
+	}
+	return claim, nil
+}
+
+func (s *insuranceService) GetOrderInsuranceClaim(ctx context.Context, orderID, claimantID uuid.UUID) (*domain.OrderInsuranceClaim, error) {
+	claim, err := s.insuranceRepo.GetOrderInsuranceClaim(ctx, orderID, claimantID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrInsuranceClaimNotFound
+		}
+		return nil, fmt.Errorf("failed to get insurance claim: %w", err)
+	}
+	return claim, nil
+}
+
+func ValidateInsuranceEvidenceURLs(evidenceURLs []string) (json.RawMessage, error) {
+	if len(evidenceURLs) > 5 {
+		return nil, fmt.Errorf("%w: at most five evidence URLs are allowed", domain.ErrInsuranceClaimInvalid)
+	}
+	clean := make([]string, 0, len(evidenceURLs))
+	for _, raw := range evidenceURLs {
+		value := strings.TrimSpace(raw)
+		u, err := url.Parse(value)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return nil, fmt.Errorf("%w: evidence URLs must be absolute http(s) URLs", domain.ErrInsuranceClaimInvalid)
+		}
+		clean = append(clean, value)
+	}
+	encoded, err := json.Marshal(clean)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid evidence URLs", domain.ErrInsuranceClaimInvalid)
+	}
+	return encoded, nil
 }
 
 func orderInsuranceProviderName() string {

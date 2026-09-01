@@ -69,6 +69,7 @@ export * from './wallet.controller';
 export * as customerOrder from './customerOrder.controller';
 export * as bulkOrder from './bulkOrder.controller';
 export * as deliveryServices from './deliveryServices.controller';
+export * as tambalBanMaterials from './tambalBanMaterials.controller';
 export * as operationalLookups from './operationalLookups.controller';
 export * from './userNotifications.controller';
 export * from './warehouse.controller';
@@ -84,6 +85,7 @@ export * as news from './newsController';
 export * from './logisticsProviders.controller';
 export * from './merchants.controller'; // FOOD-BIKE-048
 export * from './driverWalletHold.controller'; // FOOD-BIKE-054
+export * from './courierRetention.controller';
 export * as productCatalog from './productCatalog.controller';
 export * as costIntelligence from './costIntelligence.controller';
 export * as merchantSettlement from './merchantSettlement.controller';

@@ -118,7 +118,8 @@ data class CourierProofRequirements(
         Index(value = ["status"]),
         Index(value = ["needsSync"]),
         Index(value = ["needsScanSync"]),
-        Index(value = ["needsPodSync"])
+        Index(value = ["needsPodSync"]),
+        Index(value = ["sync_conflict"])
     ]
 )
 @Serializable
@@ -370,6 +371,18 @@ data class Order(
      */
     @ColumnInfo(name = "needsPodSync")
     var needsPodSync: Boolean = false,
+
+    /**
+     * The backend rejected a local mutation because its state changed first.
+     * This is intentionally persisted so the conflict remains visible offline.
+     */
+    @ColumnInfo(name = "sync_conflict", defaultValue = "0")
+    @SerialName("sync_conflict")
+    var syncConflict: Boolean = false,
+
+    @ColumnInfo(name = "sync_conflict_message")
+    @SerialName("sync_conflict_message")
+    var syncConflictMessage: String? = null,
 
     /**
      * Latitude of scan

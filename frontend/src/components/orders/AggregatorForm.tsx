@@ -529,11 +529,11 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Kota Tujuan</label>
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />
+              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-emerald-400" />
               <select
                 value={destCode}
                 onChange={(e) => setDestCode(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-brand-emerald-400 focus:outline-none focus:ring-1 focus:ring-brand-emerald-400"
               >
                 <option value="">Pilih kota tujuan...</option>
                 {cities
@@ -653,7 +653,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                       isSelected
                         ? "border-primary bg-primary/10 shadow-lg shadow-primary/5 scale-[1.01]"
                         : "border-white/10 bg-background/35 hover:bg-white/5 hover:scale-[1.005]",
-                      isCheapest && !isSelected ? "ring-1 ring-emerald-500/30" : "",
+                      isCheapest && !isSelected ? "ring-1 ring-brand-emerald-500/30" : "",
                     ].join(" ")}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -666,7 +666,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                     <div className="mt-3 flex items-end justify-between">
                       <div className="text-[11px] text-muted-foreground">
                         {isCheapest && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-200">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-brand-emerald-500/30 bg-brand-emerald-500/10 px-2 py-0.5 text-brand-emerald-200">
                             <TrendingDown className="h-3 w-3" />
                             Termurah
                           </span>

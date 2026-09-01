@@ -14,6 +14,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -35,6 +38,7 @@ import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
 
 // C5: Address book multi-alamat (tambah/pilih/edit/hapus)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddressBookScreen(
     onBack: () -> Unit,
@@ -64,16 +68,21 @@ fun AddressBookScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Primary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = Primary)
                 }
                 Text("Alamat Tersimpan", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { showAddDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Tambah Alamat", tint = Primary)
+                    Icon(Icons.Default.Add, contentDescription = CustomerTextCatalog.translate("Tambah Alamat"), tint = Primary)
                 }
             }
         }
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = loading && addresses.isNotEmpty(),
+            onRefresh = viewModel::loadAddresses,
+            modifier = Modifier.fillMaxSize()
+        ) {
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
                 loading && addresses.isEmpty() -> {
@@ -120,6 +129,7 @@ fun AddressBookScreen(
                     }
                 }
             }
+        }
         }
     }
 
@@ -173,7 +183,7 @@ private fun AddressCard(
                     modifier = Modifier.weight(1f)
                 )
                 if (address.isFavorite) {
-                    Icon(Icons.Default.Star, contentDescription = "Favorit", tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Star, contentDescription = CustomerTextCatalog.translate("Favorit"), tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
                 }
             }
             Spacer(Modifier.height(4.dp))

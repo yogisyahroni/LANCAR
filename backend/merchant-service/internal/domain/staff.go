@@ -180,12 +180,19 @@ type StaffRepository interface {
 	SetUserRole(ctx context.Context, userID, role string) error
 }
 
+// StaffListResult carries the staff rows and the requester's effective
+// management permission so clients can render an honest read-only state.
+type StaffListResult struct {
+	Staff     []*MerchantStaff
+	CanManage bool
+}
+
 // StaffService — logika staff (corporate-only + authorization server-side).
 type StaffService interface {
 	// Invite owner mengundang staff (merchant korporat only).
 	Invite(ctx context.Context, ownerUserID, merchantID string, req InviteStaffRequest) (*MerchantStaff, error)
 	// ListStaff list staff toko (owner atau manager dengan PermManageStaff).
-	ListStaff(ctx context.Context, requesterUserID, merchantID string) ([]*MerchantStaff, error)
+	ListStaff(ctx context.Context, requesterUserID, merchantID string) (*StaffListResult, error)
 	// AcceptInvite staff menerima undangan → active + role merchant_staff.
 	AcceptInvite(ctx context.Context, userID, token string) (*MerchantStaff, error)
 	// UpdateStaff owner ubah role/status staff (scope merchant).

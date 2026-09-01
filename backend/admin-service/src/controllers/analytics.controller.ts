@@ -425,6 +425,38 @@ export const exportAnalytics = async (req: Request, res: Response) => {
   }
 };
 
+/** Real-data custom report builder. Grouping is deliberately allow-listed. */
+export const getCustomOrderReport = async (req: Request, res: Response) => {
+  try {
+    const range = String(req.query.range || '30D');
+    const interval = range === '24H' ? '24 hours' : range === '7D' ? '7 days' : range === '90D' ? '90 days' : '30 days';
+    const grouping = String(req.query.group_by || 'day');
+    const groupExpression: Record<string, string> = {
+      hour: "DATE_TRUNC('hour', o.created_at)",
+      day: "DATE_TRUNC('day', o.created_at)",
+      service: "COALESCE(NULLIF(o.service_sub_type, ''), NULLIF(o.service_code, ''), 'unknown')",
+      status: "o.status",
+    };
+    const expression = groupExpression[grouping] || groupExpression.day;
+    const result = await readDb.query(`
+      SELECT ${expression} AS bucket,
+             COUNT(*)::int AS total_orders,
+             COUNT(*) FILTER (WHERE o.status = 'delivered')::int AS completed_orders,
+             COUNT(*) FILTER (WHERE o.status IN ('cancelled', 'failed_delivery'))::int AS failed_orders,
+             COALESCE(SUM(o.total_price_idr), 0)::bigint AS gross_revenue_idr,
+             COALESCE(AVG(o.total_price_idr), 0)::numeric(14,2) AS average_order_value_idr
+      FROM orders o
+      WHERE o.created_at >= NOW() - INTERVAL '${interval}'
+      GROUP BY 1
+      ORDER BY 1 ASC`,
+    );
+    res.json({ success: true, data: result.rows, meta: { range, group_by: grouping in groupExpression ? grouping : 'day' } });
+  } catch (error: any) {
+    securityLog.error('Custom analytics report error:', error);
+    res.status(500).json({ success: false, message: 'Custom report belum tersedia', data: [] });
+  }
+};
+
 export const getScheduledReports = async (req: Request, res: Response) => {
   try {
     const result = await readDb.query('SELECT * FROM scheduled_reports ORDER BY created_at DESC');

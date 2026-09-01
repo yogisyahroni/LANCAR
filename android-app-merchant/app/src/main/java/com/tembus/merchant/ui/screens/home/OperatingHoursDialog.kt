@@ -2,6 +2,7 @@ package com.tembus.merchant.ui.screens.home
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import com.tembus.merchant.ui.localization.MerchantText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier

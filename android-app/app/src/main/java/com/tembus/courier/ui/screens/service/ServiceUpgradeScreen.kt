@@ -2,6 +2,7 @@ package com.tembus.courier.ui.screens.service
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier

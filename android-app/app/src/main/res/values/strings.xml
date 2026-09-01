@@ -27,4 +27,10 @@
     <string name="status_online">Online</string>
     <string name="status_offline">Offline</string>
     <string name="status_busy">Busy</string>
+    <string name="courier_tab_home">Beranda</string>
+    <string name="courier_tab_orders">Pesanan</string>
+    <string name="courier_tab_profile">Profil</string>
+    <string name="courier_language">Bahasa</string>
+    <string name="courier_language_description">Pilih bahasa aplikasi</string>
+    <string name="courier_close">Tutup</string>
 </resources>

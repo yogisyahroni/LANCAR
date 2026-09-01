@@ -26,7 +26,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -103,7 +104,7 @@ fun MerchantRatingDialog(
                             .align(Alignment.TopEnd)
                             .size(32.dp)
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Close, contentDescription = CustomerTextCatalog.translate("Tutup"), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     }
                 }
 
@@ -172,7 +173,7 @@ fun MerchantRatingDialog(
                             val starIndex = index + 1
                             Icon(
                                 imageVector = if (starIndex <= selectedRating.toInt()) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                                contentDescription = "$starIndex bintang",
+                                contentDescription = CustomerTextCatalog.translate("$starIndex bintang"),
                                 tint = if (starIndex <= selectedRating.toInt()) Color(0xFFF59E0B) else Color(0xFFCBD5E1),
                                 modifier = Modifier
                                     .size(40.dp)

@@ -179,6 +179,12 @@ interface TEMBUSApiService {
         @Body request: EditOrderItemsRequest
     ): Response<EditOrderResult>
 
+    @POST("api/v1/merchant/orders/{id}/items/unavailable")
+    suspend fun partialRejectOrder(
+        @Path("id") id: String,
+        @Body request: PartialRejectOrderRequest
+    ): Response<PartialRejectResult>
+
     // ── Struk ──
     @GET("api/v1/merchant/orders/{id}/struk")
     suspend fun getStruk(

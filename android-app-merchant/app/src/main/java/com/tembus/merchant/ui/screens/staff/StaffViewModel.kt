@@ -16,9 +16,7 @@ data class StaffUiState(
     val isLoading: Boolean = false,
     val actionLoadingId: String? = null,
     val errorMessage: String? = null,
-    // M1: owner bisa kelola staff (manager dengan PermManageStaff juga, tapi di app
-    // kita asumsikan owner/manager yang buka tab ini). canManage = true untuk owner.
-    val canManage: Boolean = true
+    val canManage: Boolean = false
 )
 
 /**
@@ -39,8 +37,12 @@ class StaffViewModel(
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
             merchantRepository.listStaff(merchantId)
-                .onSuccess { items ->
-                    _uiState.value = _uiState.value.copy(items = items, isLoading = false)
+                .onSuccess { response ->
+                    _uiState.value = _uiState.value.copy(
+                        items = response.data,
+                        canManage = response.canManage,
+                        isLoading = false
+                    )
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
@@ -52,6 +54,10 @@ class StaffViewModel(
     }
 
     fun invite(email: String?, phone: String?, role: String) {
+        if (!_uiState.value.canManage) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Akun ini hanya memiliki akses lihat staff")
+            return
+        }
         if (email.isNullOrBlank() && phone.isNullOrBlank()) {
             _uiState.value = _uiState.value.copy(errorMessage = "Email atau nomor wajib diisi")
             return
@@ -74,6 +80,10 @@ class StaffViewModel(
     }
 
     fun updateRole(staffId: String, role: String) {
+        if (!_uiState.value.canManage) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Akun ini tidak memiliki izin mengubah role staff")
+            return
+        }
         _uiState.value = _uiState.value.copy(actionLoadingId = staffId, errorMessage = null)
         viewModelScope.launch {
             merchantRepository.updateStaff(merchantId, staffId, UpdateStaffRequest(role = role))
@@ -88,6 +98,10 @@ class StaffViewModel(
     }
 
     fun revoke(staffId: String) {
+        if (!_uiState.value.canManage) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Akun ini tidak memiliki izin mencabut akses staff")
+            return
+        }
         _uiState.value = _uiState.value.copy(actionLoadingId = staffId, errorMessage = null)
         viewModelScope.launch {
             merchantRepository.updateStaff(merchantId, staffId, UpdateStaffRequest(status = "revoked"))

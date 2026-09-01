@@ -1,8 +1,9 @@
 import { RouteSnapshotPanel } from './RouteSnapshotPanel';
 import { DisputeModal } from '@/components/orders/DisputeModal';
-import { ArrowLeft, Share2, Download, AlertTriangle, Loader2, RefreshCw, X, CheckCircle2, Sparkles, Send, ImageIcon, FileSignature, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Share2, Download, AlertTriangle, Loader2, RefreshCw, X, CheckCircle2, Sparkles, Send, ImageIcon, FileSignature, MessageSquare, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 type OrderDetailContentProps = {
   order: any,
@@ -359,9 +360,9 @@ export function OrderDetailContent({
                   </button>
                 </>
               ) : (
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <p className="text-sm font-medium italic">Mencari kurir terbaik untuk Anda...</p>
+                <div className="space-y-2" aria-busy="true" aria-label="Mencari kurir">
+                  <Skeleton className="h-4 w-48 bg-white/10" />
+                  <Skeleton className="h-2 w-full bg-white/10" />
                 </div>
               )}
             </div>
@@ -380,8 +381,10 @@ export function OrderDetailContent({
               className="h-[210px] bg-background/40 border border-white/5 rounded-xl p-3.5 overflow-y-auto space-y-3.5 scroll-smooth"
             >
               {chatsLoading && chatMessages.length === 0 ? (
-                <div className="h-full flex items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/30" />
+                <div className="space-y-2" aria-busy="true" aria-label="Memuat chat">
+                  <Skeleton className="h-8 w-4/5 bg-white/10" />
+                  <Skeleton className="ml-auto h-8 w-3/5 bg-white/10" />
+                  <Skeleton className="h-8 w-2/3 bg-white/10" />
                 </div>
               ) : chatMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-2 opacity-30">
@@ -602,9 +605,16 @@ export function OrderDetailContent({
                 <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                   <UtensilsCrossed className="h-5 w-5 text-primary" /> Rincian pesanan food
                 </h3>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-muted-foreground">
-                  {foodItems.length} item
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                    {foodItems.length} item
+                  </span>
+                  {(order.status.toLowerCase() === 'completed' || order.status.toLowerCase() === 'delivered' || order.status.toLowerCase() === 'cancelled') && (
+                    <Link href={`/orders/new/food?orderId=${encodeURIComponent(order.id)}`} className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20">
+                      <ShoppingBag className="h-3.5 w-3.5" /> Pesan Lagi
+                    </Link>
+                  )}
+                </div>
               </div>
               <div className="space-y-3">
                 {foodItems.map((item: any, index: any) => {
@@ -849,7 +859,7 @@ export function OrderDetailContent({
                   Apakah Anda yakin ingin membatalkan pesanan <strong className="text-white">{order.order_number}</strong>?
                 </p>
                 <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5 space-y-2">
-                  <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
+                  <div className="flex items-center gap-2 text-brand-emerald-400 text-xs font-semibold">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
                     Dana akan dikembalikan penuh (100%)
                   </div>

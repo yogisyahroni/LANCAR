@@ -127,14 +127,15 @@ type MenuItemVariantOption struct {
 }
 
 type ReorderCheckItem struct {
-	MenuItemID   string `json:"menu_item_id"`
-	ItemName     string `json:"item_name"`
-	Quantity     int    `json:"quantity"`
-	Notes        string `json:"notes,omitempty"`
-	OldPrice     int64  `json:"old_price"`
-	NewPrice     int64  `json:"new_price"`
-	Available    bool   `json:"available"`
-	PriceChanged bool   `json:"price_changed"`
+	MenuItemID   string                 `json:"menu_item_id"`
+	ItemName     string                 `json:"item_name"`
+	Quantity     int                    `json:"quantity"`
+	Notes        string                 `json:"notes,omitempty"`
+	Variants     []FoodOrderItemVariant `json:"variants,omitempty"`
+	OldPrice     int64                  `json:"old_price"`
+	NewPrice     int64                  `json:"new_price"`
+	Available    bool                   `json:"available"`
+	PriceChanged bool                   `json:"price_changed"`
 }
 
 type ReorderCheckResult struct {

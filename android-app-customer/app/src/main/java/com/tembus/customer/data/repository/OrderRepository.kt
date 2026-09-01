@@ -2,8 +2,10 @@ package com.tembus.customer.data.repository
 
 import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.data.api.withRequestReference
+import com.tembus.customer.data.db.OrderDao
 import com.tembus.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
 import retrofit2.Response
@@ -12,18 +14,42 @@ import javax.inject.Singleton
 
 @Singleton
 class OrderRepository @Inject constructor(
-    private val apiService: TEMBUSApiService
+    private val apiService: TEMBUSApiService,
+    private val orderDao: OrderDao,
 ) {
     fun getOrderHistory(): Flow<Result<List<Order>>> = flow {
-        try {
+        val remote = refreshOrderHistoryFromServer()
+        if (remote.isSuccess) {
+            emit(remote)
+            return@flow
+        }
+
+        // History tetap bisa dibaca saat tunnel/API sedang offline. Worker
+        // memakai refreshOrderHistoryFromServer() langsung, jadi fallback ini
+        // tidak mengubah kegagalan sinkronisasi menjadi sukses palsu.
+        val cached = orderDao.getAllOrders().first()
+        if (cached.isNotEmpty()) emit(Result.success(cached)) else emit(remote)
+    }
+
+    suspend fun refreshOrderHistoryFromServer(): Result<List<Order>> {
+        return try {
             val response = apiService.getOrderHistory()
             if (response.isSuccessful && response.body()?.success == true) {
-                emit(Result.success(response.body()?.data ?: emptyList()))
+                val remoteOrders = response.body()?.data ?: emptyList()
+                cacheRemoteOrders(remoteOrders)
+                Result.success(remoteOrders)
             } else {
-                emit(Result.failure(Exception(response.readErrorMessage(response.body()?.message ?: "Gagal memuat riwayat pesanan"))))
+                Result.failure(Exception(response.readErrorMessage(response.body()?.message ?: "Gagal memuat riwayat pesanan")))
             }
         } catch (e: Exception) {
-            emit(Result.failure(e))
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun cacheRemoteOrders(orders: List<Order>) {
+        orders.forEach { remote ->
+            val local = orderDao.getOrderById(remote.orderId)
+            orderDao.upsert(remote.copy(localId = local?.localId ?: 0, needsSync = false))
         }
     }
 
@@ -520,14 +546,7 @@ class OrderRepository @Inject constructor(
     
     suspend fun getNearbyCouriers(serviceSubType: String, lat: Double, lng: Double): Result<NearbyCouriersResponse> {
         return try {
-            val response = apiService.getNearbyCouriers(
-                mapOf(
-                    "service_sub_type" to serviceSubType,
-                    "lat" to lat,
-                    "lng" to lng,
-                    "radius_km" to 5.0
-                )
-            )
+            val response = apiService.getNearbyCouriers(serviceSubType, lat, lng)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
@@ -549,6 +568,19 @@ class OrderRepository @Inject constructor(
                 Result.success(response.body()!!)
             } else {
                 Result.failure(Exception("Gagal memuat halaman tambal ban"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getTambalBanMaterials(serviceCode: String): Result<TambalBanMaterialsResponse> {
+        return try {
+            val response = apiService.getTambalBanMaterials(serviceCode)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Gagal memuat katalog material"))
             }
         } catch (e: Exception) {
             Result.failure(e)

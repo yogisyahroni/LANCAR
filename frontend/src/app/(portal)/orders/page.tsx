@@ -7,7 +7,8 @@ import { clientLog } from '@/lib/clientLogger';
 import Link from 'next/link';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { downloadCsv, type CsvRow } from '@/lib/csv';
-import { Search, Filter, Calendar, Download, Eye, ChevronLeft, ChevronRight, Loader2, Layers } from 'lucide-react';
+import { Search, Filter, Calendar, Download, Eye, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 
 interface Order {
   id: string;
@@ -362,10 +363,7 @@ function OrderListContent() {
       {/* Main Table */}
       <div className="bg-card/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center p-16 space-y-3">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-muted-foreground text-sm">Mengambil data order...</p>
-          </div>
+          <CustomerPageSkeleton />
         ) : orders.length === 0 ? (
           <div className="p-16 text-center text-muted-foreground flex flex-col items-center justify-center space-y-2">
             <p className="text-lg font-semibold text-white">Belum ada order</p>
@@ -501,7 +499,7 @@ function OrderListContent() {
 
 export default function OrderListPage() {
   return (
-    <Suspense fallback={<div className="p-16 flex justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}>
+    <Suspense fallback={<CustomerPageSkeleton />}>
       <OrderListContent />
     </Suspense>
   );

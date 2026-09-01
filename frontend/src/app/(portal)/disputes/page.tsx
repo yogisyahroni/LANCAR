@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import DisputeChat from '@/components/DisputeChat';
+import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 
 export default function DisputesPage() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null);
@@ -94,10 +95,7 @@ export default function DisputesPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Memuat data...</p>
-        </div>
+        <CustomerPageSkeleton />
       ) : isError ? (
         <div className="p-16 text-center bg-destructive/5 border border-destructive/20 rounded-[32px] flex flex-col items-center gap-4">
           <AlertTriangle size={48} className="text-destructive" />

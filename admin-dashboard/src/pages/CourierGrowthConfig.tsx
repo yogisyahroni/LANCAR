@@ -4,6 +4,7 @@ import { Award, CheckCircle2, Gift, Save, Target, TrendingUp } from 'lucide-reac
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { AdminPageSkeleton } from '../components/ui/Skeleton'
 
 type TierConfig = {
   id: string
@@ -91,9 +92,7 @@ export default function CourierGrowthConfig() {
       </div>
 
       {isLoading ? (
-        <div className="flex h-72 items-center justify-center rounded-3xl border border-white/10 bg-zinc-900/60 text-zinc-500">
-          Memuat growth config...
-        </div>
+        <AdminPageSkeleton />
       ) : (
         <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
           <section className="rounded-3xl border border-white/10 bg-zinc-900/60 p-5">

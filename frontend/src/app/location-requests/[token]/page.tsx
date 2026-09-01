@@ -50,7 +50,7 @@ export default async function ReceiverLocationRequestPage({ params }: { params: 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <section className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 py-7">
-        <div className="rounded-[2rem] bg-gradient-to-br from-emerald-700 via-emerald-600 to-sky-600 p-6 text-white shadow-xl">
+        <div className="rounded-[2rem] bg-gradient-to-br from-brand-emerald-700 via-brand-emerald-600 to-sky-600 p-6 text-white shadow-xl">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.26em] text-white/75">PAKET MASUK</p>
@@ -67,7 +67,7 @@ export default async function ReceiverLocationRequestPage({ params }: { params: 
 
         <div className="my-5 grid grid-cols-2 gap-3">
           <div className="rounded-3xl bg-white p-4 shadow-sm">
-            <Clock3 className="h-5 w-5 text-emerald-700" />
+            <Clock3 className="h-5 w-5 text-brand-emerald-700" />
             <p className="mt-2 text-xs font-bold text-slate-500">Berlaku sampai</p>
             <p className="mt-1 text-sm font-black">{formatExpiry(data?.expires_at)}</p>
           </div>
@@ -86,7 +86,7 @@ export default async function ReceiverLocationRequestPage({ params }: { params: 
             </p>
           </div>
         ) : data.status === 'submitted' ? (
-          <div className="rounded-[2rem] border border-emerald-100 bg-white p-7 shadow-lg">
+          <div className="rounded-[2rem] border border-brand-emerald-100 bg-white p-7 shadow-lg">
             <h2 className="text-2xl font-black tracking-tight">Lokasi sudah dikirim</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
               Detail penerima sudah tersimpan. Pemesan bisa melanjutkan proses pengiriman.

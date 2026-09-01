@@ -39,7 +39,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -123,7 +124,7 @@ fun MenuItemEditorZipContent(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali") }
+                    IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Kembali")) }
                     Text(if (existing == null) "Tambah Menu" else "Edit Menu", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     androidx.compose.material3.TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Batal") }
                 }
@@ -144,7 +145,7 @@ fun MenuItemEditorZipContent(
                         contentAlignment = Alignment.Center
                     ) {
                         if (foto.isNotBlank()) {
-                            AsyncImage(model = foto, contentDescription = "Foto menu", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                            AsyncImage(model = foto, contentDescription = MerchantTextCatalog.translate("Foto menu"), modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null, tint = Color.White)

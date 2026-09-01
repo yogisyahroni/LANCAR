@@ -64,7 +64,7 @@ interface OrderDao {
     /**
      * Update order status
      */
-    @Query("UPDATE orders SET status = :status, updated_at = :updatedAt, needsSync = 1 WHERE order_id = :orderId")
+    @Query("UPDATE orders SET status = :status, updated_at = :updatedAt, needsSync = 1, sync_conflict = 0, sync_conflict_message = NULL WHERE order_id = :orderId")
     suspend fun updateStatus(orderId: String, status: String, updatedAt: Long = System.currentTimeMillis())
 
     /**
@@ -100,18 +100,24 @@ interface OrderDao {
     /**
      * Mark orders as synced
      */
-    @Query("UPDATE orders SET needsSync = 0 WHERE order_id IN (:orderIds)")
+    @Query("UPDATE orders SET needsSync = 0, sync_conflict = 0, sync_conflict_message = NULL WHERE order_id IN (:orderIds)")
     suspend fun markAsSynced(orderIds: List<String>)
 
     /**
      * Mark scans as synced
      */
-    @Query("UPDATE orders SET needsScanSync = 0, proof_synced_at = :syncedAt WHERE order_id IN (:orderIds)")
+    @Query("UPDATE orders SET needsScanSync = 0, proof_synced_at = :syncedAt, sync_conflict = 0, sync_conflict_message = NULL WHERE order_id IN (:orderIds)")
     suspend fun markScanAsSynced(orderIds: List<String>, syncedAt: Long = System.currentTimeMillis())
 
     /**
      * Mark PoDs as synced
      */
-    @Query("UPDATE orders SET needsPodSync = 0, proof_synced_at = :syncedAt WHERE order_id IN (:orderIds)")
+    @Query("UPDATE orders SET needsPodSync = 0, proof_synced_at = :syncedAt, sync_conflict = 0, sync_conflict_message = NULL WHERE order_id IN (:orderIds)")
     suspend fun markPodAsSynced(orderIds: List<String>, syncedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE orders SET sync_conflict = 1, sync_conflict_message = :message WHERE order_id = :orderId")
+    suspend fun markSyncConflict(orderId: String, message: String)
+
+    @Query("UPDATE orders SET sync_conflict = 0, sync_conflict_message = NULL WHERE order_id = :orderId")
+    suspend fun clearSyncConflict(orderId: String)
 }

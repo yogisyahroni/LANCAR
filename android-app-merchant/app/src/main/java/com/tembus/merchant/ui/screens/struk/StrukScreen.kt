@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.*
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,7 +103,7 @@ fun StrukScreen(
                 title = { Text("Struk Pembelian") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -357,7 +359,7 @@ private fun StrukContent(
                 qrBitmap?.let {
                     Image(
                         bitmap = it.asImageBitmap(),
-                        contentDescription = "QR Handover Token",
+                        contentDescription = MerchantTextCatalog.translate("QR Handover Token"),
                         modifier = Modifier
                             .size(180.dp)
                             .align(Alignment.CenterHorizontally),

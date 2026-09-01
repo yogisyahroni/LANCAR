@@ -44,6 +44,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -239,7 +241,7 @@ internal fun OnDemandMapDispatchCockpit(
                 ) {
                     Icon(
                         imageVector = Icons.Default.ExpandLess,
-                        contentDescription = "Expand",
+                        contentDescription = CourierTextCatalog.translate("Expand"),
                         tint = Primary,
                         modifier = Modifier.padding(4.dp).size(20.dp)
                     )
@@ -293,7 +295,7 @@ internal fun OnDemandMapDispatchCockpit(
                         ) {
                             Icon(
                                 Icons.Default.ExpandMore,
-                                contentDescription = "Minimize",
+                                contentDescription = CourierTextCatalog.translate("Minimize"),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -415,4 +417,3 @@ internal fun OnDemandMapDispatchCockpit(
         }
     }
 }
-

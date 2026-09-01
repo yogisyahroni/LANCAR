@@ -477,6 +477,12 @@ func (r *serviceReportRepo) GetTambalBanReportByOrderID(ctx context.Context, ord
 	if err != nil {
 		return nil, err
 	}
+	if report.MaterialsUsed != nil {
+		var items []string
+		if json.Unmarshal([]byte(*report.MaterialsUsed), &items) == nil {
+			report.MaterialsUsedItems = items
+		}
+	}
 	return report, nil
 }
 
@@ -503,14 +509,23 @@ func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *doma
 		return fmt.Errorf("check towing report idempotency: %w", err)
 	}
 
+	var damageReportJSON []byte
+	if report.DamageReport != nil {
+		var err error
+		damageReportJSON, err = json.Marshal(report.DamageReport)
+		if err != nil {
+			return fmt.Errorf("encode towing damage report: %w", err)
+		}
+	}
+
 	query := `
 		INSERT INTO towing_reports 
 		    (order_id, courier_id, vehicle_condition_before, vehicle_photo_before_url, odometer_reading,
 		     loading_photo_url, loading_started_at,
 		     transit_started_at, transit_ended_at,
 		     unloading_photo_url, unloading_completed_at, odometer_after,
-		     completion_photo_url, signature_url, completed_at, notes)
-		VALUES ($1, (SELECT id FROM courier_profiles WHERE user_id = $2), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		     completion_photo_url, signature_url, damage_report, completed_at, notes)
+		VALUES ($1, (SELECT id FROM courier_profiles WHERE user_id = $2), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING id, created_at`
 	if err := tx.QueryRowContext(ctx, query,
 		report.OrderID, report.CourierID,
@@ -518,7 +533,7 @@ func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *doma
 		report.LoadingPhotoURL, report.LoadingStartedAt,
 		report.TransitStartedAt, report.TransitEndedAt,
 		report.UnloadingPhotoURL, report.UnloadingCompletedAt, report.OdometerAfter,
-		report.CompletionPhotoURL, report.SignatureURL, report.CompletedAt, report.Notes,
+		report.CompletionPhotoURL, report.SignatureURL, damageReportJSON, report.CompletedAt, report.Notes,
 	).Scan(&report.ID, &report.CreatedAt); err != nil {
 		return err
 	}
@@ -531,21 +546,28 @@ func (r *serviceReportRepo) GetTowingReportByOrderID(ctx context.Context, orderI
 		       loading_photo_url, loading_started_at,
 		       transit_started_at, transit_ended_at,
 		       unloading_photo_url, unloading_completed_at, odometer_after,
-		       completion_photo_url, signature_url, completed_at, notes, created_at
+		       completion_photo_url, signature_url, damage_report, completed_at, notes, created_at
 		FROM towing_reports WHERE order_id = $1`
 
 	report := &domain.TowingReport{}
+	var damageReportJSON []byte
 	err := r.db.QueryRowContext(ctx, query, orderID).Scan(
 		&report.ID, &report.OrderID, &report.CourierID,
 		&report.VehicleConditionBefore, &report.VehiclePhotoBeforeURL, &report.OdometerReading,
 		&report.LoadingPhotoURL, &report.LoadingStartedAt,
 		&report.TransitStartedAt, &report.TransitEndedAt,
 		&report.UnloadingPhotoURL, &report.UnloadingCompletedAt, &report.OdometerAfter,
-		&report.CompletionPhotoURL, &report.SignatureURL, &report.CompletedAt, &report.Notes,
+		&report.CompletionPhotoURL, &report.SignatureURL, &damageReportJSON, &report.CompletedAt, &report.Notes,
 		&report.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if len(damageReportJSON) > 0 {
+		report.DamageReport = &domain.TowingDamageReport{}
+		if err := json.Unmarshal(damageReportJSON, report.DamageReport); err != nil {
+			return nil, fmt.Errorf("decode towing damage report: %w", err)
+		}
 	}
 	return report, nil
 }

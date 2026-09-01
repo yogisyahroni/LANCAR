@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
+import { securityLog } from '../security/logRedaction';
 
 const STUCK_REASON_SQL = `
   CASE
@@ -327,6 +328,56 @@ export const getAllOrders = async (req: Request, res: Response) => {
   }
 };
 
+/** Read-only command-centre feed: active orders with the latest trusted position. */
+export const getLiveActiveOrders = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await readDb.query(`
+      SELECT o.id,
+             o.order_number,
+             o.status,
+             o.service_category,
+             COALESCE(
+               ST_Y(latest_location.location::geometry),
+               ST_Y(COALESCE(o.pickup_location, o.dropoff_location)::geometry)
+             )::float8 AS latitude,
+             COALESCE(
+               ST_X(latest_location.location::geometry),
+               ST_X(COALESCE(o.pickup_location, o.dropoff_location)::geometry)
+             )::float8 AS longitude,
+             latest_location.recorded_at AS last_location_at,
+             courier.full_name AS courier_name
+      FROM orders o
+      LEFT JOIN LATERAL (
+        SELECT ol.courier_id
+        FROM order_legs ol
+        WHERE ol.order_id = o.id
+          AND ol.courier_id IS NOT NULL
+        ORDER BY ol.leg_number ASC
+        LIMIT 1
+      ) assigned_leg ON TRUE
+      LEFT JOIN courier_profiles cp ON cp.id = assigned_leg.courier_id
+      LEFT JOIN users courier ON courier.id = cp.user_id
+      LEFT JOIN LATERAL (
+        SELECT cl.location, cl.recorded_at
+        FROM courier_locations cl
+        WHERE cl.order_id = o.id
+          AND cl.courier_id = assigned_leg.courier_id
+          AND COALESCE(cl.is_spoofed, FALSE) = FALSE
+        ORDER BY cl.recorded_at DESC
+        LIMIT 1
+      ) latest_location ON TRUE
+      WHERE LOWER(COALESCE(o.status, '')) NOT IN ('delivered', 'completed', 'cancelled', 'rejected', 'failed')
+        AND COALESCE(o.pickup_location, o.dropoff_location) IS NOT NULL
+      ORDER BY o.updated_at DESC
+      LIMIT 500
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    securityLog.error('Error fetching live active orders:', error);
+    res.status(500).json({ success: false, data: [], error: 'Live active orders unavailable' });
+  }
+};
+
 export const getOrderStats = async (req: Request, res: Response) => {
   try {
     const query = `
@@ -417,6 +468,25 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       LEFT JOIN users u ON u.id = ps.scanned_by
       WHERE ps.order_id = $1
       ORDER BY COALESCE(ps.scanned_at, ps.created_at) ASC
+    `, [id]);
+
+    // Evidence viewer: expose the trusted GPS breadcrumb for dispute review.
+    // Spoofed points are intentionally excluded; the viewer must never imply
+    // that rejected telemetry is a valid courier trail.
+    const gpsTrailRes = await readDb.query(`
+      SELECT id,
+             ST_Y(location::geometry)::float8 AS latitude,
+             ST_X(location::geometry)::float8 AS longitude,
+             accuracy_m,
+             speed_kmh,
+             heading_deg,
+             recorded_at
+      FROM courier_locations
+      WHERE order_id = $1
+        AND location IS NOT NULL
+        AND COALESCE(is_spoofed, FALSE) = FALSE
+      ORDER BY recorded_at ASC
+      LIMIT 500
     `, [id]);
 
     const safetyEventsRes = await readDb.query(`
@@ -570,6 +640,7 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       events: eventsRes.rows,
       legs: legsRes.rows,
       proofs: proofsRes.rows,
+      gps_trail: gpsTrailRes.rows,
       safety_events: safetyEventsRes.rows,
       packages: packagesRes.rows,
       dispatches: dispatchesRes.rows,

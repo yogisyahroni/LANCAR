@@ -467,8 +467,7 @@ class OrderViewModel @Inject constructor(
                 val responseBody = response.body()
                 if (response.isSuccessful && responseBody?.success == true) {
                     val orders = responseBody.data ?: emptyList()
-                    val syncedOrders = orders.map { it.copy(needsSync = false) }
-                    orderRepository.addOrders(syncedOrders)
+                    orderRepository.mergeRemoteOrders(orders)
                     _lastRemoteSyncAt.update { System.currentTimeMillis() }
                     Result.success(Unit)
                 } else {
@@ -771,7 +770,15 @@ class OrderViewModel @Inject constructor(
                     val order = orderRepository.getOrderById(orderId)
                     if (order != null) {
                         orderRepository.updateOrder(order.copy(needsSync = false))
+                        orderRepository.clearSyncConflict(orderId)
                     }
+                } else if (response.code() == 409) {
+                    orderRepository.markSyncConflict(
+                        orderId,
+                        response.body()?.message
+                            ?: "Server menolak perubahan lokal karena data sudah berubah. Pilih penyelesaian konflik di detail order."
+                    )
+                    _error.update { "Perubahan order bentrok dengan data server. Buka detail order untuk menyelesaikannya." }
                 }
                 // If backend fails silently, needsSync=true allows WorkManager retry
             } catch (e: Exception) {
@@ -788,7 +795,8 @@ class OrderViewModel @Inject constructor(
         serviceType: String,
         notes: String,
         completionPhoto: Bitmap? = null,
-        signatureBitmap: Bitmap? = null
+        signatureBitmap: Bitmap? = null,
+        damageReport: Map<String, Any>? = null
     ) {
         viewModelScope.launch {
             val reportRequest = mutableMapOf<String, Any>(
@@ -797,6 +805,7 @@ class OrderViewModel @Inject constructor(
                 "notes" to notes,
                 "completed_at" to utcNowRfc3339()
             )
+            damageReport?.let { reportRequest["damage_report"] = it }
             val beforePhotoUrl = proofDraftStore.getBeforePhotoUrl(orderId, serviceType)
             if (beforePhotoUrl.isNullOrBlank()) {
                 _error.update {
@@ -893,6 +902,27 @@ class OrderViewModel @Inject constructor(
                 _error.update { "Sync gagal: ${e.message}" }
             }
             _isSyncing.update { false }
+        }
+    }
+
+    /**
+     * Explicitly discard the local pending mutation and keep the latest server
+     * representation. This is only exposed from the conflict confirmation UI.
+     */
+    fun resolveConflictUsingServer(orderId: String) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.getOrders()
+                val serverOrder = response.body()?.data?.firstOrNull { it.orderId == orderId }
+                if (!response.isSuccessful || response.body()?.success != true || serverOrder == null) {
+                    _error.update { "Versi server belum dapat dimuat. Coba lagi saat koneksi tersedia." }
+                    return@launch
+                }
+                orderRepository.replaceWithServerOrder(serverOrder)
+                _error.update { "Konflik selesai. Perubahan lokal order dibuang dan versi server digunakan." }
+            } catch (e: Exception) {
+                _error.update { "Konflik belum terselesaikan. Coba lagi saat koneksi tersedia." }
+            }
         }
     }
 

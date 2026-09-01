@@ -165,8 +165,8 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
 
   if (submitState === 'success') {
     return (
-      <div className="rounded-[2rem] border border-emerald-100 bg-white p-7 shadow-lg">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600">
+      <div className="rounded-[2rem] border border-brand-emerald-100 bg-white p-7 shadow-lg">
+        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-brand-emerald-50 text-brand-emerald-600">
           <CheckCircle2 className="h-9 w-9" />
         </div>
         <h2 className="mt-6 text-2xl font-black tracking-tight text-slate-950">Lokasi sudah diterima</h2>
@@ -180,7 +180,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
   return (
     <form onSubmit={submitLocation} className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-lg sm:p-7">
       <div className="mb-6 rounded-3xl bg-slate-50 p-5">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">Pickup</p>
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-brand-emerald-700">Pickup</p>
         <p className="mt-2 text-base font-black text-slate-950">{initialRequest.pickup_address}</p>
       </div>
 
@@ -193,13 +193,13 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
           <textarea
             value={address}
             onChange={(event) => updateAddress(event.target.value)}
-            className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-brand-emerald-500 focus:ring-4 focus:ring-brand-emerald-100"
             placeholder="Nama gedung, jalan, nomor, patokan, kecamatan, kota"
             required
           />
         </label>
 
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+        <div className="rounded-2xl border border-brand-emerald-100 bg-brand-emerald-50/70 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-black text-slate-950">Titik lokasi otomatis</p>
@@ -211,14 +211,14 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
               type="button"
               onClick={useDeviceLocation}
               disabled={isLocating || submitState === 'submitting'}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-emerald-700 shadow-sm ring-1 ring-emerald-100 transition hover:bg-emerald-100 active:scale-[0.98] disabled:text-slate-400"
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-brand-emerald-700 shadow-sm ring-1 ring-brand-emerald-100 transition hover:bg-brand-emerald-100 active:scale-[0.98] disabled:text-slate-400"
             >
               {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
               Lokasi saya
             </button>
           </div>
           {resolvedLocation ? (
-            <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-emerald-800">
+            <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-brand-emerald-800">
               Titik siap dipakai dari {locationSource === 'device' ? 'lokasi perangkat' : 'alamat yang diisi'}.
             </p>
           ) : null}
@@ -232,7 +232,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
           <input
             value={contactName}
             onChange={(event) => setContactName(event.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-brand-emerald-500 focus:ring-4 focus:ring-brand-emerald-100"
             placeholder="Nama penerima"
           />
         </label>
@@ -246,7 +246,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
             value={contactPhone}
             onChange={(event) => setContactPhone(event.target.value)}
             inputMode="tel"
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-brand-emerald-500 focus:ring-4 focus:ring-brand-emerald-100"
             placeholder="08xxxxxxxxxx"
           />
         </label>
@@ -256,7 +256,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
           <input
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-brand-emerald-500 focus:ring-4 focus:ring-brand-emerald-100"
             placeholder="Contoh: titip ke resepsionis, lobby tower A"
           />
         </label>
@@ -269,7 +269,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
       <button
         type="submit"
         disabled={!canSubmit || submitState === 'submitting'}
-        className="mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-emerald-600 text-base font-black text-white shadow-lg shadow-emerald-600/20 transition active:scale-[0.98] disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+        className="mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-brand-emerald-600 text-base font-black text-white shadow-lg shadow-brand-emerald-600/20 transition active:scale-[0.98] disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
       >
         {submitState === 'submitting' ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Kirim lokasi'}
       </button>

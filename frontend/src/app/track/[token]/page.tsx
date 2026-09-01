@@ -81,10 +81,10 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
       <section className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-5 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-emerald-300">TEMBUS Tracking</p>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-brand-emerald-300">TEMBUS Tracking</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight">Status Pengiriman</h1>
           </div>
-          <div className="rounded-2xl bg-emerald-500/15 p-3 text-emerald-300">
+          <div className="rounded-2xl bg-brand-emerald-500/15 p-3 text-brand-emerald-300">
             <Truck className="h-7 w-7" />
           </div>
         </div>
@@ -104,7 +104,7 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
                   <p className="text-sm text-slate-400">Nomor order</p>
                   <h2 className="mt-1 text-2xl font-black">{data.order_number || data.order_id}</h2>
                 </div>
-                <span className="rounded-full bg-emerald-400/15 px-4 py-2 text-sm font-bold text-emerald-200">
+                <span className="rounded-full bg-brand-emerald-400/15 px-4 py-2 text-sm font-bold text-brand-emerald-200">
                   {statusLabel(data.status)}
                 </span>
               </div>
@@ -122,13 +122,13 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
 
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
               <h3 className="flex items-center gap-2 text-lg font-black">
-                <Navigation className="h-5 w-5 text-emerald-300" />
+                <Navigation className="h-5 w-5 text-brand-emerald-300" />
                 Live Tracking
               </h3>
               <div className="mt-5 rounded-3xl border border-white/10 bg-slate-900 p-5">
                 {hasCourierLocation ? (
                   <a
-                    className="block rounded-2xl bg-emerald-500 px-5 py-4 text-center font-black text-slate-950"
+                    className="block rounded-2xl bg-brand-emerald-500 px-5 py-4 text-center font-black text-slate-950"
                     href={`https://www.google.com/maps?q=${data.courier_latitude},${data.courier_longitude}`}
                     target="_blank"
                     rel="noreferrer"
@@ -145,7 +145,7 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
 
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
               <h3 className="mb-5 flex items-center gap-2 text-lg font-black">
-                <PackageCheck className="h-5 w-5 text-emerald-300" />
+                <PackageCheck className="h-5 w-5 text-brand-emerald-300" />
                 Rute Pengiriman
               </h3>
               <div className="space-y-4">
@@ -157,7 +157,7 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <MapPin className="mt-1 h-5 w-5 text-emerald-300" />
+                  <MapPin className="mt-1 h-5 w-5 text-brand-emerald-300" />
                   <div>
                     <p className="font-bold">Tujuan</p>
                     <p className="text-sm text-slate-300">{data.drop_address || '-'}</p>

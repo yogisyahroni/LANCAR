@@ -177,7 +177,7 @@ function TrendLineChart({ data }: { data: ReportTrendPoint[] }) {
     <div className="rounded-[28px] border border-white/10 bg-black/20 p-5">
       <div className="mb-4 flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
         <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-brand-emerald-500" />
           Jumlah order
         </span>
         <span className="inline-flex items-center gap-2">
@@ -347,7 +347,7 @@ export default function UMKMReportsPage() {
         className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
       >
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-emerald-400">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-brand-emerald-400">
             <BarChart3 className="h-4 w-4" />
             Database Report
           </div>
@@ -379,7 +379,7 @@ export default function UMKMReportsPage() {
           <button
             type="button"
             onClick={handlePrintReport}
-            className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/30 transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
+            className="inline-flex items-center gap-2 rounded-full bg-brand-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-emerald-950/30 transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
           >
             <FileText className="h-4 w-4" />
             PDF Report
@@ -401,7 +401,7 @@ export default function UMKMReportsPage() {
                 onClick={() => setPeriod(option.value)}
                 className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                   period === option.value
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/30'
+                    ? 'bg-brand-emerald-600 text-white shadow-lg shadow-brand-emerald-950/30'
                     : 'border border-white/15 text-zinc-200 hover:bg-white/10'
                 }`}
               >
@@ -413,7 +413,7 @@ export default function UMKMReportsPage() {
               onClick={() => setPeriod('custom')}
               className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                 period === 'custom'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/30'
+                  ? 'bg-brand-emerald-600 text-white shadow-lg shadow-brand-emerald-950/30'
                   : 'border border-white/15 text-zinc-200 hover:bg-white/10'
               }`}
             >
@@ -429,7 +429,7 @@ export default function UMKMReportsPage() {
                 setStartDate(event.target.value);
                 setPeriod('custom');
               }}
-              className="rounded-full border border-white/15 bg-black/30 px-5 py-3 text-sm font-semibold text-white outline-none transition-all focus:border-emerald-500"
+              className="rounded-full border border-white/15 bg-black/30 px-5 py-3 text-sm font-semibold text-white outline-none transition-all focus:border-brand-emerald-500"
             />
             <span className="text-center text-sm font-bold text-zinc-500">s/d</span>
             <input
@@ -439,7 +439,7 @@ export default function UMKMReportsPage() {
                 setEndDate(event.target.value);
                 setPeriod('custom');
               }}
-              className="rounded-full border border-white/15 bg-black/30 px-5 py-3 text-sm font-semibold text-white outline-none transition-all focus:border-emerald-500"
+              className="rounded-full border border-white/15 bg-black/30 px-5 py-3 text-sm font-semibold text-white outline-none transition-all focus:border-brand-emerald-500"
             />
           </div>
         </div>
@@ -454,13 +454,13 @@ export default function UMKMReportsPage() {
               title="Total Order"
               value={formatNumber(reportData.summary.total_orders)}
               subtitle={reportData.range.start_date ? `${reportData.range.start_date} s/d ${reportData.range.end_date}` : 'Periode aktif'}
-              icon={<TrendingUp className="h-5 w-5 text-emerald-400" />}
+              icon={<TrendingUp className="h-5 w-5 text-brand-emerald-400" />}
             />
             <SummaryCard
               title="Selesai"
               value={formatNumber(reportData.summary.completed_orders)}
               subtitle="Berhasil terkirim"
-              icon={<CheckCircle className="h-5 w-5 text-emerald-400" />}
+              icon={<CheckCircle className="h-5 w-5 text-brand-emerald-400" />}
             />
             <SummaryCard
               title="Gagal"
@@ -478,7 +478,7 @@ export default function UMKMReportsPage() {
               title="Completion"
               value={formatPercent(reportData.summary.completion_rate)}
               subtitle="Selesai dibanding final status"
-              icon={<BarChart3 className="h-5 w-5 text-emerald-400" />}
+              icon={<BarChart3 className="h-5 w-5 text-brand-emerald-400" />}
             />
           </section>
 
@@ -558,7 +558,7 @@ export default function UMKMReportsPage() {
                       </div>
                       <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
                         <div
-                          className="h-full rounded-full bg-emerald-600 transition-all duration-500"
+                          className="h-full rounded-full bg-brand-emerald-600 transition-all duration-500"
                           style={{ width: `${Math.max((item.order_count / maxZoneCount) * 100, 3)}%` }}
                         />
                       </div>

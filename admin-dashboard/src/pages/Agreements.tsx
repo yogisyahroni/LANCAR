@@ -5,7 +5,6 @@ import {
   Search,
   Download,
   Eye,
-  Loader2,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
@@ -16,20 +15,17 @@ import {
   Printer,
   User,
   Calendar,
-  ShieldCheck,
-  Clock,
   Globe,
   Smartphone,
-  MapPin,
   Scale,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { cn } from '../lib/utils'
-import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { Skeleton } from '../components/ui/Skeleton'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -134,7 +130,7 @@ export default function Agreements() {
   const totalPages = Math.max(1, Math.ceil(total / limit))
 
   // ── Detail ────────────────────────────────────────────────────────────────
-  const { data: agreementDetail, isLoading: isLoadingDetail } = useQuery<{ success: boolean; data: Agreement }>({
+  const { data: agreementDetail } = useQuery<{ success: boolean; data: Agreement }>({
     queryKey: ['admin-agreement-detail', selectedId],
     queryFn: async () => {
       if (!selectedId) return null as any
@@ -243,8 +239,8 @@ export default function Agreements() {
                 <tr>
                   <td colSpan={6} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
-                      <Loader2 className="w-8 h-8 text-primary-light animate-spin" />
-                      <p className="text-zinc-500 text-xs font-medium">Memuat perjanjian...</p>
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <Skeleton className="h-3 w-36" />
                     </div>
                   </td>
                 </tr>

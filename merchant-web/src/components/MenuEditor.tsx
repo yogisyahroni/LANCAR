@@ -4,6 +4,7 @@ import { api, apiErrorMessage } from '../lib/api'
 import { toast } from 'sonner'
 import type { MenuItem, MenuItemRequest, ReplaceVariantsRequest } from '../lib/types'
 import { rupiah } from '../lib/types'
+import { Skeleton } from './Skeleton'
 
 interface VariantDraft {
   nama: string
@@ -150,7 +151,10 @@ export default function MenuEditor({ item, onClose, onSaved }: {
               </button>
             </div>
             {loadingVariants ? (
-              <Loader2 className="mx-auto mt-3 h-5 w-5 animate-spin text-emerald-900" />
+              <div className="mt-2 space-y-2" aria-busy="true" aria-label="Memuat varian">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-8 w-3/4" />
+              </div>
             ) : variants.length === 0 ? (
               <p className="mt-2 text-xs text-zinc-400">Contoh: Ukuran (Reguler/Besar), Level Pedas, Tambahan.</p>
             ) : (

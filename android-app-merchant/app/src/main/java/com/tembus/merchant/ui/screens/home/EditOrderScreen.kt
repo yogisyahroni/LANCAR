@@ -30,7 +30,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -99,7 +100,7 @@ fun EditOrderScreen(
                 title = { Text("Edit Pesanan") },
                 navigationIcon = {
                     IconButton(onClick = onBack, enabled = !state.saving) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -239,7 +240,7 @@ private fun EditItemCard(
 
             // Stepper qty
             IconButton(onClick = onDecrement, enabled = quantity > 1) {
-                Icon(Icons.Filled.Remove, contentDescription = "Kurangi")
+                Icon(Icons.Filled.Remove, contentDescription = MerchantTextCatalog.translate("Kurangi"))
             }
             Text(
                 text = "$quantity",
@@ -249,7 +250,7 @@ private fun EditItemCard(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             IconButton(onClick = onIncrement) {
-                Icon(Icons.Filled.Add, contentDescription = "Tambah")
+                Icon(Icons.Filled.Add, contentDescription = MerchantTextCatalog.translate("Tambah"))
             }
         }
     }

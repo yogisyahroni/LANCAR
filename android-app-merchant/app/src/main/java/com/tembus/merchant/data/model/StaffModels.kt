@@ -59,7 +59,8 @@ data class MerchantStaff(
 /** Wrapper list staff: {success, data:[...]}. */
 data class StaffListResponse(
     @SerializedName("success") val success: Boolean = false,
-    @SerializedName("data") val data: List<MerchantStaff> = emptyList()
+    @SerializedName("data") val data: List<MerchantStaff> = emptyList(),
+    @SerializedName("can_manage") val canManage: Boolean = false
 )
 
 /** Response invite: {success, staff_id, role, status, message}. */

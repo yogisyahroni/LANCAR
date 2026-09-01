@@ -26,7 +26,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,7 +85,7 @@ fun ChatScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Kembali",
+                    contentDescription = MerchantTextCatalog.translate("Kembali"),
                     tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
@@ -186,7 +187,7 @@ fun ChatScreen(
                 } else {
                     Icon(
                         Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Kirim",
+                        contentDescription = MerchantTextCatalog.translate("Kirim"),
                         tint = Color.White
                     )
                 }

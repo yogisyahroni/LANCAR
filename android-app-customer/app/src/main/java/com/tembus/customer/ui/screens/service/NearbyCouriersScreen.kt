@@ -19,8 +19,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,12 +62,17 @@ fun NearbyCouriersScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"))
                     }
                 }
             )
         }
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = uiState.isLoading && uiState.couriers.isNotEmpty(),
+            onRefresh = { viewModel.loadNearbyCouriers(serviceSubType, customerLat, customerLng) },
+            modifier = Modifier.fillMaxSize()
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -90,6 +97,7 @@ fun NearbyCouriersScreen(
             }
             Spacer(Modifier.height(16.dp))
             Text("💡 Harga jasa ditentukan oleh masing-masing petugas. Biaya per-km dan tol ditentukan oleh sistem.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         }
     }
 }

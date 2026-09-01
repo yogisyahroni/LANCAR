@@ -49,11 +49,11 @@ export default function ResiCheckWidget() {
             if (error) setError(null);
           }}
           placeholder="Contoh: TB-12345678"
-          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white outline-none transition-all placeholder:normal-case placeholder:text-slate-500 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white outline-none transition-all placeholder:normal-case placeholder:text-slate-500 focus:border-brand-emerald-400/60 focus:ring-2 focus:ring-brand-emerald-500/20"
         />
         <button
           type="submit"
-          className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98]"
+          className="flex items-center justify-center gap-2 rounded-xl bg-brand-emerald-500 px-5 py-3 text-sm font-black text-slate-950 transition-all hover:bg-brand-emerald-400 active:scale-[0.98]"
         >
           <PackageSearch className="h-4 w-4" />
           Cek Resi

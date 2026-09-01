@@ -52,6 +52,9 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
          cp.vehicle_type,
          cp.application_channel,
          cp.is_online,
+         z.id AS current_zone_id,
+         z.name AS current_zone_name,
+         z.code AS current_zone_code,
          cp.max_weight_capacity_kg,
          cp.max_packages_capacity,
          COUNT(ol.id)::int AS total_deliveries,
@@ -60,9 +63,10 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
          COALESCE(SUM(ol.assigned_fee_idr) FILTER (WHERE ol.status = 'delivered' AND ol.updated_at::date = CURRENT_DATE), 0)::int AS today_earnings_idr
        FROM users u
        LEFT JOIN courier_profiles cp ON cp.user_id = u.id
+       LEFT JOIN zones z ON z.id = cp.current_zone_id
        LEFT JOIN order_legs ol ON ol.courier_id = u.id AND ol.status = 'delivered'
        WHERE u.id = $1 AND u.role = 'courier'
-       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.application_channel, cp.is_online, cp.max_weight_capacity_kg, cp.max_packages_capacity`,
+       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.application_channel, cp.is_online, z.id, z.name, z.code, cp.max_weight_capacity_kg, cp.max_packages_capacity`,
       [req.user.id]
     );
 
@@ -91,6 +95,11 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
         today_deliveries: courier.today_deliveries,
         total_earnings_idr: courier.total_earnings_idr,
         today_earnings_idr: courier.today_earnings_idr,
+        current_zone: courier.current_zone_id ? {
+          id: courier.current_zone_id,
+          name: courier.current_zone_name,
+          code: courier.current_zone_code,
+        } : null,
         max_weight_capacity_kg: courier.max_weight_capacity_kg,
         max_packages_capacity: courier.max_packages_capacity,
       },

@@ -12,6 +12,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,7 +58,7 @@ fun VariantEditorScreen(
                 title = { Text("Atur Varian Menu", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Kembali"))
                     }
                 },
                 actions = {
@@ -118,24 +121,30 @@ fun VariantEditorScreen(
                         }
                     }
                 }
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                else -> PullToRefreshBox(
+                    isRefreshing = state.isLoading && state.groups.isNotEmpty(),
+                    onRefresh = viewModel::load,
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    itemsIndexed(state.groups) { gi, group ->
-                        VariantGroupCard(
-                            group = group,
-                            groupIndex = gi,
-                            onName = { viewModel.updateGroupName(gi, it) },
-                            onRequired = { viewModel.updateGroupRequired(gi, it) },
-                            onMaxSelect = { viewModel.updateGroupMaxSelect(gi, it) },
-                            onAddOption = { viewModel.addOption(gi) },
-                            onRemoveOption = { oi -> viewModel.removeOption(gi, oi) },
-                            onOptionName = { oi, v -> viewModel.updateOptionName(gi, oi, v) },
-                            onOptionDelta = { oi, v -> viewModel.updateOptionDelta(gi, oi, v) },
-                            onRemoveGroup = { viewModel.removeGroup(gi) }
-                        )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        itemsIndexed(state.groups) { gi, group ->
+                            VariantGroupCard(
+                                group = group,
+                                groupIndex = gi,
+                                onName = { viewModel.updateGroupName(gi, it) },
+                                onRequired = { viewModel.updateGroupRequired(gi, it) },
+                                onMaxSelect = { viewModel.updateGroupMaxSelect(gi, it) },
+                                onAddOption = { viewModel.addOption(gi) },
+                                onRemoveOption = { oi -> viewModel.removeOption(gi, oi) },
+                                onOptionName = { oi, v -> viewModel.updateOptionName(gi, oi, v) },
+                                onOptionDelta = { oi, v -> viewModel.updateOptionDelta(gi, oi, v) },
+                                onRemoveGroup = { viewModel.removeGroup(gi) }
+                            )
+                        }
                     }
                 }
             }
@@ -173,7 +182,7 @@ private fun VariantGroupCard(
                 IconButton(onClick = onRemoveGroup, modifier = Modifier.size(28.dp)) {
                     Icon(
                         Icons.Filled.Delete,
-                        contentDescription = "Hapus grup",
+                        contentDescription = MerchantTextCatalog.translate("Hapus grup"),
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(18.dp)
                     )
@@ -227,7 +236,7 @@ private fun VariantGroupCard(
                     IconButton(onClick = { onRemoveOption(oi) }) {
                         Icon(
                             Icons.Filled.Delete,
-                            contentDescription = "Hapus opsi",
+                            contentDescription = MerchantTextCatalog.translate("Hapus opsi"),
                             tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(18.dp)
                         )

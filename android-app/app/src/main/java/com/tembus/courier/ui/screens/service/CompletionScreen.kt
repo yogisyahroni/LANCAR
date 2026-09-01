@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,7 +39,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -67,7 +70,7 @@ import androidx.core.content.ContextCompat
 fun CompletionScreen(
     serviceType: String, // "tambal_ban" or "towing"
     onBackClick: () -> Unit,
-    onComplete: (String, Bitmap, Bitmap?) -> Unit // notes, completion photo, signature image
+    onComplete: (String, Bitmap, Bitmap?, Map<String, Any>?) -> Unit // notes, completion photo, signature, structured damage
 ) {
     val context = LocalContext.current
     var notes by remember { mutableStateOf("") }
@@ -75,6 +78,9 @@ fun CompletionScreen(
     var signatureName by remember { mutableStateOf("") }
     var signatureStrokes by remember { mutableStateOf<List<List<Offset>>>(emptyList()) }
     var showCompleteConfirm by remember { mutableStateOf(false) }
+    var damageAreas by remember { mutableStateOf(setOf<String>()) }
+    var damageSeverity by remember { mutableStateOf("none") }
+    var damageNotes by remember { mutableStateOf("") }
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -124,7 +130,15 @@ fun CompletionScreen(
                             onComplete(
                                 buildCompletionNotes(notes, true, signatureName, signatureBitmap != null),
                                 photo,
-                                signatureBitmap
+                                signatureBitmap,
+                                if (requiresSignature) {
+                                    mapOf(
+                                        "areas" to damageAreas.toList(),
+                                        "severity" to damageSeverity,
+                                        "safe_to_transport" to (damageSeverity != "major"),
+                                        "notes" to damageNotes.trim()
+                                    )
+                                } else null
                             )
                         }
                     }
@@ -146,7 +160,7 @@ fun CompletionScreen(
                 title = { Text("Selesai", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Kembali"))
                     }
                 }
             )
@@ -205,6 +219,50 @@ fun CompletionScreen(
                     strokes = signatureStrokes,
                     onStrokesChange = { signatureStrokes = it },
                     onClear = { signatureStrokes = emptyList() }
+                )
+
+                Spacer(Modifier.height(16.dp))
+                Text("Laporan kondisi kendaraan", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Pilih area yang terlihat saat inspeksi. Ini disimpan sebagai laporan kondisi, bukan diagnosis kerusakan.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                val damageOptions = listOf(
+                    "front_bumper" to "Bumper depan",
+                    "rear_bumper" to "Bumper belakang",
+                    "left_door" to "Pintu kiri",
+                    "right_door" to "Pintu kanan",
+                    "wheels" to "Roda/ban",
+                    "other" to "Bagian lain"
+                )
+                damageOptions.forEach { (code, label) ->
+                    FilterChip(
+                        selected = code in damageAreas,
+                        onClick = { damageAreas = if (code in damageAreas) damageAreas - code else damageAreas + code },
+                        label = { Text(label) },
+                        modifier = Modifier.padding(end = 6.dp, bottom = 6.dp)
+                    )
+                }
+                Text("Tingkat kondisi", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row {
+                    listOf("none" to "Tidak ada", "minor" to "Ringan", "major" to "Berat").forEach { (code, label) ->
+                        FilterChip(
+                            selected = damageSeverity == code,
+                            onClick = { damageSeverity = code },
+                            label = { Text(label) },
+                            modifier = Modifier.padding(end = 6.dp)
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = damageNotes,
+                    onValueChange = { damageNotes = it },
+                    label = { Text("Catatan kondisi") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    placeholder = { Text("Contoh: gores terlihat di bumper depan") }
                 )
             }
 
@@ -375,7 +433,7 @@ private fun CompletionPhotoCard(
             if (photo != null) {
                 Image(
                     bitmap = photo.asImageBitmap(),
-                    contentDescription = "Foto hasil layanan",
+                    contentDescription = CourierTextCatalog.translate("Foto hasil layanan"),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(220.dp),

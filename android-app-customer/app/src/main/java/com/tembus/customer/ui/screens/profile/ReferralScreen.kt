@@ -12,6 +12,9 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,6 +39,7 @@ import com.tembus.customer.ui.theme.Primary
 import kotlinx.coroutines.flow.collectLatest
 
 // C8: Referral / invite reward screen
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReferralScreen(
     onBack: () -> Unit,
@@ -68,12 +72,17 @@ fun ReferralScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Primary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = Primary)
                 }
                 Text("Ajak Teman", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
             }
         }
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = loading && info != null,
+            onRefresh = viewModel::loadReferralInfo,
+            modifier = Modifier.fillMaxSize()
+        ) {
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
                 loading && info == null -> {
@@ -135,6 +144,7 @@ fun ReferralScreen(
                 }
             }
         }
+        }
     }
 
     if (showApplyDialog) {
@@ -172,7 +182,7 @@ private fun ReferralHeaderCard(
                     Text(referralCode, fontSize = 24.sp, fontWeight = FontWeight.Black, color = Primary, letterSpacing = 2.sp)
                     Spacer(Modifier.width(8.dp))
                     IconButton(onClick = { onCopy(referralLink) }) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Salin", tint = Primary)
+                        Icon(Icons.Default.ContentCopy, contentDescription = CustomerTextCatalog.translate("Salin"), tint = Primary)
                     }
                 }
                 Spacer(Modifier.height(12.dp))

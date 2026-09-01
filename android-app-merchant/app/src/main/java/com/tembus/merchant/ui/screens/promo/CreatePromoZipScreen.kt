@@ -36,7 +36,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -58,6 +59,7 @@ import com.tembus.merchant.data.model.MenuItem
 import com.tembus.merchant.data.model.MerchantPromoRequest
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
+import com.tembus.merchant.ui.rememberMerchantHapticAction
 import com.tembus.merchant.ui.screens.menu.MenuViewModel
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryPale
@@ -84,6 +86,11 @@ fun CreatePromoZipScreen(
     var startsAt by remember { mutableStateOf(defaultPromoStart()) }
     var endsAt by remember { mutableStateOf(defaultPromoEnd()) }
     var validationError by remember { mutableStateOf<String?>(null) }
+    val submitPromo = rememberMerchantHapticAction {
+        val request = buildPromoRequest(discountType, selectedMenu, discountValue, maxDiscount, startsAt, endsAt)
+        if (request == null) validationError = "Cek tipe promo, menu, diskon, dan rentang waktunya."
+        else viewModel.createPromo(request)
+    }
 
     LaunchedEffect(promoState.createCompleted) {
         if (promoState.createCompleted) {
@@ -113,7 +120,7 @@ fun CreatePromoZipScreen(
             TopAppBar(
                 title = { Text("Buat Promo", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = MerchantTextCatalog.translate("Go back")) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryPale)
             )
@@ -121,11 +128,7 @@ fun CreatePromoZipScreen(
         bottomBar = {
             Surface(color = PrimaryPale, shadowElevation = 8.dp) {
                 Button(
-                    onClick = {
-                        val request = buildPromoRequest(discountType, selectedMenu, discountValue, maxDiscount, startsAt, endsAt)
-                        if (request == null) validationError = "Cek tipe promo, menu, diskon, dan rentang waktunya."
-                        else viewModel.createPromo(request)
-                    },
+                    onClick = submitPromo,
                     enabled = formValid && !promoState.isLoading,
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Accent)
@@ -260,7 +263,7 @@ private fun SelectedMenuCard(menu: MenuItem, onClear: () -> Unit) {
                 Text(menu.nama, fontWeight = FontWeight.Bold)
                 Text(Format.rupiah(menu.harga), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = onClear) { Icon(Icons.Filled.Close, contentDescription = "Hapus menu") }
+            IconButton(onClick = onClear) { Icon(Icons.Filled.Close, contentDescription = MerchantTextCatalog.translate("Hapus menu")) }
         }
     }
 }
@@ -273,7 +276,7 @@ private fun MenuChoiceRow(menu: MenuItem, onClick: () -> Unit) {
                 Text(menu.nama, fontWeight = FontWeight.SemiBold)
                 Text(Format.rupiah(menu.harga), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Filled.CheckCircle, contentDescription = "Pilih menu", tint = MaterialTheme.colorScheme.outlineVariant)
+            Icon(Icons.Filled.CheckCircle, contentDescription = MerchantTextCatalog.translate("Pilih menu"), tint = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }

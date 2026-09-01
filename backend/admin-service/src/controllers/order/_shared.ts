@@ -763,6 +763,53 @@ export type CustomerPriceCalculationInput = {
   sizeTier?: string | null;
   routeSnapshotOverride?: RouteEtaSnapshot;
   courierId?: string | null;
+  materialCodes?: string[];
+};
+
+type SelectedTambalBanMaterial = {
+  code: string;
+  name: string;
+  description: string;
+  service_code: string;
+  vehicle_type: string;
+  price_idr: number;
+};
+
+const normalizeMaterialCodes = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .map((item) => String(item || '').trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 20))];
+};
+
+const loadSelectedTambalBanMaterials = async (
+  service: DeliveryServiceProduct,
+  materialCodes: unknown,
+): Promise<SelectedTambalBanMaterial[]> => {
+  const codes = normalizeMaterialCodes(materialCodes);
+  if (codes.length === 0 || service.service_category !== 'tambal_ban') return [];
+
+  const result = await db.query(
+    `SELECT code, name, description, service_code, vehicle_type, price_idr
+       FROM tambal_ban_materials
+      WHERE service_code = $1 AND code = ANY($2::text[]) AND is_active = TRUE`,
+    [service.code, codes],
+  );
+  if (result.rows.length !== codes.length) {
+    const error = new Error('Satu atau lebih material tambal ban sudah tidak tersedia. Muat ulang katalog.');
+    (error as any).statusCode = 409;
+    (error as any).code = 'ERR_MATERIAL_NOT_AVAILABLE';
+    throw error;
+  }
+  return result.rows.map((row) => ({
+    code: String(row.code),
+    name: String(row.name),
+    description: String(row.description || ''),
+    service_code: String(row.service_code),
+    vehicle_type: String(row.vehicle_type),
+    price_idr: Number(row.price_idr || 0),
+  }));
 };
 
 export const calculateCustomerPriceBreakdown = async ({
@@ -777,6 +824,7 @@ export const calculateCustomerPriceBreakdown = async ({
     sizeTier,
     routeSnapshotOverride,
     courierId,
+    materialCodes,
   }: CustomerPriceCalculationInput) => {
   // ─── Quote-based pricing (aggregator/3PL) ────────────────────
   // These services don't use internal distance × multiplier pricing.
@@ -823,6 +871,8 @@ export const calculateCustomerPriceBreakdown = async ({
       insurance_premium_idr: 0,
       dynamic_price_idr: 0,
       platform_fee_idr: 0,
+      material_cost_idr: 0,
+      materials: [],
       delivery_model: service.route_model,
       eta_minutes: etaMinutes,
       total_price_idr: 0, // Actual price is logistics_tariff_idr, stored separately
@@ -895,6 +945,8 @@ export const calculateCustomerPriceBreakdown = async ({
   }
 
   const includedKm = toNumber(service.included_distance_km, 1);
+  const selectedMaterials = await loadSelectedTambalBanMaterials(service, materialCodes);
+  const materialCost = selectedMaterials.reduce((sum, material) => sum + material.price_idr, 0);
     // Aturan pembulatan jarak: <0.5 dibulatkan ke bawah, >=0.5 ke atas (Math.round)
     const distanceChargeKm = Math.max(0, Math.round(distance - includedKm));
       const tierMultiplier = toNumber(selectedTier?.multiplier, 1);
@@ -968,7 +1020,7 @@ export const calculateCustomerPriceBreakdown = async ({
         + (distanceChargeKm * service.per_km_idr);
     }
     const platformFee = Math.ceil(service.platform_fee_idr + (platformFeeBase * service.platform_fee_pct));
-    const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee;
+    const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee + materialCost;
 
   return {
       service_code: service.code,
@@ -1000,8 +1052,10 @@ export const calculateCustomerPriceBreakdown = async ({
     volumetric_surcharge_idr: volumetricSurcharge,
     insurance_premium_idr: insurancePremium,
     dynamic_price_idr: dynamicPrice,
-    platform_fee_idr: platformFee,
-    delivery_model: service.route_model,
+      platform_fee_idr: platformFee,
+      material_cost_idr: materialCost,
+      materials: selectedMaterials,
+      delivery_model: service.route_model,
     eta_minutes: etaMinutes,
     total_price_idr: totalPrice,
   };

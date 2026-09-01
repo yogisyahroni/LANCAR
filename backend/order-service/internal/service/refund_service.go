@@ -12,13 +12,13 @@ import (
 )
 
 type refundService struct {
-	refundRepo  domain.RefundRepository
-	orderRepo   domain.OrderRepository
-	paymentRepo domain.PaymentRepository
-	gateway     domain.RefundGateway
-	redisRepo   domain.RedisRepository
-	ledgerRepo  domain.FinanceLedgerRepository
-	foodRepo    domain.FoodRepository // FB-080: snapshot food_order_items utk partial refund
+	refundRepo    domain.RefundRepository
+	orderRepo     domain.OrderRepository
+	paymentRepo   domain.PaymentRepository
+	gateway       domain.RefundGateway
+	redisRepo     domain.RedisRepository
+	ledgerRepo    domain.FinanceLedgerRepository
+	foodRepo      domain.FoodRepository                    // FB-080: snapshot food_order_items utk partial refund
 	cancelFeeRepo domain.MerchantCancellationFeeRepository // FB-082: piutang fee merchant
 }
 
@@ -316,6 +316,19 @@ func (s *refundService) CalculateItemRefund(ctx context.Context, orderID uuid.UU
 		return nil, fmt.Errorf("failed to get order: %w", err)
 	}
 
+	// A refund record is unique per order while pending/processed/failed. Check
+	// it before calculating a partial refund so a retry cannot create a second
+	// gateway payout or rely only on a database unique-index error.
+	existing, err := s.refundRepo.GetRefundsByOrder(ctx, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing refunds: %w", err)
+	}
+	for _, refund := range existing {
+		if refund.Status == domain.RefundStatusPending || refund.Status == domain.RefundStatusProcessed || refund.Status == domain.RefundStatusFailed {
+			return nil, fmt.Errorf("refund untuk order %s sudah ada (status %s); gunakan record refund yang sama untuk retry", orderID, refund.Status)
+		}
+	}
+
 	// Payment harus paid — kalau belum settled tidak ada yang bisa direfund.
 	payment, err := s.paymentRepo.GetByOrderID(ctx, orderID.String())
 	if err != nil {
@@ -400,12 +413,12 @@ func (s *refundService) CalculateItemRefund(ctx context.Context, orderID uuid.UU
 			IdempotencyKey: fmt.Sprintf("REFUND-JRN-%s", refundID.String()),
 			Reason:         "Partial item refund",
 			Metadata: map[string]any{
-				"refund_id":          refundID.String(),
-				"refund_percentage":  refundPercentage,
-				"items":              detail,
-				"include_delivery":   opts.IncludeDeliveryFee,
-				"delivery_fee_idr":   order.DistanceFeeIDR + order.SurgeFeeIDR,
-				"platform_fee_idr":   order.PlatformFeeIDR,
+				"refund_id":         refundID.String(),
+				"refund_percentage": refundPercentage,
+				"items":             detail,
+				"include_delivery":  opts.IncludeDeliveryFee,
+				"delivery_fee_idr":  order.DistanceFeeIDR + order.SurgeFeeIDR,
+				"platform_fee_idr":  order.PlatformFeeIDR,
 			},
 			CreatedBy: "system",
 			ActorRole: "system",

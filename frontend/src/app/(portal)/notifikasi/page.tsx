@@ -190,7 +190,7 @@ export default function NotifikasiPage() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-foreground">
-            <span className="relative rounded-2xl bg-primary-soft p-2.5 text-primary dark:bg-primary/20 dark:text-emerald-300">
+            <span className="relative rounded-2xl bg-primary-soft p-2.5 text-primary dark:bg-primary/20 dark:text-brand-emerald-300">
               <Bell className="h-6 w-6" />
               {unreadCount > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-black text-white">
@@ -306,7 +306,7 @@ export default function NotifikasiPage() {
                           className={`mt-0.5 shrink-0 rounded-xl p-2 ${
                             notif.is_read
                               ? 'text-muted-foreground'
-                              : 'bg-primary-soft text-primary dark:bg-emerald-500/15 dark:text-emerald-300'
+                              : 'bg-primary-soft text-primary dark:bg-brand-emerald-500/15 dark:text-brand-emerald-300'
                           }`}
                         >
                           <CategoryIcon className="h-4 w-4" />

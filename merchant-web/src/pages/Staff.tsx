@@ -1,0 +1,21 @@
+import { useEffect, useState } from 'react'
+import { UserPlus } from 'lucide-react'
+import { toast } from 'sonner'
+import { api, apiErrorMessage } from '../lib/api'
+import type { Merchant, MerchantStaff } from '../lib/types'
+import { MerchantPageSkeleton } from '../components/Skeleton'
+
+export default function Staff() {
+  const [merchant, setMerchant] = useState<Merchant | null>(null)
+  const [staff, setStaff] = useState<MerchantStaff[]>([])
+  const [loading, setLoading] = useState(true)
+  const [invite, setInvite] = useState({ email: '', role: 'kasir' })
+  const [saving, setSaving] = useState(false)
+  const load = async () => { try { const p = await api.get<Merchant>('/merchant/profile'); setMerchant(p.data); if (p.data.business_type === 'perusahaan') { const s = await api.get<{ data: MerchantStaff[] }>(`/merchant/staff/${p.data.id}`); setStaff(s.data?.data || []) } } catch (err) { toast.error(apiErrorMessage(err, 'Gagal memuat staff')) } finally { setLoading(false) } }
+  useEffect(() => { load() }, [])
+  const sendInvite = async (event: React.FormEvent) => { event.preventDefault(); if (!merchant) return; setSaving(true); try { await api.post(`/merchant/staff/${merchant.id}`, { email: invite.email, role: invite.role }); toast.success('Undangan staff dikirim'); setInvite({ email: '', role: 'kasir' }); await load() } catch (err) { toast.error(apiErrorMessage(err, 'Gagal mengirim undangan')) } finally { setSaving(false) } }
+  const update = async (person: MerchantStaff, status: 'active' | 'revoked') => { if (!merchant) return; try { await api.patch(`/merchant/staff/${merchant.id}/${person.id}`, { status }); await load() } catch (err) { toast.error(apiErrorMessage(err, 'Gagal mengubah akses staff')) } }
+  if (loading) return <MerchantPageSkeleton />
+  if (!merchant || merchant.business_type !== 'perusahaan') return <div className="rounded-[1.75rem] border border-amber-200 bg-amber-50 p-10 text-center"><h1 className="text-xl font-black text-amber-900">Staff hanya untuk toko perusahaan</h1><p className="mt-2 text-sm text-amber-700">Toko perorangan tidak membutuhkan manajemen staff.</p></div>
+  return <div className="space-y-6"><div><h1 className="text-2xl font-black text-zinc-900">Staff toko</h1><p className="mt-1 text-sm text-zinc-500">Undang dan cabut akses staff dengan kontrol server-side.</p></div><form onSubmit={sendInvite} className="flex flex-wrap items-end gap-3 rounded-[1.75rem] border border-zinc-100 bg-white p-6 shadow-sm"><label className="min-w-[260px] flex-1 text-sm font-bold">Email staff<input required type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-3 font-normal" /></label><label className="text-sm font-bold">Peran<select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} className="mt-1 rounded-xl border border-zinc-200 px-3 py-3 font-normal"><option value="manager">Manager</option><option value="kasir">Kasir</option><option value="kitchen">Kitchen</option></select></label><button disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-[#003A20] px-5 py-3 font-bold text-white disabled:opacity-60"><UserPlus className="h-4 w-4" /> Undang</button></form><section className="rounded-[1.75rem] border border-zinc-100 bg-white p-6 shadow-sm"><h2 className="font-black">Daftar staff</h2>{!staff.length ? <p className="py-8 text-sm text-zinc-400">Belum ada staff yang terdaftar.</p> : <div className="mt-4 divide-y divide-zinc-100">{staff.map((person) => <div key={person.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="font-bold text-zinc-900">{person.staff_name || person.staff_email || 'Undangan staff'}</p><p className="text-xs text-zinc-500">{person.role} · {person.status}</p></div>{person.status === 'revoked' ? <button onClick={() => update(person, 'active')} className="rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700">Aktifkan</button> : <button onClick={() => update(person, 'revoked')} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-600">Cabut akses</button>}</div>)}</div>}</section></div>
+}

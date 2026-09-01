@@ -56,6 +56,8 @@ type GoogleAuthRepository interface {
 	// Feature flags
 	IsCustomerGoogleLoginEnabled(ctx context.Context) bool
 	IsCustomerGoogleRegistrationEnabled(ctx context.Context) bool
+	IsCustomerAppleLoginEnabled(ctx context.Context) bool
+	IsCustomerAppleRegistrationEnabled(ctx context.Context) bool
 	IsCustomerAuthOTPRequired(ctx context.Context) bool
 	IsOTPProviderLive(ctx context.Context) bool
 
@@ -85,11 +87,49 @@ type GoogleAuthRepository interface {
 // GoogleAuthService implements Google login, account linking, and Zenziva OTP flows
 // for the customer surface (web + Android).
 type GoogleAuthService struct {
-	repo            GoogleAuthRepository
-	deviceFpRepo    domain.DeviceFingerprintRepository
-	tokenVerifier   *GoogleTokenVerifier
+	repo          GoogleAuthRepository
+	deviceFpRepo  domain.DeviceFingerprintRepository
+	tokenVerifier interface {
+		VerifyIDToken(context.Context, string, string) (*GoogleIDTokenClaims, error)
+	}
+	provider        string
 	otpProvider     domain.OTPProvider // selected at runtime (dry_run or zenziva)
 	fallbackChannel domain.OTPChannel
+}
+
+func (s *GoogleAuthService) socialLoginEnabled(ctx context.Context) bool {
+	if s.provider == "apple" {
+		return s.repo.IsCustomerAppleLoginEnabled(ctx)
+	}
+	return s.repo.IsCustomerGoogleLoginEnabled(ctx)
+}
+
+func (s *GoogleAuthService) socialRegistrationEnabled(ctx context.Context) bool {
+	if s.provider == "apple" {
+		return s.repo.IsCustomerAppleRegistrationEnabled(ctx)
+	}
+	return s.repo.IsCustomerGoogleRegistrationEnabled(ctx)
+}
+
+func socialLinkTxType(provider string) domain.CustomerAuthTransactionType {
+	if provider == "apple" {
+		return domain.AuthTxLinkApple
+	}
+	return domain.AuthTxLinkGoogle
+}
+
+func socialLinkOTPPurpose(provider string) domain.OTPPurpose {
+	if provider == "apple" {
+		return domain.OTPPurposeLinkApple
+	}
+	return domain.OTPPurposeLinkGoogle
+}
+
+func transactionProvider(tx *domain.CustomerAuthTransaction) string {
+	if tx != nil && tx.Provider != nil && (*tx.Provider == "google" || *tx.Provider == "apple") {
+		return *tx.Provider
+	}
+	return "google"
 }
 
 // OTP configuration from environment
@@ -142,6 +182,28 @@ func NewGoogleAuthService(repo GoogleAuthRepository, df domain.DeviceFingerprint
 		repo:            repo,
 		deviceFpRepo:    df,
 		tokenVerifier:   NewGoogleTokenVerifier(clientIDs),
+		provider:        "google",
+		otpProvider:     NewDryRunOTPProvider(),
+		fallbackChannel: domain.OTPChannelSMS,
+	}
+}
+
+// NewAppleAuthService creates the same hardened social-auth flow for Apple.
+// The provider is opt-in through feature flags and Apple client IDs; no
+// credential or token is embedded in the binary.
+func NewAppleAuthService(repo GoogleAuthRepository, df domain.DeviceFingerprintRepository, webClientID, androidClientID string) *GoogleAuthService {
+	clientIDs := []string{}
+	if webClientID != "" {
+		clientIDs = append(clientIDs, webClientID)
+	}
+	if androidClientID != "" {
+		clientIDs = append(clientIDs, androidClientID)
+	}
+	return &GoogleAuthService{
+		repo:            repo,
+		deviceFpRepo:    df,
+		tokenVerifier:   NewAppleTokenVerifier(clientIDs),
+		provider:        "apple",
 		otpProvider:     NewDryRunOTPProvider(),
 		fallbackChannel: domain.OTPChannelSMS,
 	}
@@ -158,12 +220,21 @@ func (s *GoogleAuthService) SetOTPProvider(provider domain.OTPProvider) {
 
 // StartGoogleAuth creates a new auth transaction and returns the OAuth start parameters.
 func (s *GoogleAuthService) StartGoogleAuth(ctx context.Context, req *domain.GoogleAuthStartRequest) (*domain.GoogleAuthStartResponse, error) {
-	ctx, span := authTracer.Start(ctx, "google_auth.start")
+	return s.startSocialAuth(ctx, req, domain.AuthTxGoogleStart, "google")
+}
+
+// StartAppleAuth starts the Apple OAuth transaction.
+func (s *GoogleAuthService) StartAppleAuth(ctx context.Context, req *domain.GoogleAuthStartRequest) (*domain.GoogleAuthStartResponse, error) {
+	return s.startSocialAuth(ctx, req, domain.AuthTxAppleStart, "apple")
+}
+
+func (s *GoogleAuthService) startSocialAuth(ctx context.Context, req *domain.GoogleAuthStartRequest, txType domain.CustomerAuthTransactionType, provider string) (*domain.GoogleAuthStartResponse, error) {
+	ctx, span := authTracer.Start(ctx, provider+"_auth.start")
 	defer span.End()
 
-	if !s.repo.IsCustomerGoogleLoginEnabled(ctx) && !s.repo.IsCustomerGoogleRegistrationEnabled(ctx) {
+	if !s.socialLoginEnabled(ctx) && !s.socialRegistrationEnabled(ctx) {
 		span.SetStatus(codes.Error, "feature_disabled")
-		return nil, errors.New("Google login is not currently available")
+		return nil, fmt.Errorf("%s login is not currently available", provider)
 	}
 
 	// Generate cryptographically random state and nonce
@@ -183,9 +254,7 @@ func (s *GoogleAuthService) StartGoogleAuth(ctx context.Context, req *domain.Goo
 		deviceIDHash = hashDeviceID(req.DeviceID)
 	}
 
-	txType := domain.AuthTxGoogleStart
 	txStatus := domain.AuthTxPending
-	provider := "google"
 	tx := &domain.CustomerAuthTransaction{
 		Type:         txType,
 		Status:       txStatus,
@@ -208,18 +277,24 @@ func (s *GoogleAuthService) StartGoogleAuth(ctx context.Context, req *domain.Goo
 
 	// Build authorization URL
 	webClientID := os.Getenv("GOOGLE_CUSTOMER_WEB_CLIENT_ID")
+	if provider == "apple" {
+		webClientID = os.Getenv("APPLE_CUSTOMER_WEB_CLIENT_ID")
+	}
 	if webClientID == "" {
-	return nil, errors.New("GOOGLE_CUSTOMER_WEB_CLIENT_ID not configured, contact admin")
+		return nil, fmt.Errorf("%s customer web client ID not configured, contact admin", provider)
 	}
 	redirectURI := req.RedirectURI
 	if redirectURI == "" {
 		redirectURI = "https://app.bawain.my.id/auth/google/callback"
+		if provider == "apple" {
+			redirectURI = "https://app.bawain.my.id/auth/apple/callback"
+		}
 	}
 
-	authURL := fmt.Sprintf(
-		"https://accounts.google.com/o/oauth2/v2/auth?client_id=%s&redirect_uri=%s&response_type=id_token&scope=openid%%20email%%20profile&state=%s&nonce=%s&prompt=select_account",
-		webClientID, redirectURI, state, nonce,
-	)
+	authURL := fmt.Sprintf("https://accounts.google.com/o/oauth2/v2/auth?client_id=%s&redirect_uri=%s&response_type=id_token&scope=openid%%20email%%20profile&state=%s&nonce=%s&prompt=select_account", webClientID, redirectURI, state, nonce)
+	if provider == "apple" {
+		authURL = fmt.Sprintf("https://appleid.apple.com/auth/authorize?client_id=%s&redirect_uri=%s&response_type=id_token&response_mode=fragment&scope=name%%20email&state=%s&nonce=%s", webClientID, redirectURI, state, nonce)
+	}
 
 	return &domain.GoogleAuthStartResponse{
 		TransactionID:    tx.ID,
@@ -236,7 +311,17 @@ func (s *GoogleAuthService) StartGoogleAuth(ctx context.Context, req *domain.Goo
 // CompleteGoogleAuth processes a Google ID token and determines the auth outcome.
 // Returns one of: authenticated, requires_phone, requires_step_up_otp, blocked.
 func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.GoogleAuthCompleteRequest) (*domain.GoogleAuthCompleteResponse, error) {
-	ctx, span := authTracer.Start(ctx, "google_auth.complete")
+	return s.completeSocialAuth(ctx, req, domain.AuthTxGoogleComplete, "google")
+}
+
+// CompleteAppleAuth validates an Apple identity token and continues the
+// shared customer identity/OTP/session flow.
+func (s *GoogleAuthService) CompleteAppleAuth(ctx context.Context, req *domain.GoogleAuthCompleteRequest) (*domain.GoogleAuthCompleteResponse, error) {
+	return s.completeSocialAuth(ctx, req, domain.AuthTxAppleComplete, "apple")
+}
+
+func (s *GoogleAuthService) completeSocialAuth(ctx context.Context, req *domain.GoogleAuthCompleteRequest, completeTxType domain.CustomerAuthTransactionType, provider string) (*domain.GoogleAuthCompleteResponse, error) {
+	ctx, span := authTracer.Start(ctx, provider+"_auth.complete")
 	defer span.End()
 
 	span.SetAttributes(
@@ -244,8 +329,8 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 		attribute.Bool("auth.device_id_present", req.DeviceID != ""),
 	)
 
-	if !s.repo.IsCustomerGoogleLoginEnabled(ctx) {
-		return &domain.GoogleAuthCompleteResponse{Status: domain.GoogleAuthStatusBlocked}, errors.New("Google login is not currently available")
+	if !s.socialLoginEnabled(ctx) {
+		return &domain.GoogleAuthCompleteResponse{Status: domain.GoogleAuthStatusBlocked}, fmt.Errorf("%s login is not currently available", provider)
 	}
 
 	// Verify the ID token
@@ -273,8 +358,8 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 		}
 	}
 
-	// Look up existing Google identity
-	identity, err := s.repo.GetByProviderSubject(ctx, "google", claims.Sub)
+	// Look up existing provider identity
+	identity, err := s.repo.GetByProviderSubject(ctx, provider, claims.Sub)
 	if err != nil {
 		return nil, fmt.Errorf("identity lookup failed: %w", err)
 	}
@@ -292,7 +377,7 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 	}
 	// ---------------------------------------------
 
-	// ─── Case 1: Existing Google identity found ───
+	// ─── Case 1: Existing provider identity found ───
 	if identity != nil {
 		user, err := s.repo.GetByID(ctx, identity.UserID)
 		if err != nil || user == nil || user.Status != domain.StatusActive {
@@ -332,10 +417,10 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 	// ─── Case 2: No existing identity — check if email matches an existing user ───
 	existingUser, _ := s.repo.GetByPhoneNumber(ctx, claims.Email)
 	if existingUser != nil && existingUser.ID != "" && existingUser.Role == domain.RoleCustomer {
-		// Email match found — link Google to existing account but require OTP step-up first
-		txProvider := "google"
+		// Email match found — link the social identity to the existing account.
+		txProvider := provider
 		linkTx := &domain.CustomerAuthTransaction{
-			Type:         domain.AuthTxLinkGoogle,
+			Type:         socialLinkTxType(provider),
 			Status:       domain.AuthTxPending,
 			Provider:     &txProvider,
 			UserID:       &existingUser.ID,
@@ -344,15 +429,15 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 			ExpiresAt:    time.Now().Add(10 * time.Minute),
 		}
 		metaBytes, _ := json.Marshal(map[string]string{
-			"google_sub":   claims.Sub, // stored temporarily in metadata for linking after OTP
-			"google_email": claims.Email,
+			provider + "_sub":   claims.Sub, // stored temporarily in metadata for linking after OTP
+			provider + "_email": claims.Email,
 		})
 		linkTx.Metadata = metaBytes
 		_ = s.repo.CreateAuthTransaction(ctx, linkTx)
 
 		otpRequired := s.repo.IsCustomerAuthOTPRequired(ctx)
 		if !otpRequired {
-			res, err := s.completeLinkGoogle(ctx, linkTx, req.DeviceID, deviceIDHash, deviceInfoJSON)
+			res, err := s.completeLinkSocial(ctx, linkTx, req.DeviceID, deviceIDHash, deviceInfoJSON)
 			if err != nil {
 				return nil, err
 			}
@@ -366,18 +451,18 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 			}, nil
 		}
 
-		return s.triggerStepUpOTP(ctx, existingUser, linkTx.ID, req.DeviceID, string(domain.OTPPurposeLinkGoogle))
+		return s.triggerStepUpOTP(ctx, existingUser, linkTx.ID, req.DeviceID, string(socialLinkOTPPurpose(provider)))
 	}
 
 	// ─── Case 3: Brand new user — requires phone number ───
-	if !s.repo.IsCustomerGoogleRegistrationEnabled(ctx) {
-		return &domain.GoogleAuthCompleteResponse{Status: domain.GoogleAuthStatusBlocked}, errors.New("Registrasi dengan Google belum tersedia")
+	if !s.socialRegistrationEnabled(ctx) {
+		return &domain.GoogleAuthCompleteResponse{Status: domain.GoogleAuthStatusBlocked}, fmt.Errorf("Registrasi dengan %s belum tersedia", provider)
 	}
 
-	txProvider := "google"
+	txProvider := provider
 	regTxStatus := domain.AuthTxPending
 	regTx := &domain.CustomerAuthTransaction{
-		Type:         domain.AuthTxGoogleComplete,
+		Type:         completeTxType,
 		Status:       regTxStatus,
 		Provider:     &txProvider,
 		DeviceIDHash: &deviceIDHash,
@@ -385,10 +470,10 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 		ExpiresAt:    time.Now().Add(10 * time.Minute),
 	}
 	metaBytes, _ := json.Marshal(map[string]string{
-		"google_sub":   claims.Sub,
-		"google_email": claims.Email,
-		"full_name":    claims.FullName,
-		"picture":      claims.Picture,
+		provider + "_sub":   claims.Sub,
+		provider + "_email": claims.Email,
+		"full_name":         claims.FullName,
+		"picture":           claims.Picture,
 	})
 	regTx.Metadata = metaBytes
 	_ = s.repo.CreateAuthTransaction(ctx, regTx)
@@ -431,7 +516,7 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 // SendCustomerOTP sends an OTP to the customer's phone number.
 // Tries WhatsApp first (unless overridden), falls back to SMS on failure.
 func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.CustomerOTPSendRequest) (*domain.CustomerOTPSendResponse, error) {
-	ctx, span := authTracer.Start(ctx, "google_auth.otp.send")
+	ctx, span := authTracer.Start(ctx, "customer_social_auth.otp.send")
 	defer span.End()
 
 	cfg := loadOTPConfig()
@@ -482,7 +567,7 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 	purpose := domain.OTPPurpose(req.Purpose)
 	if purpose == "" {
 		switch tx.Type {
-		case domain.AuthTxGoogleComplete:
+		case domain.AuthTxGoogleComplete, domain.AuthTxAppleComplete:
 			if tx.UserID == nil {
 				// No user yet → this is a new registration
 				purpose = domain.OTPPurposeRegistrationPhone
@@ -490,8 +575,8 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 				// Existing user → step-up / new device
 				purpose = domain.OTPPurposeStepUp
 			}
-		case domain.AuthTxLinkGoogle:
-			purpose = domain.OTPPurposeLinkGoogle
+		case domain.AuthTxLinkGoogle, domain.AuthTxLinkApple:
+			purpose = socialLinkOTPPurpose(transactionProvider(tx))
 		case domain.AuthTxStepUp:
 			purpose = domain.OTPPurposeStepUp
 		default:
@@ -627,7 +712,7 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 
 // VerifyCustomerOTP verifies the OTP code and, on success, completes the auth flow.
 func (s *GoogleAuthService) VerifyCustomerOTP(ctx context.Context, req *domain.CustomerOTPVerifyRequest, deviceInfoJSON []byte) (*domain.CustomerOTPVerifyResponse, error) {
-	ctx, span := authTracer.Start(ctx, "google_auth.otp.verify")
+	ctx, span := authTracer.Start(ctx, "customer_social_auth.otp.verify")
 	defer span.End()
 
 	// Validate transaction
@@ -699,8 +784,8 @@ func (s *GoogleAuthService) VerifyCustomerOTP(ctx context.Context, req *domain.C
 		return s.completeRegistration(ctx, tx, req.PhoneNumber, req.DeviceID, deviceIDHash, deviceInfoJSON)
 	case domain.OTPPurposeNewDevice, domain.OTPPurposeStepUp:
 		return s.completeStepUp(ctx, tx, req.DeviceID, deviceIDHash, deviceInfoJSON)
-	case domain.OTPPurposeLinkGoogle:
-		return s.completeLinkGoogle(ctx, tx, req.DeviceID, deviceIDHash, deviceInfoJSON)
+	case domain.OTPPurposeLinkGoogle, domain.OTPPurposeLinkApple:
+		return s.completeLinkSocial(ctx, tx, req.DeviceID, deviceIDHash, deviceInfoJSON)
 	default:
 		return s.completeStepUp(ctx, tx, req.DeviceID, deviceIDHash, deviceInfoJSON)
 	}
@@ -711,15 +796,16 @@ func (s *GoogleAuthService) VerifyCustomerOTP(ctx context.Context, req *domain.C
 // ─────────────────────────────────────────────
 
 func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain.CustomerAuthTransaction, phoneNumber, deviceID, deviceIDHash string, deviceInfoJSON []byte) (*domain.CustomerOTPVerifyResponse, error) {
-	// Parse Google claims from transaction metadata
+	// Parse provider claims from transaction metadata
 	var meta map[string]string
 	_ = json.Unmarshal(tx.Metadata, &meta)
 
-	googleSub := meta["google_sub"]
-	googleEmail := meta["google_email"]
+	provider := transactionProvider(tx)
+	socialSub := meta[provider+"_sub"]
+	socialEmail := meta[provider+"_email"]
 	fullName := meta["full_name"]
 
-	if googleSub == "" || googleEmail == "" {
+	if socialSub == "" || socialEmail == "" {
 		return nil, errors.New("sesi registrasi tidak valid")
 	}
 
@@ -738,7 +824,7 @@ func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain
 	phoneToSave := phoneNumber
 
 	// Create user account
-	emailVal := googleEmail
+	emailVal := socialEmail
 	randomPart, _ := utils.GenerateRandomString(6)
 	refCode := fmt.Sprintf("RLY-%s", randomPart)
 
@@ -769,12 +855,12 @@ func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain
 		_ = s.deviceFpRepo.RecordFingerprint(ctx, fp)
 	}
 
-	// Create Google identity link
-	emailForIdentity := googleEmail
+	// Create external identity link
+	emailForIdentity := socialEmail
 	identity := &domain.CustomerAuthIdentity{
 		UserID:          user.ID,
-		Provider:        "google",
-		ProviderSubject: googleSub,
+		Provider:        provider,
+		ProviderSubject: socialSub,
 		ProviderEmail:   &emailForIdentity,
 		EmailVerified:   true,
 	}
@@ -783,7 +869,7 @@ func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain
 	// Audit
 	_ = s.repo.CreateAuditLog(ctx, &domain.AuditLog{
 		ActorID:  user.ID,
-		Action:   "customer_google_registration_completed",
+		Action:   "customer_" + provider + "_registration_completed",
 		TargetID: user.ID,
 		Payload:  fmt.Sprintf(`{"platform":"%s"}`, tx.Platform),
 	})
@@ -810,7 +896,7 @@ func (s *GoogleAuthService) completeStepUp(ctx context.Context, tx *domain.Custo
 	return s.issueOTPVerifySession(ctx, user, deviceID, deviceIDHash, deviceInfoJSON)
 }
 
-func (s *GoogleAuthService) completeLinkGoogle(ctx context.Context, tx *domain.CustomerAuthTransaction, deviceID, deviceIDHash string, deviceInfoJSON []byte) (*domain.CustomerOTPVerifyResponse, error) {
+func (s *GoogleAuthService) completeLinkSocial(ctx context.Context, tx *domain.CustomerAuthTransaction, deviceID, deviceIDHash string, deviceInfoJSON []byte) (*domain.CustomerOTPVerifyResponse, error) {
 	if tx.UserID == nil {
 		return nil, errors.New("sesi tidak valid")
 	}
@@ -821,15 +907,16 @@ func (s *GoogleAuthService) completeLinkGoogle(ctx context.Context, tx *domain.C
 
 	var meta map[string]string
 	_ = json.Unmarshal(tx.Metadata, &meta)
-	googleSub := meta["google_sub"]
-	googleEmail := meta["google_email"]
+	provider := transactionProvider(tx)
+	socialSub := meta[provider+"_sub"]
+	socialEmail := meta[provider+"_email"]
 
-	if googleSub != "" {
-		emailForIdentity := googleEmail
+	if socialSub != "" {
+		emailForIdentity := socialEmail
 		identity := &domain.CustomerAuthIdentity{
 			UserID:          user.ID,
-			Provider:        "google",
-			ProviderSubject: googleSub,
+			Provider:        provider,
+			ProviderSubject: socialSub,
 			ProviderEmail:   &emailForIdentity,
 			EmailVerified:   true,
 		}
@@ -838,7 +925,7 @@ func (s *GoogleAuthService) completeLinkGoogle(ctx context.Context, tx *domain.C
 
 	_ = s.repo.CreateAuditLog(ctx, &domain.AuditLog{
 		ActorID:  user.ID,
-		Action:   "customer_google_linked",
+		Action:   "customer_" + provider + "_linked",
 		TargetID: user.ID,
 		Payload:  fmt.Sprintf(`{"platform":"%s"}`, tx.Platform),
 	})

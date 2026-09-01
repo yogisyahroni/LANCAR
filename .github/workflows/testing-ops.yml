@@ -36,7 +36,7 @@ jobs:
           http_code_web=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://app.bawain.my.id/login 2>/dev/null)
           echo "api_http=$http_code_api"
           echo "web_http=$http_code_web"
-          if [ "$http_code_api" != "000" ] && [ "$http_code_web" != "000" ]; then
+          if [[ "$http_code_api" =~ ^[23][0-9][0-9]$ ]] && [[ "$http_code_web" =~ ^[23][0-9][0-9]$ ]]; then
             echo "✅ Staging reachable (api=$http_code_api, web=$http_code_web)"
             echo "api_ok=true" >> $GITHUB_OUTPUT
             echo "web_ok=true" >> $GITHUB_OUTPUT
@@ -100,7 +100,7 @@ jobs:
   # ACCESSIBILITY — axe-core + Lighthouse CI
   # ─────────────────────────────────────────────
   accessibility:
-    name: Accessibility (axe/Lighthouse) (non-blocking)
+    name: Accessibility (axe/Lighthouse) (blocking)
     runs-on: ubuntu-latest
     needs: [preflight]
     if: needs.preflight.outputs.web_ok == 'true'
@@ -116,8 +116,13 @@ jobs:
           npx lhci autorun --config=scripts/ci/lighthouserc.json
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_TOKEN }}
-      - name: axe-core scan against staging (non-blocking)
-        continue-on-error: true
+      - name: Playwright axe regression (public routes)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e:a11y
+        env:
+          BASE_URL: https://app.bawain.my.id
+      - name: axe-core scan against staging (blocking)
         run: |
           npx --yes @axe-core/cli https://app.bawain.my.id https://app.bawain.my.id/login \
             --tags wcag2a,wcag2aa,wcag21aa,wcag22aa,best-practice \
@@ -140,8 +145,10 @@ jobs:
       - name: Percy snapshot
         run: |
           npm ci --prefix frontend
-          npx percy exec --config scripts/ci/percy.yml -- npm run build
+          npx playwright install --with-deps chromium
+          npx --yes @percy/cli@1.32.7 exec -- npm run test:e2e:visual
         env:
+          BASE_URL: https://app.bawain.my.id
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
 
   # ─────────────────────────────────────────────

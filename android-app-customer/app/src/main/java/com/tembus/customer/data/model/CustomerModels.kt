@@ -79,7 +79,8 @@ data class CustomerPriceEstimateRequest(
     @SerialName("dimension_scan_verified") val dimensionScanVerified: Boolean = true,
     @SerialName("service_code") val serviceCode: String,
     @SerialName("size_tier") val sizeTier: String? = null,
-    @SerialName("courier_id") val courierId: String? = null
+    @SerialName("courier_id") val courierId: String? = null,
+    @SerialName("material_codes") val materialCodes: List<String> = emptyList()
 )
 
 @Serializable
@@ -120,6 +121,8 @@ data class PriceBreakdown(
     @SerialName("insurance_premium_idr") val insurancePremiumIdr: Long = 0,
     @SerialName("dynamic_price_idr") val dynamicPriceIdr: Long = 0,
     @SerialName("platform_fee_idr") val platformFeeIdr: Long = 0,
+    @SerialName("material_cost_idr") val materialCostIdr: Long = 0,
+    @SerialName("materials") val materials: List<TambalBanMaterial> = emptyList(),
     @SerialName("delivery_model") val deliveryModel: String = "p2p",
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
     @SerialName("total_price_idr") val totalPriceIdr: Long = 0
@@ -157,7 +160,8 @@ data class CustomerOrderCreateRequest(
     @SerialName("service_code") val serviceCode: String,
     @SerialName("promo_code") val promoCode: String? = null,
     @SerialName("voucher_code") val voucherCode: String? = null, // FB-078
-    @SerialName("preferred_courier_id") val preferredCourierId: String? = null
+    @SerialName("preferred_courier_id") val preferredCourierId: String? = null,
+    @SerialName("material_codes") val materialCodes: List<String> = emptyList()
 )
 
 @Serializable

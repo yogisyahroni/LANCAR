@@ -1,0 +1,14 @@
+appId: com.tembus.customer
+name: Customer login surface
+
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Lewati"
+    optional: true
+- assertVisible:
+    text: "Masuk"
+- assertVisible:
+    text: "Email"
+- takeScreenshot: customer-login-surface

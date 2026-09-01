@@ -286,7 +286,7 @@ export function AddressPicker({
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">{address}</p>
                   {location && (
-                    <span className="mt-1 block text-[11px] text-emerald-400">✓ Titik lokasi tersimpan</span>
+                    <span className="mt-1 block text-[11px] text-brand-emerald-400">✓ Titik lokasi tersimpan</span>
                   )}
                 </div>
               </div>
@@ -407,7 +407,7 @@ export function AddressPicker({
           <div className={[
             "flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-xs",
             location
-              ? "border-success/25 bg-success/10 text-emerald-200"
+              ? "border-success/25 bg-success/10 text-brand-emerald-200"
               : "border-white/10 bg-white/[0.03] text-muted-foreground"
           ].join(" ")}>
             <div className="min-w-0">

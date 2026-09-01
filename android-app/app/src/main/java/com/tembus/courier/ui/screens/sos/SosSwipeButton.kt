@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,7 +97,7 @@ fun SosSwipeButton(
         ) {
             Icon(
                 imageVector = Icons.Default.Warning,
-                contentDescription = "SOS Icon",
+                contentDescription = CourierTextCatalog.translate("SOS Icon"),
                 tint = Color.White
             )
         }

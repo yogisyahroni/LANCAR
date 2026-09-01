@@ -390,6 +390,11 @@ type MeetingPoint struct {
 type MeetingPointAnalytics struct {
 	MeetingPointID string  `json:"meeting_point_id"`
 	Name           string  `json:"name"`
+	Latitude       float64 `json:"latitude"`
+	Longitude      float64 `json:"longitude"`
+	Category       string  `json:"category"`
+	Address        string  `json:"address"`
+	IsActive       bool    `json:"is_active"`
 	UsageCount     int     `json:"usage_count"`
 	AvgWaitTimeMin float64 `json:"avg_wait_time_min"`
 }

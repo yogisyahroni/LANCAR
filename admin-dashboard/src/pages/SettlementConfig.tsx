@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Settings, Save, Loader2, Info, Percent, DollarSign } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
+import { AdminPageSkeleton } from '../components/ui/Skeleton'
 import { cn } from '../lib/utils'
 
 type SettlementConfig = {
@@ -58,11 +59,7 @@ export default function SettlementConfig() {
   }
 
   if (isLoading) {
-    return (
-      <div className="h-[80vh] flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
-      </div>
-    )
+    return <AdminPageSkeleton />
   }
 
   return (

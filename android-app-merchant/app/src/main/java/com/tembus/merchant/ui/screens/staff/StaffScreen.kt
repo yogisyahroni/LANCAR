@@ -9,6 +9,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.*
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,13 +42,20 @@ fun StaffScreen(
             TopAppBar(
                 title = { Text("Manajemen Staff") },
                 actions = {
-                    IconButton(onClick = { showInvite = true }) {
-                        Icon(Icons.Filled.PersonAdd, contentDescription = "Undang Staff")
+                    if (state.canManage) {
+                        IconButton(onClick = { showInvite = true }) {
+                            Icon(Icons.Filled.PersonAdd, contentDescription = MerchantTextCatalog.translate("Undang Staff"))
+                        }
                     }
                 }
             )
         }
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = state.isLoading && state.items.isNotEmpty(),
+            onRefresh = viewModel::load,
+            modifier = Modifier.fillMaxSize()
+        ) {
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (state.isLoading && state.items.isEmpty()) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -62,13 +72,24 @@ fun StaffScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = { showInvite = true }) { Text("Undang Staff") }
+                    if (state.canManage) {
+                        Button(onClick = { showInvite = true }) { Text("Undang Staff") }
+                    }
                 }
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (!state.canManage) {
+                        item {
+                            Text(
+                                "Mode lihat: akun ini tidak memiliki izin mengelola staff.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     items(state.items) { staff ->
                         StaffCard(
                             staff = staff,
@@ -88,6 +109,7 @@ fun StaffScreen(
                     text = { Text(msg) }
                 )
             }
+        }
         }
     }
 

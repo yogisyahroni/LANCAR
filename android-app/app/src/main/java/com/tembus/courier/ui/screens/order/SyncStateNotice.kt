@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.Animatable
@@ -102,8 +103,18 @@ import com.tembus.courier.ui.screens.face.FaceVerificationScreen
 import com.tembus.courier.util.NavigationHelper
 
 @Composable
-internal fun SyncStateNotice(order: Order) {
+internal fun SyncStateNotice(
+    order: Order,
+    onRetrySync: (() -> Unit)? = null,
+    onUseServerVersion: (() -> Unit)? = null
+) {
+    var showUseServerDialog by rememberSaveable(order.orderId, order.syncConflict) { mutableStateOf(false) }
     val (text, color, icon) = when {
+        order.syncConflict -> Triple(
+            order.syncConflictMessage ?: "Perubahan lokal bentrok dengan data server.",
+            MaterialTheme.colorScheme.error,
+            Icons.Default.SyncProblem
+        )
         order.needsPodSync -> Triple(
             "Bukti tersimpan di perangkat. Menunggu sinkronisasi otomatis.",
             LogisticsOrange,
@@ -139,14 +150,51 @@ internal fun SyncStateNotice(order: Order) {
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, color.copy(alpha = 0.45f))
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
-            Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+                Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+            }
+            if (order.syncConflict) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    onRetrySync?.let { retry ->
+                        OutlinedButton(onClick = retry, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Coba lagi")
+                        }
+                    }
+                    onUseServerVersion?.let {
+                        TextButton(onClick = { showUseServerDialog = true }, modifier = Modifier.weight(1f)) {
+                            Text("Gunakan server")
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    if (showUseServerDialog && onUseServerVersion != null) {
+        AlertDialog(
+            onDismissRequest = { showUseServerDialog = false },
+            title = { Text("Gunakan versi server?") },
+            text = { Text("Perubahan lokal yang belum terkirim untuk order ini akan dibuang dan diganti data terbaru dari server.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showUseServerDialog = false
+                    onUseServerVersion()
+                }) { Text("Gunakan server") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUseServerDialog = false }) { Text("Batal") }
+            }
+        )
     }
 }
 
@@ -194,4 +242,3 @@ internal fun courierActionIcon(type: CourierNextActionType): androidx.compose.ui
         CourierNextActionType.NONE -> Icons.Default.CheckCircle
     }
 }
-

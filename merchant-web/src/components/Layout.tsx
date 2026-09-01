@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
-import { ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Settings, Store, UtensilsCrossed, X } from 'lucide-react'
+import { Banknote, ClipboardList, LayoutDashboard, LogOut, Menu as MenuIcon, Percent, Settings, Store, Users, UtensilsCrossed, X, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { clearSession } from '../lib/auth'
 
@@ -9,6 +8,10 @@ const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/pesanan', label: 'Pesanan', icon: ClipboardList },
   { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
+  { to: '/promo', label: 'Promo', icon: Percent },
+  { to: '/laporan', label: 'Laporan', icon: BarChart3 },
+  { to: '/settlement', label: 'Settlement', icon: Banknote },
+  { to: '/staff', label: 'Staff', icon: Users },
   { to: '/pengaturan', label: 'Pengaturan', icon: Settings },
 ]
 

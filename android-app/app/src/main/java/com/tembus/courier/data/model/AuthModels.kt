@@ -76,6 +76,13 @@ data class LoginData(
  * Returned by GET /api/v1/courier/profile
  */
 @Serializable
+data class CourierZone(
+    @SerialName("id") val id: String,
+    @SerialName("name") val name: String? = null,
+    @SerialName("code") val code: String? = null
+)
+
+@Serializable
 data class CourierProfile(
     @SerialName("courier_id")
     val courierId: String,
@@ -118,7 +125,10 @@ data class CourierProfile(
 
     // FOOD-BIKE-029: radius jangkauan food delivery (1-20 km, dropdown driver)
     @SerialName("radius_max_km")
-    val radiusMaxKm: Int = 1
+    val radiusMaxKm: Int = 1,
+
+    @SerialName("current_zone")
+    val currentZone: CourierZone? = null
 )
 
 @Serializable

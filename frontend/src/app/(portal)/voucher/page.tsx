@@ -178,7 +178,7 @@ export default function VoucherPage() {
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-foreground">
-            <span className="rounded-2xl bg-primary-soft p-2.5 text-primary dark:bg-primary/20 dark:text-emerald-300">
+            <span className="rounded-2xl bg-primary-soft p-2.5 text-primary dark:bg-primary/20 dark:text-brand-emerald-300">
               <Ticket className="h-6 w-6" />
             </span>
             Voucher &amp; Promo
@@ -202,7 +202,7 @@ export default function VoucherPage() {
       {/* Check code input */}
       <section className="glass-card rounded-2xl p-5" aria-labelledby="cek-kode-title">
         <h2 id="cek-kode-title" className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <BadgePercent className="h-4 w-4 text-emerald-500" />
+          <BadgePercent className="h-4 w-4 text-brand-emerald-500" />
           Punya kode voucher?
         </h2>
         <form
@@ -229,12 +229,12 @@ export default function VoucherPage() {
             placeholder="KETIK KODE DI SINI"
             aria-describedby="voucher-check-message"
             aria-invalid={checkMessage && !checkMessage.ok ? true : undefined}
-            className="min-w-0 flex-1 rounded-xl border border-black/10 bg-background px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-foreground outline-none transition-all placeholder:normal-case placeholder:text-muted-foreground focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20"
+            className="min-w-0 flex-1 rounded-xl border border-black/10 bg-background px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-foreground outline-none transition-all placeholder:normal-case placeholder:text-muted-foreground focus:border-brand-emerald-400/60 focus:ring-2 focus:ring-brand-emerald-500/20"
           />
           <button
             type="submit"
             disabled={isChecking}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-2.5 text-sm font-bold text-emerald-700 transition-all hover:bg-emerald-500/20 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 dark:text-emerald-200"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-5 py-2.5 text-sm font-bold text-brand-emerald-700 transition-all hover:bg-brand-emerald-500/20 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 dark:text-brand-emerald-200"
           >
             {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cek Kode'}
           </button>
@@ -245,7 +245,7 @@ export default function VoucherPage() {
             role={checkMessage.ok ? 'status' : 'alert'}
             className={`mt-3 rounded-lg px-3 py-2 text-xs font-medium ${
               checkMessage.ok
-                ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+                ? 'border border-brand-emerald-500/20 bg-brand-emerald-500/10 text-brand-emerald-700 dark:text-brand-emerald-200'
                 : 'border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-200'
             }`}
           >
@@ -302,13 +302,13 @@ export default function VoucherPage() {
                   <article className="glass-card relative h-full overflow-hidden rounded-2xl p-5">
                     <div
                       aria-hidden="true"
-                      className="absolute right-0 top-0 h-16 w-16 translate-x-6 -translate-y-6 rounded-full bg-primary/10 dark:bg-emerald-500/10"
+                      className="absolute right-0 top-0 h-16 w-16 translate-x-6 -translate-y-6 rounded-full bg-primary/10 dark:bg-brand-emerald-500/10"
                     />
                     <div className="flex items-start justify-between gap-2">
-                      <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-200">
+                      <span className="inline-flex items-center rounded-full border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-brand-emerald-700 dark:text-brand-emerald-200">
                         {promo.code}
                       </span>
-                      <BadgePercent className="h-5 w-5 shrink-0 text-emerald-500" />
+                      <BadgePercent className="h-5 w-5 shrink-0 text-brand-emerald-500" />
                     </div>
                     <h3 className="mt-3 line-clamp-2 text-sm font-bold text-foreground">{promo.name}</h3>
                     {promo.description && (

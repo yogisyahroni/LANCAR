@@ -30,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.AlertDialog
@@ -42,12 +43,17 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
+import com.tembus.merchant.ui.localization.MerchantText as Text
+import com.tembus.merchant.ui.localization.MerchantTextCatalog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,6 +67,8 @@ import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.PrimaryPale
 import com.tembus.merchant.ui.theme.TembusRadius
+import kotlinx.coroutines.delay
+import java.time.Instant
 
 /**
  * Dashboard post-login dari flow zip, tetapi seluruh konten berasal dari API.
@@ -78,7 +86,17 @@ fun StitchOrdersDashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var rejectTarget by remember { mutableStateOf<MerchantOrder?>(null) }
+    var partialRejectTarget by remember { mutableStateOf<MerchantOrder?>(null) }
+    var showPauseDialog by remember { mutableStateOf(false) }
+    val isPaused = state.merchant?.pausedUntil?.let { value ->
+        runCatching { Instant.parse(value).isAfter(Instant.now()) }.getOrDefault(false)
+    } == true
 
+    PullToRefreshBox(
+        isRefreshing = state.isLoading && state.merchant != null,
+        onRefresh = viewModel::load,
+        modifier = Modifier.fillMaxSize()
+    ) {
     Column(modifier = Modifier.fillMaxSize().background(PrimaryPale)) {
         TopAppBar(
             title = {
@@ -89,7 +107,7 @@ fun StitchOrdersDashboardScreen(
             },
             actions = {
                 IconButton(onClick = onOpenNotifications) {
-                    Icon(Icons.Filled.NotificationsNone, contentDescription = "Notifikasi")
+                    Icon(Icons.Filled.NotificationsNone, contentDescription = MerchantTextCatalog.translate("Notifikasi"))
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryPale)
@@ -109,7 +127,10 @@ fun StitchOrdersDashboardScreen(
                 StoreStatusCard(
                     name = state.merchant?.namaToko ?: "Merchant",
                     isOpen = state.merchant?.isOpen == true,
-                    onToggle = viewModel::toggleOpen
+                    isPaused = isPaused,
+                    onToggle = viewModel::toggleOpen,
+                    onPause = { showPauseDialog = true },
+                    onResume = viewModel::resume,
                 )
             }
             item {
@@ -148,12 +169,14 @@ fun StitchOrdersDashboardScreen(
                         onAccept = { viewModel.acceptOrder(order.id) },
                         onReady = { viewModel.markReady(order.id) },
                         onReject = { rejectTarget = order },
+                        onPartialReject = { partialRejectTarget = order },
                         isActionLoading = state.actionOrderId == order.id
                     )
                 }
             }
             }
         }
+    }
     }
 
     rejectTarget?.let { order ->
@@ -167,10 +190,40 @@ fun StitchOrdersDashboardScreen(
             onDismiss = { if (state.actionOrderId == null) rejectTarget = null }
         )
     }
+
+    partialRejectTarget?.let { order ->
+        PartialRejectDialog(
+            order = order,
+            isSubmitting = state.actionOrderId == order.id,
+            onConfirm = { items, reason ->
+                partialRejectTarget = null
+                viewModel.partialRejectOrder(order.id, items, reason)
+            },
+            onDismiss = { if (state.actionOrderId == null) partialRejectTarget = null },
+        )
+    }
+
+    if (showPauseDialog) {
+        PauseOrdersDialog(
+            isSubmitting = state.isPauseLoading,
+            onConfirm = { minutes ->
+                showPauseDialog = false
+                viewModel.pause(minutes)
+            },
+            onDismiss = { if (!state.isPauseLoading) showPauseDialog = false },
+        )
+    }
 }
 
 @Composable
-private fun StoreStatusCard(name: String, isOpen: Boolean, onToggle: () -> Unit) {
+private fun StoreStatusCard(
+    name: String,
+    isOpen: Boolean,
+    isPaused: Boolean,
+    onToggle: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -192,10 +245,56 @@ private fun StoreStatusCard(name: String, isOpen: Boolean, onToggle: () -> Unit)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Storefront, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(if (isOpen) "Toko aktif" else "Toko tidak aktif", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    when {
+                        isPaused -> "Pesanan dijeda sementara"
+                        isOpen -> "Toko aktif"
+                        else -> "Toko tidak aktif"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            if (isPaused) {
+                OutlinedButton(onClick = onResume, enabled = true) { Text("Lanjutkan pesanan") }
+            } else {
+                OutlinedButton(onClick = onPause, enabled = isOpen) { Text("Jeda pesanan") }
             }
         }
     }
+}
+
+@Composable
+private fun PauseOrdersDialog(
+    isSubmitting: Boolean,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selectedMinutes by remember { mutableStateOf(30) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Jeda pesanan") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Pesanan baru akan dijeda selama:")
+                listOf(15, 30, 60, 180).forEach { minutes ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = selectedMinutes == minutes,
+                            onClick = { selectedMinutes = minutes },
+                        )
+                        Text("$minutes menit", modifier = Modifier.clickable { selectedMinutes = minutes })
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(selectedMinutes) }, enabled = !isSubmitting) {
+                Text(if (isSubmitting) "Menyimpan..." else "Jeda sekarang")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Batal") } },
+    )
 }
 
 @Composable
@@ -247,8 +346,22 @@ private fun StitchOrderCard(
     onAccept: () -> Unit,
     onReady: () -> Unit,
     onReject: () -> Unit,
+    onPartialReject: () -> Unit,
     isActionLoading: Boolean
 ) {
+    var nowEpochSecond by remember(order.id) { mutableLongStateOf(Instant.now().epochSecond) }
+    LaunchedEffect(order.id, order.merchantAcceptedAt, order.foodReadyAt) {
+        while (true) {
+            nowEpochSecond = Instant.now().epochSecond
+            delay(1_000)
+        }
+    }
+    val prepTimer = prepTimerState(
+        now = Instant.ofEpochSecond(nowEpochSecond),
+        acceptedAt = order.merchantAcceptedAt,
+        readyAt = order.foodReadyAt,
+    )
+
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -263,6 +376,9 @@ private fun StitchOrderCard(
             Spacer(Modifier.height(8.dp))
             Text("#${order.orderNumber}", fontWeight = FontWeight.Bold)
             Text("${order.customerName ?: "Pelanggan"} • ${Format.time(order.createdAt)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            if (prepTimer.hasSchedule && order.status in setOf("preparing", "accepted")) {
+                PrepCountdownBanner(prepTimer)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.TextButton(onClick = onOpenChat) {
                     Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -285,6 +401,12 @@ private fun StitchOrderCard(
                 if (order.status == "pending_merchant") {
                     OutlinedButton(onClick = onReject, enabled = !isActionLoading) {
                         Text("Tolak", color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+                if (order.status in setOf("pending_merchant", "preparing") && order.items.isNotEmpty()) {
+                    OutlinedButton(onClick = onPartialReject, enabled = !isActionLoading) {
+                        Text("Item tidak ada")
                     }
                     Spacer(Modifier.width(8.dp))
                 }
@@ -313,6 +435,28 @@ private fun StitchOrderCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PrepCountdownBanner(state: PrepTimerState) {
+    val color = if (state.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val label = if (state.isOverdue) {
+        "Waktu persiapan terlewati — tandai siap setelah makanan selesai"
+    } else {
+        "Estimasi siap dalam ${formatPrepCountdown(state.remainingSeconds)}"
+    }
+    Surface(
+        color = color.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(TembusRadius.Button),
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+    ) {
+        Text(
+            text = label,
+            color = color,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+        )
     }
 }
 
@@ -380,6 +524,60 @@ private fun RejectOrderDialog(
             ) { Text(if (isSubmitting) "Mengirim..." else "Tolak", color = MaterialTheme.colorScheme.error) }
         },
         dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Batal") } }
+    )
+}
+
+@Composable
+private fun PartialRejectDialog(
+    order: MerchantOrder,
+    isSubmitting: Boolean,
+    onConfirm: (List<com.tembus.merchant.data.model.PartialRejectItemRequest>, String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selectedIds by remember(order.id) { mutableStateOf(emptySet<String>()) }
+    var reason by remember(order.id) { mutableStateOf("Stok menu habis") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Item tidak tersedia") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Pilih item yang tidak dapat dipenuhi. Order lain tetap berjalan dan customer menerima refund item.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                order.items.forEach { item ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = item.menuItemId in selectedIds,
+                            onCheckedChange = { checked ->
+                                selectedIds = if (checked) selectedIds + item.menuItemId else selectedIds - item.menuItemId
+                            },
+                        )
+                        Text("${item.quantity}x ${item.itemName}")
+                    }
+                }
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text("Alasan") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val items = order.items.filter { it.menuItemId in selectedIds }.map {
+                        com.tembus.merchant.data.model.PartialRejectItemRequest(it.menuItemId, it.quantity, reason.trim())
+                    }
+                    onConfirm(items, reason.trim())
+                },
+                enabled = !isSubmitting && selectedIds.isNotEmpty() && reason.isNotBlank(),
+            ) { Text(if (isSubmitting) "Memproses..." else "Refund item") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Batal") } },
     )
 }
 

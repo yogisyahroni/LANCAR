@@ -303,6 +303,25 @@ data class EditOrderItemsRequest(
     @SerializedName("items") val items: List<EditOrderItemRequest>
 )
 
+data class PartialRejectItemRequest(
+    @SerializedName("menu_item_id") val menuItemId: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("reason") val reason: String? = null
+)
+
+data class PartialRejectOrderRequest(
+    @SerializedName("items") val items: List<PartialRejectItemRequest>,
+    @SerializedName("reason") val reason: String? = null
+)
+
+data class PartialRejectResult(
+    @SerializedName("order_id") val orderId: String = "",
+    @SerializedName("refund_id") val refundId: String = "",
+    @SerializedName("amount_idr") val amountIdr: Long = 0,
+    @SerializedName("refund_percentage") val refundPercentage: Int = 0,
+    @SerializedName("status") val status: String = ""
+)
+
 /** EditOrderResult — respon PUT edit order (harga baru). */
 data class EditOrderResult(
     @SerializedName("order_id") val orderId: String = "",
@@ -376,13 +395,25 @@ data class SalesReportPoint(
     @SerializedName("revenue_idr") val revenueIdr: Long = 0
 )
 
+data class SalesPerformance(
+    @SerializedName("total_received") val totalReceived: Int = 0,
+    @SerializedName("accepted") val accepted: Int = 0,
+    @SerializedName("cancelled") val cancelled: Int = 0,
+    @SerializedName("rejected_by_merchant") val rejectedByMerchant: Int = 0,
+    @SerializedName("acceptance_rate_pct") val acceptanceRatePct: Double = 0.0,
+    @SerializedName("cancellation_rate_pct") val cancellationRatePct: Double = 0.0,
+    @SerializedName("avg_rating") val avgRating: Double = 0.0,
+    @SerializedName("rating_count") val ratingCount: Int = 0
+)
+
 data class SalesReportSummary(
     @SerializedName("period") val period: String = "daily",
     @SerializedName("total_orders") val totalOrders: Int = 0,
     @SerializedName("gmv_idr") val gmvIdr: Long = 0,
     @SerializedName("avg_order_value_idr") val avgOrderValueIdr: Long = 0,
     @SerializedName("top_items") val topItems: List<TopSellingItem> = emptyList(),
-    @SerializedName("daily_breakdown") val dailyBreakdown: List<SalesReportPoint> = emptyList()
+    @SerializedName("daily_breakdown") val dailyBreakdown: List<SalesReportPoint> = emptyList(),
+    @SerializedName("performance") val performance: SalesPerformance = SalesPerformance()
 )
 
 /** Review customer merchant — GET /api/v1/merchant/reviews. */
@@ -442,12 +473,20 @@ data class SettlementRecord(
     @SerializedName("created_at") val createdAt: String = ""
 )
 
+data class MerchantTaxSummary(
+    @SerializedName("taxable_sales_idr") val taxableSalesIdr: Long = 0,
+    @SerializedName("ppn_idr") val ppnIdr: Long = 0,
+    @SerializedName("invoice_required") val invoiceRequired: Int = 0,
+    @SerializedName("invoice_issued") val invoiceIssued: Int = 0
+)
+
 /** SettlementSummary — total cair, total ditahan, + daftar riwayat. */
 data class SettlementSummary(
     @SerializedName("total_idr") val totalIdr: Long = 0,
     @SerializedName("holding_idr") val holdingIdr: Long = 0,
     @SerializedName("available_idr") val availableIdr: Long = 0,
-    @SerializedName("records") val records: List<SettlementRecord> = emptyList()
+    @SerializedName("records") val records: List<SettlementRecord> = emptyList(),
+    @SerializedName("tax") val tax: MerchantTaxSummary = MerchantTaxSummary()
 )
 
 /** M7: permintaan pencairan saldo merchant. */

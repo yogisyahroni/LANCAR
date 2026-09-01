@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.Animatable
@@ -111,6 +112,7 @@ internal fun OnDemandSupportActions(
     onCancelPickupClick: () -> Unit,
     showCancelPickup: Boolean = true
 ) {
+    val haptic = LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             CompactActionButton(icon = Icons.AutoMirrored.Filled.Chat, label = "Chat", onClick = onChatClick, modifier = Modifier.weight(1f))
@@ -118,7 +120,10 @@ internal fun OnDemandSupportActions(
         }
         if (showCancelPickup && !pickupDone) {
             OutlinedButton(
-                onClick = onCancelPickupClick,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onCancelPickupClick()
+                },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -131,7 +136,10 @@ internal fun OnDemandSupportActions(
         }
         // Sekunder: outline kecil (bukan full-width 52dp) — kurangi kompetisi dengan CTA utama.
         OutlinedButton(
-            onClick = onIssueClick,
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onIssueClick()
+            },
             modifier = Modifier.fillMaxWidth().height(48.dp),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Primary),
@@ -144,7 +152,10 @@ internal fun OnDemandSupportActions(
         // SOS: text button merah tegas (ikon + label) — penting, tapi bukan blok merah
         // yang mendominasi & berisiko salah tekan (standar Gojek/Grab).
         TextButton(
-            onClick = onSosClick,
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onSosClick()
+            },
             modifier = Modifier.fillMaxWidth().height(44.dp),
             colors = ButtonDefaults.textButtonColors(
                 contentColor = MaterialTheme.colorScheme.error,
@@ -157,4 +168,3 @@ internal fun OnDemandSupportActions(
         }
     }
 }
-

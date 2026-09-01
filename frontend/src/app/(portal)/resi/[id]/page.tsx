@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
+import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { clientLog } from '@/lib/clientLogger';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { 
@@ -107,12 +108,7 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6 select-none animate-pulse">
-        <div className="h-10 bg-muted/50 rounded-xl w-64" />
-        <div className="h-[500px] bg-muted/40 border border-border/40 rounded-2xl" />
-      </div>
-    );
+    return <CustomerPageSkeleton />;
   }
 
   if (!order) {
@@ -178,7 +174,7 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
             onClick={handleCopyPublicLink}
             className="flex items-center gap-1.5 px-3 py-2 bg-card hover:bg-muted border border-border/40 text-foreground text-xs font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm select-none"
           >
-            {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />} Tautan
+            {isCopied ? <Check className="h-3.5 w-3.5 text-brand-emerald-500" /> : <Copy className="h-3.5 w-3.5" />} Tautan
           </button>
           <button
             onClick={handlePrint}
@@ -289,12 +285,12 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
 
                 <div className="border-t border-slate-100 pt-4">
                   <h4 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-1 select-none">
-                    <User className="h-3.5 w-3.5 text-emerald-500" /> Penerima (Recipient)
+                    <User className="h-3.5 w-3.5 text-brand-emerald-500" /> Penerima (Recipient)
                   </h4>
                   <p className="text-sm font-extrabold text-slate-800 mt-1">{order.recipient_name}</p>
                   <p className="text-xs text-slate-600 mt-0.5">{order.recipient_phone || '-'}</p>
                   <div className="flex items-start gap-2 mt-2 select-none">
-                    <MapPin className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+                    <MapPin className="h-4 w-4 shrink-0 text-brand-emerald-500 mt-0.5" />
                     <p className="text-xs text-slate-600 leading-relaxed font-medium">{order.dropoff_address}</p>
                   </div>
                 </div>

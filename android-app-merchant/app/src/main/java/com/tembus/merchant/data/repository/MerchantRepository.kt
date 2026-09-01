@@ -1,6 +1,7 @@
 package com.tembus.merchant.data.repository
 
 import com.tembus.merchant.data.api.TEMBUSApiService
+import com.tembus.merchant.data.cache.MerchantOfflineCache
 import com.tembus.merchant.data.model.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -11,7 +12,10 @@ import org.json.JSONObject
  * MerchantRepository — semua endpoint merchant-service (profile, menu, orders, struk).
  * Error handling: parse body JSON {error: message} dari merchant-service.
  */
-class MerchantRepository(private val api: TEMBUSApiService) {
+class MerchantRepository(
+    private val api: TEMBUSApiService,
+    private val offlineCache: MerchantOfflineCache? = null
+) {
 
     suspend fun getProfile(): Result<Merchant> =
         request { api.getProfile() }
@@ -88,8 +92,19 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun replaceMenuItemVariants(id: String, req: ReplaceVariantsRequest): Result<List<MenuItemVariant>> =
         request { api.replaceMenuItemVariants(id, req) }
 
-    suspend fun listOrders(status: String? = null, page: Int = 1, pageSize: Int = 20): Result<List<MerchantOrder>> =
-        request { api.listOrders(status, page, pageSize) }.map { it.orders }
+    suspend fun listOrders(status: String? = null, page: Int = 1, pageSize: Int = 20): Result<List<MerchantOrder>> {
+        return request { api.listOrders(status, page, pageSize) }
+            .map { it.orders }
+            .onSuccess { orders ->
+                if (status == null && page == 1) offlineCache?.saveOrders(orders)
+            }
+            .recoverCatching { error ->
+                val cached = offlineCache?.readOrders().orEmpty()
+                if (cached.isEmpty() && offlineCache == null) throw error
+                if (cached.isEmpty()) throw error
+                cached.filter { status == null || it.status == status }
+            }
+    }
 
     suspend fun acceptOrder(orderId: String): Result<Boolean> =
         request { api.acceptOrder(orderId) }.map { it.success }
@@ -107,6 +122,9 @@ class MerchantRepository(private val api: TEMBUSApiService) {
 
     suspend fun editOrderItems(orderId: String, items: List<EditOrderItemRequest>): Result<EditOrderResult> =
         request { api.editOrderItems(orderId, EditOrderItemsRequest(items)) }
+
+    suspend fun partialRejectOrder(orderId: String, items: List<PartialRejectItemRequest>, reason: String? = null): Result<PartialRejectResult> =
+        request { api.partialRejectOrder(orderId, PartialRejectOrderRequest(items, reason)) }
 
     // FB-114: update rekening bank.
     suspend fun updateBankAccount(req: UpdateBankAccountRequest): Result<Merchant> =
@@ -178,8 +196,8 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun inviteStaff(merchantId: String, req: InviteStaffRequest): Result<InviteStaffResponse> =
         request { api.inviteStaff(merchantId, req) }
 
-    suspend fun listStaff(merchantId: String): Result<List<MerchantStaff>> =
-        request { api.listStaff(merchantId) }.map { it.data }
+    suspend fun listStaff(merchantId: String): Result<StaffListResponse> =
+        request { api.listStaff(merchantId) }
 
     suspend fun acceptStaffInvite(token: String): Result<Boolean> =
         request { api.acceptStaffInvite(AcceptStaffInviteRequest(token)) }.map { it.success }

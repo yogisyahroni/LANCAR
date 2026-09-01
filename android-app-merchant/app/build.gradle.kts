@@ -125,7 +125,10 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            // Physical merchant devices are ARM; excluding emulator-only x86
+            // ABIs keeps the release artifact smaller and avoids shipping
+            // binaries that are never used in production.
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
         }
     }
 

@@ -24,6 +24,7 @@ import {
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { AdminPageSkeleton } from '../components/ui/Skeleton'
 import { toast } from 'sonner'
 import DeliveryServices from './DeliveryServices'
 
@@ -138,11 +139,7 @@ export default function PricingConfig() {
   ];
 
   if (isLoading) {
-    return (
-      <div className="h-[80vh] flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
-      </div>
-    );
+    return <AdminPageSkeleton />;
   }
 
   return (

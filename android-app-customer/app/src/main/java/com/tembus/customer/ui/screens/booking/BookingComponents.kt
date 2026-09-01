@@ -70,7 +70,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.tembus.customer.ui.localization.CustomerText as Text
+import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -129,6 +130,7 @@ import com.tembus.customer.ui.theme.Surface as TembusSurface
 import com.tembus.customer.ui.theme.SurfaceVariant
 import com.tembus.customer.ui.theme.TembusRadius
 import com.tembus.customer.ui.theme.TextDisabled
+import com.tembus.customer.ui.a11y.criticalAction
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -309,7 +311,7 @@ internal fun BookingHeader(onBackClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBackClick) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = MaterialTheme.colorScheme.onPrimary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Kembali"), tint = MaterialTheme.colorScheme.onPrimary)
         }
         Spacer(Modifier.width(8.dp))
         Column {
@@ -1058,7 +1060,8 @@ internal fun SelectedServiceBar(
             enabled = routeReady && price != null && !state.isLoading && !state.isCalculatingRoute,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .height(56.dp)
+                .criticalAction(buttonLabel),
             shape = RoundedCornerShape(TembusRadius.Button),
             colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = MaterialTheme.colorScheme.onPrimary)
         ) {
@@ -1216,6 +1219,7 @@ internal fun BookingReviewSheet(
     state: BookingState,
     onSubmit: () -> Unit
 ) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val service = state.selectedService()
     val selectedTier = state.selectedSizeTier()
     val price = state.selectedPrice()
@@ -1259,11 +1263,15 @@ internal fun BookingReviewSheet(
             Text(formatRupiah(price?.totalPriceIdr ?: 0), color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
         }
         Button(
-            onClick = onSubmit,
+            onClick = {
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                onSubmit()
+            },
             enabled = price != null && !state.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp),
+                .height(58.dp)
+                .criticalAction("Kirim order dengan harga yang ditampilkan"),
             shape = RoundedCornerShape(TembusRadius.Button),
             colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
         ) {

@@ -21,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
+import com.tembus.courier.ui.localization.CourierTextCatalog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -244,7 +246,7 @@ fun ActiveLivenessScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Success",
+                        contentDescription = CourierTextCatalog.translate("Success"),
                         tint = Color.Green,
                         modifier = Modifier.size(80.dp)
                     )
@@ -261,7 +263,7 @@ fun ActiveLivenessScreen(
                 .padding(16.dp)
                 .align(Alignment.TopStart)
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Batal", tint = Color.White)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CourierTextCatalog.translate("Batal"), tint = Color.White)
         }
     }
 }

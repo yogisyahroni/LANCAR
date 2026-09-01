@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
+import { rateLimitStoreOptions } from './redisRateLimitStore';
 
 type PublicEndpoint = 'maps' | 'pricing' | 'system';
 type AbuseAction = 'blocked' | 'rate_limited' | 'observed';
@@ -208,8 +209,10 @@ export const createPricingAbuseGuard = (options?: AbuseProtectionOptions) => (
 export const createPublicEndpointRateLimiter = (
   endpoint: PublicEndpoint,
   options: AbuseProtectionOptions = {}
-) => rateLimit({
-  windowMs: Number(process.env[`PUBLIC_${endpoint.toUpperCase()}_RATE_WINDOW_MS`] || 60_000),
+): ReturnType<typeof rateLimit> => {
+  const windowMs = Number(process.env[`PUBLIC_${endpoint.toUpperCase()}_RATE_WINDOW_MS`] || 60_000);
+  return rateLimit({
+  windowMs,
   max: Number(process.env[`PUBLIC_${endpoint.toUpperCase()}_RATE_LIMIT`] || (endpoint === 'maps' ? 60 : 30)),
   standardHeaders: true,
   legacyHeaders: false,
@@ -222,4 +225,6 @@ export const createPublicEndpointRateLimiter = (
       message: 'Too many public requests, please try again later',
     });
   },
-});
+  ...rateLimitStoreOptions(`public-${endpoint}`, windowMs),
+  });
+};

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.Animatable
@@ -110,6 +111,7 @@ internal fun ActionButton(
     contentColor: Color = Color.White,
     onClick: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     val colors = if (prominent) {
         ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = contentColor)
     } else {
@@ -118,7 +120,10 @@ internal fun ActionButton(
     val border = if (prominent) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
 
     Button(
-        onClick = onClick,
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         modifier = Modifier.fillMaxWidth().height(52.dp),
         shape = RoundedCornerShape(8.dp),
         colors = colors,
@@ -130,4 +135,3 @@ internal fun ActionButton(
     }
     Spacer(modifier = Modifier.height(8.dp))
 }
-

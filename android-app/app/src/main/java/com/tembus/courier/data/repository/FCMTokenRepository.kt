@@ -69,7 +69,11 @@ class FCMTokenRepository @Inject constructor(
                 val response = apiService.registerFCMToken(request)
                 
                 if (response.isSuccessful) {
-                    FcmTopicManager.sync(authSessionManager.isOnline.first())
+                    val profile = apiService.getCourierProfile().body()?.data
+                    FcmTopicManager.sync(
+                        isOnline = authSessionManager.isOnline.first(),
+                        zoneId = profile?.currentZone?.id
+                    )
                     Log.d(TAG, "FCM token registered successfully")
                     Result.success(Unit)
                 } else {

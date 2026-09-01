@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { downloadCsv } from '@/lib/csv';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { 
   Package, 
   Plus, 
@@ -261,10 +262,7 @@ export default function ProductsPage() {
         </div>
 
         {loading ? (
-          <div className="p-12 flex flex-col items-center justify-center text-muted-foreground">
-            <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
-            <p>Memuat katalog produk...</p>
-          </div>
+          <CustomerPageSkeleton />
         ) : loadError ? (
           <div className="p-12 text-center">
             <div className="w-12 h-12 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto mb-4">

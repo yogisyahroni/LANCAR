@@ -5,6 +5,7 @@ import { DisputeModal } from '@/components/orders/DisputeModal';
 import { ArrowLeft, Share2, Download, AlertTriangle, Loader2, RefreshCw, X, CheckCircle2, Sparkles, Send, ImageIcon, FileSignature, Copy, Paperclip, MessageSquare, Navigation, Truck, MapPin, Phone, Calendar, Package, UtensilsCrossed, Plus, Minus, ChevronDown, ChevronUp, Clock, Weight, Ruler, MapPinned, LocateFixed, CalendarDays, CalendarClock, CircleCheck, TriangleAlert, Info, Box, Building2, Check, Camera, Maximize } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 type OnDemandOrderFormContentProps = {
   register: any,
@@ -132,7 +133,7 @@ export function OnDemandOrderFormContent({
         <input type="hidden" {...register("size_tier")} />
 
         {draftRestoredAt && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-emerald-400/20 bg-brand-emerald-500/10 px-4 py-3 text-sm text-brand-emerald-50">
                     <span>
                       Draft pengiriman dipulihkan dari sesi browser pukul {new Date(draftRestoredAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}.
                     </span>
@@ -142,7 +143,7 @@ export function OnDemandOrderFormContent({
                         clearCustomerOrderDraft();
                         setDraftRestoredAt(null);
                       }}
-                      className="rounded-md border border-emerald-200/30 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-emerald-200/10"
+                      className="rounded-md border border-brand-emerald-200/30 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-brand-emerald-200/10"
                     >
                       Bersihkan Draft
                     </button>
@@ -158,9 +159,9 @@ export function OnDemandOrderFormContent({
                   </h3>
 
           {isLoadingServices ? (
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 px-4 py-3 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Memuat layanan pengiriman...
+            <div className="space-y-2 rounded-lg border border-white/10 bg-background/40 p-4" aria-busy="true" aria-label="Memuat layanan pengiriman">
+              <Skeleton className="h-4 w-40 bg-white/10" />
+              <Skeleton className="h-10 w-full bg-white/10" />
             </div>
           ) : serviceLoadError ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
@@ -293,7 +294,7 @@ export function OnDemandOrderFormContent({
 
         <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
-            <MapPin className="h-5 w-5 text-emerald-500" />
+            <MapPin className="h-5 w-5 text-brand-emerald-500" />
             Detail Pengiriman (Dropoff)
           </h3>
 
@@ -306,10 +307,10 @@ export function OnDemandOrderFormContent({
             locationError={(errors as any).dropoff_location?.message}
           />
 
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+          <div className="rounded-xl border border-brand-emerald-500/20 bg-brand-emerald-500/5 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-emerald-300">Minta lokasi dari penerima</p>
+                <p className="text-sm font-semibold text-brand-emerald-300">Minta lokasi dari penerima</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Buat link aman agar penerima mengisi alamat, titik lokasi, catatan, dan kontak. Setelah terkirim, sistem menerapkan dropoff otomatis tanpa input ulang.
                 </p>
@@ -325,7 +326,7 @@ export function OnDemandOrderFormContent({
                   type="button"
                   onClick={receiverLocationLink ? refreshReceiverLocationRequest : createReceiverLocationRequest}
                   disabled={receiverLocationBusy}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-400 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-emerald-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-emerald-400 disabled:opacity-60"
                 >
                   {receiverLocationBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : receiverLocationLink ? <RefreshCw className="h-4 w-4" /> : <Navigation className="h-4 w-4" />}
                   {receiverLocationLink ? "Sinkronkan" : "Buat link"}
@@ -348,13 +349,13 @@ export function OnDemandOrderFormContent({
               </div>
             )}
             {receiverLocationMessage && (
-              <p className="mt-3 rounded-lg bg-background/40 px-3 py-2 text-xs font-medium text-emerald-100">{receiverLocationMessage}</p>
+              <p className="mt-3 rounded-lg bg-background/40 px-3 py-2 text-xs font-medium text-brand-emerald-100">{receiverLocationMessage}</p>
             )}
             {receiverLocationLink?.submitted_address && (
-              <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-50">
+              <div className="mt-3 rounded-lg border border-brand-emerald-400/20 bg-brand-emerald-400/10 px-3 py-2 text-xs text-brand-emerald-50">
                 <p className="font-semibold">Alamat dari penerima</p>
                 <p className="mt-1 leading-5">{receiverLocationLink.submitted_address}</p>
-                {receiverLocationLink.submitted_contact_name && <p className="mt-1 text-emerald-100">Kontak: {receiverLocationLink.submitted_contact_name}{receiverLocationLink.submitted_contact_phone_masked ? ` • ${receiverLocationLink.submitted_contact_phone_masked}` : ""}</p>}
+                {receiverLocationLink.submitted_contact_name && <p className="mt-1 text-brand-emerald-100">Kontak: {receiverLocationLink.submitted_contact_name}{receiverLocationLink.submitted_contact_phone_masked ? ` • ${receiverLocationLink.submitted_contact_phone_masked}` : ""}</p>}
               </div>
             )}
           </div>
@@ -365,7 +366,7 @@ export function OnDemandOrderFormContent({
               <input
                 {...register("recipient_name")}
                 data-testid="recipient-name-input"
-                className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2.5 text-sm focus:border-brand-emerald-500 focus:outline-none focus:ring-1 focus:ring-brand-emerald-500"
                 placeholder="Mis: Budi Santoso"
               />
               {errors.recipient_name && <p className="mt-1 text-xs text-destructive">{errors.recipient_name.message}</p>}
@@ -379,7 +380,7 @@ export function OnDemandOrderFormContent({
                 }}
                 data-testid="recipient-phone-input"
                 type="tel"
-                className={`w-full rounded-lg border bg-background/50 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 ${errors.recipient_phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-white/10 focus:border-emerald-500 focus:ring-emerald-500'}`}
+                className={`w-full rounded-lg border bg-background/50 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 ${errors.recipient_phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-white/10 focus:border-brand-emerald-500 focus:ring-brand-emerald-500'}`}
                 placeholder="Mis: 08123456789"
               />
               {errors.recipient_phone && <p className="mt-1 text-xs text-destructive">{errors.recipient_phone.message}</p>}

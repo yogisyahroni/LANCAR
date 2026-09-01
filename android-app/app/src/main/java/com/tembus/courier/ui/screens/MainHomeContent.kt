@@ -2,7 +2,7 @@ package com.tembus.courier.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Text
+import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.runtime.Composable
 import com.tembus.courier.data.model.CourierActiveRoutePlan
 import com.tembus.courier.data.model.CourierCapabilityProfile

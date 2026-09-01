@@ -134,7 +134,6 @@ func validateProductionSecrets() {
 	}
 }
 
-
 func main() {
 	// Load environment variables
 	err := godotenv.Load("../../.env")
@@ -291,6 +290,9 @@ func main() {
 	googleWebClientID := os.Getenv("GOOGLE_CUSTOMER_WEB_CLIENT_ID")
 	googleAndroidClientID := os.Getenv("GOOGLE_CUSTOMER_ANDROID_CLIENT_ID")
 	googleAuthSvc := service.NewGoogleAuthService(repo, deviceFpRepo, googleWebClientID, googleAndroidClientID)
+	appleWebClientID := os.Getenv("APPLE_CUSTOMER_WEB_CLIENT_ID")
+	appleAndroidClientID := os.Getenv("APPLE_CUSTOMER_ANDROID_CLIENT_ID")
+	appleAuthSvc := service.NewAppleAuthService(repo, deviceFpRepo, appleWebClientID, appleAndroidClientID)
 
 	// Select OTP provider: live Zenziva or dry-run
 	otpProviderName := strings.ToLower(strings.TrimSpace(os.Getenv("OTP_PROVIDER")))
@@ -303,6 +305,7 @@ func main() {
 			log.Printf("[auth-service] WARNING: Zenziva provider init failed (%v), falling back to dry-run", zenvErr)
 		} else {
 			googleAuthSvc.SetOTPProvider(zenvProvider)
+			appleAuthSvc.SetOTPProvider(zenvProvider)
 			log.Println("[auth-service] OTP provider: Zenziva (live)")
 		}
 	} else {
@@ -310,6 +313,7 @@ func main() {
 	}
 
 	gh := handler.NewGoogleAuthHandler(googleAuthSvc, authAbuseProtector)
+	ah := handler.NewAppleAuthHandler(appleAuthSvc, authAbuseProtector)
 
 	mux := http.NewServeMux()
 
@@ -360,6 +364,13 @@ func main() {
 
 	mux.HandleFunc("/api/v1/auth/customer/google/link",
 		middleware.AuthChain(gh.LinkGoogleAccount))
+
+	// API v1 — Customer Apple Auth (public + rate limited)
+	mux.HandleFunc("/api/v1/auth/customer/apple/start",
+		middleware.AuthRateLimitedChain(rdb, ah.StartAppleAuth))
+
+	mux.HandleFunc("/api/v1/auth/customer/apple/complete",
+		middleware.AuthRateLimitedChain(rdb, ah.CompleteAppleAuth))
 
 	// ─────────────────────────────────────────────
 	// API v1 — Customer OTP (new Zenziva-backed flow)

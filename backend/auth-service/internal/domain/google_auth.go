@@ -32,8 +32,11 @@ type CustomerAuthTransactionType string
 const (
 	AuthTxGoogleStart    CustomerAuthTransactionType = "google_start"
 	AuthTxGoogleComplete CustomerAuthTransactionType = "google_complete"
+	AuthTxAppleStart     CustomerAuthTransactionType = "apple_start"
+	AuthTxAppleComplete  CustomerAuthTransactionType = "apple_complete"
 	AuthTxOTPSend        CustomerAuthTransactionType = "otp_send"
 	AuthTxLinkGoogle     CustomerAuthTransactionType = "link_google"
+	AuthTxLinkApple      CustomerAuthTransactionType = "link_apple"
 	AuthTxStepUp         CustomerAuthTransactionType = "step_up"
 )
 
@@ -78,6 +81,7 @@ const (
 	OTPPurposeRegistrationPhone OTPPurpose = "registration_phone"
 	OTPPurposeNewDevice         OTPPurpose = "new_device"
 	OTPPurposeLinkGoogle        OTPPurpose = "link_google"
+	OTPPurposeLinkApple         OTPPurpose = "link_apple"
 	OTPPurposePasswordReset     OTPPurpose = "password_reset"
 	OTPPurposeStepUp            OTPPurpose = "step_up"
 )
