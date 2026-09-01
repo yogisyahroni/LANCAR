@@ -20,6 +20,7 @@ const (
 	StatusPendingAssignment   OrderStatus = "pending_assignment"
 	StatusReadyForPickup      OrderStatus = "ready_for_pickup"
 	StatusSearching           OrderStatus = "searching"
+	StatusAssigned            OrderStatus = "assigned"
 	StatusAccepted            OrderStatus = "accepted"
 	StatusPickingUp           OrderStatus = "picking_up"
 	StatusPickedUp            OrderStatus = "picked_up"
@@ -274,6 +275,9 @@ type OrderService interface {
 	SetServiceReportService(s ServiceReportService)
 	// SetFoodRepository inject food repository untuk CreateFoodOrder (FOOD-BIKE-073)
 	SetFoodRepository(fr FoodRepository)
+	// SetAvailabilityRepository injects capability and availability state for
+	// dispatch eligibility checks.
+	SetAvailabilityRepository(ar AvailabilityRepository)
 	// SetVoucherService inject voucher service untuk apply voucher (FB-078)
 	SetVoucherService(vs VoucherService)
 	// SetTipService inject tip service untuk refund tip saat order batal (FB-083)

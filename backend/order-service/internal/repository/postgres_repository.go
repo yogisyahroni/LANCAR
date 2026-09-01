@@ -541,7 +541,9 @@ func (r *postgresRepo) AssignCourier(ctx context.Context, orderID string, courie
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Check if order is still searching
+	// Check if order is still eligible for assignment. The failed_delivery state
+	// is a deliberate reassign path; the row lock still makes concurrent accepts
+	// single-winner.
 	var status domain.OrderStatus
 	var batchID *string
 	err = tx.QueryRowContext(ctx, "SELECT status, batch_id FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&status, &batchID)
@@ -549,12 +551,12 @@ func (r *postgresRepo) AssignCourier(ctx context.Context, orderID string, courie
 		return err
 	}
 
-	if status != domain.StatusSearching {
+	if status != domain.StatusSearching && status != domain.StatusFailedDelivery {
 		return sql.ErrNoRows // Or a custom error like "Order already assigned"
 	}
 
 	if batchID != nil && *batchID != "" {
-		query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW(), dispatch_expiry = NULL WHERE batch_id = $2 AND status = 'searching'`
+		query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW(), dispatch_expiry = NULL WHERE batch_id = $2 AND status IN ('searching', 'failed_delivery')`
 		_, err = tx.ExecContext(ctx, query, courierID, *batchID)
 		if err != nil {
 			return err

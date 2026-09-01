@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.util.UUID
 
 data class BookingState(
     val pickupPoint: BookingAddressPoint? = null,
@@ -91,6 +92,7 @@ class BookingViewModel @Inject constructor(
     private val _bookingSuccess = MutableSharedFlow<String>()
     val bookingSuccess = _bookingSuccess.asSharedFlow()
     private var routeCalculationVersion = 0
+    private var createOrderIdempotencyKey: String? = null
 
     private fun PriceBreakdown.hasRoadRoute(): Boolean {
         val polyline = routeSnapshot?.routePolyline?.trim().orEmpty()
@@ -688,9 +690,11 @@ class BookingViewModel @Inject constructor(
                 voucherCode = if (state.voucherApplied) state.voucherCode else null // FB-078
             )
 
-            orderRepository.createCustomerOnDemandOrder(req).collectLatest { result ->
+            val idempotencyKey = createOrderIdempotencyKey ?: UUID.randomUUID().toString().also { createOrderIdempotencyKey = it }
+            orderRepository.createCustomerOnDemandOrder(req, idempotencyKey).collectLatest { result ->
                 result.onSuccess { order ->
                     _bookingState.value = _bookingState.value.copy(isLoading = false)
+                    createOrderIdempotencyKey = null
                     _bookingSuccess.emit(order.id)
                 }
                 result.onFailure { e ->

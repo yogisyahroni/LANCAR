@@ -32,14 +32,15 @@ func NewUserFacingError(msg string) error {
 }
 
 var (
-	ErrInvalidEstimate    = errors.New("INVALID_ESTIMATE")
-	ErrInternal           = errors.New("INTERNAL_SERVER_ERROR")
-	ErrNotFound           = errors.New("NOT_FOUND")
-	ErrForbidden          = errors.New("FORBIDDEN")
-	ErrUnauthorized       = errors.New("UNAUTHORIZED")
-	ErrConflict           = errors.New("CONFLICT")
-	ErrInvalidCoordinates = errors.New("INVALID_COORDINATES")
-	ErrLocationNotCovered = errors.New("LOCATION_NOT_COVERED")
+	ErrInvalidEstimate      = errors.New("INVALID_ESTIMATE")
+	ErrInternal             = errors.New("INTERNAL_SERVER_ERROR")
+	ErrNotFound             = errors.New("NOT_FOUND")
+	ErrForbidden            = errors.New("FORBIDDEN")
+	ErrUnauthorized         = errors.New("UNAUTHORIZED")
+	ErrConflict             = errors.New("CONFLICT")
+	ErrInvalidCoordinates   = errors.New("INVALID_COORDINATES")
+	ErrLocationNotCovered   = errors.New("LOCATION_NOT_COVERED")
+	ErrOrderAlreadyAssigned = errors.New("ORDER_ALREADY_ASSIGNED")
 	// ErrForbiddenItem — barang terlarang (gas, chemical, weapon, flammable, dll)
 	// dicegah saat create order (TC-LOG-005).
 	ErrForbiddenItem = errors.New("FORBIDDEN_ITEM")

@@ -123,6 +123,7 @@ interface TEMBUSApiService {
 
     @POST("api/v1/customer/orders")
     suspend fun createCustomerOnDemandOrder(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: CustomerOrderCreateRequest
     ): Response<CustomerOrderCreateResponse>
 
@@ -238,6 +239,7 @@ interface TEMBUSApiService {
     @POST("api/v1/customer/orders/{id}/payment")
     suspend fun createCustomerPaymentSession(
         @Path("id") id: String,
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: CustomerPaymentCreateRequest
     ): Response<CustomerPaymentSessionResponse>
 
@@ -248,7 +250,8 @@ interface TEMBUSApiService {
 
     @POST("api/v1/customer/orders/{id}/payment/check")
     suspend fun confirmCustomerPayment(
-        @Path("id") id: String
+        @Path("id") id: String,
+        @Header("X-Idempotency-Key") idempotencyKey: String
     ): Response<CustomerPaymentSessionResponse>
 
     // Profile Endpoints
@@ -498,4 +501,3 @@ interface TEMBUSApiService {
     @GET("api/v1/customer/banners")
     suspend fun getBanners(): Response<GlobalBannerListResponse>
 }
-

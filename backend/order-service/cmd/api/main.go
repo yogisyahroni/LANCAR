@@ -373,6 +373,7 @@ func main() {
 	towingClaimRepo := repository.NewTowingDamageClaimRepository(db)
 	towingClaimSvc := service.NewTowingDamageClaimService(serviceReportSvc, towingClaimRepo)
 	orderSvc.SetServiceReportService(serviceReportSvc)
+	orderSvc.SetAvailabilityRepository(availabilityRepo)
 	tambalBanHandler := handler.NewTambalBanHandler(settlementSvc, availabilitySvc, vehicleValidator, serviceReportSvc)
 	towingHandler := handler.NewTowingHandler(serviceReportSvc)
 	towingClaimHandler := handler.NewTowingClaimHandler(towingClaimSvc)

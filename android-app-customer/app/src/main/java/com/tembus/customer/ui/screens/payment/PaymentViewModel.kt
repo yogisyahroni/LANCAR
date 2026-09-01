@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.util.UUID
 
 enum class CustomerPaymentMethod(val apiValue: String, val title: String, val description: String) {
     LAPAY(
@@ -49,6 +50,8 @@ class PaymentViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<PaymentUiState>(PaymentUiState.Choosing())
     val uiState: StateFlow<PaymentUiState> = _uiState.asStateFlow()
+    private var paymentSessionKey: String? = null
+    private var paymentConfirmKey: String? = null
 
     fun loadPaymentStatus(orderId: String) {
         viewModelScope.launch {
@@ -93,6 +96,7 @@ class PaymentViewModel @Inject constructor(
     }
 
     fun selectMethod(method: CustomerPaymentMethod) {
+        paymentSessionKey = null
         val current = _uiState.value
         val amount = amountFrom(current)
         val wallet = walletFrom(current)
@@ -111,7 +115,8 @@ class PaymentViewModel @Inject constructor(
         val selected = selectedMethodFrom(_uiState.value)
         viewModelScope.launch {
             _uiState.value = PaymentUiState.Loading(selected)
-            repository.createCustomerPaymentSession(orderId, selected.apiValue).collectLatest { result ->
+            val idempotencyKey = paymentSessionKey ?: UUID.randomUUID().toString().also { paymentSessionKey = it }
+            repository.createCustomerPaymentSession(orderId, selected.apiValue, idempotencyKey).collectLatest { result ->
                 result.onSuccess { payment ->
                     val status = payment.paymentStatus.ifBlank { payment.status }
                     val url = payment.redirectUrl
@@ -149,7 +154,8 @@ class PaymentViewModel @Inject constructor(
     fun verifyPayment(orderId: String) {
         viewModelScope.launch {
             _uiState.value = PaymentUiState.Verifying
-            val result = repository.confirmCustomerPayment(orderId)
+            val idempotencyKey = paymentConfirmKey ?: UUID.randomUUID().toString().also { paymentConfirmKey = it }
+            val result = repository.confirmCustomerPayment(orderId, idempotencyKey)
             result.onSuccess { payment ->
                 val status = payment.paymentStatus.ifBlank { payment.status }
                 if (isPaidOrBypassed(status, payment.orderStatus)) {

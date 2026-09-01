@@ -64,6 +64,7 @@ type CourierEarningsSummary struct {
 // PayoutRepository handles database operations for payouts
 type PayoutRepository interface {
 	CreatePayout(ctx context.Context, record *PayoutRecord) error
+	GetByOrderLegID(ctx context.Context, orderLegID uuid.UUID) (*PayoutRecord, error)
 	UpdatePayoutStatus(ctx context.Context, id uuid.UUID, status PayoutStatus, ref *string, errReason *string) error
 	GetPendingPayoutsByCourier(ctx context.Context, courierID uuid.UUID) ([]PayoutRecord, error)
 	GetEarningsSummary(ctx context.Context, courierID uuid.UUID, from, to time.Time) (*CourierEarningsSummary, error)
