@@ -1108,11 +1108,11 @@ Existing shared files:
 - `UNKNOWN`
 
 **Checklist**
-- [ ] Store `provider_status`, `provider_status_code`, `provider_status_description`, `provider_location`, `provider_timestamp`.
-- [ ] Also store normalized LANCAR status.
+- [x] Store `provider_status`, `provider_status_code`, `provider_status_description`, `provider_location`, `provider_timestamp`.
+- [x] Also store normalized LANCAR status.
 - [ ] Mapping is provider-specific/configurable/tested.
-- [ ] Customer UI can show friendly status plus useful provider detail.
-- [ ] Unknown raw status does not get incorrectly coerced to `IN_TRANSIT`.
+- [x] Customer UI can show friendly status plus useful provider detail.
+- [x] Unknown raw status does not get incorrectly coerced to `IN_TRANSIT`.
 
 ---
 
