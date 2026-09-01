@@ -55,18 +55,6 @@ interface AggregatorFormProps {
 const PROVIDERS = [
   { id: "jne",      name: "JNE",      fullName: "JNE Express",  color: "text-blue-400",   accent: "border-blue-400 bg-blue-400/10",     logo: "🚚" },
   { id: "jnt",      name: "J&T",      fullName: "J&T Express",  color: "text-red-400",    accent: "border-red-400 bg-red-400/10",       logo: "🔴" },
-  { id: "sicepat",  name: "SiCepat",  fullName: "SiCepat",      color: "text-orange-400", accent: "border-orange-400 bg-orange-400/10", logo: "⚡" },
-  { id: "anteraja", name: "AnterAja", fullName: "AnterAja",     color: "text-green-400",  accent: "border-green-400 bg-green-400/10",   logo: "🟢" },
-];
-
-const MOCK_CITIES: CityOption[] = [
-  { code: "CGK", name: "Jakarta",       type: "both" },
-  { code: "BDO", name: "Bandung",       type: "both" },
-  { code: "SRG", name: "Semarang",      type: "both" },
-  { code: "SUB", name: "Surabaya",      type: "both" },
-  { code: "JOG", name: "Yogyakarta",    type: "both" },
-  { code: "DPS", name: "Denpasar/Bali", type: "both" },
-  { code: "MDN", name: "Medan",         type: "both" },
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -284,7 +272,7 @@ function AddressModal({
 
 // ─── Component ─────────────────────────────────────────────────────
 export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
-  const [cities, setCities] = useState<CityOption[]>(MOCK_CITIES);
+  const [cities, setCities] = useState<CityOption[]>([]);
   const [originCode, setOriginCode] = useState("");
   const [destCode, setDestCode] = useState("");
   const [weight, setWeight] = useState(1);
@@ -295,6 +283,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
   const [tariffs, setTariffs] = useState<TariffOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   // ─── Pickup address state ─────────────────────────────────────────
@@ -306,11 +295,21 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
   const selectedProvider = PROVIDERS.find(p => p.id === selectedProviderId);
 
   useEffect(() => {
-    api.get("/locations/cities").then((res) => {
+    setCities([]);
+    setOriginCode("");
+    setDestCode("");
+    setLocationError(null);
+    if (!selectedProviderId) return;
+
+    api.get("/logistics/locations", { params: { provider: selectedProviderId } }).then((res) => {
       const data = res.data?.data || res.data;
-      if (Array.isArray(data) && data.length > 0) setCities(data);
-    }).catch(() => setCities(MOCK_CITIES));
-  }, []);
+      if (!Array.isArray(data) || data.length === 0 || data.some((city) => !city?.code || !city?.name)) {
+        setLocationError("Data area provider belum tersedia dari server.");
+        return;
+      }
+      setCities(data);
+    }).catch(() => setLocationError("Data area provider tidak dapat dimuat. Lengkapi mapping provider atau coba lagi."));
+  }, [selectedProviderId]);
 
   useEffect(() => {
     if (!originCode || !destCode || !weight || !selectedProviderId) {
@@ -545,6 +544,11 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             </div>
           </div>
         </div>
+        {locationError && (
+          <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100" role="alert">
+            {locationError}
+          </p>
+        )}
       </div>
 
       {/* STEP 4 — Berat & Dimensi */}

@@ -38,23 +38,14 @@ import {
 const PROVIDERS = [
   { id: "jne", name: "JNE Express", color: "text-blue-400", border: "border-blue-400" },
   { id: "jnt", name: "J&T Express", color: "text-red-400", border: "border-red-400" },
-  { id: "sicepat", name: "SiCepat", color: "text-orange-400", border: "border-orange-400" },
-  { id: "anteraja", name: "AnterAja", color: "text-green-400", border: "border-green-400" },
 ];
 
-const mockCities = [
-  { code: "CGK", name: "Jakarta", type: "both" },
-  { code: "BDO", name: "Bandung", type: "both" },
-  { code: "SRG", name: "Semarang", type: "both" },
-  { code: "SUB", name: "Surabaya", type: "both" },
-  { code: "JOG", name: "Yogyakarta", type: "both" },
-  { code: "DPS", name: "Denpasar/Bali", type: "both" },
-  { code: "MDN", name: "Medan", type: "both" },
-];
+type LogisticsCity = { code: string; name: string; type: "origin" | "destination" | "both" };
 
-// Step 1: Pick Up — origin_code removed from UI, defaulted to CGK (Jakarta)
+// Step 1: Pick Up — provider area is selected from the server-backed mapping.
 const step1Schema = z.object({
   provider: z.string().min(1, "Pilih Ekspedisi"),
+  origin_code: z.string().min(1, "Pilih kota asal"),
   pickup_address: z.string().min(5, "Alamat pickup minimal 5 karakter"),
   pickup_location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(),
   schedule_type: z.enum(["now", "scheduled"]).default("now"),
@@ -97,7 +88,7 @@ const step2Schema = z.object({
 });
 
 
-// Step 3: Review & Service
+// Step 3: Compare Carrier / Step 4: Review & Pay
 const step3Schema = z.object({
   service_code: z.string().min(1, "Pilih layanan pengiriman"),
   tariff_idr: z.number(),
@@ -121,7 +112,8 @@ export function AggregatorWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [orderMode, setOrderMode] = useState<"manual" | "upload" | null>(null);
-  const [cities, setCities] = useState(mockCities);
+  const [cities, setCities] = useState<LogisticsCity[]>([]);
+  const [cityError, setCityError] = useState<string | null>(null);
   const [tariffs, setTariffs] = useState<any[]>([]);
   const [isLoadingTariff, setIsLoadingTariff] = useState(false);
   const [tariffError, setTariffError] = useState<string | null>(null);
@@ -248,12 +240,10 @@ export function AggregatorWizard() {
 
   // Initialize unified form — NO global resolver; we validate per-step manually
   // to avoid Zod v4 ↔ @hookform/resolvers incompatibility (uncaught ZodError).
-  // origin_code is removed from UI; always defaults to CGK (Jakarta) for tariff calc.
-  const ORIGIN_CODE = "CGK";
-
   const methods = useForm<WizardValues>({
     defaultValues: {
       provider: "",
+      origin_code: "",
       pickup_address: "",
       schedule_type: "now",
       destination_code: "",
@@ -283,6 +273,31 @@ export function AggregatorWizard() {
   const pickup_location = watch("pickup_location");
   const dropoff_address = watch("dropoff_address");
   const dropoff_location = watch("dropoff_location");
+
+  useEffect(() => {
+    setCities([]);
+    setCityError(null);
+    setValue("origin_code", "", { shouldValidate: false });
+    setValue("destination_code", "", { shouldValidate: false });
+    if (!currentProvider) return;
+
+    let active = true;
+    api.get("/logistics/locations", { params: { provider: currentProvider } })
+      .then((response) => {
+        const data = response.data?.data || response.data;
+        if (!active) return;
+        if (!Array.isArray(data) || data.length === 0 || data.some((city) => !city?.code || !city?.name)) {
+          setCityError("Data area provider belum tersedia dari server.");
+          return;
+        }
+        setCities(data as LogisticsCity[]);
+        setCityError(null);
+      })
+      .catch(() => {
+        if (active) setCityError("Data area provider tidak dapat dimuat. Lengkapi mapping provider atau coba lagi.");
+      });
+    return () => { active = false; };
+  }, [currentProvider, setValue]);
 
   const clearPendingTransaction = () => {
     if (typeof window !== "undefined") {
@@ -353,7 +368,7 @@ export function AggregatorWizard() {
         if (!active || !order?.id) throw new Error("Order transaksi tidak ditemukan");
         setCreatedOrder(order);
         setOrderMode("manual");
-        setStep(3);
+        setStep(4);
         setRecoveryNotice(`Order ${order.order_number || order.id} dipulihkan. Lanjutkan pembayaran untuk order ini.`);
       })
       .catch((error: any) => {
@@ -367,7 +382,7 @@ export function AggregatorWizard() {
   }, []);
 
 
-  // Load tariffs when entering Step 3
+  // Load tariffs when entering Step 3 (Compare Carrier)
   useEffect(() => {
     if (step !== 3) return;
 
@@ -381,7 +396,7 @@ export function AggregatorWizard() {
         const res = await api.get("/logistics/check-tariff", {
           params: {
             provider: values.provider,
-            origin_code: ORIGIN_CODE,
+            origin_code: values.origin_code,
             destination_code: values.destination_code,
             weight_kg: values.weight_kg,
           } as any,
@@ -479,7 +494,7 @@ export function AggregatorWizard() {
           return;
         }
 
-        const isValid = await validateStep(3);
+        const isValid = await validateStep(4);
         if (!isValid) return;
 
         const values = methods.getValues();
@@ -488,7 +503,11 @@ export function AggregatorWizard() {
           throw new Error("Kutipan tarif dan koordinat pickup/dropoff wajib tersedia");
         }
 
-        const destinationCity = cities.find((city) => city.code === values.destination_code)?.name || values.destination_code;
+        const destinationCity = cities.find((city) => city.code === values.destination_code)?.name;
+        const originCity = cities.find((city) => city.code === values.origin_code)?.name;
+        if (!destinationCity || !originCity) {
+          throw new Error("Data kota asal/tujuan belum tersedia dari server");
+        }
         const payload = buildAggregatorOrderPayload({
           provider: values.provider,
           pickup_address: values.pickup_address,
@@ -498,7 +517,7 @@ export function AggregatorWizard() {
           recipient_name: values.recipient_name,
           recipient_phone: values.recipient_phone,
           destination_code: values.destination_code,
-          pickup_city: cities.find((city) => city.code === ORIGIN_CODE)?.name || ORIGIN_CODE,
+          pickup_city: originCity,
           dropoff_city: destinationCity,
           payment_type: values.payment_type,
           item_value: values.item_value,
@@ -560,13 +579,14 @@ export function AggregatorWizard() {
           <div className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 bg-white/10" />
           <div 
             className="absolute left-0 top-1/2 h-0.5 -translate-y-1/2 bg-indigo-500 transition-all duration-300" 
-            style={{ width: `${((step - 1) / 2) * 100}%` }} 
+            style={{ width: `${((step - 1) / 3) * 100}%` }}
           />
           
           {[
             { num: 1, label: "Pick Up" },
-            { num: 2, label: "Order" },
-            { num: 3, label: "Review" },
+            { num: 2, label: "Receiver / Package" },
+            { num: 3, label: "Bandingkan Kurir" },
+            { num: 4, label: "Review & Bayar" },
           ].map((s) => (
             <div key={s.num} className="relative z-10 flex flex-col items-center gap-2 bg-background px-2">
               <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 font-bold text-sm transition-colors ${step >= s.num ? "border-indigo-500 bg-indigo-500 text-white" : "border-white/20 bg-background text-muted-foreground"}`}>
@@ -583,6 +603,12 @@ export function AggregatorWizard() {
           ? "border-red-500/30 bg-red-500/10 text-red-200"
           : "border-indigo-500/30 bg-indigo-500/10 text-indigo-200"}`} role="status">
           {submitError || recoveryNotice}
+        </div>
+      )}
+
+      {cityError && (
+        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="alert">
+          {cityError}
         </div>
       )}
 
@@ -615,9 +641,23 @@ export function AggregatorWizard() {
                 {errors.provider && <p className="mt-2 text-xs text-destructive">{errors.provider.message}</p>}
               </div>
 
+              <div className="rounded-xl border border-indigo-400/20 bg-indigo-400/5 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-200">Tahap first-mile</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-indigo-400/30 bg-indigo-400/10 p-3">
+                    <p className="text-sm font-semibold text-indigo-100">Pickup oleh LANCAR</p>
+                    <p className="mt-1 text-xs text-indigo-100/70">Alamat dan koordinat pickup disiapkan untuk proses serah-terima.</p>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-background/30 p-3">
+                    <p className="text-sm font-semibold text-foreground">Handoff ke {currentProvider ? currentProvider.toUpperCase() : "carrier"}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">AWB dan status carrier diproses setelah order tersimpan.</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="h-px bg-white/10" />
 
-              {/* 2. Detail Pengirim — only AddressPicker, Kota Asal removed */}
+              {/* 2. Detail Pengirim */}
               <div>
                 <label className="mb-3 block text-base font-semibold text-foreground">2. Detail Pengirim</label>
                 <div className="space-y-4">
@@ -632,6 +672,20 @@ export function AggregatorWizard() {
                       locationError={undefined}
                       cardPicker={true}
                     />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Kota area pickup provider</label>
+                    <select
+                      {...register("origin_code")}
+                      disabled={!currentProvider || cities.length === 0}
+                      className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="">{currentProvider ? "Pilih kota asal..." : "Pilih ekspedisi dahulu"}</option>
+                      {cities.filter((city) => city.type === "origin" || city.type === "both").map((city) => (
+                        <option key={city.code} value={city.code}>{city.name}</option>
+                      ))}
+                    </select>
+                    {errors.origin_code && <p className="mt-1 text-xs text-destructive">{errors.origin_code.message}</p>}
                   </div>
                 </div>
               </div>
@@ -898,7 +952,7 @@ export function AggregatorWizard() {
                             className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
                           >
                             <option value="">Pilih kota / kecamatan...</option>
-                            {cities.filter(c => c.type === "destination" || c.type === "both").map(city => (
+                            {cities.filter(c => (c.type === "destination" || c.type === "both") && c.code !== watch("origin_code")).map(city => (
                               <option key={city.code} value={city.code}>{city.name}</option>
                             ))}
                           </select>
@@ -1172,7 +1226,7 @@ export function AggregatorWizard() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (bulkRows.length > 0) setStep(3);
+                          if (bulkRows.length > 0) setStep(4);
                         }}
                         disabled={bulkRows.length === 0}
                         className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
@@ -1190,7 +1244,7 @@ export function AggregatorWizard() {
 
 
 
-          {/* STEP 3: REVIEW & SERVICE */}
+          {/* STEP 3: COMPARE CARRIER */}
           {step === 3 && orderMode !== "upload" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               
@@ -1199,12 +1253,12 @@ export function AggregatorWizard() {
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Dari</p>
-                    <p className="font-medium">{cities.find(c => c.code === ORIGIN_CODE)?.name ?? "Jakarta"}</p>
+                    <p className="font-medium">{cities.find(c => c.code === watch("origin_code"))?.name ?? "Data kota belum tersedia"}</p>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Tujuan</p>
-                    <p className="font-medium">{cities.find(c => c.code === watch("destination_code"))?.name}</p>
+                    <p className="font-medium">{cities.find(c => c.code === watch("destination_code"))?.name ?? "Data kota belum tersedia"}</p>
                   </div>
                 </div>
                 <div className="mt-4 flex gap-6 border-t border-white/10 pt-4 text-sm">
@@ -1258,7 +1312,8 @@ export function AggregatorWizard() {
                             <p className="font-bold text-foreground">{tariff.service_name}</p>
                             {isSelected && <Check className="h-4 w-4 text-indigo-400" />}
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">Estimasi {tariff.etd}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{watch("provider").toUpperCase()} · Estimasi {tariff.etd}</p>
+                          <p className="mt-1 text-[11px] text-muted-foreground/80">Sumber ETA: respons layanan tarif · Berat quote: {watch("weight_kg")} kg</p>
                           <div className="mt-3 flex items-end justify-between">
                             <div className="text-[10px]">
                               {idx === 0 && (
@@ -1277,7 +1332,39 @@ export function AggregatorWizard() {
             </div>
           )}
 
-          {step === 3 && orderMode === "upload" && (
+          {step === 4 && orderMode !== "upload" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="rounded-xl border border-brand-emerald-500/30 bg-brand-emerald-500/5 p-5">
+                <h3 className="mb-4 flex items-center gap-2 font-semibold">
+                  <Check className="h-5 w-5 text-brand-emerald-400" />
+                  Review &amp; Bayar
+                </h3>
+                <div className="grid gap-4 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Provider / layanan</p>
+                    <p className="font-semibold">{watch("provider").toUpperCase()} · {tariffs.find((tariff) => tariff.service === watch("service_code"))?.service_name || watch("service_code")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Tarif provider</p>
+                    <p className="font-semibold text-brand-emerald-300">{formatPrice(Number(watch("tariff_idr") || 0))}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Rute</p>
+                    <p className="font-medium">{cities.find(c => c.code === watch("origin_code"))?.name || "—"} → {cities.find(c => c.code === watch("destination_code"))?.name || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Penerima</p>
+                    <p className="font-medium">{watch("recipient_name")} · {watch("recipient_phone")}</p>
+                  </div>
+                </div>
+                <p className="mt-5 border-t border-white/10 pt-4 text-xs text-muted-foreground">
+                  Order baru dianggap berhasil setelah server mengembalikan referensi order tersimpan. Pembayaran dilanjutkan setelah itu.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(step === 3 || step === 4) && orderMode === "upload" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="rounded-xl border border-white/10 bg-white/5 p-5">
                 <h3 className="mb-4 font-semibold flex items-center justify-between">
@@ -1341,7 +1428,7 @@ export function AggregatorWizard() {
               </button>
             ) : <div />}
 
-            {step < 3 ? (
+            {step < 4 ? (
               <button
                 type="button"
                 onClick={onNextStep}

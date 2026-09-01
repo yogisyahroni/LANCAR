@@ -66,6 +66,7 @@ publicRoutes.put('/api/v1/products/:id', requireMobileOrWebAuth, (req, res) => c
 publicRoutes.delete('/api/v1/products/:id', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.deleteProduct(req, res));
 publicRoutes.post('/api/v1/products/bulk', requireMobileOrWebAuth, ...secureUploadSingle('file', 'bulkCsv'), (req, res) => controllers.productCatalog.bulkUpload(req, res));
 publicRoutes.get('/api/v1/logistics/check-tariff', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkTariff(req, res));
+publicRoutes.get('/api/v1/logistics/locations', requireMobileOrWebAuth, (req, res) => controllers.logisticsLocations.listCustomerLogisticsLocations(req, res));
 publicRoutes.get('/api/v1/public/jobs', (req, res) => controllers.hr.getPublicJobs(req, res));
 publicRoutes.post('/api/v1/public/jobs/:id/apply', publicEndpointRateLimiter, (req, res) => controllers.hr.applyForJob(req, res));
 publicRoutes.get('/api/v1/public/news', (req, res) => controllers.news.getPublicNews(req, res));

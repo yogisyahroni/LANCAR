@@ -994,7 +994,7 @@ Existing shared files:
 - [ ] Steps: Pickup → Receiver/Package → Compare Carrier → Review & Pay.
 - [ ] Carrier cards show provider/service name, ETA/source, chargeable weight, price, capabilities, limitations.
 - [ ] First-mile LANCAR vs external-carrier stage visually distinct.
-- [ ] Success only after persisted order.
+- [x] Success only after persisted order.
 
 ---
 
