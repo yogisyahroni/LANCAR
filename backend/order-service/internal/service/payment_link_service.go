@@ -11,16 +11,16 @@ import (
 	"github.com/google/uuid"
 )
 
-
 type paymentLinkServiceImpl struct {
-	repo            domain.PaymentLinkRepository
-	pricingSvc      domain.PricingService
-	orderSvc        domain.OrderService
-	orderRepo       domain.OrderRepository
-	gateway         domain.PaymentGateway
-	notificationSvc domain.NotificationService
-	awbClient       domain.AWBClient
-	configRepo      domain.ConfigRepository
+	repo              domain.PaymentLinkRepository
+	pricingSvc        domain.PricingService
+	orderSvc          domain.OrderService
+	orderRepo         domain.OrderRepository
+	gateway           domain.PaymentGateway
+	notificationSvc   domain.NotificationService
+	awbClient         domain.AWBClient
+	carrierHandoffSvc domain.CarrierHandoffService
+	configRepo        domain.ConfigRepository
 }
 
 func NewPaymentLinkService(
@@ -31,17 +31,19 @@ func NewPaymentLinkService(
 	gateway domain.PaymentGateway,
 	notificationSvc domain.NotificationService,
 	awbClient domain.AWBClient,
+	carrierHandoffSvc domain.CarrierHandoffService,
 	configRepo domain.ConfigRepository,
 ) domain.PaymentLinkService {
 	return &paymentLinkServiceImpl{
-		repo:            repo,
-		pricingSvc:      pricingSvc,
-		orderSvc:        orderSvc,
-		orderRepo:       orderRepo,
-		gateway:         gateway,
-		notificationSvc: notificationSvc,
-		awbClient:       awbClient,
-		configRepo:      configRepo,
+		repo:              repo,
+		pricingSvc:        pricingSvc,
+		orderSvc:          orderSvc,
+		orderRepo:         orderRepo,
+		gateway:           gateway,
+		notificationSvc:   notificationSvc,
+		awbClient:         awbClient,
+		carrierHandoffSvc: carrierHandoffSvc,
+		configRepo:        configRepo,
 	}
 }
 
@@ -76,7 +78,7 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 			DestinationCode: awbDestCode,
 			WeightKG:        defaultWeight,
 		}
-		
+
 		tariffResp, err := s.awbClient.CheckTariff(ctx, tariffReq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check 3PL tariff: %w", err)
@@ -103,7 +105,7 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 
 		tariffNett := float64(selectedGross) * (1.0 - (discountPct / 100.0))
 		tariffUser := tariffNett * (1.0 + (markupPct / 100.0))
-		
+
 		deliveryFee = int64(tariffUser)
 		estimateID = "" // Not using internal pricing EstimateID
 	} else {
@@ -131,35 +133,35 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 	idStr := strings.ReplaceAll(uuid.New().String(), "-", "")[:12] // 12 char slug
 
 	link := &domain.PaymentLink{
-		ID:                idStr,
-		MerchantID:        merchantID,
-		ItemName:          req.ItemName,
-		ItemPrice:         req.ItemPrice,
-		ItemImageURL:      req.ItemImageURL,
-		MerchantFeeAmount: merchantFee,
-		PickupAddress:     req.PickupAddress,
-		PickupCity:        req.PickupCity,
-		PickupZipCode:     req.PickupZipCode,
-		PickupLat:         req.PickupLat,
-		PickupLng:         req.PickupLng,
-		DropoffAddress:    req.DropoffAddress,
-		DropoffCity:       req.DropoffCity,
-		DropoffZipCode:    req.DropoffZipCode,
-		DropoffLat:        req.DropoffLat,
-		DropoffLng:        req.DropoffLng,
-		EstimateID:        estimateID,
-		DeliveryFeeAmount: deliveryFee,
-		ServiceCode:       req.ServiceCode,
-		LogisticsProvider: req.LogisticsProvider,
+		ID:                   idStr,
+		MerchantID:           merchantID,
+		ItemName:             req.ItemName,
+		ItemPrice:            req.ItemPrice,
+		ItemImageURL:         req.ItemImageURL,
+		MerchantFeeAmount:    merchantFee,
+		PickupAddress:        req.PickupAddress,
+		PickupCity:           req.PickupCity,
+		PickupZipCode:        req.PickupZipCode,
+		PickupLat:            req.PickupLat,
+		PickupLng:            req.PickupLng,
+		DropoffAddress:       req.DropoffAddress,
+		DropoffCity:          req.DropoffCity,
+		DropoffZipCode:       req.DropoffZipCode,
+		DropoffLat:           req.DropoffLat,
+		DropoffLng:           req.DropoffLng,
+		EstimateID:           estimateID,
+		DeliveryFeeAmount:    deliveryFee,
+		ServiceCode:          req.ServiceCode,
+		LogisticsProvider:    req.LogisticsProvider,
 		LogisticsServiceType: req.LogisticsServiceType,
-		StoreName:         req.StoreName,
-		RecipientPhone:    req.RecipientPhone,
-		RecipientName:     req.RecipientName,
-		Status:            domain.PaymentLinkStatusPending,
-		ExpiredAt:         time.Now().Add(time.Duration(s.configRepo.GetIntConfig(ctx, "payment_link_expiry_minutes", 10)) * time.Minute),
-		CreatedAt:         time.Now(),
-		UpdatedAt:         time.Now(),
-		PaymentURL:        s.configRepo.GetStringConfig(ctx, "payment_link_base_url", "https://tembus.id/pay") + "/" + idStr,
+		StoreName:            req.StoreName,
+		RecipientPhone:       req.RecipientPhone,
+		RecipientName:        req.RecipientName,
+		Status:               domain.PaymentLinkStatusPending,
+		ExpiredAt:            time.Now().Add(time.Duration(s.configRepo.GetIntConfig(ctx, "payment_link_expiry_minutes", 10)) * time.Minute),
+		CreatedAt:            time.Now(),
+		UpdatedAt:            time.Now(),
+		PaymentURL:           s.configRepo.GetStringConfig(ctx, "payment_link_base_url", "https://tembus.id/pay") + "/" + idStr,
 	}
 
 	if err := s.repo.Create(ctx, link); err != nil {
@@ -337,7 +339,7 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 		if err != nil {
 			return fmt.Errorf("failed to get existing order: %w", err)
 		}
-		
+
 		// Update status
 		newStatus := domain.StatusPendingAssignment
 		if err := s.orderRepo.UpdateStatus(ctx, order.ID, newStatus); err != nil {
@@ -405,7 +407,7 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 		if awbServiceType == "" {
 			awbServiceType = s.configRepo.GetStringConfig(ctx, "awb_service_type", "REG")
 		}
-		
+
 		senderName := s.configRepo.GetStringConfig(ctx, "awb_sender_name", "TEMBUS")
 		if customSender, err := s.orderRepo.GetUserSenderName(ctx, link.MerchantID); err == nil && customSender != "" {
 			senderName = customSender
@@ -457,7 +459,23 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 				ServiceType:     awbServiceType,
 			}
 
-			awbResp, awbErr := s.awbClient.CreateAWB(ctx, awbReq)
+			var awbResp *domain.AWBResponse
+			var awbErr error
+			if s.carrierHandoffSvc != nil {
+				attempt, createErr := s.carrierHandoffSvc.CreateAWB(ctx, order.ID, awbReq)
+				if createErr == nil && attempt != nil {
+					awbResp = &domain.AWBResponse{
+						AWBNumber:   attempt.AWBNumber,
+						Provider:    attempt.Provider,
+						ServiceType: awbServiceType,
+						TrackingURL: attempt.TrackingURL,
+					}
+				} else {
+					awbErr = createErr
+				}
+			} else {
+				awbResp, awbErr = s.awbClient.CreateAWB(ctx, awbReq)
+			}
 			if awbErr != nil {
 				slog.ErrorContext(ctx, "payment_link: failed to generate AWB",
 					"order_id", order.ID, "link_id", id, "error", awbErr)

@@ -278,6 +278,9 @@ func main() {
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
 	analyticsSvc := service.NewAnalyticsService(analyticsRepo)
+	awbClient := infrastructure.NewIntegrationGatewayClient(configRepo)
+	carrierHandoffRepo := repository.NewCarrierHandoffRepository(db)
+	carrierHandoffSvc := service.NewCarrierHandoffService(carrierHandoffRepo, awbClient, pgRepo, configRepo)
 	paymentLinkSvc := service.NewPaymentLinkService(
 		paymentLinkRepo,
 		pricingSvc,
@@ -285,7 +288,8 @@ func main() {
 		pgRepo, // orderRepo — untuk UpdateOrderAWB
 		paymentGw,
 		notificationSvc,
-		infrastructure.NewIntegrationGatewayClient(configRepo), // awbClient — HTTP ke integration-gateway
+		awbClient, // awbClient — HTTP ke integration-gateway
+		carrierHandoffSvc,
 		configRepo,
 	)
 	chatSvc := service.NewChatService(chatRepo, eb)
@@ -332,6 +336,7 @@ func main() {
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
 	paymentLinkHandler := handler.NewPaymentLinkHandler(paymentLinkSvc, configRepo)
+	carrierHandoffHandler := handler.NewCarrierHandoffHandler(carrierHandoffSvc)
 	chatHandler := handler.NewChatHandler(chatSvc)
 	sosHandler := handler.NewSosHandler(sosSvc)
 	resiHandler := handler.NewResiHandler(resiSvc)
@@ -642,6 +647,9 @@ func main() {
 	mux.HandleFunc("/api/v1/payment-links", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/webhook", middleware.BaseChain(paymentLinkHandler.HandleWebhook))
+	// Aggregator first-mile handoff: actor-authenticated proof and internal provider acceptance.
+	mux.HandleFunc("/api/v1/internal/aggregator/handoffs", middleware.BaseChain(middleware.AuthMiddleware(carrierHandoffHandler.RecordHandoff)))
+	mux.HandleFunc("/api/v1/internal/aggregator/handoffs/provider-acceptance", middleware.BaseChain(carrierHandoffHandler.ApplyCarrierAcceptance))
 
 	// Internal Delivery & Merchant Settlement Routes
 	mux.HandleFunc("/api/v1/internal/delivery/webhook", middleware.BaseChain(deliveryWebhookHandler.HandleDeliveryEvent))

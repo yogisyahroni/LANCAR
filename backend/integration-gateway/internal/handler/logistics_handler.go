@@ -24,6 +24,8 @@ func NewLogisticsHandler(jneProv, jntProv domain.Logistics3PLProvider) *Logistic
 }
 
 type CreateLogisticsOrderRequest struct {
+	IdempotencyKey  string  `json:"idempotency_key,omitempty"`
+	FirstMileMode   string  `json:"first_mile_mode,omitempty"`
 	Provider        string  `json:"provider"` // "jne" or "jnt"
 	ReferenceID     string  `json:"reference_id"`
 	SenderName      string  `json:"sender_name"`
@@ -79,6 +81,8 @@ func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orderReq := domain.LogisticsOrderRequest{
+		IdempotencyKey:  req.IdempotencyKey,
+		FirstMileMode:   req.FirstMileMode,
 		ReferenceID:     req.ReferenceID,
 		SenderName:      req.SenderName,
 		SenderPhone:     req.SenderPhone,

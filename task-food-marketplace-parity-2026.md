@@ -922,11 +922,11 @@ Existing shared files:
 - `backend/order-service/internal/service/carrier_handoff_service.go`
 
 **Checklist**
-- [ ] AWB creation state defined and idempotent.
-- [ ] Support three first-mile modes when provider capability allows: `lancar_pickup`, `provider_pickup`, `customer_dropoff`.
-- [ ] Mode comes from provider capability/service option, not hardcoded customer UI.
-- [ ] LANCAR first-mile chain of custody proof when LANCAR handles pickup.
-- [ ] Carrier handoff records provider/AWB/time/location/evidence/actor.
+- [x] AWB creation state defined and idempotent.
+- [x] Support three first-mile modes when provider capability allows: `lancar_pickup`, `provider_pickup`, `customer_dropoff`.
+- [x] Mode comes from provider capability/service option, not hardcoded customer UI.
+- [x] LANCAR first-mile chain of custody proof when LANCAR handles pickup.
+- [x] Carrier handoff records provider/AWB/time/location/evidence/actor.
 - [ ] After carrier acceptance, provider events drive external lifecycle.
 
 ---

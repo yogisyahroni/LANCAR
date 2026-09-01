@@ -84,6 +84,8 @@ type TariffServiceOption struct {
 }
 
 type LogisticsOrderRequest struct {
+	IdempotencyKey  string  `json:"idempotency_key,omitempty"`
+	FirstMileMode   string  `json:"first_mile_mode,omitempty"`
 	ReferenceID     string  `json:"reference_id"`
 	SenderName      string  `json:"sender_name"`
 	SenderPhone     string  `json:"sender_phone"`
