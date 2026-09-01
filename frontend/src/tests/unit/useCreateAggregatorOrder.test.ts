@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AGGREGATOR_SERVICE_CODE,
   buildAggregatorOrderPayload,
+  createPendingAggregatorTransaction,
+  markAggregatorAwaitingPayment,
+  markAggregatorPaymentSessionRequested,
+  parsePendingAggregatorTransaction,
   requestAggregatorOrder,
   requestAggregatorPaymentSession,
 } from "@/hooks/useCreateAggregatorOrder";
@@ -66,5 +70,31 @@ describe("aggregator create API contract", () => {
     const post = vi.fn().mockResolvedValue({ data: { payment: { payment_status: "pending" } } });
     await expect(requestAggregatorPaymentSession({ post }, "order-1", "pay-key-1"))
       .rejects.toThrow("sesi pembayaran");
+  });
+
+  it("rehydrates a pending transaction and preserves the payment idempotency key", () => {
+    const created = createPendingAggregatorTransaction("order-1", "create-key-1", 1_000);
+    const requested = markAggregatorPaymentSessionRequested(created, "payment-key-1");
+    const awaiting = markAggregatorAwaitingPayment(requested);
+
+    expect(parsePendingAggregatorTransaction(JSON.stringify(awaiting), 2_000)).toEqual({
+      order_id: "order-1",
+      create_idempotency_key: "create-key-1",
+      payment_idempotency_key: "payment-key-1",
+      created_at: 1_000,
+      stage: "awaiting_payment",
+    });
+  });
+
+  it("rejects malformed and expired pending transactions instead of retrying a new order", () => {
+    expect(parsePendingAggregatorTransaction("not-json", 2_000)).toBeNull();
+    expect(parsePendingAggregatorTransaction(JSON.stringify({
+      order_id: "order-1",
+      created_at: 0,
+    }), 30 * 60 * 1000 + 1)).toBeNull();
+    expect(parsePendingAggregatorTransaction(JSON.stringify({
+      order_id: "order-1",
+      created_at: 2_001,
+    }), 2_000)).toBeNull();
   });
 });

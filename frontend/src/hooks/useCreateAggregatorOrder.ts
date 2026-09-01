@@ -61,6 +61,106 @@ export type AggregatorApiClient = {
   post: (url: string, body?: unknown, config?: AxiosRequestConfig) => Promise<{ data?: any }>;
 };
 
+export const PENDING_AGGREGATOR_TRANSACTION_TTL_MS = 30 * 60 * 1000;
+
+export type AggregatorTransactionStage =
+  | "order_persisted"
+  | "payment_session_requested"
+  | "awaiting_payment";
+
+export type PendingAggregatorTransaction = {
+  order_id: string;
+  create_idempotency_key?: string;
+  payment_idempotency_key?: string;
+  created_at: number;
+  stage: AggregatorTransactionStage;
+};
+
+const isAggregatorTransactionStage = (value: unknown): value is AggregatorTransactionStage =>
+  value === "order_persisted" ||
+  value === "payment_session_requested" ||
+  value === "awaiting_payment";
+
+/**
+ * Parse the server-order reference kept across a browser refresh.
+ * The legacy `idempotency_key` field is accepted so an in-flight transaction
+ * created by the previous build can still be recovered without creating a
+ * second order.
+ */
+export function parsePendingAggregatorTransaction(
+  raw: string | null,
+  now = Date.now(),
+): PendingAggregatorTransaction | null {
+  if (!raw) return null;
+
+  try {
+    const value = JSON.parse(raw) as Record<string, unknown>;
+    const orderId = typeof value.order_id === "string" ? value.order_id.trim() : "";
+    const createdAt = typeof value.created_at === "number" ? value.created_at : Number(value.created_at);
+    if (
+      !orderId ||
+      !Number.isFinite(createdAt) ||
+      createdAt > now ||
+      now - createdAt > PENDING_AGGREGATOR_TRANSACTION_TTL_MS
+    ) {
+      return null;
+    }
+
+    const legacyCreateKey = typeof value.idempotency_key === "string" ? value.idempotency_key : undefined;
+    const createKey = typeof value.create_idempotency_key === "string"
+      ? value.create_idempotency_key
+      : legacyCreateKey;
+    const paymentKey = typeof value.payment_idempotency_key === "string"
+      ? value.payment_idempotency_key
+      : undefined;
+    const stage = isAggregatorTransactionStage(value.stage)
+      ? value.stage
+      : paymentKey
+        ? "payment_session_requested"
+        : "order_persisted";
+
+    return {
+      order_id: orderId,
+      ...(createKey ? { create_idempotency_key: createKey } : {}),
+      ...(paymentKey ? { payment_idempotency_key: paymentKey } : {}),
+      created_at: createdAt,
+      stage,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function createPendingAggregatorTransaction(
+  orderId: string,
+  createIdempotencyKey: string,
+  createdAt = Date.now(),
+): PendingAggregatorTransaction {
+  return {
+    order_id: orderId,
+    create_idempotency_key: createIdempotencyKey,
+    created_at: createdAt,
+    stage: "order_persisted",
+  };
+}
+
+export function markAggregatorPaymentSessionRequested(
+  transaction: PendingAggregatorTransaction,
+  paymentIdempotencyKey: string,
+): PendingAggregatorTransaction {
+  return {
+    ...transaction,
+    payment_idempotency_key: paymentIdempotencyKey,
+    stage: "payment_session_requested",
+  };
+}
+
+export function markAggregatorAwaitingPayment(
+  transaction: PendingAggregatorTransaction,
+): PendingAggregatorTransaction {
+  return { ...transaction, stage: "awaiting_payment" };
+}
+
 function sizeTierForWeight(weightKg: number): "small" | "medium" | "large" {
   if (weightKg <= 3) return "small";
   if (weightKg <= 10) return "medium";

@@ -29,7 +29,12 @@ import {
   AggregatorPayment,
   AggregatorQuote,
   buildAggregatorOrderPayload,
+  createPendingAggregatorTransaction,
   createIdempotencyKey,
+  markAggregatorAwaitingPayment,
+  markAggregatorPaymentSessionRequested,
+  parsePendingAggregatorTransaction,
+  PendingAggregatorTransaction,
   requestAggregatorOrder,
   requestAggregatorPaymentSession,
 } from "@/hooks/useCreateAggregatorOrder";
@@ -102,10 +107,21 @@ type Step3Values = z.infer<typeof step3Schema>;
 type WizardValues = Step1Values & Step2Values & Step3Values;
 
 const PENDING_AGGREGATOR_STORAGE_KEY = "tembus.aggregator.pending-transaction";
-const PENDING_TRANSACTION_TTL_MS = 30 * 60 * 1000;
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(price);
+}
+
+function clearPendingAggregatorTransaction(): void {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem(PENDING_AGGREGATOR_STORAGE_KEY);
+  }
+}
+
+function persistPendingAggregatorTransaction(transaction: PendingAggregatorTransaction): void {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(PENDING_AGGREGATOR_STORAGE_KEY, JSON.stringify(transaction));
+  }
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────
@@ -321,24 +337,32 @@ export function AggregatorWizard() {
     return () => { active = false; };
   }, [currentProvider, setValue]);
 
-  const clearPendingTransaction = () => {
-    if (typeof window !== "undefined") {
-      window.sessionStorage.removeItem(PENDING_AGGREGATOR_STORAGE_KEY);
-    }
-  };
-
   const startPaymentForOrder = useCallback(async (order: AggregatorOrder) => {
     if (!order.id) throw new Error("Referensi order tidak valid");
 
     if (order.status && order.status !== "pending_payment") {
-      clearPendingTransaction();
+      clearPendingAggregatorTransaction();
       router.push(`/orders/${order.id}`);
       return;
     }
 
+    const pendingTransaction = typeof window !== "undefined"
+      ? parsePendingAggregatorTransaction(window.sessionStorage.getItem(PENDING_AGGREGATOR_STORAGE_KEY))
+      : null;
+    const transaction = pendingTransaction?.order_id === order.id
+      ? pendingTransaction
+      : createPendingAggregatorTransaction(order.id, createIdempotencyKey());
     if (paymentKeyRef.current.orderId !== order.id) {
-      paymentKeyRef.current = { orderId: order.id, key: createIdempotencyKey() };
+      paymentKeyRef.current = {
+        orderId: order.id,
+        key: transaction.payment_idempotency_key || createIdempotencyKey(),
+      };
     }
+    const paymentRequestedTransaction = markAggregatorPaymentSessionRequested(
+      transaction,
+      paymentKeyRef.current.key,
+    );
+    persistPendingAggregatorTransaction(paymentRequestedTransaction);
 
     const paymentSession = await requestAggregatorPaymentSession(
       api,
@@ -347,18 +371,19 @@ export function AggregatorWizard() {
     );
 
     if (!paymentSession) {
-      clearPendingTransaction();
+      clearPendingAggregatorTransaction();
       router.push(`/orders/${order.id}`);
       return;
     }
 
     if (paymentSession.payment_status === "paid" || paymentSession.order_status !== "pending_payment") {
-      clearPendingTransaction();
+      clearPendingAggregatorTransaction();
       router.push(`/orders/${order.id}`);
       return;
     }
 
     setPayment(paymentSession);
+    persistPendingAggregatorTransaction(markAggregatorAwaitingPayment(paymentRequestedTransaction));
     setIsPaymentOpen(true);
   }, [router]);
 
@@ -369,29 +394,23 @@ export function AggregatorWizard() {
     const raw = window.sessionStorage.getItem(PENDING_AGGREGATOR_STORAGE_KEY);
     if (!raw) return;
 
-    let transaction: { order_id?: string; created_at?: number };
-    try {
-      transaction = JSON.parse(raw);
-    } catch {
-      clearPendingTransaction();
-      return;
-    }
-
-    if (!transaction.order_id || !transaction.created_at || Date.now() - transaction.created_at > PENDING_TRANSACTION_TTL_MS) {
-      clearPendingTransaction();
+    const transaction = parsePendingAggregatorTransaction(raw);
+    if (!transaction) {
+      clearPendingAggregatorTransaction();
       return;
     }
 
     let active = true;
     setSubmitError(null);
     api.get(`/auth/web/orders/${transaction.order_id}`)
-      .then((response) => {
+      .then(async (response) => {
         const order = response.data?.order;
         if (!active || !order?.id) throw new Error("Order transaksi tidak ditemukan");
         setCreatedOrder(order);
         setOrderMode("manual");
         setStep(4);
         setRecoveryNotice(`Order ${order.order_number || order.id} dipulihkan. Lanjutkan pembayaran untuk order ini.`);
+        await startPaymentForOrder(order);
       })
       .catch((error: any) => {
         if (!active) return;
@@ -401,7 +420,7 @@ export function AggregatorWizard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [startPaymentForOrder]);
 
 
   // Load tariffs when entering Step 3 (Compare Carrier)
@@ -566,11 +585,10 @@ export function AggregatorWizard() {
         );
         setCreatedOrder(order);
         if (typeof window !== "undefined") {
-          window.sessionStorage.setItem(PENDING_AGGREGATOR_STORAGE_KEY, JSON.stringify({
-            order_id: order.id,
-            idempotency_key: createTransactionRef.current.key,
-            created_at: Date.now(),
-          }));
+          persistPendingAggregatorTransaction(createPendingAggregatorTransaction(
+            order.id,
+            createTransactionRef.current.key,
+          ));
         }
         await startPaymentForOrder(order);
       }
@@ -588,7 +606,7 @@ export function AggregatorWizard() {
       setSubmitError("Pembayaran terkonfirmasi tetapi referensi order tidak tersedia. Buka Riwayat Pesanan untuk memeriksa status.");
       return;
     }
-    clearPendingTransaction();
+    clearPendingAggregatorTransaction();
     setIsPaymentOpen(false);
     router.push(`/orders/${orderId}`);
   };

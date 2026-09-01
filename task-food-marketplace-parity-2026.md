@@ -877,9 +877,10 @@ Existing shared files:
 
 - [x] Final submit calls real create mutation with quote + idempotency key.
 - [x] Persisted order reference before success navigation.
-- [ ] Payment/AWB creation sequencing explicit.
-- [ ] Refresh/retry rehydrates transaction.
+- [x] Payment session is requested only after the order is persisted; AWB/first-mile remains a server-side post-payment handoff owned by AGG-2026-006.
+- [x] Refresh/retry rehydrates the persisted order and reuses the payment idempotency key.
 - [x] API failure cannot show success.
+- [ ] Authenticated staging/provider verification covers create → payment → refresh/retry → AWB/first-mile handoff.
 
 ---
 
