@@ -4,6 +4,7 @@ import {
   getMobileCourierOnDemandServices,
   updateMobileCourierOrderStatus,
 } from './controllers/courierAuth.controller';
+import { dispatchToPreferredCourier } from './controllers/courier/courierOnDemand.controller';
 import { findDeliveryServiceByCode, updateAdminDeliveryService } from './controllers/deliveryServices.controller';
 import { db } from './db';
 import { createNotification } from './notifications';
@@ -339,5 +340,24 @@ describe('courier v2 P2 contracts', () => {
     expect(res.bodyValue).toEqual(expect.objectContaining({ code: 'ERR_COURIER_NOT_ELIGIBLE' }));
     expect(createNotification).not.toHaveBeenCalled();
     expect(client.release).toHaveBeenCalled();
+  });
+
+  it('guards preferred towing dispatch with vehicle, freshness, radius, and active-job policy', async () => {
+    const client = makeClient();
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await dispatchToPreferredCourier(client, 'order-towing-1', 'courier-user-id');
+
+    expect(result).toBeNull();
+    const candidateQuery = client.query.mock.calls[2][0] as string;
+    expect(candidateQuery).toContain('JOIN courier_vehicles cv');
+    expect(candidateQuery).toContain("cv.verification_status = 'approved'");
+    expect(candidateQuery).toContain("COALESCE(o.service_code, o.service_sub_type) = 'towing_motor'");
+    expect(candidateQuery).toContain("COALESCE(o.service_code, o.service_sub_type) = 'towing_mobil'");
+    expect(candidateQuery).toContain('COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)');
+    expect(candidateQuery).toContain('assignment_radius_pickup_km');
   });
 });

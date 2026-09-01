@@ -154,10 +154,24 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           OR cv.id = csc.vehicle_id
         )
         AND (
-          COALESCE(array_length(dsp.vehicle_types, 1), 0) = 0
-          OR cv.vehicle_type = ANY(dsp.vehicle_types)
-          OR (cv.vehicle_type = 'motor' AND 'bike' = ANY(dsp.vehicle_types))
-          OR (cv.vehicle_type = 'car' AND 'mobil' = ANY(dsp.vehicle_types))
+          (
+            dsp.service_category = 'towing'
+            AND (
+              (COALESCE(o.service_code, o.service_sub_type) = 'towing_motor'
+                AND LOWER(COALESCE(NULLIF(cv.vehicle_category, ''), NULLIF(cp.vehicle_type_car, ''), '')) IN ('pickup', 'van'))
+              OR (COALESCE(o.service_code, o.service_sub_type) = 'towing_mobil'
+                AND LOWER(COALESCE(NULLIF(cv.vehicle_category, ''), NULLIF(cp.vehicle_type_car, ''), '')) IN ('towing_truck', 'towing truck'))
+            )
+          )
+          OR (
+            dsp.service_category <> 'towing'
+            AND (
+              COALESCE(array_length(dsp.vehicle_types, 1), 0) = 0
+              OR cv.vehicle_type = ANY(dsp.vehicle_types)
+              OR (cv.vehicle_type = 'motor' AND 'bike' = ANY(dsp.vehicle_types))
+              OR (cv.vehicle_type = 'car' AND 'mobil' = ANY(dsp.vehicle_types))
+            )
+          )
         )
        JOIN zones z ON z.id = cp.current_zone_id
         AND z.is_active = TRUE
@@ -416,7 +430,17 @@ export const dispatchToPreferredCourier = async (
        COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
        NULLIF(o.route_snapshot->>'snapshot_hash', '') AS route_snapshot_hash,
        NULLIF(o.route_snapshot->>'snapshot_version', '')::int AS route_snapshot_version,
-       NULLIF(o.route_snapshot->>'route_version', '') AS route_version
+       NULLIF(o.route_snapshot->>'route_version', '') AS route_version,
+       COALESCE(dsp.max_active_orders_on_demand, 1)::int AS max_active_orders_on_demand,
+       COALESCE(dsp.allow_new_offer_while_pickup, FALSE) AS allow_new_offer_while_pickup,
+       COALESCE(dsp.allow_new_offer_while_delivery, FALSE) AS allow_new_offer_while_delivery,
+       COALESCE(dsp.same_customer_batching_required, TRUE) AS same_customer_batching_required,
+       COALESCE(dsp.assignment_radius_pickup_km, 2)::float8 AS assignment_radius_pickup_km,
+       COALESCE(dsp.assignment_radius_delivery_km, 3)::float8 AS assignment_radius_delivery_km,
+       COALESCE(aj.active_count, 0)::int AS active_count,
+       COALESCE(aj.has_pickup_job, FALSE) AS has_pickup_job,
+       COALESCE(aj.has_delivery_job, FALSE) AS has_delivery_job,
+       COALESCE(aj.has_different_customer_job, FALSE) AS has_different_customer_job
      FROM orders o
      JOIN delivery_service_products dsp ON dsp.code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
       AND dsp.is_enabled = TRUE
@@ -428,6 +452,30 @@ export const dispatchToPreferredCourier = async (
      JOIN courier_service_capabilities csc ON csc.courier_profile_id = cp.id
       AND csc.service_code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
       AND csc.status = 'enabled'
+     JOIN courier_vehicles cv ON cv.courier_profile_id = cp.id
+      AND cv.verification_status = 'approved'
+      AND (csc.vehicle_id IS NULL OR cv.id = csc.vehicle_id)
+      AND (
+        (
+          dsp.service_category = 'towing'
+          AND (
+            (COALESCE(o.service_code, o.service_sub_type) = 'towing_motor'
+            AND LOWER(COALESCE(NULLIF(cv.vehicle_category, ''), NULLIF(cp.vehicle_type_car, ''), '')) IN ('pickup', 'van'))
+            OR (COALESCE(o.service_code, o.service_sub_type) = 'towing_mobil'
+              AND LOWER(COALESCE(NULLIF(cv.vehicle_category, ''), NULLIF(cp.vehicle_type_car, ''), '')) IN ('towing_truck', 'towing truck'))
+          )
+        )
+        OR (
+          dsp.service_category <> 'towing'
+          AND (
+            COALESCE(array_length(dsp.vehicle_types, 1), 0) = 0
+            OR cv.vehicle_type = ANY(dsp.vehicle_types)
+            OR (cv.vehicle_type = 'motor' AND 'bike' = ANY(dsp.vehicle_types))
+            OR (cv.vehicle_type = 'car' AND 'mobil' = ANY(dsp.vehicle_types))
+          )
+        )
+      )
+     LEFT JOIN active_jobs aj ON aj.courier_id = cp.user_id
      LEFT JOIN users u ON u.id = o.customer_id
      WHERE o.id = $1
        AND o.status = ANY($3::text[])
@@ -436,6 +484,23 @@ export const dispatchToPreferredCourier = async (
          FROM payments p
          WHERE p.order_id = o.id
            AND p.status = 'paid'
+       )
+       AND COALESCE(ST_Distance(cp.current_location, o.pickup_location), 0) <=
+           COALESCE(dsp.assignment_radius_pickup_km, 2) * 1000
+       AND COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)
+       AND (
+         COALESCE(aj.active_count, 0) = 0
+         OR (
+           (COALESCE(aj.has_pickup_job, FALSE) = FALSE OR COALESCE(dsp.allow_new_offer_while_pickup, FALSE) = TRUE)
+           AND (COALESCE(aj.has_delivery_job, FALSE) = FALSE OR COALESCE(dsp.allow_new_offer_while_delivery, FALSE) = TRUE)
+           AND (COALESCE(dsp.same_customer_batching_required, TRUE) = FALSE OR COALESCE(aj.has_different_customer_job, FALSE) = FALSE)
+           AND COALESCE(ST_Distance(cp.current_location, o.pickup_location), 0) <= (
+             CASE
+               WHEN COALESCE(aj.has_delivery_job, FALSE) THEN COALESCE(dsp.assignment_radius_delivery_km, 3)
+               ELSE COALESCE(dsp.assignment_radius_pickup_km, 2)
+             END * 1000
+           )
+         )
        )
      LIMIT 1`,
     [orderId, preferredCourierUserId, ON_DEMAND_DISPATCH_READY_STATUSES]
