@@ -239,14 +239,16 @@ fun RootNavGraph(
                 DashboardScreen(
                     onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
                     onBookingClick = { open ->
-                        when (open) {
-                            "tambal_ban_motor", "tambal_ban_mobil", "towing_motor", "towing_mobil" -> navController.navigate(Screen.ServiceBooking.createRoute(open))
-                            "tambal_ban" -> navController.navigate(Screen.TambalBanHome.route)
-                            "towing" -> navController.navigate(Screen.ServiceCategory.route)
-                            "food_delivery" -> navController.navigate(Screen.FoodHome.route)
-                            "food_favorites" -> navController.navigate(Screen.FoodFavorites.route)
-                            "aggregator" -> navController.navigate(Screen.Booking.createRoute("aggregator"))
-                            else -> navController.navigate(Screen.Booking.createRoute(open))
+                        when (val destination = dashboardServiceDestination(open)) {
+                            is DashboardServiceDestination.ServiceBooking ->
+                                navController.navigate(Screen.ServiceBooking.createRoute(destination.serviceSubType))
+                            DashboardServiceDestination.TambalBan -> navController.navigate(Screen.TambalBanHome.route)
+                            DashboardServiceDestination.Towing -> navController.navigate(Screen.ServiceCategory.route)
+                            DashboardServiceDestination.FoodHome -> navController.navigate(Screen.FoodHome.route)
+                            DashboardServiceDestination.FoodFavorites -> navController.navigate(Screen.FoodFavorites.route)
+                            DashboardServiceDestination.Aggregator -> navController.navigate(Screen.Booking.createRoute("aggregator"))
+                            is DashboardServiceDestination.GenericBooking ->
+                                navController.navigate(Screen.Booking.createRoute(destination.serviceCode))
                         }
                     },
                     onFoodClick = { navController.navigate(Screen.FoodHome.route) },
