@@ -28,8 +28,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class BookingState(
+    val pickupPoint: BookingAddressPoint? = null,
     val pickupLocation: LatLng? = null,
     val pickupAddress: String = "",
+    val destinationPoint: BookingAddressPoint? = null,
     val destinationLocation: LatLng? = null,
     val destinationAddress: String = "",
     val estimatedPrice: Long = 0,
@@ -152,8 +154,21 @@ class BookingViewModel @Inject constructor(
         }
     }
 
-    fun setPickup(location: LatLng, address: String) {
+    fun setPickup(location: LatLng, address: String, point: BookingAddressPoint? = null) {
+        if (!location.isUsableBookingCoordinate() || address.isBlank()) {
+            _bookingState.value = _bookingState.value.copy(error = "Pilih alamat pickup dengan titik koordinat yang valid.")
+            return
+        }
+        val resolvedPoint = point ?: BookingAddressPoint(
+            id = "pickup-${System.currentTimeMillis()}",
+            label = address,
+            address = address,
+            latitude = location.latitude,
+            longitude = location.longitude,
+            source = BookingAddressPoint.Source.MANUAL
+        )
         _bookingState.value = _bookingState.value.copy(
+            pickupPoint = resolvedPoint,
             pickupLocation = location,
             pickupAddress = address,
             selectedServiceCode = "",
@@ -163,8 +178,21 @@ class BookingViewModel @Inject constructor(
         calculateRoute()
     }
 
-    fun setDestination(location: LatLng, address: String) {
+    fun setDestination(location: LatLng, address: String, point: BookingAddressPoint? = null) {
+        if (!location.isUsableBookingCoordinate() || address.isBlank()) {
+            _bookingState.value = _bookingState.value.copy(error = "Pilih alamat tujuan dengan titik koordinat yang valid.")
+            return
+        }
+        val resolvedPoint = point ?: BookingAddressPoint(
+            id = "dropoff-${System.currentTimeMillis()}",
+            label = address,
+            address = address,
+            latitude = location.latitude,
+            longitude = location.longitude,
+            source = BookingAddressPoint.Source.MANUAL
+        )
         _bookingState.value = _bookingState.value.copy(
+            destinationPoint = resolvedPoint,
             destinationLocation = location,
             destinationAddress = address,
             selectedServiceCode = "",
@@ -176,10 +204,21 @@ class BookingViewModel @Inject constructor(
 
     fun selectSavedAddress(savedAddress: CustomerAddress, asPickup: Boolean) {
         val location = LatLng(savedAddress.lat, savedAddress.lng)
+        val point = BookingAddressPoint(
+            id = savedAddress.id,
+            label = savedAddress.label,
+            address = savedAddress.address,
+            latitude = savedAddress.lat,
+            longitude = savedAddress.lng,
+            receiverName = savedAddress.contactName,
+            contactPhone = savedAddress.contactPhoneMasked,
+            instruction = savedAddress.notes,
+            source = BookingAddressPoint.Source.SAVED
+        )
         if (asPickup) {
-            setPickup(location, savedAddress.address)
+            setPickup(location, savedAddress.address, point)
         } else {
-            setDestination(location, savedAddress.address)
+            setDestination(location, savedAddress.address, point)
             if (savedAddress.contactName?.isNotBlank() == true && _bookingState.value.recipientName.isBlank()) {
                 _bookingState.value = _bookingState.value.copy(recipientName = savedAddress.contactName)
             }
@@ -262,15 +301,20 @@ class BookingViewModel @Inject constructor(
     }
 
     fun selectGeocodeResult(result: MapsGeocodeResult) {
+        val location = LatLng(result.latitude, result.longitude)
+        if (!location.isUsableBookingCoordinate()) {
+            _bookingState.value = _bookingState.value.copy(geocodeError = "Hasil alamat tidak memiliki titik koordinat yang valid.")
+            return
+        }
         _bookingState.value = _bookingState.value.copy(
-            mapPickerLocation = LatLng(result.latitude, result.longitude),
+            mapPickerLocation = location,
             mapPickerAddress = result.label,
             geocodeError = null
         )
     }
 
     fun selectMapPoint(location: LatLng) {
-        if (location.latitude !in -90.0..90.0 || location.longitude !in -180.0..180.0) {
+        if (!location.isUsableBookingCoordinate()) {
             _bookingState.value = _bookingState.value.copy(geocodeError = "Titik peta tidak valid.")
             return
         }
@@ -286,7 +330,7 @@ class BookingViewModel @Inject constructor(
             val result = orderRepository.reverseGeocodePoint(LocationPayload(location.latitude, location.longitude))
             result.onSuccess { address ->
                 _bookingState.value = _bookingState.value.copy(
-                    mapPickerLocation = LatLng(address.latitude, address.longitude),
+                    mapPickerLocation = LatLng(address.latitude, address.longitude).takeIf { it.isUsableBookingCoordinate() },
                     mapPickerAddress = address.label.ifBlank { coordinateLabel },
                     isResolvingMapPoint = false
                 )
@@ -644,11 +688,23 @@ class BookingViewModel @Inject constructor(
                 val lat = link.submittedLat
                 val lng = link.submittedLng
                 val submittedAddress = link.submittedAddress.orEmpty()
-                if (link.status == "submitted" && lat != null && lng != null && submittedAddress.isNotBlank()) {
+                val submittedPoint = if (lat != null && lng != null) LatLng(lat, lng) else null
+                if (link.status == "submitted" && submittedPoint?.isUsableBookingCoordinate() == true && submittedAddress.isNotBlank()) {
                     _bookingState.value = _bookingState.value.copy(
                         receiverLocationLink = link,
                         isCreatingLocationLink = false,
-                        destinationLocation = LatLng(lat, lng),
+                        destinationPoint = BookingAddressPoint(
+                            id = "receiver-link-${link.id}",
+                            label = "Lokasi penerima",
+                            address = submittedAddress,
+                            latitude = submittedPoint.latitude,
+                            longitude = submittedPoint.longitude,
+                            receiverName = link.submittedContactName,
+                            contactPhone = link.submittedContactPhoneMasked,
+                            instruction = link.submittedNotes,
+                            source = BookingAddressPoint.Source.PINNED
+                        ),
+                        destinationLocation = submittedPoint,
                         destinationAddress = submittedAddress,
                         recipientName = link.submittedContactName?.takeIf { it.isNotBlank() } ?: _bookingState.value.recipientName
                     )

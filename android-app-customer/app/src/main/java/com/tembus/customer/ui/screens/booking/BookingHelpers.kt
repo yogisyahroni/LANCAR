@@ -169,7 +169,10 @@ internal fun tembusLightTextFieldColors() = OutlinedTextFieldDefaults.colors(
 )
 
 internal fun BookingState.isRouteComplete(): Boolean {
-    return pickupLocation != null && pickupAddress.isNotBlank() && destinationLocation != null && destinationAddress.isNotBlank()
+    return pickupPoint != null && destinationPoint != null &&
+        pickupLocation?.isUsableBookingCoordinate() == true &&
+        destinationLocation?.isUsableBookingCoordinate() == true &&
+        pickupAddress.isNotBlank() && destinationAddress.isNotBlank()
 }
 
 internal fun BookingState.isPackageReady(): Boolean {

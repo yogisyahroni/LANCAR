@@ -50,6 +50,8 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 		middleware.WriteError(w, http.StatusConflict, "ERR_CONFLICT", "Operasi konflik. Coba lagi.", correlationID)
 	case errors.Is(err, domain.ErrInvalidEstimate):
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ESTIMATE", "Estimasi harga tidak valid atau sudah kedaluwarsa", correlationID)
+	case errors.Is(err, domain.ErrInvalidCoordinates):
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_COORDINATES", "Pilih titik pickup dan tujuan yang valid", correlationID)
 	case errors.Is(err, domain.ErrLocationNotCovered):
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_LOCATION_NOT_COVERED", "Alamat pickup atau tujuan tidak tercover oleh layanan kami", correlationID)
 	case errors.As(err, &ufe) && ufe.UserMsg != "":

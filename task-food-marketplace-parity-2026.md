@@ -364,11 +364,11 @@ Existing shared files:
 - `frontend/src/components/orders/OnDemandOrderFormContent.tsx`
 
 **Checklist**
-- [ ] Atomic pickup/dropoff object: id/label/lat/lng/city/postal/receiver/contact/instruction.
-- [ ] Saved/manual/pinned address updates coordinates and invalidates quote.
-- [ ] Manual text cannot submit without resolved coordinate.
-- [ ] Reject `0,0`, stale GPS, out-of-service-area.
-- [ ] Final route review before order.
+- [x] Atomic pickup/dropoff object: id/label/lat/lng/city/postal/receiver/contact/instruction.
+- [x] Saved/manual/pinned address updates coordinates and invalidates quote.
+- [x] Manual text cannot submit without resolved coordinate.
+- [x] Reject `0,0`, stale GPS, out-of-service-area.
+- [x] Final route review before order.
 
 ---
 

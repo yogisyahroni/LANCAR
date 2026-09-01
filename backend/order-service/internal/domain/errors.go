@@ -38,6 +38,7 @@ var (
 	ErrForbidden          = errors.New("FORBIDDEN")
 	ErrUnauthorized       = errors.New("UNAUTHORIZED")
 	ErrConflict           = errors.New("CONFLICT")
+	ErrInvalidCoordinates = errors.New("INVALID_COORDINATES")
 	ErrLocationNotCovered = errors.New("LOCATION_NOT_COVERED")
 	// ErrForbiddenItem — barang terlarang (gas, chemical, weapon, flammable, dll)
 	// dicegah saat create order (TC-LOG-005).

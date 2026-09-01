@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { clearCustomerOrderDraft, DeliveryService, OrderFormValues } from "@/components/orders/OrderSchemas";
+import { clearCustomerOrderDraft, DeliveryService, isValidLocation, OrderFormValues } from "@/components/orders/OrderSchemas";
 import { OnDemandOrderForm } from "@/components/orders/OnDemandOrderForm";
 import { OrderSummary } from "@/components/orders/OrderSummary";
 import Link from "next/link";
@@ -170,7 +170,7 @@ export default function NewOrderPage() {
   const calculateRoutePreview = useCallback(async (data: Partial<OrderFormValues>, service?: DeliveryService) => {
     const pickup = data.pickup_location;
     const dropoff = data.dropoff_location;
-    if (!pickup || !dropoff) {
+    if (!isValidLocation(pickup) || !isValidLocation(dropoff)) {
       routePreviewRequestRef.current += 1;
       setRoutePreview(null);
       setRoutePreviewError(null);
@@ -220,6 +220,11 @@ export default function NewOrderPage() {
   }, []);
 
   const calculatePricing = useCallback(async (data: Partial<OrderFormValues>) => {
+    if (!isValidLocation(data.pickup_location) || !isValidLocation(data.dropoff_location)) {
+      setPricing(null);
+      setCoverageError("Pilih titik pickup dan tujuan yang valid sebelum menghitung harga.");
+      return;
+    }
     setIsCalculating(true);
     setCoverageError(null);
     try {
@@ -440,6 +445,10 @@ export default function NewOrderPage() {
 
   const handleSubmit = async (data: OrderFormValues) => {
     if (!pricing) return;
+    if (!isValidLocation(data.pickup_location) || !isValidLocation(data.dropoff_location)) {
+      setCoverageError("Titik pickup dan tujuan harus dipilih dari lokasi yang terverifikasi.");
+      return;
+    }
     setIsSubmitting(true);
     setTransactionPending(false);
     try {

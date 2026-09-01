@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { UseFormSetValue } from "react-hook-form";
 import { api } from "@/lib/api";
 import { MapPin, Search, Loader2, Plus, Navigation, Sparkles, Check, Info } from "lucide-react";
-import { OrderFormValues, LocationValue, AddressMode, AddressSuggestion, SavedAddress } from "./OrderSchemas";
+import { OrderFormValues, LocationValue, AddressMode, AddressPoint, AddressSuggestion, SavedAddress, isValidLocation } from "./OrderSchemas";
 
 const formatCoordinate = (location?: LocationValue) => {
   if (!location) return "Titik belum dipilih";
@@ -57,7 +57,7 @@ async function getSavedAddresses(mode: AddressMode): Promise<AddressSuggestion[]
   const addresses = (response.data?.data || []) as SavedAddress[];
   const allowedKinds = mode === "pickup" ? ["pickup", "both"] : ["receiver", "both"];
   return addresses
-    .filter((item) => item.address && Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng)))
+    .filter((item) => item.address && isValidLocation({ lat: Number(item.lat), lng: Number(item.lng) }))
     .filter((item) => allowedKinds.includes(item.kind || "receiver"))
     .map((item) => ({
       id: `saved-${item.id}`,
@@ -106,6 +106,7 @@ export function AddressPicker({
 
   const addressField = mode === "pickup" ? "pickup_address" : "dropoff_address";
   const locationField = mode === "pickup" ? "pickup_location" : "dropoff_location";
+  const pointField = mode === "pickup" ? "pickup_point" : "dropoff_point";
   const isPickup = mode === "pickup";
   const accentClass = isPickup ? "text-primary" : "text-success";
 
@@ -170,17 +171,19 @@ export function AddressPicker({
         });
 
         const data = (response.data?.results || []) as Array<{ label: string; latitude: number; longitude: number; provider: string }>;
-        const providerSuggestions = data.map((item, index) => {
+        const providerSuggestions = data.flatMap((item, index): AddressSuggestion[] => {
           const [label, ...rest] = item.label.split(",");
           const normalizedProvider = String(item.provider || "").toLowerCase();
-          return {
+          const location = { lat: Number(item.latitude), lng: Number(item.longitude) };
+          if (!isValidLocation(location)) return [];
+          return [{
             id: `${item.provider}-${index}-${item.latitude}-${item.longitude}`,
             label: label.trim(),
             detail: rest.join(",").trim(),
-            lat: Number(item.latitude),
-            lng: Number(item.longitude),
+            lat: location.lat,
+            lng: location.lng,
             source: normalizedProvider.includes("tomtom") ? "tomtom" as const : "osm" as const
-          };
+          }];
         });
 
         setSuggestions([...localMatches, ...providerSuggestions].slice(0, 6));
@@ -205,8 +208,24 @@ export function AddressPicker({
   }, [address, savedSuggestions]);
 
   const applySuggestion = (suggestion: AddressSuggestion) => {
-    setValue(addressField, `${suggestion.label}, ${suggestion.detail}`, { shouldDirty: true, shouldValidate: true });
-    setValue(locationField, { lat: suggestion.lat, lng: suggestion.lng }, { shouldDirty: true, shouldValidate: true });
+    const location = { lat: suggestion.lat, lng: suggestion.lng };
+    if (!isValidLocation(location)) {
+      setMessage("Titik alamat tidak valid. Pilih hasil pencarian lain.");
+      return;
+    }
+    const point: AddressPoint = {
+      id: suggestion.id,
+      label: suggestion.label,
+      address: `${suggestion.label}, ${suggestion.detail}`,
+      receiver: { name: suggestion.recipient_name, phone: suggestion.phone },
+      lat: location.lat,
+      lng: location.lng,
+      source: suggestion.source === "saved" ? "saved" : "search",
+      resolved_at: new Date().toISOString()
+    };
+    setValue(addressField, point.address, { shouldDirty: true, shouldValidate: true });
+    setValue(locationField, location, { shouldDirty: true, shouldValidate: true });
+    setValue(pointField, point, { shouldDirty: true, shouldValidate: true });
 
     if (!isPickup) {
       if (suggestion.recipient_name) {
@@ -235,6 +254,12 @@ export function AddressPicker({
           lat: position.coords.latitude,
           lng: position.coords.longitude
         };
+        const ageMs = position.timestamp > 0 ? Date.now() - position.timestamp : 0;
+        if (!isValidLocation(nextLocation) || ageMs > 5 * 60 * 1000 || position.coords.accuracy > 1000) {
+          setMessage("Lokasi GPS sudah kedaluwarsa atau tidak cukup akurat. Coba ambil lokasi lagi atau pilih hasil pencarian.");
+          setIsLocating(false);
+          return;
+        }
         
         let finalAddr = `Lokasi saat ini (${formatCoordinate(nextLocation)})`;
         const geocoded = await performReverseGeocode(nextLocation.lat, nextLocation.lng);
@@ -247,6 +272,15 @@ export function AddressPicker({
         } else {
           setValue(locationField, nextLocation, { shouldDirty: true, shouldValidate: true });
           setValue(addressField, finalAddr, { shouldDirty: true, shouldValidate: true });
+          setValue(pointField, {
+            id: `gps-${position.timestamp}`,
+            label: "Lokasi saat ini",
+            address: finalAddr,
+            lat: nextLocation.lat,
+            lng: nextLocation.lng,
+            source: "gps",
+            resolved_at: new Date().toISOString()
+          } satisfies AddressPoint, { shouldDirty: true, shouldValidate: true });
         }
         setIsLocating(false);
       },
@@ -295,6 +329,7 @@ export function AddressPicker({
                 onClick={() => {
                   setValue(addressField, "", { shouldDirty: true, shouldValidate: true });
                   setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
+                  setValue(pointField, undefined, { shouldDirty: true, shouldValidate: true });
                   setSuggestions([]);
                   setMessage(null);
                 }}
@@ -362,6 +397,7 @@ export function AddressPicker({
                 onChange={(event) => {
                   setValue(addressField, event.target.value, { shouldDirty: true, shouldValidate: true });
                   setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
+                  setValue(pointField, undefined, { shouldDirty: true, shouldValidate: true });
                 }}
                 className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-success focus:ring-success"}`}
                 placeholder="Atau ketik untuk mencari lokasi..."
@@ -383,6 +419,7 @@ export function AddressPicker({
               onChange={(event) => {
                 setValue(addressField, event.target.value, { shouldDirty: true, shouldValidate: true });
                 setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
+                setValue(pointField, undefined, { shouldDirty: true, shouldValidate: true });
               }}
               className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-success focus:ring-success"}`}
               placeholder="Cari lokasi bangunan, jalan, atau area..."
@@ -516,11 +553,23 @@ export function AddressPicker({
                 <button
                   type="button"
                   onClick={() => {
+                    if (!modalForm.location || !isValidLocation(modalForm.location)) {
+                      setMessage("Tentukan titik peta yang valid sebelum menerapkan alamat.");
+                      return;
+                    }
                     const formatted = `Toko: ${modalForm.shopName || "-"}, PIC: ${modalForm.picName || "-"}, HP: ${modalForm.phone || "-"} | ${modalForm.fullAddress}`;
                     setValue(addressField, formatted, { shouldDirty: true, shouldValidate: true });
-                    if (modalForm.location) {
-                      setValue(locationField, modalForm.location, { shouldDirty: true, shouldValidate: true });
-                    }
+                    setValue(locationField, modalForm.location, { shouldDirty: true, shouldValidate: true });
+                    setValue(pointField, {
+                      id: `manual-${Date.now()}`,
+                      label: modalForm.shopName || (isPickup ? "Pickup" : "Dropoff"),
+                      address: formatted,
+                      receiver: isPickup ? undefined : { name: modalForm.picName, phone: modalForm.phone },
+                      lat: modalForm.location.lat,
+                      lng: modalForm.location.lng,
+                      source: "manual",
+                      resolved_at: new Date().toISOString()
+                    } satisfies AddressPoint, { shouldDirty: true, shouldValidate: true });
                     if (!isPickup) {
                       if (modalForm.picName) setValue("recipient_name", modalForm.picName, { shouldDirty: true, shouldValidate: true });
                       if (modalForm.phone) setValue("recipient_phone", modalForm.phone, { shouldDirty: true, shouldValidate: true });
@@ -539,5 +588,3 @@ export function AddressPicker({
     </div>
   );
 }
-
-

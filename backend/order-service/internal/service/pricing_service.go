@@ -54,6 +54,9 @@ func applyRoundingPolicy(amount int64, mode string, precision int64) int64 {
 }
 
 func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
+	if !validOrderCoordinate(req.PickupLat, req.PickupLng) || !validOrderCoordinate(req.DropoffLat, req.DropoffLng) {
+		return nil, domain.ErrInvalidCoordinates
+	}
 
 	// 0.1 Check Coverage for Pickup and Dropoff
 	pickupCovered, err := s.pricingRepo.CheckCoverage(ctx, req.PickupLat, req.PickupLng)
@@ -270,6 +273,13 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	}
 
 	return resp, nil
+}
+
+func validOrderCoordinate(lat, lng float64) bool {
+	return !math.IsNaN(lat) && !math.IsInf(lat, 0) &&
+		!math.IsNaN(lng) && !math.IsInf(lng, 0) &&
+		lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 &&
+		!(lat == 0 && lng == 0)
 }
 
 func (s *pricingServiceImpl) EstimatePrice(ctx context.Context, req *domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
