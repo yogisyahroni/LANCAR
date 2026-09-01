@@ -1185,6 +1185,7 @@ Existing shared files:
 - [x] Toll/service/operator/platform/insurance components.
 - [x] No vague silent admin adjustment.
 - [x] Customer consent for material increase.
+- [x] Local contract coverage verifies expiry/route-change/material-increase consent and explicit toll inclusion semantics.
 - [ ] Staging/Docker verification of provider toll data and live requote/payment flow.
 
 ## TOW-2026-004 — Inspection→loading→transit→unloading→completion proof [P0]
