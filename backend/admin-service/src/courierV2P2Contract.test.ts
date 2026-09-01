@@ -4,7 +4,7 @@ import {
   getMobileCourierOnDemandServices,
   updateMobileCourierOrderStatus,
 } from './controllers/courierAuth.controller';
-import { dispatchToPreferredCourier } from './controllers/courier/courierOnDemand.controller';
+import { dispatchNextOnDemandCourier, dispatchToPreferredCourier } from './controllers/courier/courierOnDemand.controller';
 import { findDeliveryServiceByCode, updateAdminDeliveryService } from './controllers/deliveryServices.controller';
 import { db } from './db';
 import { createNotification } from './notifications';
@@ -359,5 +359,31 @@ describe('courier v2 P2 contracts', () => {
     expect(candidateQuery).toContain("COALESCE(o.service_code, o.service_sub_type) = 'towing_mobil'");
     expect(candidateQuery).toContain('COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)');
     expect(candidateQuery).toContain('assignment_radius_pickup_km');
+  });
+
+  it('guards normal towing dispatch with persisted capability, payment, zone, and workload policy', async () => {
+    const client = makeClient();
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await dispatchNextOnDemandCourier(client, 'order-towing-2');
+
+    expect(result).toBeNull();
+    const candidateQuery = client.query.mock.calls[2][0] as string;
+    expect(candidateQuery).toContain("cp.verification_status = 'approved'");
+    expect(candidateQuery).toContain('cp.is_online = TRUE');
+    expect(candidateQuery).toContain("cp.last_location_at >= NOW() - INTERVAL '10 minutes'");
+    expect(candidateQuery).toContain('JOIN courier_service_capabilities csc');
+    expect(candidateQuery).toContain("csc.status = 'enabled'");
+    expect(candidateQuery).toContain('JOIN courier_vehicles cv');
+    expect(candidateQuery).toContain("cv.verification_status = 'approved'");
+    expect(candidateQuery).toContain("p.status = 'paid'");
+    expect(candidateQuery).toContain('JOIN zones z');
+    expect(candidateQuery).toContain('z.is_active = TRUE');
+    expect(candidateQuery).toContain('COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)');
+    expect(candidateQuery).toContain('assignment_radius_pickup_km');
+    expect(candidateQuery).toContain('NOT EXISTS');
   });
 });
