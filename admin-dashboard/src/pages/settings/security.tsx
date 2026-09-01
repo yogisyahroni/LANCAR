@@ -126,7 +126,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                       <input 
                         type={showApiKey ? "text" : "password"} 
                         readOnly
-                        value={getConfig('security_public_api_key', 'pk_live_*************************')}
+                        value={getConfig('security_public_api_key', '[not configured]')}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-mono text-sm focus:outline-none"
                       />
                       <button 
