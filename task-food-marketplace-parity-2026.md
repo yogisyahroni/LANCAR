@@ -1199,6 +1199,7 @@ Existing shared files:
   - [x] Loading proof before transit.
   - [x] Unloading/destination verification before complete.
   - [x] Completion proof/signature server validated.
+- [x] Local service contract verifies destination timestamp and proof/signature retrieval.
   - [ ] Staging/Docker lifecycle proof verification with real upload, order state, and signature persistence.
 
 ## TOW-2026-005 — Damage claim protection [P0]
