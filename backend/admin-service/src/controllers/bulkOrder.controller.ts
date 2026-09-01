@@ -40,6 +40,34 @@ const getOwnedBulkJob = async (jobId: string, customerId?: string) => {
   return job.customer_id === customerId ? job : null;
 };
 
+export type BulkPaymentLinkResult = {
+  order_id: string;
+  order_number: string;
+  payment_url: string;
+  expires_at: string;
+};
+
+export function buildBulkProcessResult(
+  jobId: string,
+  revision: number,
+  totalAmount: number,
+  createdOrders: Array<{ id: string; order_number: string }>,
+  paymentLinks: BulkPaymentLinkResult[],
+) {
+  return {
+    success: true,
+    processed_count: createdOrders.length,
+    total_amount_idr: totalAmount,
+    order_ids: createdOrders.map((order) => order.id),
+    order_numbers: createdOrders.map((order) => order.order_number),
+    payment_links: paymentLinks,
+    job_id: jobId,
+    job_revision: revision,
+    message: 'Payment links berhasil dibuat untuk order yang tersimpan.',
+    payment: null,
+  };
+}
+
 type BulkPricingResult = {
   price: Record<string, number | string | null>;
   errors: string[];
@@ -737,6 +765,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
 
     let totalAmount = 0;
     const createdOrders = [];
+    const paymentLinks: BulkPaymentLinkResult[] = [];
     const bulkService = await findDeliveryServiceByCode('tembus_instant');
     if (!bulkService) {
       await client.query('ROLLBACK');
@@ -861,6 +890,12 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         'PENDING', orderId, bulkService.code, 0,
         row.recipient_name, row.recipient_phone
       ]);
+      paymentLinks.push({
+        order_id: orderId,
+        order_number,
+        payment_url: `${process.env.PAYMENT_LINK_BASE_URL || 'https://tembus.id/pay'}/${linkId}`,
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      });
 
       await client.query(`
         INSERT INTO order_events (order_id, user_id, event_type, description)
@@ -885,17 +920,13 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
 
     await client.query('COMMIT');
 
-    const processResult = {
-      success: true,
-      processed_count: validRows.length,
-      total_amount_idr: totalAmount,
-      order_ids: createdOrders.map((order: any) => order.id),
-      order_numbers: createdOrders.map((order: any) => order.order_number),
+    const processResult = buildBulkProcessResult(
       job_id,
-      job_revision: Number(jobData.revision || 1),
-      message: 'Payment links berhasil dibuat untuk order yang tersimpan.',
-      payment: null,
-    };
+      Number(jobData.revision || 1),
+      totalAmount,
+      createdOrders,
+      paymentLinks,
+    );
     await redis.set(job_id, JSON.stringify({
       ...jobData,
       status: 'processed',

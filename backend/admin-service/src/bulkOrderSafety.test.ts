@@ -1,4 +1,4 @@
-import { getBulkJobStatus, processBulkPayment } from './controllers/bulkOrder.controller';
+import { buildBulkProcessResult, getBulkJobStatus, processBulkPayment } from './controllers/bulkOrder.controller';
 import { db } from './db';
 import { redis } from './redis';
 
@@ -104,5 +104,27 @@ describe('bulk order ownership and resume contracts', () => {
     expect(response.bodyValue).toEqual(processResult);
     expect(client.query).not.toHaveBeenCalled();
     expect(client.release).toHaveBeenCalled();
+  });
+
+  it('returns each server-created payment link with the exact order reference', () => {
+    expect(buildBulkProcessResult(
+      'job-2',
+      4,
+      75000,
+      [{ id: 'order-2', order_number: 'TMB-BLK-2' }],
+      [{
+        order_id: 'order-2',
+        order_number: 'TMB-BLK-2',
+        payment_url: 'https://tembus.id/pay/link-2',
+        expires_at: '2026-09-01T10:10:00.000Z',
+      }],
+    )).toEqual(expect.objectContaining({
+      success: true,
+      job_id: 'job-2',
+      job_revision: 4,
+      order_ids: ['order-2'],
+      payment_links: [expect.objectContaining({ order_id: 'order-2', payment_url: 'https://tembus.id/pay/link-2' })],
+      payment: null,
+    }));
   });
 });

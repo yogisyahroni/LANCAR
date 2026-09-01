@@ -13,6 +13,13 @@ interface PaymentStepProps {
 
 type PaymentStatus = 'idle' | 'creating' | 'opening_snap' | 'pending_payment' | 'processed' | 'error';
 
+type BulkPaymentLink = {
+  order_id: string;
+  order_number: string;
+  payment_url: string;
+  expires_at?: string;
+};
+
 declare global {
   interface Window {
     snap?: any;
@@ -45,6 +52,7 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [payment, setPayment] = useState<any>(null);
+  const [paymentLinks, setPaymentLinks] = useState<BulkPaymentLink[]>([]);
 
   const validRows = useMemo(() => data.rows?.filter((row: any) => row.status === 'valid') || [], [data.rows]);
   const totalOrders = validRows.length;
@@ -57,8 +65,10 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
 
   const completeProcessing = () => {
     setPaymentStatus('processed');
-    onComplete();
-    setTimeout(() => router.push('/orders'), 1600);
+    setTimeout(() => {
+      onComplete();
+      router.push('/orders');
+    }, 1600);
   };
 
   const openSnap = async (snapPayment: any) => {
@@ -103,6 +113,7 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
       }
       const snapPayment = res.data.payment;
       if (!snapPayment) {
+        setPaymentLinks(Array.isArray(res.data.payment_links) ? res.data.payment_links : []);
         completeProcessing();
         return;
       }
@@ -134,8 +145,21 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
         </div>
         <h2 className="text-2xl font-bold text-brand-emerald-500 mb-2">Order Massal Tersimpan</h2>
         <p className="text-muted-foreground text-center max-w-md">
-          {totalOrders} pesanan sudah dibuat dan payment link dikirim sesuai response server. Mengalihkan ke riwayat pesanan...
+          {totalOrders} pesanan sudah dibuat. Payment link dari server siap dibagikan ke penerima. Mengalihkan ke riwayat pesanan...
         </p>
+        {paymentLinks.length > 0 && (
+          <div className="w-full max-w-xl rounded-xl border border-border bg-card p-4 text-left space-y-2">
+            <h3 className="font-semibold">Payment link per pesanan</h3>
+            {paymentLinks.map((link) => (
+              <div key={link.order_id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 p-3 text-sm">
+                <span className="font-medium">{link.order_number}</span>
+                <a href={link.payment_url} target="_blank" rel="noreferrer" className="text-primary hover:underline break-all">
+                  {link.payment_url}
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

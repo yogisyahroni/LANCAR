@@ -5,6 +5,7 @@ import { UploadStep } from '@/components/orders/bulk/UploadStep';
 import { ReviewStep } from '@/components/orders/bulk/ReviewStep';
 import { PaymentStep } from '@/components/orders/bulk/PaymentStep';
 import { api } from '@/lib/api';
+import { resolveBulkJobRecovery } from '@/lib/bulkJobRecovery';
 
 const BULK_JOB_STORAGE_KEY = 'tembus.bulk.pending-job';
 
@@ -24,13 +25,18 @@ export default function BulkOrderPage() {
     api.get(`/auth/web/orders/bulk/status/${storedJobId}`)
       .then((response) => {
         const data = response.data;
-        if (data.status === 'processed') {
+        const recovery = resolveBulkJobRecovery(data);
+        if (recovery.kind === 'redirect_orders') {
           window.sessionStorage.removeItem(BULK_JOB_STORAGE_KEY);
           window.location.assign('/orders');
           return;
         }
+        if (recovery.kind === 'clear_pending') {
+          window.sessionStorage.removeItem(BULK_JOB_STORAGE_KEY);
+          return;
+        }
         setJobId(storedJobId);
-        if (data.status === 'completed') {
+        if (recovery.kind === 'review') {
           setValidatedData(data);
           setCurrentStep(2);
         }

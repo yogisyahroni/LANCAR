@@ -5,6 +5,7 @@ import {
   requestCustomerPaymentSession,
   requestPersistedCustomerOrder,
 } from "@/lib/orderTransaction";
+import { resolveBulkJobRecovery } from "@/lib/bulkJobRecovery";
 
 describe("server-backed customer order transactions", () => {
   it("requires a persisted order id and reuses the supplied idempotency key", async () => {
@@ -42,5 +43,12 @@ describe("server-backed customer order transactions", () => {
     expect(isUnknownOutcomeError({ response: { status: 500 }, code: "ERR_BAD_RESPONSE" })).toBe(false);
     expect(isRetryableTransactionError({ response: { status: 409, data: { code: "IDEMPOTENCY_REQUEST_IN_PROGRESS" } } })).toBe(true);
     expect(isRetryableTransactionError({ response: { status: 409, data: { code: "IDEMPOTENCY_KEY_CONFLICT" } } })).toBe(false);
+  });
+
+  it("chooses a safe refresh recovery action for every bulk job phase", () => {
+    expect(resolveBulkJobRecovery({ status: "processing_orders" })).toEqual({ kind: "resume_polling" });
+    expect(resolveBulkJobRecovery({ status: "completed", rows: [] })).toEqual({ kind: "review" });
+    expect(resolveBulkJobRecovery({ status: "processed" })).toEqual({ kind: "redirect_orders" });
+    expect(resolveBulkJobRecovery({ status: "failed" })).toEqual({ kind: "clear_pending" });
   });
 });
