@@ -1162,6 +1162,7 @@ Existing shared files:
 - [x] Vehicle type/make/model/condition/access constraints structured.
 - [x] Remove parcel-shaped placeholders like `small`, zero dimensions, fake receiver/phone.
 - [x] Route preview/operator visible.
+- [x] Local client/server booking contract tests reject incomplete vehicle, contact, address, and coordinate data.
 - [ ] Staging/Docker end-to-end booking verification with real backend data.
 
 ## TOW-2026-002 — Capability/vehicle-safe matching [P0]
