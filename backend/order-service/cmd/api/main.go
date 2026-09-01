@@ -370,9 +370,12 @@ func main() {
 	availabilitySvc := service.NewAvailabilityService(availabilityRepo)
 	vehicleValidator := service.NewVehicleValidator(availabilityRepo)
 	serviceReportSvc := service.NewServiceReportService(serviceReportRepo)
+	towingClaimRepo := repository.NewTowingDamageClaimRepository(db)
+	towingClaimSvc := service.NewTowingDamageClaimService(serviceReportSvc, towingClaimRepo)
 	orderSvc.SetServiceReportService(serviceReportSvc)
 	tambalBanHandler := handler.NewTambalBanHandler(settlementSvc, availabilitySvc, vehicleValidator, serviceReportSvc)
 	towingHandler := handler.NewTowingHandler(serviceReportSvc)
+	towingClaimHandler := handler.NewTowingClaimHandler(towingClaimSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
@@ -545,6 +548,9 @@ func main() {
 
 	mux.HandleFunc("/api/v1/courier/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTambalBanReport)))
 	mux.HandleFunc("/api/v1/courier/service-report/towing", middleware.BaseChain(middleware.AuthMiddleware(towingHandler.CreateTowingReport)))
+	mux.HandleFunc("/api/v1/courier/towing/damage-claims", middleware.BaseChain(middleware.AuthMiddleware(towingClaimHandler.SubmitClaim)))
+	mux.HandleFunc("/api/v1/admin/towing/damage-claims/{id}/decision", middleware.BaseChain(middleware.AuthMiddleware(towingClaimHandler.DecideClaim)))
+	mux.HandleFunc("/api/v1/admin/towing/damage-claims/{id}/reconcile", middleware.BaseChain(middleware.AuthMiddleware(towingClaimHandler.ReconcileCompensation)))
 
 	// Internal Orchestration Routes (Should be IP-whitelisted or internally routed)
 	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.InternalStartMatching)

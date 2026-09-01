@@ -180,6 +180,7 @@ type TowingReport struct {
 	ID                     string              `json:"id" db:"id"`
 	OrderID                string              `json:"order_id" db:"order_id"`
 	CourierID              string              `json:"courier_id" db:"courier_id"`
+	VehicleID              string              `json:"vehicle_id,omitempty" db:"vehicle_id"`
 	VehicleConditionBefore *string             `json:"vehicle_condition_before,omitempty" db:"vehicle_condition_before"`
 	VehiclePhotoBeforeURL  *string             `json:"vehicle_photo_before_url,omitempty" db:"vehicle_photo_before_url"`
 	OdometerReading        *int                `json:"odometer_reading,omitempty" db:"odometer_reading"`

@@ -285,7 +285,7 @@ export const uploadMobileCourierServiceReportProof = async (req: Request, res: R
   }
 
   const ownership = await db.query(
-    `SELECT status
+    `SELECT status, vehicle_id
        FROM order_legs
       WHERE order_id = $1
         AND courier_id = $2
@@ -304,6 +304,16 @@ export const uploadMobileCourierServiceReportProof = async (req: Request, res: R
   }
 
   const legStatus = String(ownership.rows[0]?.status || '').trim().toLowerCase();
+  const boundVehicleId = typeof ownership.rows[0]?.vehicle_id === 'string' ? ownership.rows[0].vehicle_id.trim() : '';
+  if (serviceType === 'towing' && !boundVehicleId) {
+    res.status(409).json({
+      success: false,
+      data: null,
+      message: 'Kendaraan towing belum terikat pada order ini.',
+      code: 'ERR_VEHICLE_BINDING_REQUIRED',
+    });
+    return;
+  }
   if (proofType === 'vehicle_photo_before' && towingBeforeProofIsLocked(legStatus)) {
     res.status(409).json({
       success: false,
@@ -326,6 +336,7 @@ export const uploadMobileCourierServiceReportProof = async (req: Request, res: R
       JSON.stringify({
         service_type: serviceType,
         proof_type: proofType,
+        vehicle_id: boundVehicleId || null,
         storage_key: savedUpload.storageKey,
         checksum_sha256: req.file.checksumSha256 || null,
       }),
