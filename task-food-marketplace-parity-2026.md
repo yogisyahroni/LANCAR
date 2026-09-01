@@ -1293,9 +1293,10 @@ Existing shared files:
 - [ ] Android device/staging detail-flow verification with real service orders.
 
 ## UX-2026-003 — Courier service-mode clarity [P1]
-- [ ] Active capabilities clear before offers.
-- [ ] Offer shows service/capability/earnings/route/proof requirement.
-- [ ] Food/Paket/Tambal/Towing cues distinct.
+- [x] Active capabilities clear before offers.
+- [x] Offer shows service/capability/earnings/route/proof requirement.
+- [x] Food/Paket/Tambal/Towing cues distinct.
+- [ ] Android device/staging offer verification with live capability and service data recorded.
 
 ## UX-2026-004 — Notification/deep-link consistency [P1]
 - [ ] Push includes service/order/target/event version.
