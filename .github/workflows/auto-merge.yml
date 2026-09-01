@@ -59,8 +59,9 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.3.4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          # Match the exact quality checks; check-name treats multiline input as one name.
-          check-regexp: "^(Frontend Quality|Admin Service Quality|Auth Service Quality|Routing Service Quality)$"
+          # Wait for every check on this head SHA, excluding this workflow.
+          # Waiting only on quality checks can merge before migration/mobile/security gates finish.
+          running-workflow-name: "Auto-Merge ke Staging"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 30
           # Timeout 20 menit

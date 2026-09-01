@@ -316,7 +316,9 @@ jobs:
     name: 🔐 Secret Detection (GitLeaks)
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.code == 'true' || github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'secret-only' }}
+    # Secrets can be introduced in migrations/workflows too; every PR must run
+    # the full-history GitLeaks check so the security gate can require success.
+    if: ${{ always() }}
 
     steps:
       - name: Checkout repository (full history)

@@ -316,7 +316,7 @@ jobs:
             validate --config=/etc/otelcol/config.yml
 
       - name: Docker Compose observability config check
-        run: docker compose config --quiet
+        run: GRAFANA_ADMIN_PASSWORD=ci-only-observability-password docker compose config --quiet
 
   # ═══════════════════════════════════════════════════════════
   # PHASE 2: SECURITY SCANS (needs all tests to pass)
