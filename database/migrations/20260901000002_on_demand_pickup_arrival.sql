@@ -35,12 +35,14 @@ ON CONFLICT (workflow_role, from_status, to_status) DO UPDATE SET
 -- new event/attempt; mutating an existing scan would destroy custody history.
 -- Retention cleanup may still delete expired rows according to the existing
 -- data-retention policy.
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION prevent_package_scan_update()
 RETURNS TRIGGER AS $$
 BEGIN
   RAISE EXCEPTION 'package_scans is append-only; write a compensating scan instead';
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 DROP TRIGGER IF EXISTS trg_prevent_package_scan_update ON package_scans;
 CREATE TRIGGER trg_prevent_package_scan_update
