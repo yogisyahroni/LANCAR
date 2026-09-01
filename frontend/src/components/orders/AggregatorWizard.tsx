@@ -132,6 +132,7 @@ export function AggregatorWizard() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [bulkRows, setBulkRows] = useState<any[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [bulkRevision, setBulkRevision] = useState(1);
   const [createdOrder, setCreatedOrder] = useState<AggregatorOrder | null>(null);
   const [payment, setPayment] = useState<AggregatorPayment | null>(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -139,6 +140,7 @@ export function AggregatorWizard() {
   const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const createTransactionRef = useRef<{ fingerprint: string; key: string }>({ fingerprint: "", key: "" });
   const paymentKeyRef = useRef<{ orderId: string; key: string }>({ orderId: "", key: "" });
+  const bulkProcessKeyRef = useRef<string>("");
 
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
@@ -222,6 +224,7 @@ export function AggregatorWizard() {
             clearInterval(pollInterval);
             setUploadProgress(100);
             setBulkRows(jobData.rows || []);
+            setBulkRevision(Number(jobData.revision || 1));
             setIsUploading(false);
             setStep(3); // Auto-advance to review step
           } else if (jobData.status === 'failed') {
@@ -461,7 +464,11 @@ export function AggregatorWizard() {
           setSubmitError("Data upload tidak valid.");
           return;
         }
-        const response = await api.post("/auth/web/orders/bulk/process", { job_id: jobId });
+        if (!bulkProcessKeyRef.current) bulkProcessKeyRef.current = createIdempotencyKey();
+        const response = await api.post("/auth/web/orders/bulk/process", {
+          job_id: jobId,
+          job_revision: bulkRevision,
+        }, { headers: { "X-Idempotency-Key": bulkProcessKeyRef.current } });
         if (response.data?.success !== true || Number(response.data?.processed_count || 0) < 1) {
           throw new Error("Server belum mengonfirmasi order bulk tersimpan");
         }

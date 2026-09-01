@@ -61,8 +61,8 @@ orderRoutes.get('/auth/web/orders/bulk/status/:job_id', verifyWebSession, (req, 
 orderRoutes.post('/auth/web/orders/bulk/validate/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.validateBulkRow(req, res));
 orderRoutes.put('/auth/web/orders/bulk/row/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.validateBulkRow(req, res));
 orderRoutes.delete('/auth/web/orders/bulk/rows/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.deleteBulkRows(req, res));
-orderRoutes.post('/auth/web/orders/bulk/process', verifyWebSession, (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
-orderRoutes.post('/auth/web/orders/bulk/pay', verifyWebSession, (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
+orderRoutes.post('/auth/web/orders/bulk/process', verifyWebSession, requireIdempotencyKey('web.bulk.process'), (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
+orderRoutes.post('/auth/web/orders/bulk/pay', verifyWebSession, requireIdempotencyKey('web.bulk.process'), (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
 orderRoutes.get('/admin/orders', (req, res) => controllers.getAllOrders(req, res));
 orderRoutes.get('/admin/orders/stats', (req, res) => controllers.getOrderStats(req, res));
 orderRoutes.get('/admin/orders/:id', (req, res) => controllers.getOrderById(req, res));

@@ -32,6 +32,14 @@ const hashPhoneForPrivateLookup = (value: any) => {
   return crypto.createHmac('sha256', secret).update(phone).digest('hex');
 };
 
+const getOwnedBulkJob = async (jobId: string, customerId?: string) => {
+  if (!customerId) return null;
+  const raw = await redis.get(jobId);
+  if (!raw) return null;
+  const job = JSON.parse(raw);
+  return job.customer_id === customerId ? job : null;
+};
+
 type BulkPricingResult = {
   price: Record<string, number | string | null>;
   errors: string[];
@@ -474,6 +482,8 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
 
     // Set initial job state
     await redis.set(jobId, JSON.stringify({
+      customer_id,
+      revision: 1,
       status: 'processing',
       progress: 0,
       total: rawRows.length,
@@ -495,6 +505,8 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
         // Update Redis frequently so progress bar is smooth
         if (completed % Math.max(1, Math.floor(rawRows.length / 20)) === 0 || completed === rawRows.length) {
           await redis.set(jobId, JSON.stringify({
+            customer_id,
+            revision: 1,
             status: 'processing', // Keep processing until recalculation is done
             progress: Math.round((completed / rawRows.length) * 90), // up to 90%
             total: rawRows.length,
@@ -507,6 +519,8 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
 
       // After building rows, recalculate group pricing
       const jobData = {
+        customer_id,
+        revision: 1,
         status: 'processing',
         progress: 95,
         total: rawRows.length,
@@ -521,7 +535,19 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
       jobData.progress = 100;
 
       await redis.set(jobId, JSON.stringify(jobData), 'EX', 3600);
-    })();
+    })().catch(async (error: any) => {
+      securityLog.error('Bulk Upload Processing Error:', error);
+      await redis.set(jobId, JSON.stringify({
+        customer_id,
+        status: 'failed',
+        progress: 100,
+        total: rawRows.length,
+        total_rows: rawRows.length,
+        processed_rows: 0,
+        rows: [],
+        error: 'Proses validasi bulk gagal. Silakan unggah ulang.'
+      }), 'EX', 3600);
+    });
 
   } catch (error: any) {
     securityLog.error('Bulk Upload Error:', error);
@@ -532,14 +558,14 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
 export const getBulkJobStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const job_id = req.params.job_id as string;
-    const jobDataString = await redis.get(job_id);
-    
-    if (!jobDataString) {
+    const jobData = await getOwnedBulkJob(job_id, req.user?.id);
+
+    if (!jobData) {
       res.status(404).json({ error: 'Job not found' });
       return;
     }
 
-    res.json(JSON.parse(jobDataString));
+    res.json(jobData);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -550,13 +576,16 @@ export const validateBulkRow = async (req: Request, res: Response): Promise<void
     const job_id = req.params.job_id as string;
     const updatedRows = req.body.rows; // Array of rows that were edited
 
-    const jobDataString = await redis.get(job_id);
-    if (!jobDataString) {
+    const jobData = await getOwnedBulkJob(job_id, req.user?.id);
+    if (!jobData) {
       res.status(404).json({ error: 'Job not found' });
       return;
     }
 
-    const jobData = JSON.parse(jobDataString);
+    if (!Array.isArray(updatedRows)) {
+      res.status(400).json({ error: 'Rows wajib berupa array.' });
+      return;
+    }
     if (jobData.status !== 'completed') {
       res.status(400).json({ error: 'Cannot edit rows while job is still processing' });
       return;
@@ -619,6 +648,7 @@ export const validateBulkRow = async (req: Request, res: Response): Promise<void
     }
 
     // Save back to Redis
+    jobData.revision = Number(jobData.revision || 1) + 1;
     await redis.set(job_id, JSON.stringify(jobData), 'EX', 3600);
     
     res.json({
@@ -639,13 +669,17 @@ export const deleteBulkRows = async (req: Request, res: Response): Promise<void>
     const job_id = req.params.job_id as string;
     const { row_ids, delete_errors } = req.body;
 
-    const jobDataString = await redis.get(job_id);
-    if (!jobDataString) {
+    const jobData = await getOwnedBulkJob(job_id, req.user?.id);
+    if (!jobData) {
       res.status(404).json({ error: 'Job not found' });
       return;
     }
 
-    const jobData = JSON.parse(jobDataString);
+    if (jobData.status !== 'completed') {
+      res.status(409).json({ error: 'Job belum selesai divalidasi atau sudah diproses.' });
+      return;
+    }
+    jobData.revision = Number(jobData.revision || 1) + 1;
     const ids = new Set((row_ids || []) as string[]);
     jobData.rows = jobData.rows.filter((row: any) => {
       if (delete_errors && row.status === 'error') return false;
@@ -669,19 +703,35 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
     const customer_id = req.user?.id;
     const job_id = req.body.job_id as string;
 
-    const jobDataString = await redis.get(job_id);
-    if (!jobDataString) {
+    const jobData = await getOwnedBulkJob(job_id, customer_id);
+    if (!jobData) {
       res.status(404).json({ error: 'Job not found or expired' });
       return;
     }
 
-    const jobData = JSON.parse(jobDataString);
+    if (jobData.status === 'processed' && jobData.process_result) {
+      res.status(200).json(jobData.process_result);
+      return;
+    }
+    if (jobData.status !== 'completed') {
+      res.status(409).json({ error: 'Job belum selesai divalidasi.' });
+      return;
+    }
+    const requestedRevision = Number(req.body.job_revision || 0);
+    if (!requestedRevision || requestedRevision !== Number(jobData.revision || 1)) {
+      res.status(409).json({ error: 'Data bulk berubah. Muat ulang review sebelum memproses pembayaran.' });
+      return;
+    }
+
     const validRows = jobData.rows.filter((r: any) => r.status === 'valid');
 
     if (validRows.length === 0) {
       res.status(400).json({ error: 'No valid rows to process' });
       return;
     }
+
+    jobData.status = 'processing_orders';
+    await redis.set(job_id, JSON.stringify(jobData), 'EX', 3600);
 
     await client.query('BEGIN');
 
@@ -834,18 +884,35 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
     }
 
     await client.query('COMMIT');
-    await redis.del(job_id);
 
-    res.status(201).json({
+    const processResult = {
       success: true,
       processed_count: validRows.length,
       total_amount_idr: totalAmount,
-      message: 'Payment Links generated successfully and WhatsApp sent to consignees.',
-      payment: null
-    });
+      order_ids: createdOrders.map((order: any) => order.id),
+      order_numbers: createdOrders.map((order: any) => order.order_number),
+      job_id,
+      job_revision: Number(jobData.revision || 1),
+      message: 'Payment links berhasil dibuat untuk order yang tersimpan.',
+      payment: null,
+    };
+    await redis.set(job_id, JSON.stringify({
+      ...jobData,
+      status: 'processed',
+      process_result: processResult,
+      processed_order_ids: processResult.order_ids,
+    }), 'EX', 3600);
+
+    res.status(201).json(processResult);
 
   } catch (error: any) {
     await client.query('ROLLBACK');
+    const customer_id = req.user?.id;
+    const job_id = req.body.job_id as string;
+    const jobData = await getOwnedBulkJob(job_id, customer_id).catch(() => null);
+    if (jobData) {
+      await redis.set(job_id, JSON.stringify({ ...jobData, status: 'completed' }), 'EX', 3600);
+    }
     res.status(500).json({ error: error.message });
   } finally {
     client.release();

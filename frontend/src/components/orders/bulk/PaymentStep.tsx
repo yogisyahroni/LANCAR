@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, Loader2, Package, RefreshCw } from 'lucide-react';
@@ -11,7 +11,7 @@ interface PaymentStepProps {
   onComplete: () => void;
 }
 
-type PaymentStatus = 'idle' | 'creating' | 'opening_snap' | 'pending_payment' | 'paid' | 'error';
+type PaymentStatus = 'idle' | 'creating' | 'opening_snap' | 'pending_payment' | 'processed' | 'error';
 
 declare global {
   interface Window {
@@ -53,8 +53,10 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
 
   const formatCurrency = (value: number) => `Rp ${value.toLocaleString('id-ID')}`;
 
-  const completePayment = () => {
-    setPaymentStatus('paid');
+  const processKeyRef = useRef<string>('');
+
+  const completeProcessing = () => {
+    setPaymentStatus('processed');
     onComplete();
     setTimeout(() => router.push('/orders'), 1600);
   };
@@ -72,7 +74,7 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
     }
 
     window.snap.pay(snapPayment.snap_token, {
-      onSuccess: () => completePayment(),
+      onSuccess: () => setPaymentStatus('pending_payment'),
       onPending: () => setPaymentStatus('pending_payment'),
       onError: () => {
         setPaymentStatus('error');
@@ -87,10 +89,21 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
     setError(null);
 
     try {
-      const res = await api.post('/auth/web/orders/bulk/process', { job_id: jobId });
+      if (!processKeyRef.current) {
+        processKeyRef.current = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `bulk-process-${Date.now()}`;
+      }
+      const res = await api.post('/auth/web/orders/bulk/process', {
+        job_id: jobId,
+        job_revision: Number(data.revision || 1),
+      }, { headers: { 'X-Idempotency-Key': processKeyRef.current } });
+      if (res.data?.success !== true || !Array.isArray(res.data?.order_ids) || res.data.order_ids.length === 0) {
+        throw new Error('Server belum mengonfirmasi order bulk tersimpan.');
+      }
       const snapPayment = res.data.payment;
       if (!snapPayment) {
-        completePayment();
+        completeProcessing();
         return;
       }
       setPayment(snapPayment);
@@ -113,15 +126,15 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
     }
   };
 
-  if (paymentStatus === 'paid') {
+  if (paymentStatus === 'processed') {
     return (
       <div className="flex flex-col items-center justify-center py-16 animate-in zoom-in duration-500">
         <div className="w-20 h-20 bg-brand-emerald-500/20 rounded-full flex items-center justify-center mb-6">
           <CheckCircle2 className="w-10 h-10 text-brand-emerald-500" />
         </div>
-        <h2 className="text-2xl font-bold text-brand-emerald-500 mb-2">Pembayaran Berhasil!</h2>
+        <h2 className="text-2xl font-bold text-brand-emerald-500 mb-2">Order Massal Tersimpan</h2>
         <p className="text-muted-foreground text-center max-w-md">
-          {totalOrders} pesanan sudah dibuat dan masuk antrean dispatch. Mengalihkan ke riwayat pesanan...
+          {totalOrders} pesanan sudah dibuat dan payment link dikirim sesuai response server. Mengalihkan ke riwayat pesanan...
         </p>
       </div>
     );
