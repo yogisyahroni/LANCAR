@@ -9,7 +9,7 @@ import (
 	"tembus/integration-gateway/internal/domain"
 )
 
-type jneWebhookAdapter struct{}
+type jneWebhookAdapter struct{ mapper RuntimeStatusMapper }
 
 type jneWebhookPayload struct {
 	AWB      string `json:"cnote_no"`
@@ -34,11 +34,12 @@ func (a jneWebhookAdapter) Normalize(body []byte) (domain.CarrierEvent, error) {
 	if strings.TrimSpace(payload.AWB) == "" {
 		return domain.CarrierEvent{}, fmt.Errorf("could not extract AWB number from %s webhook payload", a.ProviderCode())
 	}
+	canonicalStatus := a.mapper.Normalize("jne", payload.Status, payload.Code)
 	return domain.CarrierEvent{
 		Provider:          "JNE",
 		AWBNumber:         payload.AWB,
-		Status:            normalizeCarrierStatusForProvider("jne", payload.Status, payload.Code),
-		CanonicalStatus:   normalizeCarrierStatusForProvider("jne", payload.Status, payload.Code),
+		Status:            canonicalStatus,
+		CanonicalStatus:   canonicalStatus,
 		ProviderStatus:    payload.Status,
 		ProviderCode:      payload.Code,
 		ProviderDetail:    payload.Status,

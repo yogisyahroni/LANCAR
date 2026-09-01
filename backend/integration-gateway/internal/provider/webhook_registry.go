@@ -14,9 +14,14 @@ type webhookAdapterRegistry struct {
 }
 
 func NewWebhookAdapterRegistry() domain.WebhookAdapterRegistry {
+	mapper, err := RuntimeStatusMapperFromEnv()
+	if err != nil {
+		fmt.Printf("[integration-gateway] invalid runtime status mapping: %v\n", err)
+		mapper = RuntimeStatusMapper{mappings: make(map[string]map[string]string)}
+	}
 	return &webhookAdapterRegistry{adapters: map[string]domain.WebhookAdapter{
-		"jne": jneWebhookAdapter{},
-		"jnt": jntWebhookAdapter{},
+		"jne": jneWebhookAdapter{mapper: mapper},
+		"jnt": jntWebhookAdapter{mapper: mapper},
 	}}
 }
 
@@ -25,10 +30,14 @@ func (r *webhookAdapterRegistry) Get(provider string) (domain.WebhookAdapter, bo
 	return adapter, ok
 }
 
-type genericWebhookAdapter struct{ code string }
+type genericWebhookAdapter struct {
+	code   string
+	mapper RuntimeStatusMapper
+}
 
 func NewGenericWebhookAdapter(provider string) domain.WebhookAdapter {
-	return genericWebhookAdapter{code: strings.ToLower(strings.TrimSpace(provider))}
+	mapper, _ := RuntimeStatusMapperFromEnv()
+	return genericWebhookAdapter{code: strings.ToLower(strings.TrimSpace(provider)), mapper: mapper}
 }
 
 func (a genericWebhookAdapter) ProviderCode() string { return a.code }
@@ -49,7 +58,7 @@ func (a genericWebhookAdapter) Normalize(body []byte) (domain.CarrierEvent, erro
 	if value, ok := payload["status"].(string); ok {
 		event.RawStatus = value
 		event.ProviderStatus = value
-		event.Status = normalizeCarrierStatusForProvider(a.code, value, "")
+		event.Status = a.mapper.Normalize(a.code, value, "")
 		event.CanonicalStatus = event.Status
 	}
 	if value, ok := payload["status_code"].(string); ok {
