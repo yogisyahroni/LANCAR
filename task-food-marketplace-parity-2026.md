@@ -1299,9 +1299,10 @@ Existing shared files:
 - [ ] Android device/staging offer verification with live capability and service data recorded.
 
 ## UX-2026-004 — Notification/deep-link consistency [P1]
-- [ ] Push includes service/order/target/event version.
-- [ ] Stale push cannot regress UI.
-- [ ] Deep link always snapshot-reconciles.
+- [x] Push includes service/order/target/event version.
+- [x] Stale push cannot regress UI.
+- [x] Deep link always snapshot-reconciles.
+- [ ] FCM/WebSocket/device runtime verification with real versioned events recorded.
 
 ---
 
