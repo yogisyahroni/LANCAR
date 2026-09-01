@@ -978,11 +978,12 @@ Existing shared files:
 - `backend/order-service/internal/handler/aggregator_claim_handler.go`
 
 **Checklist**
-- [ ] COD shown only when selected provider/service supports it.
-- [ ] Return-to-sender lifecycle follows provider status/policy and records fee owner.
+- [x] COD shown only when selected provider/service supports it.
+- [x] Return-to-sender lifecycle follows provider status/policy and records fee owner.
 - [x] Lost/damaged claim references carrier, AWB, item value, insurance, provider liability, evidence, claim reference/status.
 - [x] Customer compensation/refund and provider reimbursement never double-credit ledger.
-- [ ] LANCAR does not impose one global retry/return SLA across all carriers unless contractually configured per provider.
+- [x] LANCAR does not impose one global retry/return SLA across all carriers unless contractually configured per provider.
+- [ ] Authenticated staging/provider finance reconciliation verifies COD gating, return policy, and claim settlement end to end.
 
 ---
 
