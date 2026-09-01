@@ -69,6 +69,13 @@ type TariffRequest struct {
 	DestinationCode string  `json:"destination_code"`
 	WeightKG        float64 `json:"weight_kg"`
 	ServiceType     string  `json:"service_type"` // e.g., REG, YES, EZ
+	LengthCM        float64 `json:"length_cm,omitempty"`
+	WidthCM         float64 `json:"width_cm,omitempty"`
+	HeightCM        float64 `json:"height_cm,omitempty"`
+	ItemValueIDR    int64   `json:"item_value_idr,omitempty"`
+	Category        string  `json:"category,omitempty"`
+	Insurance       bool    `json:"insurance,omitempty"`
+	COD             bool    `json:"cod,omitempty"`
 }
 
 type TariffResponse struct {
@@ -79,8 +86,9 @@ type TariffResponse struct {
 type TariffServiceOption struct {
 	ServiceCode   string `json:"service_code"`
 	ServiceName   string `json:"service_name"`
-	TariffGross   int64  `json:"tariff_gross"`   // Harga kotor dari provider (dalam IDR)
+	TariffGross   int64  `json:"tariff_gross"` // Harga kotor dari provider (dalam IDR)
 	EstimatedDays string `json:"estimated_days"`
+	ETASource     string `json:"eta_source,omitempty"`
 }
 
 type LogisticsOrderRequest struct {
@@ -104,12 +112,12 @@ type LogisticsOrderRequest struct {
 }
 
 type LogisticsOrderResponse struct {
-	ReferenceID string  `json:"reference_id"`
-	AWBNumber   string  `json:"awb_number"`
-	Provider    string  `json:"provider"`
-	ServiceType string  `json:"service_type"`
-	BookingCode string  `json:"booking_code"`
-	TotalAmount int64   `json:"total_amount"`
+	ReferenceID string `json:"reference_id"`
+	AWBNumber   string `json:"awb_number"`
+	Provider    string `json:"provider"`
+	ServiceType string `json:"service_type"`
+	BookingCode string `json:"booking_code"`
+	TotalAmount int64  `json:"total_amount"`
 }
 
 type TrackingResponse struct {

@@ -854,11 +854,12 @@ Existing shared files:
 - `backend/order-service/internal/service/aggregator_quote_service.go`
 - `backend/order-service/internal/service/aggregator_quote_service_test.go`
 
-- [ ] Rate input includes normalized origin/destination, chargeable weight, dimensions, value/category, insurance/COD flags as supported.
-- [ ] Persist provider code, native service code/name, optional normalized category, gross/net tariff, ETA/source, rule version, expiry.
-- [ ] Preserve native provider service codes such as JNE `REG/YES/...` or J&T equivalents.
-- [ ] Do not fabricate ETA. Remove hardcoded fallback such as generic `1-3 hari` unless it comes from explicit provider configuration with provenance.
-- [ ] Rate change after review returns requote.
+- [x] Rate input includes normalized origin/destination, chargeable weight, dimensions, value/category, insurance/COD flags as supported.
+- [x] Persist provider code, native service code/name, optional normalized category, gross/net tariff, ETA/source, rule version, expiry.
+- [x] Preserve native provider service codes such as JNE `REG/YES/...` or J&T equivalents.
+- [x] Do not fabricate ETA. Remove hardcoded fallback such as generic `1-3 hari` unless it comes from explicit provider configuration with provenance.
+- [x] Rate change after review returns requote.
+- [ ] Authenticated staging verification confirms carrier response, persisted snapshot, and expired/mismatched quote rejection.
 
 ---
 

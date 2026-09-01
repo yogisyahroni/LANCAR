@@ -44,6 +44,7 @@ type PaymentLink struct {
 	RecipientName        string    `json:"recipient_name,omitempty"`
 	LogisticsProvider    string    `json:"logistics_provider,omitempty"`
 	LogisticsServiceType string    `json:"logistics_service_type,omitempty"`
+	AggregatorQuoteID    string    `json:"aggregator_quote_id,omitempty"`
 	CreatedAt            time.Time `json:"created_at"`
 	UpdatedAt            time.Time `json:"updated_at"`
 	PaymentURL           string    `json:"payment_url,omitempty"`
@@ -90,6 +91,7 @@ type CreatePaymentLinkRequest struct {
 	// Validasi mode 3PL dilakukan di service layer.
 	LogisticsProvider    string `json:"logistics_provider,omitempty"`
 	LogisticsServiceType string `json:"logistics_service_type,omitempty"`
+	AggregatorQuoteID    string `json:"aggregator_quote_id,omitempty"`
 }
 
 // AWBRequest adalah request pembuatan AWB ke integration-gateway.
@@ -151,24 +153,76 @@ type CheckTariffRequest struct {
 	OriginCode      string  `json:"origin"`
 	DestinationCode string  `json:"destination"`
 	WeightKG        float64 `json:"weight"`
+	LengthCM        float64 `json:"length_cm,omitempty"`
+	WidthCM         float64 `json:"width_cm,omitempty"`
+	HeightCM        float64 `json:"height_cm,omitempty"`
+	ItemValueIDR    int64   `json:"item_value_idr,omitempty"`
+	Category        string  `json:"category,omitempty"`
+	Insurance       bool    `json:"insurance,omitempty"`
+	COD             bool    `json:"cod,omitempty"`
 }
 
 type CheckTariffResponse struct {
-	Provider string                `json:"provider"`
-	Origin   string                `json:"origin"`
-	Dest     string                `json:"destination"`
-	Weight   float64               `json:"weight"`
-	Services []TariffServiceOption `json:"services"`
+	Provider         string                `json:"provider"`
+	Origin           string                `json:"origin"`
+	Dest             string                `json:"destination"`
+	Weight           float64               `json:"weight"`
+	ChargeableWeight float64               `json:"chargeable_weight_kg"`
+	QuoteID          string                `json:"quote_id,omitempty"`
+	RuleVersion      string                `json:"rule_version,omitempty"`
+	ExpiresAt        time.Time             `json:"expires_at,omitempty"`
+	Services         []TariffServiceOption `json:"services"`
 }
 
 type TariffServiceOption struct {
-	ServiceCode string  `json:"service_code"`
-	ServiceName string  `json:"service_name"`
-	TariffGross int64   `json:"tariff_gross"`
-	TariffNet   int64   `json:"tariff_net"`
-	DiscountPct float64 `json:"discount_pct"`
-	MarkupPct   float64 `json:"markup_pct"`
-	ETD         string  `json:"etd"`
+	ServiceCode       string  `json:"service_code"`
+	ServiceName       string  `json:"service_name"`
+	TariffGross       int64   `json:"tariff_gross"`
+	TariffNet         int64   `json:"tariff_net"`
+	DiscountPct       float64 `json:"discount_pct"`
+	MarkupPct         float64 `json:"markup_pct"`
+	ETD               string  `json:"etd"`
+	ETDSource         string  `json:"etd_source,omitempty"`
+	QuoteID           string  `json:"quote_id,omitempty"`
+	CustomerTariffIDR int64   `json:"customer_tariff_idr,omitempty"`
+}
+
+// AggregatorRateQuote is the immutable, server-owned rate snapshot selected
+// by a merchant. It is deliberately separate from the mutable order payload
+// so a later create request cannot change the amount after review.
+type AggregatorRateQuote struct {
+	ID                 string    `json:"id"`
+	ProviderCode       string    `json:"provider_code"`
+	OriginCode         string    `json:"origin_code"`
+	DestinationCode    string    `json:"destination_code"`
+	ChargeableWeightKG float64   `json:"chargeable_weight_kg"`
+	LengthCM           float64   `json:"length_cm,omitempty"`
+	WidthCM            float64   `json:"width_cm,omitempty"`
+	HeightCM           float64   `json:"height_cm,omitempty"`
+	ItemValueIDR       int64     `json:"item_value_idr,omitempty"`
+	Category           string    `json:"category,omitempty"`
+	Insurance          bool      `json:"insurance"`
+	COD                bool      `json:"cod"`
+	ServiceCode        string    `json:"service_code"`
+	ServiceName        string    `json:"service_name"`
+	NormalizedCategory string    `json:"normalized_category,omitempty"`
+	TariffGrossIDR     int64     `json:"tariff_gross_idr"`
+	TariffNetIDR       int64     `json:"tariff_net_idr"`
+	CustomerTariffIDR  int64     `json:"customer_tariff_idr"`
+	ETA                string    `json:"eta,omitempty"`
+	ETASource          string    `json:"eta_source,omitempty"`
+	RuleVersion        string    `json:"rule_version"`
+	ExpiresAt          time.Time `json:"expires_at"`
+	CreatedAt          time.Time `json:"created_at"`
+}
+
+type AggregatorRateQuoteRepository interface {
+	Create(ctx context.Context, quote *AggregatorRateQuote) error
+	GetValid(ctx context.Context, id string, now time.Time) (*AggregatorRateQuote, error)
+}
+
+type AggregatorRateQuoteService interface {
+	Quote(ctx context.Context, req CheckTariffRequest) (*CheckTariffResponse, error)
 }
 
 type PaymentLinkCheckoutResponse struct {

@@ -420,6 +420,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
         service_code: selectedTariff.service_code,
         provider_code: selectedTariff.provider_code,
         delivery_fee_amount: selectedTariff.price,
+        aggregator_quote_id: selectedTariff.quote_id,
       });
 
     } catch (err: any) {

@@ -20,6 +20,7 @@ type paymentLinkServiceImpl struct {
 	notificationSvc domain.NotificationService
 	awbClient       domain.AWBClient
 	configRepo      domain.ConfigRepository
+	quoteRepo       domain.AggregatorRateQuoteRepository
 }
 
 func NewPaymentLinkService(
@@ -31,7 +32,12 @@ func NewPaymentLinkService(
 	notificationSvc domain.NotificationService,
 	awbClient domain.AWBClient,
 	configRepo domain.ConfigRepository,
+	quoteRepos ...domain.AggregatorRateQuoteRepository,
 ) domain.PaymentLinkService {
+	var quoteRepo domain.AggregatorRateQuoteRepository
+	if len(quoteRepos) > 0 {
+		quoteRepo = quoteRepos[0]
+	}
 	return &paymentLinkServiceImpl{
 		repo:            repo,
 		pricingSvc:      pricingSvc,
@@ -41,7 +47,103 @@ func NewPaymentLinkService(
 		notificationSvc: notificationSvc,
 		awbClient:       awbClient,
 		configRepo:      configRepo,
+		quoteRepo:       quoteRepo,
 	}
+}
+
+const aggregatorRateRuleVersion = "2026-09-01"
+
+func normalizeAggregatorCategory(category string) string {
+	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(category)), "-"))
+}
+
+func chargeableWeightKg(actual, length, width, height float64) float64 {
+	chargeable := actual
+	if length > 0 && width > 0 && height > 0 {
+		volumetric := (length * width * height) / 6000.0
+		if volumetric > chargeable {
+			chargeable = volumetric
+		}
+	}
+	return chargeable
+}
+
+// Quote obtains provider rates once and stores one immutable snapshot per
+// native service. The returned quote IDs are the only identifiers accepted by
+// a later create request, which makes review-to-create price changes visible.
+func (s *paymentLinkServiceImpl) Quote(ctx context.Context, req domain.CheckTariffRequest) (*domain.CheckTariffResponse, error) {
+	if s.awbClient == nil {
+		return nil, fmt.Errorf("logistics integration is not available")
+	}
+	req.Provider = strings.ToLower(strings.TrimSpace(req.Provider))
+	req.OriginCode = strings.TrimSpace(req.OriginCode)
+	req.DestinationCode = strings.TrimSpace(req.DestinationCode)
+	if req.Provider == "" || req.OriginCode == "" || req.DestinationCode == "" || req.WeightKG <= 0 {
+		return nil, fmt.Errorf("provider, origin, destination, and positive weight are required")
+	}
+
+	chargeableWeight := chargeableWeightKg(req.WeightKG, req.LengthCM, req.WidthCM, req.HeightCM)
+	req.WeightKG = chargeableWeight
+	providerResp, err := s.awbClient.CheckTariff(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check tariff from provider: %w", err)
+	}
+	if len(providerResp.Services) == 0 {
+		return nil, fmt.Errorf("provider returned no services")
+	}
+
+	discountPct, markupPct, configErr := s.orderRepo.GetLogisticsProviderConfig(ctx, req.Provider)
+	if configErr != nil {
+		discountPct, markupPct = 0, 0
+	}
+	expiresAt := time.Now().Add(time.Duration(s.configRepo.GetIntConfig(ctx, "aggregator_rate_quote_ttl_seconds", 300)) * time.Second)
+	response := &domain.CheckTariffResponse{
+		Provider:         providerResp.Provider,
+		Origin:           req.OriginCode,
+		Dest:             req.DestinationCode,
+		Weight:           req.WeightKG,
+		ChargeableWeight: chargeableWeight,
+		RuleVersion:      aggregatorRateRuleVersion,
+		ExpiresAt:        expiresAt,
+	}
+	for _, service := range providerResp.Services {
+		if service.ServiceCode == "" || service.TariffGross <= 0 {
+			continue
+		}
+		tariffNet := int64(float64(service.TariffGross) * (1.0 - (discountPct / 100.0)))
+		customerTariff := int64(float64(tariffNet) * (1.0 + (markupPct / 100.0)))
+		if tariffNet <= 0 || customerTariff <= 0 {
+			continue
+		}
+		quote := &domain.AggregatorRateQuote{
+			ID: uuid.New().String(), ProviderCode: req.Provider, OriginCode: req.OriginCode,
+			DestinationCode: req.DestinationCode, ChargeableWeightKG: chargeableWeight,
+			LengthCM: req.LengthCM, WidthCM: req.WidthCM, HeightCM: req.HeightCM,
+			ItemValueIDR: req.ItemValueIDR, Category: strings.TrimSpace(req.Category),
+			Insurance: req.Insurance, COD: req.COD, ServiceCode: service.ServiceCode,
+			ServiceName: service.ServiceName, TariffGrossIDR: service.TariffGross,
+			TariffNetIDR: tariffNet, CustomerTariffIDR: customerTariff,
+			NormalizedCategory: normalizeAggregatorCategory(req.Category),
+			ETA: service.ETD, ETASource: service.ETDSource, RuleVersion: aggregatorRateRuleVersion,
+			ExpiresAt: expiresAt, CreatedAt: time.Now(),
+		}
+		if s.quoteRepo == nil {
+			return nil, fmt.Errorf("aggregator rate quote repository is not configured")
+		}
+		if err := s.quoteRepo.Create(ctx, quote); err != nil {
+			return nil, err
+		}
+		response.Services = append(response.Services, domain.TariffServiceOption{
+			ServiceCode: service.ServiceCode, ServiceName: service.ServiceName,
+			TariffGross: service.TariffGross, TariffNet: tariffNet,
+			DiscountPct: discountPct, MarkupPct: markupPct, ETD: service.ETD,
+			ETDSource: service.ETDSource, QuoteID: quote.ID, CustomerTariffIDR: customerTariff,
+		})
+	}
+	if len(response.Services) == 0 {
+		return nil, fmt.Errorf("provider returned no valid services")
+	}
+	return response, nil
 }
 
 func (s *paymentLinkServiceImpl) ListProviders(ctx context.Context) ([]domain.LogisticsProviderDescriptor, error) {
@@ -73,45 +175,22 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 	var deliveryFee int64
 
 	if req.LogisticsProvider != "" {
-		// Use 3PL
-		awbOriginCode := s.configRepo.GetStringConfig(ctx, "awb_origin_code", "")
-		awbDestCode := s.configRepo.GetStringConfig(ctx, "awb_destination_code", "")
-		defaultWeight := s.configRepo.GetFloatConfig(ctx, "payment_link_default_weight_kg", 1.0)
-		tariffReq := domain.CheckTariffRequest{
-			Provider:        req.LogisticsProvider,
-			OriginCode:      awbOriginCode,
-			DestinationCode: awbDestCode,
-			WeightKG:        defaultWeight,
+		if req.AggregatorQuoteID == "" {
+			return nil, fmt.Errorf("aggregator_quote_id is required for 3PL payment links; request a fresh tariff quote")
 		}
-
-		tariffResp, err := s.awbClient.CheckTariff(ctx, tariffReq)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check 3PL tariff: %w", err)
+		var quote *domain.AggregatorRateQuote
+		if s.quoteRepo == nil {
+			return nil, fmt.Errorf("aggregator rate quote repository is not configured")
 		}
-
-		// Calculate tariff user
-		var selectedGross int64
-		for _, srv := range tariffResp.Services {
-			if srv.ServiceCode == req.LogisticsServiceType {
-				selectedGross = srv.TariffGross
-				break
-			}
+		var quoteErr error
+		quote, quoteErr = s.quoteRepo.GetValid(ctx, req.AggregatorQuoteID, time.Now())
+		if quoteErr != nil {
+			return nil, fmt.Errorf("failed to load aggregator rate quote: %w", quoteErr)
 		}
-
-		if selectedGross == 0 {
-			return nil, fmt.Errorf("selected service type %s not available", req.LogisticsServiceType)
+		if quote == nil || quote.ProviderCode != req.LogisticsProvider || quote.ServiceCode != req.LogisticsServiceType {
+			return nil, fmt.Errorf("aggregator rate quote is missing, expired, or does not match selected service")
 		}
-
-		discountPct, markupPct, err := s.orderRepo.GetLogisticsProviderConfig(ctx, req.LogisticsProvider)
-		if err != nil {
-			discountPct = 0
-			markupPct = 0
-		}
-
-		tariffNett := float64(selectedGross) * (1.0 - (discountPct / 100.0))
-		tariffUser := tariffNett * (1.0 + (markupPct / 100.0))
-
-		deliveryFee = int64(tariffUser)
+		deliveryFee = quote.CustomerTariffIDR
 		estimateID = "" // Not using internal pricing EstimateID
 	} else {
 		// Use internal pricing
@@ -159,6 +238,7 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 		ServiceCode:          req.ServiceCode,
 		LogisticsProvider:    req.LogisticsProvider,
 		LogisticsServiceType: req.LogisticsServiceType,
+		AggregatorQuoteID:    req.AggregatorQuoteID,
 		StoreName:            req.StoreName,
 		RecipientPhone:       req.RecipientPhone,
 		RecipientName:        req.RecipientName,
@@ -355,10 +435,22 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 		// Calculate tariff_net and tariff_user for order creation
 		var tariffNet, tariffUser int64
 		if link.LogisticsProvider != "" {
-			_, markupPct, _ := s.orderRepo.GetLogisticsProviderConfig(ctx, link.LogisticsProvider)
-			tariffUser = link.DeliveryFeeAmount
-			// Deduce tariffNet based on tariffUser
-			tariffNet = int64(float64(tariffUser) / (1.0 + (markupPct / 100.0)))
+			if s.quoteRepo != nil && link.AggregatorQuoteID != "" {
+				quote, quoteErr := s.quoteRepo.GetValid(ctx, link.AggregatorQuoteID, time.Now())
+				if quoteErr != nil {
+					return fmt.Errorf("failed to load aggregator rate quote for checkout: %w", quoteErr)
+				}
+				if quote == nil || quote.ProviderCode != link.LogisticsProvider || quote.ServiceCode != link.LogisticsServiceType {
+					return fmt.Errorf("aggregator rate quote expired or does not match payment link")
+				}
+				tariffUser = quote.CustomerTariffIDR
+				tariffNet = quote.TariffNetIDR
+			} else {
+				_, markupPct, _ := s.orderRepo.GetLogisticsProviderConfig(ctx, link.LogisticsProvider)
+				tariffUser = link.DeliveryFeeAmount
+				// Legacy links without a snapshot retain their stored amount.
+				tariffNet = int64(float64(tariffUser) / (1.0 + (markupPct / 100.0)))
+			}
 		}
 
 		orderReq := domain.CreateOrderRequest{
@@ -513,10 +605,6 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 }
 
 func (s *paymentLinkServiceImpl) CheckTariff(ctx context.Context, provider, origin, dest string, weight float64) (*domain.CheckTariffResponse, error) {
-	if s.awbClient == nil {
-		return nil, fmt.Errorf("logistics integration is not available")
-	}
-
 	if origin == "" {
 		origin = s.configRepo.GetStringConfig(ctx, "awb_origin_code", "")
 	}
@@ -531,22 +619,7 @@ func (s *paymentLinkServiceImpl) CheckTariff(ctx context.Context, provider, orig
 		WeightKG:        weight,
 	}
 
-	resp, err := s.awbClient.CheckTariff(ctx, tariffReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check tariff from provider: %w", err)
-	}
-
-	// Apply markup
-	discountPct, markupPct, err := s.orderRepo.GetLogisticsProviderConfig(ctx, provider)
-	if err == nil {
-		for i, srv := range resp.Services {
-			tariffNett := float64(srv.TariffGross) * (1.0 - (discountPct / 100.0))
-			tariffUser := tariffNett * (1.0 + (markupPct / 100.0))
-			resp.Services[i].TariffGross = int64(tariffUser) // Modify gross to show to user
-		}
-	}
-
-	return resp, nil
+	return s.Quote(ctx, tariffReq)
 }
 
 func (s *paymentLinkServiceImpl) AutoExpireLinks(ctx context.Context) error {

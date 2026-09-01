@@ -8,7 +8,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"tembus/order-service/internal/domain"
@@ -233,8 +235,29 @@ func (c *IntegrationGatewayClient) SendWhatsApp(ctx context.Context, to, message
 func (c *IntegrationGatewayClient) CheckTariff(ctx context.Context, req domain.CheckTariffRequest) (*domain.CheckTariffResponse, error) {
 	// Query params harus sesuai dengan logistics_handler.go:
 	// handler menggunakan: provider, origin, destination, weight
-	tariffURL := fmt.Sprintf("%s/api/internal/logistics/tariff?provider=%s&origin=%s&destination=%s&weight=%.2f",
-		c.baseURL, req.Provider, req.OriginCode, req.DestinationCode, req.WeightKG)
+	query := url.Values{}
+	query.Set("provider", req.Provider)
+	query.Set("origin", req.OriginCode)
+	query.Set("destination", req.DestinationCode)
+	query.Set("weight", strconv.FormatFloat(req.WeightKG, 'f', 3, 64))
+	if req.LengthCM > 0 {
+		query.Set("length_cm", strconv.FormatFloat(req.LengthCM, 'f', 2, 64))
+	}
+	if req.WidthCM > 0 {
+		query.Set("width_cm", strconv.FormatFloat(req.WidthCM, 'f', 2, 64))
+	}
+	if req.HeightCM > 0 {
+		query.Set("height_cm", strconv.FormatFloat(req.HeightCM, 'f', 2, 64))
+	}
+	if req.ItemValueIDR > 0 {
+		query.Set("item_value_idr", strconv.FormatInt(req.ItemValueIDR, 10))
+	}
+	if req.Category != "" {
+		query.Set("category", req.Category)
+	}
+	query.Set("insurance", strconv.FormatBool(req.Insurance))
+	query.Set("cod", strconv.FormatBool(req.COD))
+	tariffURL := c.baseURL + "/api/internal/logistics/tariff?" + query.Encode()
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, tariffURL, nil)
 	if err != nil {
@@ -273,6 +296,7 @@ func (c *IntegrationGatewayClient) CheckTariff(ctx context.Context, req domain.C
 				ServiceName   string `json:"service_name"`
 				TariffGross   int64  `json:"tariff_gross"` // ← field name setelah fix domain
 				EstimatedDays string `json:"estimated_days"`
+				ETASource     string `json:"eta_source"`
 			} `json:"services"`
 		} `json:"data"`
 	}
@@ -298,6 +322,7 @@ func (c *IntegrationGatewayClient) CheckTariff(ctx context.Context, req domain.C
 			ServiceName: svc.ServiceName,
 			TariffGross: svc.TariffGross, // int64 sudah sesuai
 			ETD:         svc.EstimatedDays,
+			ETDSource:   svc.ETASource,
 		})
 	}
 

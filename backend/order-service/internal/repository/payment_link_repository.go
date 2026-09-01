@@ -24,14 +24,15 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 			status, expired_at, estimate_id, pickup_address, pickup_city, pickup_zip_code, pickup_lat, pickup_lng,
 			delivery_fee_amount, service_code, order_id, recipient_phone, recipient_name,
 			logistics_provider, logistics_service_type,
+			aggregator_quote_id,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, 
 			$6, $7, $8, $9, $10, $11, 
 			$12, $13, $14, $15, $16, $17, $18, $19,
 			$20, $21, $22, $23, $24,
-			$25, $26,
-			$27, $28
+			$25, $26, $27,
+			$28, $29
 		)
 	`
 	_, err := r.db.ExecContext(ctx, query,
@@ -40,6 +41,7 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 		link.Status, link.ExpiredAt, link.EstimateID, link.PickupAddress, link.PickupCity, link.PickupZipCode, link.PickupLat, link.PickupLng,
 		link.DeliveryFeeAmount, link.ServiceCode, link.OrderID, link.RecipientPhone, link.RecipientName,
 		link.LogisticsProvider, link.LogisticsServiceType,
+		link.AggregatorQuoteID,
 		link.CreatedAt, link.UpdatedAt,
 	)
 	if err != nil {
@@ -56,6 +58,7 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 		       pl.delivery_fee_amount, pl.service_code, pl.order_id,
 		       COALESCE(pl.recipient_phone, ''), COALESCE(pl.recipient_name, ''),
 		       COALESCE(pl.logistics_provider, ''), COALESCE(pl.logistics_service_type, ''),
+		       COALESCE(pl.aggregator_quote_id::text, ''),
 		       pl.created_at, pl.updated_at, u.store_name
 		FROM payment_links pl
 		LEFT JOIN users u ON pl.merchant_id = u.id
@@ -73,6 +76,7 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 	var serviceCode sql.NullString
 	var orderID sql.NullString
 	var storeName sql.NullString
+	var aggregatorQuoteID sql.NullString
 
 	err := row.Scan(
 		&link.ID, &link.MerchantID, &link.ItemName, &link.ItemPrice, &link.ItemImageURL,
@@ -80,7 +84,7 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 		&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupCity, &pickupZipCode, &pickupLat, &pickupLng,
 		&deliveryFee, &serviceCode, &orderID, &link.RecipientPhone, &link.RecipientName,
 		&link.LogisticsProvider, &link.LogisticsServiceType,
-		&link.CreatedAt, &link.UpdatedAt, &storeName,
+		&aggregatorQuoteID, &link.CreatedAt, &link.UpdatedAt, &storeName,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -90,6 +94,7 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 	}
 
 	link.EstimateID = estimateID.String
+	link.AggregatorQuoteID = aggregatorQuoteID.String
 	link.PickupAddress = pickupAddress.String
 	link.PickupLat = pickupLat.Float64
 	link.PickupLng = pickupLng.Float64
@@ -135,20 +140,20 @@ func (r *paymentLinkRepositoryImpl) AtomicMarkPaid(ctx context.Context, id strin
 	return true, nil // Berhasil diupdate dari PENDING → PAID
 }
 
-
 func (r *paymentLinkRepositoryImpl) UpdateOrderID(ctx context.Context, id string, orderID string) error {
 	query := `UPDATE payment_links SET order_id = $1, updated_at = NOW() WHERE id = $2`
 	_, err := r.db.ExecContext(ctx, query, orderID, id)
 	return err
 }
 
-	func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.PaymentLink, error) {
+func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.PaymentLink, error) {
 	query := `
 		SELECT id, merchant_id, item_name, item_price, item_image_url, 
 		       merchant_fee_amount, dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''), dropoff_lat, dropoff_lng, 
 		       status, expired_at, deleted_at, estimate_id, pickup_address, COALESCE(pickup_city, ''), COALESCE(pickup_zip_code, ''), pickup_lat, pickup_lng,
 		       delivery_fee_amount, service_code, order_id,
 		       COALESCE(logistics_provider, ''), COALESCE(logistics_service_type, ''),
+		       COALESCE(aggregator_quote_id::text, ''),
 		       created_at, updated_at
 		FROM payment_links
 		WHERE merchant_id = $1 AND deleted_at IS NULL
@@ -180,7 +185,7 @@ func (r *paymentLinkRepositoryImpl) UpdateOrderID(ctx context.Context, id string
 			&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupCity, &pickupZipCode, &pickupLat, &pickupLng,
 			&deliveryFee, &serviceCode, &orderID,
 			&link.LogisticsProvider, &link.LogisticsServiceType,
-			&link.CreatedAt, &link.UpdatedAt,
+			&link.AggregatorQuoteID, &link.CreatedAt, &link.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

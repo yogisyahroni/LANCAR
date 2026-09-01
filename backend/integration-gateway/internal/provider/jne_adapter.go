@@ -106,12 +106,18 @@ func (p *JNEProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 	var services []domain.TariffServiceOption
 	for _, item := range jneResp.Price {
 		priceVal, _ := strconv.ParseFloat(item.Price, 64)
-		etd := fmt.Sprintf("%s-%s hari", item.EtdFrom, item.EtdThru)
+		etd := ""
+		etaSource := ""
+		if item.EtdFrom != "" && item.EtdThru != "" {
+			etd = fmt.Sprintf("%s-%s hari", item.EtdFrom, item.EtdThru)
+			etaSource = "provider"
+		}
 		services = append(services, domain.TariffServiceOption{
 			ServiceCode:   item.ServiceCode,
 			ServiceName:   item.ServiceDisplay,
 			TariffGross:   int64(priceVal), // Konversi float64 → int64 (IDR, tidak ada desimal)
 			EstimatedDays: etd,
+			ETASource:     etaSource,
 		})
 	}
 
@@ -192,10 +198,10 @@ func (p *JNEProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 
 	var jneResp struct {
 		Detail []struct {
-			CnoteNo  string `json:"cnote_no"`
-			Status   string `json:"status"`
-			Reason   string `json:"reason"`
-			Amount   string `json:"amount"`
+			CnoteNo string `json:"cnote_no"`
+			Status  string `json:"status"`
+			Reason  string `json:"reason"`
+			Amount  string `json:"amount"`
 		} `json:"detail"`
 	}
 
@@ -226,7 +232,7 @@ func (p *JNEProvider) TrackOrder(ctx context.Context, awb string) (*domain.Track
 	}
 
 	endpoint := fmt.Sprintf("%s/tracing/api/list/v1/cnote/%s", p.baseURL, awb)
-	
+
 	formData := url.Values{}
 	formData.Set("username", p.username)
 	formData.Set("api_key", p.apiKey)

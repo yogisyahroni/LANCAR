@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"testing"
 	"tembus/integration-gateway/internal/domain"
+	"testing"
 )
 
 func TestJNEProvider_CheckTariff(t *testing.T) {
@@ -109,5 +109,34 @@ func TestJNTProvider_CreateOrder(t *testing.T) {
 	}
 	if resp.TotalAmount != 20000 {
 		t.Errorf("Expected TotalAmount > 0, got %d", resp.TotalAmount)
+	}
+}
+
+func TestJNTProvider_CheckTariffDoesNotFabricateETA(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/jts-id-open-api/api/tariff/query" {
+			t.Errorf("expected tariff endpoint, got %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":"1","msg":"success","data":[{"productType":"EZ","price":"18000"}]}`))
+	}))
+	defer ts.Close()
+	t.Setenv("JNT_BASE_URL", ts.URL)
+	t.Setenv("JNT_API_ACCOUNT", "test_account")
+	t.Setenv("JNT_PRIVATE_KEY", "test_secret")
+	t.Setenv("JNT_CUSTOMER_CODE", "CUST_001")
+
+	provider := NewJNTProvider()
+	resp, err := provider.CheckTariff(context.Background(), domain.TariffRequest{
+		OriginCode: "CGK", DestinationCode: "BDO", WeightKG: 1,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(resp.Services) != 1 || resp.Services[0].ServiceCode != "EZ" {
+		t.Fatalf("expected native EZ service, got %#v", resp.Services)
+	}
+	if resp.Services[0].EstimatedDays != "" || resp.Services[0].ETASource != "" {
+		t.Fatalf("J&T ETA must stay empty without provider ETA, got %#v", resp.Services[0])
 	}
 }

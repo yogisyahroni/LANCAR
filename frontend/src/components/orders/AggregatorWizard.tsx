@@ -62,10 +62,14 @@ const step2Schema = z.object({
   payment_type: z.enum(["COD", "NON_COD"]).default("NON_COD"),
   item_value: z.number().min(0).default(0),
   weight_kg: z.number().min(0.1, "Berat minimal 0.1 kg"),
+  length_cm: z.number().min(0).default(0),
+  width_cm: z.number().min(0).default(0),
+  height_cm: z.number().min(0).default(0),
   quantity: z.number().min(1).default(1),
   item_description: z.string().min(3, "Isi parcel wajib diisi"),
   category: z.string().optional(),
   dangerous_goods: z.boolean().default(false),
+  insurance: z.boolean().default(false),
   delivery_notes: z.string().optional(),
 });
 
@@ -74,6 +78,7 @@ const step2Schema = z.object({
 const step3Schema = z.object({
   service_code: z.string().min(1, "Pilih layanan pengiriman"),
   tariff_idr: z.number(),
+  aggregator_quote_id: z.string().uuid("Quote tarif tidak valid"),
 });
 
 type Step1Values = z.infer<typeof step1Schema>;
@@ -182,12 +187,17 @@ export function AggregatorWizard() {
       payment_type: "NON_COD",
       item_value: 0,
       weight_kg: 1,
+      length_cm: 10,
+      width_cm: 10,
+      height_cm: 10,
       quantity: 1,
       item_description: "",
       category: "",
       dangerous_goods: false,
+      insurance: false,
       delivery_notes: "",
       vehicle_type: "Motor",
+      aggregator_quote_id: "",
     },
     mode: "onChange",
   });
@@ -199,6 +209,11 @@ export function AggregatorWizard() {
   const scheduleType = watch("schedule_type");
   const pickup_address = watch("pickup_address");
   const pickup_location = watch("pickup_location");
+  const rateInputKey = JSON.stringify([
+    watch("provider"), watch("origin_code"), watch("destination_code"), watch("weight_kg"),
+    watch("length_cm"), watch("width_cm"), watch("height_cm"), watch("item_value"),
+    watch("category"), watch("insurance"), watch("payment_type"),
+  ]);
 
 
   // Load tariffs when entering Step 3
@@ -223,6 +238,13 @@ export function AggregatorWizard() {
             origin_code: values.origin_code,
             destination_code: values.destination_code,
             weight_kg: values.weight_kg,
+            length_cm: values.length_cm,
+            width_cm: values.width_cm,
+            height_cm: values.height_cm,
+            item_value_idr: values.item_value,
+            category: values.category,
+            insurance: values.insurance,
+            cod: values.payment_type === "COD",
           } as any,
         });
         
@@ -232,9 +254,11 @@ export function AggregatorWizard() {
         const allTariffs = items.map((item: any) => ({
           service: item.service_code || item.service || "reg",
           service_name: item.service_name || item.service || "Reguler",
-          price: Number(item.tariff_gross || item.price || item.total_price_idr || 0),
+          price: Number(item.customer_tariff_idr || item.tariff_gross || item.price || item.total_price_idr || 0),
           net_price: Number(item.tariff_net || 0),
           etd: item.etd || item.estimated_days || "",
+          etd_source: item.etd_source || item.eta_source || "",
+          quote_id: item.quote_id || "",
         }));
 
         allTariffs.sort((a, b) => a.price - b.price);
@@ -245,9 +269,10 @@ export function AggregatorWizard() {
         setTariffs(allTariffs);
         
         // Auto-select cheapest if available
-        if (allTariffs.length > 0 && !values.service_code) {
+        if (allTariffs.length > 0) {
            setValue("service_code", allTariffs[0].service);
            setValue("tariff_idr", allTariffs[0].price);
+           setValue("aggregator_quote_id", allTariffs[0].quote_id);
         }
       } catch (err: any) {
         setTariffError(err.response?.data?.error || err.response?.data?.message || "Gagal memuat tarif.");
@@ -257,7 +282,7 @@ export function AggregatorWizard() {
     };
 
     fetchTariffs();
-  }, [step, methods, setValue]);
+  }, [step, methods, setValue, rateInputKey]);
 
   const validateStep = async (stepNum: number): Promise<boolean> => {
     // ALWAYS clear stale errors from previous validation first
@@ -718,7 +743,7 @@ export function AggregatorWizard() {
                         </div>
                       </div>
 
-                      {/* 5. Berat + Jumlah */}
+                      {/* 5. Berat + Dimensi + Jumlah */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Berat (kg)</label>
@@ -744,6 +769,16 @@ export function AggregatorWizard() {
                         </div>
                       </div>
 
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Dimensi paket (cm)</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input {...register("length_cm", { valueAsNumber: true })} type="number" min="0" placeholder="Panjang" aria-label="Panjang paket (cm)" className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                          <input {...register("width_cm", { valueAsNumber: true })} type="number" min="0" placeholder="Lebar" aria-label="Lebar paket (cm)" className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                          <input {...register("height_cm", { valueAsNumber: true })} type="number" min="0" placeholder="Tinggi" aria-label="Tinggi paket (cm)" className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground/70">Berat tagih memakai nilai aktual atau volumetrik provider, mana yang lebih besar.</p>
+                      </div>
+
                       {/* 6. Isi Parcel */}
                       <div>
                         <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
@@ -766,6 +801,11 @@ export function AggregatorWizard() {
                         />
                         <span className="text-muted-foreground">Tandai Sebagai Barang Berbahaya</span>
                         <Info className="h-3.5 w-3.5 text-muted-foreground/60" />
+                      </label>
+
+                      <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                        <input type="checkbox" {...register("insurance")} className="h-4 w-4 rounded border-white/20 bg-background accent-indigo-500" />
+                        <span className="text-muted-foreground">Tambahkan asuransi (jika didukung provider)</span>
                       </label>
 
                       {/* 8. Instruksi Pengiriman */}
@@ -1014,6 +1054,7 @@ export function AggregatorWizard() {
                           onClick={() => {
                             setValue("service_code", tariff.service, { shouldValidate: true });
                             setValue("tariff_idr", tariff.price, { shouldValidate: true });
+                            setValue("aggregator_quote_id", tariff.quote_id, { shouldValidate: true });
                           }}
                           className={[
                             "relative rounded-xl border p-4 text-left transition-all",
@@ -1026,7 +1067,9 @@ export function AggregatorWizard() {
                             <p className="font-bold text-foreground">{tariff.service_name}</p>
                             {isSelected && <Check className="h-4 w-4 text-indigo-400" />}
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">Estimasi {tariff.etd}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {tariff.etd ? `Estimasi ${tariff.etd}${tariff.etd_source ? ` · sumber ${tariff.etd_source}` : ""}` : "ETA belum disediakan provider"}
+                          </p>
                           <div className="mt-3 flex items-end justify-between">
                             <div className="text-[10px]">
                               {idx === 0 && (

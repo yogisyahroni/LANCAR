@@ -202,6 +202,7 @@ func main() {
 	relayRepo := repository.NewRelayRepository(sqlx.NewDb(db, "postgres"), rdb)
 	analyticsRepo := repository.NewAnalyticsRepository(sqlx.NewDb(readDB, "postgres")) // Analytics uses read replica
 	paymentLinkRepo := repository.NewPaymentLinkRepository(db)
+	aggregatorRateQuoteRepo := repository.NewAggregatorRateQuoteRepository(db)
 	resiTemplateRepo := repository.NewResiTemplateRepository(db)
 	midtransConfig := payment_gateway.MidtransConfig{
 		ServerKey: os.Getenv("MIDTRANS_SERVER_KEY"),
@@ -287,6 +288,7 @@ func main() {
 		notificationSvc,
 		infrastructure.NewIntegrationGatewayClient(configRepo), // awbClient — HTTP ke integration-gateway
 		configRepo,
+		aggregatorRateQuoteRepo,
 	)
 	chatSvc := service.NewChatService(chatRepo, eb)
 	resiSvc := service.NewResiService(pgRepo, resiTemplateRepo)

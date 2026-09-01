@@ -66,6 +66,9 @@ publicRoutes.put('/api/v1/products/:id', requireMobileOrWebAuth, (req, res) => c
 publicRoutes.delete('/api/v1/products/:id', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.deleteProduct(req, res));
 publicRoutes.post('/api/v1/products/bulk', requireMobileOrWebAuth, ...secureUploadSingle('file', 'bulkCsv'), (req, res) => controllers.productCatalog.bulkUpload(req, res));
 publicRoutes.get('/api/v1/logistics/check-tariff', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkTariff(req, res));
+// Canonical quote route used by the merchant aggregator wizard. Keep the
+// legacy check-tariff alias for existing clients during the migration.
+publicRoutes.get('/api/v1/logistics/tariff', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkTariff(req, res));
 publicRoutes.get('/api/v1/public/jobs', (req, res) => controllers.hr.getPublicJobs(req, res));
 publicRoutes.post('/api/v1/public/jobs/:id/apply', publicEndpointRateLimiter, (req, res) => controllers.hr.applyForJob(req, res));
 publicRoutes.get('/api/v1/public/news', (req, res) => controllers.news.getPublicNews(req, res));

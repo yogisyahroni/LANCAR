@@ -45,9 +45,9 @@ type CreateLogisticsOrderRequest struct {
 }
 
 type CreateLogisticsOrderResponse struct {
-	Success bool                               `json:"success"`
-	Message string                             `json:"message,omitempty"`
-	Data    *domain.LogisticsOrderResponse     `json:"data,omitempty"`
+	Success bool                           `json:"success"`
+	Message string                         `json:"message,omitempty"`
+	Data    *domain.LogisticsOrderResponse `json:"data,omitempty"`
 }
 
 func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
@@ -130,16 +130,26 @@ func (h *LogisticsHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	weightKG, _ := strconv.ParseFloat(weightStr, 64)
-	if weightKG <= 0 {
-		weightKG = 1.0
+	weightKG, err := strconv.ParseFloat(weightStr, 64)
+	if err != nil || weightKG <= 0 {
+		http.Error(w, "weight must be a positive number", http.StatusBadRequest)
+		return
 	}
+	length, _ := strconv.ParseFloat(r.URL.Query().Get("length_cm"), 64)
+	width, _ := strconv.ParseFloat(r.URL.Query().Get("width_cm"), 64)
+	height, _ := strconv.ParseFloat(r.URL.Query().Get("height_cm"), 64)
+	itemValue, _ := strconv.ParseInt(r.URL.Query().Get("item_value_idr"), 10, 64)
+	insurance, _ := strconv.ParseBool(r.URL.Query().Get("insurance"))
+	cod, _ := strconv.ParseBool(r.URL.Query().Get("cod"))
 
 	req := domain.TariffRequest{
 		OriginCode:      origin,
 		DestinationCode: destination,
 		WeightKG:        weightKG,
 		ServiceType:     "",
+		LengthCM:        length, WidthCM: width, HeightCM: height,
+		ItemValueIDR: itemValue, Category: r.URL.Query().Get("category"),
+		Insurance: insurance, COD: cod,
 	}
 
 	var prov domain.Logistics3PLProvider

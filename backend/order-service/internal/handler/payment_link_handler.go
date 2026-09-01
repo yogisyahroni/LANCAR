@@ -221,13 +221,26 @@ func (h *PaymentLinkHandler) CheckTariff(w http.ResponseWriter, r *http.Request)
 
 	weightStr := r.URL.Query().Get("weight_kg")
 	weight, _ := strconv.ParseFloat(weightStr, 64)
-	if weight <= 0 {
-		weight = 1.0 // default 1kg
-	}
+	length, _ := strconv.ParseFloat(r.URL.Query().Get("length_cm"), 64)
+	width, _ := strconv.ParseFloat(r.URL.Query().Get("width_cm"), 64)
+	height, _ := strconv.ParseFloat(r.URL.Query().Get("height_cm"), 64)
+	itemValue, _ := strconv.ParseInt(r.URL.Query().Get("item_value_idr"), 10, 64)
+	insurance, _ := strconv.ParseBool(r.URL.Query().Get("insurance"))
+	cod, _ := strconv.ParseBool(r.URL.Query().Get("cod"))
 
-	resp, err := h.svc.CheckTariff(r.Context(), provider, origin, dest, weight)
+	var resp *domain.CheckTariffResponse
+	var err error
+	if quoteSvc, ok := h.svc.(domain.AggregatorRateQuoteService); ok {
+		resp, err = quoteSvc.Quote(r.Context(), domain.CheckTariffRequest{
+			Provider: provider, OriginCode: origin, DestinationCode: dest, WeightKG: weight,
+			LengthCM: length, WidthCM: width, HeightCM: height, ItemValueIDR: itemValue,
+			Category: r.URL.Query().Get("category"), Insurance: insurance, COD: cod,
+		})
+	} else {
+		resp, err = h.svc.CheckTariff(r.Context(), provider, origin, dest, weight)
+	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

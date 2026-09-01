@@ -71,9 +71,10 @@ export const checkoutLink = async (req: Request, res: Response) => {
 };
 
 /**
- * checkTariff — Cek ongkos kirim 3PL (JNE/J&T) sebelum buat payment link.
- * Proxy ke order-service /api/v1/payment-links/tariff yang kemudian ke integration-gateway.
- * Query params: provider, origin_code, destination_code, weight_kg
+ * checkTariff — membuat authoritative rate quote 3PL (JNE/J&T).
+ * Proxy ke order-service yang kemudian ke integration-gateway.
+ * Query params: provider, origin_code, destination_code, weight_kg,
+ * dimensions, item value/category, insurance, dan COD.
  */
 export const checkTariff = async (req: Request, res: Response) => {
   try {
