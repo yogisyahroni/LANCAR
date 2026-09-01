@@ -9,6 +9,8 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { downloadCsv, type CsvRow } from '@/lib/csv';
 import { Search, Filter, Calendar, Download, Eye, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
+import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
 
 interface Order {
   id: string;
@@ -17,6 +19,16 @@ interface Order {
   dropoff_address: string;
   recipient_name: string;
   model: string;
+  service_code?: string | null;
+  service_snapshot?: {
+    name?: string | null;
+    service_name?: string | null;
+    category?: string | null;
+    service_category?: string | null;
+  } | null;
+  logistics_provider?: string | null;
+  logistics_service_type?: string | null;
+  payment_status?: string | null;
   status: string;
   distance_km: number;
   total_price_idr: number;
@@ -173,6 +185,7 @@ function OrderListContent() {
     switch (statusStr?.toLowerCase()) {
       case 'created':
       case 'pending':
+      case 'pending_payment':
         return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
       case 'picked_up':
       case 'in_transit':
@@ -182,6 +195,8 @@ function OrderListContent() {
       case 'delivered':
         return 'bg-green-500/10 text-green-500 border-green-500/20';
       case 'cancelled':
+      case 'payment_failed':
+      case 'expired':
         return 'bg-red-500/10 text-red-500 border-red-500/20';
       default:
         return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
@@ -266,6 +281,7 @@ function OrderListContent() {
             >
               <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Status</option>
               <option value="pending" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Pending</option>
+              <option value="pending_payment" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Menunggu pembayaran</option>
               <option value="in_transit" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dalam Perjalanan</option>
               <option value="completed" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Selesai</option>
               <option value="cancelled" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dibatalkan</option>
@@ -448,8 +464,25 @@ function OrderListContent() {
                           {order.status?.toUpperCase() || 'UNKNOWN'}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-sm capitalize">{order.model || 'p2p'}</td>
-                      <td className="px-5 py-4 text-sm font-medium">{formatPrice(order.total_price_idr)}</td>
+                      <td className="px-5 py-4 text-sm">
+                        <OrderServiceBadge
+                          compact
+                          model={order.model}
+                          service_code={order.service_code}
+                          service_snapshot={order.service_snapshot}
+                          logistics_provider={order.logistics_provider}
+                          logistics_service_type={order.logistics_service_type}
+                          awb_number={order.awb_number}
+                        />
+                      </td>
+                      <td className="px-5 py-4 text-sm font-medium">
+                        <OrderPriceBreakdown
+                          compact
+                          totalPriceIdr={order.total_price_idr}
+                          paymentStatus={order.payment_status}
+                          deliveryStatus={order.status}
+                        />
+                      </td>
                       <td className="px-5 py-4 text-sm text-muted-foreground">{formatDate(order.created_at)}</td>
                       <td className="px-5 py-4 text-sm text-center">
                         <Link

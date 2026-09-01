@@ -27,7 +27,15 @@ export interface Order {
   recipient_name: string;
   recipient_phone_masked: string;
   model: string;
+  service_code?: string | null;
+  service_snapshot?: {
+    name?: string | null;
+    service_name?: string | null;
+    category?: string | null;
+    service_category?: string | null;
+  } | null;
   status: string;
+  payment_status?: string | null;
   distance_km: number;
   base_price_idr: number;
   volumetric_surcharge_idr: number;
@@ -54,6 +62,12 @@ export interface Order {
   tambal_ban_report?: TambalBanReport | null;
   towing_report?: TowingReport | null;
   food_items?: FoodOrderItem[];
+  logistics_provider?: string | null;
+  logistics_service_type?: string | null;
+  logistics_tariff_idr?: number | null;
+  logistics_net_cost_idr?: number | null;
+  pickup_city?: string | null;
+  dropoff_city?: string | null;
 }
 
 export interface FoodOrderItemVariantSnapshot {

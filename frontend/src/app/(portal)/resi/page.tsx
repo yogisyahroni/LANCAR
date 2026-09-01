@@ -22,6 +22,8 @@ import {
   Loader2 
 } from 'lucide-react';
 import Link from 'next/link';
+import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
+import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
 
 interface Order {
   id: string;
@@ -30,6 +32,17 @@ interface Order {
   dropoff_address: string;
   recipient_name: string;
   model: string;
+  awb_number?: string | null;
+  service_code?: string | null;
+  service_snapshot?: {
+    name?: string | null;
+    service_name?: string | null;
+    category?: string | null;
+    service_category?: string | null;
+  } | null;
+  logistics_provider?: string | null;
+  logistics_service_type?: string | null;
+  payment_status?: string | null;
   status: string;
   distance_km: number;
   total_price_idr: number;
@@ -285,9 +298,8 @@ export default function ResiPage() {
             className="w-full bg-zinc-900/90 border border-white/10 pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all select-none appearance-none cursor-pointer shadow-sm"
           >
             <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Jenis Layanan</option>
-            <option value="instant" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Instant (GoSend/Grab)</option>
-            <option value="same_day" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Same Day</option>
-            <option value="standard" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Reguler / Standard</option>
+            <option value="p2p" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Instan LANCAR</option>
+            <option value="hub_and_spoke" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Ekspedisi aggregator</option>
           </select>
         </div>
       </div>
@@ -313,6 +325,7 @@ export default function ResiPage() {
                 </th>
                 <th className="px-5 py-3.5 select-none">No. Resi</th>
                 <th className="px-5 py-3.5 select-none">Penerima</th>
+                <th className="px-5 py-3.5 select-none">Layanan</th>
                 <th className="px-5 py-3.5 select-none">Status</th>
                 <th className="px-5 py-3.5 select-none">Harga</th>
                 <th className="px-5 py-3.5 select-none">Created At</th>
@@ -342,12 +355,23 @@ export default function ResiPage() {
                       {order.recipient_name}
                     </td>
                     <td className="px-5 py-3.5 select-none">
+                      <OrderServiceBadge
+                        compact
+                        model={order.model}
+                        service_code={order.service_code}
+                        service_snapshot={order.service_snapshot}
+                        logistics_provider={order.logistics_provider}
+                        logistics_service_type={order.logistics_service_type}
+                        awb_number={order.awb_number}
+                      />
+                    </td>
+                    <td className="px-5 py-3.5 select-none">
                       <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary font-bold rounded-full shadow-sm capitalize select-none">
                         {order.status.replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-xs select-none truncate">
-                      {formatIDR(order.total_price_idr)}
+                      <OrderPriceBreakdown compact totalPriceIdr={order.total_price_idr} paymentStatus={order.payment_status} deliveryStatus={order.status} />
                     </td>
                     <td className="px-5 py-3.5 text-xs text-muted-foreground select-none truncate">
                       {new Date(order.created_at).toLocaleDateString('id-ID')}
@@ -369,7 +393,7 @@ export default function ResiPage() {
 
               {filteredOrders.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-muted-foreground select-none">
+                  <td colSpan={8} className="px-5 py-8 text-center text-muted-foreground select-none">
                     Tidak ada resi yang ditemukan.
                   </td>
                 </tr>

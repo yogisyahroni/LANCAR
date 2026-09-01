@@ -4,6 +4,8 @@ import { ArrowLeft, Share2, Download, AlertTriangle, Loader2, RefreshCw, X, Chec
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
+import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
 
 type OrderDetailContentProps = {
   order: any,
@@ -518,7 +520,15 @@ export function OrderDetailContent({
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Metode Pengiriman</p>
-                <p className="text-sm font-medium capitalize">{order.model || 'p2p'}</p>
+                <OrderServiceBadge
+                  compact
+                  model={order.model}
+                  service_code={order.service_code}
+                  service_snapshot={order.service_snapshot}
+                  logistics_provider={order.logistics_provider}
+                  logistics_service_type={order.logistics_service_type}
+                  awb_number={order.awb_number}
+                />
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Jarak Tempuh</p>
@@ -534,6 +544,12 @@ export function OrderDetailContent({
               </div>
             </div>
           </div>
+
+          <OrderPriceBreakdown
+            totalPriceIdr={order.total_price_idr}
+            paymentStatus={order.payment_status}
+            deliveryStatus={order.status}
+          />
 
           {hasPackageDetails && (
             <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-5">

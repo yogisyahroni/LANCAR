@@ -18,6 +18,8 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import Barcode from 'react-barcode';
 import Link from 'next/link';
+import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
+import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
 
 interface Order {
   id: string;
@@ -29,11 +31,21 @@ interface Order {
   sender_name?: string;
   sender_phone?: string;
   model: string;
+  service_code?: string | null;
+  service_snapshot?: {
+    name?: string | null;
+    service_name?: string | null;
+    category?: string | null;
+    service_category?: string | null;
+  } | null;
   status: string;
+  payment_status?: string | null;
   distance_km: number;
   total_price_idr: number;
   created_at: string;
   awb_number?: string;
+  logistics_provider?: string | null;
+  logistics_service_type?: string | null;
   carrier_events?: Array<{
     id: string;
     provider: string;
@@ -143,21 +155,21 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
     return val
       .replace(/{{order_number}}/g, currentOrder.order_number || '')
       .replace(/{{awb_number}}/g, currentOrder.awb_number || '')
-      .replace(/{{provider_name}}/g, currentOrder.model.toUpperCase() || '')
-      .replace(/{{service_type}}/g, currentOrder.model.toUpperCase() || '')
-      .replace(/{{service_name}}/g, currentOrder.model.toUpperCase() || '')
+      .replace(/{{provider_name}}/g, currentOrder.logistics_provider || currentOrder.model || '')
+      .replace(/{{service_type}}/g, currentOrder.logistics_service_type || currentOrder.model || '')
+      .replace(/{{service_name}}/g, currentOrder.service_snapshot?.service_name || currentOrder.model || '')
       .replace(/{{total_price}}/g, formatIDR(currentOrder.total_price_idr || 0))
       .replace(/{{total_price_idr}}/g, formatIDR(currentOrder.total_price_idr || 0))
       .replace(/{{customer_name}}/g, currentOrder.recipient_name || '')
-      .replace(/{{sender_name}}/g, currentOrder.sender_name || 'Toko TEMBUS Official')
-      .replace(/{{sender_phone}}/g, currentOrder.sender_phone || '0812-3456-7890')
-      .replace(/{{sender_address}}/g, currentOrder.pickup_address || 'Jakarta Pusat')
-      .replace(/{{receiver_name}}/g, currentOrder.recipient_name || 'Penerima Paket')
+      .replace(/{{sender_name}}/g, currentOrder.sender_name || '-')
+      .replace(/{{sender_phone}}/g, currentOrder.sender_phone || '-')
+      .replace(/{{sender_address}}/g, currentOrder.pickup_address || '-')
+      .replace(/{{receiver_name}}/g, currentOrder.recipient_name || '-')
       .replace(/{{receiver_phone}}/g, currentOrder.recipient_phone || '-')
       .replace(/{{receiver_address}}/g, currentOrder.dropoff_address || '-')
-      .replace(/{{item_names}}/g, (currentOrder as any).item_names || 'Paket Logistik (Regular)')
-      .replace(/{{total_weight}}/g, String((currentOrder as any).total_weight || 1.0))
-      .replace(/{{total_items}}/g, String((currentOrder as any).total_items || 1))
+      .replace(/{{item_names}}/g, (currentOrder as any).item_names || '-')
+      .replace(/{{total_weight}}/g, String((currentOrder as any).total_weight ?? '-'))
+      .replace(/{{total_items}}/g, String((currentOrder as any).total_items ?? '-'))
       .replace(/{{order_id}}/g, currentOrder.order_number || currentOrder.id || '')
       .replace(/{{tracking_url}}/g, `${window.location.origin}/resi/${currentOrder.id}`);
   };
@@ -194,6 +206,18 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
             <Printer className="h-3.5 w-3.5" /> Cetak Resi
           </button>
         </div>
+      </div>
+
+      <div className="print:hidden grid gap-3 rounded-2xl border border-border/40 bg-card/40 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+        <OrderServiceBadge
+          model={order.model}
+          service_code={order.service_code}
+          service_snapshot={order.service_snapshot}
+          logistics_provider={order.logistics_provider}
+          logistics_service_type={order.logistics_service_type}
+          awb_number={order.awb_number}
+        />
+        <OrderPriceBreakdown compact totalPriceIdr={order.total_price_idr} paymentStatus={order.payment_status} deliveryStatus={order.status} />
       </div>
 
       {/* Actual Resi Document layout (optimized for print:block and @media print) */}

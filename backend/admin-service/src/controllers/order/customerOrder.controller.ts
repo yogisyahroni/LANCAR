@@ -839,40 +839,49 @@ export const getCustomerOrders = async (req: Request, res: Response): Promise<vo
     const { status, search, startDate, endDate, model, limit, offset } = req.query;
 
     let queryStr = `
-      SELECT id, order_number, pickup_address, dropoff_address, recipient_name, model, status,
-             distance_km, total_price_idr, route_snapshot, route_provider, route_profile,
-             route_polyline, created_at
-      FROM orders
-      WHERE customer_id = $1
+      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name,
+             o.model, o.service_code, o.service_snapshot, o.status, o.distance_km,
+             o.total_price_idr, o.route_snapshot, o.route_provider, o.route_profile,
+             o.route_polyline, o.logistics_provider, o.logistics_service_type,
+             o.awb_number, o.created_at, p.status AS payment_status
+      FROM orders o
+      LEFT JOIN LATERAL (
+        SELECT status
+        FROM payments
+        WHERE order_id = o.id
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+      ) p ON TRUE
+      WHERE o.customer_id = $1
     `;
     const params: any[] = [customer_id];
 
     if (status && status !== 'all') {
       params.push(status);
-      queryStr += ` AND status = $${params.length}`;
+      queryStr += ` AND o.status = $${params.length}`;
     }
 
     if (model && model !== 'all') {
       params.push(model);
-      queryStr += ` AND model = $${params.length}`;
+      queryStr += ` AND o.model = $${params.length}`;
     }
 
     if (startDate) {
       params.push(new Date(startDate as string));
-      queryStr += ` AND created_at >= $${params.length}`;
+      queryStr += ` AND o.created_at >= $${params.length}`;
     }
 
     if (endDate) {
       params.push(new Date(endDate as string));
-      queryStr += ` AND created_at <= $${params.length}`;
+      queryStr += ` AND o.created_at <= $${params.length}`;
     }
 
     if (search) {
       params.push(`%${search}%`);
-      queryStr += ` AND (order_number ILIKE $${params.length} OR recipient_name ILIKE $${params.length} OR dropoff_address ILIKE $${params.length} OR pickup_address ILIKE $${params.length})`;
+      queryStr += ` AND (o.order_number ILIKE $${params.length} OR o.recipient_name ILIKE $${params.length} OR o.dropoff_address ILIKE $${params.length} OR o.pickup_address ILIKE $${params.length})`;
     }
 
-    queryStr += ` ORDER BY created_at DESC`;
+    queryStr += ` ORDER BY o.created_at DESC`;
 
     const limitVal = parseInt(limit as string) || 50;
     const offsetVal = parseInt(offset as string) || 0;
@@ -903,16 +912,25 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     }
 
     const queryStr = `
-      SELECT o.id, o.order_number, o.awb_number, o.tracking_url, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.status, o.distance_km,
+      SELECT o.id, o.order_number, o.awb_number, o.tracking_url, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.service_code, o.service_snapshot, o.status, o.distance_km,
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.base_price_idr, o.volumetric_surcharge_idr, o.insurance_premium_idr, o.total_price_idr, o.has_insurance, o.insured_value_idr, 
-             o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at, o.created_at,
+             o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at,
+             o.logistics_provider, o.logistics_service_type, o.logistics_tariff_idr, o.logistics_net_cost_idr,
+             o.pickup_city, o.dropoff_city, o.created_at, p.status AS payment_status,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate, cp.avg_partner_rating as courier_rating,
              NULL::text as courier_phone
       FROM orders o
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
       LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+      LEFT JOIN LATERAL (
+        SELECT status
+        FROM payments
+        WHERE order_id = o.id
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+      ) p ON TRUE
       WHERE o.customer_id = $1 AND o.id = $2
     `;
 
