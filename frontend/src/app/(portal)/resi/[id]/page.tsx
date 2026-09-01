@@ -34,6 +34,17 @@ interface Order {
   total_price_idr: number;
   created_at: string;
   awb_number?: string;
+  carrier_events?: Array<{
+    id: string;
+    provider: string;
+    canonical_status: string;
+    provider_status?: string | null;
+    provider_status_code?: string | null;
+    provider_status_description?: string | null;
+    provider_location?: string | null;
+    occurred_at?: string | null;
+    received_at: string;
+  }>;
 }
 
 export default function ResiDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -317,6 +328,31 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
               </div>
             </div>
+
+            {(order.carrier_events || []).length > 0 && (
+              <div className="border-t border-slate-200/60 pt-5 mt-5">
+                <h4 className="text-xs font-bold uppercase text-slate-400">Update kurir eksternal</h4>
+                <div className="mt-3 space-y-2">
+                  {order.carrier_events?.map((event) => (
+                    <div key={event.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-bold text-slate-800">
+                          {String(event.canonical_status || 'UNKNOWN').replace(/_/g, ' ')} · {event.provider}
+                        </span>
+                        <span>{new Date(event.occurred_at || event.received_at).toLocaleString('id-ID')}</span>
+                      </div>
+                      {event.provider_status && <p className="mt-1">Status asli: {event.provider_status}</p>}
+                      {event.provider_status_description && <p>{event.provider_status_description}</p>}
+                      {(event.provider_status_code || event.provider_location) && (
+                        <p className="mt-1 text-slate-500">
+                          {[event.provider_status_code && `Kode ${event.provider_status_code}`, event.provider_location && `Lokasi ${event.provider_location}`].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Footer of the resi document */}
             <div className="border-t border-slate-200/60 pt-4 flex flex-col md:flex-row md:items-center justify-between text-slate-400 text-[10px] select-none gap-2">

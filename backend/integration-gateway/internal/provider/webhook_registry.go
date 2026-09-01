@@ -48,19 +48,25 @@ func (a genericWebhookAdapter) Normalize(body []byte) (domain.CarrierEvent, erro
 	}
 	if value, ok := payload["status"].(string); ok {
 		event.RawStatus = value
-		event.Status = normalizeCarrierStatus(value)
+		event.ProviderStatus = value
+		event.Status = normalizeCarrierStatusForProvider(a.code, value, "")
+		event.CanonicalStatus = event.Status
 	}
 	if value, ok := payload["status_code"].(string); ok {
 		event.RawCode = value
+		event.ProviderCode = value
 	}
 	if value, ok := payload["description"].(string); ok {
 		event.RawDescription = value
+		event.ProviderDetail = value
 	}
 	if value, ok := payload["location"].(string); ok {
 		event.RawLocation = value
+		event.ProviderLocation = value
 	}
 	if value, ok := payload["occurred_at"].(string); ok {
 		event.OccurredAt, event.ConfirmedAt = value, value
+		event.ProviderTimestamp = value
 	}
 	if value, ok := payload["pod_url"].(string); ok {
 		event.PodURL = value
@@ -70,6 +76,18 @@ func (a genericWebhookAdapter) Normalize(body []byte) (domain.CarrierEvent, erro
 	}
 	if event.RawStatus == "" {
 		event.Status = "UNKNOWN"
+		event.CanonicalStatus = "UNKNOWN"
 	}
+	event.RawStatus = firstNonEmpty(event.RawStatus, event.ProviderStatus, event.Status)
+	event.ProviderStatus = firstNonEmpty(event.ProviderStatus, event.RawStatus)
 	return event, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

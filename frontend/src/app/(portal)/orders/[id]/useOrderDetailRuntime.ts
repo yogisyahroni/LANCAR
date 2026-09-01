@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import {
   ChatMessage,
   Event,
+  CarrierEvent,
   OnDemandRealtimePayload,
   Order,
   TrackingData,
@@ -21,6 +22,7 @@ export function useOrderDetailRuntime(id: string) {
   const { addNotification } = useNotificationStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
+  const [carrierEvents, setCarrierEvents] = useState<CarrierEvent[]>([]);
   const [proofs, setProofs] = useState<TrackingProof[]>([]);
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
   const [tracking, setTracking] = useState<TrackingData | null>(null);
@@ -61,6 +63,7 @@ export function useOrderDetailRuntime(id: string) {
       if (res.data?.success) {
         setOrder({ ...res.data.order, food_items: res.data.food_items || res.data.order?.food_items || [] });
         setEvents(res.data.events || []);
+        setCarrierEvents(res.data.carrier_events || []);
         setProofs(res.data.proofs || []);
         if (showLoader) void fetchOrderChats();
       }
@@ -248,7 +251,7 @@ export function useOrderDetailRuntime(id: string) {
   };
 
   return {
-    user, addNotification, order, events, proofs, isDisputeModalOpen, setIsDisputeModalOpen,
+    user, addNotification, order, events, carrierEvents, proofs, isDisputeModalOpen, setIsDisputeModalOpen,
     tracking, trackingError, loading, chatsLoading, sharingTracking, retryingMatching,
     cancellingOrder, showCancelModal, setShowCancelModal, activePhoto, setActivePhoto,
     chatInput, setChatInput, chatMessages, uploading, previewImage, setPreviewImage,

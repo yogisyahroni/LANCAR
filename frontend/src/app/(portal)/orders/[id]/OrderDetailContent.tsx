@@ -9,6 +9,7 @@ type OrderDetailContentProps = {
   order: any,
   tracking: any,
   events: any,
+  carrierEvents: any,
   proofs: any,
   proofGroups: any,
   serviceProofs: any,
@@ -74,6 +75,7 @@ export function OrderDetailContent({
   order,
   tracking,
   events,
+  carrierEvents,
   proofs,
   proofGroups,
   serviceProofs,
@@ -687,6 +689,48 @@ export function OrderDetailContent({
               )}
             </div>
           </div>
+
+          {carrierEvents.length > 0 && (
+            <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-6">
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <Truck className="h-5 w-5 text-primary" /> Update Kurir Eksternal
+                </h3>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  {carrierEvents.length} update
+                </span>
+              </div>
+              <div className="space-y-3">
+                {carrierEvents.map((event: any) => {
+                  const friendlyStatus = String(event.canonical_status || 'UNKNOWN').replace(/_/g, ' ');
+                  const providerStatus = String(event.provider_status || '').trim();
+                  return (
+                    <div key={event.id} className="rounded-xl border border-white/10 bg-background/40 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary">
+                            {friendlyStatus}
+                          </span>
+                          <span className="text-xs font-semibold text-muted-foreground">{event.provider}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{formatDate(event.occurred_at || event.received_at)}</span>
+                      </div>
+                      {providerStatus && providerStatus.toUpperCase() !== friendlyStatus && (
+                        <p className="mt-2 text-sm text-white/90">Status {event.provider}: {providerStatus}</p>
+                      )}
+                      {event.provider_status_description && (
+                        <p className="mt-1 text-sm text-muted-foreground">{event.provider_status_description}</p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        {event.provider_status_code && <span>Kode: {event.provider_status_code}</span>}
+                        {event.provider_location && <span>Lokasi: {event.provider_location}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-5">
             <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">

@@ -164,6 +164,30 @@ func (h *TrackingWebhookHandler) normalizePayload(provider string, body []byte) 
 	if event.Status == "" {
 		event.Status = "UNKNOWN"
 	}
+	if event.CanonicalStatus == "" {
+		event.CanonicalStatus = event.Status
+	}
+	if event.ProviderStatus == "" {
+		event.ProviderStatus = event.RawStatus
+	}
+	if event.ProviderCode == "" {
+		event.ProviderCode = event.RawCode
+	}
+	if event.ProviderDetail == "" {
+		event.ProviderDetail = event.RawDescription
+	}
+	if event.ProviderLocation == "" {
+		event.ProviderLocation = event.RawLocation
+	}
+	if event.ProviderTimestamp == "" {
+		event.ProviderTimestamp = event.OccurredAt
+	}
+	if event.RawStatus == "" {
+		event.RawStatus = "UNKNOWN"
+	}
+	if event.ProviderStatus == "" {
+		event.ProviderStatus = event.RawStatus
+	}
 	return event, nil
 }
 

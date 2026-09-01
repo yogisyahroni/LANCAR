@@ -853,7 +853,7 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     }
 
     const queryStr = `
-      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.status, o.distance_km,
+      SELECT o.id, o.order_number, o.awb_number, o.tracking_url, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.status, o.distance_km,
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.base_price_idr, o.volumetric_surcharge_idr, o.insurance_premium_idr, o.total_price_idr, o.has_insurance, o.insured_value_idr, 
              o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at, o.created_at,
@@ -882,6 +882,27 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
       ORDER BY created_at ASC
     `;
     const { rows: events } = await db.query(eventQuery, [id]);
+
+    // Carrier inbox is joined through the customer's own order AWB. Provider
+    // fields are safe to expose here because the order ownership predicate is
+    // enforced in the subquery; raw_payload is intentionally never returned.
+    const { rows: carrierEvents } = await db.query(`
+      SELECT cei.id,
+             cei.provider,
+             cei.awb_number,
+             cei.canonical_status,
+             cei.provider_status,
+             cei.provider_status_code,
+             cei.provider_status_description,
+             cei.provider_location,
+             cei.provider_timestamp,
+             cei.occurred_at,
+             cei.received_at
+      FROM carrier_event_inbox cei
+      JOIN orders carrier_order ON carrier_order.awb_number = cei.awb_number
+      WHERE carrier_order.id = $1 AND carrier_order.customer_id = $2
+      ORDER BY COALESCE(cei.occurred_at, cei.received_at) ASC, cei.received_at ASC
+    `, [id, customer_id]);
 
     const { rows: proofs } = await db.query(`
       SELECT id,
@@ -962,7 +983,7 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     order.tambal_ban_report = tambalBanReports[0] || null;
     order.towing_report = towingReports[0] || null;
 
-    res.json({ success: true, order, events, proofs, food_items: foodItems });
+    res.json({ success: true, order, events, carrier_events: carrierEvents, proofs, food_items: foodItems });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -1019,4 +1040,3 @@ export const retryCustomerOrderMatching = async (req: Request, res: Response): P
     client.release();
   }
 };
-

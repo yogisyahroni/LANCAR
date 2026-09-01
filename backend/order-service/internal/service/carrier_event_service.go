@@ -22,6 +22,17 @@ func (s *carrierEventService) Process(ctx context.Context, event *domain.Carrier
 	if event == nil || strings.TrimSpace(event.Provider) == "" || strings.TrimSpace(event.EventID) == "" || strings.TrimSpace(event.AWBNumber) == "" {
 		return fmt.Errorf("provider, event_id, and awb_number are required")
 	}
+	// Keep provider-native fields complete even when an older gateway payload
+	// only sends the raw_* aliases. Unknown canonical states remain UNKNOWN.
+	event.ProviderStatus = firstNonEmpty(event.ProviderStatus, event.RawStatus)
+	event.RawStatus = firstNonEmpty(event.RawStatus, event.ProviderStatus, "UNKNOWN")
+	event.ProviderCode = firstNonEmpty(event.ProviderCode, event.RawCode)
+	event.RawCode = firstNonEmpty(event.RawCode, event.ProviderCode)
+	event.ProviderDetail = firstNonEmpty(event.ProviderDetail, event.RawDescription)
+	event.RawDescription = firstNonEmpty(event.RawDescription, event.ProviderDetail)
+	event.ProviderLocation = firstNonEmpty(event.ProviderLocation, event.RawLocation)
+	event.RawLocation = firstNonEmpty(event.RawLocation, event.ProviderLocation)
+	event.CanonicalStatus = firstNonEmpty(strings.ToUpper(strings.TrimSpace(event.CanonicalStatus)), "UNKNOWN")
 	inserted, err := s.repo.InsertIfNew(ctx, event)
 	if err != nil {
 		return err
@@ -56,18 +67,29 @@ func (s *carrierEventService) Process(ctx context.Context, event *domain.Carrier
 	return nil
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func canonicalOrderStatus(status string) (domain.OrderStatus, bool) {
 	switch strings.ToUpper(strings.TrimSpace(status)) {
-	case "MANIFESTED", "READY_FOR_PICKUP":
+	case "CREATED", "AWB_ISSUED", "PICKUP_SCHEDULED", "READY_FOR_PICKUP":
 		return domain.StatusReadyForPickup, true
 	case "PICKED_UP", "PICKUP":
 		return domain.StatusPickedUp, true
-	case "IN_TRANSIT", "INBOUND_DESTINATION", "OUTBOUND_ORIGIN":
+	case "HANDED_TO_CARRIER", "IN_TRANSIT", "AT_SORTING_CENTER", "OUT_FOR_DELIVERY", "INBOUND_DESTINATION", "OUTBOUND_ORIGIN":
 		return domain.StatusDelivering, true
 	case "DELIVERED":
 		return domain.StatusDelivered, true
-	case "RETURN_TO_SENDER", "RETURNED":
+	case "RETURN_REQUESTED", "RETURN_IN_TRANSIT", "RETURNED_TO_SENDER", "RETURN_TO_SENDER", "RETURNED":
 		return domain.StatusReturnToSender, true
+	case "DELIVERY_FAILED", "EXCEPTION", "LOST", "DAMAGED":
+		return domain.StatusFailedDelivery, true
 	case "CANCELLED", "CANCELED":
 		return domain.StatusCancelled, true
 	default:

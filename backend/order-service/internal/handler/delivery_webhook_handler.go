@@ -37,19 +37,34 @@ func NewDeliveryWebhookHandler(settlementSvc domain.MerchantSettlementService, c
 // deliveryWebhookPayload adalah payload yang dikirim oleh integration-gateway
 // setelah menerima dan memverifikasi webhook DELIVERED dari 3PL.
 type deliveryWebhookPayload struct {
-	EventID        string `json:"event_id,omitempty"`
-	PayloadHash    string `json:"payload_hash,omitempty"`
-	AWBNumber      string `json:"awb_number"`
-	Provider       string `json:"provider"`
-	Status         string `json:"status"` // "DELIVERED", "IN_TRANSIT", dll
-	PodURL         string `json:"pod_url,omitempty"`
-	ConfirmedAt    string `json:"confirmed_at,omitempty"` // RFC3339
-	RawPayload     string `json:"raw_payload,omitempty"`
-	RawStatus      string `json:"raw_status,omitempty"`
-	RawCode        string `json:"raw_code,omitempty"`
-	RawDescription string `json:"raw_description,omitempty"`
-	RawLocation    string `json:"raw_location,omitempty"`
-	OccurredAt     string `json:"occurred_at,omitempty"`
+	EventID           string `json:"event_id,omitempty"`
+	PayloadHash       string `json:"payload_hash,omitempty"`
+	AWBNumber         string `json:"awb_number"`
+	Provider          string `json:"provider"`
+	Status            string `json:"status"` // "DELIVERED", "IN_TRANSIT", dll
+	CanonicalStatus   string `json:"canonical_status,omitempty"`
+	ProviderStatus    string `json:"provider_status,omitempty"`
+	ProviderCode      string `json:"provider_status_code,omitempty"`
+	ProviderDetail    string `json:"provider_status_description,omitempty"`
+	ProviderLocation  string `json:"provider_location,omitempty"`
+	ProviderTimestamp string `json:"provider_timestamp,omitempty"`
+	PodURL            string `json:"pod_url,omitempty"`
+	ConfirmedAt       string `json:"confirmed_at,omitempty"` // RFC3339
+	RawPayload        string `json:"raw_payload,omitempty"`
+	RawStatus         string `json:"raw_status,omitempty"`
+	RawCode           string `json:"raw_code,omitempty"`
+	RawDescription    string `json:"raw_description,omitempty"`
+	RawLocation       string `json:"raw_location,omitempty"`
+	OccurredAt        string `json:"occurred_at,omitempty"`
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // HandleChargeback adalah endpoint POST /api/v1/internal/settlements/chargeback.
@@ -209,8 +224,14 @@ func (h *DeliveryWebhookHandler) HandleDeliveryEvent(w http.ResponseWriter, r *h
 		if err := h.carrierEventSvc.Process(r.Context(), &domain.CarrierEvent{
 			ID: uuid.NewString(), Provider: strings.TrimSpace(payload.Provider), EventID: eventID,
 			PayloadHash: payloadHash, AWBNumber: strings.TrimSpace(payload.AWBNumber),
-			CanonicalStatus: strings.ToUpper(strings.TrimSpace(payload.Status)), RawStatus: payload.RawStatus,
-			RawCode: payload.RawCode, RawDescription: payload.RawDescription, RawLocation: payload.RawLocation,
+			CanonicalStatus:   firstNonEmpty(strings.ToUpper(strings.TrimSpace(payload.CanonicalStatus)), strings.ToUpper(strings.TrimSpace(payload.Status))),
+			ProviderStatus:    firstNonEmpty(payload.ProviderStatus, payload.RawStatus),
+			ProviderCode:      firstNonEmpty(payload.ProviderCode, payload.RawCode),
+			ProviderDetail:    firstNonEmpty(payload.ProviderDetail, payload.RawDescription),
+			ProviderLocation:  firstNonEmpty(payload.ProviderLocation, payload.RawLocation),
+			ProviderTimestamp: firstNonEmpty(payload.ProviderTimestamp, payload.OccurredAt),
+			RawStatus:         firstNonEmpty(payload.RawStatus, payload.ProviderStatus, payload.Status),
+			RawCode:           firstNonEmpty(payload.RawCode, payload.ProviderCode), RawDescription: firstNonEmpty(payload.RawDescription, payload.ProviderDetail), RawLocation: firstNonEmpty(payload.RawLocation, payload.ProviderLocation),
 			OccurredAt: occurredAt, ReceivedAt: time.Now(), RawPayload: string(body),
 		}); err != nil {
 			slog.ErrorContext(r.Context(), "delivery_webhook: carrier event inbox failed", "awb_number", payload.AWBNumber, "error", err)

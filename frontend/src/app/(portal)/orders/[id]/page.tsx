@@ -14,7 +14,7 @@ export default function OrderDetailPage() {
   const id = params?.id as string;
   const runtime = useOrderDetailRuntime(id);
   const {
-    order, events, proofs, tracking, trackingError, loading, chatsLoading, sharingTracking,
+    order, events, carrierEvents, proofs, tracking, trackingError, loading, chatsLoading, sharingTracking,
     retryingMatching, cancellingOrder, showCancelModal, setShowCancelModal, activePhoto,
     setActivePhoto, isDisputeModalOpen, setIsDisputeModalOpen, chatInput, setChatInput,
     chatMessages, uploading, previewImage, setPreviewImage, selectedFile, setSelectedFile,
@@ -96,7 +96,7 @@ export default function OrderDetailPage() {
   }
 
   return <OrderDetailContent
-    order={order} tracking={tracking} events={events} proofs={proofs} proofGroups={proofGroups}
+    order={order} tracking={tracking} events={events} carrierEvents={carrierEvents} proofs={proofs} proofGroups={proofGroups}
     serviceProofs={serviceProofs} serviceReportNotes={serviceReportNotes} foodItems={foodItems}
     packageCount={packageCount} packageDetails={packageDetails} activePhoto={activePhoto}
     isDisputeModalOpen={isDisputeModalOpen} showCancelModal={showCancelModal}

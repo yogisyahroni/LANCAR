@@ -5,6 +5,20 @@ export interface Event {
   created_at: string;
 }
 
+export interface CarrierEvent {
+  id: string;
+  provider: string;
+  awb_number: string;
+  canonical_status: string;
+  provider_status?: string | null;
+  provider_status_code?: string | null;
+  provider_status_description?: string | null;
+  provider_location?: string | null;
+  provider_timestamp?: string | null;
+  occurred_at?: string | null;
+  received_at: string;
+}
+
 export interface Order {
   id: string;
   order_number: string;

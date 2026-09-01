@@ -35,15 +35,21 @@ func (a jneWebhookAdapter) Normalize(body []byte) (domain.CarrierEvent, error) {
 		return domain.CarrierEvent{}, fmt.Errorf("could not extract AWB number from %s webhook payload", a.ProviderCode())
 	}
 	return domain.CarrierEvent{
-		Provider:       "JNE",
-		AWBNumber:      payload.AWB,
-		Status:         normalizeCarrierStatus(payload.Status),
-		RawStatus:      payload.Status,
-		RawCode:        payload.Code,
-		RawDescription: payload.Status,
-		RawLocation:    payload.Location,
-		PodURL:         payload.PODImage,
-		OccurredAt:     payload.Date,
-		ConfirmedAt:    payload.Date,
+		Provider:          "JNE",
+		AWBNumber:         payload.AWB,
+		Status:            normalizeCarrierStatusForProvider("jne", payload.Status, payload.Code),
+		CanonicalStatus:   normalizeCarrierStatusForProvider("jne", payload.Status, payload.Code),
+		ProviderStatus:    payload.Status,
+		ProviderCode:      payload.Code,
+		ProviderDetail:    payload.Status,
+		ProviderLocation:  payload.Location,
+		ProviderTimestamp: payload.Date,
+		RawStatus:         payload.Status,
+		RawCode:           payload.Code,
+		RawDescription:    payload.Status,
+		RawLocation:       payload.Location,
+		PodURL:            payload.PODImage,
+		OccurredAt:        payload.Date,
+		ConfirmedAt:       payload.Date,
 	}, nil
 }
