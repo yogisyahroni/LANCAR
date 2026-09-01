@@ -1131,9 +1131,10 @@ Existing shared files:
 - [x] Contract test suite can be reused for a new provider adapter.
 - [x] Fixtures cover rate, create shipment/AWB, tracking, errors, timeout, duplicate event, unknown status.
 - [x] Capability matrix is validated at startup/config load.
-- [ ] New provider has health/readiness diagnostics.
+- [x] New provider has health/readiness diagnostics.
 - [x] Onboarding runbook documents credentials, base URL, sandbox/prod, location mapping, service mapping, webhook route/signature, polling, SLA source, COD/insurance/return/claim capabilities.
 - [x] Demonstrate with one additional stub/fake provider that registration requires no customer UI/core order edits.
+- [ ] Authenticated staging provider sandbox and upstream health verification captured.
 
 ---
 

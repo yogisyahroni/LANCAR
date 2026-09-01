@@ -26,6 +26,11 @@ type ListLogisticsProvidersResponse struct {
 	Data    []domain.ProviderDescriptor `json:"data"`
 }
 
+type ListLogisticsHealthResponse struct {
+	Success bool                    `json:"success"`
+	Data    []domain.ProviderHealth `json:"data"`
+}
+
 func (h *LogisticsHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -35,6 +40,14 @@ func (h *LogisticsHandler) ListProviders(w http.ResponseWriter, r *http.Request)
 		Success: true,
 		Data:    h.orchestrator.ListProviders(),
 	})
+}
+
+func (h *LogisticsHandler) ListProviderHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	h.respondJSON(w, http.StatusOK, ListLogisticsHealthResponse{Success: true, Data: h.orchestrator.ProviderHealth(r.Context())})
 }
 
 type CreateLogisticsOrderRequest struct {

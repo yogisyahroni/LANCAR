@@ -13,7 +13,9 @@
 6. Register the adapter in `cmd/api/main.go`; startup validation rejects a
    capability that has been advertised without an implementation.
 7. Add health/readiness diagnostics and verify sandbox credentials in staging
-   before enabling production traffic.
+   before enabling production traffic. The internal diagnostics endpoint is
+   `GET /api/internal/logistics/providers/health`; it reports configuration
+   readiness only and must not be interpreted as an upstream transaction test.
 
 ## Release gate
 

@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -120,6 +121,31 @@ func (r *LogisticsRegistry) List() []domain.ProviderDescriptor {
 	}
 	sort.Slice(descriptors, func(i, j int) bool { return descriptors[i].Code < descriptors[j].Code })
 	return descriptors
+}
+
+func (r *LogisticsRegistry) Health(ctx context.Context) []domain.ProviderHealth {
+	if r == nil {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	result := make([]domain.ProviderHealth, 0)
+	for _, p := range r.providers {
+		identity := p.Identity()
+		if _, ok := seen[identity.ID]; ok {
+			continue
+		}
+		seen[identity.ID] = struct{}{}
+		if diagnostic, ok := p.(domain.ProviderHealthProvider); ok {
+			result = append(result, diagnostic.Health(ctx))
+			continue
+		}
+		result = append(result, domain.ProviderHealth{
+			ProviderID: identity.ID, ProviderCode: identity.Code, ProviderName: identity.Name,
+			Status: "unknown", Reason: "adapter has no health diagnostic",
+		})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ProviderCode < result[j].ProviderCode })
+	return result
 }
 
 func normalizeProviderRef(reference string) string {

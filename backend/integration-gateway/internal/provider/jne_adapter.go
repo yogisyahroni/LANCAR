@@ -35,6 +35,15 @@ func (p *JNEProvider) Capabilities() []domain.Capability {
 	}
 }
 
+func (p *JNEProvider) Health(context.Context) domain.ProviderHealth {
+	identity := p.Identity()
+	status, reason := "ready", "server-side credentials configured"
+	if p.apiKey == "" || p.username == "" {
+		status, reason = "degraded", "server-side credentials are not configured"
+	}
+	return domain.ProviderHealth{ProviderID: identity.ID, ProviderCode: identity.Code, ProviderName: identity.Name, Status: status, Reason: reason}
+}
+
 func NewJNEProvider() *JNEProvider {
 	baseURL := os.Getenv("JNE_BASE_URL")
 	if baseURL == "" {

@@ -85,6 +85,7 @@ func main() {
 	mux.Handle("/api/internal/logistics/create-order", authMiddleware(http.HandlerFunc(logisticsHandler.CreateOrder)))
 	mux.Handle("/api/internal/logistics/tariff", authMiddleware(http.HandlerFunc(logisticsHandler.CheckTariff)))
 	mux.Handle("/api/internal/logistics/providers", authMiddleware(http.HandlerFunc(logisticsHandler.ListProviders)))
+	mux.Handle("/api/internal/logistics/providers/health", authMiddleware(http.HandlerFunc(logisticsHandler.ListProviderHealth)))
 
 	// Webhook dari 3PL eksternal (verifikasi signature di dalam handler)
 	mux.HandleFunc("/api/v1/logistics/webhook", trackingWebhookHandler.HandleProviderWebhook)

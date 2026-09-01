@@ -5,6 +5,21 @@ import (
 	"fmt"
 )
 
+type ProviderHealth struct {
+	ProviderID   string `json:"provider_id"`
+	ProviderCode string `json:"provider_code"`
+	ProviderName string `json:"provider_name"`
+	Status       string `json:"status"`
+	Reason       string `json:"reason,omitempty"`
+}
+
+// ProviderHealthProvider exposes a non-secret readiness diagnostic. It must
+// not leak credentials or claim upstream connectivity unless the adapter has
+// actually verified it.
+type ProviderHealthProvider interface {
+	Health(ctx context.Context) ProviderHealth
+}
+
 // Capability-specific interfaces are intentionally independent. Providers
 // can implement one operation without inheriting unrelated carrier features.
 type TrackingWebhookProvider interface {

@@ -38,6 +38,15 @@ func (p *JNTProvider) Capabilities() []domain.Capability {
 	}
 }
 
+func (p *JNTProvider) Health(context.Context) domain.ProviderHealth {
+	identity := p.Identity()
+	status, reason := "ready", "server-side credentials configured"
+	if p.apiAccount == "" || p.privateKey == "" {
+		status, reason = "degraded", "server-side credentials are not configured"
+	}
+	return domain.ProviderHealth{ProviderID: identity.ID, ProviderCode: identity.Code, ProviderName: identity.Name, Status: status, Reason: reason}
+}
+
 func NewJNTProvider() *JNTProvider {
 	baseURL := os.Getenv("JNT_BASE_URL")
 	if baseURL == "" {

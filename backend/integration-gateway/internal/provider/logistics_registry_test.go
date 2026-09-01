@@ -52,6 +52,21 @@ func TestLogisticsRegistryRejectsDuplicateProviderReference(t *testing.T) {
 	}
 }
 
+func TestLogisticsRegistryHealthDoesNotExposeCredentials(t *testing.T) {
+	jne := &JNEProvider{apiKey: "secret-key", username: "server-user"}
+	registry, err := NewLogisticsRegistry(jne)
+	if err != nil {
+		t.Fatalf("NewLogisticsRegistry() error = %v", err)
+	}
+	health := registry.Health(context.Background())
+	if len(health) != 1 || health[0].Status != "ready" {
+		t.Fatalf("Health() = %#v, want ready diagnostic", health)
+	}
+	if health[0].Reason == "secret-key" || health[0].Reason == "server-user" {
+		t.Fatal("Health() exposed provider credentials")
+	}
+}
+
 // Compile-time assertion documents that real provider adapters satisfy the
 // small identity contract used by the registry.
 var _ domain.LogisticsProvider = (*JNEProvider)(nil)

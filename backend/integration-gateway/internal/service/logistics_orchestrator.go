@@ -30,6 +30,18 @@ func (o *LogisticsOrchestrator) ListProviders() []domain.ProviderDescriptor {
 	return o.registry.List()
 }
 
+func (o *LogisticsOrchestrator) ProviderHealth(ctx context.Context) []domain.ProviderHealth {
+	if o == nil || o.registry == nil {
+		return nil
+	}
+	if registry, ok := o.registry.(interface {
+		Health(context.Context) []domain.ProviderHealth
+	}); ok {
+		return registry.Health(ctx)
+	}
+	return nil
+}
+
 func (o *LogisticsOrchestrator) CheckTariff(ctx context.Context, reference string, req domain.TariffRequest) (*domain.TariffResponse, error) {
 	p, err := o.resolve(reference, domain.CapabilityTariff)
 	if err != nil {
