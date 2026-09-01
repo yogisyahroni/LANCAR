@@ -39,7 +39,14 @@ export function PaymentModal({
   const [state, setState] = useState<PaymentState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [snapReady, setSnapReady] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
   const paymentCheckKeyRef = useRef<string>("");
+  const checkInFlightRef = useRef(false);
+
+  useEffect(() => {
+    paymentCheckKeyRef.current = "";
+    checkInFlightRef.current = false;
+  }, [orderId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,6 +90,9 @@ export function PaymentModal({
       setMessage("Referensi order tidak tersedia untuk konfirmasi pembayaran.");
       return;
     }
+    if (checkInFlightRef.current) return;
+    checkInFlightRef.current = true;
+    setIsChecking(true);
 
     if (!paymentCheckKeyRef.current) {
       paymentCheckKeyRef.current = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -130,6 +140,9 @@ export function PaymentModal({
       console.error("Payment confirmation failed", error);
       setState("error");
       setMessage("Gagal mengonfirmasi pembayaran ke server. Order tetap tersimpan, silakan coba lagi.");
+    } finally {
+      checkInFlightRef.current = false;
+      setIsChecking(false);
     }
   };
 
@@ -227,6 +240,17 @@ export function PaymentModal({
                   {state === "loading_snap" || state === "opened" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
                   {state === "loading_snap" ? "Memuat Snap..." : "Bayar dengan Midtrans"}
                 </button>
+                {state === "pending" && (
+                  <button
+                    type="button"
+                    onClick={() => void confirmPaid()}
+                    disabled={isChecking}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 py-3 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {isChecking ? "Mengecek status..." : "Cek status pembayaran lagi"}
+                  </button>
+                )}
                 {redirectUrl && (
                   <a
                     href={redirectUrl}

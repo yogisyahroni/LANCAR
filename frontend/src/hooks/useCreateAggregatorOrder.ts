@@ -1,5 +1,7 @@
 import type { AxiosRequestConfig } from "axios";
 
+export { createIdempotencyKey } from "@/lib/orderTransaction";
+
 export const AGGREGATOR_SERVICE_CODE = "tembus_aggregator";
 
 export type Coordinate = { lat: number; lng: number };
@@ -63,13 +65,6 @@ function sizeTierForWeight(weightKg: number): "small" | "medium" | "large" {
   if (weightKg <= 3) return "small";
   if (weightKg <= 10) return "medium";
   return "large";
-}
-
-export function createIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `agg-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export function buildAggregatorOrderPayload(

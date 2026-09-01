@@ -11,6 +11,13 @@ import { clientLog } from "@/lib/clientLogger";
 import { useRouter } from "next/navigation";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { Info } from "lucide-react";
+import {
+  createIdempotencyKey,
+  isRetryableTransactionError,
+  requestCustomerPaymentSession,
+  requestPersistedCustomerOrder,
+  type PersistedCustomerOrder,
+} from "@/lib/orderTransaction";
 
 interface RoutePreviewSnapshot {
   active_provider?: string;
@@ -52,6 +59,67 @@ const deriveRouteVehicleType = (service?: DeliveryService) => {
   return "motorcycle";
 };
 
+const PENDING_ON_DEMAND_TRANSACTION_KEY = "tembus.ondemand.pending-transaction";
+const PENDING_TRANSACTION_TTL_MS = 60 * 60 * 1000;
+
+type PendingOnDemandTransaction = {
+  fingerprint: string;
+  idempotency_key: string;
+  order_id?: string;
+  created_at: number;
+};
+
+const stableSerialize = (value: unknown): string => {
+  if (value === null || value === undefined) return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+};
+
+const fingerprintPayload = (payload: unknown): string => {
+  let hash = 2166136261;
+  for (const character of stableSerialize(payload)) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `fnv1a-${(hash >>> 0).toString(16)}`;
+};
+
+const readPendingTransaction = (): PendingOnDemandTransaction | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingOnDemandTransaction>;
+    if (
+      typeof parsed.fingerprint !== "string" ||
+      typeof parsed.idempotency_key !== "string" ||
+      typeof parsed.created_at !== "number" ||
+      Date.now() - parsed.created_at > PENDING_TRANSACTION_TTL_MS
+    ) {
+      window.sessionStorage.removeItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
+      return null;
+    }
+    return parsed as PendingOnDemandTransaction;
+  } catch {
+    window.sessionStorage.removeItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
+    return null;
+  }
+};
+
+const persistPendingTransaction = (transaction: PendingOnDemandTransaction) => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(PENDING_ON_DEMAND_TRANSACTION_KEY, JSON.stringify(transaction));
+};
+
+const clearPendingTransaction = () => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(PENDING_ON_DEMAND_TRANSACTION_KEY);
+};
+
 export default function NewOrderPage() {
   const [formData, setFormData] = useState<Partial<OrderFormValues>>({});
   const [isValid, setIsValid] = useState(false);
@@ -75,12 +143,29 @@ export default function NewOrderPage() {
   const [paymentData, setPaymentData] = useState<any>(null);
   const [orderData, setOrderData] = useState<any>(null);
   const orderDataRef = useRef<any>(null);
+  const pendingTransactionRef = useRef<PendingOnDemandTransaction | null>(null);
+  const paymentKeyRef = useRef<{ orderId: string; key: string }>({ orderId: "", key: "" });
+  const [transactionPending, setTransactionPending] = useState(false);
+  const [transactionNotice, setTransactionNotice] = useState<string | null>(null);
   const previousFormDataRef = useRef<string>("");
 
   const router = useRouter();
   const { addNotification } = useNotificationStore();
   const routePreviewRequestRef = useRef(0);
   const promoRequestRef = useRef(0);
+
+  useEffect(() => {
+    const pending = readPendingTransaction();
+    pendingTransactionRef.current = pending;
+    if (pending) {
+      setTransactionPending(true);
+      setTransactionNotice(
+        pending.order_id
+          ? "Order sudah tersimpan tetapi pembayaran belum selesai. Tekan Bayar Sekarang untuk melanjutkan."
+          : "Permintaan order sebelumnya belum mendapat jawaban. Tekan Bayar Sekarang untuk mencoba ulang dengan referensi yang sama.",
+      );
+    }
+  }, []);
 
   const calculateRoutePreview = useCallback(async (data: Partial<OrderFormValues>, service?: DeliveryService) => {
     const pickup = data.pickup_location;
@@ -356,45 +441,94 @@ export default function NewOrderPage() {
   const handleSubmit = async (data: OrderFormValues) => {
     if (!pricing) return;
     setIsSubmitting(true);
+    setTransactionPending(false);
     try {
       let currentOrderId = orderDataRef.current?.id || orderData?.id;
+      let currentOrder: PersistedCustomerOrder | null = (orderDataRef.current || orderData) as PersistedCustomerOrder | null;
+
+      const appliedPromoCode = promoQuote?.eligible ? promoCode.trim().toUpperCase() : undefined;
+      const payload = {
+        ...data,
+        price_breakdown: pricing,
+        promo_code: appliedPromoCode
+      };
+      const fingerprint = fingerprintPayload(payload);
 
       if (!currentOrderId) {
-        const appliedPromoCode = promoQuote?.eligible ? promoCode.trim().toUpperCase() : undefined;
-        const payload = {
-          ...data,
-          price_breakdown: pricing,
-          promo_code: appliedPromoCode
-        };
-        
-        const res = await api.post('/auth/web/orders', payload);
-        const order = res.data.order;
-        currentOrderId = order.id;
-        setOrderData(order);
-        orderDataRef.current = order;
+        const previous = pendingTransactionRef.current;
+        if (previous?.fingerprint === fingerprint && previous.order_id) {
+          const recoveredResponse = await api.get(`/auth/web/orders/${previous.order_id}`);
+          currentOrder = recoveredResponse.data?.order as PersistedCustomerOrder;
+          if (!currentOrder?.id) throw new Error("Order tersimpan belum dapat dipulihkan dari server");
+        } else {
+          const idempotencyKey = previous?.fingerprint === fingerprint
+            ? previous.idempotency_key
+            : createIdempotencyKey();
+          const pending: PendingOnDemandTransaction = {
+            fingerprint,
+            idempotency_key: idempotencyKey,
+            created_at: previous?.fingerprint === fingerprint ? previous.created_at : Date.now(),
+          };
+          pendingTransactionRef.current = pending;
+          persistPendingTransaction(pending);
+          currentOrder = await requestPersistedCustomerOrder(api, payload, idempotencyKey);
+          currentOrderId = currentOrder.id;
+          const completedPending = { ...pending, order_id: currentOrder.id };
+          pendingTransactionRef.current = completedPending;
+          persistPendingTransaction(completedPending);
+        }
+        currentOrderId = currentOrder.id;
+        setOrderData(currentOrder);
+        orderDataRef.current = currentOrder;
       }
 
-      if (orderDataRef.current?.status !== 'pending_payment') {
+      if (!currentOrderId || !currentOrder?.id || typeof currentOrder.status !== "string") {
+        throw new Error("Referensi order tersimpan tidak tersedia");
+      }
+
+      if (currentOrder.status !== 'pending_payment') {
+        clearPendingTransaction();
+        pendingTransactionRef.current = null;
+        setTransactionPending(false);
+        setTransactionNotice(null);
         clearCustomerOrderDraft();
         addNotification({
           title: "Order Berhasil",
-          message: `Order ${orderDataRef.current?.order_number} sedang diproses.`,
+          message: `Order ${currentOrder.order_number || currentOrder.id} sedang diproses.`,
           type: "success"
         });
         router.push('/dashboard');
         return;
       }
       
-      const sessionRes = await api.post(`/auth/web/orders/${currentOrderId}/payment/session`, 
-        { method: 'midtrans' },
-        { headers: { 'X-Idempotency-Key': crypto.randomUUID() } }
-      );
-      
-      setPaymentData(sessionRes.data.payment);
+      if (paymentKeyRef.current.orderId !== currentOrderId) {
+        paymentKeyRef.current = { orderId: currentOrderId, key: createIdempotencyKey("web-payment") };
+      }
+      const payment = await requestCustomerPaymentSession(api, currentOrderId, paymentKeyRef.current.key);
+      if (payment.payment_status === "paid" || payment.order_status !== "pending_payment") {
+        clearPendingTransaction();
+        pendingTransactionRef.current = null;
+        setTransactionPending(false);
+        setTransactionNotice(null);
+        clearCustomerOrderDraft();
+        router.push(`/orders/${currentOrderId}`);
+        return;
+      }
+
+      setPaymentData(payment);
       setShowPayment(true);
-      clearCustomerOrderDraft();
       
     } catch (error: any) {
+      if (isRetryableTransactionError(error)) {
+        setTransactionPending(true);
+        setTransactionNotice("Permintaan belum mendapat jawaban server. Order belum dianggap berhasil; tekan Bayar Sekarang untuk retry dengan idempotency key yang sama.");
+        addNotification({
+          title: "Status order belum diketahui",
+          message: "Tidak ada order sukses yang ditampilkan. Coba lagi untuk memeriksa atau mengulang request yang sama.",
+          type: "info"
+        });
+        return;
+      }
       addNotification({
         title: "Gagal membuat order",
         message: error.response?.data?.error || "Terjadi kesalahan",
@@ -406,13 +540,24 @@ export default function NewOrderPage() {
   };
 
   const handlePaymentSuccess = () => {
+    const persistedOrder = orderDataRef.current || orderData;
+    if (!persistedOrder?.id) {
+      setTransactionPending(true);
+      setTransactionNotice("Pembayaran belum dapat dikaitkan ke order tersimpan. Periksa Riwayat Pesanan sebelum mencoba lagi.");
+      return;
+    }
+    clearPendingTransaction();
+    pendingTransactionRef.current = null;
+    setTransactionPending(false);
+    setTransactionNotice(null);
     setShowPayment(false);
+    clearCustomerOrderDraft();
     addNotification({
       title: "Pembayaran Berhasil",
-      message: `Order ${orderData?.order_number} sedang diproses.`,
+      message: `Order ${persistedOrder.order_number || persistedOrder.id} sedang diproses.`,
       type: "success"
     });
-    router.push('/dashboard');
+    router.push(`/orders/${persistedOrder.id}`);
   };
 
   return (
@@ -448,6 +593,13 @@ export default function NewOrderPage() {
             <h4 className="font-bold text-zinc-100 tracking-tight">Harga Belum Bisa Dihitung</h4>
             <p className="text-sm text-muted-foreground mt-1">{coverageError}</p>
           </div>
+        </div>
+      )}
+
+      {transactionNotice && (
+        <div role="status" className={`mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm ${transactionPending ? "border-amber-500/30 bg-amber-500/10 text-amber-100" : "border-brand-emerald-500/20 bg-brand-emerald-500/10 text-brand-emerald-100"}`}>
+          <Info className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>{transactionNotice}</p>
         </div>
       )}
 
