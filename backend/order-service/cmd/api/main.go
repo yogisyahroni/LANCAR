@@ -321,7 +321,7 @@ func main() {
 	aggregatorFinanceRepo := repository.NewAggregatorFinanceRepository(db)
 	aggregatorFinanceSvc := service.NewAggregatorFinanceService(aggregatorFinanceRepo, ledgerRepo)
 	carrierEventRepo := repository.NewCarrierEventRepository(db)
-	carrierEventSvc := service.NewCarrierEventService(carrierEventRepo, pgRepo, pgRepo, carrierHandoffSvc)
+	carrierEventSvc := service.NewCarrierEventServiceWithDependencies(carrierEventRepo, pgRepo, pgRepo, carrierHandoffSvc, aggregatorFinanceSvc)
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)

@@ -173,6 +173,7 @@ func (s *aggregatorFinanceService) SubmitClaim(ctx context.Context, claim *domai
 		return nil, err
 	}
 	if policy != nil {
+		claim.FeeBorneBy = policy.FeeBorneBy
 		// Calculate dynamic compensation based on policy
 		baseAmt := policy.FeeAmountIDR
 		if policy.FeePctOrder > 0 {

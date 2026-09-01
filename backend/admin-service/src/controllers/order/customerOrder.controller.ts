@@ -33,6 +33,7 @@ import {
 
 import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
+import { assertProviderCapability, LogisticsCapabilityError } from '../../services/logisticsCapabilities';
 
 import { releasePromoReservation, validatePromoForCheckout } from '../../services/promoEngine';
 import {
@@ -108,7 +109,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       material_codes,
       quote_total_price_idr,
       quote_snapshot_hash,
-      quote_consent
+      quote_consent,
+      payment_method,
     } = req.body;
 
     // Home services: harga jasa petugas dipakai utk hitung breakdown server-side
@@ -122,6 +124,22 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         error: 'Layanan pengiriman tidak tersedia'
       });
       return;
+    }
+
+    const requestedPaymentMethod = String(payment_method || 'midtrans').trim().toLowerCase();
+    if (requestedPaymentMethod === 'cod' && service.price_mode === 'quote' && logistics_provider) {
+      try {
+        await assertProviderCapability(logistics_provider, 'cod');
+      } catch (error) {
+        const capabilityError = error instanceof LogisticsCapabilityError ? error : null;
+        client.release();
+        res.status(capabilityError?.statusCode || 503).json({
+          success: false,
+          code: capabilityError?.code || 'LOGISTICS_PROVIDER_CAPABILITY_UNAVAILABLE',
+          error: capabilityError?.message || 'Capability COD provider belum dapat diverifikasi.',
+        });
+        return;
+      }
     }
 
     const isTowingService = service.service_category === 'towing' || String(service.code).startsWith('towing_');

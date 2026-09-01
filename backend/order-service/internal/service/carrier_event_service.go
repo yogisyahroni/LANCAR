@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"strings"
 	"tembus/order-service/internal/domain"
+
+	"github.com/google/uuid"
 )
 
 type carrierEventService struct {
@@ -17,6 +19,7 @@ type carrierEventService struct {
 	}
 	eventRepo         domain.OrderEventRepository
 	carrierHandoffSvc domain.CarrierHandoffService
+	financeSvc        domain.AggregatorFinanceService
 }
 
 func NewCarrierEventService(
@@ -33,6 +36,24 @@ func NewCarrierEventService(
 		handoffSvc = carrierHandoffSvc[0]
 	}
 	return &carrierEventService{repo: repo, orderRepo: orderRepo, eventRepo: eventRepo, carrierHandoffSvc: handoffSvc}
+}
+
+// NewCarrierEventServiceWithDependencies wires optional aggregator side effects
+// while keeping NewCarrierEventService compatible with existing consumers.
+func NewCarrierEventServiceWithDependencies(
+	repo domain.CarrierEventRepository,
+	orderRepo interface {
+		GetByAWB(ctx context.Context, awb string) (*domain.Order, error)
+		UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error
+	},
+	eventRepo domain.OrderEventRepository,
+	handoffSvc domain.CarrierHandoffService,
+	financeSvc domain.AggregatorFinanceService,
+) domain.CarrierEventService {
+	return &carrierEventService{
+		repo: repo, orderRepo: orderRepo, eventRepo: eventRepo,
+		carrierHandoffSvc: handoffSvc, financeSvc: financeSvc,
+	}
 }
 
 func (s *carrierEventService) Process(ctx context.Context, event *domain.CarrierEvent) error {
@@ -87,6 +108,19 @@ func (s *carrierEventService) Process(ctx context.Context, event *domain.Carrier
 		slog.WarnContext(ctx, "carrier_event: unknown AWB stored in inbox", "provider", event.Provider, "awb_number", event.AWBNumber, "event_id", event.EventID)
 		return nil
 	}
+	if exceptionType := carrierExceptionType(event.CanonicalStatus); exceptionType != "" && s.financeSvc != nil {
+		orderID, parseErr := uuid.Parse(strings.TrimSpace(order.ID))
+		if parseErr != nil {
+			return fmt.Errorf("create logistics exception claim: invalid order id %q: %w", order.ID, parseErr)
+		}
+		if _, claimErr := s.financeSvc.SubmitClaim(ctx, &domain.LogisticsExceptionClaim{
+			OrderID: orderID, AWBNumber: event.AWBNumber, ExceptionType: exceptionType,
+			ProviderName: event.Provider, ClaimAmountIDR: order.LogisticsTariffIDR,
+			Notes: "Dibuat otomatis dari event carrier terverifikasi: " + event.CanonicalStatus,
+		}); claimErr != nil {
+			return fmt.Errorf("create logistics exception claim: %w", claimErr)
+		}
+	}
 
 	target, ok := canonicalOrderStatus(event.CanonicalStatus)
 	if !ok {
@@ -111,6 +145,17 @@ func isCarrierAcceptanceEvent(status string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func carrierExceptionType(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "RETURN_REQUESTED", "RETURN_IN_TRANSIT", "RETURNED_TO_SENDER", "RETURN_TO_SENDER", "RETURNED":
+		return "RETURN"
+	case "DELIVERY_FAILED", "EXCEPTION":
+		return "FAILED_DELIVERY"
+	default:
+		return ""
 	}
 }
 

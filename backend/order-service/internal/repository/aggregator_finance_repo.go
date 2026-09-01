@@ -257,6 +257,7 @@ func (r *aggregatorFinanceRepository) CreateClaim(ctx context.Context, claim *do
 			item_value_idr, insurance_coverage_idr, provider_payout_idr, customer_compensation_idr, merchant_compensation_idr,
 			provider_claim_reference, fee_borne_by, evidence_urls, status, notes, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+		ON CONFLICT (order_id, exception_type) DO NOTHING
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		claim.ID, claim.OrderID, claim.AWBNumber, claim.ExceptionType, claim.ProviderName,

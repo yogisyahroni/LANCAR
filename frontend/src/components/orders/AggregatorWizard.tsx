@@ -287,11 +287,21 @@ export function AggregatorWizard() {
   const { register, watch, setValue, formState: { errors } } = methods;
 
   const currentProvider = watch("provider");
+  const selectedProvider = providers.find((provider) => provider.code === currentProvider);
+  const codSupported = Boolean(selectedProvider?.capabilities?.some((capability) => String(capability).toLowerCase() === "cod"));
+  const paymentType = watch("payment_type");
+  const paymentOptions: Array<"COD" | "NON_COD"> = codSupported ? ["COD", "NON_COD"] : ["NON_COD"];
   const scheduleType = watch("schedule_type");
   const pickup_address = watch("pickup_address");
   const pickup_location = watch("pickup_location");
   const dropoff_address = watch("dropoff_address");
   const dropoff_location = watch("dropoff_location");
+
+  useEffect(() => {
+    if (!codSupported && paymentType === "COD") {
+      setValue("payment_type", "NON_COD", { shouldValidate: true });
+    }
+  }, [codSupported, paymentType, setValue]);
 
   useEffect(() => {
     let active = true;
@@ -1012,19 +1022,19 @@ export function AggregatorWizard() {
                         <div>
                           <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Payment</label>
                           <div className="flex gap-2">
-                            {(["COD", "NON_COD"] as const).map(pt => (
+                            {paymentOptions.map(pt => (
                               <button
                                 key={pt}
                                 type="button"
                                 onClick={() => setValue("payment_type", pt, { shouldValidate: true })}
                                 className={[
                                   "relative flex-1 flex items-center justify-center gap-1.5 rounded-lg border py-2.5 text-sm font-medium transition-all",
-                                  watch("payment_type") === pt
+                                  paymentType === pt
                                     ? "border-indigo-500 bg-indigo-500/15 text-indigo-300"
                                     : "border-white/10 bg-background/40 text-muted-foreground hover:bg-white/5",
                                 ].join(" ")}
                               >
-                                {watch("payment_type") === pt && (
+                                {paymentType === pt && (
                                   <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-indigo-500 flex items-center justify-center">
                                     <Check className="h-2 w-2 text-white" />
                                   </span>
@@ -1034,10 +1044,13 @@ export function AggregatorWizard() {
                               </button>
                             ))}
                           </div>
+                          {!codSupported && (
+                            <p className="mt-2 text-xs text-muted-foreground">COD belum tersedia untuk provider dan layanan yang dipilih.</p>
+                          )}
                         </div>
                         <div>
                           <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                            {watch("payment_type") === "COD" ? "Nilai COD" : "Nilai Barang"} <Info className="h-3.5 w-3.5" />
+                            {paymentType === "COD" ? "Nilai COD" : "Nilai Barang"} <Info className="h-3.5 w-3.5" />
                           </label>
                           <input
                             {...register("item_value", { valueAsNumber: true })}

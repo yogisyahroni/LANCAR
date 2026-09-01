@@ -5,6 +5,8 @@ import (
 	"tembus/order-service/internal/domain"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type carrierEventRepositoryStub struct{ inserted bool }
@@ -122,6 +124,63 @@ func TestCarrierAcceptanceEventDoesNotBlockNonAggregatorLifecycle(t *testing.T) 
 	}
 	if orderRepo.updatedState != domain.StatusDelivering {
 		t.Fatalf("non-aggregator event did not advance lifecycle: %s", orderRepo.updatedState)
+	}
+}
+
+type carrierFinanceRecorder struct {
+	claims []*domain.LogisticsExceptionClaim
+}
+
+func (s *carrierFinanceRecorder) CreateInvoice(context.Context, *domain.ProviderInvoice, []domain.ProviderInvoiceItem) error {
+	return nil
+}
+func (s *carrierFinanceRecorder) ReconcileInvoice(context.Context, uuid.UUID) (*domain.ProviderInvoice, error) {
+	return nil, nil
+}
+func (s *carrierFinanceRecorder) ApproveInvoice(context.Context, uuid.UUID, uuid.UUID) error {
+	return nil
+}
+func (s *carrierFinanceRecorder) SubmitClaim(_ context.Context, claim *domain.LogisticsExceptionClaim) (*domain.LogisticsExceptionClaim, error) {
+	s.claims = append(s.claims, claim)
+	return claim, nil
+}
+func (s *carrierFinanceRecorder) ResolveClaim(context.Context, uuid.UUID, string) error { return nil }
+
+func TestCarrierExceptionEventCreatesPolicyClaimBeforeLifecycleUpdate(t *testing.T) {
+	orderID := uuid.New()
+	eventRepo := &carrierEventRepositoryStub{}
+	orderRepo := &carrierEventOrderRepositoryStub{order: &domain.Order{
+		ID: orderID.String(), Status: domain.StatusDelivering, LogisticsTariffIDR: 27500,
+	}}
+	orderEvents := &carrierEventOrderEventsStub{}
+	finance := &carrierFinanceRecorder{}
+	svc := NewCarrierEventServiceWithDependencies(eventRepo, orderRepo, orderEvents, nil, finance)
+
+	err := svc.Process(context.Background(), &domain.CarrierEvent{
+		Provider: "jne", EventID: "jne-return-1", AWBNumber: "JNE-RETURN-1",
+		CanonicalStatus: "RETURN_TO_SENDER", RawStatus: "RTS", ReceivedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("process return event: %v", err)
+	}
+	if len(finance.claims) != 1 {
+		t.Fatalf("expected one automatic exception claim, got %d", len(finance.claims))
+	}
+	claim := finance.claims[0]
+	if claim.OrderID != orderID || claim.ExceptionType != "RETURN" || claim.ProviderName != "jne" || claim.ClaimAmountIDR != 27500 {
+		t.Fatalf("unexpected automatic return claim: %+v", claim)
+	}
+	if orderRepo.updatedState != domain.StatusReturnToSender {
+		t.Fatalf("return event did not update normalized lifecycle: %s", orderRepo.updatedState)
+	}
+}
+
+func TestCarrierExceptionTypeDoesNotGuessUnrelatedStatuses(t *testing.T) {
+	if got := carrierExceptionType("DELIVERED"); got != "" {
+		t.Fatalf("delivered must not create exception claim: %q", got)
+	}
+	if got := carrierExceptionType("DAMAGED"); got != "" {
+		t.Fatalf("damaged requires evidence-backed manual claim intake: %q", got)
 	}
 }
 
