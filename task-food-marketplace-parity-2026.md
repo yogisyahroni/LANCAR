@@ -996,10 +996,11 @@ Existing shared files:
 - `frontend/src/components/orders/AddressPicker.tsx`
 - `frontend/src/components/orders/OrderSummary.tsx`
 
-- [ ] Steps: Pickup → Receiver/Package → Compare Carrier → Review & Pay.
-- [ ] Carrier cards show provider/service name, ETA/source, chargeable weight, price, capabilities, limitations.
-- [ ] First-mile LANCAR vs external-carrier stage visually distinct.
+- [x] Steps: Pickup → Receiver/Package → Compare Carrier → Review & Pay.
+- [x] Carrier cards show provider/service name, ETA/source, chargeable weight, price, capabilities, limitations.
+- [x] First-mile LANCAR vs external-carrier stage visually distinct.
 - [x] Success only after persisted order.
+- [ ] Authenticated staging browser proof confirms quote → persisted order → payment recovery with real provider responses.
 
 ---
 
@@ -1041,10 +1042,11 @@ Existing shared files:
 - [x] Provider that does not support a capability is not forced to fake it.
 - [x] Orchestrator selects operation based on declared capability.
 - [x] Customer-facing provider/service options are generated from backend registry/result.
-- [ ] Native provider service code/name is preserved.
+- [x] Native provider service code/name is preserved.
 - [x] Provider credentials/config live server-side.
 - [x] Circuit breaker/retry/timeout policy configurable per provider.
 - [x] Adding provider does not require edits in customer Android, customer web, payment core, or generic order detail unless genuinely introducing new UX capability.
+- [ ] Authenticated staging verifies registry/capability/service payload against live provider configuration.
 
 ---
 
@@ -1069,11 +1071,12 @@ Existing shared files:
 **Checklist**
 - [x] Provider-specific signature/auth verification belongs to provider webhook adapter.
 - [x] Adapter parses native payload into canonical `CarrierEvent`.
-- [ ] Webhook-capable provider uses webhook as primary event source where appropriate.
-- [ ] Tracking-pull-only provider uses polling worker.
-- [ ] Webhook provider may still use periodic pull reconciliation if supported.
-- [ ] Provider with neither supported webhook nor pull is surfaced as degraded/manual tracking capability.
+- [x] Webhook-capable provider uses webhook as primary event source where appropriate.
+- [x] Tracking-pull-only provider uses polling worker.
+- [x] Webhook provider may still use periodic pull reconciliation if supported.
+- [x] Provider with neither supported webhook nor pull is surfaced as degraded/manual tracking capability.
 - [x] Central handler routes provider→adapter but does not contain growing provider-specific parsing switch.
+- [ ] Authenticated staging verifies webhook-primary delivery, polling fallback, reconciliation, and degraded/manual exposure.
 
 ---
 
