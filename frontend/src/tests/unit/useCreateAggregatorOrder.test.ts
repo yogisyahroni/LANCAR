@@ -47,8 +47,15 @@ describe("aggregator create API contract", () => {
     expect((payload.package_details as { size_tier: string }).size_tier).toBe("small");
   });
 
+  it("fails closed when an unsupported COD option is requested", () => {
+    expect(() => buildAggregatorOrderPayload({ ...draft, payment_type: "COD" }, {
+      service: "regular",
+      price: 32000,
+    })).toThrow("COD aggregator belum tersedia");
+  });
+
   it("sends a stable idempotency key and refuses a response without an order id", async () => {
-    const post = vi.fn().mockResolvedValue({ data: { order: { id: "order-1", status: "pending_payment" } } });
+    const post = vi.fn().mockResolvedValue({ data: { success: true, order: { id: "order-1", status: "pending_payment" } } });
     const client = { post };
 
     await requestAggregatorOrder(client, { service_code: AGGREGATOR_SERVICE_CODE }, "agg-key-1");
@@ -60,11 +67,18 @@ describe("aggregator create API contract", () => {
 
     post.mockResolvedValueOnce({ data: { success: true } });
     await expect(requestAggregatorOrder(client, {}, "agg-key-2")).rejects.toThrow("referensi order");
+
+    post.mockResolvedValueOnce({ data: { order: { id: "order-2" } } });
+    await expect(requestAggregatorOrder(client, {}, "agg-key-3")).rejects.toThrow("mengonfirmasi order");
   });
 
   it("does not treat a payment response without a usable session as success", async () => {
     const post = vi.fn().mockResolvedValue({ data: { payment: { payment_status: "pending" } } });
     await expect(requestAggregatorPaymentSession({ post }, "order-1", "pay-key-1"))
       .rejects.toThrow("sesi pembayaran");
+
+    const unsuccessful = vi.fn().mockResolvedValue({ data: { success: false, payment: { snap_token: "token" } } });
+    await expect(requestAggregatorPaymentSession({ post: unsuccessful }, "order-1", "pay-key-2"))
+      .rejects.toThrow("mengonfirmasi sesi pembayaran");
   });
 });

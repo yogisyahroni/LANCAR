@@ -76,6 +76,9 @@ export function buildAggregatorOrderPayload(
   draft: AggregatorOrderDraft,
   quote: AggregatorQuote,
 ): Record<string, unknown> {
+  if (draft.payment_type === "COD") {
+    throw new Error("COD aggregator belum tersedia; pilih pembayaran Non-COD");
+  }
   const totalPrice = Number(quote.price);
   if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
     throw new Error("Tarif pengiriman dari server tidak valid");
@@ -127,7 +130,7 @@ export function buildAggregatorOrderPayload(
       service_type: quote.service,
       quote_etd: quote.etd || undefined,
     },
-    payment_method: draft.payment_type === "COD" ? "cod" : "midtrans",
+    payment_method: "midtrans",
   };
 }
 
@@ -139,6 +142,9 @@ export async function requestAggregatorOrder(
   const response = await client.post("/auth/web/orders", payload, {
     headers: { "X-Idempotency-Key": idempotencyKey },
   });
+  if (response.data?.success !== true) {
+    throw new Error("Server belum mengonfirmasi order aggregator tersimpan");
+  }
   const order = response.data?.order;
   if (!order?.id) {
     throw new Error("Server tidak mengembalikan referensi order yang tersimpan");
@@ -156,6 +162,9 @@ export async function requestAggregatorPaymentSession(
     { payment_method: "midtrans" },
     { headers: { "X-Idempotency-Key": idempotencyKey } },
   );
+  if (response.data?.success !== true) {
+    throw new Error("Server belum mengonfirmasi sesi pembayaran aggregator");
+  }
   const payment = response.data?.payment || null;
   if (payment?.payment_status === "paid" || (payment?.order_status && payment.order_status !== "pending_payment")) {
     return payment;
