@@ -82,6 +82,7 @@ jest.mock('./controllers', () => ({
   getMobileCourierOffers: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
   acceptMobileCourierOffer: jest.fn((req, res) => res.status(200).json({ success: true, data: { id: req.params.id } })),
   rejectMobileCourierOffer: jest.fn((req, res) => res.status(200).json({ success: true, data: { id: req.params.id } })),
+  updateMobileCourierOrderStatus: jest.fn((req, res) => res.status(200).json({ success: true, data: true })),
   verifyMobileCourierFace: jest.fn((req, res) => res.status(200).json({ success: true, data: { verified: true } })),
   scanMobileCourierOrder: jest.fn((req, res) => res.status(200).json({ success: true, data: { scanned: true } })),
   uploadMobileCourierPod: jest.fn((req, res) => res.status(200).json({ success: true, data: { uploaded: true } })),
@@ -272,7 +273,7 @@ describe('Admin Service Routes', () => {
     expect(controllers.getMobileCourierPayoutSummary).toHaveBeenCalled();
   });
 
-  it('requires idempotency keys for courier offer, face, scan, and POD mutations', async () => {
+  it('requires idempotency keys for courier offer, status, face, scan, and POD mutations', async () => {
     const previousSetting = process.env.REQUIRE_IDEMPOTENCY_KEYS;
     process.env.REQUIRE_IDEMPOTENCY_KEYS = 'true';
 
@@ -293,6 +294,11 @@ describe('Admin Service Routes', () => {
         path: '/api/v1/courier/face/verify',
         body: { order_id: 'order-1' },
         controller: controllers.verifyMobileCourierFace,
+      },
+      {
+        path: '/api/v1/orders/status',
+        body: { order_id: 'order-1', status: 'pickup_arrived' },
+        controller: controllers.updateMobileCourierOrderStatus,
       },
       {
         path: '/api/v1/orders/scan',

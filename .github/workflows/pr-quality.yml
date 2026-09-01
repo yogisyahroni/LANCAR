@@ -205,14 +205,18 @@ jobs:
 
       - name: Validate Prometheus configuration and rules
         run: |
+          prometheus_rules_dir="${RUNNER_TEMP}/prometheus-rules"
+          mkdir -p "$prometheus_rules_dir"
+          cp observability/slo.yaml "$prometheus_rules_dir/slo.yaml"
+          cp deploy/observability/prometheus-rules.yaml "$prometheus_rules_dir/prometheus-rules.yaml"
           docker run --rm \
             -v "${{ github.workspace }}/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
-            -v "${{ github.workspace }}/observability:/etc/prometheus/rules:ro" \
-            -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/etc/prometheus/rules/prometheus-rules.yaml:ro" \
+            -v "$prometheus_rules_dir:/etc/prometheus/rules:ro" \
+            --entrypoint promtool \
             prom/prometheus:v3.5.0 \
-            promtool check config /etc/prometheus/prometheus.yml
+            check config /etc/prometheus/prometheus.yml
           docker run --rm \
-            -v "${{ github.workspace }}/observability:/etc/prometheus/rules:ro" \
-            -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/etc/prometheus/rules/prometheus-rules.yaml:ro" \
+            -v "$prometheus_rules_dir:/etc/prometheus/rules:ro" \
+            --entrypoint promtool \
             prom/prometheus:v3.5.0 \
-            promtool check rules /etc/prometheus/rules/prometheus-rules.yaml /etc/prometheus/rules/slo.yaml
+            check rules /etc/prometheus/rules/prometheus-rules.yaml /etc/prometheus/rules/slo.yaml

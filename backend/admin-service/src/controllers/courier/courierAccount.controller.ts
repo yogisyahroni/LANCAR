@@ -284,7 +284,7 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
       return;
     }
 
-    const pickupStatuses = ['going_to_pickup', 'pickup_pending', 'picked_up', 'in_transit'];
+    const pickupStatuses = ['going_to_pickup', 'pickup_pending', 'pickup_arrived', 'picked_up', 'in_transit'];
     const isPickupStatus = pickupStatuses.includes(effectiveRequestedStatus);
 
     if (isPickupStatus && order.batch_id) {
@@ -329,7 +329,9 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
       );
     }
 
-    const statusEventType = workflowRole === 'regular' && requestedStatus === 'failed'
+    const statusEventType = requestedStatus === 'pickup_arrived'
+      ? 'pickup_arrived'
+      : workflowRole === 'regular' && requestedStatus === 'failed'
       ? (effectiveRequestedStatus === 'return_required' ? 'return_required' : 'delivery_rescheduled')
       : 'courier_status_updated';
 
