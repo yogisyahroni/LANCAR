@@ -36,7 +36,7 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO courier_profiles (
   id, user_id, vehicle_type, current_lat, current_lng,
-  is_online, status, allows_tambal_ban, allows_towing,
+  is_online, verification_status, allows_tambal_ban, allows_towing,
   service_categories, avg_rating, radius_max_km
 ) VALUES (
   '451aba68-2de3-4883-b2fc-61bff58a4921',
@@ -47,7 +47,7 @@ INSERT INTO courier_profiles (
 )
 ON CONFLICT (id) DO UPDATE SET
   is_online           = TRUE,
-  status = 'approved',
+  verification_status = 'approved',
   allows_tambal_ban   = TRUE,
   allows_towing       = TRUE,
   current_lat         = -6.2146,
