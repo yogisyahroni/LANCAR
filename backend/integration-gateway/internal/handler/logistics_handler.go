@@ -2,25 +2,39 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"tembus/integration-gateway/internal/domain"
+	"tembus/integration-gateway/internal/service"
 )
 
 type LogisticsHandler struct {
-	jneProvider domain.Logistics3PLProvider
-	jntProvider domain.Logistics3PLProvider
+	orchestrator *service.LogisticsOrchestrator
 }
 
-func NewLogisticsHandler(jneProv, jntProv domain.Logistics3PLProvider) *LogisticsHandler {
+func NewLogisticsHandler(orchestrator *service.LogisticsOrchestrator) *LogisticsHandler {
 	return &LogisticsHandler{
-		jneProvider: jneProv,
-		jntProvider: jntProv,
+		orchestrator: orchestrator,
 	}
+}
+
+type ListLogisticsProvidersResponse struct {
+	Success bool                        `json:"success"`
+	Data    []domain.ProviderDescriptor `json:"data"`
+}
+
+func (h *LogisticsHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	h.respondJSON(w, http.StatusOK, ListLogisticsProvidersResponse{
+		Success: true,
+		Data:    h.orchestrator.ListProviders(),
+	})
 }
 
 type CreateLogisticsOrderRequest struct {
@@ -45,9 +59,9 @@ type CreateLogisticsOrderRequest struct {
 }
 
 type CreateLogisticsOrderResponse struct {
-	Success bool                               `json:"success"`
-	Message string                             `json:"message,omitempty"`
-	Data    *domain.LogisticsOrderResponse     `json:"data,omitempty"`
+	Success bool                           `json:"success"`
+	Message string                         `json:"message,omitempty"`
+	Data    *domain.LogisticsOrderResponse `json:"data,omitempty"`
 }
 
 func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
@@ -62,21 +76,7 @@ func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var prov domain.Logistics3PLProvider
 	provName := strings.ToLower(strings.TrimSpace(req.Provider))
-	if provName == "jnt" || provName == "j&t" {
-		prov = h.jntProvider
-	} else {
-		prov = h.jneProvider
-	}
-
-	if prov == nil {
-		h.respondJSON(w, http.StatusInternalServerError, CreateLogisticsOrderResponse{
-			Success: false,
-			Message: fmt.Sprintf("Logistics provider %s is not configured", req.Provider),
-		})
-		return
-	}
 
 	orderReq := domain.LogisticsOrderRequest{
 		ReferenceID:     req.ReferenceID,
@@ -98,7 +98,7 @@ func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		ServiceType:     req.ServiceType,
 	}
 
-	res, err := prov.CreateOrder(r.Context(), orderReq)
+	res, err := h.orchestrator.CreateOrder(r.Context(), provName, orderReq)
 	if err != nil {
 		log.Printf("[integration-gateway] CreateOrder Error (%s): %v", provName, err)
 		h.respondJSON(w, http.StatusBadGateway, CreateLogisticsOrderResponse{
@@ -142,22 +142,7 @@ func (h *LogisticsHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
 		ServiceType:     "",
 	}
 
-	var prov domain.Logistics3PLProvider
-	if provider == "jnt" || provider == "j&t" {
-		prov = h.jntProvider
-	} else {
-		prov = h.jneProvider
-	}
-
-	if prov == nil {
-		h.respondJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"success": false,
-			"message": fmt.Sprintf("Logistics provider %s is not configured", provider),
-		})
-		return
-	}
-
-	res, err := prov.CheckTariff(r.Context(), req)
+	res, err := h.orchestrator.CheckTariff(r.Context(), provider, req)
 	if err != nil {
 		log.Printf("[integration-gateway] CheckTariff Error (%s): %v", provider, err)
 		h.respondJSON(w, http.StatusBadGateway, map[string]interface{}{

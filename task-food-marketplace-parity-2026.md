@@ -1033,14 +1033,15 @@ Existing shared files:
 - `ClaimProvider`
 
 **Checklist**
-- [ ] Every provider has canonical provider id/code/name and declared capability set.
-- [ ] Provider that does not support a capability is not forced to fake it.
-- [ ] Orchestrator selects operation based on declared capability.
-- [ ] Customer-facing provider/service options are generated from backend registry/result.
-- [ ] Native provider service code/name is preserved.
-- [ ] Provider credentials/config live server-side.
-- [ ] Circuit breaker/retry/timeout policy configurable per provider.
-- [ ] Adding provider does not require edits in customer Android, customer web, payment core, or generic order detail unless genuinely introducing new UX capability.
+- [x] Every provider has canonical provider id/code/name and declared capability set.
+- [x] Provider that does not support a capability is not forced to fake it.
+- [x] Orchestrator selects operation based on declared capability.
+- [x] Customer-facing provider/service options are generated from backend registry/result.
+- [x] Native provider service code/name is preserved.
+- [x] Provider credentials/config live server-side.
+- [x] Circuit breaker/retry/timeout policy configurable per provider.
+- [x] Adding provider does not require edits in customer Android, customer web, payment core, or generic order detail unless genuinely introducing new UX capability.
+- [ ] Staging provider catalog and health/readiness behavior are verified with authorized provider sandbox configuration.
 
 ---
 

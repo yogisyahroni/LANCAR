@@ -23,6 +23,18 @@ type JNEProvider struct {
 	cb         *CircuitBreaker
 }
 
+func (p *JNEProvider) Identity() domain.ProviderIdentity {
+	return domain.ProviderIdentity{ID: "jne", Code: "JNE", Name: "JNE"}
+}
+
+func (p *JNEProvider) Capabilities() []domain.Capability {
+	return []domain.Capability{
+		domain.CapabilityTariff,
+		domain.CapabilityShipment,
+		domain.CapabilityTrackingPull,
+	}
+}
+
 func NewJNEProvider() *JNEProvider {
 	baseURL := os.Getenv("JNE_BASE_URL")
 	if baseURL == "" {
@@ -192,10 +204,10 @@ func (p *JNEProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 
 	var jneResp struct {
 		Detail []struct {
-			CnoteNo  string `json:"cnote_no"`
-			Status   string `json:"status"`
-			Reason   string `json:"reason"`
-			Amount   string `json:"amount"`
+			CnoteNo string `json:"cnote_no"`
+			Status  string `json:"status"`
+			Reason  string `json:"reason"`
+			Amount  string `json:"amount"`
 		} `json:"detail"`
 	}
 
@@ -226,7 +238,7 @@ func (p *JNEProvider) TrackOrder(ctx context.Context, awb string) (*domain.Track
 	}
 
 	endpoint := fmt.Sprintf("%s/tracing/api/list/v1/cnote/%s", p.baseURL, awb)
-	
+
 	formData := url.Values{}
 	formData.Set("username", p.username)
 	formData.Set("api_key", p.apiKey)

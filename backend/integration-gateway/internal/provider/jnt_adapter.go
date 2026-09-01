@@ -23,7 +23,19 @@ type JNTProvider struct {
 	customerCode string
 	baseURL      string
 	httpClient   *http.Client
-	cb         *CircuitBreaker
+	cb           *CircuitBreaker
+}
+
+func (p *JNTProvider) Identity() domain.ProviderIdentity {
+	return domain.ProviderIdentity{ID: "jnt", Code: "JNT", Name: "J&T Express"}
+}
+
+func (p *JNTProvider) Capabilities() []domain.Capability {
+	return []domain.Capability{
+		domain.CapabilityTariff,
+		domain.CapabilityShipment,
+		domain.CapabilityTrackingPull,
+	}
 }
 
 func NewJNTProvider() *JNTProvider {
@@ -231,11 +243,11 @@ func (p *JNTProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 	}
 
 	var jntResp struct {
-		Code           string `json:"code"`
-		Msg            string `json:"msg"`
-		Billcode       string `json:"billcode"`
-		Txlogisticid   string `json:"txlogisticid"`
-		Sortingcode    string `json:"sortingcode"`
+		Code             string `json:"code"`
+		Msg              string `json:"msg"`
+		Billcode         string `json:"billcode"`
+		Txlogisticid     string `json:"txlogisticid"`
+		Sortingcode      string `json:"sortingcode"`
 		Totalshippingfee string `json:"totalshippingfee"`
 	}
 

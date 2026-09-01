@@ -57,11 +57,37 @@ type OptimizedRouteResult struct {
 	OptimizedIndices []int   `json:"optimized_indices"`
 }
 
-// Logistics3PLProvider defines the interface for an external 3PL logistics provider (e.g. JNE, J&T Express)
-type Logistics3PLProvider interface {
+// LogisticsProvider is the small identity contract shared by every logistics
+// adapter. Operational capabilities are deliberately modelled as separate
+// interfaces below so an adapter never has to fake an unsupported operation.
+type LogisticsProvider interface {
+	Identity() ProviderIdentity
+	Capabilities() []Capability
+}
+
+// TariffProvider calculates provider-owned shipping options.
+type TariffProvider interface {
 	CheckTariff(ctx context.Context, req TariffRequest) (*TariffResponse, error)
+}
+
+// ShipmentProvider creates a shipment and returns the provider's native AWB.
+type ShipmentProvider interface {
 	CreateOrder(ctx context.Context, req LogisticsOrderRequest) (*LogisticsOrderResponse, error)
+}
+
+// TrackingPullProvider retrieves the latest tracking state from a provider.
+type TrackingPullProvider interface {
 	TrackOrder(ctx context.Context, awb string) (*TrackingResponse, error)
+}
+
+// Logistics3PLProvider is retained as a compatibility alias for callers that
+// still require the original three-operation provider contract. New code
+// should depend on LogisticsProvider plus only the capability it needs.
+type Logistics3PLProvider interface {
+	LogisticsProvider
+	TariffProvider
+	ShipmentProvider
+	TrackingPullProvider
 }
 
 type TariffRequest struct {
@@ -72,14 +98,17 @@ type TariffRequest struct {
 }
 
 type TariffResponse struct {
-	Provider string                `json:"provider"`
-	Services []TariffServiceOption `json:"services"`
+	Provider     string                `json:"provider"`
+	ProviderID   string                `json:"provider_id,omitempty"`
+	ProviderCode string                `json:"provider_code,omitempty"`
+	ProviderName string                `json:"provider_name,omitempty"`
+	Services     []TariffServiceOption `json:"services"`
 }
 
 type TariffServiceOption struct {
 	ServiceCode   string `json:"service_code"`
 	ServiceName   string `json:"service_name"`
-	TariffGross   int64  `json:"tariff_gross"`   // Harga kotor dari provider (dalam IDR)
+	TariffGross   int64  `json:"tariff_gross"` // Harga kotor dari provider (dalam IDR)
 	EstimatedDays string `json:"estimated_days"`
 }
 
@@ -104,12 +133,12 @@ type LogisticsOrderRequest struct {
 }
 
 type LogisticsOrderResponse struct {
-	ReferenceID string  `json:"reference_id"`
-	AWBNumber   string  `json:"awb_number"`
-	Provider    string  `json:"provider"`
-	ServiceType string  `json:"service_type"`
-	BookingCode string  `json:"booking_code"`
-	TotalAmount int64   `json:"total_amount"`
+	ReferenceID string `json:"reference_id"`
+	AWBNumber   string `json:"awb_number"`
+	Provider    string `json:"provider"`
+	ServiceType string `json:"service_type"`
+	BookingCode string `json:"booking_code"`
+	TotalAmount int64  `json:"total_amount"`
 }
 
 type TrackingResponse struct {

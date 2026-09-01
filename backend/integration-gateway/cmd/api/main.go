@@ -1,17 +1,18 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
-	"time"
-	"context"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"tembus/integration-gateway/internal/handler"
 	"tembus/integration-gateway/internal/provider"
+	"tembus/integration-gateway/internal/service"
 )
 
 func main() {
@@ -30,7 +31,6 @@ func main() {
 	}
 	log.Println("[integration-gateway] OTP provider initialized successfully")
 
-
 	mapsProv, err := provider.NewMapsProvider("")
 	if err != nil {
 		log.Fatalf("[integration-gateway] failed to init Maps Provider: %v", err)
@@ -39,13 +39,18 @@ func main() {
 
 	jneProv := provider.NewJNEProvider()
 	jntProv := provider.NewJNTProvider()
-	log.Println("[integration-gateway] Logistics 3PL providers initialized successfully")
+	logisticsRegistry, err := provider.NewLogisticsRegistry(jneProv, jntProv)
+	if err != nil {
+		log.Fatalf("[integration-gateway] failed to register logistics providers: %v", err)
+	}
+	logisticsOrchestrator := service.NewLogisticsOrchestrator(logisticsRegistry)
+	log.Println("[integration-gateway] Logistics provider registry initialized successfully")
 
 	// ─────────────────────────────────────────────
 	// Handlers & Router Setup
 	// ─────────────────────────────────────────────
 	mux := http.NewServeMux()
-	
+
 	// Middleware for Internal API Key (Simple authentication between microservices)
 	authMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,13 +69,13 @@ func main() {
 	otpHandler := handler.NewOTPHandler(otpProv)
 	paymentHandler := handler.NewPaymentHandler()
 	mapsHandler := handler.NewMapsHandler(mapsProv)
-	logisticsHandler := handler.NewLogisticsHandler(jneProv, jntProv)
+	logisticsHandler := handler.NewLogisticsHandler(logisticsOrchestrator)
 	trackingWebhookHandler := handler.NewTrackingWebhookHandler()
 
 	// Routes
 	mux.Handle("/api/internal/otp/send-wa", authMiddleware(http.HandlerFunc(otpHandler.SendWA)))
 	mux.Handle("/api/internal/otp/send-sms", authMiddleware(http.HandlerFunc(otpHandler.SendSMS)))
-	
+
 	mux.Handle("/api/internal/payment/invoice", authMiddleware(http.HandlerFunc(paymentHandler.CreateInvoice)))
 	mux.Handle("/api/internal/payment/disburse", authMiddleware(http.HandlerFunc(paymentHandler.CreateDisbursement)))
 
@@ -79,6 +84,7 @@ func main() {
 
 	mux.Handle("/api/internal/logistics/create-order", authMiddleware(http.HandlerFunc(logisticsHandler.CreateOrder)))
 	mux.Handle("/api/internal/logistics/tariff", authMiddleware(http.HandlerFunc(logisticsHandler.CheckTariff)))
+	mux.Handle("/api/internal/logistics/providers", authMiddleware(http.HandlerFunc(logisticsHandler.ListProviders)))
 
 	// Webhook dari 3PL eksternal (verifikasi signature di dalam handler)
 	mux.HandleFunc("/api/v1/logistics/webhook", trackingWebhookHandler.HandleProviderWebhook)
