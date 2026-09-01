@@ -4,7 +4,7 @@ import {
   getMobileCourierOnDemandServices,
   updateMobileCourierOrderStatus,
 } from './controllers/courierAuth.controller';
-import { updateAdminDeliveryService } from './controllers/deliveryServices.controller';
+import { findDeliveryServiceByCode, updateAdminDeliveryService } from './controllers/deliveryServices.controller';
 import { db } from './db';
 import { createNotification } from './notifications';
 
@@ -191,6 +191,24 @@ describe('courier v2 P2 contracts', () => {
         proof_geofence_radius_m: 10,
       }),
     }));
+  });
+
+  it('resolves enabled aggregator services even when their route model is hub-and-spoke', async () => {
+    (db.query as jest.Mock).mockResolvedValueOnce({ rows: [{
+      ...serviceRow,
+      code: 'tembus_aggregator',
+      service_category: 'aggregator',
+      route_model: 'hub_and_spoke',
+    }] });
+
+    const service = await findDeliveryServiceByCode('tembus_aggregator');
+
+    expect(service).toEqual(expect.objectContaining({
+      code: 'tembus_aggregator',
+      service_category: 'aggregator',
+      route_model: 'hub_and_spoke',
+    }));
+    expect((db.query as jest.Mock).mock.calls[0][0]).toContain("route_model = 'p2p' OR service_category = 'aggregator'");
   });
 
   it('rejects on-demand failed or return statuses because the service must be delivered', async () => {
