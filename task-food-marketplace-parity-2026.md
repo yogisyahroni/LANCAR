@@ -1149,10 +1149,11 @@ Existing shared files:
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/TowingBookingScreen.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/TowingBookingViewModel.kt`
 
-- [ ] Exact pickup and normalized destination.
-- [ ] Vehicle type/make/model/condition/access constraints structured.
-- [ ] Remove parcel-shaped placeholders like `small`, zero dimensions, fake receiver/phone.
-- [ ] Route preview/operator visible.
+- [x] Exact pickup and normalized destination.
+- [x] Vehicle type/make/model/condition/access constraints structured.
+- [x] Remove parcel-shaped placeholders like `small`, zero dimensions, fake receiver/phone.
+- [x] Route preview/operator visible.
+- [ ] Staging/Docker end-to-end booking verification with real backend data.
 
 ## TOW-2026-002 — Capability/vehicle-safe matching [P0]
 - [ ] Validate towing motor/mobil capability.
