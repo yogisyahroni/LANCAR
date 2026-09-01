@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -100,6 +101,7 @@ import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.displayServiceName
+import com.tembus.courier.data.model.etaMinutesValue
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.data.model.isMaintenanceService
 import com.tembus.courier.data.model.normalizedWorkflowRole
@@ -369,6 +371,144 @@ internal fun HotspotRow(hotspot: CourierHotspot) {
     }
 }
 
+private enum class OfferServiceMode {
+    FOOD,
+    PACKAGE,
+    TAMBAL_BAN,
+    TOWING,
+    OTHER
+}
+
+private fun Order.offerServiceMode(): OfferServiceMode {
+    val identity = listOf(serviceCode, serviceCategory, serviceFamily, serviceName)
+        .filterNotNull()
+        .joinToString(" ")
+        .lowercase()
+    return when {
+        "tambal" in identity -> OfferServiceMode.TAMBAL_BAN
+        "towing" in identity || "dere k" in identity -> OfferServiceMode.TOWING
+        "food" in identity || "makanan" in identity -> OfferServiceMode.FOOD
+        "paket" in identity || "package" in identity || "parcel" in identity || "instant" in identity -> OfferServiceMode.PACKAGE
+        else -> OfferServiceMode.OTHER
+    }
+}
+
+private fun OfferServiceMode.label(): String = when (this) {
+    OfferServiceMode.FOOD -> "Food"
+    OfferServiceMode.PACKAGE -> "Paket"
+    OfferServiceMode.TAMBAL_BAN -> "Tambal Ban"
+    OfferServiceMode.TOWING -> "Towing"
+    OfferServiceMode.OTHER -> "Layanan lain"
+}
+
+private fun OfferServiceMode.icon(): ImageVector = when (this) {
+    OfferServiceMode.FOOD -> Icons.Default.Restaurant
+    OfferServiceMode.PACKAGE -> Icons.Default.Inventory2
+    OfferServiceMode.TAMBAL_BAN -> Icons.Default.Build
+    OfferServiceMode.TOWING -> Icons.Default.LocalShipping
+    OfferServiceMode.OTHER -> Icons.Default.Route
+}
+
+private fun OfferServiceMode.color(): Color = when (this) {
+    OfferServiceMode.FOOD -> Color(0xFFE67E22)
+    OfferServiceMode.PACKAGE -> Color(0xFF2563EB)
+    OfferServiceMode.TAMBAL_BAN -> Color(0xFFB45309)
+    OfferServiceMode.TOWING -> Color(0xFFDC2626)
+    OfferServiceMode.OTHER -> Primary
+}
+
+private fun String.humanizeOfferToken(): String = trim()
+    .replace('_', ' ')
+    .replace('-', ' ')
+    .split(Regex("\\s+"))
+    .filter(String::isNotBlank)
+    .joinToString(" ") { it.replaceFirstChar { character -> character.uppercase() } }
+
+private fun Order.offerRouteModelLabel(): String? = listOf(serviceRouteModel, routeSnapshot?.routeProfile)
+    .firstOrNull { !it.isNullOrBlank() }
+    ?.let { raw ->
+        when (raw.lowercase()) {
+            "p2p", "point_to_point" -> "Titik ke titik"
+            "home_service", "home-service" -> "Layanan ke lokasi"
+            "multi_stop", "multi-stop" -> "Multi-stop"
+            else -> raw.humanizeOfferToken()
+        }
+    }
+
+private fun Order.offerRouteEtaLabel(): String? {
+    val eta = etaMinutesValue()
+    return eta.takeIf { it > 0 }?.let { "$it menit" }
+}
+
+private fun Order.offerProofLabels(): List<String> {
+    val proof = proofRequirements ?: return emptyList()
+    return buildList {
+        if (proof.faceVerificationRequired) add("Verifikasi wajah")
+        proof.requiredSteps.mapNotNull { it.trim().takeIf(String::isNotBlank)?.humanizeOfferToken() }
+            .forEach(::add)
+        proof.geofenceRadiusM.takeIf { it > 0 }?.let { add("Lokasi ≤ ${it} m") }
+        proof.podLabel.trim().takeIf { it.isNotBlank() && !it.equals("POD", ignoreCase = true) }
+            ?.let { add(it) }
+    }.distinct()
+}
+
+@Composable
+private fun OfferServiceFacts(
+    order: Order,
+    activeCapabilities: List<CourierServiceCapability> = emptyList(),
+    dark: Boolean = false
+) {
+    val mode = order.offerServiceMode()
+    val modeColor = mode.color()
+    val capability = activeCapabilities.firstOrNull { it.serviceCode == order.serviceCode }
+    val foreground = if (dark) Color.White else DeepForest
+    val muted = if (dark) Color.White.copy(alpha = 0.72f) else Color.DarkGray
+    val surface = if (dark) Color.White.copy(alpha = 0.06f) else modeColor.copy(alpha = 0.08f)
+    val border = if (dark) Color.White.copy(alpha = 0.12f) else modeColor.copy(alpha = 0.25f)
+    val serviceName = order.serviceName?.trim()?.takeIf { it.isNotBlank() }
+        ?: order.serviceCode?.trim()?.takeIf { it.isNotBlank() }?.humanizeOfferToken()
+        ?: "Nama layanan tidak dikirim server"
+    val capabilityText = when {
+        capability?.status.equals("enabled", ignoreCase = true) -> "Kemampuan aktif"
+        capability != null -> "Status kemampuan: ${capability.status.humanizeOfferToken()}"
+        order.serviceCode.isNullOrBlank() -> "Kemampuan belum dipetakan"
+        else -> "Kemampuan diverifikasi saat menerima"
+    }
+    val proofLabels = order.offerProofLabels()
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = surface,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, border)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Surface(color = modeColor.copy(alpha = if (dark) 0.28f else 0.16f), shape = RoundedCornerShape(9.dp)) {
+                    Icon(mode.icon(), contentDescription = mode.label(), tint = modeColor, modifier = Modifier.padding(8.dp).size(18.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(mode.label(), color = foreground, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelLarge)
+                    Text(serviceName, color = muted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text(capabilityText, color = if (capability?.status.equals("enabled", ignoreCase = true)) Success else muted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                order.offerRouteModelLabel()?.let { InfoPill(icon = Icons.Default.Route, text = it) }
+                order.offerRouteEtaLabel()?.let { InfoPill(icon = Icons.Default.Schedule, text = "ETA $it") }
+                order.routeProvider?.takeIf { it.isNotBlank() }?.let { InfoPill(icon = Icons.Default.Map, text = it) }
+            }
+
+            if (proofLabels.isNotEmpty()) {
+                Text("Bukti layanan: ${proofLabels.joinToString(" • ")}", color = muted, style = MaterialTheme.typography.labelSmall)
+            } else if (order.proofRequirements != null) {
+                Text("Bukti layanan mengikuti kebijakan server", color = muted, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
 @Composable
 internal fun OnDemandOfferQueueDialog(
     offers: List<Order>,
@@ -376,6 +516,7 @@ internal fun OnDemandOfferQueueDialog(
     activeJobCount: Int,
     maxActiveJobs: Int,
     acceptBlocked: Boolean,
+    activeCapabilities: List<CourierServiceCapability> = emptyList(),
     onAccept: (Order) -> Unit,
     onReject: (Order) -> Unit,
     onExpired: (Order) -> Unit
@@ -391,6 +532,12 @@ internal fun OnDemandOfferQueueDialog(
     } else {
         "Kapasitas aktif $activeJobCount/$maxActiveJobs pekerjaan."
     }
+    val activeCapabilityText = activeCapabilities
+        .filter { it.status.equals("enabled", ignoreCase = true) }
+        .map { it.serviceName.trim() }
+        .filter(String::isNotBlank)
+        .distinct()
+        .joinToString(", ")
 
     Dialog(
         onDismissRequest = {},
@@ -427,6 +574,14 @@ internal fun OnDemandOfferQueueDialog(
                                 "${orderedOffers.size} pekerjaan menunggu keputusan",
                                 color = Color.White.copy(alpha = 0.72f),
                                 style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                if (activeCapabilityText.isNotBlank()) "Kemampuan aktif: $activeCapabilityText"
+                                else "Kemampuan aktif mengikuti profil operasional",
+                                color = Color.White.copy(alpha = 0.64f),
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -465,6 +620,7 @@ internal fun OnDemandOfferQueueDialog(
                             OnDemandOfferQueueItem(
                                 order = offer,
                                 mapsProviderConfig = mapsProviderConfig,
+                                activeCapabilities = activeCapabilities,
                                 promoted = index == 0,
                                 acceptBlocked = acceptBlocked,
                                 blockedReason = capacityText,
@@ -484,6 +640,7 @@ internal fun OnDemandOfferQueueDialog(
 internal fun OnDemandOfferQueueItem(
     order: Order,
     mapsProviderConfig: MapsProviderConfig,
+    activeCapabilities: List<CourierServiceCapability> = emptyList(),
     promoted: Boolean,
     acceptBlocked: Boolean,
     blockedReason: String,
@@ -559,6 +716,8 @@ internal fun OnDemandOfferQueueItem(
                 color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.error else LogisticsOrange,
                 trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
             )
+
+            OfferServiceFacts(order = order, activeCapabilities = activeCapabilities)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak dihitung" })
@@ -724,6 +883,8 @@ internal fun OnDemandOfferDialog(
                     color = Primary,
                     trackColor = Color.White.copy(alpha = 0.18f)
                 )
+
+                OfferServiceFacts(order = order, dark = true)
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Jarak", color = Color.White.copy(alpha = 0.82f), style = MaterialTheme.typography.titleSmall)

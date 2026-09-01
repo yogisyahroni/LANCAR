@@ -6,6 +6,7 @@ import androidx.compose.runtime.MutableState
 import androidx.lifecycle.LifecycleOwner
 import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.Order
+import com.tembus.courier.data.model.CourierCapabilityProfile
 import com.tembus.courier.data.session.AuthSessionManager
 import com.tembus.courier.domain.CourierRouteState
 import com.tembus.courier.ui.screens.order.OrderViewModel
@@ -28,6 +29,7 @@ internal data class MainScreenDeps(
     val syncIntervalMs: Long,
     val onDemandOffers: List<Order>,
     val roleOrders: List<Order>,
+    val capabilityProfile: CourierCapabilityProfile?,
     val mapsProviderConfig: MapsProviderConfig,
     val routePreviews: Map<String, com.tembus.courier.data.model.CourierRoutePreview>,
     val cancelPickupReasons: List<com.tembus.courier.data.model.CancelPickupReason>,

@@ -360,6 +360,7 @@ internal fun MainScreenRuntime(
         syncIntervalMs = syncIntervalMs,
         onDemandOffers = onDemandOffers,
         roleOrders = roleOrders,
+        capabilityProfile = capabilityProfile,
         mapsProviderConfig = mapsProviderConfig,
         routePreviews = routePreviews,
         cancelPickupReasons = cancelPickupReasons,

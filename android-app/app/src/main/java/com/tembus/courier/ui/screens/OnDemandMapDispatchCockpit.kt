@@ -354,11 +354,20 @@ internal fun OnDemandMapDispatchCockpit(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val activeServiceNames = serviceItems
+                    .filter { service ->
+                        val capabilityEnabled = capabilityByCode[service.code]?.status.equals("enabled", ignoreCase = true)
+                        capabilityEnabled && service.code !in disabledServiceCodes
+                    }
+                    .map { it.name }
+                    .filter(String::isNotBlank)
                 OnDemandCompactStatusItem(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.TwoWheeler,
-                    title = "Layanan",
-                    value = if (serviceCount <= 0) {
+                    title = "Kemampuan aktif",
+                    value = if (activeServiceNames.isNotEmpty()) {
+                        activeServiceNames.joinToString(", ")
+                    } else if (serviceCount <= 0) {
                         if (vehicleLabel == "belum tersinkron") "Belum sync" else "$vehicleLabel tersinkron"
                     } else "$activeServiceCount/$serviceCount $vehicleLabel"
                 )
