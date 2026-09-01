@@ -1287,9 +1287,10 @@ Existing shared files:
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailSections.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderActionPolicy.kt`
 
-- [ ] Shared shell + typed service sections.
-- [ ] Action policy by state+service.
-- [ ] Unknown state safe.
+- [x] Shared shell + typed service sections.
+- [x] Action policy by state+service.
+- [x] Unknown state safe.
+- [ ] Android device/staging detail-flow verification with real service orders.
 
 ## UX-2026-003 — Courier service-mode clarity [P1]
 - [ ] Active capabilities clear before offers.
