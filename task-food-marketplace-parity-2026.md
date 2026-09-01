@@ -897,10 +897,10 @@ Existing shared files:
 - `frontend/e2e/aggregator-bulk-flow.spec.ts`
 - `backend/order-service/internal/service/order_bulk_idempotency_test.go`
 
-- [ ] Per-row validation/error report.
-- [ ] Job and child rows idempotent.
-- [ ] Partial success visible.
-- [ ] Payment binds exact job/order set version.
+- [x] Per-row validation/error report.
+- [x] Job and child rows idempotent.
+- [x] Partial success visible.
+- [x] Payment binds exact job/order set version.
 - [ ] Job resume after refresh, owner scoped.
 
 ---
