@@ -25,6 +25,7 @@ enum class CourierStage {
 enum class CourierNextActionType {
     ACCEPT_OFFER,
     NAVIGATE_TO_PICKUP,
+    MARK_PICKUP_ARRIVED,
     VERIFY_FACE_PICKUP,
     SCAN_PICKUP,
     CAPTURE_PICKUP_PHOTO,
@@ -67,6 +68,7 @@ object CourierFlowResolver {
     private val cancelledStatuses = setOf("cancelled", "canceled", "pickup_cancelled")
     private val cancelRequestStatuses = setOf("cancel_requested", "cancellation_requested")
     private val returnStatuses = setOf("return_required", "return_in_transit", "returned_to_hub", "returned_to_sender")
+    private val pickupArrivedStatuses = setOf("pickup_arrived", "arrived_pickup", "arrived_at_pickup")
     private val pickupImpliedStatuses = setOf("picked_up", "pickup_verified", "in_transit") + deliveredStatuses
     private val activeDeliveryStatuses = setOf("in_transit", "picked_up", "pickup_verified")
     private val offerStatuses = setOf("pending_offer", "offer", "offered")
@@ -91,6 +93,7 @@ object CourierFlowResolver {
         val pickupDone = scanDone && photoDone
         val deliveryDone = status in deliveredStatuses
         val role = order.normalizedWorkflowRole()
+        val pickupArrivalRecorded = status in pickupArrivedStatuses || status in pickupImpliedStatuses
         val pickupAddress = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }
         val dropAddress = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }
 
@@ -101,6 +104,10 @@ object CourierFlowResolver {
             status in cancelRequestStatuses -> CourierStage.CANCEL_REQUESTED
             status in returnStatuses -> CourierStage.RETURN_TO_HUB
             status in offerStatuses -> CourierStage.PENDING_OFFER
+            role == "on_demand" && !pickupArrivalRecorded && !pickupDone -> {
+                if (status == "accepted") CourierStage.GOING_TO_PICKUP else CourierStage.ASSIGNED
+            }
+            role == "on_demand" && pickupArrivalRecorded && !faceVerifiedForPickup && !pickupDone -> CourierStage.ARRIVED_AT_PICKUP
             !faceVerifiedForPickup && !pickupDone -> CourierStage.PICKUP_FACE_REQUIRED
             !scanDone -> CourierStage.PICKUP_SCAN_REQUIRED
             !photoDone -> CourierStage.PICKUP_PHOTO_REQUIRED
@@ -119,6 +126,11 @@ object CourierFlowResolver {
                 type = CourierNextActionType.VERIFY_FACE_PICKUP,
                 label = "Verifikasi Wajah",
                 helperText = "Scan wajah untuk membuktikan kamu yang mengambil barang ini."
+            )
+            CourierStage.ARRIVED_AT_PICKUP -> CourierNextAction(
+                type = CourierNextActionType.VERIFY_FACE_PICKUP,
+                label = "Verifikasi Wajah",
+                helperText = "Kamu sudah tiba. Verifikasi wajah sebelum memeriksa paket."
             )
             CourierStage.PICKUP_SCAN_REQUIRED -> CourierNextAction(
                 type = CourierNextActionType.SCAN_PICKUP,
@@ -156,12 +168,16 @@ object CourierFlowResolver {
                 label = "Tidak ada aksi",
                 helperText = "Pekerjaan ini sudah selesai atau tidak aktif."
             )
-            CourierStage.ASSIGNED,
-            CourierStage.GOING_TO_PICKUP,
-            CourierStage.ARRIVED_AT_PICKUP -> CourierNextAction(
+            CourierStage.ASSIGNED -> CourierNextAction(
                 type = CourierNextActionType.NAVIGATE_TO_PICKUP,
                 label = "Navigasi ke Pickup",
                 helperText = "Datang ke titik pickup untuk mulai verifikasi barang."
+            )
+            CourierStage.GOING_TO_PICKUP -> CourierNextAction(
+                type = CourierNextActionType.MARK_PICKUP_ARRIVED,
+                label = "Saya sudah tiba di pickup",
+                helperText = "Konfirmasi tiba sebelum verifikasi wajah dan pemeriksaan paket.",
+                targetStatus = "pickup_arrived"
             )
         }
 
@@ -172,7 +188,7 @@ object CourierFlowResolver {
             CourierStage.PICKUP_PHOTO_REQUIRED,
             CourierStage.ASSIGNED,
             CourierStage.GOING_TO_PICKUP,
-            CourierStage.ARRIVED_AT_PICKUP -> "Menuju pickup"
+            CourierStage.ARRIVED_AT_PICKUP -> "Tiba di pickup"
             CourierStage.PICKUP_VERIFIED -> "Pickup lengkap"
             CourierStage.IN_TRANSIT,
             CourierStage.ARRIVED_AT_DROPOFF,
@@ -186,6 +202,7 @@ object CourierFlowResolver {
 
         val instruction = when (stage) {
             CourierStage.PICKUP_FACE_REQUIRED -> "Scan wajah terlebih dahulu untuk memulai verifikasi pickup barang."
+            CourierStage.ARRIVED_AT_PICKUP -> "Kamu sudah tiba di pickup. Scan wajah terlebih dahulu sebelum memeriksa paket."
             CourierStage.PICKUP_SCAN_REQUIRED -> "Scan atau input kode paket saat barang sudah siap diverifikasi."
             CourierStage.PICKUP_PHOTO_REQUIRED -> "Scan sudah tercatat. Lengkapi foto barang pickup."
             CourierStage.PICKUP_VERIFIED -> "Semua bukti pickup sudah lengkap. Mulai antar ke penerima."
@@ -199,7 +216,7 @@ object CourierFlowResolver {
             else -> if (role == "regular") {
                 "Jalankan order regular sesuai tahap pengiriman."
             } else {
-                "Datang ke titik pickup dan verifikasi wajah sebelum scan barang."
+                "Datang ke titik pickup, konfirmasi tiba, lalu verifikasi wajah sebelum scan barang."
             }
         }
 

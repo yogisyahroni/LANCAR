@@ -325,6 +325,7 @@ interface TEMBUSApiService {
      */
     @POST("api/v1/orders/status")
     suspend fun updateStatus(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: StatusUpdateRequest
     ): Response<ApiResponse<Boolean>>
 

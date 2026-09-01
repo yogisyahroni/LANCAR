@@ -432,10 +432,11 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/handler/proof_handler.go`
 
 **Checklist**
-- [ ] Arrived precedes pickup verification.
-- [ ] Package identity/condition/quantity checked when required.
-- [ ] PIN/QR/proof before `picked_up`.
-- [ ] Pickup evidence immutable.
+- [x] Arrived precedes pickup verification — Android exposes `pickup_arrived`; admin proof endpoint rejects earlier pickup evidence with `ERR_PICKUP_ARRIVAL_REQUIRED`; order-service enforces the same gate for on-demand package scans.
+- [x] Package identity/condition/quantity checked when required — existing authoritative proof path validates package code/count and records scan/photo evidence; pickup photo remains mandatory before completion.
+- [x] PIN/QR/proof before `picked_up` — status route is policy/idempotency guarded, pickup proof requires arrival plus barcode/photo evidence, and completion advances only after scan + photo.
+- [x] Pickup evidence immutable — migration installs append-only `package_scans` update trigger; corrections must be represented as new evidence events.
+- [ ] Authenticated staging flow, deployed migration/trigger, and persisted custody evidence verified end-to-end.
 
 ---
 

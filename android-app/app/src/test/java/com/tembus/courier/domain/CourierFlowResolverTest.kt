@@ -9,8 +9,8 @@ import org.junit.Test
 class CourierFlowResolverTest {
 
     @Test
-    fun `assigned order requires pickup scan first`() {
-        val order = Order(orderId = "TMB-001", status = "assigned", workflowRole = "on_demand")
+    fun `arrived order requires pickup scan first`() {
+        val order = Order(orderId = "TMB-001", status = "pickup_arrived", workflowRole = "on_demand")
 
         val flow = CourierFlowResolver.resolve(
             order = order, 
@@ -24,8 +24,19 @@ class CourierFlowResolverTest {
     }
 
     @Test
+    fun `accepted on-demand order requires arrival confirmation before proof`() {
+        val order = Order(orderId = "TMB-ARRIVAL", status = "accepted", workflowRole = "on_demand")
+
+        val flow = CourierFlowResolver.resolve(order, pickupPhotoRequired = false)
+
+        assertEquals(CourierStage.GOING_TO_PICKUP, flow.stage)
+        assertEquals(CourierNextActionType.MARK_PICKUP_ARRIVED, flow.nextAction.type)
+        assertEquals("pickup_arrived", flow.nextAction.targetStatus)
+    }
+
+    @Test
     fun `scan done and required photo missing asks for pickup photo`() {
-        val order = Order(orderId = "TMB-002", status = "accepted", workflowRole = "on_demand")
+        val order = Order(orderId = "TMB-002", status = "pickup_arrived", workflowRole = "on_demand")
 
         val flow = CourierFlowResolver.resolve(
             order = order,
@@ -42,7 +53,7 @@ class CourierFlowResolverTest {
 
     @Test
     fun `complete pickup evidence starts delivery`() {
-        val order = Order(orderId = "TMB-003", status = "accepted", workflowRole = "on_demand")
+        val order = Order(orderId = "TMB-003", status = "pickup_arrived", workflowRole = "on_demand")
 
         val flow = CourierFlowResolver.resolve(
             order = order,

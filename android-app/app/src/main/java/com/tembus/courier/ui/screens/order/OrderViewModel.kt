@@ -763,7 +763,8 @@ class OrderViewModel @Inject constructor(
             // 2. Try to sync to backend
             try {
                 val response = apiService.updateStatus(
-                    StatusUpdateRequest(orderId = orderId, status = status, notes = notes)
+                    idempotencyKey = "courier-status-$orderId-${status.trim().lowercase()}",
+                    request = StatusUpdateRequest(orderId = orderId, status = status, notes = notes)
                 )
                 if (response.isSuccessful && response.body()?.success == true) {
                     // Mark as synced in local DB

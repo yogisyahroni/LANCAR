@@ -313,7 +313,10 @@ class OrderRepository @Inject constructor(
                     height = order.height,
                     weight = order.weight
                 )
-                val response = apiService.updateStatus(request)
+                val response = apiService.updateStatus(
+                    idempotencyKey = statusIdempotencyKey(order.orderId, order.status),
+                    request = request
+                )
                 if (response.isSuccessful && response.body()?.success == true) {
                     orderDao.markAsSynced(listOf(order.orderId))
                     syncedOrderIds.add(order.orderId)
@@ -466,5 +469,9 @@ class OrderRepository @Inject constructor(
 
     private fun idempotencyKey(scope: String, discriminator: String): String {
         return "courier-$scope-$discriminator-${UUID.randomUUID()}"
+    }
+
+    private fun statusIdempotencyKey(orderId: String, status: String): String {
+        return "courier-status-$orderId-${status.trim().lowercase()}"
     }
 }

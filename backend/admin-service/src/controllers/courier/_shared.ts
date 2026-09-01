@@ -1116,6 +1116,18 @@ export const verifyOnDemandStep = async ({
       res.status(409).json({ success: false, data: null, message: 'Order ini sudah tidak bisa diverifikasi pickup.', code: 'ERR_INVALID_STATUS' });
       return;
     }
+    const pickupArrivalStatuses = new Set(['pickup_arrived', 'picked_up', 'pickup_verified', 'in_transit']);
+    if (step === 'pickup' && !pickupArrivalStatuses.has(currentStatus)) {
+      await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('pickup_arrival_required', distanceM);
+      res.status(409).json({
+        success: false,
+        data: { current_status: currentStatus, required_status: 'pickup_arrived' },
+        message: 'Konfirmasi tiba di titik pickup wajib dilakukan sebelum verifikasi paket.',
+        code: 'ERR_PICKUP_ARRIVAL_REQUIRED',
+      });
+      return;
+    }
     if (step === 'delivery' && !['picked_up', 'in_transit'].includes(currentStatus)) {
       await client.query('ROLLBACK');
       await writeRejectedProofAttempt('pickup_required', distanceM);

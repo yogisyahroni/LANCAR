@@ -28,7 +28,12 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 	var targetStatus domain.OrderStatus
 	switch scan.ScanType {
 	case "pickup":
-		if order.Status != domain.StatusAccepted && order.Status != domain.StatusPickingUp {
+		category := domain.CanonicalServiceCategoryFor(order)
+		onDemandPickup := category != nil && *category == domain.CanonicalPackageOnDemand
+		if onDemandPickup && order.Status != domain.StatusPickupArrived {
+			return fmt.Errorf("pickup arrival confirmation required before package verification (current status %s)", order.Status)
+		}
+		if !onDemandPickup && order.Status != domain.StatusAccepted && order.Status != domain.StatusPickingUp {
 			return fmt.Errorf("invalid state transition: cannot perform pickup on order in status %s", order.Status)
 		}
 		targetStatus = domain.StatusPickedUp
