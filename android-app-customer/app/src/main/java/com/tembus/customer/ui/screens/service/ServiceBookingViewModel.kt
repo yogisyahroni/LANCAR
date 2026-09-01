@@ -256,6 +256,10 @@ class ServiceBookingViewModel @Inject constructor(
             _uiState.update { it.copy(error = "Nama bengkel atau penerima tujuan wajib diisi") }
             return
         }
+        if (isTowing && destinationContactPhone.filter(Char::isDigit).length !in 8..15) {
+            _uiState.update { it.copy(error = "Nomor kontak tujuan wajib berisi 8-15 digit") }
+            return
+        }
         if (isTowing && (vehicleType.isBlank() || vehicleMake.trim().length < 2 || vehicleModel.trim().length < 2 || vehicleCondition.isBlank() || accessConstraints.trim().length < 3)) {
             _uiState.update { it.copy(error = "Lengkapi tipe, merek, model, kondisi, dan akses lokasi kendaraan") }
             return

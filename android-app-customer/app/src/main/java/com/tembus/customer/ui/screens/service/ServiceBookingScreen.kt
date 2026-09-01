@@ -324,7 +324,7 @@ fun ServiceBookingScreen(
                     value = destinationContactPhone,
                     onValueChange = { destinationContactPhone = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Nomor kontak tujuan (opsional)") },
+                    label = { Text("Nomor kontak tujuan (wajib)") },
                     singleLine = true
                 )
 

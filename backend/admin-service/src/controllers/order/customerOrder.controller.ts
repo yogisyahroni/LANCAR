@@ -34,6 +34,7 @@ import {
 import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
 import { assertProviderCapability, LogisticsCapabilityError } from '../../services/logisticsCapabilities';
+import { validateTowingBookingContract } from './towingBookingContract';
 
 import { releasePromoReservation, validatePromoForCheckout } from '../../services/promoEngine';
 import {
@@ -144,16 +145,20 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     const isTowingService = service.service_category === 'towing' || String(service.code).startsWith('towing_');
     if (isTowingService) {
-      const vehicleDetails = package_details?.vehicle_details;
-      const requiredVehicleFields = ['type', 'make', 'model', 'condition', 'access_constraints'];
-      const hasStructuredVehicleDetails = vehicleDetails && requiredVehicleFields.every((field) =>
-        typeof vehicleDetails[field] === 'string' && vehicleDetails[field].trim().length >= 2
-      );
-      if (!hasStructuredVehicleDetails || typeof recipient_name !== 'string' || recipient_name.trim().length < 2) {
+      const towingContract = validateTowingBookingContract({
+        vehicleDetails: package_details?.vehicle_details,
+        recipientName: recipient_name,
+        recipientPhone: recipient_phone,
+        pickupAddress: pickup_address,
+        dropoffAddress: dropoff_address,
+        pickupLocation: pickup_location,
+        dropoffLocation: dropoff_location,
+      });
+      if (!towingContract.valid) {
         client.release();
         res.status(400).json({
-          code: 'ERR_TOWING_DETAILS_REQUIRED',
-          error: 'Detail kendaraan terstruktur dan kontak tujuan wajib diisi untuk towing'
+          code: towingContract.code,
+          error: towingContract.message,
         });
         return;
       }
