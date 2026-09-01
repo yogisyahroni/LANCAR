@@ -656,7 +656,7 @@ internal fun OnDemandOfferQueueItem(
     }
     val totalTtlMs = ((order.offerTtlSeconds ?: ON_DEMAND_OFFER_TTL_SECONDS) * 1000L).coerceAtLeast(1L)
     val remainingMs = (expiresAt - now).coerceAtLeast(0L)
-    val remainingSeconds = ((remainingMs + 999L) / 1000L).toInt()
+    val remainingSeconds = offerRemainingSeconds(expiresAt, now)
     val progress = (remainingMs.toFloat() / totalTtlMs.toFloat()).coerceIn(0f, 1f)
     val pickupPoint = remember(order.pickupLatitude, order.pickupLongitude) {
         val lat = order.pickupLatitude
@@ -786,9 +786,9 @@ internal fun OnDemandOfferQueueItem(
                 trackColor = Color.Black.copy(alpha = 0.08f),
                 thumbColor = LogisticsOrange,
                 textColor = Color.DarkGray,
-                enabled = !expired && !acceptBlocked,
+                enabled = offerCanAccept(expiresAt, now, acceptBlocked),
                 onAccept = {
-                    if (!expired && !acceptBlocked) {
+                    if (offerCanAccept(expiresAt, now, acceptBlocked)) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onAccept()
                     }
@@ -814,7 +814,7 @@ internal fun OnDemandOfferDialog(
     }
     val totalTtlMs = ((order.offerTtlSeconds ?: ON_DEMAND_OFFER_TTL_SECONDS) * 1000L).coerceAtLeast(1L)
     val remainingMs = (expiresAt - now).coerceAtLeast(0L)
-    val remainingSeconds = ((remainingMs + 999L) / 1000L).toInt()
+    val remainingSeconds = offerRemainingSeconds(expiresAt, now)
     val progress = (remainingMs.toFloat() / totalTtlMs.toFloat()).coerceIn(0f, 1f)
     val pickupPoint = remember(order.pickupLatitude, order.pickupLongitude) {
         val lat = order.pickupLatitude
