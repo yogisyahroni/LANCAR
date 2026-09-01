@@ -12,7 +12,9 @@ class OrderDetailPolicyTest {
         assertEquals(OrderDetailSectionKind.ROADSIDE, orderDetailSectionKind(false, " TAMBAL_BAN_MOTOR "))
         assertEquals(OrderDetailSectionKind.ROADSIDE, orderDetailSectionKind(false, "towing_mobil"))
         assertEquals(OrderDetailSectionKind.PACKAGE, orderDetailSectionKind(false, "tembus_instant"))
-        assertEquals(OrderDetailSectionKind.PACKAGE, orderDetailSectionKind(false, null))
+        assertEquals(OrderDetailSectionKind.PACKAGE, orderDetailSectionKind(false, null, "package_on_demand"))
+        assertEquals(OrderDetailSectionKind.UNKNOWN, orderDetailSectionKind(false, null))
+        assertEquals(OrderDetailSectionKind.UNKNOWN, orderDetailSectionKind(false, "future_service", "future_category"))
     }
 
     @Test

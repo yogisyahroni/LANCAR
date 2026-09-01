@@ -226,17 +226,22 @@ private fun RoleChip(order: Order) {
     val hasFoodPayload = order.foodItems.isNotEmpty() ||
         serviceCode.startsWith("food") ||
         serviceCategory in setOf("food", "food_delivery")
+    val isKnownPackage = serviceCategory in setOf("package_on_demand", "regular", "on_demand") ||
+        serviceCode in setOf("tembus_instant", "p2p", "regular") ||
+        order.model.lowercase() in setOf("p2p", "on_demand", "regular")
     val (label, color, icon) = when {
         serviceCode.startsWith("tambal_ban") || serviceCategory == "tambal_ban" ->
             Triple("TAMBAL BAN", Warning, Icons.Default.Build)
         serviceCode.startsWith("towing") || serviceCategory == "towing" ->
             Triple("TOWING", Info, Icons.Default.LocalShipping)
+        serviceCode == "tembus_aggregator" || serviceCategory == "aggregator" ->
+            Triple("AGGREGATOR", Info, Icons.Default.LocalShipping)
         hasFoodPayload ->
             Triple("FOOD", Success, Icons.Default.Storefront)
-        order.normalizedWorkflowRole() == "regular" ->
+        isKnownPackage && order.normalizedWorkflowRole() == "regular" ->
             Triple("REGULAR", Success, Icons.Default.LocalShipping)
         else ->
-            Triple("PAKET", Primary, Icons.Default.Bolt)
+            Triple("LAYANAN BELUM DIKENAL", Warning, Icons.Default.HelpOutline)
     }
 
     AssistChip(

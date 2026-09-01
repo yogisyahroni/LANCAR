@@ -524,7 +524,9 @@ export function OrderDetailContent({
                 <OrderServiceBadge
                   compact
                   model={order.model}
+                  service_category={order.service_category}
                   service_code={order.service_code}
+                  order_contract={order.order_contract}
                   service_snapshot={order.service_snapshot}
                   logistics_provider={order.logistics_provider}
                   logistics_service_type={order.logistics_service_type}

@@ -158,7 +158,8 @@ Existing shared files:
 - [x] Towing/Tambal required facts tidak hanya hidup di `item_description` free-text.
 - [x] Tambahkan `contract_version` atau equivalent untuk perubahan payload material.
 - [x] Legacy mapper/backfill tidak mengarang data yang tidak diketahui.
-- [ ] Unknown/new subtype dirender degraded-safe oleh Android/Web/Courier/Admin.
+- [x] Unknown/new subtype dirender degraded-safe oleh Android/Web/Courier/Admin.
+- [ ] Staging migration/backfill dan authenticated multi-surface runtime verification selesai.
 
 ---
 

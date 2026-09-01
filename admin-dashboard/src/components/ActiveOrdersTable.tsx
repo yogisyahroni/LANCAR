@@ -45,6 +45,27 @@ const uploadUrl = (path?: string | null) => {
   return `${adminApiRootUrl}${path}`
 }
 
+const canonicalServiceCategories = new Set([
+  'package_on_demand',
+  'food',
+  'tambal_ban',
+  'aggregator',
+  'towing',
+])
+
+const displayServiceCategory = (category?: unknown, serviceCode?: unknown) => {
+  const normalizedCategory = String(category || '').trim().toLowerCase()
+  if (canonicalServiceCategories.has(normalizedCategory)) return normalizedCategory
+
+  const normalizedCode = String(serviceCode || '').trim().toLowerCase()
+  if (normalizedCode === 'tembus_aggregator') return 'aggregator'
+  if (normalizedCode === 'tembus_instant' || normalizedCode === 'p2p' || normalizedCode === 'regular') return 'package_on_demand'
+  if (normalizedCode.startsWith('food')) return 'food'
+  if (normalizedCode.startsWith('tambal_ban')) return 'tambal_ban'
+  if (normalizedCode.startsWith('towing')) return 'towing'
+  return 'layanan belum teridentifikasi'
+}
+
 const getErrorMessage = (error: any, fallback: string) =>
   error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
 
@@ -991,7 +1012,7 @@ export default function ActiveOrdersTable() {
                       </div>
                       <div>
                         <span className="font-black text-zinc-100 block text-sm tracking-tight">{order.id}</span>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{order.model} · {order.service_category || order.service_code || 'service belum tercatat'}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{order.model} · {displayServiceCategory(order.service_category, order.service_code)}</span>
                       </div>
                     </div>
                   </td>
@@ -1130,6 +1151,9 @@ export default function ActiveOrdersTable() {
                               <div className="flex gap-2">
                                 <span className="px-4 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10 text-[10px] font-black uppercase tracking-widest">
                                   {orderDetail.model}
+                                </span>
+                                <span className="px-4 py-1.5 rounded-full bg-white/5 text-zinc-400 border border-white/10 text-[10px] font-black uppercase tracking-widest">
+                                  {displayServiceCategory(orderDetail.service_category, orderDetail.service_code)}
                                 </span>
                                 <span className={cn(
                                   "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",

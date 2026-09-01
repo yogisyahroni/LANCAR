@@ -31,23 +31,36 @@ import com.tembus.customer.ui.theme.TembusRadius
 
 @Composable
 fun OrderServiceSpecificSections(order: Order) {
-    when (orderDetailSectionKind(order.foodItems.isNotEmpty(), order.serviceSubType)) {
+    when (orderDetailSectionKind(order.foodItems.isNotEmpty(), order.serviceSubType, order.serviceCategory)) {
         OrderDetailSectionKind.FOOD -> FoodOrderSection(order.foodItems, order.orderNotes)
         OrderDetailSectionKind.ROADSIDE ->
             RoadsideOrderSection(order.serviceSubType.orEmpty())
         OrderDetailSectionKind.PACKAGE -> PackageOrderSection(order.serviceSubType)
+        OrderDetailSectionKind.UNKNOWN -> UnknownOrderSection()
     }
 }
 
-internal enum class OrderDetailSectionKind { FOOD, ROADSIDE, PACKAGE }
+internal enum class OrderDetailSectionKind { FOOD, ROADSIDE, PACKAGE, UNKNOWN }
 
-internal fun orderDetailSectionKind(hasFoodItems: Boolean, serviceSubType: String?): OrderDetailSectionKind {
+internal fun orderDetailSectionKind(
+    hasFoodItems: Boolean,
+    serviceSubType: String?,
+    serviceCategory: String? = null
+): OrderDetailSectionKind {
     if (hasFoodItems) return OrderDetailSectionKind.FOOD
-    val normalized = serviceSubType.orEmpty().trim().lowercase()
-    return if (normalized.startsWith("tambal_ban") || normalized.startsWith("towing")) {
-        OrderDetailSectionKind.ROADSIDE
-    } else {
-        OrderDetailSectionKind.PACKAGE
+    val subtype = serviceSubType.orEmpty().trim().lowercase()
+    val category = serviceCategory.orEmpty().trim().lowercase()
+
+    return when {
+        category == "food" || category == "food_delivery" || subtype == "food" || subtype == "food_delivery" ->
+            OrderDetailSectionKind.FOOD
+        category == "tambal_ban" || category == "towing" ||
+            subtype.startsWith("tambal_ban") || subtype.startsWith("towing") ->
+            OrderDetailSectionKind.ROADSIDE
+        category == "package_on_demand" || category == "regular" || category == "on_demand" ||
+            subtype in setOf("tembus_instant", "p2p", "regular", "package_on_demand", "on_demand") ->
+            OrderDetailSectionKind.PACKAGE
+        else -> OrderDetailSectionKind.UNKNOWN
     }
 }
 
@@ -93,6 +106,18 @@ private fun PackageOrderSection(serviceSubType: String?) {
     OrderSectionCard(title = "Detail Layanan") {
         Text(serviceSubType?.takeIf { it.isNotBlank() } ?: "Layanan belum teridentifikasi", fontWeight = FontWeight.Bold, color = OnSurface)
         Text("Detail layanan akan ditampilkan setelah server mengirimkan metadata order.", fontSize = 13.sp, color = OnSurfaceVariant)
+    }
+}
+
+@Composable
+private fun UnknownOrderSection() {
+    OrderSectionCard(title = "Detail Layanan") {
+        Text("Layanan belum teridentifikasi", fontWeight = FontWeight.Bold, color = OnSurface)
+        Text(
+            "Detail layanan belum dikirim server. Hubungi bantuan jika status order perlu diperiksa.",
+            fontSize = 13.sp,
+            color = OnSurfaceVariant
+        )
     }
 }
 

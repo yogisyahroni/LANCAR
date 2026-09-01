@@ -33,8 +33,12 @@ interface Order {
   dropoff_address: string;
   recipient_name: string;
   model: string;
+  service_category?: string | null;
   awb_number?: string | null;
   service_code?: string | null;
+  order_contract?: {
+    service?: { category?: string | null; degraded?: boolean } | null;
+  } | null;
   service_snapshot?: {
     name?: string | null;
     service_name?: string | null;
@@ -371,7 +375,9 @@ export default function ResiPage() {
                       <OrderServiceBadge
                         compact
                         model={order.model}
+                        service_category={order.service_category}
                         service_code={order.service_code}
+                        order_contract={order.order_contract}
                         service_snapshot={order.service_snapshot}
                         logistics_provider={order.logistics_provider}
                         logistics_service_type={order.logistics_service_type}

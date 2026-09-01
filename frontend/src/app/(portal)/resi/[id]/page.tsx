@@ -32,7 +32,11 @@ interface Order {
   sender_name?: string;
   sender_phone?: string;
   model: string;
+  service_category?: string | null;
   service_code?: string | null;
+  order_contract?: {
+    service?: { category?: string | null; degraded?: boolean } | null;
+  } | null;
   service_snapshot?: {
     name?: string | null;
     service_name?: string | null;
@@ -212,7 +216,9 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
       <div className="print:hidden grid gap-3 rounded-2xl border border-border/40 bg-card/40 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
         <OrderServiceBadge
           model={order.model}
+          service_category={order.service_category}
           service_code={order.service_code}
+          order_contract={order.order_contract}
           service_snapshot={order.service_snapshot}
           logistics_provider={order.logistics_provider}
           logistics_service_type={order.logistics_service_type}
