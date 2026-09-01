@@ -388,7 +388,8 @@ Existing shared files:
 **Checklist**
 - [x] Weight, dimensions, volumetric weight, quantity, category, item value, fragile/prohibited flags, size tier, receiver, delivery-code policy.
 - [x] Package-fact change forces requote.
-- [ ] Android/Web show same authoritative breakdown (local response/rendering is implemented; authenticated staging parity evidence is pending).
+- [x] Android/Web render the same authoritative breakdown from the server response.
+- [ ] Authenticated staging parity proves matching quote responses and persisted package facts.
 
 ---
 
