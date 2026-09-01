@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getOrderServicePresentation, getPaymentStatePresentation } from "@/components/orders/orderPresentation";
+import {
+  deliveryStateLabel,
+  getOrderServicePresentation,
+  getPaymentStatePresentation,
+} from "@/components/orders/orderPresentation";
 
 describe("customer order service presentation", () => {
   it("keeps LANCAR first-mile and external carrier distinct for aggregator orders", () => {
@@ -24,8 +28,32 @@ describe("customer order service presentation", () => {
     expect(getOrderServicePresentation({}).kind).toBe("unknown");
   });
 
+  it("keeps food, instant, and named service labels tied to server metadata", () => {
+    expect(getOrderServicePresentation({ service_code: "tembus_food", service_snapshot: { category: "food" } }).kind)
+      .toBe("food");
+    expect(getOrderServicePresentation({ model: "p2p", service_code: "tembus_instant" }).label)
+      .toBe("Instan LANCAR");
+    expect(getOrderServicePresentation({ service_snapshot: { service_name: "Tambal Ban" } }).label)
+      .toBe("Tambal Ban");
+  });
+
+  it("renders unavailable carrier metadata without inventing an AWB", () => {
+    const presentation = getOrderServicePresentation({
+      service_code: "tembus_aggregator",
+      model: "hub_and_spoke",
+    });
+
+    expect(presentation.externalCarrierLabel).toBe("Carrier eksternal: belum ditetapkan");
+    expect(presentation.externalCarrierLabel).not.toContain("AWB");
+  });
+
   it("keeps payment status separate from delivery status", () => {
     expect(getPaymentStatePresentation("paid").label).toBe("Lunas");
     expect(getPaymentStatePresentation("pending").label).toBe("Menunggu pembayaran");
+    expect(getPaymentStatePresentation("failed").label).toBe("Pembayaran gagal");
+    expect(getPaymentStatePresentation("expired").label).toBe("Pembayaran kedaluwarsa");
+    expect(getPaymentStatePresentation("unknown").label).toBe("Status pembayaran belum tersedia");
+    expect(deliveryStateLabel("out_for_delivery")).toBe("Out For Delivery");
+    expect(deliveryStateLabel(null)).toBe("Status pengiriman belum tersedia");
   });
 });
