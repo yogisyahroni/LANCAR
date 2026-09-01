@@ -1,0 +1,9 @@
+{
+  "rate": {"required": ["origin_code", "destination_code", "weight_kg", "service_code", "tariff_gross"]},
+  "create_shipment_awb": {"required": ["reference_id", "awb_number", "provider", "service_type"]},
+  "tracking": {"required": ["awb_number", "status", "history"]},
+  "error": {"required": ["category", "message"]},
+  "timeout": {"required": ["category", "retryable"]},
+  "duplicate_event": {"required": ["event_id", "dedupe_key"]},
+  "unknown_status": {"required": ["provider_status", "normalized_status"]}
+}

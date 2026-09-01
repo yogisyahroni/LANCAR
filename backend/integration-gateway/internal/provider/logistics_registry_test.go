@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"testing"
 
 	"tembus/integration-gateway/internal/domain"
@@ -13,6 +14,9 @@ type registryTestProvider struct {
 
 func (p *registryTestProvider) Identity() domain.ProviderIdentity { return p.identity }
 func (p *registryTestProvider) Capabilities() []domain.Capability { return p.capabilities }
+func (p *registryTestProvider) CheckTariff(context.Context, domain.TariffRequest) (*domain.TariffResponse, error) {
+	return &domain.TariffResponse{}, nil
+}
 
 func TestLogisticsRegistryResolvesCanonicalReferences(t *testing.T) {
 	jne := &registryTestProvider{

@@ -33,6 +33,9 @@ func (r *LogisticsRegistry) Register(p domain.LogisticsProvider) error {
 	if err := identity.Validate(); err != nil {
 		return err
 	}
+	if err := ValidateProviderCapabilityMatrix(p); err != nil {
+		return fmt.Errorf("provider %q capability matrix is invalid: %w", identity.Code, err)
+	}
 	keys := []string{identity.ID, identity.Code, identity.Name}
 	for _, key := range keys {
 		key = normalizeProviderRef(key)
@@ -42,6 +45,50 @@ func (r *LogisticsRegistry) Register(p domain.LogisticsProvider) error {
 	}
 	for _, key := range keys {
 		r.providers[normalizeProviderRef(key)] = p
+	}
+	return nil
+}
+
+// ValidateProviderCapabilityMatrix prevents a provider from advertising an
+// operation without implementing its corresponding contract. This is called
+// at startup, before the adapter can receive traffic.
+func ValidateProviderCapabilityMatrix(p domain.LogisticsProvider) error {
+	if p == nil {
+		return fmt.Errorf("provider cannot be nil")
+	}
+	for _, capability := range p.Capabilities() {
+		var implemented bool
+		switch capability {
+		case domain.CapabilityTariff:
+			_, implemented = p.(domain.TariffProvider)
+		case domain.CapabilityShipment:
+			_, implemented = p.(domain.ShipmentProvider)
+		case domain.CapabilityTrackingPull:
+			_, implemented = p.(domain.TrackingPullProvider)
+		case domain.CapabilityTrackingWebhook:
+			_, implemented = p.(domain.TrackingWebhookProvider)
+		case domain.CapabilityPickup:
+			_, implemented = p.(domain.PickupProvider)
+		case domain.CapabilityCancellation:
+			_, implemented = p.(domain.CancellationProvider)
+		case domain.CapabilityLabel:
+			_, implemented = p.(domain.LabelProvider)
+		case domain.CapabilityPOD:
+			_, implemented = p.(domain.PODProvider)
+		case domain.CapabilityInsurance:
+			_, implemented = p.(domain.InsuranceProvider)
+		case domain.CapabilityCOD:
+			_, implemented = p.(domain.CODProvider)
+		case domain.CapabilityReturn:
+			_, implemented = p.(domain.ReturnProvider)
+		case domain.CapabilityClaim:
+			_, implemented = p.(domain.ClaimProvider)
+		default:
+			return fmt.Errorf("unknown capability %q", capability)
+		}
+		if !implemented {
+			return fmt.Errorf("declared capability %q has no implementation", capability)
+		}
 	}
 	return nil
 }
