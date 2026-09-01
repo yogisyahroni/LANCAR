@@ -37,7 +37,11 @@ Use when some checklist items are proven but the task is not fully complete.
 - unresolved boxes remain unchecked;
 - evidence must say what remains;
 - unrun checks remain `NOT_RUN`;
-- no completion claim is allowed.
+- no completion claim is allowed;
+- `locally_actionable_remaining` must list every remaining repository/local/CI
+  action;
+- `PARTIAL` is a progress state only and is **not a stopping condition**. The
+  same TASK-ID must continue while locally actionable work remains.
 
 ### BLOCKED
 
@@ -46,6 +50,10 @@ provider sandbox, required environment, legal decision, or unresolved upstream
 contract.
 
 A blocker is not permission to fake the missing result.
+
+`BLOCKED` is valid only after all locally actionable work is complete. The
+evidence must name the exact unavailable dependency and the exact condition
+that will unblock it. If local work remains, the task stays `PARTIAL`.
 
 ### COMPLETE
 
@@ -58,7 +66,21 @@ Use only when:
 - each applicable verification category is `PASS`;
 - each non-applicable category is `N/A` with a reason;
 - `unproven_requirements: NONE`;
-- `known_blockers: NONE`.
+- `known_blockers: NONE`;
+- `locally_actionable_remaining: NONE`;
+- `unblock_condition: NONE`;
+- `dependency_chain_blocked: false`.
+
+### Execution rule
+
+For each task, use this loop:
+
+`READ → INSPECT → IMPLEMENT → TEST → UPDATE EVIDENCE → CHECK REMAINING`
+
+If the result is `PARTIAL`, identify and complete all locally actionable work
+before considering another dependent TASK-ID. Do not advance merely because a
+partial implementation or local tests exist. Use `BLOCKED` only when the
+remaining proof genuinely requires an unavailable external dependency.
 
 ## Machine-readable frontmatter
 
@@ -80,6 +102,10 @@ security_privacy: NOT_RUN
 rollback_recovery: NOT_RUN
 unproven_requirements: "Describe remaining proof."
 known_blockers: NONE
+locally_actionable_remaining: "Describe remaining local work, or NONE."
+unblock_condition: "Describe the exact condition that unblocks the task, or NONE."
+dependency_chain_blocked: false
+next_eligible_task: "Describe the next task only after COMPLETE, or NONE while continuing."
 updated_at: 2026-09-01
 ---
 ```
@@ -109,8 +135,13 @@ The report must contain these headings:
 - `## Scope Implemented`
 - `## Files Changed`
 - `## Commands / Checks Run`
+- `## Locally Actionable Remaining`
+- `## External Blockers`
+- `## Unblock Condition`
+- `## Dependency Impact`
 - `## Reality Gate Evaluation`
 - `## Unproven / Remaining`
+- `## Next Eligible Task`
 
 Useful additional sections include:
 
@@ -163,6 +194,8 @@ python3 scripts/tasks/validate_task_evidence.py
 
 The validator checks the master blueprint against this directory.
 
-Important: the validator verifies evidence **structure and consistency**. It cannot
-prove that a test output is truthful or that business behavior is correct. Agents
-and reviewers remain responsible for verifying the actual underlying evidence.
+It also enforces the execution state machine: `PARTIAL` requires explicit
+remaining local work, `BLOCKED` requires no local work plus a real blocker and
+unblock condition, and `COMPLETE` requires no remaining work/blocker and both
+Reality gates to pass. The validator checks structure and consistency; it does
+not independently prove that submitted test or staging evidence is truthful.

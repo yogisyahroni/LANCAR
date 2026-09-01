@@ -12,20 +12,281 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: task-evidence-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-task-evidence:
-    name: Validate master task evidence
+    name: Validate Master Task Evidence
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
+      # ------------------------------------------------------------
+      # 1. CHECKOUT
+      # ------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # ------------------------------------------------------------
+      # 2. PYTHON
+      # ------------------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Validate task evidence
-        run: python3 scripts/tasks/validate_task_evidence.py
+      # ------------------------------------------------------------
+      # 3. REQUIRED EXECUTION CONTRACT FILES
+      # ------------------------------------------------------------
+      - name: Verify required execution-contract files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "AGENTS.md"
+            "task-food-marketplace-parity-2026.md"
+            "docs/task-evidence/README.md"
+            "docs/task-evidence/TEMPLATE.md"
+            "scripts/tasks/validate_task_evidence.py"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error file=$file::Required execution-contract file is missing."
+              exit 1
+            fi
+
+            echo "FOUND: $file"
+          done
+
+          echo "All required Reality/Evidence contract files exist."
+
+      # ------------------------------------------------------------
+      # 4. AGENTS.MD REALITY CONTRACT
+      # ------------------------------------------------------------
+      - name: Verify mandatory AGENTS.md Reality contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -qi "REALITY-2026-003" AGENTS.md || {
+            echo "::error file=AGENTS.md::REALITY-2026-003 rule is missing."
+            exit 1
+          }
+
+          grep -qi "REALITY-2026-011" AGENTS.md || {
+            echo "::error file=AGENTS.md::REALITY-2026-011 rule is missing."
+            exit 1
+          }
+
+          grep -qi "PARTIAL IS NOT A STOPPING CONDITION" AGENTS.md || {
+            echo "::error file=AGENTS.md::PARTIAL stopping-state rule is missing."
+            exit 1
+          }
+
+          grep -qi "BLOCKED" AGENTS.md || {
+            echo "::error file=AGENTS.md::BLOCKED execution state is missing."
+            exit 1
+          }
+
+          grep -qi "COMPLETE" AGENTS.md || {
+            echo "::error file=AGENTS.md::COMPLETE execution state is missing."
+            exit 1
+          }
+
+          grep -qi "No fake completeness" AGENTS.md || {
+            echo "::error file=AGENTS.md::No Fake Completeness rule is missing."
+            exit 1
+          }
+
+          echo "AGENTS.md Reality execution contract verified."
+
+      # ------------------------------------------------------------
+      # 5. MASTER BLUEPRINT REALITY GATES
+      # ------------------------------------------------------------
+      - name: Verify master blueprint Reality Gates
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -qi "REALITY-2026-003" task-food-marketplace-parity-2026.md || {
+            echo "::error file=task-food-marketplace-parity-2026.md::REALITY-2026-003 is missing from master blueprint."
+            exit 1
+          }
+
+          grep -qi "REALITY-2026-011" task-food-marketplace-parity-2026.md || {
+            echo "::error file=task-food-marketplace-parity-2026.md::REALITY-2026-011 is missing from master blueprint."
+            exit 1
+          }
+
+          grep -qi "No fake completeness" task-food-marketplace-parity-2026.md || {
+            echo "::error file=task-food-marketplace-parity-2026.md::No Fake Completeness gate is missing."
+            exit 1
+          }
+
+          echo "Master blueprint Reality Gates verified."
+
+      # ------------------------------------------------------------
+      # 6. EVIDENCE PROTOCOL STATE MACHINE
+      # ------------------------------------------------------------
+      - name: Verify task-evidence execution state machine
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # README must define the three execution states.
+          grep -qi "PARTIAL" docs/task-evidence/README.md || {
+            echo "::error file=docs/task-evidence/README.md::PARTIAL state documentation is missing."
+            exit 1
+          }
+
+          grep -qi "BLOCKED" docs/task-evidence/README.md || {
+            echo "::error file=docs/task-evidence/README.md::BLOCKED state documentation is missing."
+            exit 1
+          }
+
+          grep -qi "COMPLETE" docs/task-evidence/README.md || {
+            echo "::error file=docs/task-evidence/README.md::COMPLETE state documentation is missing."
+            exit 1
+          }
+
+          # PARTIAL must explicitly not be treated as a stopping state.
+          grep -Eqi \
+            "PARTIAL.*(not|bukan).*(stopping|stop|berhenti)|PARTIAL IS NOT A STOPPING CONDITION" \
+            docs/task-evidence/README.md || {
+              echo "::error file=docs/task-evidence/README.md::README must explicitly state that PARTIAL is not a stopping condition."
+              exit 1
+            }
+
+          echo "Task-evidence state-machine documentation verified."
+
+      # ------------------------------------------------------------
+      # 7. REQUIRED FRONTMATTER FIELDS
+      # ------------------------------------------------------------
+      - name: Verify evidence template required fields
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_fields=(
+            "task_id:"
+            "status:"
+            "reality_2026_003:"
+            "reality_2026_011:"
+            "implementation_ref:"
+            "tests:"
+            "e2e_staging:"
+            "migration:"
+            "observability:"
+            "security_privacy:"
+            "rollback_recovery:"
+            "unproven_requirements:"
+            "known_blockers:"
+            "locally_actionable_remaining:"
+            "unblock_condition:"
+            "dependency_chain_blocked:"
+            "next_eligible_task:"
+            "updated_at:"
+          )
+
+          for field in "${required_fields[@]}"; do
+            grep -Fq "$field" docs/task-evidence/TEMPLATE.md || {
+              echo "::error file=docs/task-evidence/TEMPLATE.md::Required evidence field '$field' is missing."
+              exit 1
+            }
+
+            echo "FOUND FIELD: $field"
+          done
+
+          echo "Evidence template frontmatter contract verified."
+
+      # ------------------------------------------------------------
+      # 8. REQUIRED EVIDENCE BODY SECTIONS
+      # ------------------------------------------------------------
+      - name: Verify evidence template body sections
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_sections=(
+            "## Scope Implemented"
+            "## Files Changed"
+            "## Commands / Checks Run"
+            "## Locally Actionable Remaining"
+            "## External Blockers"
+            "## Unblock Condition"
+            "## Dependency Impact"
+            "## Reality Gate Evaluation"
+            "## Unproven / Remaining"
+            "## Next Eligible Task"
+          )
+
+          for section in "${required_sections[@]}"; do
+            grep -Fq "$section" docs/task-evidence/TEMPLATE.md || {
+              echo "::error file=docs/task-evidence/TEMPLATE.md::Required evidence section '$section' is missing."
+              exit 1
+            }
+
+            echo "FOUND SECTION: $section"
+          done
+
+          echo "Evidence template body contract verified."
+
+      # ------------------------------------------------------------
+      # 9. PYTHON VALIDATOR SANITY CHECK
+      # ------------------------------------------------------------
+      - name: Compile-check evidence validator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 -m py_compile scripts/tasks/validate_task_evidence.py
+
+          echo "Evidence validator Python syntax PASS."
+
+      # ------------------------------------------------------------
+      # 10. RUN REAL VALIDATOR
+      # ------------------------------------------------------------
+      - name: Validate master task evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 scripts/tasks/validate_task_evidence.py
+
+      # ------------------------------------------------------------
+      # 11. SUCCESS SUMMARY
+      # ------------------------------------------------------------
+      - name: Evidence gate summary
+        if: success()
+        shell: bash
+        run: |
+          echo "============================================================"
+          echo "✅ TASK EVIDENCE GATE PASS"
+          echo "============================================================"
+          echo ""
+          echo "Verified:"
+          echo "- Required execution-contract files exist"
+          echo "- REALITY-2026-003 is present"
+          echo "- REALITY-2026-011 is present"
+          echo "- No Fake Completeness contract is present"
+          echo "- PARTIAL is not treated as a stopping condition"
+          echo "- BLOCKED / COMPLETE states are documented"
+          echo "- New evidence frontmatter fields exist"
+          echo "- Required evidence body sections exist"
+          echo "- Python validator compiles"
+          echo "- Task evidence validator passes"
+          echo ""
+          echo "IMPORTANT:"
+          echo "This gate validates protocol structure and evidence consistency."
+          echo "It does NOT prove that screenshots, provider behavior,"
+          echo "production state, E2E behavior, reconciliation, metrics,"
+          echo "or other submitted evidence are factually truthful."
+          echo ""
+          echo "Actual technical verification and Reality Gate review remain mandatory."
+          echo "============================================================"

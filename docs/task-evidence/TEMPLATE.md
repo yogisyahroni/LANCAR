@@ -12,6 +12,10 @@ security_privacy: NOT_RUN
 rollback_recovery: NOT_RUN
 unproven_requirements: "List every requirement not yet proven."
 known_blockers: NONE
+locally_actionable_remaining: "List every remaining local action, or NONE."
+unblock_condition: "List exact external unblock condition, or NONE."
+dependency_chain_blocked: false
+next_eligible_task: "NONE while this task is incomplete; set only after COMPLETE."
 updated_at: 2026-09-01
 ---
 
@@ -35,6 +39,26 @@ result:
 ```
 
 If a check was not run, keep its frontmatter value as `NOT_RUN` and explain why.
+
+## Locally Actionable Remaining
+
+List every remaining task that can be completed with repository code, local
+tooling, available CI, or available test environments. This cannot be `NONE`
+while status is `PARTIAL`.
+
+## External Blockers
+
+List exact unavailable credentials, provider, staging, legal, or other external
+dependencies. Do not call ordinary implementation difficulty a blocker.
+
+## Unblock Condition
+
+State the exact condition needed to remove each external blocker.
+
+## Dependency Impact
+
+State whether downstream tasks are blocked and why. Keep
+`dependency_chain_blocked: false` unless the dependency is actually blocked.
 
 ## Reality Gate Evaluation
 
@@ -71,6 +95,10 @@ List every unchecked, untested, unavailable, or not-yet-observed requirement.
 If truly complete, write:
 
 `None.`
+
+## Next Eligible Task
+
+Name the next task only after this task is COMPLETE. Otherwise write `None.`
 
 ## Blockers
 
