@@ -875,11 +875,11 @@ Existing shared files:
 **Recommended new file**
 - `frontend/src/hooks/useCreateAggregatorOrder.ts`
 
-- [ ] Final submit calls real create mutation with quote + idempotency key.
-- [ ] Persisted order reference before success navigation.
+- [x] Final submit calls real create mutation with quote + idempotency key.
+- [x] Persisted order reference before success navigation.
 - [ ] Payment/AWB creation sequencing explicit.
 - [ ] Refresh/retry rehydrates transaction.
-- [ ] API failure cannot show success.
+- [x] API failure cannot show success.
 
 ---
 
