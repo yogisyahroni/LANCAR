@@ -903,13 +903,19 @@ export function AggregatorWizard() {
                               <button
                                 key={pt}
                                 type="button"
-                                onClick={() => setValue("payment_type", pt, { shouldValidate: true })}
+                                disabled={pt === "COD"}
+                                onClick={() => {
+                                  if (pt !== "COD") setValue("payment_type", pt, { shouldValidate: true });
+                                }}
                                 className={[
                                   "relative flex-1 flex items-center justify-center gap-1.5 rounded-lg border py-2.5 text-sm font-medium transition-all",
                                   watch("payment_type") === pt
                                     ? "border-indigo-500 bg-indigo-500/15 text-indigo-300"
-                                    : "border-white/10 bg-background/40 text-muted-foreground hover:bg-white/5",
+                                    : pt === "COD"
+                                      ? "cursor-not-allowed border-white/10 bg-background/20 text-muted-foreground/50"
+                                      : "border-white/10 bg-background/40 text-muted-foreground hover:bg-white/5",
                                 ].join(" ")}
+                                title={pt === "COD" ? "COD aggregator belum tersedia" : undefined}
                               >
                                 {watch("payment_type") === pt && (
                                   <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-indigo-500 flex items-center justify-center">
@@ -917,7 +923,7 @@ export function AggregatorWizard() {
                                   </span>
                                 )}
                                 <span className="text-xs">{pt === "COD" ? "💸" : "💳"}</span>
-                                {pt === "COD" ? "COD" : "Non - COD"}
+                                {pt === "COD" ? "COD (segera hadir)" : "Non - COD"}
                               </button>
                             ))}
                           </div>
