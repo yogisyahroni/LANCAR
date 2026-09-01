@@ -1062,13 +1062,13 @@ Existing shared files:
 - `backend/integration-gateway/internal/worker/tracking_poll_worker.go`
 
 **Checklist**
-- [ ] Provider-specific signature/auth verification belongs to provider webhook adapter.
-- [ ] Adapter parses native payload into canonical `CarrierEvent`.
+- [x] Provider-specific signature/auth verification belongs to provider webhook adapter.
+- [x] Adapter parses native payload into canonical `CarrierEvent`.
 - [ ] Webhook-capable provider uses webhook as primary event source where appropriate.
 - [ ] Tracking-pull-only provider uses polling worker.
 - [ ] Webhook provider may still use periodic pull reconciliation if supported.
 - [ ] Provider with neither supported webhook nor pull is surfaced as degraded/manual tracking capability.
-- [ ] Central handler routes provider→adapter but does not contain growing provider-specific parsing switch.
+- [x] Central handler routes provider→adapter but does not contain growing provider-specific parsing switch.
 
 ---
 
