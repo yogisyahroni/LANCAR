@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -23,6 +23,16 @@ import {
 import { useRouter } from "next/navigation";
 import { AddressPicker } from "./AddressPicker";
 import { useLogisticsProviders } from "@/hooks/useLogisticsProviders";
+import { PaymentModal } from "./PaymentModal";
+import {
+  AggregatorOrder,
+  AggregatorPayment,
+  AggregatorQuote,
+  buildAggregatorOrderPayload,
+  createIdempotencyKey,
+  requestAggregatorOrder,
+  requestAggregatorPaymentSession,
+} from "@/hooks/useCreateAggregatorOrder";
 
 // ─── Types & Constants ──────────────────────────────────────────────────
 // Step 1: Pick Up — provider location code is explicit until the backend
@@ -57,6 +67,7 @@ const step1Schema = z.object({
 const step2Schema = z.object({
   destination_code: z.string().min(1, "Pilih kota tujuan"),
   dropoff_address: z.string().min(5, "Alamat tujuan minimal 5 karakter"),
+  dropoff_location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(),
   recipient_name: z.string().min(3, "Nama penerima wajib diisi"),
   recipient_phone: z.string().regex(/^(08|628|\+628)[0-9]{8,11}$/, "Nomor HP tidak valid"),
   payment_type: z.enum(["COD", "NON_COD"]).default("NON_COD"),
@@ -71,6 +82,14 @@ const step2Schema = z.object({
   dangerous_goods: z.boolean().default(false),
   insurance: z.boolean().default(false),
   delivery_notes: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (!data.dropoff_location) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["dropoff_location"],
+      message: "Pilih alamat tujuan dari hasil pencarian agar koordinat tersimpan",
+    });
+  }
 });
 
 
@@ -86,6 +105,9 @@ type Step2Values = z.infer<typeof step2Schema>;
 type Step3Values = z.infer<typeof step3Schema>;
 
 type WizardValues = Step1Values & Step2Values & Step3Values;
+
+const PENDING_AGGREGATOR_STORAGE_KEY = "tembus.aggregator.pending-transaction";
+const PENDING_TRANSACTION_TTL_MS = 30 * 60 * 1000;
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(price);
@@ -106,6 +128,13 @@ export function AggregatorWizard() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [bulkRows, setBulkRows] = useState<any[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [createdOrder, setCreatedOrder] = useState<AggregatorOrder | null>(null);
+  const [payment, setPayment] = useState<AggregatorPayment | null>(null);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
+  const createTransactionRef = useRef<{ fingerprint: string; key: string }>({ fingerprint: "", key: "" });
+  const paymentKeyRef = useRef<{ orderId: string; key: string }>({ orderId: "", key: "" });
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -182,6 +211,7 @@ export function AggregatorWizard() {
       schedule_type: "now",
       destination_code: "",
       dropoff_address: "",
+      dropoff_location: null,
       recipient_name: "",
       recipient_phone: "",
       payment_type: "NON_COD",
@@ -214,6 +244,90 @@ export function AggregatorWizard() {
     watch("length_cm"), watch("width_cm"), watch("height_cm"), watch("item_value"),
     watch("category"), watch("insurance"), watch("payment_type"),
   ]);
+  const dropoff_address = watch("dropoff_address");
+  const dropoff_location = watch("dropoff_location");
+
+  const clearPendingTransaction = () => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(PENDING_AGGREGATOR_STORAGE_KEY);
+    }
+  };
+
+  const startPaymentForOrder = useCallback(async (order: AggregatorOrder) => {
+    if (!order.id) throw new Error("Referensi order tidak valid");
+
+    if (order.status && order.status !== "pending_payment") {
+      clearPendingTransaction();
+      router.push(`/orders/${order.id}`);
+      return;
+    }
+
+    if (paymentKeyRef.current.orderId !== order.id) {
+      paymentKeyRef.current = { orderId: order.id, key: createIdempotencyKey() };
+    }
+
+    const paymentSession = await requestAggregatorPaymentSession(
+      api,
+      order.id,
+      paymentKeyRef.current.key,
+    );
+
+    if (!paymentSession) {
+      clearPendingTransaction();
+      router.push(`/orders/${order.id}`);
+      return;
+    }
+
+    if (paymentSession.payment_status === "paid" || paymentSession.order_status !== "pending_payment") {
+      clearPendingTransaction();
+      router.push(`/orders/${order.id}`);
+      return;
+    }
+
+    setPayment(paymentSession);
+    setIsPaymentOpen(true);
+  }, [router]);
+
+  // Recovery is server-backed: a refresh can restore the persisted order reference
+  // and continue payment without creating a second order.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.sessionStorage.getItem(PENDING_AGGREGATOR_STORAGE_KEY);
+    if (!raw) return;
+
+    let transaction: { order_id?: string; created_at?: number };
+    try {
+      transaction = JSON.parse(raw);
+    } catch {
+      clearPendingTransaction();
+      return;
+    }
+
+    if (!transaction.order_id || !transaction.created_at || Date.now() - transaction.created_at > PENDING_TRANSACTION_TTL_MS) {
+      clearPendingTransaction();
+      return;
+    }
+
+    let active = true;
+    setSubmitError(null);
+    api.get(`/auth/web/orders/${transaction.order_id}`)
+      .then((response) => {
+        const order = response.data?.order;
+        if (!active || !order?.id) throw new Error("Order transaksi tidak ditemukan");
+        setCreatedOrder(order);
+        setOrderMode("manual");
+        setStep(3);
+        setRecoveryNotice(`Order ${order.order_number || order.id} dipulihkan. Lanjutkan pembayaran untuk order ini.`);
+      })
+      .catch((error: any) => {
+        if (!active) return;
+        setSubmitError(error.response?.data?.error || "Transaksi tersimpan belum dapat dipulihkan. Coba lagi.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
 
   // Load tariffs when entering Step 3
@@ -320,28 +434,96 @@ export function AggregatorWizard() {
   };
 
   const onSubmitFinal = async () => {
+    setSubmitError(null);
     setIsSubmitting(true);
     try {
       if (orderMode === "upload") {
         if (!jobId || bulkRows.length === 0) {
-          alert("Data upload tidak valid.");
+          setSubmitError("Data upload tidak valid.");
           return;
         }
-        await api.post("/auth/web/orders/bulk/process", { job_id: jobId });
-        router.push("/orders?success=true");
+        const response = await api.post("/auth/web/orders/bulk/process", { job_id: jobId });
+        if (response.data?.success !== true || Number(response.data?.processed_count || 0) < 1) {
+          throw new Error("Server belum mengonfirmasi order bulk tersimpan");
+        }
+        router.push("/orders");
       } else {
+        if (createdOrder) {
+          await startPaymentForOrder(createdOrder);
+          return;
+        }
+
         const isValid = await validateStep(3);
         if (!isValid) return;
-        // Proceed with manual submission mock
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        router.push("/orders?success=true");
+
+        const values = methods.getValues();
+        const selectedTariff = tariffs.find((tariff) => tariff.service === values.service_code);
+        if (!selectedTariff || !values.pickup_location || !values.dropoff_location) {
+          throw new Error("Kutipan tarif dan koordinat pickup/dropoff wajib tersedia");
+        }
+
+        const destinationCity = cities.find((city) => city.code === values.destination_code)?.name || values.destination_code;
+        const payload = buildAggregatorOrderPayload({
+          provider: values.provider,
+          pickup_address: values.pickup_address,
+          pickup_location: values.pickup_location,
+          dropoff_address: values.dropoff_address,
+          dropoff_location: values.dropoff_location,
+          recipient_name: values.recipient_name,
+          recipient_phone: values.recipient_phone,
+          destination_code: values.destination_code,
+          pickup_city: cities.find((city) => city.code === ORIGIN_CODE)?.name || ORIGIN_CODE,
+          dropoff_city: destinationCity,
+          payment_type: values.payment_type,
+          item_value: values.item_value,
+          weight_kg: values.weight_kg,
+          quantity: values.quantity,
+          item_description: values.item_description,
+          category: values.category,
+          dangerous_goods: values.dangerous_goods,
+          delivery_notes: values.delivery_notes,
+          schedule_type: values.schedule_type,
+          scheduled_at: values.scheduled_at,
+          vehicle_type: values.vehicle_type,
+        }, selectedTariff as AggregatorQuote);
+
+        const fingerprint = JSON.stringify(payload);
+        if (createTransactionRef.current.fingerprint !== fingerprint) {
+          createTransactionRef.current = { fingerprint, key: createIdempotencyKey() };
+        }
+
+        const order = await requestAggregatorOrder(
+          api,
+          payload,
+          createTransactionRef.current.key,
+        );
+        setCreatedOrder(order);
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(PENDING_AGGREGATOR_STORAGE_KEY, JSON.stringify({
+            order_id: order.id,
+            idempotency_key: createTransactionRef.current.key,
+            created_at: Date.now(),
+          }));
+        }
+        await startPaymentForOrder(order);
       }
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.error || "Gagal membuat pesanan");
+      setSubmitError(error.response?.data?.error || error.response?.data?.message || error.message || "Gagal membuat pesanan");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    const orderId = createdOrder?.id;
+    if (!orderId) {
+      setSubmitError("Pembayaran terkonfirmasi tetapi referensi order tidak tersedia. Buka Riwayat Pesanan untuk memeriksa status.");
+      return;
+    }
+    clearPendingTransaction();
+    setIsPaymentOpen(false);
+    router.push(`/orders/${orderId}`);
   };
 
   return (
@@ -369,6 +551,14 @@ export function AggregatorWizard() {
           ))}
         </div>
       </div>
+
+      {(recoveryNotice || submitError) && (
+        <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${submitError
+          ? "border-red-500/30 bg-red-500/10 text-red-200"
+          : "border-indigo-500/30 bg-indigo-500/10 text-indigo-200"}`} role="status">
+          {submitError || recoveryNotice}
+        </div>
+      )}
 
       <FormProvider {...methods}>
         <form onSubmit={(e) => { e.preventDefault(); onSubmitFinal(); }} className="space-y-6">
@@ -673,15 +863,18 @@ export function AggregatorWizard() {
                         </div>
                       </div>
 
-                      {/* 2. Alamat */}
+                      {/* 2. Alamat + koordinat tujuan */}
                       <div>
                         <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Alamat</label>
-                        <input
-                          {...register("dropoff_address")}
-                          placeholder="Jl. Raya Mawar 10"
-                          className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                        <AddressPicker
+                          mode="dropoff"
+                          address={dropoff_address}
+                          location={dropoff_location as any}
+                          setValue={setValue as any}
+                          error={errors.dropoff_address?.message}
+                          locationError={errors.dropoff_location?.message as string | undefined}
+                          cardPicker={true}
                         />
-                        {errors.dropoff_address && <p className="mt-1 text-xs text-destructive">{errors.dropoff_address.message}</p>}
                       </div>
 
                       {/* 3. Provinsi / Kota */}
@@ -1164,7 +1357,7 @@ export function AggregatorWizard() {
             ) : (
               <button
                 type="submit"
-                disabled={isSubmitting || (orderMode === "upload" ? bulkRows.length === 0 : (isLoadingTariff || tariffs.length === 0))}
+                disabled={isSubmitting || (orderMode === "upload" ? bulkRows.length === 0 : (!createdOrder && (isLoadingTariff || tariffs.length === 0)))}
                 className="inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg bg-brand-emerald-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-brand-emerald-600 transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? (
@@ -1172,7 +1365,7 @@ export function AggregatorWizard() {
                 ) : (
                   <>
                     <Check className="h-4 w-4" />
-                    Buat Pesanan
+                    {createdOrder ? "Lanjutkan Pembayaran" : "Buat Pesanan"}
                   </>
                 )}
               </button>
@@ -1181,6 +1374,20 @@ export function AggregatorWizard() {
 
         </form>
       </FormProvider>
+
+      {payment && createdOrder && (
+        <PaymentModal
+          isOpen={isPaymentOpen}
+          onClose={() => setIsPaymentOpen(false)}
+          orderId={createdOrder.id}
+          snapToken={payment.snap_token || ""}
+          snapJsUrl={payment.snap_js_url || ""}
+          clientKey={payment.client_key || ""}
+          redirectUrl={payment.redirect_url || undefined}
+          amount={Number(payment.amount_idr || createdOrder.total_price_idr || 0)}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 }

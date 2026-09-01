@@ -262,7 +262,7 @@ export const findDeliveryServiceByCode = async (
     `SELECT *
      FROM delivery_service_products
      WHERE code = $1
-       AND route_model = 'p2p'
+       AND (route_model = 'p2p' OR service_category = 'aggregator')
        ${options.includeDisabled ? '' : 'AND is_enabled = TRUE'}
      LIMIT 1`,
     [serviceCode]

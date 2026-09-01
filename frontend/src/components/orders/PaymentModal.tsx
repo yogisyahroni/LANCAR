@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, Loader2, X } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -39,6 +39,7 @@ export function PaymentModal({
   const [state, setState] = useState<PaymentState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [snapReady, setSnapReady] = useState(false);
+  const paymentCheckKeyRef = useRef<string>("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -77,11 +78,59 @@ export function PaymentModal({
   }, [isOpen, snapJsUrl, clientKey]);
 
   const confirmPaid = async () => {
-    if (orderId) {
-      await api.post(`/auth/web/orders/${orderId}/payment/check`).catch(() => null);
+    if (!orderId) {
+      setState("error");
+      setMessage("Referensi order tidak tersedia untuk konfirmasi pembayaran.");
+      return;
     }
-    setState("paid");
-    window.setTimeout(onSuccess, 700);
+
+    if (!paymentCheckKeyRef.current) {
+      paymentCheckKeyRef.current = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `payment-check-${Date.now()}`;
+    }
+
+    setState("pending");
+    setMessage("Pembayaran diterima Midtrans. Menunggu konfirmasi status dari server...");
+
+    try {
+      const response = await api.post(
+        `/auth/web/orders/${orderId}/payment/check`,
+        undefined,
+        { headers: { "X-Idempotency-Key": paymentCheckKeyRef.current } },
+      );
+      const initialStatus = response.data?.payment_status || response.data?.payment?.payment_status;
+      if (initialStatus === "paid") {
+        setState("paid");
+        window.setTimeout(onSuccess, 700);
+        return;
+      }
+
+      // Webhook Midtrans can arrive after the browser callback. Poll the
+      // server-owned status briefly; never mark the payment paid locally.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        const statusResponse = await api.get(`/auth/web/orders/${orderId}/payment/status`);
+        const status = statusResponse.data?.payment_status || statusResponse.data?.payment?.payment_status;
+        if (status === "paid") {
+          setState("paid");
+          window.setTimeout(onSuccess, 700);
+          return;
+        }
+        if (status === "failed" || status === "expired") {
+          setState("error");
+          setMessage("Pembayaran tidak berhasil dikonfirmasi. Silakan coba metode pembayaran lain.");
+          return;
+        }
+      }
+
+      setState("pending");
+      setMessage("Pembayaran belum terkonfirmasi. Status akan diperbarui dari notifikasi gateway; order tetap tersimpan.");
+    } catch (error) {
+      console.error("Payment confirmation failed", error);
+      setState("error");
+      setMessage("Gagal mengonfirmasi pembayaran ke server. Order tetap tersimpan, silakan coba lagi.");
+    }
   };
 
   const openSnap = () => {
