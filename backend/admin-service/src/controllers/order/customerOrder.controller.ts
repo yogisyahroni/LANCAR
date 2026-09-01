@@ -121,6 +121,23 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       return;
     }
 
+    const isTowingService = service.service_category === 'towing' || String(service.code).startsWith('towing_');
+    if (isTowingService) {
+      const vehicleDetails = package_details?.vehicle_details;
+      const requiredVehicleFields = ['type', 'make', 'model', 'condition', 'access_constraints'];
+      const hasStructuredVehicleDetails = vehicleDetails && requiredVehicleFields.every((field) =>
+        typeof vehicleDetails[field] === 'string' && vehicleDetails[field].trim().length >= 2
+      );
+      if (!hasStructuredVehicleDetails || typeof recipient_name !== 'string' || recipient_name.trim().length < 2) {
+        client.release();
+        res.status(400).json({
+          code: 'ERR_TOWING_DETAILS_REQUIRED',
+          error: 'Detail kendaraan terstruktur dan kontak tujuan wajib diisi untuk towing'
+        });
+        return;
+      }
+    }
+
     const normalizedPackages = normalizePackageInputs(raw_packages, package_details || {});
     validatePackagePolicy(service, normalizedPackages);
     const packageSummary = summarizePackages(service, normalizedPackages);

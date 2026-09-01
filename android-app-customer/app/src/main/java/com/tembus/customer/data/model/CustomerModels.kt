@@ -72,8 +72,8 @@ data class DimensionsPayload(
 data class CustomerPriceEstimateRequest(
     @SerialName("pickup") val pickup: LocationPayload,
     @SerialName("dropoff") val dropoff: LocationPayload,
-    @SerialName("dimensions") val dimensions: DimensionsPayload,
-    @SerialName("weight_kg") val weightKg: Double,
+    @SerialName("dimensions") val dimensions: DimensionsPayload? = null,
+    @SerialName("weight_kg") val weightKg: Double? = null,
     @SerialName("has_insurance") val hasInsurance: Boolean = false,
     @SerialName("item_value") val itemValue: Long = 0,
     @SerialName("dimension_scan_verified") val dimensionScanVerified: Boolean = true,
@@ -150,7 +150,7 @@ data class CustomerOrderCreateRequest(
     @SerialName("dropoff_address") val dropoffAddress: String,
     @SerialName("dropoff_location") val dropoffLocation: LocationPayload,
     @SerialName("recipient_name") val recipientName: String,
-    @SerialName("recipient_phone") val recipientPhone: String,
+    @SerialName("recipient_phone") val recipientPhone: String? = null,
     @SerialName("package_details") val packageDetails: PackageDetailsPayload,
     @SerialName("has_insurance") val hasInsurance: Boolean = false,
     @SerialName("item_value") val itemValue: Long = 0,
@@ -166,12 +166,24 @@ data class CustomerOrderCreateRequest(
 
 @Serializable
 data class PackageDetailsPayload(
-    @SerialName("size_tier") val sizeTier: String,
-    @SerialName("weight_kg") val weightKg: Double,
-    @SerialName("dimensions") val dimensions: DimensionsPayload,
+    @SerialName("size_tier") val sizeTier: String? = null,
+    @SerialName("weight_kg") val weightKg: Double? = null,
+    @SerialName("dimensions") val dimensions: DimensionsPayload? = null,
     @SerialName("dimensions_scanned") val dimensionsScanned: Boolean,
     @SerialName("requires_delivery_code") val requiresDeliveryCode: Boolean,
-    @SerialName("item_description") val itemDescription: String
+    @SerialName("item_description") val itemDescription: String,
+    @SerialName("vehicle_details") val vehicleDetails: VehicleDetailsPayload? = null
+)
+
+@Serializable
+data class VehicleDetailsPayload(
+    @SerialName("type") val type: String,
+    @SerialName("make") val make: String,
+    @SerialName("model") val model: String,
+    @SerialName("condition") val condition: String,
+    @SerialName("damage") val damage: String,
+    @SerialName("access_constraints") val accessConstraints: String,
+    @SerialName("notes") val notes: String
 )
 
 @Serializable

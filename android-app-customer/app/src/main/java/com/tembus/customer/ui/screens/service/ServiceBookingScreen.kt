@@ -68,7 +68,13 @@ fun ServiceBookingScreen(
 
     var vehicleType by remember { mutableStateOf("") }
     var damageType by remember { mutableStateOf("") }
+    var vehicleMake by remember { mutableStateOf("") }
+    var vehicleModel by remember { mutableStateOf("") }
+    var vehicleCondition by remember { mutableStateOf("") }
+    var accessConstraints by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var destinationContactName by remember { mutableStateOf("") }
+    var destinationContactPhone by remember { mutableStateOf("") }
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -139,6 +145,14 @@ fun ServiceBookingScreen(
                 onVehicleTypeChange = { vehicleType = it },
                 damageType = damageType,
                 onDamageTypeChange = { damageType = it },
+                vehicleMake = vehicleMake,
+                onVehicleMakeChange = { vehicleMake = it },
+                vehicleModel = vehicleModel,
+                onVehicleModelChange = { vehicleModel = it },
+                vehicleCondition = vehicleCondition,
+                onVehicleConditionChange = { vehicleCondition = it },
+                accessConstraints = accessConstraints,
+                onAccessConstraintsChange = { accessConstraints = it },
                 notes = notes,
                 onNotesChange = { notes = it }
             )
@@ -292,6 +306,26 @@ fun ServiceBookingScreen(
                 }
 
                 Spacer(Modifier.height(16.dp))
+
+                Text("Kontak tujuan", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = destinationContactName,
+                    onValueChange = { destinationContactName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Nama bengkel/penerima") },
+                    singleLine = true
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = destinationContactPhone,
+                    onValueChange = { destinationContactPhone = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Nomor kontak tujuan (opsional)") },
+                    singleLine = true
+                )
+
+                Spacer(Modifier.height(16.dp))
             }
 
             // Selected courier (dari "Pilih Petugas")
@@ -411,6 +445,30 @@ fun ServiceBookingScreen(
 
                 Spacer(Modifier.height(24.dp))
 
+                if (isTowing) {
+                    val route = uiState.rawPriceBreakdown?.routeSnapshot
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(TembusRadius.Card),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text("Ringkasan rute towing", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Text("Pickup: ${uiState.customerAddress.ifBlank { "Lokasi GPS" }}", fontSize = 12.sp)
+                            Text("Tujuan: ${uiState.dropoffAddress}", fontSize = 12.sp)
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Operator rute: ${route?.provider?.ifBlank { "Belum tersedia" } ?: "Belum tersedia"} • " +
+                                    "Jarak ${"%.1f".format(estimate.distanceKm)} km",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+
                 // Submit button
                 Button(
                     onClick = {
@@ -418,7 +476,13 @@ fun ServiceBookingScreen(
                             serviceSubType = serviceSubType,
                             vehicleType = vehicleType,
                             damageType = damageType,
+                            vehicleMake = vehicleMake,
+                            vehicleModel = vehicleModel,
+                            vehicleCondition = vehicleCondition,
+                            accessConstraints = accessConstraints,
                             notes = notes,
+                            destinationContactName = destinationContactName,
+                            destinationContactPhone = destinationContactPhone,
                             preferredCourierId = courierId
                         )
                     },

@@ -10,6 +10,7 @@ import com.tembus.customer.data.model.MapsGeocodeResult
 import com.tembus.customer.data.model.PackageDetailsPayload
 import com.tembus.customer.data.model.PriceBreakdown
 import com.tembus.customer.data.model.TambalBanMaterial
+import com.tembus.customer.data.model.VehicleDetailsPayload
 import com.tembus.customer.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -190,8 +191,8 @@ class ServiceBookingViewModel @Inject constructor(
             val req = CustomerPriceEstimateRequest(
                 pickup = LocationPayload(lat, lng),
                 dropoff = LocationPayload(dropoffLat, dropoffLng),
-                dimensions = DimensionsPayload(0, 0, 0),
-                weightKg = 0.0,
+                dimensions = if (isTowing) null else DimensionsPayload(0, 0, 0),
+                weightKg = if (isTowing) null else 0.0,
                 serviceCode = serviceSubType,
                 courierId = courierId,
                 materialCodes = state.selectedMaterialCodes.toList()
@@ -226,7 +227,13 @@ class ServiceBookingViewModel @Inject constructor(
         serviceSubType: String,
         vehicleType: String,
         damageType: String,
+        vehicleMake: String,
+        vehicleModel: String,
+        vehicleCondition: String,
+        accessConstraints: String,
         notes: String,
+        destinationContactName: String,
+        destinationContactPhone: String,
         preferredCourierId: String?
     ) {
         val breakdown = _uiState.value.rawPriceBreakdown
@@ -240,6 +247,14 @@ class ServiceBookingViewModel @Inject constructor(
             return
         }
         val isTowing = serviceSubType.startsWith("towing")
+        if (isTowing && destinationContactName.trim().length < 2) {
+            _uiState.update { it.copy(error = "Nama bengkel atau penerima tujuan wajib diisi") }
+            return
+        }
+        if (isTowing && (vehicleType.isBlank() || vehicleMake.trim().length < 2 || vehicleModel.trim().length < 2 || vehicleCondition.isBlank() || accessConstraints.trim().length < 3)) {
+            _uiState.update { it.copy(error = "Lengkapi tipe, merek, model, kondisi, dan akses lokasi kendaraan") }
+            return
+        }
         if (isTowing && (state.dropoffLat == 0.0 || state.dropoffLng == 0.0 || state.dropoffAddress.isBlank())) {
             _uiState.update { it.copy(error = "Pilih alamat tujuan towing sebelum membuat pesanan") }
             return
@@ -251,22 +266,27 @@ class ServiceBookingViewModel @Inject constructor(
             val dropoffAddress = if (isTowing) state.dropoffAddress else state.customerAddress
             val dropoffLat = if (isTowing) state.dropoffLat else state.customerLat
             val dropoffLng = if (isTowing) state.dropoffLng else state.customerLng
-            val itemDesc = "Kendaraan: $vehicleType\nKerusakan: $damageType\nCatatan: $notes"
+            val itemDesc = "Towing ${vehicleType.trim()} ${vehicleMake.trim()} ${vehicleModel.trim()} — ${vehicleCondition.trim()}"
 
             val req = CustomerOrderCreateRequest(
                 pickupAddress = state.customerAddress,
                 pickupLocation = LocationPayload(state.customerLat, state.customerLng),
                 dropoffAddress = dropoffAddress,
                 dropoffLocation = LocationPayload(dropoffLat, dropoffLng),
-                recipientName = "Customer",
-                recipientPhone = "-",
+                recipientName = if (isTowing) destinationContactName.trim() else "Customer",
+                recipientPhone = if (isTowing) destinationContactPhone.trim().ifBlank { null } else null,
                 packageDetails = PackageDetailsPayload(
-                    sizeTier = "small",
-                    weightKg = 0.0,
-                    dimensions = DimensionsPayload(0, 0, 0),
+                    sizeTier = null,
+                    weightKg = null,
+                    dimensions = null,
                     dimensionsScanned = false,
                     requiresDeliveryCode = false,
-                    itemDescription = itemDesc
+                    itemDescription = itemDesc,
+                    vehicleDetails = if (isTowing) VehicleDetailsPayload(
+                        type = vehicleType.trim(), make = vehicleMake.trim(), model = vehicleModel.trim(),
+                        condition = vehicleCondition.trim(), damage = damageType.trim(),
+                        accessConstraints = accessConstraints.trim(), notes = notes.trim()
+                    ) else null
                 ),
                 priceBreakdown = breakdown,
                 serviceCode = serviceSubType,

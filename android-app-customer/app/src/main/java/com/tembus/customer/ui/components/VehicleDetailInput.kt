@@ -34,6 +34,14 @@ fun VehicleDetailInput(
     onVehicleTypeChange: (String) -> Unit,
     damageType: String,
     onDamageTypeChange: (String) -> Unit,
+    vehicleMake: String,
+    onVehicleMakeChange: (String) -> Unit,
+    vehicleModel: String,
+    onVehicleModelChange: (String) -> Unit,
+    vehicleCondition: String,
+    onVehicleConditionChange: (String) -> Unit,
+    accessConstraints: String,
+    onAccessConstraintsChange: (String) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -52,6 +60,7 @@ fun VehicleDetailInput(
     } else {
         listOf("Mesin Mati", "Kelistrikan", "Kecelakaan", "Kendala Lainnya")
     }
+    val conditions = listOf("Bisa berjalan", "Tidak bisa berjalan", "Rusak berat", "Kondisi tidak diketahui")
     
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -142,6 +151,73 @@ fun VehicleDetailInput(
             
             Spacer(Modifier.height(16.dp))
             
+            OutlinedTextField(
+                value = vehicleMake,
+                onValueChange = onVehicleMakeChange,
+                label = { Text("Merek kendaraan") },
+                placeholder = { Text("Contoh: Toyota") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = vehicleModel,
+                onValueChange = onVehicleModelChange,
+                label = { Text("Model kendaraan") },
+                placeholder = { Text("Contoh: Avanza 2019") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            var expandedCondition by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expandedCondition,
+                onExpandedChange = { expandedCondition = it }
+            ) {
+                TextField(
+                    value = vehicleCondition,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Kondisi kendaraan") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCondition) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedCondition,
+                    onDismissRequest = { expandedCondition = false }
+                ) {
+                    conditions.forEach { condition ->
+                        DropdownMenuItem(
+                            text = { Text(condition) },
+                            onClick = {
+                                onVehicleConditionChange(condition)
+                                expandedCondition = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = accessConstraints,
+                onValueChange = onAccessConstraintsChange,
+                label = { Text("Akses dan kendala lokasi") },
+                placeholder = { Text("Contoh: gang sempit, perlu akses derek dari jalan utama") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 3
+            )
+
+            Spacer(Modifier.height(16.dp))
+
             // Notes
             OutlinedTextField(
                 value = notes,
