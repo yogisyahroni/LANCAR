@@ -1210,7 +1210,8 @@ Existing shared files:
 - `backend/order-service/internal/service/towing_service.go`
 - `backend/order-service/internal/repository/towing_repository.go`
 
-- [ ] Split only if Towing state/pricing/dependency/claim logic materially diverges from Tambal Ban.
+- [x] Split only if Towing state/pricing/dependency/claim logic materially diverges from Tambal Ban.
+- [ ] Staging/Docker regression verification after the boundary split.
 
 ## TOW-2026-008 — Towing UI/UX trust [P1]
 - [ ] Pickup/destination visible before quote.

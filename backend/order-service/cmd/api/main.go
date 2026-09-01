@@ -371,6 +371,7 @@ func main() {
 	serviceReportSvc := service.NewServiceReportService(serviceReportRepo)
 	orderSvc.SetServiceReportService(serviceReportSvc)
 	tambalBanHandler := handler.NewTambalBanHandler(settlementSvc, availabilitySvc, vehicleValidator, serviceReportSvc)
+	towingHandler := handler.NewTowingHandler(serviceReportSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
@@ -542,7 +543,7 @@ func main() {
 	mux.HandleFunc("/api/v1/courier/radius", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.UpdateRadius)))
 
 	mux.HandleFunc("/api/v1/courier/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTambalBanReport)))
-	mux.HandleFunc("/api/v1/courier/service-report/towing", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTowingReport)))
+	mux.HandleFunc("/api/v1/courier/service-report/towing", middleware.BaseChain(middleware.AuthMiddleware(towingHandler.CreateTowingReport)))
 
 	// Internal Orchestration Routes (Should be IP-whitelisted or internally routed)
 	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.InternalStartMatching)
