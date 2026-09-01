@@ -35,6 +35,7 @@ import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
 import { assertProviderCapability, LogisticsCapabilityError } from '../../services/logisticsCapabilities';
 import { validateTowingBookingContract } from './towingBookingContract';
+import { evaluateTowingQuoteConsent } from './towingQuotePolicy';
 
 import { releasePromoReservation, validatePromoForCheckout } from '../../services/promoEngine';
 import {
@@ -218,12 +219,16 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     const submittedQuoteTotal = Number(quote_total_price_idr ?? price_breakdown?.total_price_idr);
     const trustedQuoteTotal = Number(trustedPriceBreakdown.total_price_idr || 0);
-    const priceDeltaIdr = Math.max(0, trustedQuoteTotal - (Number.isFinite(submittedQuoteTotal) ? submittedQuoteTotal : trustedQuoteTotal));
-    const quoteGeneratedAt = Date.parse(String(price_breakdown?.route_snapshot?.generated_at || ''));
-    const quoteExpired = !Number.isFinite(quoteGeneratedAt) || Date.now() - quoteGeneratedAt > 10 * 60 * 1000;
-    const quoteRouteChanged = Boolean(quote_snapshot_hash && trustedRouteSnapshot.snapshot_hash && quote_snapshot_hash !== trustedRouteSnapshot.snapshot_hash);
-    const materialIncreaseThreshold = Math.max(10000, Math.round(Math.max(1, submittedQuoteTotal || trustedQuoteTotal) * 0.1));
-    if (isTowingService && !quote_consent && (priceDeltaIdr >= materialIncreaseThreshold || quoteExpired || quoteRouteChanged)) {
+    const quoteConsent = evaluateTowingQuoteConsent({
+      submittedTotalIdr: Number.isFinite(submittedQuoteTotal) ? submittedQuoteTotal : trustedQuoteTotal,
+      trustedTotalIdr: trustedQuoteTotal,
+      quoteGeneratedAt: price_breakdown?.route_snapshot?.generated_at,
+      submittedSnapshotHash: quote_snapshot_hash,
+      trustedSnapshotHash: trustedRouteSnapshot.snapshot_hash,
+      consent: Boolean(quote_consent),
+    });
+    const priceDeltaIdr = quoteConsent.priceDeltaIdr;
+    if (isTowingService && quoteConsent.requiresConsent) {
       client.release();
       res.status(409).json({
         success: false,
