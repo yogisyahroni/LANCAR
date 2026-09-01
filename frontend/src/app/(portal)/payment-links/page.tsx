@@ -322,10 +322,12 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-          const data = await res.json();
-          if (data && data.display_name) {
-            setFormData((prev: any) => ({ ...prev, pickup_address: data.display_name }));
+          const res = await api.get('/maps/reverse-geocode', {
+            params: { latitude, longitude, scope: 'web_customer' },
+          });
+          const data = res.data?.result;
+          if (data?.display_label || data?.label) {
+            setFormData((prev: any) => ({ ...prev, pickup_address: data.display_label || data.label }));
           } else {
             setFormData((prev: any) => ({ ...prev, pickup_address: `${latitude}, ${longitude}` }));
           }

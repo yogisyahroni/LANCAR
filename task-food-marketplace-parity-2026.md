@@ -831,9 +831,9 @@ Existing shared files:
 **Recommended new file**
 - `backend/integration-gateway/internal/handler/logistics_location_handler.go`
 
-- [ ] Remove direct browser third-party geocode.
-- [ ] Normalize display label separately from city/district/postal/provider code.
-- [ ] Provider-location mapping is server controlled/cacheable/auditable.
+ - [x] Remove direct browser third-party geocode — customer order, aggregator, and payment-link flows use the server maps API; no browser Nominatim/TomTom geocode call remains.
+ - [x] Normalize display label separately from city/district/postal/provider code — maps API returns normalized components, provider place metadata, and backward-compatible `label`.
+ - [ ] Provider-location mapping is server controlled/cacheable/auditable — local implementation is complete (mappings live in `maps_provider_config`, mapping version is included in cache keys, and observations record version/match count), but approved non-empty mapping configuration and staging verification remain pending. See `docs/contracts/maps-location-normalization-2026.md`.
 
 ---
 

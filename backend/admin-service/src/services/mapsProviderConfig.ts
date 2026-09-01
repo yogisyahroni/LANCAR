@@ -7,6 +7,13 @@ import {
   hasTomTomMapsServerCredential,
   resetMapsRuntimeCredentialCacheForTests,
 } from './mapsRuntimeCredentials';
+import {
+  LOCATION_NORMALIZATION_VERSION,
+  MapsLocationMapping,
+  normalizeLocation,
+} from './mapsLocationNormalization';
+
+export { LOCATION_NORMALIZATION_VERSION, MapsLocationMapping } from './mapsLocationNormalization';
 
 export type MapProviderId = 'tomtom_maps' | 'openstreetmap' | 'disabled';
 export type MapProviderScope = 'global' | 'customer_mobile' | 'courier_mobile' | 'web_customer' | 'web_admin' | 'tracking';
@@ -26,6 +33,8 @@ export type MapsProviderConfigValue = {
   openstreetmap_enabled: boolean;
   disabled_mode_enabled: boolean;
   config_ttl_seconds: number;
+  location_mapping_version?: string;
+  location_mappings?: MapsLocationMapping[];
   scopes: Record<string, { enabled: boolean; provider: MapProviderId }>;
   providers: {
     tomtom_maps?: {
@@ -105,6 +114,16 @@ export type RouteSnapshotOptions = {
 
 export type MapsGeocodeResult = {
   label: string;
+  display_label: string;
+  address_line: string | null;
+  city: string | null;
+  district: string | null;
+  postal_code: string | null;
+  country_code: string | null;
+  provider_place_id: string | null;
+  provider_location_codes: Record<string, string>;
+  location_mapping_version: string;
+  location_mapping_count: number;
   latitude: number;
   longitude: number;
   provider: string;
@@ -143,6 +162,8 @@ export type MapsProviderObservation = {
   duration_minutes?: number | null;
   traffic_aware?: boolean | null;
   confidence?: RouteEtaSnapshot['confidence'] | null;
+  location_mapping_version?: string | null;
+  location_mapping_count?: number | null;
 };
 
 export type MapsProviderOpsSnapshot = {
@@ -198,6 +219,8 @@ const DEFAULT_CONFIG: MapsProviderConfigValue = {
   openstreetmap_enabled: true,
   disabled_mode_enabled: true,
   config_ttl_seconds: 300,
+  location_mapping_version: 'unconfigured',
+  location_mappings: [],
   scopes: {
     global: { enabled: true, provider: 'tomtom_maps' },
     customer_mobile: { enabled: true, provider: 'tomtom_maps' },
@@ -925,6 +948,8 @@ export const recordMapsProviderObservation = (event: Omit<MapsProviderObservatio
     duration_minutes: normalizeObservationNumber(event.duration_minutes),
     traffic_aware: event.traffic_aware === null || event.traffic_aware === undefined ? null : Boolean(event.traffic_aware),
     confidence: ['high', 'medium', 'low'].includes(String(event.confidence)) ? event.confidence as RouteEtaSnapshot['confidence'] : null,
+    location_mapping_version: sanitizeObservationText(event.location_mapping_version, 80),
+    location_mapping_count: Number.isFinite(Number(event.location_mapping_count)) ? Number(event.location_mapping_count) : null,
   };
 
   mapsProviderOpsState.recentEvents.unshift(normalized);
@@ -969,6 +994,8 @@ export const recordMapsProviderObservation = (event: Omit<MapsProviderObservatio
     distance_meters: normalized.distance_meters,
     duration_seconds: normalized.duration_seconds,
     fallback_reason: normalized.fallback_reason,
+    location_mapping_version: normalized.location_mapping_version,
+    location_mapping_count: normalized.location_mapping_count,
     event: normalized,
   };
   if (normalized.status === 'failure') {
@@ -989,6 +1016,10 @@ export const normalizeMapsProviderConfig = (value?: Partial<MapsProviderConfigVa
     active_provider: parseProvider(value?.active_provider, DEFAULT_CONFIG.active_provider),
     fallback_provider: parseProvider(value?.fallback_provider, DEFAULT_CONFIG.fallback_provider),
     config_ttl_seconds: Math.max(30, Math.min(3600, toNumber(value?.config_ttl_seconds, DEFAULT_CONFIG.config_ttl_seconds))),
+    location_mapping_version: sanitizeObservationText(value?.location_mapping_version, 80) || DEFAULT_CONFIG.location_mapping_version,
+    location_mappings: Array.isArray(value?.location_mappings)
+      ? value.location_mappings.filter((mapping): mapping is MapsLocationMapping => Boolean(mapping && typeof mapping === 'object'))
+      : DEFAULT_CONFIG.location_mappings,
     scopes: {
       ...DEFAULT_CONFIG.scopes,
       ...(value?.scopes || {}),
@@ -1890,7 +1921,57 @@ export const buildMapsMultiWaypointRouteEtaSnapshot = async (
 const canUseOpenStreetMapFallback = (providerConfig: PublicMapsProviderConfig) =>
   providerConfig.active_provider === 'tomtom_maps' && providerConfig.fallback_provider === 'openstreetmap';
 
-const fetchOpenStreetMapGeocode = async (normalizedQuery: string): Promise<MapsGeocodeResult[]> => {
+const buildGeocodeResult = (input: {
+  label: string;
+  latitude: number;
+  longitude: number;
+  provider: string;
+  confidence?: number | null;
+  address?: Record<string, any> | null;
+  providerPlaceId?: string | number | null;
+}, config: MapsProviderConfigValue): MapsGeocodeResult => {
+  const address = input.address || {};
+  const normalized = normalizeLocation({
+    label: input.label,
+    address_line: address.address_line || address.freeformAddress,
+    city: address.city || address.municipality || address.town || address.village || address.county,
+    district: address.district || address.municipalitySubdivision || address.suburb || address.city_district || address.neighbourhood,
+    postal_code: address.postal_code || address.postalCode || address.postcode,
+    country_code: address.country_code || address.countryCode,
+    provider_place_id: input.providerPlaceId === null || input.providerPlaceId === undefined
+      ? null
+      : String(input.providerPlaceId),
+  }, config.location_mappings, config.location_mapping_version || LOCATION_NORMALIZATION_VERSION);
+
+  return {
+    label: normalized.display_label,
+    ...normalized,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    provider: input.provider,
+    confidence: input.confidence ?? null,
+  };
+};
+
+const normalizeCachedResult = (result: MapsGeocodeResult, config: MapsProviderConfigValue): MapsGeocodeResult => ({
+  ...buildGeocodeResult({
+    label: result.display_label || result.label,
+    latitude: result.latitude,
+    longitude: result.longitude,
+    provider: result.provider,
+    confidence: result.confidence,
+    address: {
+      address_line: result.address_line,
+      city: result.city,
+      district: result.district,
+      postal_code: result.postal_code,
+      country_code: result.country_code,
+    },
+    providerPlaceId: result.provider_place_id,
+  }, config),
+});
+
+const fetchOpenStreetMapGeocode = async (normalizedQuery: string, config: MapsProviderConfigValue): Promise<MapsGeocodeResult[]> => {
   const baseUrl = assertAllowlistedOsmGeocodingBaseUrl(
     process.env.OSM_GEOCODING_BASE_URL || 'https://nominatim.openstreetmap.org'
   );
@@ -1906,16 +1987,18 @@ const fetchOpenStreetMapGeocode = async (normalizedQuery: string): Promise<MapsG
     },
     timeout: 2500,
   });
-  return (response.data || []).map((item: any) => ({
+  return (response.data || []).map((item: any) => buildGeocodeResult({
     label: item.display_name,
     latitude: Number(item.lat),
     longitude: Number(item.lon),
     provider: 'openstreetmap_nominatim',
     confidence: item.importance ? Number(item.importance) : null,
-  })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
+    address: item.address,
+    providerPlaceId: item.place_id,
+  }, config)).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
 };
 
-const fetchOpenStreetMapReverseGeocode = async (point: MapPoint): Promise<MapsGeocodeResult | null> => {
+const fetchOpenStreetMapReverseGeocode = async (point: MapPoint, config: MapsProviderConfigValue): Promise<MapsGeocodeResult | null> => {
   const baseUrl = assertAllowlistedOsmGeocodingBaseUrl(
     process.env.OSM_GEOCODING_BASE_URL || 'https://nominatim.openstreetmap.org'
   );
@@ -1933,13 +2016,15 @@ const fetchOpenStreetMapReverseGeocode = async (point: MapPoint): Promise<MapsGe
     timeout: 2500,
   });
   if (!response.data?.display_name) return null;
-  return {
+  return buildGeocodeResult({
     label: response.data.display_name,
     latitude: point.latitude,
     longitude: point.longitude,
     provider: 'openstreetmap_reverse_nominatim',
     confidence: response.data.importance ? Number(response.data.importance) : null,
-  };
+    address: response.data.address,
+    providerPlaceId: response.data.place_id,
+  }, config);
 };
 
 export const geocodeAddress = async (query: string, scope: MapProviderScope = 'web_customer'): Promise<MapsGeocodeResult[]> => {
@@ -1947,6 +2032,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
   const normalizedQuery = query.trim();
   if (normalizedQuery.length < 3) return [];
 
+  const config = await getMapsProviderConfigValue();
   const providerConfig = await getPublicMapsProviderConfig(scope);
   if (providerConfig.active_provider === 'disabled') {
     recordMapsProviderObservation({
@@ -1970,7 +2056,12 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
   const cacheProviderKey = TomTomCredential
     ? `${providerConfig.active_provider}:${TomTomCredential.cacheKey}`
     : providerConfig.active_provider;
-  const cacheKey = geocodeCacheKey('geocode', cacheProviderKey, scope, normalizedQuery);
+  const cacheKey = geocodeCacheKey(
+    'geocode',
+    `${cacheProviderKey}:mapping-${config.location_mapping_version || LOCATION_NORMALIZATION_VERSION}`,
+    scope,
+    normalizedQuery
+  );
   const cachedResults = await getCachedGeocodeResults(cacheKey);
   if (cachedResults) {
     recordMapsProviderObservation({
@@ -1985,7 +2076,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       cache_hit: true,
       result_count: cachedResults.length,
     });
-    return cachedResults;
+    return cachedResults.map((result) => normalizeCachedResult(result, config));
   }
 
   try {
@@ -2001,15 +2092,22 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
         },
         timeout: 2500,
       });
-      results = (response.data?.results || []).slice(0, 8).map((item: any) => ({
+      results = (response.data?.results || []).slice(0, 8).map((item: any) => buildGeocodeResult({
         label: item.address?.freeformAddress || item.poi?.name || normalizedQuery,
         latitude: Number(item.position?.lat),
         longitude: Number(item.position?.lon),
         provider: 'tomtom_search',
         confidence: typeof item.score === 'number' ? item.score : null,
-      })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
+        address: {
+          ...item.address,
+          address_line: item.address?.streetName
+            ? [item.address.streetNumber, item.address.streetName].filter(Boolean).join(' ')
+            : item.address?.freeformAddress,
+        },
+        providerPlaceId: item.id,
+      }, config)).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
     } else {
-      results = await fetchOpenStreetMapGeocode(normalizedQuery);
+      results = await fetchOpenStreetMapGeocode(normalizedQuery, config);
     }
     recordMapsProviderObservation({
       operation: 'geocode',
@@ -2028,7 +2126,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
   } catch (error) {
     if (canUseOpenStreetMapFallback(providerConfig)) {
       try {
-        const fallbackResults = await fetchOpenStreetMapGeocode(normalizedQuery);
+        const fallbackResults = await fetchOpenStreetMapGeocode(normalizedQuery, config);
         recordMapsProviderObservation({
           operation: 'geocode',
           scope,
@@ -2084,6 +2182,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
   const startedAt = Date.now();
   if (![point.latitude, point.longitude].every(Number.isFinite)) return null;
 
+  const config = await getMapsProviderConfigValue();
   const providerConfig = await getPublicMapsProviderConfig(scope);
   if (providerConfig.active_provider === 'disabled') {
     recordMapsProviderObservation({
@@ -2108,7 +2207,12 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
   const cacheProviderKey = TomTomCredential
     ? `${providerConfig.active_provider}:${TomTomCredential.cacheKey}`
     : providerConfig.active_provider;
-  const cacheKey = geocodeCacheKey('reverse_geocode', cacheProviderKey, scope, normalizedPoint);
+  const cacheKey = geocodeCacheKey(
+    'reverse_geocode',
+    `${cacheProviderKey}:mapping-${config.location_mapping_version || LOCATION_NORMALIZATION_VERSION}`,
+    scope,
+    normalizedPoint
+  );
   const cachedResult = await getCachedReverseGeocodeResult(cacheKey);
   if (cachedResult) {
     recordMapsProviderObservation({
@@ -2123,7 +2227,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       cache_hit: true,
       result_count: 1,
     });
-    return cachedResult;
+    return normalizeCachedResult(cachedResult, config);
   }
 
   try {
@@ -2139,15 +2243,22 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       });
       const item = response.data?.addresses?.[0];
       if (!item) return null;
-      result = {
+      result = buildGeocodeResult({
         label: item.address?.freeformAddress || `${point.latitude.toFixed(5)}, ${point.longitude.toFixed(5)}`,
         latitude: point.latitude,
         longitude: point.longitude,
         provider: 'tomtom_reverse_geocoding',
         confidence: null,
-      };
+        address: {
+          ...item.address,
+          address_line: item.address?.streetName
+            ? [item.address.streetNumber, item.address.streetName].filter(Boolean).join(' ')
+            : item.address?.freeformAddress,
+        },
+        providerPlaceId: item.id,
+      }, config);
     } else {
-      result = await fetchOpenStreetMapReverseGeocode(point);
+      result = await fetchOpenStreetMapReverseGeocode(point, config);
       if (!result) return null;
     }
     recordMapsProviderObservation({
@@ -2167,7 +2278,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
   } catch (error) {
     if (canUseOpenStreetMapFallback(providerConfig)) {
       try {
-        const fallbackResult = await fetchOpenStreetMapReverseGeocode(point);
+        const fallbackResult = await fetchOpenStreetMapReverseGeocode(point, config);
         if (fallbackResult) {
           recordMapsProviderObservation({
             operation: 'reverse_geocode',

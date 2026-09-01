@@ -104,8 +104,8 @@ function AddressModal({
             params: { latitude: lat, longitude: lng, scope: "web_customer" },
           });
           const result = res.data?.result;
-          const addr = result?.label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-          const city = result?.label || "";
+          const addr = result?.display_label || result?.label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          const city = result?.city || "";
           setForm((prev) => ({
             ...prev,
             address: addr,

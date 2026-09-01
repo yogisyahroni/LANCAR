@@ -6,6 +6,14 @@ import { api } from "@/lib/api";
 import { MapPin, Search, Loader2, Plus, Navigation, Sparkles, Check, Info } from "lucide-react";
 import { OrderFormValues, LocationValue, AddressMode, AddressSuggestion, SavedAddress } from "./OrderSchemas";
 
+type NormalizedAddressSuggestion = AddressSuggestion & {
+  city?: string | null;
+  district?: string | null;
+  postal_code?: string | null;
+  provider_place_id?: string | null;
+  provider_location_codes?: Record<string, string>;
+};
+
 const formatCoordinate = (location?: LocationValue) => {
   if (!location) return "Titik belum dipilih";
   return `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`;
@@ -88,7 +96,7 @@ export function AddressPicker({
   setValue: UseFormSetValue<OrderFormValues>;
   cardPicker?: boolean;
 }) {
-  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<NormalizedAddressSuggestion[]>([]);
   const [savedSuggestions, setSavedSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -109,12 +117,21 @@ export function AddressPicker({
   const isPickup = mode === "pickup";
   const accentClass = isPickup ? "text-primary" : "text-success";
 
-  const performReverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
+  type NormalizedMapResult = {
+    label?: string;
+    display_label?: string;
+    city?: string | null;
+    district?: string | null;
+    postal_code?: string | null;
+  };
+
+  const performReverseGeocode = async (lat: number, lng: number): Promise<NormalizedMapResult | null> => {
     try {
       const res = await api.get("/maps/reverse-geocode", {
         params: { latitude: lat, longitude: lng, scope: "web_customer" },
       });
-      return res.data?.result?.label || null;
+      const result = res.data?.result as NormalizedMapResult | undefined;
+      return result?.display_label || result?.label ? result : null;
     } catch (e) {
       console.warn("Reverse geocode failed", e);
     }
@@ -167,9 +184,21 @@ export function AddressPicker({
           }
         });
 
-        const data = (response.data?.results || []) as Array<{ label: string; latitude: number; longitude: number; provider: string }>;
+        const data = (response.data?.results || []) as Array<{
+          label: string;
+          display_label?: string;
+          city?: string | null;
+          district?: string | null;
+          postal_code?: string | null;
+          provider_place_id?: string | null;
+          provider_location_codes?: Record<string, string>;
+          latitude: number;
+          longitude: number;
+          provider: string;
+        }>;
         const providerSuggestions = data.map((item, index) => {
-          const [label, ...rest] = item.label.split(",");
+          const displayLabel = item.display_label || item.label;
+          const [label, ...rest] = displayLabel.split(",");
           const normalizedProvider = String(item.provider || "").toLowerCase();
           return {
             id: `${item.provider}-${index}-${item.latitude}-${item.longitude}`,
@@ -177,7 +206,12 @@ export function AddressPicker({
             detail: rest.join(",").trim(),
             lat: Number(item.latitude),
             lng: Number(item.longitude),
-            source: normalizedProvider.includes("tomtom") ? "tomtom" as const : "osm" as const
+            source: normalizedProvider.includes("tomtom") ? "tomtom" as const : "osm" as const,
+            city: item.city,
+            district: item.district,
+            postal_code: item.postal_code,
+            provider_place_id: item.provider_place_id,
+            provider_location_codes: item.provider_location_codes,
           };
         });
 
@@ -202,9 +236,13 @@ export function AddressPicker({
     };
   }, [address, savedSuggestions]);
 
-  const applySuggestion = (suggestion: AddressSuggestion) => {
+  const applySuggestion = (suggestion: NormalizedAddressSuggestion) => {
     setValue(addressField, `${suggestion.label}, ${suggestion.detail}`, { shouldDirty: true, shouldValidate: true });
     setValue(locationField, { lat: suggestion.lat, lng: suggestion.lng }, { shouldDirty: true, shouldValidate: true });
+    const cityField = mode === "pickup" ? "pickup_city" : "dropoff_city";
+    if (suggestion.city) {
+      setValue(cityField, suggestion.city, { shouldDirty: true, shouldValidate: true });
+    }
 
     if (!isPickup) {
       if (suggestion.recipient_name) {
@@ -237,7 +275,11 @@ export function AddressPicker({
         let finalAddr = `Lokasi saat ini (${formatCoordinate(nextLocation)})`;
         const geocoded = await performReverseGeocode(nextLocation.lat, nextLocation.lng);
         if (geocoded) {
-          finalAddr = geocoded;
+          finalAddr = geocoded.display_label || geocoded.label || finalAddr;
+          const cityField = mode === "pickup" ? "pickup_city" : "dropoff_city";
+          if (geocoded.city) {
+            setValue(cityField, geocoded.city, { shouldDirty: true, shouldValidate: true });
+          }
         }
 
         if (onSuccess) {
@@ -537,4 +579,3 @@ export function AddressPicker({
     </div>
   );
 }
-
