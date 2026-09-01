@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"testing"
 	"tembus/integration-gateway/internal/domain"
+	"testing"
 )
 
 func TestJNEProvider_CheckTariff(t *testing.T) {
@@ -56,6 +56,46 @@ func TestJNEProvider_CheckTariff(t *testing.T) {
 	}
 	if resp.Provider != "JNE" {
 		t.Errorf("Expected provider JNE, got %s", resp.Provider)
+	}
+	if resp.Services[0].ServiceCode != "REG1" || resp.Services[0].ServiceName != "REG" {
+		t.Fatalf("native JNE service metadata was not preserved: %#v", resp.Services[0])
+	}
+}
+
+func TestJNTProvider_CheckTariffPreservesNativeServiceCodeAndName(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/jts-id-open-api/api/tariff/query" {
+			t.Errorf("expected J&T tariff path, got %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"code": "1",
+			"msg": "success",
+			"data": [{"productType": "EZ", "price": "18000"}]
+		}`))
+	}))
+	defer ts.Close()
+
+	t.Setenv("JNT_BASE_URL", ts.URL)
+	t.Setenv("JNT_API_ACCOUNT", "test_account")
+	t.Setenv("JNT_PRIVATE_KEY", "test_secret")
+	t.Setenv("JNT_CUSTOMER_CODE", "CUST_001")
+
+	resp, err := NewJNTProvider().CheckTariff(context.Background(), domain.TariffRequest{
+		OriginCode: "JKT", DestinationCode: "BDG", WeightKG: 1.5,
+	})
+	if err != nil {
+		t.Fatalf("expected J&T tariff quote, got %v", err)
+	}
+	if len(resp.Services) != 1 || resp.Services[0].ServiceCode != "EZ" || resp.Services[0].ServiceName != "EZ" {
+		t.Fatalf("native J&T service metadata was not preserved: %#v", resp.Services)
+	}
+	if resp.Source != "jnt_api" {
+		t.Fatalf("expected provider quote source, got %q", resp.Source)
 	}
 }
 

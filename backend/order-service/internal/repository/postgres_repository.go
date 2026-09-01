@@ -16,6 +16,38 @@ type postgresRepo struct {
 	configRepo domain.ConfigRepository
 }
 
+// ListTrackingPollTargets returns active aggregator shipments with a provider
+// AWB. The integration gateway uses this as its durable polling queue source.
+func (r *postgresRepo) ListTrackingPollTargets(ctx context.Context) ([]domain.TrackingPollTarget, error) {
+	const query = `
+		SELECT LOWER(TRIM(logistics_provider)), TRIM(awb_number)
+		FROM orders
+		WHERE NULLIF(TRIM(logistics_provider), '') IS NOT NULL
+		  AND NULLIF(TRIM(awb_number), '') IS NOT NULL
+		  AND status NOT IN ('delivered', 'completed', 'cancelled', 'failed', 'rejected')
+		ORDER BY updated_at ASC
+		LIMIT 500`
+
+	rows, err := r.readDB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list tracking poll targets: %w", err)
+	}
+	defer rows.Close()
+
+	targets := make([]domain.TrackingPollTarget, 0)
+	for rows.Next() {
+		var target domain.TrackingPollTarget
+		if err := rows.Scan(&target.Provider, &target.AWB); err != nil {
+			return nil, fmt.Errorf("scan tracking poll target: %w", err)
+		}
+		targets = append(targets, target)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tracking poll targets: %w", err)
+	}
+	return targets, nil
+}
+
 func NewPostgresRepository(db, readDB *sql.DB, configRepo domain.ConfigRepository) *postgresRepo {
 	return &postgresRepo{
 		db:         db,

@@ -49,6 +49,8 @@ type ProviderOption = {
   code: string;
   name: string;
   capabilities?: string[];
+  tracking_mode?: "webhook" | "polling" | "degraded_manual";
+  tracking_degraded?: boolean;
 };
 
 type LogisticsCity = { code: string; name: string; type: "origin" | "destination" | "both" };
@@ -700,6 +702,7 @@ export function AggregatorWizard() {
                     >
                       <span className="block font-bold text-foreground">{provider.name}</span>
                       <span className="mt-1 block text-[10px] text-muted-foreground">{provider.capabilities?.length ? provider.capabilities.map(capabilityLabel).join(" · ") : "Capability belum diberikan"}</span>
+                      <span className={`mt-1 block text-[10px] ${provider.tracking_degraded ? "text-amber-300" : "text-muted-foreground"}`}>{provider.tracking_degraded ? "Tracking degraded · manual" : `Tracking: ${provider.tracking_mode || "belum ditentukan"}`}</span>
                     </button>
                   ))}
                 </div>

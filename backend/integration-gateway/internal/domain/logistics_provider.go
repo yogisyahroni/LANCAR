@@ -29,6 +29,7 @@ type ProviderRegistration struct {
 	Tariff     TariffProvider
 	Shipment   ShipmentProvider
 	Tracking   TrackingPullProvider
+	Webhook    WebhookAdapter
 }
 
 type LogisticsProviderRegistry interface {

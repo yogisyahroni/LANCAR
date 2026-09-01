@@ -344,6 +344,7 @@ func main() {
 	resiHandler := handler.NewResiHandler(resiSvc)
 	productCatalogHandler := handler.NewProductCatalogHandler(productCatalogSvc)
 	deliveryWebhookHandler := handler.NewDeliveryWebhookHandler(merchantSettlementSvc, carrierEventSvc)
+	trackingPollTargetsHandler := handler.NewTrackingPollTargetsHandler(pgRepo)
 	taxHandler := handler.NewTaxHandler(taxSvc)
 	// FB-077: tips driver — semua service (parcel/tambal/towing/food)
 	tipRepo := repository.NewPostgresTipRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
@@ -656,6 +657,7 @@ func main() {
 
 	// Internal Delivery & Merchant Settlement Routes
 	mux.HandleFunc("/api/v1/internal/delivery/webhook", middleware.BaseChain(deliveryWebhookHandler.HandleDeliveryEvent))
+	mux.HandleFunc("/api/v1/internal/delivery/tracking-poll-targets", middleware.BaseChain(trackingPollTargetsHandler.Handle))
 	mux.HandleFunc("/api/v1/internal/merchant-settlements", middleware.BaseChain(deliveryWebhookHandler.HandleListSettlements))
 	// FB-080: chargeback settlement merchant per order (dipanggil admin-service saat dispute food resolved memihak customer)
 	mux.HandleFunc("/api/v1/internal/settlements/chargeback", middleware.BaseChain(deliveryWebhookHandler.HandleChargeback))

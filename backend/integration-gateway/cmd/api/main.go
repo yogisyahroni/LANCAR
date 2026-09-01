@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"tembus/integration-gateway/internal/domain"
 	"tembus/integration-gateway/internal/handler"
 	"tembus/integration-gateway/internal/provider"
+	trackingworker "tembus/integration-gateway/internal/worker"
 )
 
 func main() {
@@ -40,20 +42,23 @@ func main() {
 
 	jneProv := provider.NewJNEProvider()
 	jntProv := provider.NewJNTProvider()
+	webhookRegistry := provider.NewWebhookAdapterRegistry()
+	jneWebhook, _ := webhookRegistry.Get("jne")
+	jntWebhook, _ := webhookRegistry.Get("jnt")
 	logisticsRegistry := provider.NewLogisticsProviderRegistry()
 	logisticsRegistry.Register(domain.ProviderRegistration{
 		Descriptor: domain.ProviderDescriptor{
 			Code: "jne", Name: "JNE Express",
-			Capabilities: []domain.LogisticsCapability{domain.CapabilityTariff, domain.CapabilityShipment, domain.CapabilityTracking},
+			Capabilities: []domain.LogisticsCapability{domain.CapabilityTariff, domain.CapabilityShipment, domain.CapabilityTracking, domain.CapabilityWebhook},
 		},
-		Tariff: jneProv, Shipment: jneProv, Tracking: jneProv,
+		Tariff: jneProv, Shipment: jneProv, Tracking: jneProv, Webhook: jneWebhook,
 	})
 	logisticsRegistry.Register(domain.ProviderRegistration{
 		Descriptor: domain.ProviderDescriptor{
 			Code: "jnt", Name: "J&T Express",
-			Capabilities: []domain.LogisticsCapability{domain.CapabilityTariff, domain.CapabilityShipment, domain.CapabilityTracking},
+			Capabilities: []domain.LogisticsCapability{domain.CapabilityTariff, domain.CapabilityShipment, domain.CapabilityTracking, domain.CapabilityWebhook},
 		},
-		Tariff: jntProv, Shipment: jntProv, Tracking: jntProv,
+		Tariff: jntProv, Shipment: jntProv, Tracking: jntProv, Webhook: jntWebhook,
 	})
 	if err := logisticsRegistry.Validate(); err != nil {
 		log.Fatalf("[integration-gateway] invalid logistics provider registry: %v", err)
@@ -146,8 +151,31 @@ func main() {
 		}
 	}()
 
+	// Pull is the fallback for providers without webhook capability. For
+	// webhook-capable providers it is opt-in reconciliation, never the primary
+	// event source. Targets are loaded from persisted order-service rows.
+	orderServiceURL := os.Getenv("ORDER_SERVICE_URL")
+	if orderServiceURL == "" {
+		orderServiceURL = "http://order-service:8083"
+	}
+	pollInterval := 5 * time.Minute
+	if seconds, err := strconv.Atoi(os.Getenv("TRACKING_POLL_INTERVAL_SECONDS")); err == nil && seconds > 0 {
+		pollInterval = time.Duration(seconds) * time.Second
+	}
+	reconcileWebhooks := os.Getenv("TRACKING_RECONCILIATION_ENABLED") == "true"
+	trackingPollWorker := trackingworker.NewTrackingPollWorker(
+		trackingworker.NewHTTPTrackingPollSource(orderServiceURL, os.Getenv("INTERNAL_API_KEY")),
+		trackingworker.NewHTTPTrackingEventSink(orderServiceURL, os.Getenv("INTERNAL_API_KEY")),
+		logisticsRegistry,
+		pollInterval,
+		reconcileWebhooks,
+	)
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	go trackingPollWorker.Run(workerCtx)
+
 	<-quit
 	log.Println("[integration-gateway] Shutting down gracefully...")
+	workerCancel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

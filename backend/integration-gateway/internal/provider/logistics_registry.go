@@ -33,10 +33,25 @@ func (r *LogisticsProviderRegistry) Get(code string) (domain.ProviderRegistratio
 func (r *LogisticsProviderRegistry) List() []domain.ProviderDescriptor {
 	items := make([]domain.ProviderDescriptor, 0, len(r.providers))
 	for _, registration := range r.providers {
-		items = append(items, registration.Descriptor)
+		descriptor := registration.Descriptor
+		descriptor.TrackingMode, descriptor.TrackingDegraded = trackingMode(registration), false
+		if descriptor.TrackingMode == "degraded_manual" {
+			descriptor.TrackingDegraded = true
+		}
+		items = append(items, descriptor)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Code < items[j].Code })
 	return items
+}
+
+func trackingMode(registration domain.ProviderRegistration) string {
+	if registration.Webhook != nil {
+		return "webhook"
+	}
+	if registration.Tracking != nil {
+		return "polling"
+	}
+	return "degraded_manual"
 }
 
 // Validate enforces that every declared capability has a concrete adapter.
@@ -80,6 +95,8 @@ func hasImplementation(registration domain.ProviderRegistration, capability doma
 		return registration.Shipment != nil
 	case domain.CapabilityTracking:
 		return registration.Tracking != nil
+	case domain.CapabilityWebhook:
+		return registration.Webhook != nil
 	default:
 		// Capability interfaces for future operations are intentionally not
 		// advertised until their concrete adapter can be wired here.

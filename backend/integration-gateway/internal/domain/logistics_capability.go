@@ -27,10 +27,12 @@ type ProviderService struct {
 }
 
 type ProviderDescriptor struct {
-	Code         string                `json:"code"`
-	Name         string                `json:"name"`
-	Capabilities []LogisticsCapability `json:"capabilities"`
-	Services     []ProviderService     `json:"services,omitempty"`
+	Code             string                `json:"code"`
+	Name             string                `json:"name"`
+	Capabilities     []LogisticsCapability `json:"capabilities"`
+	Services         []ProviderService     `json:"services,omitempty"`
+	TrackingMode     string                `json:"tracking_mode,omitempty"`
+	TrackingDegraded bool                  `json:"tracking_degraded"`
 }
 
 type ProviderDiagnostic struct {
