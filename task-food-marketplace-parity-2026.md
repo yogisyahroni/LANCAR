@@ -1232,9 +1232,10 @@ Existing shared files:
 - `frontend/src/components/orders/PaymentModal.tsx`
 - `frontend/src/lib/api.ts`
 
-- [ ] Success requires persisted server resource.
-- [ ] Timeout shows pending/retry, not success.
-- [ ] Duplicate submit reuses idempotency key.
+- [x] Success requires persisted server resource.
+- [x] Timeout shows pending/retry, not success.
+- [x] Duplicate submit reuses idempotency key.
+- [ ] Staging/Docker transaction and payment recovery verification.
 
 ## WEB-2026-002 — Service-aware history/detail/resi [P1]
 
