@@ -31,11 +31,23 @@ import com.tembus.customer.ui.theme.TembusRadius
 
 @Composable
 fun OrderServiceSpecificSections(order: Order) {
-    when {
-        order.foodItems.isNotEmpty() -> FoodOrderSection(order.foodItems, order.orderNotes)
-        order.serviceSubType.orEmpty().startsWith("tambal_ban") || order.serviceSubType.orEmpty().startsWith("towing") ->
+    when (orderDetailSectionKind(order.foodItems.isNotEmpty(), order.serviceSubType)) {
+        OrderDetailSectionKind.FOOD -> FoodOrderSection(order.foodItems, order.orderNotes)
+        OrderDetailSectionKind.ROADSIDE ->
             RoadsideOrderSection(order.serviceSubType.orEmpty())
-        else -> PackageOrderSection(order.serviceSubType)
+        OrderDetailSectionKind.PACKAGE -> PackageOrderSection(order.serviceSubType)
+    }
+}
+
+internal enum class OrderDetailSectionKind { FOOD, ROADSIDE, PACKAGE }
+
+internal fun orderDetailSectionKind(hasFoodItems: Boolean, serviceSubType: String?): OrderDetailSectionKind {
+    if (hasFoodItems) return OrderDetailSectionKind.FOOD
+    val normalized = serviceSubType.orEmpty().trim().lowercase()
+    return if (normalized.startsWith("tambal_ban") || normalized.startsWith("towing")) {
+        OrderDetailSectionKind.ROADSIDE
+    } else {
+        OrderDetailSectionKind.PACKAGE
     }
 }
 
