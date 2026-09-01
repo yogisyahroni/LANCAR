@@ -456,6 +456,7 @@ func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *d
 	).Scan(&report.ID, &report.CreatedAt); err != nil {
 		return err
 	}
+
 	return tx.Commit()
 }
 
@@ -536,6 +537,25 @@ func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *doma
 		report.CompletionPhotoURL, report.SignatureURL, damageReportJSON, report.CompletedAt, report.Notes,
 	).Scan(&report.ID, &report.CreatedAt); err != nil {
 		return err
+	}
+
+	damageAudit := map[string]any{
+		"damage_report_present": report.DamageReport != nil,
+	}
+	if report.DamageReport != nil {
+		damageAudit["severity"] = report.DamageReport.Severity
+		damageAudit["safe_to_transport"] = report.DamageReport.SafeToTransport
+		damageAudit["areas_count"] = len(report.DamageReport.Areas)
+	}
+	damageAuditJSON, err := json.Marshal(damageAudit)
+	if err != nil {
+		return fmt.Errorf("encode towing damage audit: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO audit_logs (actor_id, action, target_id, payload)
+		VALUES ($1, 'towing.damage_report.recorded', $2, $3)`,
+		report.CourierID, report.OrderID, damageAuditJSON); err != nil {
+		return fmt.Errorf("audit towing damage report: %w", err)
 	}
 	return tx.Commit()
 }

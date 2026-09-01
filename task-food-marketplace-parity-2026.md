@@ -1190,10 +1190,11 @@ Existing shared files:
   - [ ] Staging/Docker lifecycle proof verification with real upload, order state, and signature persistence.
 
 ## TOW-2026-005 — Damage claim protection [P0]
-- [ ] Before evidence immutable after transit begins.
-- [ ] Before/after same vehicle/order/operator.
-- [ ] Liability decision audited.
-- [ ] Compensation reconciles with settlement/insurance.
+  - [x] Before evidence immutable after transit begins.
+  - [ ] Before/after same vehicle/order/operator.
+  - [ ] Liability decision audited.
+  - [ ] Compensation reconciles with settlement/insurance.
+  - [ ] Staging/Docker damage-claim and compensation reconciliation verification.
 
 ## TOW-2026-006 — Customer tracking parity [P0]
 - [ ] Human-readable stages: menuju pickup→tiba→inspeksi→loading→perjalanan→unloading→selesai.
