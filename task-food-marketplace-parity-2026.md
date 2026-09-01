@@ -902,7 +902,8 @@ Existing shared files:
 - [x] Job and child rows idempotent.
 - [x] Partial success visible.
 - [x] Payment binds exact job/order set version.
-- [ ] Job resume after refresh, owner scoped.
+- [x] Job resume after refresh is server-backed and owner scoped.
+- [ ] Authenticated staging/Redis verification covers upload → review → process → payment-link recovery.
 
 ---
 
