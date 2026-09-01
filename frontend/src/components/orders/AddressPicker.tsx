@@ -111,12 +111,10 @@ export function AddressPicker({
 
   const performReverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-      const data = await res.json();
-      if (data && data.display_name) {
-        // Example: "Toko ABC, Jl... 12345"
-        return data.display_name;
-      }
+      const res = await api.get("/maps/reverse-geocode", {
+        params: { latitude: lat, longitude: lng, scope: "web_customer" },
+      });
+      return res.data?.result?.label || null;
     } catch (e) {
       console.warn("Reverse geocode failed", e);
     }
@@ -539,5 +537,4 @@ export function AddressPicker({
     </div>
   );
 }
-
 

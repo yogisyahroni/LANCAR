@@ -16,7 +16,6 @@ import {
   Package,
   CalendarDays,
   Clock,
-  Navigation,
   Sparkles,
   ChevronRight,
   ChevronLeft
@@ -97,50 +96,11 @@ export function AggregatorWizard() {
   const [isLoadingTariff, setIsLoadingTariff] = useState(false);
   const [tariffError, setTariffError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLocating, setIsLocating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [bulkRows, setBulkRows] = useState<any[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
-
-  const handleUseMyLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Geolokasi tidak didukung oleh browser Anda");
-      return;
-    }
-    
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          // Bypass backend and call Nominatim directly
-          const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
-          const res = await fetch(url);
-          if (!res.ok) throw new Error("Gagal mengambil data dari Nominatim");
-          const data = await res.json();
-          const label = data.display_name;
-          if (label) {
-            setValue("pickup_address", label, { shouldValidate: true });
-          } else {
-            alert("Alamat lengkap tidak ditemukan untuk lokasi Anda");
-          }
-        } catch (error) {
-          console.error(error);
-          alert("Gagal mengambil alamat dari kordinat");
-        } finally {
-          setIsLocating(false);
-        }
-      },
-      (error) => {
-        console.error(error);
-        alert("Gagal mendapatkan lokasi. Pastikan izin lokasi diberikan pada browser.");
-        setIsLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
