@@ -1273,9 +1273,10 @@ Existing shared files:
 **Files to edit**
 - customer `DashboardScreen.kt`, `ServiceGridMenu.kt`, `ServiceIcons.kt`, `RootNavGraph.kt`, `Screen.kt`
 
-- [ ] Distinct labels/icons/purpose.
-- [ ] Recommended: `Paket Instan`, `Food`, `Tambal Ban`, `Ekspedisi Antar-Kota`, `Towing`.
-- [ ] Emergency services visually distinct.
+- [x] Distinct labels/icons/purpose.
+- [x] Recommended: `Paket Instan`, `Food`, `Tambal Ban`, `Ekspedisi Antar-Kota`, `Towing`.
+- [x] Emergency services visually distinct.
+- [ ] Android device/staging navigation verification with live service registry.
 
 ## UX-2026-002 — One order-detail shell, service-specific sections [P1]
 
