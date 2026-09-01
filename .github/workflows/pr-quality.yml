@@ -209,10 +209,12 @@ jobs:
             -v "${{ github.workspace }}/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
             -v "${{ github.workspace }}/observability:/etc/prometheus/rules:ro" \
             -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/tmp/prometheus-rules.yaml:ro" \
+            --entrypoint promtool \
             prom/prometheus:v3.5.0 \
-            promtool check config /etc/prometheus/prometheus.yml
+            check config /etc/prometheus/prometheus.yml
           docker run --rm \
             -v "${{ github.workspace }}/observability:/etc/prometheus/rules:ro" \
             -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/tmp/prometheus-rules.yaml:ro" \
+            --entrypoint promtool \
             prom/prometheus:v3.5.0 \
-            promtool check rules /tmp/prometheus-rules.yaml /etc/prometheus/rules/slo.yaml
+            check rules /tmp/prometheus-rules.yaml /etc/prometheus/rules/slo.yaml
