@@ -1204,9 +1204,9 @@ Existing shared files:
 
 ## TOW-2026-005 — Damage claim protection [P0]
   - [x] Before evidence immutable after transit begins.
-  - [ ] Before/after same vehicle/order/operator.
-  - [ ] Liability decision audited.
-  - [ ] Compensation reconciles with settlement/insurance.
+  - [x] Before/after same vehicle/order/operator is bound through dispatch metadata, `order_legs.vehicle_id`, and the server-side towing report lookup.
+  - [x] Liability decision requires an authorized reviewer, reason, timestamp, and immutable audit event.
+  - [x] Compensation reconciles exactly once against an approved amount with a settlement, insurance, or platform-reserve reference.
   - [ ] Staging/Docker damage-claim and compensation reconciliation verification.
 
 ## TOW-2026-006 — Customer tracking parity [P0]
