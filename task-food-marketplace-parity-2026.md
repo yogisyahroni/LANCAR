@@ -1170,6 +1170,7 @@ Existing shared files:
 - [x] Capacity/vehicle compatibility.
 - [x] Active job/radius/availability.
 - [x] Incompatible preferred courier cannot be forced.
+- [x] Local contract coverage verifies normal and preferred dispatch guards and duplicate-offer exclusion.
 - [ ] Staging/Docker matching verification with real courier capability and active-job data.
 
 ## TOW-2026-003 — Route/toll quote + explicit requote [P0]
