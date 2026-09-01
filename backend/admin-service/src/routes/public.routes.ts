@@ -54,11 +54,11 @@ publicRoutes.get('/api/v1/customer/promos/eligible', requireMobileOrWebAuth, pro
 publicRoutes.post('/api/v1/customer/promos/validate', requireMobileOrWebAuth, promoReadRateLimiter, (req, res) => controllers.validateCustomerPromo(req, res));
 publicRoutes.post('/api/v1/customer/promos/reserve', requireMobileOrWebAuth, promoMutationRateLimiter, requireIdempotencyKey('customer.promo.reserve'), (req, res) => controllers.reserveCustomerPromo(req, res));
 publicRoutes.post('/api/v1/customer/promos/redeem', requireMobileOrWebAuth, promoMutationRateLimiter, requireIdempotencyKey('customer.promo.redeem'), (req, res) => controllers.redeemCustomerPromo(req, res));
-publicRoutes.post('/api/v1/customer/promos/release', requireMobileOrWebAuth, promoMutationRateLimiter, (req, res) => controllers.releaseCustomerPromoReservation(req, res));
+publicRoutes.post('/api/v1/customer/promos/release', requireMobileOrWebAuth, promoMutationRateLimiter, requireIdempotencyKey('customer.promo.release'), (req, res) => controllers.releaseCustomerPromoReservation(req, res));
 publicRoutes.get('/api/v1/payment-links', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.listLinks(req, res));
-publicRoutes.post('/api/v1/payment-links', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.createLink(req, res));
+publicRoutes.post('/api/v1/payment-links', requireMobileOrWebAuth, requireIdempotencyKey('payment_link.create'), (req, res) => controllers.paymentLink.createLink(req, res));
 publicRoutes.get('/api/v1/payment-links/:id', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.getLink(req, res));
-publicRoutes.post('/api/v1/payment-links/:id/checkout', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkoutLink(req, res));
+publicRoutes.post('/api/v1/payment-links/:id/checkout', requireMobileOrWebAuth, requireIdempotencyKey('payment_link.checkout'), (req, res) => controllers.paymentLink.checkoutLink(req, res));
 publicRoutes.get('/api/v1/products', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.listProducts(req, res));
 publicRoutes.post('/api/v1/products', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.createProduct(req, res));
 publicRoutes.get('/api/v1/products/:id', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.getProduct(req, res));

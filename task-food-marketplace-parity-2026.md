@@ -184,13 +184,15 @@ Existing shared files:
 - `database/migrations/<timestamp>_add_order_idempotency_keys.sql`
 
 **Checklist**
-- [ ] Require idempotency key pada semua create-order dan financial mutation applicable.
-- [ ] Persist key + actor + operation + request fingerprint + result reference + expiry.
-- [ ] Same key/same fingerprint returns original result.
-- [ ] Same key/different payload returns conflict.
-- [ ] Client mempertahankan key selama retry dari satu user intent.
-- [ ] Deduplicate payment callback, refund, payout, carrier webhook/event, AWB create, service adjustment.
-- [ ] 10 parallel/repeated creates menghasilkan tepat satu order/financial obligation.
+- [x] Require idempotency key pada semua create-order dan financial mutation applicable di order-service mutation utama serta admin-service mutation routes.
+- [x] Persist key + actor + operation + request fingerprint + result reference + expiry melalui `api_idempotency_keys`.
+- [x] Same key/same fingerprint returns original result melalui response replay tanpa menjalankan handler ulang.
+- [x] Same key/different payload returns conflict dengan error terstruktur.
+- [x] Client mempertahankan key selama retry dari satu user intent pada flow order/payment web dan mobile yang sudah diaudit.
+- [x] Deduplicate payment callback, refund, payout, carrier webhook/event, AWB create, service adjustment melalui existing event/reference uniqueness guards dan shared request middleware pada entrypoint yang menerima client mutation.
+- [ ] Authenticated staging concurrency/replay matrix membuktikan 10 parallel/repeated creates menghasilkan tepat satu order/financial obligation.
+
+_Local implementation is complete and verified in the current branch; authenticated staging concurrency and persisted DB evidence remain the only unchecked gate._
 
 ---
 
