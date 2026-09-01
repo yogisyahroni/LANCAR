@@ -45,21 +45,30 @@ func NewTrackingWebhookHandler() *TrackingWebhookHandler {
 
 // NormalizedTrackingEvent mewakili format payload standar yang dikirim ke order-service.
 type NormalizedTrackingEvent struct {
-	AWBNumber   string `json:"awb_number"`
-	Provider    string `json:"provider"`
-	Status      string `json:"status"` // "DELIVERED", "IN_TRANSIT", dll
-	PodURL      string `json:"pod_url,omitempty"`
-	ConfirmedAt string `json:"confirmed_at,omitempty"` // RFC3339 timestamp
-	RawPayload  string `json:"raw_payload,omitempty"`
+	EventID        string `json:"event_id"`
+	PayloadHash    string `json:"payload_hash"`
+	AWBNumber      string `json:"awb_number"`
+	Provider       string `json:"provider"`
+	Status         string `json:"status"` // "DELIVERED", "IN_TRANSIT", dll
+	RawStatus      string `json:"raw_status"`
+	RawCode        string `json:"raw_code,omitempty"`
+	RawDescription string `json:"raw_description,omitempty"`
+	RawLocation    string `json:"raw_location,omitempty"`
+	PodURL         string `json:"pod_url,omitempty"`
+	OccurredAt     string `json:"occurred_at,omitempty"`  // Provider timestamp, if supplied
+	ConfirmedAt    string `json:"confirmed_at,omitempty"` // Backward-compatible alias
+	RawPayload     string `json:"raw_payload,omitempty"`
 }
 
 // jneWebhookPayload merepresentasikan format webhook JNE
 type jneWebhookPayload struct {
-	AWB       string `json:"cnote_no"`
-	Status    string `json:"status"` // "DELIVERED", dll
-	Receiver  string `json:"receiver_name"`
-	Date      string `json:"delivery_date"`
-	PODImage  string `json:"pod_photo_url"`
+	AWB      string `json:"cnote_no"`
+	Status   string `json:"status"` // "DELIVERED", dll
+	Receiver string `json:"receiver_name"`
+	Date     string `json:"delivery_date"`
+	PODImage string `json:"pod_photo_url"`
+	Code     string `json:"status_code"`
+	Location string `json:"location"`
 }
 
 // jntWebhookPayload merepresentasikan format webhook J&T Express
@@ -68,6 +77,8 @@ type jntWebhookPayload struct {
 	ScanType  string `json:"scantype"` // "Penandatanganan" / "Delivered"
 	PhotoURL  string `json:"signpic"`
 	ScanTime  string `json:"scantime"`
+	ScanCode  string `json:"scanCode"`
+	Location  string `json:"scanNetwork"`
 }
 
 // HandleProviderWebhook adalah endpoint universal/spesifik untuk menerima webhook tracking 3PL.
@@ -104,7 +115,7 @@ func (h *TrackingWebhookHandler) HandleProviderWebhook(w http.ResponseWriter, r 
 
 	// ─── 3. Verifikasi Signature Webhook (WAJIB) ────────────────────────────────
 	// SECURITY FIX (2026): Menghapus "Fail-Open" configuration.
-	// LOGISTICS_WEBHOOK_SECRET wajib ada. Jika tidak ada, tolak request untuk 
+	// LOGISTICS_WEBHOOK_SECRET wajib ada. Jika tidak ada, tolak request untuk
 	// mencegah bypass signature dan eskalasi pencairan escrow.
 	if h.webhookSecret == "" {
 		slog.ErrorContext(r.Context(), "tracking_webhook: CRITICAL SECURITY ERROR — LOGISTICS_WEBHOOK_SECRET is empty. Denying webhook.")
@@ -137,6 +148,12 @@ func (h *TrackingWebhookHandler) HandleProviderWebhook(w http.ResponseWriter, r 
 
 	// Simpan raw payload asli untuk keperluan audit
 	event.RawPayload = string(bodyBytes)
+	event.PayloadHash = sha256Hex(bodyBytes)
+	if headerID := strings.TrimSpace(r.Header.Get("X-Event-ID")); headerID != "" {
+		event.EventID = headerID
+	} else {
+		event.EventID = provider + ":" + event.PayloadHash
+	}
 
 	// ─── 5. Teruskan event ke order-service internal delivery webhook ─────────
 	if err := h.forwardToOrderService(r.Context(), event); err != nil {
@@ -163,7 +180,6 @@ func (h *TrackingWebhookHandler) HandleProviderWebhook(w http.ResponseWriter, r 
 func (h *TrackingWebhookHandler) normalizePayload(provider string, body []byte) (NormalizedTrackingEvent, error) {
 	var event NormalizedTrackingEvent
 	event.Provider = strings.ToUpper(provider)
-	event.ConfirmedAt = time.Now().Format(time.RFC3339)
 
 	switch provider {
 	case "jne":
@@ -173,6 +189,8 @@ func (h *TrackingWebhookHandler) normalizePayload(provider string, body []byte) 
 		}
 		event.AWBNumber = p.AWB
 		event.PodURL = p.PODImage
+		event.RawStatus, event.RawCode, event.RawDescription, event.RawLocation = p.Status, p.Code, p.Status, p.Location
+		event.OccurredAt = p.Date
 		if strings.EqualFold(p.Status, "DELIVERED") {
 			event.Status = "DELIVERED"
 		} else {
@@ -186,6 +204,8 @@ func (h *TrackingWebhookHandler) normalizePayload(provider string, body []byte) 
 		}
 		event.AWBNumber = p.WaybillNo
 		event.PodURL = p.PhotoURL
+		event.RawStatus, event.RawCode, event.RawDescription, event.RawLocation = p.ScanType, p.ScanCode, p.ScanType, p.Location
+		event.OccurredAt = p.ScanTime
 		if strings.Contains(strings.ToLower(p.ScanType), "delivered") ||
 			strings.Contains(strings.ToLower(p.ScanType), "penandatanganan") {
 			event.Status = "DELIVERED"
@@ -205,7 +225,20 @@ func (h *TrackingWebhookHandler) normalizePayload(provider string, body []byte) 
 			event.AWBNumber = awb
 		}
 		if status, ok := generic["status"].(string); ok {
+			event.RawStatus = status
 			event.Status = strings.ToUpper(status)
+		}
+		if code, ok := generic["status_code"].(string); ok {
+			event.RawCode = code
+		}
+		if desc, ok := generic["description"].(string); ok {
+			event.RawDescription = desc
+		}
+		if location, ok := generic["location"].(string); ok {
+			event.RawLocation = location
+		}
+		if occurred, ok := generic["occurred_at"].(string); ok {
+			event.OccurredAt = occurred
 		}
 		if pod, ok := generic["pod_url"].(string); ok {
 			event.PodURL = pod
@@ -215,8 +248,42 @@ func (h *TrackingWebhookHandler) normalizePayload(provider string, body []byte) 
 	if event.AWBNumber == "" {
 		return event, fmt.Errorf("could not extract AWB number from %s webhook payload", provider)
 	}
+	if event.RawStatus == "" {
+		event.RawStatus = event.Status
+	}
+	if event.Status == "" {
+		event.Status = "UNKNOWN"
+	}
+	event.Status = normalizeCanonicalStatus(event.Status)
+	if event.OccurredAt != "" {
+		event.ConfirmedAt = event.OccurredAt
+	}
 
 	return event, nil
+}
+
+func normalizeCanonicalStatus(raw string) string {
+	switch strings.ToUpper(strings.TrimSpace(raw)) {
+	case "DELIVERED", "D01", "SIGNED", "PENANDATANGANAN":
+		return "DELIVERED"
+	case "PICKED_UP", "PICKUP", "PICKED UP":
+		return "PICKED_UP"
+	case "IN_TRANSIT", "TRANSIT", "ON_PROCESS":
+		return "IN_TRANSIT"
+	case "MANIFESTED", "MANIFEST":
+		return "MANIFESTED"
+	case "RETURN_TO_SENDER", "RETURNED":
+		return "RETURN_TO_SENDER"
+	case "CANCELLED", "CANCELED":
+		return "CANCELLED"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+func sha256Hex(payload []byte) string {
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
 }
 
 // forwardToOrderService mengirim event yang sudah dinormalisasi ke endpoint internal order-service.

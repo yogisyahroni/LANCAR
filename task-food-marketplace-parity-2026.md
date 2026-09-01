@@ -948,10 +948,10 @@ Existing shared files:
 - `backend/integration-gateway/internal/provider/carrier_event_normalizer_test.go`
 - `database/migrations/<timestamp>_add_carrier_event_inbox.sql`
 
-- [ ] Persist event id/hash, raw provider status/code/description/location/timestamp and raw-payload reference before processing.
-- [ ] Normalize to canonical statuses but never discard raw values.
-- [ ] Provider event dedupe/replay protection.
-- [ ] Out-of-order event cannot regress terminal state.
+- [x] Persist event id/hash, raw provider status/code/description/location/timestamp and raw-payload reference before processing.
+- [x] Normalize to canonical statuses but never discard raw values.
+- [x] Provider event dedupe/replay protection.
+- [x] Out-of-order event cannot regress terminal state.
 - [ ] Unknown status is stored/observable and shown as safe generic customer state rather than guessed.
 
 ---

@@ -320,6 +320,8 @@ func main() {
 	deviceTokenHandler := handler.NewDeviceTokenHandler(deviceTokenRepo)
 	aggregatorFinanceRepo := repository.NewAggregatorFinanceRepository(db)
 	aggregatorFinanceSvc := service.NewAggregatorFinanceService(aggregatorFinanceRepo, ledgerRepo)
+	carrierEventRepo := repository.NewCarrierEventRepository(db)
+	carrierEventSvc := service.NewCarrierEventService(carrierEventRepo, pgRepo, pgRepo)
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
@@ -341,7 +343,7 @@ func main() {
 	sosHandler := handler.NewSosHandler(sosSvc)
 	resiHandler := handler.NewResiHandler(resiSvc)
 	productCatalogHandler := handler.NewProductCatalogHandler(productCatalogSvc)
-	deliveryWebhookHandler := handler.NewDeliveryWebhookHandler(merchantSettlementSvc)
+	deliveryWebhookHandler := handler.NewDeliveryWebhookHandler(merchantSettlementSvc, carrierEventSvc)
 	taxHandler := handler.NewTaxHandler(taxSvc)
 	// FB-077: tips driver — semua service (parcel/tambal/towing/food)
 	tipRepo := repository.NewPostgresTipRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
