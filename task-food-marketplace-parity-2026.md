@@ -1156,10 +1156,11 @@ Existing shared files:
 - [ ] Staging/Docker end-to-end booking verification with real backend data.
 
 ## TOW-2026-002 — Capability/vehicle-safe matching [P0]
-- [ ] Validate towing motor/mobil capability.
-- [ ] Capacity/vehicle compatibility.
-- [ ] Active job/radius/availability.
-- [ ] Incompatible preferred courier cannot be forced.
+- [x] Validate towing motor/mobil capability.
+- [x] Capacity/vehicle compatibility.
+- [x] Active job/radius/availability.
+- [x] Incompatible preferred courier cannot be forced.
+- [ ] Staging/Docker matching verification with real courier capability and active-job data.
 
 ## TOW-2026-003 — Route/toll quote + explicit requote [P0]
 
