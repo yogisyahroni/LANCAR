@@ -1259,9 +1259,10 @@ Existing shared files:
 - [ ] Staging/Docker history, detail, and resi visual verification recorded.
 
 ## WEB-2026-003 — Accessibility/responsive/failure recovery [P1]
-- [ ] Keyboard/focus/form error/screen-reader status.
-- [ ] Sticky CTA/modal works mobile.
-- [ ] Error/offline states have explicit recovery.
+- [x] Keyboard/focus/form error/screen-reader status.
+- [x] Sticky CTA/modal works mobile.
+- [x] Error/offline states have explicit recovery.
+- [ ] Staging/Docker authenticated responsive and failure-recovery verification recorded.
 
 ---
 
