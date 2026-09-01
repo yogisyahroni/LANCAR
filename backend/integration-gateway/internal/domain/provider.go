@@ -75,15 +75,20 @@ type TariffRequest struct {
 }
 
 type TariffResponse struct {
-	Provider string                `json:"provider"`
-	Services []TariffServiceOption `json:"services"`
+	Provider     string                `json:"provider"`
+	Source       string                `json:"source,omitempty"`
+	Capabilities []LogisticsCapability `json:"capabilities,omitempty"`
+	Services     []TariffServiceOption `json:"services"`
 }
 
 type TariffServiceOption struct {
-	ServiceCode   string `json:"service_code"`
-	ServiceName   string `json:"service_name"`
-	TariffGross   int64  `json:"tariff_gross"` // Harga kotor dari provider (dalam IDR)
-	EstimatedDays string `json:"estimated_days"`
+	ServiceCode        string   `json:"service_code"`
+	ServiceName        string   `json:"service_name"`
+	TariffGross        int64    `json:"tariff_gross"` // Harga kotor dari provider (dalam IDR)
+	EstimatedDays      string   `json:"estimated_days,omitempty"`
+	ChargeableWeightKG float64  `json:"chargeable_weight_kg,omitempty"`
+	Capabilities       []string `json:"capabilities,omitempty"`
+	Limitations        []string `json:"limitations,omitempty"`
 }
 
 type LogisticsOrderRequest struct {

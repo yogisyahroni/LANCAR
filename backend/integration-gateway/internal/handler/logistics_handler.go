@@ -168,6 +168,12 @@ func (h *LogisticsHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	// Keep the provider capability contract alongside the lane-specific quote.
+	// The adapter may add service-level capabilities, but must not be required to
+	// duplicate the registry declaration for every returned service.
+	if len(res.Capabilities) == 0 {
+		res.Capabilities = registration.Descriptor.Capabilities
+	}
 
 	h.respondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,

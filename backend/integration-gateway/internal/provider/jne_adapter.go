@@ -117,6 +117,7 @@ func (p *JNEProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 
 	return &domain.TariffResponse{
 		Provider: "JNE",
+		Source:   "jne_api",
 		Services: services,
 	}, nil
 }
@@ -192,10 +193,10 @@ func (p *JNEProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 
 	var jneResp struct {
 		Detail []struct {
-			CnoteNo  string `json:"cnote_no"`
-			Status   string `json:"status"`
-			Reason   string `json:"reason"`
-			Amount   string `json:"amount"`
+			CnoteNo string `json:"cnote_no"`
+			Status  string `json:"status"`
+			Reason  string `json:"reason"`
+			Amount  string `json:"amount"`
 		} `json:"detail"`
 	}
 
@@ -226,7 +227,7 @@ func (p *JNEProvider) TrackOrder(ctx context.Context, awb string) (*domain.Track
 	}
 
 	endpoint := fmt.Sprintf("%s/tracing/api/list/v1/cnote/%s", p.baseURL, awb)
-	
+
 	formData := url.Values{}
 	formData.Set("username", p.username)
 	formData.Set("api_key", p.apiKey)

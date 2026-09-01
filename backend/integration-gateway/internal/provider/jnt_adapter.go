@@ -23,7 +23,7 @@ type JNTProvider struct {
 	customerCode string
 	baseURL      string
 	httpClient   *http.Client
-	cb         *CircuitBreaker
+	cb           *CircuitBreaker
 }
 
 func NewJNTProvider() *JNTProvider {
@@ -125,15 +125,15 @@ func (p *JNTProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 	for _, item := range jntResp.Data {
 		priceVal, _ := strconv.ParseFloat(item.Price, 64)
 		services = append(services, domain.TariffServiceOption{
-			ServiceCode:   item.ProductType,
-			ServiceName:   item.ProductType,
-			TariffGross:   int64(priceVal), // Konversi float64 → int64 (IDR)
-			EstimatedDays: "1-3 hari",
+			ServiceCode: item.ProductType,
+			ServiceName: item.ProductType,
+			TariffGross: int64(priceVal), // Konversi float64 → int64 (IDR)
 		})
 	}
 
 	return &domain.TariffResponse{
 		Provider: "J&T Express",
+		Source:   "jnt_api",
 		Services: services,
 	}, nil
 }
@@ -231,11 +231,11 @@ func (p *JNTProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 	}
 
 	var jntResp struct {
-		Code           string `json:"code"`
-		Msg            string `json:"msg"`
-		Billcode       string `json:"billcode"`
-		Txlogisticid   string `json:"txlogisticid"`
-		Sortingcode    string `json:"sortingcode"`
+		Code             string `json:"code"`
+		Msg              string `json:"msg"`
+		Billcode         string `json:"billcode"`
+		Txlogisticid     string `json:"txlogisticid"`
+		Sortingcode      string `json:"sortingcode"`
 		Totalshippingfee string `json:"totalshippingfee"`
 	}
 

@@ -25,6 +25,11 @@ import { useRouter } from "next/navigation";
 import { AddressPicker } from "./AddressPicker";
 import { PaymentModal } from "./PaymentModal";
 import {
+  AggregatorCarrierQuote,
+  capabilityLabel,
+  normalizeAggregatorCarrierQuote,
+} from "@/lib/aggregatorQuotePresentation";
+import {
   AggregatorOrder,
   AggregatorPayment,
   AggregatorQuote,
@@ -133,7 +138,7 @@ export function AggregatorWizard() {
   const [providerError, setProviderError] = useState<string | null>(null);
   const [cities, setCities] = useState<LogisticsCity[]>([]);
   const [cityError, setCityError] = useState<string | null>(null);
-  const [tariffs, setTariffs] = useState<any[]>([]);
+  const [tariffs, setTariffs] = useState<AggregatorCarrierQuote[]>([]);
   const [isLoadingTariff, setIsLoadingTariff] = useState(false);
   const [tariffError, setTariffError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -288,6 +293,7 @@ export function AggregatorWizard() {
 
   const currentProvider = watch("provider");
   const selectedProvider = providers.find((provider) => provider.code === currentProvider);
+  const carrierHandoffSupported = Boolean(selectedProvider?.capabilities?.some((capability) => String(capability).toLowerCase() === "shipment"));
   const codSupported = Boolean(selectedProvider?.capabilities?.some((capability) => String(capability).toLowerCase() === "cod"));
   const paymentType = watch("payment_type");
   const paymentOptions: Array<"COD" | "NON_COD"> = codSupported ? ["COD", "NON_COD"] : ["NON_COD"];
@@ -453,16 +459,19 @@ export function AggregatorWizard() {
           } as any,
         });
         
-        const data = res.data?.data?.services || res.data?.tariffs || [];
+        const quoteResponse = res.data?.data || {};
+        const data = quoteResponse.services || res.data?.tariffs || [];
         const items = Array.isArray(data) ? data : [data];
         
-        const allTariffs = items.map((item: any) => ({
-          service: item.service_code || item.service || "reg",
-          service_name: item.service_name || item.service || "Reguler",
-          price: Number(item.tariff_gross || item.price || item.total_price_idr || 0),
-          net_price: Number(item.tariff_net || 0),
-          etd: item.etd || item.estimated_days || "1-3 hari",
-        }));
+        const provider = providers.find((item) => item.code === values.provider);
+        const allTariffs = items
+          .map((item: any) => normalizeAggregatorCarrierQuote(
+            { ...item, source: item.source || quoteResponse.source },
+            { provider: values.provider, provider_name: provider?.name || values.provider },
+            values.weight_kg,
+            provider?.capabilities || [],
+          ))
+          .filter((quote): quote is AggregatorCarrierQuote => quote !== null);
 
         allTariffs.sort((a, b) => a.price - b.price);
 
@@ -690,6 +699,7 @@ export function AggregatorWizard() {
                       ].join(" ")}
                     >
                       <span className="block font-bold text-foreground">{provider.name}</span>
+                      <span className="mt-1 block text-[10px] text-muted-foreground">{provider.capabilities?.length ? provider.capabilities.map(capabilityLabel).join(" · ") : "Capability belum diberikan"}</span>
                     </button>
                   ))}
                 </div>
@@ -705,7 +715,7 @@ export function AggregatorWizard() {
                   </div>
                   <div className="rounded-lg border border-white/10 bg-background/30 p-3">
                     <p className="text-sm font-semibold text-foreground">Handoff ke {currentProvider ? currentProvider.toUpperCase() : "carrier"}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">AWB dan status carrier diproses setelah order tersimpan.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{carrierHandoffSupported ? "Capability shipment provider aktif; AWB dan status carrier diproses setelah order tersimpan." : "Provider belum mendeklarasikan capability shipment."}</p>
                   </div>
                 </div>
               </div>
@@ -1370,15 +1380,32 @@ export function AggregatorWizard() {
                             <p className="font-bold text-foreground">{tariff.service_name}</p>
                             {isSelected && <Check className="h-4 w-4 text-indigo-400" />}
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">{watch("provider").toUpperCase()} · Estimasi {tariff.etd}</p>
-                          <p className="mt-1 text-[11px] text-muted-foreground/80">Sumber ETA: respons layanan tarif · Berat quote: {watch("weight_kg")} kg</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{tariff.provider_name} · {tariff.etd ? `Estimasi ${tariff.etd}` : "ETA belum diberikan provider"}</p>
+                          <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground/80">
+                            <span>Berat tagihan: {tariff.chargeable_weight_kg ? `${tariff.chargeable_weight_kg} kg` : "belum diberikan provider"} ({tariff.chargeable_weight_source === "provider" ? "provider" : "berdasarkan berat paket"})</span>
+                            <span>Sumber quote: {tariff.source || "respons tarif provider"}</span>
+                          </div>
+                          <div className="mt-3 space-y-2 text-[11px]">
+                            <div>
+                              <span className="text-muted-foreground">Capability: </span>
+                              {tariff.capabilities.length > 0 ? tariff.capabilities.map((capability) => (
+                                <span key={capability} className="mr-1 inline-flex rounded-full border border-indigo-400/30 bg-indigo-400/10 px-1.5 py-0.5 text-indigo-200">{capabilityLabel(capability)}</span>
+                              )) : <span className="text-muted-foreground">belum diberikan provider</span>}
+                            </div>
+                            <div className="text-muted-foreground">
+                              <span>Limitasi: </span>{tariff.limitations.length > 0 ? tariff.limitations.join(", ") : "detail belum diberikan provider"}
+                            </div>
+                          </div>
                           <div className="mt-3 flex items-end justify-between">
                             <div className="text-[10px]">
                               {idx === 0 && (
                                 <span className="rounded border border-brand-emerald-500/30 bg-brand-emerald-500/10 px-1.5 py-0.5 text-brand-emerald-300">Termurah</span>
                               )}
                             </div>
-                            <p className="text-sm font-bold text-indigo-400">{formatPrice(tariff.price)}</p>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-indigo-400">{formatPrice(tariff.price)}</p>
+                              {tariff.net_price ? <p className="text-[11px] text-muted-foreground">Net {formatPrice(tariff.net_price)}</p> : <p className="text-[11px] text-muted-foreground">Net belum diberikan provider</p>}
+                            </div>
                           </div>
                         </button>
                       );
@@ -1405,6 +1432,10 @@ export function AggregatorWizard() {
                   <div>
                     <p className="text-xs text-muted-foreground">Tarif provider</p>
                     <p className="font-semibold text-brand-emerald-300">{formatPrice(Number(watch("tariff_idr") || 0))}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Berat tagihan / ETA</p>
+                    <p className="font-medium">{(() => { const quote = tariffs.find((tariff) => tariff.service === watch("service_code")); return quote ? `${quote.chargeable_weight_kg || "-"} kg · ${quote.etd || "belum diberikan provider"}` : "-"; })()}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Rute</p>
