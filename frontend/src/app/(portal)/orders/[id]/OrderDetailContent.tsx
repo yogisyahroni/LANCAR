@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
 import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
+import { presentCarrierStatus } from '@/lib/carrierStatusPresentation';
 
 type OrderDetailContentProps = {
   order: any,
@@ -718,20 +719,29 @@ export function OrderDetailContent({
               </div>
               <div className="space-y-3">
                 {carrierEvents.map((event: any) => {
-                  const friendlyStatus = String(event.canonical_status || 'UNKNOWN').replace(/_/g, ' ');
+                  const statusPresentation = presentCarrierStatus(event.canonical_status);
                   const providerStatus = String(event.provider_status || '').trim();
                   return (
-                    <div key={event.id} className="rounded-xl border border-white/10 bg-background/40 p-4">
+                    <div key={event.id} className={cn(
+                      "rounded-xl border bg-background/40 p-4",
+                      statusPresentation.isUnknown ? "border-amber-400/30" : "border-white/10",
+                    )}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary">
-                            {friendlyStatus}
+                          <span className={cn(
+                            "rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide",
+                            statusPresentation.isUnknown ? "bg-amber-400/15 text-amber-300" : "bg-primary/15 text-primary",
+                          )}>
+                            {statusPresentation.label}
                           </span>
                           <span className="text-xs font-semibold text-muted-foreground">{event.provider}</span>
                         </div>
                         <span className="text-xs text-muted-foreground">{formatDate(event.occurred_at || event.received_at)}</span>
                       </div>
-                      {providerStatus && providerStatus.toUpperCase() !== friendlyStatus && (
+                      {statusPresentation.isUnknown && (
+                        <p className="mt-2 text-sm text-amber-100/80">{statusPresentation.description}</p>
+                      )}
+                      {providerStatus && providerStatus.toUpperCase() !== statusPresentation.label && (
                         <p className="mt-2 text-sm text-white/90">Status {event.provider}: {providerStatus}</p>
                       )}
                       {event.provider_status_description && (

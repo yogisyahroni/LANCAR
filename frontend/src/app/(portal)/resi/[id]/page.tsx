@@ -20,6 +20,7 @@ import Barcode from 'react-barcode';
 import Link from 'next/link';
 import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
 import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
+import { presentCarrierStatus } from '@/lib/carrierStatusPresentation';
 
 interface Order {
   id: string;
@@ -358,13 +359,16 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
                 <h4 className="text-xs font-bold uppercase text-slate-400">Update kurir eksternal</h4>
                 <div className="mt-3 space-y-2">
                   {order.carrier_events?.map((event) => (
-                    <div key={event.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div key={event.id} className={`rounded-lg border px-3 py-2 text-xs ${presentCarrierStatus(event.canonical_status).isUnknown ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
                       <div className="flex items-center justify-between gap-3">
                         <span className="font-bold text-slate-800">
-                          {String(event.canonical_status || 'UNKNOWN').replace(/_/g, ' ')} · {event.provider}
+                          {presentCarrierStatus(event.canonical_status).label} · {event.provider}
                         </span>
                         <span>{new Date(event.occurred_at || event.received_at).toLocaleString('id-ID')}</span>
                       </div>
+                      {presentCarrierStatus(event.canonical_status).isUnknown && (
+                        <p className="mt-1">{presentCarrierStatus(event.canonical_status).description}</p>
+                      )}
                       {event.provider_status && <p className="mt-1">Status asli: {event.provider_status}</p>}
                       {event.provider_status_description && <p>{event.provider_status_description}</p>}
                       {(event.provider_status_code || event.provider_location) && (
