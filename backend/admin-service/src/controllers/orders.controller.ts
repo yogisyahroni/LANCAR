@@ -371,7 +371,9 @@ export const getAllOrders = async (req: Request, res: Response) => {
     }
 
     const countQuery = `SELECT COUNT(*) FROM (${query}) as subquery`;
-    const countRes = await readDb.query(countQuery, values);
+    // Keep the count query's parameter snapshot immutable while pagination
+    // values are appended for the data query below.
+    const countRes = await readDb.query(countQuery, [...values]);
     const total = parseInt(countRes.rows[0].count);
 
     query += ` ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
