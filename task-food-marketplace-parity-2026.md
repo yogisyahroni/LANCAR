@@ -1214,10 +1214,11 @@ Existing shared files:
 - [ ] Staging/Docker regression verification after the boundary split.
 
 ## TOW-2026-008 — Towing UI/UX trust [P1]
-- [ ] Pickup/destination visible before quote.
-- [ ] Compatibility explained before operator selection.
-- [ ] Adjustment requires explicit consent.
-- [ ] Before-condition evidence is customer-visible trust surface.
+- [x] Pickup/destination visible before quote.
+- [x] Compatibility explained before operator selection.
+- [x] Adjustment requires explicit consent.
+- [x] Before-condition evidence is customer-visible trust surface.
+- [ ] Staging/Docker visual and interaction verification for the towing trust flow.
 
 ---
 
