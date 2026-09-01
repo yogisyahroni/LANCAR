@@ -52,7 +52,7 @@ describe("aggregator create API contract", () => {
   });
 
   it("sends a stable idempotency key and refuses a response without an order id", async () => {
-    const post = vi.fn().mockResolvedValue({ data: { order: { id: "order-1", status: "pending_payment" } } });
+    const post = vi.fn().mockResolvedValue({ data: { success: true, order: { id: "order-1", status: "pending_payment" } } });
     const client = { post };
 
     await requestAggregatorOrder(client, { service_code: AGGREGATOR_SERVICE_CODE }, "agg-key-1");
@@ -67,7 +67,7 @@ describe("aggregator create API contract", () => {
   });
 
   it("does not treat a payment response without a usable session as success", async () => {
-    const post = vi.fn().mockResolvedValue({ data: { payment: { payment_status: "pending" } } });
+    const post = vi.fn().mockResolvedValue({ data: { success: true, payment: { payment_status: "pending" } } });
     await expect(requestAggregatorPaymentSession({ post }, "order-1", "pay-key-1"))
       .rejects.toThrow("sesi pembayaran");
   });

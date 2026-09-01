@@ -37,6 +37,44 @@ describe("server-backed customer order transactions", () => {
     );
   });
 
+  it("replays a timed-out create with the same key and accepts the persisted order", async () => {
+    const timeout = { code: "ERR_NETWORK", request: {} };
+    const post = vi.fn()
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValueOnce({ data: { success: true, order: { id: "order-replayed", status: "pending_payment" } } });
+
+    await expect(requestPersistedCustomerOrder({ post }, { service_code: "tembus_instant" }, "order-retry-1"))
+      .rejects.toMatchObject(timeout);
+    const order = await requestPersistedCustomerOrder({ post }, { service_code: "tembus_instant" }, "order-retry-1");
+
+    expect(order.id).toBe("order-replayed");
+    expect(post).toHaveBeenNthCalledWith(
+      2,
+      "/auth/web/orders",
+      { service_code: "tembus_instant" },
+      { headers: { "X-Idempotency-Key": "order-retry-1" } },
+    );
+  });
+
+  it("replays a timed-out payment-session request with the same key", async () => {
+    const timeout = { code: "ETIMEDOUT", request: {} };
+    const post = vi.fn()
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValueOnce({ data: { success: true, payment: { payment_status: "pending", snap_token: "snap-replayed" } } });
+
+    await expect(requestCustomerPaymentSession({ post }, "order-1", "payment-retry-1"))
+      .rejects.toMatchObject(timeout);
+    const payment = await requestCustomerPaymentSession({ post }, "order-1", "payment-retry-1");
+
+    expect(payment.snap_token).toBe("snap-replayed");
+    expect(post).toHaveBeenNthCalledWith(
+      2,
+      "/auth/web/orders/order-1/payment/session",
+      { payment_method: "midtrans" },
+      { headers: { "X-Idempotency-Key": "payment-retry-1" } },
+    );
+  });
+
   it("classifies transport failures as unknown outcome, but not HTTP failures", () => {
     expect(isUnknownOutcomeError({ code: "ERR_NETWORK", request: {} })).toBe(true);
     expect(isUnknownOutcomeError({ code: "ECONNABORTED", request: {} })).toBe(true);

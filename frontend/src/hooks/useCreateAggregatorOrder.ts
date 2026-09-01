@@ -234,6 +234,9 @@ export async function requestAggregatorOrder(
   const response = await client.post("/auth/web/orders", payload, {
     headers: { "X-Idempotency-Key": idempotencyKey },
   });
+  if (response.data?.success !== true) {
+    throw new Error("Server belum mengonfirmasi order aggregator tersimpan");
+  }
   const order = response.data?.order;
   if (!order?.id) {
     throw new Error("Server tidak mengembalikan referensi order yang tersimpan");
@@ -251,6 +254,9 @@ export async function requestAggregatorPaymentSession(
     { payment_method: "midtrans" },
     { headers: { "X-Idempotency-Key": idempotencyKey } },
   );
+  if (response.data?.success !== true) {
+    throw new Error("Server belum mengonfirmasi sesi pembayaran aggregator");
+  }
   const payment = response.data?.payment || null;
   if (payment?.payment_status === "paid" || (payment?.order_status && payment.order_status !== "pending_payment")) {
     return payment;
