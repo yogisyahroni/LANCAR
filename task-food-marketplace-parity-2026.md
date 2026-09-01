@@ -1170,10 +1170,11 @@ Existing shared files:
 - `backend/order-service/internal/handler/tambalban_handler.go`
 - courier `ServiceUpgradeScreen.kt`
 
-- [ ] Actual pickup→dropoff route.
-- [ ] Toll/service/operator/platform/insurance components.
-- [ ] No vague silent admin adjustment.
-- [ ] Customer consent for material increase.
+- [x] Actual pickup→dropoff route.
+- [x] Toll/service/operator/platform/insurance components.
+- [x] No vague silent admin adjustment.
+- [x] Customer consent for material increase.
+- [ ] Staging/Docker verification of provider toll data and live requote/payment flow.
 
 ## TOW-2026-004 — Inspection→loading→transit→unloading→completion proof [P0]
 
