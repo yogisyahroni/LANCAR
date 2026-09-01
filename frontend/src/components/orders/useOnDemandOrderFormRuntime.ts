@@ -64,7 +64,7 @@ export function useOnDemandOrderFormRuntime({ mode = 'instan', onFormChange, onS
     defaultValues: {
       service_code: '', size_tier: '', pickup_address: '', dropoff_address: '', recipient_name: '',
       recipient_phone: '', schedule_type: 'now', has_insurance: false,
-      package_details: { category: '', weight_kg: 1, dimensions: { length: '' as any, width: '' as any, height: '' as any }, dimensions_scanned: false },
+      package_details: { category: '', item_description: '', quantity: 1, is_fragile: false, is_prohibited: false, requires_delivery_code: false, weight_kg: 1, dimensions: { length: '' as any, width: '' as any, height: '' as any }, dimensions_scanned: false },
     },
   });
 
@@ -75,6 +75,11 @@ export function useOnDemandOrderFormRuntime({ mode = 'instan', onFormChange, onS
   const dropoff_address = watch('dropoff_address');
   const dropoff_location = watch('dropoff_location');
   const category = watch('package_details.category');
+  const item_description = watch('package_details.item_description');
+  const quantity = watch('package_details.quantity');
+  const is_fragile = watch('package_details.is_fragile');
+  const is_prohibited = watch('package_details.is_prohibited');
+  const requires_delivery_code = watch('package_details.requires_delivery_code');
   const weight_kg = watch('package_details.weight_kg');
   const length = watch('package_details.dimensions.length');
   const width = watch('package_details.dimensions.width');
@@ -157,7 +162,7 @@ export function useOnDemandOrderFormRuntime({ mode = 'instan', onFormChange, onS
   useEffect(() => {
     const isAggregator = service_code === 'tembus_aggregator';
     onFormChange(getValues(), isValid && (isAggregator || Boolean(selectedService)) && (!scanRequired || Boolean(dimensions_scanned)), { selectedService, scanRequired });
-  }, [category, dimensions_scanned, dropoff_address, dropoff_location?.lat, dropoff_location?.lng, getValues, has_insurance, height, isValid, item_value, length, logistics_provider, logistics_tariff_idr, onFormChange, pickup_address, pickup_location?.lat, pickup_location?.lng, scanRequired, schedule_type, scheduled_at, selectedService, service_code, size_tier, volumetricWeight, weight_kg, width]);
+  }, [category, dimensions_scanned, dropoff_address, dropoff_location?.lat, dropoff_location?.lng, getValues, has_insurance, height, isValid, is_fragile, is_prohibited, item_description, item_value, length, logistics_provider, logistics_tariff_idr, onFormChange, pickup_address, pickup_location?.lat, pickup_location?.lng, quantity, requires_delivery_code, scanRequired, schedule_type, scheduled_at, selectedService, service_code, size_tier, volumetricWeight, weight_kg, width]);
 
   const updateScheduledAt = (date: string, time: string) => setValue('scheduled_at', date && time ? `${date}T${time}` : '', { shouldDirty: true, shouldValidate: true });
   const pickScheduledDate = (date: Date) => { const next = formatDateValue(date); setScheduledDate(next); updateScheduledAt(next, scheduledTime); setIsDatePickerOpen(false); };

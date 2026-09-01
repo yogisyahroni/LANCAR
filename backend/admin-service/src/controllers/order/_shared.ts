@@ -57,6 +57,7 @@ export type NormalizedOrderPackage = {
   package_code: string;
   description: string;
   category: string;
+  quantity: number;
   size_tier: string | null;
   weight_kg: number;
   length_cm: number;
@@ -64,6 +65,9 @@ export type NormalizedOrderPackage = {
   height_cm: number;
   declared_value_idr: number;
   dimensions_scanned: boolean;
+  is_fragile: boolean;
+  is_prohibited: boolean;
+  requires_delivery_code: boolean;
   metadata: Record<string, any>;
 };
 
@@ -568,10 +572,20 @@ export const normalizePackageDetailsForOrder = (
     dimensions_scanned: Boolean(packageDetails?.dimensions_scanned),
     requires_dimension_scan: Boolean(service.requires_dimension_scan),
     requires_delivery_code: Boolean(packageDetails?.requires_delivery_code),
+    package_facts: {
+      quantity: packages.reduce((sum, item) => sum + item.quantity, 0) || 1,
+      category: packages[0]?.category || packageDetails?.category || 'other',
+      item_description: packages[0]?.description || packageDetails?.item_description || '',
+      item_value_idr: packages.reduce((sum, item) => sum + item.declared_value_idr * item.quantity, 0),
+      fragile: packages.some((item) => item.is_fragile),
+      prohibited: packages.some((item) => item.is_prohibited),
+      size_tier: selectedTier?.code || packageDetails?.size_tier || null,
+      delivery_code_policy: packageDetails?.requires_delivery_code ? 'required' : 'optional',
+    },
     service_code: service.code,
     service_name: service.name,
     vehicle_types: service.vehicle_types || [],
-    package_count: packages.length || 1,
+    package_count: packages.reduce((sum, item) => sum + item.quantity, 0) || 1,
     packages: packages.length > 0 ? packages : undefined
   };
 };
@@ -608,6 +622,7 @@ export const normalizePackageInputs = (rawPackages: any, legacyPackageDetails: a
       package_code: packageCode,
       description: sanitizePackageString(item?.description || item?.item_description || legacyPackageDetails?.description, 'Paket'),
       category: sanitizePackageString(item?.category || item?.item_category || legacyPackageDetails?.category, 'other'),
+      quantity: Math.min(100, Math.max(1, Math.trunc(toNumber(item?.quantity ?? legacyPackageDetails?.quantity, 1)))),
       size_tier: item?.size_tier ? sanitizePackageString(item.size_tier).slice(0, 50) : null,
       weight_kg: Math.max(0, toNumber(item?.weight_kg ?? legacyPackageDetails?.weight_kg, 0)),
       length_cm: Math.max(0, toNumber(item?.length_cm ?? dimensions.length ?? legacyPackageDetails?.length_cm, 0)),
@@ -615,6 +630,9 @@ export const normalizePackageInputs = (rawPackages: any, legacyPackageDetails: a
       height_cm: Math.max(0, toNumber(item?.height_cm ?? dimensions.height ?? legacyPackageDetails?.height_cm, 0)),
       declared_value_idr: Math.max(0, Math.trunc(toNumber(item?.declared_value_idr ?? item?.item_value_idr, 0))),
       dimensions_scanned: Boolean(item?.dimensions_scanned ?? legacyPackageDetails?.dimensions_scanned),
+      is_fragile: Boolean(item?.is_fragile ?? legacyPackageDetails?.is_fragile),
+      is_prohibited: Boolean(item?.is_prohibited ?? legacyPackageDetails?.is_prohibited),
+      requires_delivery_code: Boolean(item?.requires_delivery_code ?? legacyPackageDetails?.requires_delivery_code),
       metadata: {
         source: Array.isArray(rawPackages) && rawPackages.length > 0 ? 'packages_array' : 'legacy_package_details',
       },
@@ -628,9 +646,9 @@ export const packageChargeableWeight = (service: DeliveryServiceProduct, item: N
     ? (item.length_cm * item.width_cm * item.height_cm) / divisor
     : 0;
   return {
-    actual: item.weight_kg,
-    volumetric,
-    chargeable: Math.max(item.weight_kg, volumetric),
+    actual: item.weight_kg * item.quantity,
+    volumetric: volumetric * item.quantity,
+    chargeable: Math.max(item.weight_kg, volumetric) * item.quantity,
   };
 };
 
@@ -652,7 +670,7 @@ export const summarizePackages = (service: DeliveryServiceProduct, packages: Nor
   );
 
   return {
-    package_count: packages.length,
+    package_count: packages.reduce((sum, item) => sum + item.quantity, 0),
     actual_weight_kg: actualWeightKg,
     dimensional_weight_kg: volumetricWeightKg,
     chargeable_weight_kg: chargeableWeightKg,
@@ -662,7 +680,8 @@ export const summarizePackages = (service: DeliveryServiceProduct, packages: Nor
 };
 
 export const validatePackagePolicy = (service: DeliveryServiceProduct, packages: NormalizedOrderPackage[]) => {
-  if (packages.length > service.max_packages_per_order) {
+  const packageCount = packages.reduce((sum, item) => sum + item.quantity, 0);
+  if (packageCount > service.max_packages_per_order) {
     const error = new Error(`${service.name} maksimal ${service.max_packages_per_order} paket dalam satu order.`);
     (error as any).statusCode = 400;
     (error as any).code = 'ERR_SERVICE_PACKAGE_LIMIT';
@@ -673,6 +692,13 @@ export const validatePackagePolicy = (service: DeliveryServiceProduct, packages:
     const error = new Error(`${service.name} wajib scan dimensi untuk semua paket sebelum order dibuat.`);
     (error as any).statusCode = 400;
     (error as any).code = 'ERR_DIMENSION_SCAN_REQUIRED';
+    throw error;
+  }
+
+  if (packages.some((item) => item.is_prohibited)) {
+    const error = new Error('Barang yang ditandai terlarang tidak dapat dikirim melalui layanan ini.');
+    (error as any).statusCode = 400;
+    (error as any).code = 'ERR_PROHIBITED_ITEM';
     throw error;
   }
 };
@@ -766,6 +792,33 @@ export type CustomerPriceCalculationInput = {
   routeSnapshotOverride?: RouteEtaSnapshot;
   courierId?: string | null;
   materialCodes?: string[];
+  recipientName?: string | null;
+  recipientPhone?: string | null;
+  requiresDeliveryCode?: boolean;
+};
+
+const packageFactsSnapshot = (
+  service: DeliveryServiceProduct,
+  packages: NormalizedOrderPackage[],
+  recipientName?: string | null,
+  recipientPhone?: string | null,
+  requiresDeliveryCode?: boolean,
+) => {
+  const summary = summarizePackages(service, packages);
+  return {
+    quantity: summary.package_count,
+    category: packages[0]?.category || 'other',
+    item_description: packages[0]?.description || '',
+    item_value_idr: packages.reduce((sum, item) => sum + item.declared_value_idr * item.quantity, 0),
+    fragile: packages.some((item) => item.is_fragile),
+    prohibited: packages.some((item) => item.is_prohibited),
+    size_tier: packages[0]?.size_tier || null,
+    delivery_code_policy: requiresDeliveryCode || packages.some((item) => item.requires_delivery_code) ? 'required' : 'optional',
+    receiver: {
+      name: recipientName || null,
+      phone: recipientPhone || null,
+    },
+  };
 };
 
 type SelectedTambalBanMaterial = {
@@ -827,6 +880,9 @@ export const calculateCustomerPriceBreakdown = async ({
     routeSnapshotOverride,
     courierId,
     materialCodes,
+    recipientName,
+    recipientPhone,
+    requiresDeliveryCode,
   }: CustomerPriceCalculationInput) => {
   // ─── Quote-based pricing (aggregator/3PL) ────────────────────
   // These services don't use internal distance × multiplier pricing.
@@ -869,6 +925,7 @@ export const calculateCustomerPriceBreakdown = async ({
       chargeable_weight_kg: Number(pkgSummary.chargeable_weight_kg.toFixed(2)),
       package_count: pkgSummary.package_count,
       packages: normalizedPkgs,
+      package_facts: packageFactsSnapshot(service, normalizedPkgs, recipientName, recipientPhone, requiresDeliveryCode),
       volumetric_surcharge_idr: 0,
       insurance_premium_idr: 0,
       dynamic_price_idr: 0,
@@ -1054,6 +1111,7 @@ export const calculateCustomerPriceBreakdown = async ({
     chargeable_weight_kg: Number(chargeableWeight.toFixed(2)),
     package_count: packageSummary.package_count,
     packages: normalizedPackages,
+    package_facts: packageFactsSnapshot(service, normalizedPackages, recipientName, recipientPhone, requiresDeliveryCode),
     volumetric_surcharge_idr: volumetricSurcharge,
     insurance_premium_idr: insurancePremium,
     dynamic_price_idr: dynamicPrice,

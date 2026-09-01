@@ -45,6 +45,10 @@ data class BookingState(
     val packageWidth: Int = 0,
     val packageHeight: Int = 0,
     val packageWeight: Double = 0.0,
+    val packageCategory: String = "",
+    val packageQuantity: Int = 1,
+    val packageIsFragile: Boolean = false,
+    val packageIsProhibited: Boolean = false,
     val sizeTier: String = "",
     val isPackageSizeSelected: Boolean = false,
     val itemDescription: String = "",
@@ -396,15 +400,46 @@ class BookingViewModel @Inject constructor(
     }
 
     fun setRecipientName(value: String) {
-        _bookingState.value = _bookingState.value.copy(recipientName = value)
+        invalidateQuote { copy(recipientName = value) }
     }
 
     fun setRecipientPhone(value: String) {
-        _bookingState.value = _bookingState.value.copy(recipientPhone = value)
+        invalidateQuote { copy(recipientPhone = value) }
     }
 
     fun setItemDescription(value: String) {
-        _bookingState.value = _bookingState.value.copy(itemDescription = value)
+        invalidateQuote { copy(itemDescription = value) }
+    }
+
+    fun setPackageCategory(value: String) {
+        invalidateQuote { copy(packageCategory = value) }
+    }
+
+    fun setPackageQuantity(value: String) {
+        val quantity = value.toIntOrNull()?.coerceIn(1, 100) ?: 1
+        invalidateQuote { copy(packageQuantity = quantity) }
+    }
+
+    fun setPackageFragile(value: Boolean) {
+        invalidateQuote { copy(packageIsFragile = value) }
+    }
+
+    fun setPackageProhibited(value: Boolean) {
+        invalidateQuote { copy(packageIsProhibited = value) }
+    }
+
+    fun setItemValue(value: String) {
+        val itemValue = value.filter(Char::isDigit).toLongOrNull()?.coerceAtLeast(0) ?: 0
+        invalidateQuote { copy(itemValue = itemValue) }
+    }
+
+    private fun invalidateQuote(update: BookingState.() -> BookingState) {
+        _bookingState.value = _bookingState.value.update().copy(
+            selectedServiceCode = "",
+            estimatedPrice = 0,
+            priceBreakdowns = emptyMap()
+        )
+        calculateRoute()
     }
 
     fun setPromoCode(value: String?) {
@@ -478,7 +513,7 @@ class BookingViewModel @Inject constructor(
     }
 
     fun toggleDeliveryCode(enabled: Boolean) {
-        _bookingState.value = _bookingState.value.copy(deliveryCodeEnabled = enabled)
+        invalidateQuote { copy(deliveryCodeEnabled = enabled) }
     }
 
     fun toggleInsurance(enabled: Boolean) {
@@ -523,7 +558,22 @@ class BookingViewModel @Inject constructor(
                         itemValue = state.itemValue,
                         dimensionScanVerified = state.dimensionsScanned,
                         serviceCode = "ALL_ON_DEMAND",
-                        sizeTier = state.sizeTier
+                        sizeTier = state.sizeTier,
+                        packageDetails = PackageDetailsPayload(
+                            sizeTier = state.sizeTier,
+                            weightKg = state.packageWeight,
+                            dimensions = dimensions,
+                            dimensionsScanned = state.dimensionsScanned,
+                            requiresDeliveryCode = state.deliveryCodeEnabled,
+                            itemDescription = state.itemDescription,
+                            category = state.packageCategory,
+                            quantity = state.packageQuantity,
+                            itemValueIdr = state.itemValue,
+                            isFragile = state.packageIsFragile,
+                            isProhibited = state.packageIsProhibited
+                        ),
+                        recipientName = state.recipientName,
+                        recipientPhone = state.recipientPhone
                     )
                 )
                 val estimates = estimateResult.getOrNull()
@@ -597,6 +647,14 @@ class BookingViewModel @Inject constructor(
             _bookingState.value = state.copy(error = "Isi paket wajib diisi agar kurir tahu barang yang diambil.")
             return
         }
+        if (state.packageCategory.trim().isBlank()) {
+            _bookingState.value = state.copy(error = "Pilih kategori barang agar fakta paket tercatat dengan benar.")
+            return
+        }
+        if (state.packageIsProhibited) {
+            _bookingState.value = state.copy(error = "Barang terlarang tidak dapat dikirim melalui TEMBUS.")
+            return
+        }
 
         viewModelScope.launch {
             _bookingState.value = _bookingState.value.copy(isLoading = true, error = null)
@@ -614,7 +672,12 @@ class BookingViewModel @Inject constructor(
                     dimensions = DimensionsPayload(state.packageLength, state.packageWidth, state.packageHeight),
                     dimensionsScanned = state.dimensionsScanned,
                     requiresDeliveryCode = state.deliveryCodeEnabled,
-                    itemDescription = state.itemDescription
+                    itemDescription = state.itemDescription,
+                    category = state.packageCategory,
+                    quantity = state.packageQuantity,
+                    itemValueIdr = state.itemValue,
+                    isFragile = state.packageIsFragile,
+                    isProhibited = state.packageIsProhibited
                 ),
                 hasInsurance = state.insuranceEnabled,
                 itemValue = state.itemValue,

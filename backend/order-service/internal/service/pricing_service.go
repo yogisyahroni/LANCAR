@@ -57,6 +57,9 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	if !validOrderCoordinate(req.PickupLat, req.PickupLng) || !validOrderCoordinate(req.DropoffLat, req.DropoffLng) {
 		return nil, domain.ErrInvalidCoordinates
 	}
+	if req.PackageFacts.Quantity < 0 || req.PackageFacts.Prohibited {
+		return nil, domain.ErrForbiddenItem
+	}
 
 	// 0.1 Check Coverage for Pickup and Dropoff
 	pickupCovered, err := s.pricingRepo.CheckCoverage(ctx, req.PickupLat, req.PickupLng)
@@ -265,6 +268,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		Width:                  req.Width,
 		Height:                 req.Height,
 		Weight:                 req.Weight,
+		PackageFacts:           req.PackageFacts,
 	}
 
 	// 9. Cache in Redis

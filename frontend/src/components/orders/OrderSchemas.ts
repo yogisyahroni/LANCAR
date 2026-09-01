@@ -54,6 +54,13 @@ export const createOrderSchema = (config?: RuntimeConfig | null, mode: 'instan' 
   package_details: z.object({
     category: z.string().min(1, "Pilih kategori paket"),
     item_description: z.string().min(5, "Deskripsi barang minimal 5 karakter"),
+    quantity: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined) ? 1 : Number(val),
+      z.number({ message: "Jumlah harus berupa angka" }).int().min(1, "Jumlah minimal 1").max(100, "Jumlah maksimal 100")
+    ).default(1),
+    is_fragile: z.boolean().default(false),
+    is_prohibited: z.boolean().default(false),
+    requires_delivery_code: z.boolean().default(false),
     vehicle_type: z.enum(["Motor", "Mobil", "Truk"]).default("Motor"),
     weight_kg: z.preprocess(
       (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
@@ -245,7 +252,14 @@ export const buildSafeOrderDraftForm = (values: OrderFormValues): Partial<OrderF
   const width = asFiniteNumber(values.package_details?.dimensions?.width);
   const height = asFiniteNumber(values.package_details?.dimensions?.height);
 
+  const itemDescription = asTrimmedString(values.package_details?.item_description, 180);
+  const quantity = Math.min(100, Math.max(1, Math.trunc(asFiniteNumber(values.package_details?.quantity) || 1)));
   if (category) safePackageDetails.category = category;
+  if (itemDescription) safePackageDetails.item_description = itemDescription;
+  safePackageDetails.quantity = quantity;
+  safePackageDetails.is_fragile = Boolean(values.package_details?.is_fragile);
+  safePackageDetails.is_prohibited = Boolean(values.package_details?.is_prohibited);
+  safePackageDetails.requires_delivery_code = Boolean(values.package_details?.requires_delivery_code);
   if (vehicle_type) safePackageDetails.vehicle_type = vehicle_type;
   if (weightKg !== undefined) safePackageDetails.weight_kg = weightKg;
   safePackageDetails.dimensions_scanned = Boolean(values.package_details?.dimensions_scanned);

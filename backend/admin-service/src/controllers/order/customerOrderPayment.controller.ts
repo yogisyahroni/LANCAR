@@ -595,6 +595,7 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       pickup,
       dropoff,
       dimensions,
+      package_details,
       weight_kg,
       packages: rawPackages,
       has_insurance,
@@ -603,7 +604,9 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
             service_code,
             size_tier,
             courier_id,
-            material_codes
+            material_codes,
+            recipient_name,
+            recipient_phone
           } = req.body;
 
     const service = await findDeliveryServiceByCode(service_code);
@@ -622,7 +625,7 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       });
       return;
     }
-    const normalizedPackages = normalizePackageInputs(rawPackages, {
+    const normalizedPackages = normalizePackageInputs(rawPackages, package_details || {
       dimensions,
       weight_kg,
       size_tier,
@@ -653,6 +656,9 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       sizeTier: size_tier,
       courierId: courier_id,
       materialCodes: material_codes,
+      recipientName: recipient_name,
+      recipientPhone: recipient_phone,
+      requiresDeliveryCode: package_details?.requires_delivery_code,
     });
 
     res.json(breakdown);
@@ -673,6 +679,7 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
       pickup,
       dropoff,
       dimensions,
+      package_details,
       weight_kg,
       packages: rawPackages,
       has_insurance,
@@ -680,7 +687,9 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
       dimension_scan_verified,
       size_tier,
       courier_id,
-      material_codes
+      material_codes,
+      recipient_name,
+      recipient_phone
     } = req.body;
 
     const pickupPoint = normalizeCoordinatePayload(pickup);
@@ -724,7 +733,7 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
           (error as any).code = 'ERR_DIMENSION_SCAN_REQUIRED';
           throw error;
         }
-        const normalizedPackages = normalizePackageInputs(rawPackages, {
+        const normalizedPackages = normalizePackageInputs(rawPackages, package_details || {
           dimensions,
           weight_kg,
           size_tier,
@@ -747,6 +756,9 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
           routeSnapshotOverride: routeSnapshot,
           courierId: courier_id,
           materialCodes: material_codes,
+          recipientName: recipient_name,
+          recipientPhone: recipient_phone,
+          requiresDeliveryCode: package_details?.requires_delivery_code,
         });
         return { ok: true as const, service_code: service.code, breakdown };
       } catch (error: any) {
@@ -785,5 +797,4 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
     });
   }
 };
-
 

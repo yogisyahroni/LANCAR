@@ -235,9 +235,25 @@ export default function NewOrderPage() {
         dropoff: data.dropoff_location,
         weight_kg: data.package_details?.weight_kg,
         dimensions: data.package_details?.dimensions,
+        package_details: data.package_details,
+        packages: [{
+          category: data.package_details?.category,
+          item_description: data.package_details?.item_description,
+          quantity: data.package_details?.quantity,
+          weight_kg: data.package_details?.weight_kg,
+          dimensions: data.package_details?.dimensions,
+          dimensions_scanned: data.package_details?.dimensions_scanned,
+          is_fragile: data.package_details?.is_fragile,
+          is_prohibited: data.package_details?.is_prohibited,
+          requires_delivery_code: data.package_details?.requires_delivery_code,
+          item_value_idr: data.item_value,
+          size_tier: data.size_tier,
+        }],
         dimension_scan_verified: data.package_details?.dimensions_scanned,
         has_insurance: data.has_insurance,
-        item_value: data.item_value
+        item_value: data.item_value,
+        recipient_name: data.recipient_name,
+        recipient_phone: data.recipient_phone,
       });
       setPricing(res.data);
       if (res.data?.route_snapshot) {
@@ -327,6 +343,11 @@ export default function NewOrderPage() {
     formData.service_code,
     formData.size_tier,
     formData.package_details?.category,
+    formData.package_details?.item_description,
+    formData.package_details?.quantity,
+    formData.package_details?.is_fragile,
+    formData.package_details?.is_prohibited,
+    formData.package_details?.requires_delivery_code,
     formData.package_details?.weight_kg,
     formData.package_details?.dimensions?.length,
     formData.package_details?.dimensions?.width,

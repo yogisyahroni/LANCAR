@@ -80,7 +80,10 @@ data class CustomerPriceEstimateRequest(
     @SerialName("service_code") val serviceCode: String,
     @SerialName("size_tier") val sizeTier: String? = null,
     @SerialName("courier_id") val courierId: String? = null,
-    @SerialName("material_codes") val materialCodes: List<String> = emptyList()
+    @SerialName("material_codes") val materialCodes: List<String> = emptyList(),
+    @SerialName("package_details") val packageDetails: PackageDetailsPayload? = null,
+    @SerialName("recipient_name") val recipientName: String? = null,
+    @SerialName("recipient_phone") val recipientPhone: String? = null
 )
 
 @Serializable
@@ -129,7 +132,47 @@ data class PriceBreakdown(
     @SerialName("materials") val materials: List<TambalBanMaterial> = emptyList(),
     @SerialName("delivery_model") val deliveryModel: String = "p2p",
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
-    @SerialName("total_price_idr") val totalPriceIdr: Long = 0
+    @SerialName("total_price_idr") val totalPriceIdr: Long = 0,
+    @SerialName("package_facts") val packageFacts: PackageFactsSnapshot? = null,
+    @SerialName("packages") val packages: List<PackageFact> = emptyList()
+)
+
+@Serializable
+data class PackageFactsSnapshot(
+    @SerialName("quantity") val quantity: Int = 1,
+    @SerialName("category") val category: String = "",
+    @SerialName("item_description") val itemDescription: String = "",
+    @SerialName("item_value_idr") val itemValueIdr: Long = 0,
+    @SerialName("fragile") val fragile: Boolean = false,
+    @SerialName("prohibited") val prohibited: Boolean = false,
+    @SerialName("size_tier") val sizeTier: String? = null,
+    @SerialName("delivery_code_policy") val deliveryCodePolicy: String = "optional",
+    @SerialName("receiver") val receiver: PackageReceiverSnapshot? = null
+)
+
+@Serializable
+data class PackageReceiverSnapshot(
+    @SerialName("name") val name: String? = null,
+    @SerialName("phone") val phone: String? = null
+)
+
+@Serializable
+data class PackageFact(
+    @SerialName("package_index") val packageIndex: Int = 0,
+    @SerialName("package_code") val packageCode: String = "",
+    @SerialName("description") val description: String = "",
+    @SerialName("category") val category: String = "",
+    @SerialName("quantity") val quantity: Int = 1,
+    @SerialName("size_tier") val sizeTier: String? = null,
+    @SerialName("weight_kg") val weightKg: Double = 0.0,
+    @SerialName("length_cm") val lengthCm: Double = 0.0,
+    @SerialName("width_cm") val widthCm: Double = 0.0,
+    @SerialName("height_cm") val heightCm: Double = 0.0,
+    @SerialName("declared_value_idr") val declaredValueIdr: Long = 0,
+    @SerialName("dimensions_scanned") val dimensionsScanned: Boolean = false,
+    @SerialName("is_fragile") val isFragile: Boolean = false,
+    @SerialName("is_prohibited") val isProhibited: Boolean = false,
+    @SerialName("requires_delivery_code") val requiresDeliveryCode: Boolean = false
 )
 
 @Serializable
@@ -179,6 +222,11 @@ data class PackageDetailsPayload(
     @SerialName("dimensions_scanned") val dimensionsScanned: Boolean,
     @SerialName("requires_delivery_code") val requiresDeliveryCode: Boolean,
     @SerialName("item_description") val itemDescription: String,
+    @SerialName("category") val category: String = "",
+    @SerialName("quantity") val quantity: Int = 1,
+    @SerialName("item_value_idr") val itemValueIdr: Long = 0,
+    @SerialName("is_fragile") val isFragile: Boolean = false,
+    @SerialName("is_prohibited") val isProhibited: Boolean = false,
     @SerialName("vehicle_details") val vehicleDetails: VehicleDetailsPayload? = null
 )
 

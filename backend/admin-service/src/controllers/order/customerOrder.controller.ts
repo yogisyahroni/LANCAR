@@ -220,6 +220,9 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       sizeTier: package_details?.size_tier || normalizedPackages[0]?.size_tier,
       courierId: courierIdForPricing,
       materialCodes: material_codes ?? package_details?.service_material_codes,
+      recipientName: recipient_name,
+      recipientPhone: recipient_phone,
+      requiresDeliveryCode: package_details?.requires_delivery_code,
     });
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
 

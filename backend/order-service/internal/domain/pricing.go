@@ -6,18 +6,32 @@ import (
 )
 
 type PricingEstimateRequest struct {
-	PickupLat    float64  `json:"pickup_lat" validate:"required"`
-	PickupLng    float64  `json:"pickup_lng" validate:"required"`
-	DropoffLat   float64  `json:"dropoff_lat" validate:"required"`
-	DropoffLng   float64  `json:"dropoff_lng" validate:"required"`
-	Length       float64  `json:"length" validate:"required"`
-	Width        float64  `json:"width" validate:"required"`
-	Height       float64  `json:"height" validate:"required"`
-	Weight       float64  `json:"weight" validate:"required"`
-	Models       []string `json:"models" validate:"required"` // Requested delivery models
-	IsARCore     bool     `json:"is_arcore"`
-	IsVolumetric bool     `json:"is_volumetric"`
-	PromoCode    string   `json:"promo_code,omitempty"`
+	PickupLat    float64      `json:"pickup_lat" validate:"required"`
+	PickupLng    float64      `json:"pickup_lng" validate:"required"`
+	DropoffLat   float64      `json:"dropoff_lat" validate:"required"`
+	DropoffLng   float64      `json:"dropoff_lng" validate:"required"`
+	Length       float64      `json:"length" validate:"required"`
+	Width        float64      `json:"width" validate:"required"`
+	Height       float64      `json:"height" validate:"required"`
+	Weight       float64      `json:"weight" validate:"required"`
+	Models       []string     `json:"models" validate:"required"` // Requested delivery models
+	IsARCore     bool         `json:"is_arcore"`
+	IsVolumetric bool         `json:"is_volumetric"`
+	PromoCode    string       `json:"promo_code,omitempty"`
+	PackageFacts PackageFacts `json:"package_facts,omitempty"`
+}
+
+type PackageFacts struct {
+	Quantity           int    `json:"quantity"`
+	Category           string `json:"category,omitempty"`
+	ItemDescription    string `json:"item_description,omitempty"`
+	ItemValueIDR       int64  `json:"item_value_idr,omitempty"`
+	Fragile            bool   `json:"fragile"`
+	Prohibited         bool   `json:"prohibited"`
+	SizeTier           string `json:"size_tier,omitempty"`
+	DeliveryCodePolicy string `json:"delivery_code_policy,omitempty"`
+	ReceiverName       string `json:"receiver_name,omitempty"`
+	ReceiverPhone      string `json:"receiver_phone,omitempty"`
 }
 
 type PricingEstimateResponse struct {
@@ -52,15 +66,16 @@ type PricingEstimateResponse struct {
 	ExpiresAt      time.Time `json:"expires_at"`
 
 	// Original coords for order creation
-	PickupLat  float64 `json:"pickup_lat"`
-	PickupLng  float64 `json:"pickup_lng"`
-	DropoffLat float64 `json:"dropoff_lat"`
-	DropoffLng float64 `json:"dropoff_lng"`
-	Model      string  `json:"model"` // Selected delivery model
-	Length     float64 `json:"length,omitempty"`
-	Width      float64 `json:"width,omitempty"`
-	Height     float64 `json:"height,omitempty"`
-	Weight     float64 `json:"weight,omitempty"`
+	PickupLat    float64      `json:"pickup_lat"`
+	PickupLng    float64      `json:"pickup_lng"`
+	DropoffLat   float64      `json:"dropoff_lat"`
+	DropoffLng   float64      `json:"dropoff_lng"`
+	Model        string       `json:"model"` // Selected delivery model
+	Length       float64      `json:"length,omitempty"`
+	Width        float64      `json:"width,omitempty"`
+	Height       float64      `json:"height,omitempty"`
+	Weight       float64      `json:"weight,omitempty"`
+	PackageFacts PackageFacts `json:"package_facts,omitempty"`
 }
 
 type PricingConfig struct {

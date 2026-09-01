@@ -52,6 +52,17 @@ interface OrderSummaryProps {
     eta_minutes?: number;
     route_snapshot?: RouteSnapshot | null;
     total_price_idr: number;
+    package_facts?: {
+      quantity?: number;
+      category?: string;
+      item_description?: string;
+      item_value_idr?: number;
+      fragile?: boolean;
+      prohibited?: boolean;
+      size_tier?: string | null;
+      delivery_code_policy?: string;
+      receiver?: { name?: string | null; phone?: string | null };
+    };
   } | null;
   isValid: boolean;
   promoCode: string;
@@ -583,6 +594,22 @@ export function OrderSummary({
             </span>
           </div>
         </div>
+        )}
+
+        {mode === 'instan' && pricing?.package_facts && (
+          <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/[0.06] p-4 text-sm">
+            <p className="mb-3 font-semibold text-indigo-100">Fakta paket yang dipakai untuk quote</p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+              <span className="text-muted-foreground">Jumlah</span><span className="text-right font-semibold">{pricing.package_facts.quantity || 1}</span>
+              <span className="text-muted-foreground">Kategori</span><span className="truncate text-right font-semibold">{pricing.package_facts.category || '-'}</span>
+              <span className="text-muted-foreground">Berat aktual</span><span className="text-right font-semibold">{pricing.actual_weight_kg ?? 0} kg</span>
+              <span className="text-muted-foreground">Berat volumetrik</span><span className="text-right font-semibold">{pricing.dimensional_weight_kg ?? 0} kg</span>
+              <span className="text-muted-foreground">Nilai barang</span><span className="text-right font-semibold">Rp {Number(pricing.package_facts.item_value_idr || 0).toLocaleString('id-ID')}</span>
+              <span className="text-muted-foreground">Penanganan</span><span className="text-right font-semibold">{pricing.package_facts.fragile ? 'Rapuh' : 'Standar'}</span>
+              <span className="text-muted-foreground">Kode terima</span><span className="text-right font-semibold">{pricing.package_facts.delivery_code_policy === 'required' ? 'Wajib' : 'Opsional'}</span>
+            </div>
+            {pricing.package_facts.prohibited && <p className="mt-3 text-xs font-semibold text-red-300">Barang terlarang ditolak sebelum checkout.</p>}
+          </div>
         )}
 
         {mode === 'instan' && (
