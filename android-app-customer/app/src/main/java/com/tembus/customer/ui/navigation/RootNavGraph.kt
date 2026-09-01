@@ -239,6 +239,7 @@ fun RootNavGraph(
                             "towing" -> navController.navigate(Screen.ServiceCategory.route)
                             "food_delivery" -> navController.navigate(Screen.FoodHome.route)
                             "food_favorites" -> navController.navigate(Screen.FoodFavorites.route)
+                            "aggregator" -> navController.navigate(Screen.Booking.createRoute("aggregator"))
                             else -> navController.navigate(Screen.Booking.createRoute(open))
                         }
                     },
