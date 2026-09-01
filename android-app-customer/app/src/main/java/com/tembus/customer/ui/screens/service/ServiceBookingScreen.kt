@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -38,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -424,6 +427,13 @@ fun ServiceBookingScreen(
                         if (estimate.materialCost > 0) {
                             Text("Material: Rp ${formatRupiah(estimate.materialCost)}", fontSize = 14.sp)
                         }
+                        if (isTowing) {
+                            Text(
+                                if (estimate.tollCost > 0) "Tol: Rp ${formatRupiah(estimate.tollCost)}" else "Tol: belum termasuk (tarif provider belum tersedia)",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text("Biaya layanan platform: Rp ${formatRupiah(estimate.platformFee)}", fontSize = 14.sp)
                         Spacer(Modifier.height(10.dp))
                         Text(
@@ -469,6 +479,28 @@ fun ServiceBookingScreen(
                     Spacer(Modifier.height(16.dp))
                 }
 
+                if (isTowing && uiState.requiresPriceConsent) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = uiState.priceConsent,
+                                onCheckedChange = viewModel::setPriceConsent
+                            )
+                            Text(
+                                "Saya menyetujui kenaikan harga Rp ${formatRupiah(uiState.priceDeltaIdr)} berdasarkan rute/komponen aktual yang ditampilkan server.",
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 // Submit button
                 Button(
                     onClick = {
@@ -487,7 +519,7 @@ fun ServiceBookingScreen(
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = courierId != null && !uiState.isLoading && (!isTowing || uiState.dropoffAddress.isNotBlank()),
+                    enabled = courierId != null && !uiState.isLoading && (!isTowing || uiState.dropoffAddress.isNotBlank()) && (!uiState.requiresPriceConsent || uiState.priceConsent),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )

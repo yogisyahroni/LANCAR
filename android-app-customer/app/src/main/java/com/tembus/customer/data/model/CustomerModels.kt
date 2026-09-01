@@ -102,7 +102,9 @@ data class RouteSnapshot(
     @SerialName("route_geometry") val routeGeometry: String? = null,
     @SerialName("traffic_aware") val trafficAware: Boolean = false,
     @SerialName("confidence") val confidence: String = "low",
-    @SerialName("fallback_reason") val fallbackReason: String? = null
+    @SerialName("fallback_reason") val fallbackReason: String? = null,
+    @SerialName("snapshot_hash") val snapshotHash: String? = null,
+    @SerialName("snapshot_version") val snapshotVersion: Int? = null
 )
 
 @Serializable
@@ -122,6 +124,8 @@ data class PriceBreakdown(
     @SerialName("dynamic_price_idr") val dynamicPriceIdr: Long = 0,
     @SerialName("platform_fee_idr") val platformFeeIdr: Long = 0,
     @SerialName("material_cost_idr") val materialCostIdr: Long = 0,
+    @SerialName("toll_cost_idr") val tollCostIdr: Long = 0,
+    @SerialName("toll_cost_source") val tollCostSource: String = "unavailable",
     @SerialName("materials") val materials: List<TambalBanMaterial> = emptyList(),
     @SerialName("delivery_model") val deliveryModel: String = "p2p",
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
@@ -161,7 +165,10 @@ data class CustomerOrderCreateRequest(
     @SerialName("promo_code") val promoCode: String? = null,
     @SerialName("voucher_code") val voucherCode: String? = null, // FB-078
     @SerialName("preferred_courier_id") val preferredCourierId: String? = null,
-    @SerialName("material_codes") val materialCodes: List<String> = emptyList()
+    @SerialName("material_codes") val materialCodes: List<String> = emptyList(),
+    @SerialName("quote_total_price_idr") val quoteTotalPriceIdr: Long? = null,
+    @SerialName("quote_snapshot_hash") val quoteSnapshotHash: String? = null,
+    @SerialName("quote_consent") val quoteConsent: Boolean = false
 )
 
 @Serializable
@@ -192,7 +199,11 @@ data class CustomerOrderCreateResponse(
     @SerialName("order") val order: CreatedCustomerOrder? = null,
     @SerialName("payment") val payment: CustomerPaymentSetup? = null,
     @SerialName("payment_setup_error") val paymentSetupError: String? = null,
-    @SerialName("error") val error: String? = null
+    @SerialName("error") val error: String? = null,
+    @SerialName("code") val code: String? = null,
+    @SerialName("requires_price_consent") val requiresPriceConsent: Boolean = false,
+    @SerialName("price_delta_idr") val priceDeltaIdr: Long = 0,
+    @SerialName("trusted_price_breakdown") val trustedPriceBreakdown: PriceBreakdown? = null
 )
 
 @Serializable

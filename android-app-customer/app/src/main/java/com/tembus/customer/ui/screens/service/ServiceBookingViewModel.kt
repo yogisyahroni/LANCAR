@@ -37,7 +37,10 @@ data class ServiceBookingUiState(
     val dropoffResults: List<MapsGeocodeResult> = emptyList(),
     val isResolvingLocation: Boolean = false,
     val materials: List<TambalBanMaterial> = emptyList(),
-    val selectedMaterialCodes: Set<String> = emptySet()
+    val selectedMaterialCodes: Set<String> = emptySet(),
+    val requiresPriceConsent: Boolean = false,
+    val priceDeltaIdr: Long = 0,
+    val priceConsent: Boolean = false
 )
 
 data class ServicePriceEstimate(
@@ -49,6 +52,7 @@ data class ServicePriceEstimate(
     val platformFee: Long = 0,
     val dynamicPrice: Long = 0,
     val materialCost: Long = 0,
+    val tollCost: Long = 0,
     val totalPrice: Long = 0
 )
 
@@ -210,6 +214,7 @@ class ServiceBookingViewModel @Inject constructor(
                                 platformFee = breakdown.platformFeeIdr,
                                 dynamicPrice = breakdown.dynamicPriceIdr,
                                 materialCost = breakdown.materialCostIdr,
+                                tollCost = breakdown.tollCostIdr,
                                 perKmRate = breakdown.serviceSnapshot?.perKmIdr ?: 0,
                                 // 0-1km = base fare produk (sudah termasuk di basePrice server)
                                 distanceBase = breakdown.serviceSnapshot?.baseFareIdr ?: 0
@@ -291,7 +296,10 @@ class ServiceBookingViewModel @Inject constructor(
                 priceBreakdown = breakdown,
                 serviceCode = serviceSubType,
                 preferredCourierId = preferredCourierId,
-                materialCodes = state.selectedMaterialCodes.toList()
+                materialCodes = state.selectedMaterialCodes.toList(),
+                quoteTotalPriceIdr = breakdown.totalPriceIdr,
+                quoteSnapshotHash = breakdown.routeSnapshot?.snapshotHash,
+                quoteConsent = state.priceConsent
             )
 
             orderRepository.createCustomerOnDemandOrder(req).collectLatest { result ->
@@ -304,14 +312,35 @@ class ServiceBookingViewModel @Inject constructor(
                     }
                 }
                 result.onFailure { e ->
+                    val consentError = e as? OrderRepository.PriceConsentRequiredException
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            requiresPriceConsent = consentError != null,
+                            priceDeltaIdr = consentError?.deltaIdr ?: 0,
+                            rawPriceBreakdown = consentError?.trustedPriceBreakdown ?: it.rawPriceBreakdown,
+                            priceEstimate = consentError?.trustedPriceBreakdown?.let { breakdown ->
+                                ServicePriceEstimate(
+                                    totalPrice = breakdown.totalPriceIdr,
+                                    baseFare = breakdown.basePriceIdr,
+                                    distanceKm = breakdown.distanceKm,
+                                    platformFee = breakdown.platformFeeIdr,
+                                    dynamicPrice = breakdown.dynamicPriceIdr,
+                                    materialCost = breakdown.materialCostIdr,
+                                    tollCost = breakdown.tollCostIdr,
+                                    perKmRate = breakdown.serviceSnapshot?.perKmIdr ?: 0,
+                                    distanceBase = breakdown.serviceSnapshot?.baseFareIdr ?: 0
+                                )
+                            } ?: it.priceEstimate,
                             error = e.localizedMessage ?: "Gagal membuat pesanan"
                         )
                     }
                 }
             }
         }
+    }
+
+    fun setPriceConsent(accepted: Boolean) {
+        _uiState.update { it.copy(priceConsent = accepted, error = if (accepted) null else it.error) }
     }
 }

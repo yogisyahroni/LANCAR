@@ -871,6 +871,8 @@ export const calculateCustomerPriceBreakdown = async ({
       insurance_premium_idr: 0,
       dynamic_price_idr: 0,
       platform_fee_idr: 0,
+      toll_cost_idr: 0,
+      toll_cost_source: 'unavailable',
       material_cost_idr: 0,
       materials: [],
       delivery_model: service.route_model,
@@ -1020,7 +1022,8 @@ export const calculateCustomerPriceBreakdown = async ({
         + (distanceChargeKm * service.per_km_idr);
     }
     const platformFee = Math.ceil(service.platform_fee_idr + (platformFeeBase * service.platform_fee_pct));
-    const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee + materialCost;
+  const tollCost = toNumber(service.metadata?.toll_cost_idr, 0);
+  const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee + materialCost + tollCost;
 
   return {
       service_code: service.code,
@@ -1053,6 +1056,8 @@ export const calculateCustomerPriceBreakdown = async ({
     insurance_premium_idr: insurancePremium,
     dynamic_price_idr: dynamicPrice,
       platform_fee_idr: platformFee,
+      toll_cost_idr: tollCost,
+      toll_cost_source: tollCost > 0 ? 'service_configuration' : 'unavailable',
       material_cost_idr: materialCost,
       materials: selectedMaterials,
       delivery_model: service.route_model,

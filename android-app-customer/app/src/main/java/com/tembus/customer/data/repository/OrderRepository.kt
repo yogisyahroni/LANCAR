@@ -127,6 +127,11 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    class PriceConsentRequiredException(
+        val deltaIdr: Long,
+        val trustedPriceBreakdown: PriceBreakdown?
+    ) : Exception("Harga towing berubah. Tinjau kenaikan lalu setujui untuk melanjutkan.")
+
     fun createCustomerOnDemandOrder(request: CustomerOrderCreateRequest): Flow<Result<CreatedCustomerOrder>> = flow {
         try {
             val response = apiService.createCustomerOnDemandOrder(request)
@@ -135,6 +140,10 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && order != null) {
                 emit(Result.success(order))
             } else {
+                if (body?.code == "REQUOTE_REQUIRED" || body?.requiresPriceConsent == true) {
+                    emit(Result.failure(PriceConsentRequiredException(body.priceDeltaIdr, body.trustedPriceBreakdown)))
+                    return@flow
+                }
                 emit(Result.failure(Exception(response.readErrorMessage(body?.error ?: "Gagal membuat order"))))
             }
         } catch (e: Exception) {
@@ -757,4 +766,3 @@ class OrderRepository @Inject constructor(
             }
         }
     }
-

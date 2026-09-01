@@ -105,7 +105,10 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       pickup_city,
       dropoff_city,
       preferred_courier_id,
-      material_codes
+      material_codes,
+      quote_total_price_idr,
+      quote_snapshot_hash,
+      quote_consent
     } = req.body;
 
     // Home services: harga jasa petugas dipakai utk hitung breakdown server-side
@@ -189,6 +192,26 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       materialCodes: material_codes ?? package_details?.service_material_codes,
     });
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
+
+    const submittedQuoteTotal = Number(quote_total_price_idr ?? price_breakdown?.total_price_idr);
+    const trustedQuoteTotal = Number(trustedPriceBreakdown.total_price_idr || 0);
+    const priceDeltaIdr = Math.max(0, trustedQuoteTotal - (Number.isFinite(submittedQuoteTotal) ? submittedQuoteTotal : trustedQuoteTotal));
+    const quoteGeneratedAt = Date.parse(String(price_breakdown?.route_snapshot?.generated_at || ''));
+    const quoteExpired = !Number.isFinite(quoteGeneratedAt) || Date.now() - quoteGeneratedAt > 10 * 60 * 1000;
+    const quoteRouteChanged = Boolean(quote_snapshot_hash && trustedRouteSnapshot.snapshot_hash && quote_snapshot_hash !== trustedRouteSnapshot.snapshot_hash);
+    const materialIncreaseThreshold = Math.max(10000, Math.round(Math.max(1, submittedQuoteTotal || trustedQuoteTotal) * 0.1));
+    if (isTowingService && !quote_consent && (priceDeltaIdr >= materialIncreaseThreshold || quoteExpired || quoteRouteChanged)) {
+      client.release();
+      res.status(409).json({
+        success: false,
+        code: 'REQUOTE_REQUIRED',
+        error: 'Harga towing berubah atau quote sudah kedaluwarsa. Tinjau rincian terbaru dan berikan persetujuan eksplisit.',
+        requires_price_consent: true,
+        price_delta_idr: priceDeltaIdr,
+        trusted_price_breakdown: trustedPriceBreakdown,
+      });
+      return;
+    }
 
     // For quote-based pricing (aggregator/3PL), use the logistics tariff as the gross price
     const effectiveTotalPriceIdr = service.price_mode === 'quote'
@@ -422,12 +445,13 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         pickup_city,
         dropoff_city,
         preferred_courier_id,
+        toll_cost,
         created_at
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
-        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, NOW()
+        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, NOW()
       ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
@@ -493,7 +517,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
           logistics_net_cost_idr || null,
           pickup_city || null,
           dropoff_city || null,
-          resolvedPreferredCourierUserId
+          resolvedPreferredCourierUserId,
+          Number(trustedPriceBreakdown.toll_cost_idr || 0)
         ];
 
         const result = await client.query(insertQuery, values);
@@ -594,9 +619,17 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     // Create Order Event
     await client.query(`
-      INSERT INTO order_events (order_id, user_id, event_type, description)
-      VALUES ($1, $2, 'created', 'Customer created order via Web Portal')
-    `, [newOrder.id, customer_id]);
+      INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+      VALUES ($1, $2, 'created', 'Customer created order via Web Portal', $3)
+    `, [newOrder.id, customer_id, JSON.stringify({
+      quote_total_price_idr: Number.isFinite(submittedQuoteTotal) ? submittedQuoteTotal : null,
+      trusted_total_price_idr: trustedQuoteTotal,
+      price_delta_idr: priceDeltaIdr,
+      quote_snapshot_hash: quote_snapshot_hash || null,
+      trusted_snapshot_hash: trustedRouteSnapshot.snapshot_hash || null,
+      quote_consent: Boolean(quote_consent),
+      quote_consent_at: quote_consent ? new Date().toISOString() : null,
+    })]);
 
     await enqueueOutboxEvent(client, {
       aggregateType: 'order',
