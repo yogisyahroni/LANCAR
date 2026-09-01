@@ -134,7 +134,48 @@ const getProofSummary = async (client: Queryable, orderId: string) => {
   };
 };
 
-export const resolveTrackingStage = (status: string, proofs: ReturnType<typeof getProofSummary> extends Promise<infer T> ? T : never) => {
+const isTowingService = (serviceType?: string | null) =>
+  String(serviceType || '').toLowerCase().includes('towing');
+
+export const resolveTowingTrackingStage = (status: string) => {
+  switch (String(status || '').toLowerCase()) {
+    case 'cancelled':
+    case 'failed':
+      return 'dibatalkan';
+    case 'completed':
+    case 'delivered':
+      return 'selesai';
+    case 'unloading':
+    case 'arrived_dropoff':
+      return 'unloading';
+    case 'in_transit':
+      return 'perjalanan';
+    case 'loading':
+      return 'loading';
+    case 'arrived_pickup':
+    case 'service_started':
+      return 'inspeksi';
+    case 'accepted':
+    case 'assigned':
+    case 'matched':
+    case 'picking_up':
+      return 'menuju_pickup';
+    case 'pending':
+    case 'paid':
+    case 'offered':
+    case 'dispatching':
+      return 'mencari_kurir';
+    default:
+      return 'mencari_kurir';
+  }
+};
+
+export const resolveTrackingStage = (
+  status: string,
+  proofs: ReturnType<typeof getProofSummary> extends Promise<infer T> ? T : never,
+  serviceType?: string | null,
+) => {
+  if (isTowingService(serviceType)) return resolveTowingTrackingStage(status);
   if (proofs.pickup_cancelled || ['cancelled', 'failed'].includes(status)) return 'dibatalkan';
   if (['delivered', 'completed'].includes(status) || proofs.pod_verified) return 'selesai';
   if (status === 'in_transit' || (proofs.pickup_scan_verified && proofs.pickup_photo_verified)) return 'menuju_tujuan';
@@ -147,8 +188,13 @@ const stageLabel = (stage: string) => {
   const labels: Record<string, string> = {
     mencari_kurir: 'Mencari kurir',
     kurir_menuju_pickup: 'Kurir menuju pickup',
+    menuju_pickup: 'Driver towing menuju pickup',
     validasi_pickup: 'Validasi pickup',
+    inspeksi: 'Inspeksi kendaraan di pickup',
+    loading: 'Loading kendaraan',
     menuju_tujuan: 'Menuju tujuan',
+    perjalanan: 'Perjalanan towing',
+    unloading: 'Unloading kendaraan di tujuan',
     selesai: 'Selesai',
     dibatalkan: 'Dibatalkan',
   };
@@ -180,6 +226,7 @@ export const buildOnDemandTrackingSnapshot = async (
              o.route_distance_meters,
              o.route_duration_seconds,
              o.route_polyline,
+             COALESCE(o.service_sub_type, o.service_code) AS service_type,
              o.package_details,
              ol.courier_id,
              cp.id AS courier_profile_id
@@ -195,7 +242,7 @@ export const buildOnDemandTrackingSnapshot = async (
   if (orderRows.length === 0) return null;
   const order = orderRows[0];
   const proofs = await getProofSummary(client, input.orderId);
-  const stage = resolveTrackingStage(order.status, proofs);
+  const stage = resolveTrackingStage(order.status, proofs, order.service_type);
 
   const { rows: locationRows } = await client.query(
     `WITH latest_order_location AS (
@@ -249,7 +296,7 @@ export const buildOnDemandTrackingSnapshot = async (
   const dropoffTarget = Number.isFinite(Number(order.dropoff_latitude)) && Number.isFinite(Number(order.dropoff_longitude))
     ? { latitude: Number(order.dropoff_latitude), longitude: Number(order.dropoff_longitude), address: order.dropoff_address, type: 'dropoff' }
     : null;
-  const target = ['menuju_tujuan', 'selesai'].includes(stage) ? dropoffTarget : pickupTarget;
+  const target = ['menuju_tujuan', 'perjalanan', 'unloading', 'selesai'].includes(stage) ? dropoffTarget : pickupTarget;
   const route = await buildRouteEtaSnapshot(location, target ? { latitude: target.latitude, longitude: target.longitude } : null);
   const packageResult = await client.query(
     `SELECT id AS package_id,
@@ -319,12 +366,22 @@ export const buildOnDemandTrackingSnapshot = async (
       source: location ? 'last_valid_location' : 'unavailable',
       customer_visible: Boolean(location),
     },
-    timeline: [
-      { key: 'mencari_kurir', label: stageLabel('mencari_kurir'), completed: !['mencari_kurir'].includes(stage) },
-      { key: 'kurir_menuju_pickup', label: stageLabel('kurir_menuju_pickup'), completed: ['validasi_pickup', 'menuju_tujuan', 'selesai'].includes(stage) },
-      { key: 'validasi_pickup', label: stageLabel('validasi_pickup'), completed: ['menuju_tujuan', 'selesai'].includes(stage) },
-      { key: 'menuju_tujuan', label: stageLabel('menuju_tujuan'), completed: stage === 'selesai' },
-      { key: 'selesai', label: stageLabel('selesai'), completed: stage === 'selesai' },
-    ],
+    timeline: isTowingService(order.service_type)
+      ? [
+          { key: 'mencari_kurir', label: stageLabel('mencari_kurir'), completed: !['mencari_kurir'].includes(stage) },
+          { key: 'menuju_pickup', label: stageLabel('menuju_pickup'), completed: ['inspeksi', 'loading', 'perjalanan', 'unloading', 'selesai'].includes(stage) },
+          { key: 'inspeksi', label: stageLabel('inspeksi'), completed: ['loading', 'perjalanan', 'unloading', 'selesai'].includes(stage) },
+          { key: 'loading', label: stageLabel('loading'), completed: ['perjalanan', 'unloading', 'selesai'].includes(stage) },
+          { key: 'perjalanan', label: stageLabel('perjalanan'), completed: ['unloading', 'selesai'].includes(stage) },
+          { key: 'unloading', label: stageLabel('unloading'), completed: stage === 'selesai' },
+          { key: 'selesai', label: stageLabel('selesai'), completed: stage === 'selesai' },
+        ]
+      : [
+          { key: 'mencari_kurir', label: stageLabel('mencari_kurir'), completed: !['mencari_kurir'].includes(stage) },
+          { key: 'kurir_menuju_pickup', label: stageLabel('kurir_menuju_pickup'), completed: ['validasi_pickup', 'menuju_tujuan', 'selesai'].includes(stage) },
+          { key: 'validasi_pickup', label: stageLabel('validasi_pickup'), completed: ['menuju_tujuan', 'selesai'].includes(stage) },
+          { key: 'menuju_tujuan', label: stageLabel('menuju_tujuan'), completed: stage === 'selesai' },
+          { key: 'selesai', label: stageLabel('selesai'), completed: stage === 'selesai' },
+        ],
   };
 };

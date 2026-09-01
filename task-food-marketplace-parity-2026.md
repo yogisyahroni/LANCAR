@@ -1197,9 +1197,10 @@ Existing shared files:
   - [ ] Staging/Docker damage-claim and compensation reconciliation verification.
 
 ## TOW-2026-006 — Customer tracking parity [P0]
-- [ ] Human-readable stages: menuju pickup→tiba→inspeksi→loading→perjalanan→unloading→selesai.
-- [ ] ETA/route refresh.
-- [ ] Snapshot recovery.
+- [x] Human-readable stages: menuju pickup→tiba→inspeksi→loading→perjalanan→unloading→selesai.
+- [x] ETA/route refresh.
+- [x] Snapshot recovery.
+- [ ] Staging/Docker tracking verification with real towing order, GPS, and reconnect.
 
 ## TOW-2026-007 — Conditional backend split [P1]
 

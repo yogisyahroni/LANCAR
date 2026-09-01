@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { redis } from '../redis';
-import { buildRouteEtaSnapshot, evaluateLocationQuality, resolveTrackingStage } from './onDemandTracking';
+import { buildRouteEtaSnapshot, evaluateLocationQuality, resolveTowingTrackingStage, resolveTrackingStage } from './onDemandTracking';
 import {
   getActiveTomTomMapsServerCredential,
   hasTomTomMapsServerCredential,
@@ -105,6 +105,20 @@ describe('on-demand tracking policy', () => {
       pod_verified: true,
       pickup_cancelled: false,
     })).toBe('selesai');
+  });
+
+  it('maps towing lifecycle into explicit customer-visible stages', () => {
+    expect(resolveTowingTrackingStage('accepted')).toBe('menuju_pickup');
+    expect(resolveTowingTrackingStage('arrived_pickup')).toBe('inspeksi');
+    expect(resolveTowingTrackingStage('loading')).toBe('loading');
+    expect(resolveTowingTrackingStage('in_transit')).toBe('perjalanan');
+    expect(resolveTowingTrackingStage('unloading')).toBe('unloading');
+    expect(resolveTrackingStage('unloading', {
+      pickup_scan_verified: false,
+      pickup_photo_verified: false,
+      pod_verified: false,
+      pickup_cancelled: false,
+    }, 'towing_mobil')).toBe('unloading');
   });
 
   it('rejects customer-visible updates from poor quality or suspicious locations', () => {
