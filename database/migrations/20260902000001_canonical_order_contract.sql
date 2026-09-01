@@ -40,6 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_canonical_service_category
 CREATE INDEX IF NOT EXISTS idx_orders_correlation_id
   ON orders(correlation_id) WHERE correlation_id IS NOT NULL;
 
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION increment_order_state_version()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -50,6 +51,7 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 DROP TRIGGER IF EXISTS orders_state_version_trigger ON orders;
 CREATE TRIGGER orders_state_version_trigger
@@ -58,7 +60,9 @@ CREATE TRIGGER orders_state_version_trigger
 
 -- +goose Down
 DROP TRIGGER IF EXISTS orders_state_version_trigger ON orders;
+-- +goose StatementBegin
 DROP FUNCTION IF EXISTS increment_order_state_version();
+-- +goose StatementEnd
 DROP INDEX IF EXISTS idx_orders_correlation_id;
 DROP INDEX IF EXISTS idx_orders_canonical_service_category;
 ALTER TABLE orders
