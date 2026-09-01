@@ -12,6 +12,11 @@ import { secureUploadSingle } from '../security/uploadSecurity';
 // order routes (extracted from routes.ts)
 export const orderRoutes = Router();
 
+// Keep the operational order surface behind the same admin identity and role
+// boundary as the rest of the dashboard. This is especially important because
+// the order-detail response contains provider raw payloads for operators.
+orderRoutes.use('/admin/orders', requireAuth, requireRole(['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'finance', 'cs_agent', 'zone_manager']));
+
 orderRoutes.post('/api/v1/tracking/sync', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.syncCourierTracking(req, res));
 orderRoutes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderTracking(req, res));
 orderRoutes.get('/api/v1/tracking/public', (req, res, next) => controllers.publicTracking.publicTrackingRateLimiter(req, res, next), (req, res) => controllers.publicTracking.getPublicTrackingByResi(req, res));

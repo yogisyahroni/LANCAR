@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Search, 
@@ -127,6 +127,128 @@ const stuckFilters = [
   { value: 'proof_failed', label: 'Proof failed' },
   { value: 'settlement_missing', label: 'Settlement' },
 ]
+
+type OperationalTimelineItem = {
+  id: string
+  label: string
+  description: string
+  actor?: string
+  createdAt?: string | null
+  tone: 'neutral' | 'success' | 'warning' | 'danger' | 'provider'
+}
+
+const buildOperationalTimeline = (orderDetail: any): OperationalTimelineItem[] => {
+  if (!orderDetail) return []
+  const items: OperationalTimelineItem[] = []
+  const add = (item: OperationalTimelineItem) => items.push(item)
+  const text = (value: unknown, fallback = '') => typeof value === 'string' ? value.trim() : value == null ? fallback : String(value)
+
+  ;(Array.isArray(orderDetail.events) ? orderDetail.events : []).forEach((event: any, index: number) => {
+    const eventType = text(event.event_type, 'event').replace(/_/g, ' ')
+    add({
+      id: `order-event-${event.id || index}`,
+      label: `STATE • ${eventType.toUpperCase()}`,
+      description: text(event.description, 'Event order tersimpan.'),
+      actor: text(event.user_id) || undefined,
+      createdAt: event.created_at,
+      tone: 'neutral',
+    })
+  })
+
+  ;(Array.isArray(orderDetail.payments) ? orderDetail.payments : []).forEach((payment: any, index: number) => {
+    const status = text(payment.status, 'unrecorded')
+    add({
+      id: `payment-${payment.id || index}`,
+      label: `PAYMENT • ${status.toUpperCase()}`,
+      description: `${text(payment.provider, 'Provider belum tercatat')} · ${text(payment.method, 'Metode belum tercatat')} · Rp ${Number(payment.amount_idr || 0).toLocaleString('id-ID')}`,
+      createdAt: payment.updated_at || payment.created_at,
+      tone: status.toLowerCase() === 'paid' ? 'success' : status.toLowerCase() === 'failed' ? 'danger' : 'warning',
+    })
+  })
+
+  ;(Array.isArray(orderDetail.refunds) ? orderDetail.refunds : []).forEach((refund: any, index: number) => {
+    const status = text(refund.status, 'unrecorded')
+    add({
+      id: `refund-${refund.id || index}`,
+      label: `REFUND • ${status.toUpperCase()}`,
+      description: `${text(refund.reason, 'Alasan refund belum tercatat')} · Rp ${Number(refund.amount_idr || 0).toLocaleString('id-ID')}`,
+      createdAt: refund.updated_at || refund.created_at,
+      tone: status.toLowerCase() === 'completed' ? 'success' : status.toLowerCase() === 'failed' ? 'danger' : 'warning',
+    })
+  })
+
+  ;(Array.isArray(orderDetail.dispatches) ? orderDetail.dispatches : []).forEach((dispatch: any, index: number) => {
+    const status = text(dispatch.status, 'unrecorded')
+    add({
+      id: `dispatch-${dispatch.id || index}`,
+      label: `DISPATCH • ${status.toUpperCase()}`,
+      description: `${text(dispatch.courier_name, 'Kurir belum teridentifikasi')} · wave ${text(dispatch.wave_number, '?')} · ${text(dispatch.response_reason, 'Tidak ada alasan tambahan')}`,
+      createdAt: dispatch.responded_at || dispatch.updated_at || dispatch.created_at,
+      tone: status.toLowerCase() === 'accepted' ? 'success' : status.toLowerCase() === 'expired' ? 'warning' : 'neutral',
+    })
+  })
+
+  ;(Array.isArray(orderDetail.proof_attempts) ? orderDetail.proof_attempts : []).forEach((proof: any, index: number) => {
+    const status = text(proof.proof_status, 'unrecorded')
+    add({
+      id: `proof-${proof.id || index}`,
+      label: `PROOF • ${text(proof.proof_step, 'step').replace(/_/g, ' ').toUpperCase()}`,
+      description: `${status} · ${text(proof.rejection_reason || proof.override_reason, 'Tidak ada catatan proof')}`,
+      actor: text(proof.courier_id) || undefined,
+      createdAt: proof.created_at,
+      tone: status.toLowerCase() === 'accepted' ? 'success' : status.toLowerCase() === 'rejected' ? 'danger' : 'warning',
+    })
+  })
+
+  ;(Array.isArray(orderDetail.carrier_events) ? orderDetail.carrier_events : []).forEach((event: any, index: number) => {
+    add({
+      id: `carrier-${event.id || index}`,
+      label: `PROVIDER • ${text(event.canonical_status || event.raw_status, 'UNKNOWN').toUpperCase()}`,
+      description: `${text(event.provider, 'Provider belum tercatat')} · ${text(event.raw_description, 'Deskripsi provider belum tersedia')} · AWB ${text(event.awb_number, 'belum tersedia')}`,
+      createdAt: event.occurred_at || event.received_at || event.created_at,
+      tone: 'provider',
+    })
+  })
+
+  if (text(orderDetail.override_reason)) {
+    add({
+      id: 'order-override',
+      label: 'OVERRIDE',
+      description: text(orderDetail.override_reason),
+      createdAt: orderDetail.updated_at,
+      tone: 'warning',
+    })
+  }
+
+  return items.sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+    return aTime - bTime
+  })
+}
+
+function ProviderRawEventsPanel({ events }: { events: any[] }) {
+  if (!events.length) return null
+  return (
+    <div className="space-y-4 p-8 rounded-[40px] bg-zinc-900 border border-amber-500/20 shadow-inner">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-black text-amber-200 uppercase tracking-widest">Provider Raw Events</p>
+        <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-black text-amber-200">Ops only · {events.length}</span>
+      </div>
+      <div className="space-y-3">
+        {events.map((event: any, index: number) => (
+          <details key={event.id || index} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-black text-zinc-200">
+              <span>{event.provider || 'Provider'} · {event.event_id || 'Event'} · {event.raw_status || event.canonical_status || 'UNKNOWN'}</span>
+              <span className="text-[10px] text-zinc-500">Raw payload</span>
+            </summary>
+            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-black/30 p-3 text-[10px] leading-relaxed text-zinc-400">{event.raw_payload || 'Payload raw tidak tersedia.'}</pre>
+          </details>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const stuckBadgeTone = (severity?: string | null) =>
   severity === 'critical'
@@ -593,6 +715,12 @@ export default function ActiveOrdersTable() {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
   const [stuckFilter, setStuckFilter] = useState('all')
+  const [serviceFilter, setServiceFilter] = useState('')
+  const [subtypeFilter, setSubtypeFilter] = useState('')
+  const [providerFilter, setProviderFilter] = useState('')
+  const [merchantFilter, setMerchantFilter] = useState('')
+  const [courierFilter, setCourierFilter] = useState('')
+  const [paymentStateFilter, setPaymentStateFilter] = useState('')
   const [page, setPage] = useState(1)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [showForceCancel, setShowForceCancel] = useState(false)
@@ -603,14 +731,20 @@ export default function ActiveOrdersTable() {
 
   // Fetch Orders — auto-refetch every 10s for near-realtime updates
   const { data: ordersData, isLoading: isLoadingOrders, isError: isOrdersError, error: ordersError, refetch: refetchOrders } = useQuery({
-    queryKey: ['admin-orders', page, searchTerm, stuckFilter],
+    queryKey: ['admin-orders', page, searchTerm, stuckFilter, serviceFilter, subtypeFilter, providerFilter, merchantFilter, courierFilter, paymentStateFilter],
     queryFn: async () => {
       const res = await api.get('/admin/orders', {
         params: {
           page,
           limit,
           search: searchTerm,
-          ...(stuckFilter === 'all' ? {} : { stuck: stuckFilter })
+          ...(stuckFilter === 'all' ? {} : { stuck: stuckFilter }),
+          ...(serviceFilter ? { service: serviceFilter } : {}),
+          ...(subtypeFilter ? { subtype: subtypeFilter } : {}),
+          ...(providerFilter ? { provider: providerFilter } : {}),
+          ...(merchantFilter ? { merchant: merchantFilter } : {}),
+          ...(courierFilter ? { courier: courierFilter } : {}),
+          ...(paymentStateFilter ? { payment_state: paymentStateFilter } : {})
         }
       })
       return res.data
@@ -694,6 +828,7 @@ export default function ActiveOrdersTable() {
   )
   const total = ordersData?.total || 0
   const totalPages = Math.ceil(total / limit)
+  const operationalTimeline = useMemo(() => buildOperationalTimeline(orderDetail), [orderDetail])
 
   return (
     <div className="flex flex-col h-full">
@@ -758,6 +893,56 @@ export default function ActiveOrdersTable() {
         ))}
       </div>
 
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 rounded-3xl border border-white/5 bg-white/[0.02] p-4">
+        <input
+          aria-label="Filter service"
+          value={serviceFilter}
+          onChange={(e) => { setServiceFilter(e.target.value); setPage(1) }}
+          placeholder="Service / category"
+          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <input
+          aria-label="Filter subtype"
+          value={subtypeFilter}
+          onChange={(e) => { setSubtypeFilter(e.target.value); setPage(1) }}
+          placeholder="Service subtype"
+          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <input
+          aria-label="Filter provider"
+          value={providerFilter}
+          onChange={(e) => { setProviderFilter(e.target.value); setPage(1) }}
+          placeholder="Provider / carrier"
+          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <input
+          aria-label="Filter merchant"
+          value={merchantFilter}
+          onChange={(e) => { setMerchantFilter(e.target.value); setPage(1) }}
+          placeholder="Merchant ID / name"
+          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <input
+          aria-label="Filter courier"
+          value={courierFilter}
+          onChange={(e) => { setCourierFilter(e.target.value); setPage(1) }}
+          placeholder="Courier ID / name"
+          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <select
+          aria-label="Filter payment state"
+          value={paymentStateFilter}
+          onChange={(e) => { setPaymentStateFilter(e.target.value); setPage(1) }}
+          className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        >
+          <option value="">All payment states</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+          <option value="failed">Failed</option>
+          <option value="refunded">Refunded</option>
+        </select>
+      </div>
+
       <div className="flex-1 overflow-x-auto">
         {isLoadingOrders ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-4">
@@ -806,7 +991,7 @@ export default function ActiveOrdersTable() {
                       </div>
                       <div>
                         <span className="font-black text-zinc-100 block text-sm tracking-tight">{order.id}</span>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{order.model}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{order.model} · {order.service_category || order.service_code || 'service belum tercatat'}</span>
                       </div>
                     </div>
                   </td>
@@ -851,6 +1036,7 @@ export default function ActiveOrdersTable() {
                         </span>
                       </div>
                     )}
+                    <p className="mt-2 text-[10px] text-zinc-600 font-bold uppercase tracking-widest">Payment: {order.payment_status || 'unrecorded'}</p>
                   </td>
                   <td className="px-6 py-5 text-right">
                     <span className="text-sm font-black text-zinc-100">Rp {parseInt(order.total_amount).toLocaleString()}</span>
@@ -1079,26 +1265,27 @@ export default function ActiveOrdersTable() {
                           </h3>
                           <div className="relative pl-12 space-y-12">
                             <div className="absolute left-5 top-2 bottom-2 w-[2px] bg-gradient-to-b from-primary via-primary/50 to-transparent" />
-                            {orderDetail.events?.map((event: any, i: number) => (
-                              <div key={i} className="relative">
+                            {operationalTimeline.map((event, i) => (
+                              <div key={event.id} className="relative">
                                 <div className={cn(
                                   "absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-zinc-950",
-                                  i === 0 ? "bg-primary shadow-[0_0_15px_rgba(0,100,55,0.8)]" : "bg-zinc-700"
+                                  event.tone === 'success' ? "bg-emerald-400" : event.tone === 'danger' ? "bg-red-400" : event.tone === 'warning' ? "bg-amber-400" : event.tone === 'provider' ? "bg-blue-400" : i === 0 ? "bg-primary shadow-[0_0_15px_rgba(0,100,55,0.8)]" : "bg-zinc-700"
                                 )} />
                                 <div className="flex items-start justify-between">
                                   <div className="space-y-1">
-                                    <p className={cn("text-lg font-black tracking-tight", i === 0 ? "text-zinc-100" : "text-zinc-500")}>
-                                      {event.event_type.replace(/_/g, ' ').toUpperCase()}
+                                    <p className={cn("text-lg font-black tracking-tight", i === 0 ? "text-zinc-100" : "text-zinc-300")}>
+                                      {event.label}
                                     </p>
-                                    <p className="text-xs text-zinc-600 font-bold italic leading-relaxed">{event.description || 'System automatic log entry'}</p>
+                                    <p className="text-xs text-zinc-500 font-bold italic leading-relaxed">{event.description}</p>
+                                    {event.actor && <p className="text-[10px] text-zinc-600 font-mono">Actor: {event.actor}</p>}
                                   </div>
                                   <p className="text-sm font-black text-zinc-600 font-mono bg-white/5 px-3 py-1 rounded-lg">
-                                    {format(new Date(event.created_at), 'HH:mm:ss')}
+                                    {event.createdAt && !Number.isNaN(new Date(event.createdAt).getTime()) ? format(new Date(event.createdAt), 'HH:mm:ss') : 'Waktu N/A'}
                                   </p>
                                 </div>
                               </div>
                             ))}
-                            {!orderDetail.events?.length && (
+                            {!operationalTimeline.length && (
                               <p className="text-zinc-600 font-bold italic text-sm">No events recorded yet.</p>
                             )}
                           </div>
@@ -1161,6 +1348,7 @@ export default function ActiveOrdersTable() {
 
                         <OperationalMonitoringPanel orderDetail={orderDetail} />
                         <GpsTrailPanel orderDetail={orderDetail} />
+                        <ProviderRawEventsPanel events={Array.isArray(orderDetail.carrier_events) ? orderDetail.carrier_events : []} />
 
                         <div className="p-8 rounded-[40px] bg-zinc-900 border border-white/5 space-y-6 shadow-inner">
                           <div className="flex items-center justify-between gap-3">
@@ -1174,7 +1362,7 @@ export default function ActiveOrdersTable() {
                               {orderDetail.proofs.map((proof: any) => (
                                 <div key={proof.id} className="rounded-[28px] bg-white/[0.03] border border-white/10 p-4 space-y-3">
                                   <div className="flex items-start justify-between gap-4">
-                                    <div>
+                      <div>
                                       <p className="text-sm font-black text-zinc-100">{proof.proof_label || proof.scan_type}</p>
                                       <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
                                         {proof.proof_category || 'operational'} {proof.recorded_at ? `• ${format(new Date(proof.recorded_at), 'HH:mm')}` : ''}

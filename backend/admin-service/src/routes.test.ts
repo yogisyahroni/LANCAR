@@ -179,6 +179,19 @@ describe('Admin Service Routes', () => {
     expect(res.body).toEqual([{ key: 'test-flag' }]);
   });
 
+  it('protects the operational order timeline behind admin authentication', async () => {
+    (controllers.getAllOrders as jest.Mock).mockClear();
+
+    const unauthenticated = await request(app).get('/admin/orders');
+    expect(unauthenticated.status).toBe(401);
+    expect(controllers.getAllOrders).not.toHaveBeenCalled();
+
+    const authenticated = await request(app).get('/admin/orders')
+      .set(gatewayHeaders({ role: 'ops_admin' }));
+    expect(authenticated.status).toBe(200);
+    expect(controllers.getAllOrders).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects forged internal admin headers without gateway signature', async () => {
     const res = await request(app).get('/admin/feature-flags')
       .set('x-user-id', 'attacker-user-id')

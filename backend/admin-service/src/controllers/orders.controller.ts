@@ -226,6 +226,12 @@ export const getAllOrders = async (req: Request, res: Response) => {
     const status = req.query.status as string;
     const type = req.query.type as string;
     const stuck = String(req.query.stuck || '').trim();
+    const service = String(req.query.service || '').trim();
+    const subtype = String(req.query.subtype || '').trim();
+    const provider = String(req.query.provider || '').trim();
+    const merchant = String(req.query.merchant || '').trim();
+    const courier = String(req.query.courier || '').trim();
+    const paymentState = String(req.query.payment_state || '').trim();
 
     // Build the base query — courier diambil via correlated subquery dari leg PERTAMA
     // yang aktif untuk menghindari duplicate rows (1 order multi-leg = N baris jika JOIN langsung).
@@ -238,6 +244,8 @@ export const getAllOrders = async (req: Request, res: Response) => {
         o.service_category,
         o.service_code,
         o.service_sub_type,
+        o.merchant_id,
+        o.logistics_provider,
         o.status, 
         o.total_price_idr as total_amount, 
         o.base_price_idr as base_fare,
@@ -247,6 +255,7 @@ export const getAllOrders = async (req: Request, res: Response) => {
         -- di dashboard benar-benar tampil (sebelumnya tidak di-SELECT →
         -- badge mati permanen).
         to_char(o.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as scheduled_at,
+        COALESCE((SELECT p.status FROM payments p WHERE p.order_id = o.id ORDER BY p.updated_at DESC LIMIT 1), 'unrecorded') AS payment_status,
         u.full_name as customer_name,
         u.phone_number as customer_phone,
         (SELECT cu.full_name 
@@ -287,6 +296,59 @@ export const getAllOrders = async (req: Request, res: Response) => {
       query += ` AND o.model = $${values.length}`;
     }
 
+    if (service) {
+      values.push(`%${service}%`);
+      query += ` AND (o.service_category ILIKE $${values.length} OR o.service_code ILIKE $${values.length})`;
+    }
+
+    if (subtype) {
+      values.push(`%${subtype}%`);
+      query += ` AND o.service_sub_type ILIKE $${values.length}`;
+    }
+
+    if (provider) {
+      values.push(`%${provider}%`);
+      query += ` AND (o.logistics_provider ILIKE $${values.length} OR EXISTS (
+        SELECT 1
+        FROM carrier_event_inbox cei_filter
+        WHERE cei_filter.awb_number = o.awb_number
+          AND cei_filter.provider ILIKE $${values.length}
+      ))`;
+    }
+
+    if (merchant) {
+      values.push(`%${merchant}%`);
+      query += ` AND (o.merchant_id::text ILIKE $${values.length} OR EXISTS (
+        SELECT 1 FROM merchants m WHERE m.id = o.merchant_id AND m.nama_toko ILIKE $${values.length}
+      ))`;
+    }
+
+    if (courier) {
+      values.push(`%${courier}%`);
+      query += ` AND EXISTS (
+        SELECT 1
+        FROM order_legs ol_filter
+        LEFT JOIN courier_profiles cp_filter ON cp_filter.id = ol_filter.courier_id
+        LEFT JOIN users cu_filter ON cu_filter.id = cp_filter.user_id
+        WHERE ol_filter.order_id = o.id
+          AND (ol_filter.courier_id::text ILIKE $${values.length} OR cu_filter.full_name ILIKE $${values.length})
+      )`;
+    }
+
+    if (paymentState) {
+      values.push(paymentState);
+      query += ` AND EXISTS (
+        SELECT 1 FROM payments p_filter
+        WHERE p_filter.order_id = o.id AND (
+          LOWER(p_filter.status) = LOWER($${values.length})
+          OR (LOWER($${values.length}) = 'refunded' AND EXISTS (
+            SELECT 1 FROM refunds r_filter
+            WHERE r_filter.order_id = o.id AND LOWER(r_filter.status) IN ('pending', 'processing', 'completed')
+          ))
+        )
+      )`;
+    }
+
     query += `
       ),
       order_diag AS (
@@ -312,7 +374,7 @@ export const getAllOrders = async (req: Request, res: Response) => {
     const countRes = await readDb.query(countQuery, values);
     const total = parseInt(countRes.rows[0].count);
 
-    query += ` ORDER BY o.created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+    query += ` ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
     values.push(limit, offset);
 
     const result = await readDb.query(query, values);
@@ -632,6 +694,36 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       LEFT JOIN merchants m ON m.id = o.merchant_id
       WHERE o.id = $1
     `, [id]);
+
+    const paymentsRes = await readDb.query(`
+      SELECT id, payment_number, provider, method, status, amount_idr,
+             provider_reference, paid_at, expires_at, created_at, updated_at
+      FROM payments
+      WHERE order_id = $1
+      ORDER BY created_at ASC
+    `, [id]);
+
+    const refundsRes = await readDb.query(`
+      SELECT id, payment_id, amount_idr, reason, status, refund_percentage,
+             gateway_ref, processed_at, created_at, updated_at
+      FROM refunds
+      WHERE order_id = $1
+      ORDER BY created_at ASC
+    `, [id]);
+
+    // Raw provider payloads are intentionally returned only from this
+    // authenticated admin endpoint. Customer-facing order APIs never select
+    // carrier_event_inbox.raw_payload.
+    const carrierEventsRes = await readDb.query(`
+      SELECT cei.id, cei.provider, cei.event_id, cei.awb_number,
+             cei.canonical_status, cei.raw_status, cei.raw_code,
+             cei.raw_description, cei.raw_location, cei.occurred_at,
+             cei.received_at, cei.created_at, cei.provider_status,
+             cei.raw_payload
+      FROM carrier_event_inbox cei
+      WHERE cei.awb_number = (SELECT awb_number FROM orders WHERE id = $1)
+      ORDER BY cei.received_at ASC
+    `, [id]);
     const stuckDiagnostics = await getOrderStuckDiagnostics(id);
 
     res.json({
@@ -649,7 +741,10 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       tambal_ban_report: tambalBanReportsRes.rows.length > 0 ? tambalBanReportsRes.rows[0] : null,
       towing_report: towingReportsRes.rows.length > 0 ? towingReportsRes.rows[0] : null,
       food_items: foodItemsRes.rows,
-      food_merchant: foodMerchantRes.rows.length > 0 ? foodMerchantRes.rows[0] : null
+      food_merchant: foodMerchantRes.rows.length > 0 ? foodMerchantRes.rows[0] : null,
+      payments: paymentsRes.rows,
+      refunds: refundsRes.rows,
+      carrier_events: carrierEventsRes.rows
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
