@@ -7,6 +7,12 @@ import kotlinx.serialization.Serializable
 data class TrackingResponse(
     @SerialName("courier_id")
     val courierId: String,
+
+    @SerialName("stage")
+    val stage: String? = null,
+
+    @SerialName("status")
+    val status: String? = null,
     
     @SerialName("location")
     val location: TrackingLocation,
