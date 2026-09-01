@@ -32,3 +32,11 @@ type ProviderDescriptor struct {
 	Capabilities []LogisticsCapability `json:"capabilities"`
 	Services     []ProviderService     `json:"services,omitempty"`
 }
+
+type ProviderDiagnostic struct {
+	Code         string                `json:"code"`
+	Name         string                `json:"name"`
+	Ready        bool                  `json:"ready"`
+	Missing      []LogisticsCapability `json:"missing_capabilities,omitempty"`
+	Capabilities []LogisticsCapability `json:"capabilities"`
+}

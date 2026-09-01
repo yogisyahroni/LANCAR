@@ -1126,12 +1126,13 @@ Existing shared files:
 - `docs/runbooks/onboard-logistics-provider.md`
 
 **Checklist**
-- [ ] Contract test suite can be reused for a new provider adapter.
-- [ ] Fixtures cover rate, create shipment/AWB, tracking, errors, timeout, duplicate event, unknown status.
-- [ ] Capability matrix is validated at startup/config load.
-- [ ] New provider has health/readiness diagnostics.
-- [ ] Onboarding runbook documents credentials, base URL, sandbox/prod, location mapping, service mapping, webhook route/signature, polling, SLA source, COD/insurance/return/claim capabilities.
-- [ ] Demonstrate with one additional stub/fake provider that registration requires no customer UI/core order edits.
+- [x] Contract test suite can be reused for a new provider adapter.
+- [x] Fixtures cover rate, create shipment/AWB, tracking, errors, timeout, duplicate event, unknown status.
+- [x] Capability matrix is validated at startup/config load.
+- [x] New provider has health/readiness diagnostics.
+- [x] Onboarding runbook documents credentials, base URL, sandbox/prod, location mapping, service mapping, webhook route/signature, polling, SLA source, COD/insurance/return/claim capabilities.
+- [x] Demonstrate with one additional stub/fake provider that registration requires no customer UI/core order edits.
+- [ ] External sandbox/staging contract verification and live readiness validation completed.
 
 ---
 

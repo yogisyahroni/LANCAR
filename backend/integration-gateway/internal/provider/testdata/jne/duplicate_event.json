@@ -1,0 +1,1 @@
+{"provider":"jne","scenario":"duplicate_event","event_id":"JNE-EVENT-1","expected":"idempotent no-op"}

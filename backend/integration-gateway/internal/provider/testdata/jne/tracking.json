@@ -1,0 +1,1 @@
+{"provider":"jne","scenario":"tracking","request":{"awb_number":"JNE-FIXTURE-1"},"response":{"status":"IN_TRANSIT","history":[{"status":"IN_TRANSIT","location":"Bandung"}]}}

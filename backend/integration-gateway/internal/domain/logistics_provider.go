@@ -34,4 +34,6 @@ type ProviderRegistration struct {
 type LogisticsProviderRegistry interface {
 	Get(code string) (ProviderRegistration, bool)
 	List() []ProviderDescriptor
+	Validate() error
+	Diagnostics() []ProviderDiagnostic
 }

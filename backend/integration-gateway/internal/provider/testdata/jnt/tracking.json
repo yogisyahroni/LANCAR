@@ -1,0 +1,1 @@
+{"provider":"jnt","scenario":"tracking","request":{"awb_number":"JNT-FIXTURE-1"},"response":{"status":"DELIVERED","history":[{"status":"SIGNED","location":"Surabaya"}]}}

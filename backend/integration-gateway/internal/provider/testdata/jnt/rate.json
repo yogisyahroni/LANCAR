@@ -1,0 +1,1 @@
+{"provider":"jnt","scenario":"rate","request":{"origin_code":"JKT","destination_code":"SBY","weight_kg":1,"service_type":"EZ"},"response":{"service_code":"EZ","service_name":"EZ","tariff_gross":12000}}

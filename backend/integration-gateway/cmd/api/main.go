@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -54,6 +55,9 @@ func main() {
 		},
 		Tariff: jntProv, Shipment: jntProv, Tracking: jntProv,
 	})
+	if err := logisticsRegistry.Validate(); err != nil {
+		log.Fatalf("[integration-gateway] invalid logistics provider registry: %v", err)
+	}
 	log.Println("[integration-gateway] Logistics 3PL providers initialized successfully")
 
 	// ─────────────────────────────────────────────
@@ -103,6 +107,16 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ready := logisticsRegistry.Validate() == nil
+		if !ready {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ready": ready, "providers": logisticsRegistry.Diagnostics(),
+		})
 	})
 
 	// ─────────────────────────────────────────────

@@ -1,0 +1,1 @@
+{"provider":"jnt","scenario":"duplicate_event","event_id":"JNT-EVENT-1","expected":"idempotent no-op"}
