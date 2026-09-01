@@ -2,7 +2,13 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
+)
+
+var (
+	ErrAWBAttemptNotFound     = errors.New("AWB attempt not found")
+	ErrCarrierHandoffNotFound = errors.New("carrier handoff not found")
 )
 
 // FirstMileMode describes who physically moves a parcel to the external carrier.

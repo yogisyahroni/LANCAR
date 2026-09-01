@@ -114,7 +114,7 @@ func (s *carrierHandoffService) ApplyCarrierAcceptance(ctx context.Context, even
 		return err
 	}
 	if attempt == nil {
-		return fmt.Errorf("AWB attempt not found")
+		return fmt.Errorf("%w: %s", domain.ErrAWBAttemptNotFound, event.AWBNumber)
 	}
 	acceptedAt := event.AcceptedAt
 	if acceptedAt.IsZero() {

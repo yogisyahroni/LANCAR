@@ -124,7 +124,7 @@ func (r *carrierHandoffRepository) MarkCarrierAccepted(ctx context.Context, atte
 		return fmt.Errorf("mark carrier accepted: %w", err)
 	}
 	if rows, _ := result.RowsAffected(); rows != 1 {
-		return fmt.Errorf("carrier handoff for attempt %s not found", attemptID)
+		return fmt.Errorf("%w: attempt %s", domain.ErrCarrierHandoffNotFound, attemptID)
 	}
 	return nil
 }

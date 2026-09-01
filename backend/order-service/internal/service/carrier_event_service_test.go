@@ -1,9 +1,66 @@
 package service
 
 import (
+	"context"
 	"tembus/order-service/internal/domain"
 	"testing"
+	"time"
 )
+
+type carrierEventRepositoryStub struct{ inserted bool }
+
+func (s *carrierEventRepositoryStub) InsertIfNew(context.Context, *domain.CarrierEvent) (bool, error) {
+	if s.inserted {
+		return false, nil
+	}
+	s.inserted = true
+	return true, nil
+}
+
+type carrierEventOrderRepositoryStub struct {
+	order        *domain.Order
+	updatedID    string
+	updatedState domain.OrderStatus
+}
+
+func (s *carrierEventOrderRepositoryStub) GetByAWB(context.Context, string) (*domain.Order, error) {
+	return s.order, nil
+}
+
+func (s *carrierEventOrderRepositoryStub) UpdateStatus(_ context.Context, id string, status domain.OrderStatus) error {
+	s.updatedID, s.updatedState = id, status
+	return nil
+}
+
+type carrierEventOrderEventsStub struct{ saved []domain.OrderEvent }
+
+func (s *carrierEventOrderEventsStub) SaveEvent(_ context.Context, event domain.OrderEvent) error {
+	s.saved = append(s.saved, event)
+	return nil
+}
+func (s *carrierEventOrderEventsStub) ListEventsByUserID(context.Context, string, time.Time) ([]domain.OrderEvent, error) {
+	return nil, nil
+}
+func (s *carrierEventOrderEventsStub) ListEventsByOrderID(context.Context, string) ([]domain.OrderEvent, error) {
+	return nil, nil
+}
+
+type carrierAcceptanceRecorder struct {
+	event domain.CarrierAcceptanceEvent
+	calls int
+}
+
+func (s *carrierAcceptanceRecorder) CreateAWB(context.Context, string, domain.AWBRequest) (*domain.AWBAttempt, error) {
+	return nil, nil
+}
+func (s *carrierAcceptanceRecorder) RecordHandoff(context.Context, domain.RecordCarrierHandoffRequest) (*domain.CarrierHandoff, error) {
+	return nil, nil
+}
+func (s *carrierAcceptanceRecorder) ApplyCarrierAcceptance(_ context.Context, event domain.CarrierAcceptanceEvent) error {
+	s.calls++
+	s.event = event
+	return nil
+}
 
 func TestCanonicalCarrierStatusDoesNotGuessUnknown(t *testing.T) {
 	if status, ok := canonicalOrderStatus("PROVIDER_ONLY_STATE"); ok || status != "" {
@@ -18,4 +75,64 @@ func TestCarrierStatusRankPreventsRegression(t *testing.T) {
 	if !statusCanAdvance(domain.StatusPickedUp, domain.StatusDelivering) {
 		t.Fatal("delivering should advance picked_up")
 	}
+}
+
+func TestCarrierAcceptanceEventDrivesLifecycleAndRecordsProviderReference(t *testing.T) {
+	eventRepo := &carrierEventRepositoryStub{}
+	orderRepo := &carrierEventOrderRepositoryStub{order: &domain.Order{ID: "order-1", Status: domain.StatusPending}}
+	orderEvents := &carrierEventOrderEventsStub{}
+	acceptance := &carrierAcceptanceRecorder{}
+	svc := NewCarrierEventService(eventRepo, orderRepo, orderEvents, acceptance)
+	receivedAt := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+
+	err := svc.Process(context.Background(), &domain.CarrierEvent{
+		Provider: "jne", EventID: "jne-event-1", AWBNumber: "JNE-1",
+		CanonicalStatus: "HANDED_TO_CARRIER", RawStatus: "HANDOVER",
+		ReceivedAt: receivedAt,
+	})
+	if err != nil {
+		t.Fatalf("process acceptance event: %v", err)
+	}
+	if acceptance.calls != 1 || acceptance.event.ProviderRef != "jne-event-1" {
+		t.Fatalf("provider acceptance was not forwarded with event reference: %+v", acceptance)
+	}
+	if orderRepo.updatedID != "order-1" || orderRepo.updatedState != domain.StatusDelivering {
+		t.Fatalf("carrier acceptance did not drive normalized lifecycle: %s %s", orderRepo.updatedID, orderRepo.updatedState)
+	}
+	if len(orderEvents.saved) != 1 || orderEvents.saved[0].Status != domain.StatusDelivering {
+		t.Fatalf("normalized lifecycle event was not audited: %+v", orderEvents.saved)
+	}
+}
+
+func TestCarrierAcceptanceEventDoesNotBlockNonAggregatorLifecycle(t *testing.T) {
+	eventRepo := &carrierEventRepositoryStub{}
+	orderRepo := &carrierEventOrderRepositoryStub{order: &domain.Order{ID: "order-2", Status: domain.StatusPending}}
+	orderEvents := &carrierEventOrderEventsStub{}
+
+	// A missing AWB attempt is a valid condition for legacy/non-aggregator
+	// orders; the carrier event must still advance the normalized lifecycle.
+	missing := &carrierAcceptanceMissingAttempt{}
+	svc := NewCarrierEventService(eventRepo, orderRepo, orderEvents, missing)
+	err := svc.Process(context.Background(), &domain.CarrierEvent{
+		Provider: "jne", EventID: "jne-event-2", AWBNumber: "JNE-2",
+		CanonicalStatus: "IN_TRANSIT", RawStatus: "IN_TRANSIT", ReceivedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("missing aggregator attempt must not block event: %v", err)
+	}
+	if orderRepo.updatedState != domain.StatusDelivering {
+		t.Fatalf("non-aggregator event did not advance lifecycle: %s", orderRepo.updatedState)
+	}
+}
+
+type carrierAcceptanceMissingAttempt struct{}
+
+func (carrierAcceptanceMissingAttempt) CreateAWB(context.Context, string, domain.AWBRequest) (*domain.AWBAttempt, error) {
+	return nil, nil
+}
+func (carrierAcceptanceMissingAttempt) RecordHandoff(context.Context, domain.RecordCarrierHandoffRequest) (*domain.CarrierHandoff, error) {
+	return nil, nil
+}
+func (carrierAcceptanceMissingAttempt) ApplyCarrierAcceptance(context.Context, domain.CarrierAcceptanceEvent) error {
+	return domain.ErrAWBAttemptNotFound
 }

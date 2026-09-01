@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -10,12 +11,28 @@ import (
 
 type carrierEventService struct {
 	repo      domain.CarrierEventRepository
-	orderRepo domain.OrderRepository
-	eventRepo domain.OrderEventRepository
+	orderRepo interface {
+		GetByAWB(ctx context.Context, awb string) (*domain.Order, error)
+		UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error
+	}
+	eventRepo         domain.OrderEventRepository
+	carrierHandoffSvc domain.CarrierHandoffService
 }
 
-func NewCarrierEventService(repo domain.CarrierEventRepository, orderRepo domain.OrderRepository, eventRepo domain.OrderEventRepository) domain.CarrierEventService {
-	return &carrierEventService{repo: repo, orderRepo: orderRepo, eventRepo: eventRepo}
+func NewCarrierEventService(
+	repo domain.CarrierEventRepository,
+	orderRepo interface {
+		GetByAWB(ctx context.Context, awb string) (*domain.Order, error)
+		UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error
+	},
+	eventRepo domain.OrderEventRepository,
+	carrierHandoffSvc ...domain.CarrierHandoffService,
+) domain.CarrierEventService {
+	var handoffSvc domain.CarrierHandoffService
+	if len(carrierHandoffSvc) > 0 {
+		handoffSvc = carrierHandoffSvc[0]
+	}
+	return &carrierEventService{repo: repo, orderRepo: orderRepo, eventRepo: eventRepo, carrierHandoffSvc: handoffSvc}
 }
 
 func (s *carrierEventService) Process(ctx context.Context, event *domain.CarrierEvent) error {
@@ -36,6 +53,27 @@ func (s *carrierEventService) Process(ctx context.Context, event *domain.Carrier
 	inserted, err := s.repo.InsertIfNew(ctx, event)
 	if err != nil {
 		return err
+	}
+	if isCarrierAcceptanceEvent(event.CanonicalStatus) && s.carrierHandoffSvc != nil {
+		acceptedAt := event.ReceivedAt
+		if event.OccurredAt != nil {
+			acceptedAt = *event.OccurredAt
+		}
+		acceptanceErr := s.carrierHandoffSvc.ApplyCarrierAcceptance(ctx, domain.CarrierAcceptanceEvent{
+			Provider:    event.Provider,
+			AWBNumber:   event.AWBNumber,
+			ProviderRef: event.EventID,
+			AcceptedAt:  acceptedAt,
+		})
+		if acceptanceErr != nil &&
+			!errors.Is(acceptanceErr, domain.ErrAWBAttemptNotFound) &&
+			!errors.Is(acceptanceErr, domain.ErrCarrierHandoffNotFound) {
+			return fmt.Errorf("apply carrier acceptance: %w", acceptanceErr)
+		}
+		if acceptanceErr != nil {
+			slog.WarnContext(ctx, "carrier_event: acceptance recorded later because handoff state is not ready",
+				"provider", event.Provider, "awb_number", event.AWBNumber, "event_id", event.EventID, "error", acceptanceErr)
+		}
 	}
 	if !inserted {
 		return nil
@@ -65,6 +103,15 @@ func (s *carrierEventService) Process(ctx context.Context, event *domain.Carrier
 		_ = s.eventRepo.SaveEvent(ctx, domain.OrderEvent{OrderID: order.ID, Status: target, Message: event.RawDescription, CreatedAt: event.ReceivedAt})
 	}
 	return nil
+}
+
+func isCarrierAcceptanceEvent(status string) bool {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "HANDED_TO_CARRIER", "IN_TRANSIT", "AT_SORTING_CENTER", "OUT_FOR_DELIVERY":
+		return true
+	default:
+		return false
+	}
 }
 
 func firstNonEmpty(values ...string) string {
