@@ -1253,9 +1253,10 @@ Existing shared files:
 - `frontend/src/components/orders/OrderTimeline.tsx`
 - `frontend/src/components/orders/OrderPriceBreakdown.tsx`
 
-- [ ] Paket Instan vs Aggregator uses correct vocabulary.
-- [ ] LANCAR first-mile vs external carrier visually distinct.
-- [ ] Money state separated from delivery state.
+- [x] Paket Instan vs Aggregator uses correct vocabulary.
+- [x] LANCAR first-mile vs external carrier visually distinct.
+- [x] Money state separated from delivery state.
+- [ ] Staging/Docker history, detail, and resi visual verification recorded.
 
 ## WEB-2026-003 — Accessibility/responsive/failure recovery [P1]
 - [ ] Keyboard/focus/form error/screen-reader status.
