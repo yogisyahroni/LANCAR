@@ -826,7 +826,10 @@ class OrderViewModel @Inject constructor(
                     reportRequest["vehicle_photo_before_url"] = beforePhotoUrl
                     reportRequest["vehicle_condition_before"] = "Foto inspeksi awal kendaraan diambil di aplikasi kurir."
                     proofDraftStore.getProofUrl(orderId, serviceType, "loading_photo")?.let { reportRequest["loading_photo_url"] = it }
-                    proofDraftStore.getProofUrl(orderId, serviceType, "unloading_photo")?.let { reportRequest["unloading_photo_url"] = it }
+                    proofDraftStore.getProofUrl(orderId, serviceType, "unloading_photo")?.let {
+                        reportRequest["unloading_photo_url"] = it
+                        reportRequest["unloading_completed_at"] = utcNowRfc3339()
+                    }
                 }
             }
             if (completionPhoto != null) {

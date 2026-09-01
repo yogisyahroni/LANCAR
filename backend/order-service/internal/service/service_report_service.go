@@ -81,6 +81,9 @@ func validateTowingReport(report *domain.TowingReport) error {
 	if !hasValue(report.UnloadingPhotoURL) {
 		return fmt.Errorf("%w: unloading_photo_url wajib diisi sebelum completion", domain.ErrInvalidServiceReport)
 	}
+	if report.UnloadingCompletedAt == nil {
+		return fmt.Errorf("%w: unloading_completed_at wajib diisi sebagai verifikasi tujuan", domain.ErrInvalidServiceReport)
+	}
 	if !hasValue(report.CompletionPhotoURL) {
 		return fmt.Errorf("%w: completion_photo_url wajib diisi", domain.ErrInvalidServiceReport)
 	}
