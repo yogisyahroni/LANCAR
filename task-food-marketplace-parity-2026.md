@@ -1322,9 +1322,10 @@ Existing shared files:
 - `backend/order-service/internal/service/order_audit_service.go`
 - `backend/order-service/internal/handler/order_audit_handler.go`
 
-- [ ] Filter by service/subtype/provider/merchant/courier/payment state.
-- [ ] Timeline shows actor/state/proof/payment/refund/provider events/override.
-- [ ] Provider raw event accessible to ops without leaking to normal customer surface.
+- [x] Filter by service/subtype/provider/merchant/courier/payment state.
+- [x] Timeline shows actor/state/proof/payment/refund/provider events/override.
+- [x] Provider raw event accessible to ops without leaking to normal customer surface.
+- [ ] Authenticated staging/Docker verification covers each filter, timeline, and raw-event role boundary.
 
 ## OPS-2026-002 — Exception queues [P0]
 
