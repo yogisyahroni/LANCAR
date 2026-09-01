@@ -462,7 +462,7 @@ export function AggregatorWizard() {
           throw new Error("Kutipan tarif dan koordinat pickup/dropoff wajib tersedia");
         }
 
-        const destinationCity = cities.find((city) => city.code === values.destination_code)?.name || values.destination_code;
+        const destinationCity = values.destination_code;
         const payload = buildAggregatorOrderPayload({
           provider: values.provider,
           pickup_address: values.pickup_address,
@@ -472,15 +472,19 @@ export function AggregatorWizard() {
           recipient_name: values.recipient_name,
           recipient_phone: values.recipient_phone,
           destination_code: values.destination_code,
-          pickup_city: cities.find((city) => city.code === ORIGIN_CODE)?.name || ORIGIN_CODE,
+          pickup_city: values.origin_code,
           dropoff_city: destinationCity,
           payment_type: values.payment_type,
           item_value: values.item_value,
           weight_kg: values.weight_kg,
+          length_cm: values.length_cm,
+          width_cm: values.width_cm,
+          height_cm: values.height_cm,
           quantity: values.quantity,
           item_description: values.item_description,
           category: values.category,
           dangerous_goods: values.dangerous_goods,
+          insurance: values.insurance,
           delivery_notes: values.delivery_notes,
           schedule_type: values.schedule_type,
           scheduled_at: values.scheduled_at,

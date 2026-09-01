@@ -100,8 +100,10 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       voucher_code, // FB-078: kode voucher diskon (opsional, terpisah dari promo)
       logistics_provider,
       logistics_service_type,
-      logistics_tariff_idr,
-      logistics_net_cost_idr,
+      logistics_tariff_idr: requested_logistics_tariff_idr,
+      logistics_net_cost_idr: requested_logistics_net_cost_idr,
+      aggregator_quote_id,
+      payment_type,
       pickup_city,
       dropoff_city,
       preferred_courier_id,
@@ -128,6 +130,11 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     const packageDimensions = package_details?.dimensions || packageSummary.max_dimensions;
     const packageActualWeight = packageSummary.actual_weight_kg;
     const packageChargeableWeight = packageSummary.chargeable_weight_kg;
+
+    // Quote-based aggregator orders must be bound to the exact immutable quote
+    // created during review. Never trust a client-supplied tariff or net cost.
+    let logistics_tariff_idr = requested_logistics_tariff_idr;
+    let logistics_net_cost_idr = requested_logistics_net_cost_idr;
 
     if (selectedTier?.max_weight_kg && packageActualWeight > toNumber(selectedTier.max_weight_kg)) {
       client.release();
@@ -158,6 +165,65 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       return;
     }
 
+    if (service.price_mode === 'quote') {
+      const quoteId = String(aggregator_quote_id || '').trim();
+      const quoteIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!quoteIdPattern.test(quoteId)) {
+        client.release();
+        res.status(409).json({
+          code: 'ERR_AGGREGATOR_QUOTE_REQUIRES_REQUOTE',
+          error: 'Quote tarif tidak tersedia atau sudah tidak valid. Hitung ulang tarif sebelum membuat order.'
+        });
+        return;
+      }
+
+      const quoteResult = await client.query(
+        `SELECT provider_code, origin_code, destination_code, chargeable_weight_kg,
+                length_cm, width_cm, height_cm, item_value_idr, category, insurance, cod,
+                service_code, tariff_net_idr, customer_tariff_idr
+           FROM aggregator_rate_quotes
+          WHERE id = $1 AND expires_at > NOW()
+          LIMIT 1`,
+        [quoteId]
+      );
+      const quote = quoteResult.rows[0];
+      const quoteNumber = (value: unknown) => Number(value || 0);
+      const sameNumber = (left: unknown, right: unknown, tolerance = 0.01) =>
+        Math.abs(quoteNumber(left) - quoteNumber(right)) <= tolerance;
+      const sameText = (left: unknown, right: unknown) =>
+        String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase();
+      const requestedCategory = String(package_details?.category || package_details?.item_category || '').trim();
+      const requestedInsurance = Boolean(has_insurance);
+      const requestedCOD = String(payment_type || '').toUpperCase() === 'COD';
+      const quoteMatchesRequest = Boolean(quote)
+        && sameText(quote.provider_code, logistics_provider)
+        && sameText(quote.origin_code, pickup_city)
+        && sameText(quote.destination_code, dropoff_city)
+        && sameText(quote.service_code, logistics_service_type)
+        && sameNumber(quote.chargeable_weight_kg, packageChargeableWeight)
+        && sameNumber(quote.length_cm, packageSummary.max_dimensions.length)
+        && sameNumber(quote.width_cm, packageSummary.max_dimensions.width)
+        && sameNumber(quote.height_cm, packageSummary.max_dimensions.height)
+        && sameNumber(quote.item_value_idr, toNumber(item_value))
+        && sameText(quote.category, requestedCategory)
+        && Boolean(quote.insurance) === requestedInsurance
+        && Boolean(quote.cod) === requestedCOD;
+
+      if (!quoteMatchesRequest) {
+        client.release();
+        res.status(409).json({
+          code: 'ERR_AGGREGATOR_QUOTE_REQUIRES_REQUOTE',
+          error: 'Quote tarif sudah kedaluwarsa atau tidak cocok dengan detail order. Hitung ulang tarif sebelum membuat order.'
+        });
+        return;
+      }
+
+      // These values come only from the stored quote; request values are used
+      // for matching above and are never persisted as the trusted tariff.
+      logistics_tariff_idr = quote.customer_tariff_idr;
+      logistics_net_cost_idr = quote.tariff_net_idr;
+    }
+
     const trustedPriceBreakdown = await calculateCustomerPriceBreakdown({
       service,
       pickupPoint,
@@ -175,7 +241,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     // For quote-based pricing (aggregator/3PL), use the logistics tariff as the gross price
     const effectiveTotalPriceIdr = service.price_mode === 'quote'
-      ? (logistics_tariff_idr || trustedPriceBreakdown.total_price_idr || 0)
+      ? (toNumber(logistics_tariff_idr) || 0)
       : (trustedPriceBreakdown.total_price_idr || 0);
 
     const grossTotalPrice = effectiveTotalPriceIdr;
@@ -472,8 +538,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
           package_details?.item_description || '',
           logistics_provider || null,
           logistics_service_type || null,
-          logistics_tariff_idr || null,
-          logistics_net_cost_idr || null,
+          logistics_tariff_idr ? toNumber(logistics_tariff_idr) : null,
+          logistics_net_cost_idr ? toNumber(logistics_net_cost_idr) : null,
           pickup_city || null,
           dropoff_city || null,
           resolvedPreferredCourierUserId
@@ -1019,4 +1085,3 @@ export const retryCustomerOrderMatching = async (req: Request, res: Response): P
     client.release();
   }
 };
-

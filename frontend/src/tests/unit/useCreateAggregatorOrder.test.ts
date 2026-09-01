@@ -20,10 +20,14 @@ const draft = {
   payment_type: "NON_COD" as const,
   item_value: 125000,
   weight_kg: 1.2,
+  length_cm: 10,
+  width_cm: 10,
+  height_cm: 10,
   quantity: 1,
   item_description: "Dokumen kontrak",
   category: "Dokumen",
   dangerous_goods: false,
+  insurance: false,
   delivery_notes: "Hubungi penerima sebelum antar",
   schedule_type: "now" as const,
   vehicle_type: "Motor" as const,
@@ -36,6 +40,7 @@ describe("aggregator create API contract", () => {
       service_name: "Reguler",
       price: 32000,
       net_price: 28000,
+      quote_id: "11111111-1111-4111-8111-111111111111",
     });
 
     expect(payload.service_code).toBe(AGGREGATOR_SERVICE_CODE);
@@ -51,7 +56,15 @@ describe("aggregator create API contract", () => {
     expect(() => buildAggregatorOrderPayload({ ...draft, payment_type: "COD" }, {
       service: "regular",
       price: 32000,
+      quote_id: "11111111-1111-4111-8111-111111111111",
     })).toThrow("COD aggregator belum tersedia");
+  });
+
+  it("fails closed when the selected tariff has no persisted quote id", () => {
+    expect(() => buildAggregatorOrderPayload(draft, {
+      service: "regular",
+      price: 32000,
+    })).toThrow("Quote tarif tidak tersedia");
   });
 
   it("sends a stable idempotency key and refuses a response without an order id", async () => {

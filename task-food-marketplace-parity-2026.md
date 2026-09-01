@@ -879,9 +879,10 @@ Existing shared files:
 
 - [x] Final submit calls real create mutation with quote + idempotency key.
 - [x] Persisted order reference before success navigation.
-- [ ] Payment/AWB creation sequencing explicit.
-- [ ] Refresh/retry rehydrates transaction.
+- [x] Payment creation sequencing is explicit: persisted order → payment session → server-owned payment status; AWB remains the separate AGG-2026-006 handoff.
+- [x] Refresh/retry rehydrates the pending order reference and resumes from the authenticated order detail/payment state.
 - [x] API failure cannot show success.
+- [ ] Authenticated staging verification proves persisted order/payment sequencing and refresh/retry recovery against a real enabled provider/payment sandbox.
 
 ---
 

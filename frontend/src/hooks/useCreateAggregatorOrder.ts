@@ -10,6 +10,8 @@ export type AggregatorQuote = {
   net_price?: number;
   service_name?: string;
   etd?: string;
+  etd_source?: string;
+  quote_id?: string;
 };
 
 export type AggregatorOrderDraft = {
@@ -26,10 +28,14 @@ export type AggregatorOrderDraft = {
   payment_type: "COD" | "NON_COD";
   item_value: number;
   weight_kg: number;
+  length_cm: number;
+  width_cm: number;
+  height_cm: number;
   quantity: number;
   item_description: string;
   category?: string;
   dangerous_goods: boolean;
+  insurance: boolean;
   delivery_notes?: string;
   schedule_type: "now" | "scheduled";
   scheduled_at?: string;
@@ -83,6 +89,9 @@ export function buildAggregatorOrderPayload(
   if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
     throw new Error("Tarif pengiriman dari server tidak valid");
   }
+  if (!quote.quote_id) {
+    throw new Error("Quote tarif tidak tersedia; hitung ulang tarif sebelum membuat order");
+  }
 
   return {
     pickup_address: draft.pickup_address.trim(),
@@ -96,12 +105,15 @@ export function buildAggregatorOrderPayload(
     schedule_type: draft.schedule_type,
     scheduled_at: draft.scheduled_at || undefined,
     customer_notes: draft.delivery_notes?.trim() || undefined,
-    has_insurance: false,
+    has_insurance: draft.insurance,
     item_value: draft.item_value,
     package_details: {
       item_description: draft.item_description.trim(),
       category: draft.category?.trim() || undefined,
       weight_kg: draft.weight_kg,
+      length_cm: draft.length_cm,
+      width_cm: draft.width_cm,
+      height_cm: draft.height_cm,
       quantity: draft.quantity,
       dangerous_goods: draft.dangerous_goods,
       vehicle_type: draft.vehicle_type,
@@ -112,6 +124,9 @@ export function buildAggregatorOrderPayload(
         description: draft.item_description.trim(),
         category: draft.category?.trim() || undefined,
         weight_kg: draft.weight_kg,
+        length_cm: draft.length_cm,
+        width_cm: draft.width_cm,
+        height_cm: draft.height_cm,
         quantity: draft.quantity,
         declared_value_idr: draft.item_value,
       },
@@ -123,12 +138,15 @@ export function buildAggregatorOrderPayload(
     ...(quote.net_price && quote.net_price > 0
       ? { logistics_net_cost_idr: Number(quote.net_price) }
       : {}),
+    aggregator_quote_id: quote.quote_id,
     price_breakdown: {
       service_code: AGGREGATOR_SERVICE_CODE,
       total_price_idr: totalPrice,
       provider: draft.provider,
       service_type: quote.service,
       quote_etd: quote.etd || undefined,
+      quote_etd_source: quote.etd_source || undefined,
+      aggregator_quote_id: quote.quote_id,
     },
     payment_method: "midtrans",
   };
