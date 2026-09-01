@@ -395,18 +395,27 @@ Existing shared files:
 **Files to edit**
 - `android-app-customer/app/src/main/java/com/tembus/customer/data/repository/OrderRepository.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/booking/BookingViewModel.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/payment/PaymentViewModel.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/data/api/TEMBUSApiService.kt`
 - `backend/order-service/internal/service/order_create.go`
 - `backend/order-service/internal/service/order_matching.go`
 - `backend/order-service/internal/handler/order_handler.go`
+- `backend/order-service/internal/repository/postgres_repository.go`
+- `backend/order-service/internal/repository/payout_repo.go`
+- `backend/order-service/internal/service/payout_service.go`
+- `database/migrations/20260901000001_unique_leg_payout.sql`
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/OnDemandOfferScreens.kt`
 - `android-app/app/src/main/java/com/tembus/courier/ui/components/OnDemandIncomingOfferSwipePanel.kt`
 
 **Checklist**
-- [ ] Create consumes quote + idempotency key.
-- [ ] Matching validates capability/vehicle/radius/availability.
-- [ ] Two-courier accept race has one atomic winner.
-- [ ] No-supply has retry/expand/cancel policy.
-- [ ] Reassign does not duplicate payout reservation.
+- [x] Create consumes the server quote and a stable idempotency key across Android retries; Web/admin already require the same key.
+- [x] Matching validates approved capability, vehicle/radius rules, online state, capacity, and idle/conditional availability before dispatch.
+- [x] Two-courier accept race has one atomic winner through row locking/status-guarded assignment; the loser receives `ERR_ORDER_ALREADY_ASSIGNED`.
+- [x] No-supply expands configured radii, expires offer batches, emits the no-courier event, exposes retry, and leaves the order cancellable.
+- [x] Reassign does not duplicate payout reservation: one leg-fee payout is idempotently read and protected by a unique order-leg index.
+- [ ] Authenticated staging concurrency/replay matrix and persisted DB evidence.
+
+_Implementation is complete and locally verified in commit `6ea78dbf`; authenticated staging E2E remains an external evidence gate._
 
 ---
 
