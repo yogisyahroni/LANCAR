@@ -21,6 +21,7 @@ const (
 	StatusReadyForPickup      OrderStatus = "ready_for_pickup"
 	StatusSearching           OrderStatus = "searching"
 	StatusAccepted            OrderStatus = "accepted"
+	StatusPickupArrived       OrderStatus = "pickup_arrived"
 	StatusPickingUp           OrderStatus = "picking_up"
 	StatusPickedUp            OrderStatus = "picked_up"
 	StatusInboundOrigin       OrderStatus = "inbound_origin"

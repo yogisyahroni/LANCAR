@@ -15,7 +15,7 @@ export const orderRoutes = Router();
 orderRoutes.post('/api/v1/tracking/sync', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.syncCourierTracking(req, res));
 orderRoutes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderTracking(req, res));
 orderRoutes.get('/api/v1/tracking/public', (req, res, next) => controllers.publicTracking.publicTrackingRateLimiter(req, res, next), (req, res) => controllers.publicTracking.getPublicTrackingByResi(req, res));
-orderRoutes.post('/api/v1/orders/status', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierOrderStatus(req, res));
+orderRoutes.post('/api/v1/orders/status', requireMobileOrWebAuth, requireIdempotencyKey('courier.status.update'), (req, res) => controllers.updateMobileCourierOrderStatus(req, res));
 orderRoutes.post('/api/v1/orders/scan', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
 orderRoutes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.pod.upload'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierPod(req, res));
 orderRoutes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));

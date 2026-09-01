@@ -472,7 +472,9 @@ class ProofOfDeliveryViewModel @Inject constructor(
                     .toRequestBody("text/plain".toMediaTypeOrNull())
                 val verificationType = if (CourierProofTypes.isPickupProof(normalizedProofType)) "pickup" else "delivery"
                 val verificationTypePart = verificationType.toRequestBody("text/plain".toMediaTypeOrNull())
-                val livenessScorePart = "0.95".toRequestBody("text/plain".toMediaTypeOrNull())
+                // Liveness is computed and attested by the backend/provider.
+                // Never claim a client-generated score as verification evidence.
+                val livenessScorePart = "0.0".toRequestBody("text/plain".toMediaTypeOrNull())
                 val faceRequestFile = file.asRequestBody(contentType.toMediaTypeOrNull())
                 val faceBody = MultipartBody.Part.createFormData("photo", file.name, faceRequestFile)
                 val faceResponse = apiService.verifyCourierFace(

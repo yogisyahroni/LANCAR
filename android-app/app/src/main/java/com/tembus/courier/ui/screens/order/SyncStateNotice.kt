@@ -202,6 +202,7 @@ internal fun runCourierNextAction(
     context: android.content.Context,
     flowState: CourierFlowState,
     onVerifyFace: () -> Unit,
+    onMarkPickupArrived: (String) -> Unit = {},
     onVerifyPickup: () -> Unit,
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
@@ -212,6 +213,9 @@ internal fun runCourierNextAction(
 ) {
     when (flowState.nextAction.type) {
         CourierNextActionType.VERIFY_FACE_PICKUP -> onVerifyFace()
+        CourierNextActionType.MARK_PICKUP_ARRIVED -> onMarkPickupArrived(
+            flowState.nextAction.targetStatus ?: "pickup_arrived"
+        )
         CourierNextActionType.NAVIGATE_TO_PICKUP,
         CourierNextActionType.NAVIGATE_TO_DROPOFF -> openNavigation(context, flowState.activeAddress)
         CourierNextActionType.SCAN_PICKUP -> onVerifyPickup()
@@ -229,6 +233,7 @@ internal fun runCourierNextAction(
 internal fun courierActionIcon(type: CourierNextActionType): androidx.compose.ui.graphics.vector.ImageVector {
     return when (type) {
         CourierNextActionType.VERIFY_FACE_PICKUP -> Icons.Default.Face
+        CourierNextActionType.MARK_PICKUP_ARRIVED -> Icons.Default.LocationOn
         CourierNextActionType.ACCEPT_OFFER -> Icons.Default.AssignmentTurnedIn
         CourierNextActionType.NAVIGATE_TO_PICKUP,
         CourierNextActionType.NAVIGATE_TO_DROPOFF -> Icons.Default.Navigation

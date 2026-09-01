@@ -327,6 +327,14 @@ internal fun MainScreenModalScreens(deps: MainScreenDeps) {
             onVerifyFace = {
                 openFaceVerify(order)
             },
+            onMarkPickupArrived = { arrivedStatus ->
+                orderViewModel.updateOrderStatusAndSync(
+                    orderId = order.orderId,
+                    status = arrivedStatus,
+                    notes = "Kurir mengonfirmasi sudah tiba di lokasi pickup."
+                )
+                selectedOrder = selectedOrder?.copy(status = arrivedStatus)
+            },
             onOpenTambalBanFlow = {
                 routeState = CourierRouteReducer.tambalBanFlow(order.orderId)
             },

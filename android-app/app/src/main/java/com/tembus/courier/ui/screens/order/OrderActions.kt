@@ -117,6 +117,7 @@ internal fun OrderActions(
     onCallClick: () -> Unit,
     onSosClick: () -> Unit,
     onVerifyFace: () -> Unit = {},
+    onMarkPickupArrived: (String) -> Unit = {},
     onRetrySync: () -> Unit = {},
     onUseServerVersion: () -> Unit = {}
 ) {
@@ -148,6 +149,7 @@ internal fun OrderActions(
                         context = context,
                         flowState = flowState,
                         onVerifyFace = onVerifyFace,
+                        onMarkPickupArrived = onMarkPickupArrived,
                         onVerifyPickup = onVerifyPickup,
                         onCapturePickupProof = onCapturePickupProof,
                         onCapturePod = onCapturePod,

@@ -28,7 +28,14 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 	var targetStatus domain.OrderStatus
 	switch scan.ScanType {
 	case "pickup":
-		if order.Status != domain.StatusAccepted && order.Status != domain.StatusPickingUp {
+		// The mobile on-demand proof path records arrival in the canonical
+		// order status before custody evidence. Legacy warehouse/regular scans
+		// retain their existing accepted/picking_up transition.
+		onDemandPickup := order.ServiceSubType == "food_delivery" || order.ServiceCode != ""
+		if onDemandPickup && order.Status != domain.StatusPickupArrived {
+			return fmt.Errorf("pickup arrival confirmation required before package verification (current status %s)", order.Status)
+		}
+		if !onDemandPickup && order.Status != domain.StatusAccepted && order.Status != domain.StatusPickingUp {
 			return fmt.Errorf("invalid state transition: cannot perform pickup on order in status %s", order.Status)
 		}
 		targetStatus = domain.StatusPickedUp
