@@ -252,21 +252,25 @@ class ServiceBookingViewModel @Inject constructor(
             return
         }
         val isTowing = serviceSubType.startsWith("towing")
-        if (isTowing && destinationContactName.trim().length < 2) {
-            _uiState.update { it.copy(error = "Nama bengkel atau penerima tujuan wajib diisi") }
-            return
-        }
-        if (isTowing && destinationContactPhone.filter(Char::isDigit).length !in 8..15) {
-            _uiState.update { it.copy(error = "Nomor kontak tujuan wajib berisi 8-15 digit") }
-            return
-        }
-        if (isTowing && (vehicleType.isBlank() || vehicleMake.trim().length < 2 || vehicleModel.trim().length < 2 || vehicleCondition.isBlank() || accessConstraints.trim().length < 3)) {
-            _uiState.update { it.copy(error = "Lengkapi tipe, merek, model, kondisi, dan akses lokasi kendaraan") }
-            return
-        }
-        if (isTowing && (state.dropoffLat == 0.0 || state.dropoffLng == 0.0 || state.dropoffAddress.isBlank())) {
-            _uiState.update { it.copy(error = "Pilih alamat tujuan towing sebelum membuat pesanan") }
-            return
+        if (isTowing) {
+            val trustError = validateTowingBookingTrust(
+                TowingBookingTrustInput(
+                    vehicleType = vehicleType,
+                    vehicleMake = vehicleMake,
+                    vehicleModel = vehicleModel,
+                    vehicleCondition = vehicleCondition,
+                    accessConstraints = accessConstraints,
+                    destinationAddress = state.dropoffAddress,
+                    destinationLatitude = state.dropoffLat,
+                    destinationLongitude = state.dropoffLng,
+                    destinationContactName = destinationContactName,
+                    destinationContactPhone = destinationContactPhone
+                )
+            )
+            if (trustError != null) {
+                _uiState.update { it.copy(error = trustError) }
+                return
+            }
         }
 
         viewModelScope.launch {
