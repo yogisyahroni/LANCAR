@@ -207,14 +207,14 @@ jobs:
         run: |
           docker run --rm \
             -v "${{ github.workspace }}/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
-            -v "${{ github.workspace }}/observability:/etc/prometheus/rules:ro" \
-            -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/tmp/prometheus-rules.yaml:ro" \
+            -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/etc/prometheus/rules/prometheus-rules.yaml:ro" \
+            -v "${{ github.workspace }}/observability/slo.yaml:/etc/prometheus/rules/slo.yaml:ro" \
             --entrypoint promtool \
             prom/prometheus:v3.5.0 \
             check config /etc/prometheus/prometheus.yml
           docker run --rm \
-            -v "${{ github.workspace }}/observability:/etc/prometheus/rules:ro" \
-            -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/tmp/prometheus-rules.yaml:ro" \
+            -v "${{ github.workspace }}/deploy/observability/prometheus-rules.yaml:/etc/prometheus/rules/prometheus-rules.yaml:ro" \
+            -v "${{ github.workspace }}/observability/slo.yaml:/etc/prometheus/rules/slo.yaml:ro" \
             --entrypoint promtool \
             prom/prometheus:v3.5.0 \
-            check rules /tmp/prometheus-rules.yaml /etc/prometheus/rules/slo.yaml
+            check rules /etc/prometheus/rules/prometheus-rules.yaml /etc/prometheus/rules/slo.yaml
