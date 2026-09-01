@@ -194,7 +194,20 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun validateDeepLinkOrFinish(uri: Uri) {
-        val orderId = uri.getQueryParameter("id") ?: uri.lastPathSegment
+        val pathSegments = uri.pathSegments
+        val validHost = when (uri.host) {
+            "orders" -> pathSegments.size in 1..2 && (pathSegments.size == 1 || pathSegments[1] in setOf("chat", "tracking"))
+            "booking" -> pathSegments.isEmpty()
+            "debug" -> BuildConfig.DEBUG && pathSegments.size >= 3 && pathSegments[0] == "uat" && pathSegments[1] == "chat"
+            else -> false
+        }
+        if (uri.scheme != "tembus" || !validHost) {
+            Toast.makeText(this, "Link tidak valid", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        val orderId = uri.getQueryParameter("id") ?: pathSegments.firstOrNull()
         // Only allow alphanumeric + hyphen in order IDs (UUID format)
         if (orderId != null && !orderId.matches(Regex("^[a-zA-Z0-9-]+$"))) {
             Toast.makeText(this, "Link tidak valid", Toast.LENGTH_SHORT).show()

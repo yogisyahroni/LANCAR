@@ -143,6 +143,12 @@ fun RootNavGraph(
                     navController.navigate(Screen.Tracking.createRoute(orderId)) { launchSingleTop = true }
                 }
             }
+            path.size >= 2 && path[0] == "orders" -> {
+                val orderId = path[1]
+                if (orderId.isNotBlank()) {
+                    navController.navigate(Screen.OrderDetail.createRoute(orderId)) { launchSingleTop = false }
+                }
+            }
         }
         onDeepLinkConsumed()
     }
@@ -615,6 +621,9 @@ private fun openForegroundNotification(
     val promoCode = runCatching { Uri.parse(deepLink).getQueryParameter("promo") }.getOrNull()
 
     when {
+        event.target == "customer_order_detail" && orderId.isNotBlank() -> {
+            navController.navigate(Screen.OrderDetail.createRoute(orderId)) { launchSingleTop = false }
+        }
         event.category == "message" && orderId.isNotBlank() -> {
             navController.navigate(Screen.Chat.createRoute(orderId, null)) { launchSingleTop = true }
         }

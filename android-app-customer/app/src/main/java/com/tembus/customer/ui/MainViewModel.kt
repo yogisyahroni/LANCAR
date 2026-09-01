@@ -11,6 +11,7 @@ import com.tembus.customer.data.session.AuthSessionManager
 import com.tembus.customer.data.session.SessionInvalidationReason
 import com.tembus.customer.ui.navigation.Screen
 import com.tembus.customer.util.SocketManager
+import com.tembus.customer.util.NotificationEventVersionStore
 import com.tembus.customer.webrtc.CallInviteStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,7 +29,8 @@ class MainViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val onboardingPreferences: OnboardingPreferences,
     private val socketManager: SocketManager,
-    private val callInviteStore: CallInviteStore
+    private val callInviteStore: CallInviteStore,
+    private val notificationEventVersionStore: NotificationEventVersionStore
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(true)
@@ -148,6 +150,9 @@ class MainViewModel @Inject constructor(
     private fun observeForegroundNotifications() {
         viewModelScope.launch {
             socketManager.notificationEvents.collect { event ->
+                if (!notificationEventVersionStore.accept(event.orderId, event.eventVersion)) {
+                    return@collect
+                }
                 val category = event.category.lowercase()
                 val priority = event.priority.lowercase()
                 val shouldShow = category == "message" ||

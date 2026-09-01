@@ -25,6 +25,32 @@ type pushService struct {
 	prefsRepo       domain.NotificationRepository
 }
 
+// enrichPushData keeps every order notification self-describing. The event
+// version is derived from the persisted order update timestamp so clients can
+// reject an older notification without trusting mutable push text.
+func enrichPushData(order *domain.Order, data map[string]string, target string) map[string]string {
+	enriched := make(map[string]string, len(data)+6)
+	for key, value := range data {
+		enriched[key] = value
+	}
+	if order.ServiceCode != "" {
+		enriched["service_code"] = order.ServiceCode
+	}
+	if order.ServiceSubType != "" {
+		enriched["service_sub_type"] = order.ServiceSubType
+	}
+	if !order.UpdatedAt.IsZero() {
+		enriched["event_version"] = fmt.Sprintf("%d", order.UpdatedAt.UnixNano())
+	}
+	if target != "" {
+		enriched["target"] = target
+	}
+	if order.ID != "" {
+		enriched["deep_link"] = fmt.Sprintf("tembus://orders/%s", order.ID)
+	}
+	return enriched
+}
+
 func NewPushService(dtr domain.DeviceTokenRepository, or domain.OrderRepository, prefsRepo ...domain.NotificationRepository) domain.PushService {
 	s := &pushService{deviceTokenRepo: dtr, orderRepo: or}
 	if len(prefsRepo) > 0 {
@@ -69,12 +95,12 @@ func (s *pushService) NotifyMerchantNewOrder(ctx context.Context, orderID string
 		return nil
 	}
 
-	data := map[string]string{
+	data := enrichPushData(order, map[string]string{
 		"type":        "new_food_order",
 		"order_id":    orderID,
 		"order_no":    order.OrderNumber,
 		"merchant_id": *order.MerchantID,
-	}
+	}, "merchant_order")
 
 	sent := 0
 	for _, token := range devices {
@@ -117,12 +143,12 @@ func (s *pushService) NotifyCustomerOrderCancelled(ctx context.Context, orderID 
 		return nil
 	}
 
-	data := map[string]string{
+	data := enrichPushData(order, map[string]string{
 		"type":     "order_cancelled",
 		"order_id": orderID,
 		"order_no": order.OrderNumber,
 		"reason":   message,
-	}
+	}, "customer_order_detail")
 
 	sent := 0
 	for _, token := range devices {
@@ -164,12 +190,12 @@ func (s *pushService) NotifyCustomerOrderUpdated(ctx context.Context, orderID st
 		return nil
 	}
 
-	data := map[string]string{
+	data := enrichPushData(order, map[string]string{
 		"type":     "order_updated",
 		"order_id": orderID,
 		"order_no": order.OrderNumber,
 		"reason":   message,
-	}
+	}, "customer_order_detail")
 
 	sent := 0
 	for _, token := range devices {
@@ -206,6 +232,7 @@ func (s *pushService) resolveOrder(ctx context.Context, orderID string) (*domain
 
 // sendToCustomer — helper: kirim push data-only ke semua device customer.
 func (s *pushService) sendToCustomer(ctx context.Context, order *domain.Order, data map[string]string) error {
+	data = enrichPushData(order, data, "customer_order_detail")
 	customerUUID, err := uuid.Parse(order.CustomerID)
 	if err != nil {
 		return fmt.Errorf("order %s customer_id invalid: %w", order.ID, err)
@@ -236,6 +263,7 @@ func (s *pushService) sendToCustomer(ctx context.Context, order *domain.Order, d
 // sendToMerchant — helper: kirim push data-only ke semua device owner merchant.
 // Order tanpa merchant_id (parcel biasa) di-skip diam-diam.
 func (s *pushService) sendToMerchant(ctx context.Context, order *domain.Order, data map[string]string) error {
+	data = enrichPushData(order, data, "merchant_order")
 	if order.MerchantID == nil || *order.MerchantID == "" {
 		return nil // bukan order food — skip
 	}
