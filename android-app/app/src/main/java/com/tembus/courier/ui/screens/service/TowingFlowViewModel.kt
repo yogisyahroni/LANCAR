@@ -45,7 +45,9 @@ data class TowingFlowUiState(
                 // Titik lokasi layanan (soft-gate arrival 100m)
                 val pickupLatitude: Double? = null,
                 val pickupLongitude: Double? = null,
-                val inspectionBeforePhotoUrl: String? = null
+                val inspectionBeforePhotoUrl: String? = null,
+                val loadingPhotoUrl: String? = null,
+                val unloadingPhotoUrl: String? = null
             )
 
 @HiltViewModel
@@ -107,7 +109,9 @@ class TowingFlowViewModel @Inject constructor(
                                                                                                                                                         orderNumber = order.orderNumber.orEmpty(),
                                                                                                                                                         pickupLatitude = order.pickupLatitude,
                                                                                                                                                         pickupLongitude = order.pickupLongitude,
-                                                                                                                                                        inspectionBeforePhotoUrl = proofDraftStore.getBeforePhotoUrl(orderId, "towing"),
+                                                inspectionBeforePhotoUrl = proofDraftStore.getBeforePhotoUrl(orderId, "towing"),
+                                                loadingPhotoUrl = proofDraftStore.getProofUrl(orderId, "towing", "loading_photo"),
+                                                unloadingPhotoUrl = proofDraftStore.getProofUrl(orderId, "towing", "unloading_photo"),
                                                 earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,
@@ -240,6 +244,38 @@ class TowingFlowViewModel @Inject constructor(
             val photoUrl = uploadResult.getOrNull().orEmpty()
             proofDraftStore.saveBeforePhotoUrl(orderId, "towing", photoUrl)
             orderRepository.updateOrderStatus(orderId, "loading")
+            loadOrder(orderId)
+        }
+    }
+
+    fun captureLoading(loadingPhoto: Bitmap) {
+        captureProofAndAdvance(loadingPhoto, "loading_photo", "in_transit")
+    }
+
+    fun captureUnloading(unloadingPhoto: Bitmap) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val uploadResult = proofUploader.upload(orderId, "towing", "unloading_photo", unloadingPhoto)
+            if (uploadResult.isFailure) {
+                _uiState.update { it.copy(isLoading = false, error = uploadResult.exceptionOrNull()?.message ?: "Foto unloading belum berhasil diunggah.") }
+                return@launch
+            }
+            proofDraftStore.saveProofUrl(orderId, "towing", "unloading_photo", uploadResult.getOrNull().orEmpty())
+            _uiState.update { it.copy(isLoading = false, unloadingPhotoUrl = uploadResult.getOrNull()) }
+            loadOrder(orderId)
+        }
+    }
+
+    private fun captureProofAndAdvance(photo: Bitmap, proofType: String, nextStatus: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val uploadResult = proofUploader.upload(orderId, "towing", proofType, photo)
+            if (uploadResult.isFailure) {
+                _uiState.update { it.copy(isLoading = false, error = uploadResult.exceptionOrNull()?.message ?: "Bukti loading belum berhasil diunggah.") }
+                return@launch
+            }
+            proofDraftStore.saveProofUrl(orderId, "towing", proofType, uploadResult.getOrNull().orEmpty())
+            orderRepository.updateOrderStatus(orderId, nextStatus)
             loadOrder(orderId)
         }
     }

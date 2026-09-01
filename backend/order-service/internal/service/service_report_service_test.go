@@ -81,6 +81,8 @@ func TestServiceReportRequiresTowingProofs(t *testing.T) {
 		OrderID:               "order-1",
 		CourierID:             "courier-1",
 		VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		LoadingPhotoURL:       reportStringPtr("/uploads/loading.jpg"),
+		UnloadingPhotoURL:     reportStringPtr("/uploads/unloading.jpg"),
 		CompletionPhotoURL:    reportStringPtr("/uploads/completion.jpg"),
 		SignatureURL:          nil,
 		CompletedAt:           &now,
@@ -96,6 +98,23 @@ func TestServiceReportRequiresTowingProofs(t *testing.T) {
 		OrderID:               "order-1",
 		CourierID:             "courier-1",
 		VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		CompletionPhotoURL:    reportStringPtr("/uploads/completion.jpg"),
+		SignatureURL:          reportStringPtr("/uploads/signature.jpg"),
+		CompletedAt:           &now,
+	})
+	if !errors.Is(err, domain.ErrInvalidServiceReport) {
+		t.Fatalf("expected invalid towing report error when loading/unloading proof is missing, got %v", err)
+	}
+	if repo.towingCreated {
+		t.Fatal("repo should not be called when towing loading/unloading proof is missing")
+	}
+
+	err = svc.CreateTowingReport(context.Background(), &domain.TowingReport{
+		OrderID:               "order-1",
+		CourierID:             "courier-1",
+		VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		LoadingPhotoURL:       reportStringPtr("/uploads/loading.jpg"),
+		UnloadingPhotoURL:     reportStringPtr("/uploads/unloading.jpg"),
 		CompletionPhotoURL:    reportStringPtr("/uploads/completion.jpg"),
 		SignatureURL:          reportStringPtr("/uploads/signature.jpg"),
 		CompletedAt:           &now,
@@ -134,6 +153,7 @@ func TestCreateTowingReportAcceptsStructuredDamageReport(t *testing.T) {
 	now := time.Now()
 	report := &domain.TowingReport{
 		OrderID: "order-damage", VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		LoadingPhotoURL: reportStringPtr("/uploads/loading.jpg"), UnloadingPhotoURL: reportStringPtr("/uploads/unloading.jpg"),
 		CompletionPhotoURL: reportStringPtr("/uploads/completion.jpg"), SignatureURL: reportStringPtr("/uploads/signature.jpg"),
 		DamageReport: &domain.TowingDamageReport{Areas: []string{"front_bumper", "left_door"}, Severity: "minor", SafeToTransport: true},
 		CompletedAt:  &now,

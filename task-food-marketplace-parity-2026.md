@@ -1183,10 +1183,10 @@ Existing shared files:
 - `backend/order-service/internal/domain/tambalban.go`
 - `backend/order-service/internal/handler/tambalban_handler.go`
 
-- [ ] Before-condition proof.
-- [ ] Loading proof before transit.
-- [ ] Unloading/destination verification before complete.
-- [ ] Completion proof/signature server validated.
+  - [x] Before-condition proof.
+  - [x] Loading proof before transit.
+  - [x] Unloading/destination verification before complete.
+  - [x] Completion proof/signature server validated.
 
 ## TOW-2026-005 — Damage claim protection [P0]
 - [ ] Before evidence immutable after transit begins.
