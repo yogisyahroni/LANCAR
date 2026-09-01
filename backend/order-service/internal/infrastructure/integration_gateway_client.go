@@ -68,18 +68,53 @@ type createAWBRequest struct {
 
 // createAWBResponseData adalah field data dalam respons integration-gateway.
 type createAWBResponseData struct {
-	AWBNumber   string `json:"awb_number"`
-	Provider    string `json:"provider"`
-	ServiceType string `json:"service_type"`
-	BookingCode string `json:"booking_code"`
+	AWBNumber   string  `json:"awb_number"`
+	Provider    string  `json:"provider"`
+	ServiceType string  `json:"service_type"`
+	BookingCode string  `json:"booking_code"`
 	TotalAmount float64 `json:"total_amount"`
 }
 
 // createAWBResponseEnvelope adalah wrapper respons standar integration-gateway.
 type createAWBResponseEnvelope struct {
-	Success bool                  `json:"success"`
-	Message string                `json:"message"`
+	Success bool                   `json:"success"`
+	Message string                 `json:"message"`
 	Data    *createAWBResponseData `json:"data"`
+}
+
+func (c *IntegrationGatewayClient) ListProviders(ctx context.Context) ([]domain.LogisticsProviderDescriptor, error) {
+	url := c.baseURL + "/api/internal/logistics/providers"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("provider_catalog: create http request: %w", err)
+	}
+	httpReq.Header.Set("X-Internal-Api-Key", c.apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("provider_catalog: http do: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("provider_catalog: read response body: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("provider_catalog: integration-gateway returned status %d", resp.StatusCode)
+	}
+
+	var envelope struct {
+		Success bool                                 `json:"success"`
+		Data    []domain.LogisticsProviderDescriptor `json:"data"`
+		Message string                               `json:"message"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nil, fmt.Errorf("provider_catalog: unmarshal response: %w", err)
+	}
+	if !envelope.Success {
+		return nil, fmt.Errorf("provider_catalog: integration-gateway reported failure: %s", envelope.Message)
+	}
+	return envelope.Data, nil
 }
 
 // CreateAWB mengirim request pembuatan AWB ke integration-gateway.
@@ -229,14 +264,14 @@ func (c *IntegrationGatewayClient) CheckTariff(ctx context.Context, req domain.C
 	// Struktur data di dalam envelope menggunakan TariffResponse dari domain gateway
 	// yang sudah menggunakan TariffGross int64 dengan JSON tag "tariff_gross".
 	var envelope struct {
-		Success bool `json:"success"`
+		Success bool   `json:"success"`
 		Message string `json:"message"`
 		Data    *struct {
 			Provider string `json:"provider"`
 			Services []struct {
 				ServiceCode   string `json:"service_code"`
 				ServiceName   string `json:"service_name"`
-				TariffGross   int64  `json:"tariff_gross"`   // ← field name setelah fix domain
+				TariffGross   int64  `json:"tariff_gross"` // ← field name setelah fix domain
 				EstimatedDays string `json:"estimated_days"`
 			} `json:"services"`
 		} `json:"data"`

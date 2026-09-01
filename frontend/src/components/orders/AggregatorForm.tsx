@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { useLogisticsProviders } from "@/hooks/useLogisticsProviders";
 import {
   Loader2, MapPin, ArrowRight, Check, Info, TrendingDown,
   Package, Truck, ChevronRight, Plus, Navigation, X, Store
@@ -52,22 +53,7 @@ interface AggregatorFormProps {
 }
 
 // ─── Constants ─────────────────────────────────────────────────────
-const PROVIDERS = [
-  { id: "jne",      name: "JNE",      fullName: "JNE Express",  color: "text-blue-400",   accent: "border-blue-400 bg-blue-400/10",     logo: "🚚" },
-  { id: "jnt",      name: "J&T",      fullName: "J&T Express",  color: "text-red-400",    accent: "border-red-400 bg-red-400/10",       logo: "🔴" },
-  { id: "sicepat",  name: "SiCepat",  fullName: "SiCepat",      color: "text-orange-400", accent: "border-orange-400 bg-orange-400/10", logo: "⚡" },
-  { id: "anteraja", name: "AnterAja", fullName: "AnterAja",     color: "text-green-400",  accent: "border-green-400 bg-green-400/10",   logo: "🟢" },
-];
-
-const MOCK_CITIES: CityOption[] = [
-  { code: "CGK", name: "Jakarta",       type: "both" },
-  { code: "BDO", name: "Bandung",       type: "both" },
-  { code: "SRG", name: "Semarang",      type: "both" },
-  { code: "SUB", name: "Surabaya",      type: "both" },
-  { code: "JOG", name: "Yogyakarta",    type: "both" },
-  { code: "DPS", name: "Denpasar/Bali", type: "both" },
-  { code: "MDN", name: "Medan",         type: "both" },
-];
+// Provider and location options are supplied by authenticated backend APIs.
 
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatPrice(price: number): string {
@@ -284,7 +270,7 @@ function AddressModal({
 
 // ─── Component ─────────────────────────────────────────────────────
 export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
-  const [cities, setCities] = useState<CityOption[]>(MOCK_CITIES);
+  const { providers, isLoading: isLoadingProviders, error: providerError } = useLogisticsProviders();
   const [originCode, setOriginCode] = useState("");
   const [destCode, setDestCode] = useState("");
   const [weight, setWeight] = useState(1);
@@ -303,14 +289,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
 
   const volumeCm3 = calcVolumeCm3(lengthCm, widthCm, heightCm);
   const vehicleRec = getVehicleRec(volumeCm3, weight);
-  const selectedProvider = PROVIDERS.find(p => p.id === selectedProviderId);
-
-  useEffect(() => {
-    api.get("/locations/cities").then((res) => {
-      const data = res.data?.data || res.data;
-      if (Array.isArray(data) && data.length > 0) setCities(data);
-    }).catch(() => setCities(MOCK_CITIES));
-  }, []);
+  const selectedProvider = providers.find(p => p.id === selectedProviderId);
 
   useEffect(() => {
     if (!originCode || !destCode || !weight || !selectedProviderId) {
@@ -327,7 +306,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       setSelectedIndex(null);
 
       try {
-        const res = await api.get("/logistics/check-tariff", {
+        const res = await api.get("/logistics/tariff", {
           params: {
             provider: selectedProviderId,
             origin_code: originCode,
@@ -340,12 +319,12 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
 
         const allTariffs: TariffOption[] = items.map((item: any) => ({
           provider: selectedProviderId,
-          provider_name: PROVIDERS.find(p => p.id === selectedProviderId)?.fullName || selectedProviderId,
+          provider_name: providers.find(p => p.id === selectedProviderId)?.name || selectedProviderId,
           service: item.service_code || item.service || "reg",
           service_name: item.service_name || item.service || "Reguler",
           price: Number(item.tariff_gross || item.price || item.total_price_idr || 0),
           net_price: Number(item.tariff_net || 0),
-          etd: item.etd || item.estimated_days || "1-3 hari",
+          etd: item.etd || item.estimated_days || "",
           weight_kg: Number(item.weight_kg || weight),
         }));
 
@@ -375,14 +354,14 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [originCode, destCode, weight, selectedProviderId]);
+  }, [originCode, destCode, weight, selectedProviderId, providers]);
 
   const selectTariff = (index: number) => {
     setSelectedIndex(index);
     const tariff = tariffs[index];
     if (tariff && onProviderSelect) {
-      const originCityName = cities.find(c => c.code === originCode)?.name || originCode;
-      const destCityName = cities.find(c => c.code === destCode)?.name || destCode;
+      const originCityName = originCode;
+      const destCityName = destCode;
       const pickupFull = pickupAddress
         ? `Toko: ${pickupAddress.shopName || "-"}, PIC: ${pickupAddress.picName || "-"}, HP: ${pickupAddress.phone || "-"} | ${pickupAddress.city} | ${pickupAddress.address}`
         : undefined;
@@ -412,7 +391,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
           <label className="text-sm font-semibold text-foreground">Pilih Ekspedisi</label>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {PROVIDERS.map((provider) => (
+          {providers.map((provider) => (
             <button
               key={provider.id}
               type="button"
@@ -420,24 +399,27 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
               className={[
                 "rounded-xl border-2 px-3 py-3.5 text-center transition-all duration-150",
                 selectedProviderId === provider.id
-                  ? provider.accent + " shadow-lg scale-[1.02]"
+                  ? "border-indigo-400 bg-indigo-400/10 shadow-lg scale-[1.02]"
                   : "border-white/10 bg-background/40 hover:border-white/20 hover:bg-white/5",
               ].join(" ")}
             >
-              <span className="block text-xl mb-1">{provider.logo}</span>
-              <span className={`block text-sm font-bold ${selectedProviderId === provider.id ? provider.color : "text-foreground"}`}>
+              <span className="block text-sm font-bold text-foreground">
                 {provider.name}
               </span>
               {selectedProviderId === provider.id && (
-                <Check className={`mx-auto mt-1 h-3 w-3 ${provider.color}`} />
+                <Check className="mx-auto mt-1 h-3 w-3 text-indigo-400" />
               )}
             </button>
           ))}
         </div>
+        {isLoadingProviders && <p className="mt-2 text-xs text-muted-foreground">Memuat ekspedisi yang tersedia...</p>}
+        {!isLoadingProviders && providers.length === 0 && (
+          <p className="mt-2 text-xs text-destructive">{providerError || "Belum ada ekspedisi yang tersedia dari server."}</p>
+        )}
         {selectedProvider && (
           <p className="mt-2 text-xs text-muted-foreground">
             Menampilkan layanan dari{" "}
-            <span className={`font-semibold ${selectedProvider.color}`}>{selectedProvider.fullName}</span>
+            <span className="font-semibold text-foreground">{selectedProvider.name}</span>
           </p>
         )}
       </div>
@@ -511,16 +493,13 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Kota Asal</label>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-400" />
-              <select
+              <input
                 value={originCode}
-                onChange={(e) => setOriginCode(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-              >
-                <option value="">Pilih kota asal...</option>
-                {cities.filter(c => c.type === "origin" || c.type === "both").map(city => (
-                  <option key={city.code} value={city.code}>{city.name}</option>
-                ))}
-              </select>
+                onChange={(e) => setOriginCode(e.target.value.toUpperCase())}
+                placeholder="Kode lokasi asal provider"
+                aria-label="Kode lokasi asal provider"
+                className="w-full rounded-lg border border-white/10 bg-background/50 pl-10 pr-3 py-2.5 text-sm uppercase focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
             </div>
           </div>
           <div className="flex justify-center pb-2">
@@ -530,18 +509,13 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Kota Tujuan</label>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-emerald-400" />
-              <select
+              <input
                 value={destCode}
-                onChange={(e) => setDestCode(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-brand-emerald-400 focus:outline-none focus:ring-1 focus:ring-brand-emerald-400"
-              >
-                <option value="">Pilih kota tujuan...</option>
-                {cities
-                  .filter(c => (c.type === "destination" || c.type === "both") && c.code !== originCode)
-                  .map(city => (
-                    <option key={city.code} value={city.code}>{city.name}</option>
-                  ))}
-              </select>
+                onChange={(e) => setDestCode(e.target.value.toUpperCase())}
+                placeholder="Kode lokasi tujuan provider"
+                aria-label="Kode lokasi tujuan provider"
+                className="w-full rounded-lg border border-white/10 bg-background/50 pl-10 pr-3 py-2.5 text-sm uppercase focus:border-brand-emerald-400 focus:outline-none focus:ring-1 focus:ring-brand-emerald-400"
+              />
             </div>
           </div>
         </div>
@@ -614,14 +588,14 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">5</span>
             <label className="text-sm font-semibold text-foreground">
-              Pilih Layanan {selectedProvider?.fullName}
+              Pilih Layanan {selectedProvider?.name}
             </label>
           </div>
 
           {isLoading ? (
             <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 px-4 py-5 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Memuat layanan {selectedProvider?.fullName}...
+              Memuat layanan {selectedProvider?.name}...
             </div>
           ) : error ? (
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-100">

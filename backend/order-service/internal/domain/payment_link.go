@@ -40,10 +40,10 @@ type PaymentLink struct {
 	StoreName         string            `json:"store_name,omitempty"`
 	// RecipientPhone adalah nomor HP konsignee (penerima paket) — opsional.
 	// Dipakai untuk broadcast WhatsApp saat link pembayaran berhasil dibuat.
-	RecipientPhone       string `json:"recipient_phone,omitempty"`
-	RecipientName        string `json:"recipient_name,omitempty"`
-	LogisticsProvider    string `json:"logistics_provider,omitempty"`
-	LogisticsServiceType string `json:"logistics_service_type,omitempty"`
+	RecipientPhone       string    `json:"recipient_phone,omitempty"`
+	RecipientName        string    `json:"recipient_name,omitempty"`
+	LogisticsProvider    string    `json:"logistics_provider,omitempty"`
+	LogisticsServiceType string    `json:"logistics_service_type,omitempty"`
 	CreatedAt            time.Time `json:"created_at"`
 	UpdatedAt            time.Time `json:"updated_at"`
 	PaymentURL           string    `json:"payment_url,omitempty"`
@@ -65,9 +65,9 @@ type PaymentLinkRepository interface {
 }
 
 type CreatePaymentLinkRequest struct {
-	ItemName       string  `json:"item_name" validate:"required"`
-	ItemPrice      int64   `json:"item_price" validate:"required,gt=0"`
-	ItemImageURL   string  `json:"item_image_url" validate:"required"`
+	ItemName     string `json:"item_name" validate:"required"`
+	ItemPrice    int64  `json:"item_price" validate:"required,gt=0"`
+	ItemImageURL string `json:"item_image_url" validate:"required"`
 	// ServiceCode wajib untuk mode on-demand (kode layanan kurir p2p).
 	// Untuk mode 3PL, field ini boleh kosong — yang dipakai adalah LogisticsServiceType.
 	ServiceCode    string  `json:"service_code,omitempty"`
@@ -130,6 +130,20 @@ type AWBClient interface {
 	CreateAWB(ctx context.Context, req AWBRequest) (*AWBResponse, error)
 	SendWhatsApp(ctx context.Context, to, message string) error
 	CheckTariff(ctx context.Context, req CheckTariffRequest) (*CheckTariffResponse, error)
+}
+
+// LogisticsProviderDescriptor is the credential-free provider catalog
+// projection returned by integration-gateway. It is intentionally outside
+// AWBClient so existing payment-link adapters remain source-compatible.
+type LogisticsProviderDescriptor struct {
+	ID           string   `json:"id"`
+	Code         string   `json:"code"`
+	Name         string   `json:"name"`
+	Capabilities []string `json:"capabilities"`
+}
+
+type LogisticsProviderCatalog interface {
+	ListProviders(ctx context.Context) ([]LogisticsProviderDescriptor, error)
 }
 
 type CheckTariffRequest struct {

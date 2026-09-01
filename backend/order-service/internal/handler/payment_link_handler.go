@@ -180,7 +180,7 @@ func (h *PaymentLinkHandler) HandleWebhook(w http.ResponseWriter, r *http.Reques
 	}
 
 	serverKey := h.configRepo.GetStringConfig(r.Context(), "midtrans_server_key", os.Getenv("MIDTRANS_SERVER_KEY"))
-	
+
 	// Validate signature
 	// SHA512(order_id + status_code + gross_amount + server_key)
 	hash := sha512.New()
@@ -218,7 +218,7 @@ func (h *PaymentLinkHandler) CheckTariff(w http.ResponseWriter, r *http.Request)
 
 	origin := r.URL.Query().Get("origin_code")
 	dest := r.URL.Query().Get("destination_code")
-	
+
 	weightStr := r.URL.Query().Get("weight_kg")
 	weight, _ := strconv.ParseFloat(weightStr, 64)
 	if weight <= 0 {
@@ -236,4 +236,23 @@ func (h *PaymentLinkHandler) CheckTariff(w http.ResponseWriter, r *http.Request)
 		"success": true,
 		"data":    resp,
 	})
+}
+
+func (h *PaymentLinkHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	catalog, ok := h.svc.(domain.LogisticsProviderCatalog)
+	if !ok {
+		http.Error(w, "Logistics provider catalog is not configured", http.StatusServiceUnavailable)
+		return
+	}
+	providers, err := catalog.ListProviders(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "data": providers})
 }

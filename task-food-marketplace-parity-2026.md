@@ -814,7 +814,7 @@ Existing shared files:
 - [ ] Destination resolved to canonical/provider-compatible location code.
 - [ ] Provider/service list comes from backend capability registry.
 - [ ] Provider circuit-open/unavailable not selectable.
-- [ ] No production mock city/provider fallback.
+- [x] No production mock city/provider fallback.
 
 ---
 

@@ -23,28 +23,14 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AddressPicker } from "./AddressPicker";
+import { useLogisticsProviders } from "@/hooks/useLogisticsProviders";
 
 // ─── Types & Constants ──────────────────────────────────────────────────
-const PROVIDERS = [
-  { id: "jne", name: "JNE Express", color: "text-blue-400", border: "border-blue-400" },
-  { id: "jnt", name: "J&T Express", color: "text-red-400", border: "border-red-400" },
-  { id: "sicepat", name: "SiCepat", color: "text-orange-400", border: "border-orange-400" },
-  { id: "anteraja", name: "AnterAja", color: "text-green-400", border: "border-green-400" },
-];
-
-const mockCities = [
-  { code: "CGK", name: "Jakarta", type: "both" },
-  { code: "BDO", name: "Bandung", type: "both" },
-  { code: "SRG", name: "Semarang", type: "both" },
-  { code: "SUB", name: "Surabaya", type: "both" },
-  { code: "JOG", name: "Yogyakarta", type: "both" },
-  { code: "DPS", name: "Denpasar/Bali", type: "both" },
-  { code: "MDN", name: "Medan", type: "both" },
-];
-
-// Step 1: Pick Up — origin_code removed from UI, defaulted to CGK (Jakarta)
+// Step 1: Pick Up — provider location code is explicit until the backend
+// location-normalization flow supplies a canonical mapping.
 const step1Schema = z.object({
   provider: z.string().min(1, "Pilih Ekspedisi"),
+  origin_code: z.string().min(1, "Isi kode lokasi pickup provider"),
   pickup_address: z.string().min(5, "Alamat pickup minimal 5 karakter"),
   pickup_location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(),
   schedule_type: z.enum(["now", "scheduled"]).default("now"),
@@ -56,6 +42,13 @@ const step1Schema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["scheduled_at"],
       message: "Pilih tanggal dan waktu pickup",
+    });
+  }
+  if (!data.pickup_location) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["pickup_location"],
+      message: "Tentukan titik pickup agar lokasi dapat divalidasi",
     });
   }
 });
@@ -99,7 +92,7 @@ export function AggregatorWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [orderMode, setOrderMode] = useState<"manual" | "upload" | null>(null);
-  const [cities, setCities] = useState(mockCities);
+  const { providers, isLoading: isLoadingProviders, error: providerError } = useLogisticsProviders();
   const [tariffs, setTariffs] = useState<any[]>([]);
   const [isLoadingTariff, setIsLoadingTariff] = useState(false);
   const [tariffError, setTariffError] = useState<string | null>(null);
@@ -216,12 +209,10 @@ export function AggregatorWizard() {
 
   // Initialize unified form — NO global resolver; we validate per-step manually
   // to avoid Zod v4 ↔ @hookform/resolvers incompatibility (uncaught ZodError).
-  // origin_code is removed from UI; always defaults to CGK (Jakarta) for tariff calc.
-  const ORIGIN_CODE = "CGK";
-
   const methods = useForm<WizardValues>({
     defaultValues: {
       provider: "",
+      origin_code: "",
       pickup_address: "",
       schedule_type: "now",
       destination_code: "",
@@ -259,12 +250,17 @@ export function AggregatorWizard() {
       setTariffError(null);
       
       const values = methods.getValues();
+      if (!values.origin_code) {
+        setTariffError("Kode lokasi pickup provider belum diisi.");
+        setIsLoadingTariff(false);
+        return;
+      }
 
       try {
-        const res = await api.get("/logistics/check-tariff", {
+        const res = await api.get("/logistics/tariff", {
           params: {
             provider: values.provider,
-            origin_code: ORIGIN_CODE,
+            origin_code: values.origin_code,
             destination_code: values.destination_code,
             weight_kg: values.weight_kg,
           } as any,
@@ -278,7 +274,7 @@ export function AggregatorWizard() {
           service_name: item.service_name || item.service || "Reguler",
           price: Number(item.tariff_gross || item.price || item.total_price_idr || 0),
           net_price: Number(item.tariff_net || 0),
-          etd: item.etd || item.estimated_days || "1-3 hari",
+          etd: item.etd || item.estimated_days || "",
         }));
 
         allTariffs.sort((a, b) => a.price - b.price);
@@ -399,7 +395,7 @@ export function AggregatorWizard() {
               <div>
                 <label className="mb-3 block text-base font-semibold text-foreground">1. Pilih Ekspedisi</label>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {PROVIDERS.map((provider) => (
+                  {providers.map((provider) => (
                     <button
                       key={provider.id}
                       type="button"
@@ -407,15 +403,31 @@ export function AggregatorWizard() {
                       className={[
                         "rounded-xl border-2 px-4 py-4 text-center transition-all",
                         currentProvider === provider.id
-                          ? `${provider.border} bg-white/10 shadow-lg shadow-white/5`
+                          ? "border-indigo-400 bg-white/10 shadow-lg shadow-white/5"
                           : "border-white/10 bg-background/40 hover:bg-white/5 hover:border-white/20",
                       ].join(" ")}
                     >
-                      <span className={`block font-bold ${provider.color}`}>{provider.name}</span>
+                      <span className="block font-bold text-foreground">{provider.name}</span>
                     </button>
                   ))}
                 </div>
+                {isLoadingProviders && <p className="mt-2 text-xs text-muted-foreground">Memuat ekspedisi yang tersedia...</p>}
+                {!isLoadingProviders && providers.length === 0 && (
+                  <p className="mt-2 text-xs text-destructive">{providerError || "Belum ada ekspedisi yang tersedia dari server."}</p>
+                )}
                 {errors.provider && <p className="mt-2 text-xs text-destructive">{errors.provider.message}</p>}
+              </div>
+
+              <div className="h-px bg-white/10" />
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Kode lokasi pickup provider</label>
+                <input
+                  {...register("origin_code")}
+                  placeholder="Diisi dari mapping lokasi provider"
+                  className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm uppercase focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                />
+                {errors.origin_code && <p className="mt-1 text-xs text-destructive">{errors.origin_code.message}</p>}
               </div>
 
               <div className="h-px bg-white/10" />
@@ -527,13 +539,13 @@ export function AggregatorWizard() {
                     <span className="text-base">🔄</span> Select Courier
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {PROVIDERS.map(p => (
+                    {providers.filter(p => p.id === watch("provider")).map(p => (
                       <span
                         key={p.id}
                         className={[
                           "relative inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
                           watch("provider") === p.id
-                            ? `${p.border} ${p.color} bg-white/5`
+                            ? "border-indigo-400 text-foreground bg-white/5"
                             : "border-white/10 text-muted-foreground",
                         ].join(" ")}
                       >
@@ -693,15 +705,11 @@ export function AggregatorWizard() {
                         <p className="mb-2 text-xs text-muted-foreground/70">Masukkan nama kota / kecamatan (setidaknya 4 karakter)</p>
                         <div className="relative">
                           <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-emerald-400" />
-                          <select
+                          <input
                             {...register("destination_code")}
-                            className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                          >
-                            <option value="">Pilih kota / kecamatan...</option>
-                            {cities.filter(c => c.type === "destination" || c.type === "both").map(city => (
-                              <option key={city.code} value={city.code}>{city.name}</option>
-                            ))}
-                          </select>
+                            placeholder="Kode lokasi tujuan provider"
+                            className="w-full rounded-lg border border-white/10 bg-background/50 pl-10 pr-3 py-2.5 text-sm uppercase focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                          />
                         </div>
                         {errors.destination_code && <p className="mt-1 text-xs text-destructive">{errors.destination_code.message}</p>}
                       </div>
@@ -999,12 +1007,12 @@ export function AggregatorWizard() {
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Dari</p>
-                    <p className="font-medium">{cities.find(c => c.code === ORIGIN_CODE)?.name ?? "Jakarta"}</p>
+                    <p className="font-medium">{watch("origin_code") || "—"}</p>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Tujuan</p>
-                    <p className="font-medium">{cities.find(c => c.code === watch("destination_code"))?.name}</p>
+                    <p className="font-medium">{watch("destination_code") || "—"}</p>
                   </div>
                 </div>
                 <div className="mt-4 flex gap-6 border-t border-white/10 pt-4 text-sm">
