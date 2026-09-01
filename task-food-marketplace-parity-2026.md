@@ -955,7 +955,8 @@ Existing shared files:
 - [x] Normalize to canonical statuses but never discard raw values.
 - [x] Provider event dedupe/replay protection.
 - [x] Out-of-order event cannot regress terminal state.
-- [ ] Unknown status is stored/observable and shown as safe generic customer state rather than guessed.
+- [x] Unknown status is stored/observable and shown as safe generic customer state rather than guessed.
+- [ ] Authenticated staging/provider replay verifies unknown-status persistence, dedupe, and customer rendering.
 
 ---
 
