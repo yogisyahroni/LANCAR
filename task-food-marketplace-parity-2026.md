@@ -1118,9 +1118,10 @@ Existing shared files:
 **Checklist**
 - [x] Store `provider_status`, `provider_status_code`, `provider_status_description`, `provider_location`, `provider_timestamp`.
 - [x] Also store normalized LANCAR status.
-- [ ] Mapping is provider-specific/configurable/tested.
+- [x] Mapping is provider-specific/configurable/tested.
 - [x] Customer UI can show friendly status plus useful provider detail.
 - [x] Unknown raw status does not get incorrectly coerced to `IN_TRANSIT`.
+- [ ] Staging migration and live provider payload verification confirm mapping/rollback behavior.
 
 ---
 
