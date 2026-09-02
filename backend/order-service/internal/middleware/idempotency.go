@@ -32,6 +32,7 @@ func RequireIdempotencyKey(db *sqlx.DB, scope string, next http.HandlerFunc) htt
 			WriteError(w, http.StatusBadRequest, "ERR_IDEMPOTENCY_KEY_REQUIRED", "Idempotency key wajib diisi dan panjangnya harus 12-160 karakter", GetCorrelationID(r.Context()))
 			return
 		}
+		r = r.WithContext(context.WithValue(r.Context(), idempotencyKey, key))
 
 		bodyReader := r.Body
 		if bodyReader == nil {

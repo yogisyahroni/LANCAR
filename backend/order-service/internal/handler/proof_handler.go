@@ -46,13 +46,15 @@ func (h *OrderHandler) ScanPackage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	scan := &domain.PackageScan{
-		OrderID:     req.OrderID,
-		ScanType:    req.ScanType,
-		Latitude:    req.Latitude,
-		Longitude:   req.Longitude,
-		WarehouseID: req.WarehouseID,
-		PhotoURL:    req.PhotoURL,
-		BagNumber:   req.BagNumber,
+		OrderID:        req.OrderID,
+		ScanType:       req.ScanType,
+		Latitude:       req.Latitude,
+		Longitude:      req.Longitude,
+		WarehouseID:    req.WarehouseID,
+		PhotoURL:       req.PhotoURL,
+		BagNumber:      req.BagNumber,
+		IdempotencyKey: middleware.GetIdempotencyKey(r.Context()),
+		ScannedByRole:  middleware.GetRoleFromContext(r.Context()),
 	}
 
 	err := h.orderSvc.ScanPackage(r.Context(), scannedBy, scan)

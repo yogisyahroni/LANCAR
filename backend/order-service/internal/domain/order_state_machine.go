@@ -65,8 +65,8 @@ var allowedOrderTransitions = map[OrderStatus]map[OrderStatus]bool{
 	StatusSearching:           {StatusAssigned: true, StatusAccepted: true, StatusNoCourierFound: true, StatusCancelled: true},
 	StatusNoCourierFound:      {StatusSearching: true, StatusCancelled: true},
 	StatusAssigned:            {StatusAccepted: true, StatusSearching: true, StatusCancelled: true},
-	StatusAccepted:            {StatusPickupArrived: true, StatusSearching: true, StatusCancelled: true},
-	StatusPickupArrived:       {StatusPickingUp: true, StatusCancelled: true},
+	StatusAccepted:            {StatusPickupArrived: true, StatusPickedUp: true, StatusSearching: true, StatusCancelled: true},
+	StatusPickupArrived:       {StatusPickingUp: true, StatusPickedUp: true, StatusCancelled: true},
 	StatusPickingUp:           {StatusPickedUp: true, StatusCancelled: true},
 	StatusPickedUp:            {StatusInboundOrigin: true, StatusDelivering: true, StatusFailedDelivery: true},
 	StatusInboundOrigin:       {StatusOutboundOrigin: true, StatusFailedDelivery: true},
@@ -74,7 +74,7 @@ var allowedOrderTransitions = map[OrderStatus]map[OrderStatus]bool{
 	StatusInboundDestination:  {StatusOutboundDestination: true, StatusFailedDelivery: true},
 	StatusOutboundDestination: {StatusDelivering: true, StatusFailedDelivery: true},
 	StatusDelivering:          {StatusDelivered: true, StatusFailedDelivery: true, StatusReturnToSender: true},
-	StatusFailedDelivery:      {StatusSearching: true, StatusReturnToSender: true, StatusCancelled: true},
+	StatusFailedDelivery:      {StatusSearching: true, StatusAssigned: true, StatusReturnToSender: true, StatusCancelled: true},
 	StatusReturnToSender:      {StatusCancelled: true},
 }
 

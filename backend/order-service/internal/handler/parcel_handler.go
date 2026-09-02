@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -485,7 +486,25 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err := h.orderSvc.UpdateStatus(r.Context(), orderID, status)
+	actor := domain.OrderActorPlatform
+	switch {
+	case isAdmin:
+		actor = domain.OrderActorAdmin
+	case isCourier:
+		actor = domain.OrderActorCourier
+	case isCustomer:
+		actor = domain.OrderActorCustomer
+	case role == "merchant":
+		actor = domain.OrderActorMerchant
+	}
+	var err error
+	if actorUpdater, ok := h.orderSvc.(interface {
+		UpdateStatusWithActor(context.Context, string, domain.OrderStatus, string, domain.OrderActor, string, string) error
+	}); ok {
+		err = actorUpdater.UpdateStatusWithActor(r.Context(), orderID, status, userID, actor, req.Notes, middleware.GetIdempotencyKey(r.Context()))
+	} else {
+		err = h.orderSvc.UpdateStatus(r.Context(), orderID, status)
+	}
 	if err != nil {
 		userSafeError(w, r, err, http.StatusInternalServerError)
 		return

@@ -439,16 +439,20 @@ type MeetingPointService interface {
 }
 
 type PackageScan struct {
-	ID          string    `json:"id"`
-	OrderID     string    `json:"order_id"`
-	ScanType    string    `json:"scan_type"`
-	ScannedBy   string    `json:"scanned_by"`
-	Latitude    float64   `json:"latitude"`
-	Longitude   float64   `json:"longitude"`
-	WarehouseID *string   `json:"warehouse_id,omitempty"`
-	PhotoURL    *string   `json:"photo_url,omitempty"`
-	BagNumber   *string   `json:"bag_number,omitempty"`
-	RecordedAt  time.Time `json:"recorded_at"`
+	ID        string `json:"id"`
+	OrderID   string `json:"order_id"`
+	ScanType  string `json:"scan_type"`
+	ScannedBy string `json:"scanned_by"`
+	// IdempotencyKey is supplied by the transport layer and is never exposed
+	// as part of the public scan representation.
+	IdempotencyKey string    `json:"-"`
+	ScannedByRole  string    `json:"-"`
+	Latitude       float64   `json:"latitude"`
+	Longitude      float64   `json:"longitude"`
+	WarehouseID    *string   `json:"warehouse_id,omitempty"`
+	PhotoURL       *string   `json:"photo_url,omitempty"`
+	BagNumber      *string   `json:"bag_number,omitempty"`
+	RecordedAt     time.Time `json:"recorded_at"`
 }
 
 type ConsolidationBag struct {

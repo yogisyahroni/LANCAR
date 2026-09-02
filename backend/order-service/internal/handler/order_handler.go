@@ -40,6 +40,7 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 
 	var ufe *domain.UserFacingError
 	var requoteErr *domain.RequoteRequiredError
+	var concurrentErr *domain.ConcurrentOrderTransitionError
 
 	switch {
 	case errors.As(err, &requoteErr):
@@ -70,6 +71,14 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_LOCATION_NOT_COVERED", "Alamat pickup atau tujuan tidak tercover oleh layanan kami", correlationID)
 	case errors.Is(err, domain.ErrOrderAlreadyAssigned):
 		middleware.WriteError(w, http.StatusConflict, "ERR_ORDER_ALREADY_ASSIGNED", "Order sudah diterima kurir lain", correlationID)
+	case errors.Is(err, domain.ErrTransitionProofRequired):
+		middleware.WriteError(w, http.StatusConflict, "ERR_TRANSITION_PROOF_REQUIRED", "Bukti pengantaran wajib tersedia sebelum order diselesaikan", correlationID)
+	case errors.Is(err, domain.ErrTransitionLedgerRequired):
+		middleware.WriteError(w, http.StatusConflict, "ERR_TRANSITION_LEDGER_REQUIRED", "Efek ledger order belum siap, status tidak diubah", correlationID)
+	case errors.Is(err, domain.ErrAdminOverrideReasonRequired):
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_ADMIN_OVERRIDE_REASON_REQUIRED", "Alasan admin override wajib diisi", correlationID)
+	case errors.As(err, &concurrentErr):
+		middleware.WriteError(w, http.StatusConflict, "ERR_CONCURRENT_ORDER_TRANSITION", "Order berubah bersamaan, silakan coba lagi", correlationID)
 	case errors.As(err, &ufe) && ufe.UserMsg != "":
 		// UAT-C-012/C-014: error bisnis user-facing → tampilkan pesan asli
 		// (bukan ERR_INTERNAL generic).

@@ -130,11 +130,32 @@ func (s *carrierEventService) Process(ctx context.Context, event *domain.Carrier
 		slog.InfoContext(ctx, "carrier_event: out-of-order event stored without state regression", "order_id", order.ID, "current", order.Status, "incoming", target, "event_id", event.EventID)
 		return nil
 	}
-	if err := s.orderRepo.UpdateStatus(ctx, order.ID, target); err != nil {
-		return fmt.Errorf("apply carrier event status: %w", err)
-	}
-	if s.eventRepo != nil {
-		_ = s.eventRepo.SaveEvent(ctx, domain.OrderEvent{OrderID: order.ID, Status: target, Message: event.RawDescription, CreatedAt: event.ReceivedAt})
+	if transitionRepo, ok := s.orderRepo.(domain.OrderTransitionRepository); ok {
+		proofReference := ""
+		if target == domain.StatusDelivered {
+			// The integration gateway only forwards a verified provider event;
+			// retain that native event ID as the immutable delivery proof ref.
+			proofReference = event.EventID
+		}
+		_, err := transitionRepo.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:        order.ID,
+			ActorID:        "provider:" + event.Provider,
+			Actor:          domain.OrderActorCarrier,
+			TargetStatus:   target,
+			IdempotencyKey: "carrier-event:" + event.Provider + ":" + event.EventID,
+			EventMessage:   event.RawDescription,
+			ProofReference: proofReference,
+		})
+		if err != nil {
+			return fmt.Errorf("apply carrier event status transactionally: %w", err)
+		}
+	} else {
+		if err := s.orderRepo.UpdateStatus(ctx, order.ID, target); err != nil {
+			return fmt.Errorf("apply carrier event status: %w", err)
+		}
+		if s.eventRepo != nil {
+			_ = s.eventRepo.SaveEvent(ctx, domain.OrderEvent{OrderID: order.ID, UserID: order.CustomerID, Status: target, Message: event.RawDescription, CreatedAt: event.ReceivedAt})
+		}
 	}
 	return nil
 }

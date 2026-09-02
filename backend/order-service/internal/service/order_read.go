@@ -76,6 +76,14 @@ func (s *orderServiceImpl) GetCourierIDByUserID(ctx context.Context, userID stri
 }
 
 func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, status domain.OrderStatus) error {
+	if _, ok := s.orderRepo.(domain.OrderTransitionRepository); ok {
+		return s.updateStatusThroughBoundary(ctx, domain.OrderTransitionRequest{
+			OrderID:      orderID,
+			Actor:        domain.OrderActorPlatform,
+			TargetStatus: status,
+		})
+	}
+
 	// FB-081: tangkap status lama SEBELUM update — dipakai sbg original_status
 	// refund. Tanpa ini, order sudah berstatus cancelled saat refund dihitung
 	// → food cancel lewat jalur ini dihitung 0% (salah untuk pending_merchant dll).
@@ -182,6 +190,77 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 		}
 	}
 
+	return nil
+}
+
+// UpdateStatusWithActor is used by authenticated actor-facing endpoints. It
+// keeps actor identity, override reason, and transport idempotency inside the
+// same transactional lifecycle write instead of passing only a target status.
+func (s *orderServiceImpl) UpdateStatusWithActor(ctx context.Context, orderID string, status domain.OrderStatus, actorID string, actor domain.OrderActor, reason, idempotencyKey string) error {
+	if _, ok := s.orderRepo.(domain.OrderTransitionRepository); !ok {
+		return s.UpdateStatus(ctx, orderID, status)
+	}
+	return s.updateStatusThroughBoundary(ctx, domain.OrderTransitionRequest{
+		OrderID:        orderID,
+		ActorID:        actorID,
+		Actor:          actor,
+		TargetStatus:   status,
+		Reason:         reason,
+		IdempotencyKey: idempotencyKey,
+	})
+}
+
+func (s *orderServiceImpl) updateStatusThroughBoundary(ctx context.Context, request domain.OrderTransitionRequest) error {
+	before, err := s.orderRepo.GetByID(ctx, request.OrderID)
+	if err != nil {
+		return err
+	}
+	if before == nil {
+		return domain.ErrNotFound
+	}
+
+	transitionRepo := s.orderRepo.(domain.OrderTransitionRepository)
+	result, err := transitionRepo.TransitionOrder(ctx, request)
+	if err != nil {
+		return err
+	}
+	if result.Replayed || !result.Applied {
+		return nil
+	}
+
+	event := domain.OrderEvent{
+		OrderID:   before.ID,
+		UserID:    before.CustomerID,
+		Status:    result.Status,
+		Message:   fmt.Sprintf("Order status updated to %s", result.Status),
+		CreatedAt: domain.TransitionEventTime(),
+	}
+	if s.eventBus != nil {
+		_ = s.eventBus.Publish(ctx, "order.updates", event)
+	}
+	if s.taskQueue != nil {
+		_ = s.taskQueue.Push(ctx, queue.Task{
+			Type: "order.status_updated",
+			Payload: map[string]interface{}{
+				"order_id": before.ID,
+				"user_id":  before.CustomerID,
+				"status":   string(result.Status),
+			},
+		})
+	}
+
+	if result.Status == domain.StatusCancelled {
+		if oid, parseErr := uuid.Parse(request.OrderID); parseErr == nil && s.refundSvc != nil {
+			if _, refundErr := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, "Order cancelled", domain.RefundOptions{OriginalStatus: result.PreviousStatus}); refundErr != nil {
+				log.Printf("[OrderService] Failed to trigger refund for order %s: %v", request.OrderID, refundErr)
+			}
+		}
+		if oid, parseErr := uuid.Parse(request.OrderID); parseErr == nil && s.tipSvc != nil {
+			if tipErr := s.tipSvc.RefundTipByOrder(ctx, oid); tipErr != nil {
+				log.Printf("[OrderService] Failed to refund tip for order %s: %v", request.OrderID, tipErr)
+			}
+		}
+	}
 	return nil
 }
 

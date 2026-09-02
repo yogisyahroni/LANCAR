@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"time"
 )
@@ -548,54 +549,113 @@ func (r *postgresRepo) UpdateDimensions(ctx context.Context, id string, length, 
 }
 
 func (r *postgresRepo) CancelExpiredOrders(ctx context.Context, timeout time.Duration) (int64, error) {
-	query := `UPDATE orders 
-			  SET status = 'cancelled', updated_at = NOW(), cancellation_reason = 'Payment timeout'
-			  WHERE status = 'pending_payment' AND created_at < $1`
-
 	expiryTime := time.Now().Add(-timeout)
-	res, err := r.db.ExecContext(ctx, query, expiryTime)
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT id::text
+		FROM orders
+		WHERE status = 'pending_payment' AND created_at < $1
+		ORDER BY created_at ASC`, expiryTime)
 	if err != nil {
 		return 0, err
 	}
-	return res.RowsAffected()
+	defer rows.Close()
+
+	var orderIDs []string
+	for rows.Next() {
+		var orderID string
+		if err := rows.Scan(&orderID); err != nil {
+			return 0, err
+		}
+		orderIDs = append(orderIDs, orderID)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	var cancelled int64
+	for _, orderID := range orderIDs {
+		result, err := r.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:        orderID,
+			Actor:          domain.OrderActorPlatform,
+			TargetStatus:   domain.StatusCancelled,
+			Reason:         "Payment timeout",
+			IdempotencyKey: "payment-timeout:" + orderID,
+			EventMessage:   "Pesanan dibatalkan karena pembayaran melewati batas waktu",
+		})
+		if err != nil {
+			return cancelled, err
+		}
+		if result.Applied {
+			cancelled++
+		}
+	}
+	return cancelled, nil
 }
 
 func (r *postgresRepo) AssignCourier(ctx context.Context, orderID string, courierID string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
+	if strings.TrimSpace(courierID) == "" {
+		return fmt.Errorf("courier id is required")
+	}
+	var batchID sql.NullString
+	if err := r.db.QueryRowContext(ctx, `SELECT batch_id::text FROM orders WHERE id = $1`, orderID).Scan(&batchID); err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback() }()
-
-	// Check if order is still eligible for assignment. The failed_delivery state
-	// is a deliberate reassign path; the row lock still makes concurrent accepts
-	// single-winner.
-	var status domain.OrderStatus
-	var batchID *string
-	err = tx.QueryRowContext(ctx, "SELECT status, batch_id FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&status, &batchID)
-	if err != nil {
-		return err
-	}
-
-	if status != domain.StatusSearching && status != domain.StatusFailedDelivery {
-		return sql.ErrNoRows // Or a custom error like "Order already assigned"
-	}
-
-	if batchID != nil && *batchID != "" {
-		query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW(), dispatch_expiry = NULL WHERE batch_id = $2 AND status IN ('searching', 'failed_delivery')`
-		_, err = tx.ExecContext(ctx, query, courierID, *batchID)
+	ids := []string{orderID}
+	if batchID.Valid && batchID.String != "" {
+		rows, err := r.db.QueryContext(ctx, `
+			SELECT id::text
+			FROM orders
+			WHERE batch_id = $1 AND status IN ('searching', 'failed_delivery')
+			ORDER BY sequence_no, created_at`, batchID.String)
 		if err != nil {
 			return err
 		}
-	} else {
-		query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW(), dispatch_expiry = NULL WHERE id = $2`
-		_, err = tx.ExecContext(ctx, query, courierID, orderID)
-		if err != nil {
+		defer rows.Close()
+		ids = ids[:0]
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		if err := rows.Err(); err != nil {
 			return err
 		}
 	}
 
-	return tx.Commit()
+	assigned := 0
+	for _, id := range ids {
+		result, err := r.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:             id,
+			ActorID:             courierID,
+			Actor:               domain.OrderActorPlatform,
+			TargetStatus:        domain.StatusAssigned,
+			CourierID:           courierID,
+			ClearDispatchExpiry: true,
+			IdempotencyKey:      "courier-assign:" + id + ":" + courierID,
+			EventMessage:        "Order ditugaskan ke kurir",
+		})
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return err
+		}
+		if result.Applied || result.Replayed {
+			assigned++
+		}
+	}
+	if assigned == 0 {
+		var currentStatus domain.OrderStatus
+		var currentCourier sql.NullString
+		if err := r.db.QueryRowContext(ctx, `SELECT status, courier_id::text FROM orders WHERE id = $1`, orderID).Scan(&currentStatus, &currentCourier); err == nil &&
+			currentStatus == domain.StatusAssigned && currentCourier.Valid && currentCourier.String == courierID {
+			return nil
+		}
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *postgresRepo) SetDispatchExpiry(ctx context.Context, orderID string, expiry time.Time) error {
@@ -699,13 +759,22 @@ func (r *postgresRepo) GetGhostedAcceptedOrders(ctx context.Context, timeout tim
 // courier_id → NULL, status → searching, dispatch_expiry direset agar
 // matching worker bisa menawarkan lagi ke driver lain.
 func (r *postgresRepo) ReleaseGhostedOrder(ctx context.Context, orderID string) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE orders
-		 SET courier_id = NULL, status = 'searching', dispatch_expiry = NULL, updated_at = NOW()
-		 WHERE id = $1 AND status = 'accepted'`,
-		orderID,
-	)
-	return err
+	result, err := r.TransitionOrder(ctx, domain.OrderTransitionRequest{
+		OrderID:             orderID,
+		Actor:               domain.OrderActorPlatform,
+		TargetStatus:        domain.StatusSearching,
+		IdempotencyKey:      "ghost-release:" + orderID,
+		EventMessage:        "Driver ghost dilepas dan pesanan dikembalikan ke pencarian",
+		ClearCourier:        true,
+		ClearDispatchExpiry: true,
+	})
+	if err != nil {
+		return err
+	}
+	if !result.Applied && !result.Replayed {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error {
 	query := `INSERT INTO order_events (order_id, user_id, event_type, description, created_at)
@@ -902,22 +971,26 @@ func (r *postgresRepo) CheckCoverage(ctx context.Context, lat, lng float64) (boo
 }
 
 func (r *postgresRepo) SaveScan(ctx context.Context, scan *domain.PackageScan) error {
+	scannedByRole := scan.ScannedByRole
+	if scannedByRole == "" {
+		scannedByRole = "courier"
+	}
 	query := `INSERT INTO package_scans (
-				order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number
-			  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			  RETURNING id, recorded_at`
+				order_id, scan_type, scanned_by, scanned_by_role, latitude, longitude, photo_url, bag_number, scanned_at
+			  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+			  RETURNING id, scanned_at`
 
 	err := r.db.QueryRowContext(ctx, query,
-		scan.OrderID, scan.ScanType, scan.ScannedBy, scan.Latitude, scan.Longitude, scan.WarehouseID, scan.PhotoURL, scan.BagNumber,
+		scan.OrderID, scan.ScanType, scan.ScannedBy, scannedByRole, scan.Latitude, scan.Longitude, scan.PhotoURL, scan.BagNumber,
 	).Scan(&scan.ID, &scan.RecordedAt)
 	return err
 }
 
 func (r *postgresRepo) GetScansForOrder(ctx context.Context, orderID string) ([]*domain.PackageScan, error) {
-	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number, recorded_at
+	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, NULL::uuid, photo_url, bag_number, scanned_at
 			  FROM package_scans
 			  WHERE order_id = $1
-			  ORDER BY recorded_at ASC`
+			  ORDER BY scanned_at ASC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, orderID)
 	if err != nil {
@@ -977,10 +1050,10 @@ func (r *postgresRepo) UpdateConsolidationBagStatus(ctx context.Context, bagNumb
 }
 
 func (r *postgresRepo) GetLatestScanForOrder(ctx context.Context, orderID string) (*domain.PackageScan, error) {
-	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number, recorded_at
+	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, NULL::uuid, photo_url, bag_number, scanned_at
 			  FROM package_scans
 			  WHERE order_id = $1
-			  ORDER BY recorded_at DESC
+			  ORDER BY scanned_at DESC
 			  LIMIT 1`
 
 	scan := &domain.PackageScan{}
@@ -998,10 +1071,10 @@ func (r *postgresRepo) GetLatestScanForOrder(ctx context.Context, orderID string
 }
 
 func (r *postgresRepo) GetScansByBagNumber(ctx context.Context, bagNumber string) ([]*domain.PackageScan, error) {
-	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number, recorded_at
+	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, NULL::uuid, photo_url, bag_number, scanned_at
 			  FROM package_scans
 			  WHERE bag_number = $1
-			  ORDER BY recorded_at ASC`
+			  ORDER BY scanned_at ASC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, bagNumber)
 	if err != nil {
