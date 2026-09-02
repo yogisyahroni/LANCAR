@@ -234,8 +234,11 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	totalPrice := applyRoundingPolicy(totalBeforeRounding, roundingMode, roundingPrecision)
 
 	// 8. Create Response with Complete Snapshot PRC-001 to PRC-004
+	quoteID := uuid.New().String()
 	resp := &domain.PricingEstimateResponse{
-		EstimateID:             uuid.New().String(),
+		EstimateID:             quoteID, // legacy field retained as the quote ID
+		QuoteID:                quoteID,
+		InputFingerprint:       domain.QuoteInputFingerprint(req),
 		PickupAddress:          originAddr,
 		DropoffAddress:         destAddr,
 		DistanceKM:             distKM,
@@ -269,7 +272,22 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		Height:                 req.Height,
 		Weight:                 req.Weight,
 		PackageFacts:           req.PackageFacts,
+		ServiceCategory:        domain.CanonicalServiceCategoryForModel(serviceProduct.Code),
+		Currency:               "IDR",
+		ETASource:              "maps.traffic",
+		PricingRuleVersion:     s.configRepo.GetStringConfig(ctx, "pricing_rule_version", "pricing-2026-09-01"),
+		PriceComponents: map[string]int64{
+			"base_fare_idr":        baseFare,
+			"distance_fee_idr":     distanceFare,
+			"weight_surcharge_idr": weightSurcharge,
+			"dynamic_price_idr":    dynamicPrice,
+			"insurance_fee_idr":    insuranceFee,
+			"platform_fee_idr":     platformFee,
+			"discount_idr":         discountIDR,
+			"total_price_idr":      totalPrice,
+		},
 	}
+	resp.SnapshotHash = domain.QuoteSnapshotHash(*resp)
 
 	// 9. Cache in Redis
 	if err := s.redisRepo.SaveEstimate(ctx, resp); err != nil {

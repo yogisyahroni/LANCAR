@@ -35,28 +35,36 @@ type PackageFacts struct {
 }
 
 type PricingEstimateResponse struct {
-	EstimateID             string  `json:"estimate_id"`
-	PickupAddress          string  `json:"pickup_address"`
-	DropoffAddress         string  `json:"dropoff_address"`
-	DistanceKM             float64 `json:"distance_km"`
-	DurationMin            float64 `json:"duration_min"`
-	IncludedDistanceKM     float64 `json:"included_distance_km"`
-	DistanceFeeIDR         int64   `json:"distance_fee_idr"`
-	BasePriceIDR           int64   `json:"base_price_idr"`
-	VolumetricWeightKG     float64 `json:"volumetric_weight_kg"`
-	VolumetricSurchargeIDR int64   `json:"volumetric_surcharge_idr"`
-	DynamicPriceIDR        int64   `json:"dynamic_price_idr"`
-	SurgeFeeIDR            int64   `json:"surge_fee_idr"`
-	SurgeMultiplier        float64 `json:"surge_multiplier"`
-	WeatherMultiplier      float64 `json:"weather_multiplier"`
-	TrafficMultiplier      float64 `json:"traffic_multiplier"`
-	InsuranceFeeIDR        int64   `json:"insurance_fee_idr"`
-	DiscountIDR            int64   `json:"discount_idr"`
-	PromoSubsidyIDR        int64   `json:"promo_subsidy_idr"`
-	PromoCode              string  `json:"promo_code,omitempty"`
-	PromoSponsor           string  `json:"promo_sponsor,omitempty"`
-	MDREstimateIDR         int64   `json:"mdr_estimate_idr"`
-	TaxIDR                 int64   `json:"tax_idr"`
+	EstimateID             string           `json:"estimate_id"`
+	QuoteID                string           `json:"quote_id"`
+	InputFingerprint       string           `json:"input_fingerprint"`
+	SnapshotHash           string           `json:"snapshot_hash"`
+	ServiceCategory        string           `json:"service_category"`
+	Currency               string           `json:"currency"`
+	ETASource              string           `json:"eta_source"`
+	PricingRuleVersion     string           `json:"pricing_rule_version"`
+	PriceComponents        map[string]int64 `json:"price_components"`
+	PickupAddress          string           `json:"pickup_address"`
+	DropoffAddress         string           `json:"dropoff_address"`
+	DistanceKM             float64          `json:"distance_km"`
+	DurationMin            float64          `json:"duration_min"`
+	IncludedDistanceKM     float64          `json:"included_distance_km"`
+	DistanceFeeIDR         int64            `json:"distance_fee_idr"`
+	BasePriceIDR           int64            `json:"base_price_idr"`
+	VolumetricWeightKG     float64          `json:"volumetric_weight_kg"`
+	VolumetricSurchargeIDR int64            `json:"volumetric_surcharge_idr"`
+	DynamicPriceIDR        int64            `json:"dynamic_price_idr"`
+	SurgeFeeIDR            int64            `json:"surge_fee_idr"`
+	SurgeMultiplier        float64          `json:"surge_multiplier"`
+	WeatherMultiplier      float64          `json:"weather_multiplier"`
+	TrafficMultiplier      float64          `json:"traffic_multiplier"`
+	InsuranceFeeIDR        int64            `json:"insurance_fee_idr"`
+	DiscountIDR            int64            `json:"discount_idr"`
+	PromoSubsidyIDR        int64            `json:"promo_subsidy_idr"`
+	PromoCode              string           `json:"promo_code,omitempty"`
+	PromoSponsor           string           `json:"promo_sponsor,omitempty"`
+	MDREstimateIDR         int64            `json:"mdr_estimate_idr"`
+	TaxIDR                 int64            `json:"tax_idr"`
 	// PlatformFeeIDR adalah biaya layanan operasional.
 	// Dikonfigurasi dari tabel delivery_service_products (platform_fee_idr, platform_fee_pct).
 	// Tidak diekspos sebagai line-item ke customer — sudah tercakup dalam TotalPriceIDR.
@@ -76,6 +84,13 @@ type PricingEstimateResponse struct {
 	Height       float64      `json:"height,omitempty"`
 	Weight       float64      `json:"weight,omitempty"`
 	PackageFacts PackageFacts `json:"package_facts,omitempty"`
+}
+
+func (q PricingEstimateResponse) QuoteIDOrEstimateID() string {
+	if q.QuoteID != "" {
+		return q.QuoteID
+	}
+	return q.EstimateID
 }
 
 type PricingConfig struct {

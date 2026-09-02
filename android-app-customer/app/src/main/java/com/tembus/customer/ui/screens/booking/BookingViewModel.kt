@@ -687,7 +687,11 @@ class BookingViewModel @Inject constructor(
                 priceBreakdown = priceBreakdown,
                 serviceCode = state.selectedServiceCode,
                 promoCode = state.promoCode.ifBlank { null },
-                voucherCode = if (state.voucherApplied) state.voucherCode else null // FB-078
+                voucherCode = if (state.voucherApplied) state.voucherCode else null, // FB-078
+                quoteId = priceBreakdown.quoteId,
+                quoteInputFingerprint = priceBreakdown.inputFingerprint,
+                quoteSnapshotHash = priceBreakdown.snapshotHash ?: priceBreakdown.routeSnapshot?.snapshotHash,
+                quoteExpiresAt = priceBreakdown.expiresAt
             )
 
             val idempotencyKey = createOrderIdempotencyKey ?: UUID.randomUUID().toString().also { createOrderIdempotencyKey = it }

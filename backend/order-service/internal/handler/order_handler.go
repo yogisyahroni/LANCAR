@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"tembus/order-service/internal/domain"
@@ -38,8 +39,21 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 	})
 
 	var ufe *domain.UserFacingError
+	var requoteErr *domain.RequoteRequiredError
 
 	switch {
+	case errors.As(err, &requoteErr):
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":                 false,
+			"code":                    "REQUOTE_REQUIRED",
+			"message":                 "Quote perlu dihitung ulang sebelum order dapat dibuat.",
+			"quote_id":                requoteErr.QuoteID,
+			"current_total_price_idr": requoteErr.CurrentTotal,
+			"requires_requote":        true,
+			"correlation_id":          correlationID,
+		})
 	case errors.Is(err, domain.ErrNotFound):
 		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Data tidak ditemukan", correlationID)
 	case errors.Is(err, domain.ErrForbidden):

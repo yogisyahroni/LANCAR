@@ -149,8 +149,10 @@ type CourierInfo struct {
 }
 
 type CreateOrderRequest struct {
-	EstimateID      string `json:"estimate_id" validate:"required"` // For on-demand, or tariff ID for 3PL
-	ItemDescription string `json:"item_description" validate:"required,min=5"`
+	EstimateID            string `json:"estimate_id" validate:"required"` // For on-demand, or tariff ID for 3PL
+	QuoteInputFingerprint string `json:"quote_input_fingerprint,omitempty"`
+	QuoteSnapshotHash     string `json:"quote_snapshot_hash,omitempty"`
+	ItemDescription       string `json:"item_description" validate:"required,min=5"`
 	// Category barang: document, electronic, food, fragile, dll.
 	// Nilai terlarang (gas, chemical, weapon, flammable, explosive) dicegah (TC-LOG-005).
 	Category     string `json:"category,omitempty"`

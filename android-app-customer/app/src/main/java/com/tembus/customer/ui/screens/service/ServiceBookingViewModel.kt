@@ -306,7 +306,10 @@ class ServiceBookingViewModel @Inject constructor(
                 preferredCourierId = preferredCourierId,
                 materialCodes = state.selectedMaterialCodes.toList(),
                 quoteTotalPriceIdr = breakdown.totalPriceIdr,
-                quoteSnapshotHash = breakdown.routeSnapshot?.snapshotHash,
+                quoteId = breakdown.quoteId,
+                quoteInputFingerprint = breakdown.inputFingerprint,
+                quoteSnapshotHash = breakdown.snapshotHash ?: breakdown.routeSnapshot?.snapshotHash,
+                quoteExpiresAt = breakdown.expiresAt,
                 quoteConsent = state.priceConsent
             )
 

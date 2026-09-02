@@ -44,6 +44,32 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 	if err != nil {
 		return nil, domain.ErrInvalidEstimate
 	}
+	if estimate.ExpiresAt.IsZero() || !estimate.ExpiresAt.After(time.Now()) {
+		return nil, &domain.RequoteRequiredError{
+			Reason:  "quote sudah kedaluwarsa",
+			QuoteID: estimate.QuoteIDOrEstimateID(),
+		}
+	}
+	if estimate.QuoteID != "" && estimate.QuoteID != req.EstimateID {
+		return nil, &domain.RequoteRequiredError{
+			Reason:  "quote_id tidak cocok dengan quote yang dipilih",
+			QuoteID: estimate.QuoteID,
+		}
+	}
+	if req.QuoteInputFingerprint != "" && req.QuoteInputFingerprint != estimate.InputFingerprint {
+		return nil, &domain.RequoteRequiredError{
+			Reason:       "input pricing berubah sejak quote dibuat",
+			QuoteID:      estimate.QuoteIDOrEstimateID(),
+			CurrentTotal: estimate.TotalPriceIDR,
+		}
+	}
+	if req.QuoteSnapshotHash != "" && req.QuoteSnapshotHash != estimate.SnapshotHash {
+		return nil, &domain.RequoteRequiredError{
+			Reason:       "snapshot harga tidak lagi cocok",
+			QuoteID:      estimate.QuoteIDOrEstimateID(),
+			CurrentTotal: estimate.TotalPriceIDR,
+		}
+	}
 
 	if req.IsScheduled {
 		scheduledEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "scheduled_delivery", false)
@@ -326,6 +352,12 @@ func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, r
 		estimate, err := s.redisRepo.GetEstimate(ctx, dest.EstimateID)
 		if err != nil {
 			return nil, "", fmt.Errorf("invalid estimate for destination %d: %w", i+1, err)
+		}
+		if estimate.ExpiresAt.IsZero() || !estimate.ExpiresAt.After(time.Now()) {
+			return nil, "", &domain.RequoteRequiredError{
+				Reason:  fmt.Sprintf("quote tujuan %d sudah kedaluwarsa", i+1),
+				QuoteID: estimate.QuoteIDOrEstimateID(),
+			}
 		}
 
 		if req.IsScheduled {

@@ -480,6 +480,11 @@ export default function NewOrderPage() {
       const payload = {
         ...data,
         price_breakdown: pricing,
+        quote_id: pricing.quote_id,
+        quote_input_fingerprint: pricing.input_fingerprint,
+        quote_snapshot_hash: pricing.snapshot_hash || pricing.route_snapshot?.snapshot_hash,
+        quote_expires_at: pricing.expires_at,
+        quote_total_price_idr: pricing.total_price_idr,
         promo_code: appliedPromoCode
       };
       const fingerprint = fingerprintPayload(payload);

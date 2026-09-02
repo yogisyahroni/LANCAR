@@ -215,11 +215,15 @@ _Local implementation is complete and verified in the current branch; authentica
 - `database/migrations/<timestamp>_add_order_quote_snapshots.sql`
 
 **Checklist**
-- [ ] Quote berisi `quote_id`, service/category, input fingerprint, price components, total, currency, ETA/source, policy/rule version, expiry.
-- [ ] Create order consumes valid quote atau returns `REQUOTE_REQUIRED` dengan diff yang dapat ditampilkan.
-- [ ] Address/package/cart/provider/courier/voucher/schedule/toll/service change invalidates quote sesuai rule.
-- [ ] Client total tidak pernah authoritative.
-- [ ] Quote snapshot yang benar-benar dipakai order disimpan untuk audit/support.
+- [x] Quote berisi `quote_id`, service/category, input fingerprint, price components, total, currency, ETA/source, policy/rule version, expiry pada order-service pricing response.
+- [x] Create order consumes valid quote, rejects expired/mismatched quote, atau returns `REQUOTE_REQUIRED` dengan quote ID dan current total untuk diff UI.
+- [x] Address/package/service input fingerprint dapat divalidasi saat dikirim kembali; changed quote fingerprint/snapshot ditolak sebelum create pada order-service contract.
+- [x] Client total tidak pernah authoritative; order-service reloads the Redis quote and uses its server-calculated total.
+- [x] Quote snapshot yang benar-benar dipakai order disimpan pada `orders.pricing_snapshot` untuk audit/support.
+- [x] Customer Android/Web quote clients send the canonical fingerprint, quote snapshot, quote identity, and expiry on the supported on-demand/service quote flows; local payload wiring is covered, while runtime cross-surface parity remains a staging gate.
+- [ ] Authenticated staging matrix membuktikan expiry, changed address/package/service invalidation, cross-surface quote parity, dan persisted quote snapshot.
+
+_Local quote contract and server enforcement are complete; authenticated staging parity remains the explicit external gate._
 
 ---
 

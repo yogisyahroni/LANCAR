@@ -5,6 +5,16 @@ import (
 	"fmt"
 )
 
+type RequoteRequiredError struct {
+	Reason       string
+	QuoteID      string
+	CurrentTotal int64
+}
+
+func (e *RequoteRequiredError) Error() string {
+	return "REQUOTE_REQUIRED: " + e.Reason
+}
+
 type ModelUnavailableError struct {
 	Model     string
 	MessageID string

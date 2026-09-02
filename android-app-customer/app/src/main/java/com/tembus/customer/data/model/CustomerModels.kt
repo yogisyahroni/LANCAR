@@ -112,6 +112,14 @@ data class RouteSnapshot(
 
 @Serializable
 data class PriceBreakdown(
+    @SerialName("quote_id") val quoteId: String? = null,
+    @SerialName("input_fingerprint") val inputFingerprint: String? = null,
+    @SerialName("snapshot_hash") val snapshotHash: String? = null,
+    @SerialName("expires_at") val expiresAt: String? = null,
+    @SerialName("currency") val currency: String = "IDR",
+    @SerialName("eta_source") val etaSource: String? = null,
+    @SerialName("pricing_rule_version") val pricingRuleVersion: String? = null,
+    @SerialName("price_components") val priceComponents: Map<String, Long> = emptyMap(),
     @SerialName("service_code") val serviceCode: String = "",
     @SerialName("service_name") val serviceName: String = "",
     @SerialName("service_snapshot") val serviceSnapshot: DeliveryServiceProduct? = null,
@@ -210,7 +218,10 @@ data class CustomerOrderCreateRequest(
     @SerialName("preferred_courier_id") val preferredCourierId: String? = null,
     @SerialName("material_codes") val materialCodes: List<String> = emptyList(),
     @SerialName("quote_total_price_idr") val quoteTotalPriceIdr: Long? = null,
+    @SerialName("quote_id") val quoteId: String? = null,
+    @SerialName("quote_input_fingerprint") val quoteInputFingerprint: String? = null,
     @SerialName("quote_snapshot_hash") val quoteSnapshotHash: String? = null,
+    @SerialName("quote_expires_at") val quoteExpiresAt: String? = null,
     @SerialName("quote_consent") val quoteConsent: Boolean = false
 )
 

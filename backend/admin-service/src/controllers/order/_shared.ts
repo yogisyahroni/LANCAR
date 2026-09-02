@@ -884,6 +884,28 @@ export const calculateCustomerPriceBreakdown = async ({
     recipientPhone,
     requiresDeliveryCode,
   }: CustomerPriceCalculationInput) => {
+  const quoteId = crypto.randomUUID();
+  const quoteExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const quoteInputFingerprint = (normalizedPackages: NormalizedOrderPackage[]) => crypto
+    .createHash('sha256')
+    .update(JSON.stringify({
+      service_code: service.code,
+      pickup: pickupPoint,
+      dropoff: dropoffPoint,
+      dimensions: dimensions || null,
+      weight_kg: weightKg || null,
+      packages: normalizedPackages,
+      has_insurance: Boolean(hasInsurance),
+      item_value: toNumber(itemValue),
+      size_tier: sizeTier || null,
+      courier_id: courierId || null,
+      material_codes: normalizeMaterialCodes(materialCodes),
+      recipient_name: recipientName || null,
+      recipient_phone: recipientPhone || null,
+      requires_delivery_code: Boolean(requiresDeliveryCode),
+    }))
+    .digest('hex');
+
   // ─── Quote-based pricing (aggregator/3PL) ────────────────────
   // These services don't use internal distance × multiplier pricing.
   // The price comes from the logistics provider's tariff, stored as
@@ -911,14 +933,23 @@ export const calculateCustomerPriceBreakdown = async ({
         ? packages
         : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
     const pkgSummary = summarizePackages(service, normalizedPkgs);
+    const inputFingerprint = quoteInputFingerprint(normalizedPkgs);
+    const publicQuoteRoute = publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` });
 
     return {
+      quote_id: quoteId,
+      input_fingerprint: inputFingerprint,
+      snapshot_hash: publicQuoteRoute.snapshot_hash,
+      expires_at: quoteExpiresAt,
+      currency: 'IDR',
+      eta_source: routeSnapshot.provider || 'maps',
+      pricing_rule_version: process.env.PRICING_RULE_VERSION || 'pricing-2026-09-01',
       service_code: service.code,
       service_name: service.name,
       service_snapshot: publicServiceSnapshot(service),
       selected_size_tier: null,
       distance_km: distance,
-      route_snapshot: publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` }),
+      route_snapshot: publicQuoteRoute,
       base_price_idr: 0,
       actual_weight_kg: Number(pkgSummary.actual_weight_kg.toFixed(2)),
       dimensional_weight_kg: Number(pkgSummary.dimensional_weight_kg.toFixed(2)),
@@ -937,6 +968,7 @@ export const calculateCustomerPriceBreakdown = async ({
       delivery_model: service.route_model,
       eta_minutes: etaMinutes,
       total_price_idr: 0, // Actual price is logistics_tariff_idr, stored separately
+      price_components: { total_price_idr: 0 },
     };
   }
 
@@ -982,6 +1014,7 @@ export const calculateCustomerPriceBreakdown = async ({
     : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
   validatePackagePolicy(service, normalizedPackages);
   const packageSummary = summarizePackages(service, normalizedPackages);
+  const inputFingerprint = quoteInputFingerprint(normalizedPackages);
   const selectedTier = resolveSizeTier(service, sizeTier || normalizedPackages[0]?.size_tier || undefined);
   const divisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
   const surchargeThreshold = toNumber(service.dimension_rules?.surcharge_threshold_kg, service.max_weight_kg || 20);
@@ -1071,6 +1104,7 @@ export const calculateCustomerPriceBreakdown = async ({
 
   const routeEta = routeSnapshot.eta_minutes || Math.ceil(20 + (distance * 3.5) + (service.batching_allowed ? 120 : 0));
   const etaMinutes = Math.min(service.max_eta_minutes, Math.max(20, routeEta));
+  const publicQuoteRoute = publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` });
   const priceAfterSurge = basePrice + dynamicPrice;
     // Home services: fee platform dihitung dari komponen JARAK (base fare
     // produk + per_km) saja — harga jasa petugas TIDAK kena fee platform.
@@ -1085,12 +1119,19 @@ export const calculateCustomerPriceBreakdown = async ({
   const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee + materialCost + tollCost;
 
   return {
+    quote_id: quoteId,
+    input_fingerprint: inputFingerprint,
+    snapshot_hash: publicQuoteRoute.snapshot_hash,
+    expires_at: quoteExpiresAt,
+    currency: 'IDR',
+    eta_source: routeSnapshot.provider || 'maps',
+    pricing_rule_version: process.env.PRICING_RULE_VERSION || 'pricing-2026-09-01',
       service_code: service.code,
       service_name: service.name,
       service_snapshot: publicServiceSnapshot(service),
       selected_size_tier: selectedTier,
       distance_km: distance,
-      route_snapshot: publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` }),
+      route_snapshot: publicQuoteRoute,
       base_price_idr: basePrice,
       service_fee_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
         ? toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0))
@@ -1123,6 +1164,16 @@ export const calculateCustomerPriceBreakdown = async ({
       delivery_model: service.route_model,
     eta_minutes: etaMinutes,
     total_price_idr: totalPrice,
+    price_components: {
+      base_fare_idr: toNumber(service.base_fare_idr, 0),
+      volumetric_surcharge_idr: volumetricSurcharge,
+      insurance_premium_idr: insurancePremium,
+      dynamic_price_idr: dynamicPrice,
+      platform_fee_idr: platformFee,
+      material_cost_idr: materialCost,
+      toll_cost_idr: tollCost,
+      total_price_idr: totalPrice,
+    },
   };
 };
 

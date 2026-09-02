@@ -116,7 +116,10 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       preferred_courier_id,
       material_codes,
       quote_total_price_idr,
+      quote_id,
       quote_snapshot_hash,
+      quote_input_fingerprint,
+      quote_expires_at,
       quote_consent,
       payment_method,
     } = req.body;
@@ -225,6 +228,38 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       requiresDeliveryCode: package_details?.requires_delivery_code,
     });
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
+
+    const submittedQuoteFingerprint = String(
+      quote_input_fingerprint || price_breakdown?.input_fingerprint || '',
+    ).trim();
+    const trustedQuoteFingerprint = String(trustedPriceBreakdown.input_fingerprint || '').trim();
+    const submittedQuoteExpiresAt = String(
+      quote_expires_at || price_breakdown?.expires_at || '',
+    ).trim();
+    if (submittedQuoteExpiresAt && (!Number.isFinite(Date.parse(submittedQuoteExpiresAt)) || Date.parse(submittedQuoteExpiresAt) <= Date.now())) {
+      client.release();
+      res.status(409).json({
+        success: false,
+        code: 'REQUOTE_REQUIRED',
+        error: 'Quote sudah kedaluwarsa. Hitung ulang harga sebelum order dibuat.',
+        requires_requote: true,
+        quote_id: quote_id || price_breakdown?.quote_id || null,
+        trusted_price_breakdown: trustedPriceBreakdown,
+      });
+      return;
+    }
+    if (submittedQuoteFingerprint && trustedQuoteFingerprint && submittedQuoteFingerprint !== trustedQuoteFingerprint) {
+      client.release();
+      res.status(409).json({
+        success: false,
+        code: 'REQUOTE_REQUIRED',
+        error: 'Input alamat, paket, layanan, atau konfigurasi quote berubah. Hitung ulang harga.',
+        requires_requote: true,
+        quote_id: quote_id || price_breakdown?.quote_id || null,
+        trusted_price_breakdown: trustedPriceBreakdown,
+      });
+      return;
+    }
 
     const submittedQuoteTotal = Number(quote_total_price_idr ?? price_breakdown?.total_price_idr);
     const trustedQuoteTotal = Number(trustedPriceBreakdown.total_price_idr || 0);
@@ -586,6 +621,21 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
         const result = await client.query(insertQuery, values);
         const newOrder = result.rows[0];
+
+        // Persist the server-calculated quote snapshot and the client-visible
+        // quote identity together with the order. The client total is never
+        // used here; trustedPriceBreakdown is the only source of truth.
+        await client.query(
+          `UPDATE orders
+              SET quote_id = $1,
+                  pricing_snapshot = $2::jsonb
+            WHERE id = $3`,
+          [
+            String(quote_id || price_breakdown?.quote_id || trustedPriceBreakdown.quote_id || ''),
+            JSON.stringify(trustedPriceBreakdown),
+            newOrder.id,
+          ],
+        );
 
         if (voucherId) {
       await client.query(
