@@ -57,6 +57,10 @@ publicRoutes.post('/api/v1/customer/promos/redeem', requireMobileOrWebAuth, prom
 publicRoutes.post('/api/v1/customer/promos/release', requireMobileOrWebAuth, promoMutationRateLimiter, requireIdempotencyKey('customer.promo.release'), (req, res) => controllers.releaseCustomerPromoReservation(req, res));
 publicRoutes.get('/api/v1/payment-links', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.listLinks(req, res));
 publicRoutes.post('/api/v1/payment-links', requireMobileOrWebAuth, requireIdempotencyKey('payment_link.create'), (req, res) => controllers.paymentLink.createLink(req, res));
+// Gateway already routes /api/v1/payment-links to admin-service. Keep this
+// tariff alias ahead of /:id so existing gateway policy can serve authoritative
+// aggregator quotes without widening a high-blast proxy rule.
+publicRoutes.get('/api/v1/payment-links/tariff', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkTariff(req, res));
 publicRoutes.get('/api/v1/payment-links/:id', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.getLink(req, res));
 publicRoutes.post('/api/v1/payment-links/:id/checkout', requireMobileOrWebAuth, requireIdempotencyKey('payment_link.checkout'), (req, res) => controllers.paymentLink.checkoutLink(req, res));
 publicRoutes.get('/api/v1/products', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.listProducts(req, res));
