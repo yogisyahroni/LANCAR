@@ -513,9 +513,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 
 **Checklist**
 - [ ] Web journey: login → address → package facts → quote → payment → created → history → detail → tracking → completed/support if needed.
-- [ ] Refresh/back/retry is idempotent.
-- [ ] Mobile responsive and keyboard-accessible.
-- [ ] Web/Android share price/state semantics.
+- [x] Refresh/back/retry is idempotent.
+- [x] Mobile responsive and keyboard-accessible.
+- [x] Web/Android share price/state semantics.
+- [ ] Authenticated staging journey from login through payment, history, tracking, completion/support, and deployed API verification completed.
 
 ---
 
