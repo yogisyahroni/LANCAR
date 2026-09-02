@@ -102,7 +102,7 @@ fun ServiceGridMenu(
                         modifier = Modifier.weight(1f)
                     )
                 } ?: Spacer(Modifier.weight(1f))
-                
+
                 tambalBanMotor?.let {
                     ServiceGridItem(
                         service = it,
@@ -112,7 +112,6 @@ fun ServiceGridMenu(
                         modifier = Modifier.weight(1f)
                     )
                 } ?: Spacer(Modifier.weight(1f))
-                
             }
             
             // Row 2: Tambal Ban Mobil and towing products.
@@ -123,7 +122,6 @@ fun ServiceGridMenu(
                 val tambalBanMobil = services.find { it.code == "tambal_ban_mobil" }
                 val towingMotor = services.find { it.code == "towing_motor" }
                 val towingMobil = services.find { it.code == "towing_mobil" }
-                
                 tambalBanMobil?.let {
                     ServiceGridItem(
                         service = it,
