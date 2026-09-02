@@ -556,7 +556,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Atomic address+coordinate destination.
 - [x] Saved/manual/pinned change coordinates.
 - [x] Discovery GPS not silently reused as checkout destination.
-- [ ] Address change requotes.
+- [x] Address change requotes.
 
 ## FOOD-2026-002 — Authoritative Food Quote [P0]
 
@@ -569,7 +569,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 **Recommended new file only if shared quote cannot express Food cleanly**
 - `backend/order-service/internal/service/food_quote_service.go`
 
-- [ ] Validate merchant/item/variant/stock/voucher/radius/tax/fee/schedule.
+- [x] Validate merchant/item/variant/stock/voucher/radius/tax/fee/schedule.
 - [x] Return itemized total + ETA + expiry.
 - [x] Create consumes quote/requote diff.
 
