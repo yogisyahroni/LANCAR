@@ -29,6 +29,7 @@ import java.util.Locale
 import java.util.concurrent.Executor
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.api.withRequestReference
+import com.tembus.courier.data.model.ProofTokenVerifyRequest
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.domain.CourierProofTypes
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -442,6 +443,10 @@ class ProofOfDeliveryViewModel @Inject constructor(
 
         val (file, contentType) = prepared
         val normalizedProofType = CourierProofTypes.normalize(proofType)
+        // CORE-2026-006: verify the one-time proof token before accepting POD.
+        var tokenId: String? = null
+        var tokenPlain: String? = null
+
         // Mark as submitted IMMEDIATELY to prevent any concurrent calls from slipping through
         _uiState.value = currentState.copy(
             isUploading = true,
@@ -451,6 +456,34 @@ class ProofOfDeliveryViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                val order = orderRepository.getOrderById(orderId)
+                tokenId = order?.proofTokenId
+                tokenPlain = order?.proofTokenPlaintext
+
+                // Verify the issued proof token (CORE-2026-006).
+                if (tokenId != null && tokenPlain != null) {
+                    val verifyReq = ProofTokenVerifyRequest(
+                        tokenId = tokenId!!,
+                        proofValue = tokenPlain!!
+                    )
+                    val verifyResp = apiService.verifyProofToken(orderId = orderId, request = verifyReq)
+                    if (!verifyResp.isSuccessful || verifyResp.body() == null) {
+                        _uiState.value = _uiState.value.copy(
+                            isUploading = false,
+                            isUploadSubmitted = false,
+                            error = "Bukti tidak valid. Token verifikasi gagal."
+                        )
+                        return@launch
+                    }
+                } else if (CourierProofTypes.isDeliveryProof(normalizedProofType)) {
+                    _uiState.value = _uiState.value.copy(
+                        isUploading = false,
+                        isUploadSubmitted = false,
+                        error = "PROOF_REQUIRED: token bukti belum dikeluarkan untuk stage ini."
+                    )
+                    return@launch
+                }
+
                 val orderIdPart = orderId.toRequestBody("text/plain".toMediaTypeOrNull())
                 val latitudePart = latitude.toString().toRequestBody("text/plain".toMediaTypeOrNull())
                 val longitudePart = longitude.toString().toRequestBody("text/plain".toMediaTypeOrNull())
@@ -528,6 +561,11 @@ class ProofOfDeliveryViewModel @Inject constructor(
                     proofType = normalizedProofType,
                     synced = true
                 )
+
+                // CORE-2026-006: one-time token is consumed — clear locally.
+                if (tokenId != null) {
+                    orderRepository.clearProofToken(orderId)
+                }
 
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,

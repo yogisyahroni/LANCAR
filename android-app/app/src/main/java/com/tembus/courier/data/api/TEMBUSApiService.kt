@@ -43,6 +43,11 @@ import com.tembus.courier.data.model.LoginRequest
 import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.OrderStatusTransition
+import com.tembus.courier.data.model.ProofRequirementDto
+import com.tembus.courier.data.model.ProofTokenIssueRequest
+import com.tembus.courier.data.model.ProofTokenIssueResponse
+import com.tembus.courier.data.model.ProofTokenVerifyRequest
+import com.tembus.courier.data.model.ProofTokenVerifyResponse
 import com.tembus.courier.data.model.ScanRequest
 import com.tembus.courier.data.model.ScanResponse
 import com.tembus.courier.data.model.StatusUpdateRequest
@@ -370,6 +375,37 @@ interface TEMBUSApiService {
         @Part("proof_type") proofType: RequestBody,
         @Part photo: MultipartBody.Part
     ): Response<ApiResponse<JsonElement>>
+
+    // ── PROOF CHAIN-OF-CUSTODY (CORE-2026-006) ──────────────────
+
+    /**
+     * Issue a one-time proof token for pickup/delivery verification.
+     * The token binds order + courier + stage + expiry + attempt limit.
+     */
+    @POST("api/v1/orders/{order_id}/proof/token")
+    suspend fun issueProofToken(
+        @Path("order_id") orderId: String,
+        @Body request: ProofTokenIssueRequest
+    ): Response<ProofTokenIssueResponse>
+
+    /**
+     * Verify a one-time proof token, consuming it if valid.
+     * Used to gate pickup/delivery status transitions.
+     */
+    @POST("api/v1/orders/{order_id}/proof/verify")
+    suspend fun verifyProofToken(
+        @Path("order_id") orderId: String,
+        @Body request: ProofTokenVerifyRequest
+    ): Response<ProofTokenVerifyResponse>
+
+    /**
+     * Fetch the proof requirement matrix for a service + stage.
+     */
+    @GET("api/v1/proofs/requirements")
+    suspend fun getProofRequirements(
+        @Query("service_category") serviceCategory: String,
+        @Query("stage") stage: String
+    ): Response<List<ProofRequirementDto>>
 
     // ── LOCATION ────────────────────────────────────────────────
 

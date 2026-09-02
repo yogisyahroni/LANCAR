@@ -77,6 +77,7 @@ fun ScanScreen(
     scanType: String = CourierProofTypes.PICKUP_SCAN,
     title: String = "Verifikasi Barang",
     onScanSuccess: (String) -> Unit,
+    onScanSuccessWithToken: (String, com.tembus.courier.data.model.ProofTokenIssueResponse) -> Unit = { _, _ -> },
     onBack: () -> Unit,
     viewModel: ScanViewModel = hiltViewModel()
 ) {
@@ -122,11 +123,18 @@ fun ScanScreen(
     
     LaunchedEffect(uiState) {
         when (uiState) {
-            is ScanUiState.Success -> {
-                val data = (uiState as ScanUiState.Success).scanData
+            is ScanUiState.ScanSuccess -> {
+                val data = (uiState as ScanUiState.ScanSuccess).scanData
                 verificationNotice = null
                 Toast.makeText(context, "Verifikasi berhasil untuk ${data.orderId}", Toast.LENGTH_SHORT).show()
                 onScanSuccess(data.orderId)
+                viewModel.resetState()
+            }
+            is ScanUiState.ScanSuccessWithToken -> {
+                val success = uiState as ScanUiState.ScanSuccessWithToken
+                verificationNotice = null
+                // TOKEN: kirim plaintext ke courier untuk verifikasi di POD screen
+                onScanSuccessWithToken(success.scanData.orderId, success.token)
                 viewModel.resetState()
             }
             is ScanUiState.Error -> {
