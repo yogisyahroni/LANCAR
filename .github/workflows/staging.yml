@@ -249,11 +249,53 @@ jobs:
           goose -dir database/migrations postgres \
             "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" down
 
+  food-inventory-concurrency:
+    name: Food Inventory Concurrency Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: mirror.gcr.io/postgis/postgis:15-3.4
+        env:
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
+        ports: [5432:5432]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache-dependency-path: backend/order-service/go.sum
+      - name: Install goose
+        run: |
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Run migrations UP
+        run: |
+          goose -dir database/migrations postgres \
+            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" up
+      - name: Run migration-backed oversell test
+        working-directory: ./backend/order-service
+        run: go test -v -race -timeout 5m ./internal/repository -run TestFoodInventoryReservationPreventsConcurrentOversell -count=1
+        env:
+          TEMBUS_ORDER_SERVICE_TEST_DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
+      - name: Roll back test database
+        if: always()
+        run: |
+          goose -dir database/migrations postgres \
+            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" down
+
   observability-guard:
     name: Observability Guard
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [frontend, maps-runtime-guard, admin-service, auth-service, routing-service, migration-test]
+    needs: [frontend, maps-runtime-guard, admin-service, auth-service, routing-service, migration-test, food-inventory-concurrency]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
