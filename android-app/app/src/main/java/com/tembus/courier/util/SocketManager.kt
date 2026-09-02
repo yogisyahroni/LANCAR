@@ -18,6 +18,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import org.json.JSONObject
 import java.net.URISyntaxException
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,6 +39,9 @@ class SocketManager @Inject constructor(
 
     private val _callSignals = MutableSharedFlow<CallSignalEvent>(replay = 0)
     val callSignals: SharedFlow<CallSignalEvent> = _callSignals.asSharedFlow()
+
+    // CORE-2026-007: last-seen event version keyed by order_id for dedupe.
+    private val lastEventVersion: MutableMap<String, Long> = ConcurrentHashMap()
 
     companion object {
         private const val TAG = "SocketManager"
@@ -63,20 +67,17 @@ class SocketManager @Inject constructor(
             Log.d(TAG, "Socket is already connected.")
             return
         }
-
         val courierId = sessionManager.getCourierIdSync()
         if (courierId.isNullOrBlank()) {
             Log.e(TAG, "Cannot connect socket: courierId is null or empty.")
             return
         }
-
         try {
             val token = sessionManager.getAuthTokenSync()
             if (token.isNullOrBlank()) {
                 Log.e(TAG, "Cannot connect socket: authToken is null or empty.")
                 return
             }
-
             // Setup socket with query parameters AND auth payload for JWT validation
             // Role set specifically to "courier"
             val opts = IO.Options.builder()
@@ -84,7 +85,7 @@ class SocketManager @Inject constructor(
                 .setAuth(mapOf("token" to token))
                 .setReconnection(true)
                 .build()
-            
+
             // 🛡️ Force secure transport utilizing our pinned OkHttpClient
             opts.callFactory = okHttpClient
             opts.webSocketFactory = okHttpClient
@@ -106,26 +107,44 @@ class SocketManager @Inject constructor(
     private fun setupListeners() {
         val socket = mSocket ?: return
 
-        socket.on(Socket.EVENT_CONNECT) {
+        socket.on(Socket.EVENT_CONNECT) { args ->
             Log.i(TAG, "Successfully connected to Real-time Chat WebSocket server!")
+            // CORE-2026-007: on (re)connect, emit sync_request so server
+            // returns authoritative last-seen version (prevent blind mutation).
+            try {
+                socket.emit("sync_request", JSONObject().put("action", "sync_request"))
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to emit sync_request on connect: ${e.message}")
+            }
         }
 
         socket.on(Socket.EVENT_DISCONNECT) { args ->
-            Log.w(TAG, "Disconnected from Real-time Chat WebSocket server: reason=${args.getOrNull(0)?.javaClass?.simpleName ?: "unknown"}")
+            val reason = args.getOrNull(0)?.javaClass?.simpleName ?: "unknown"
+            Log.w(TAG, "Disconnected from Real-time Chat WebSocket server: reason=$reason")
         }
 
         socket.on(Socket.EVENT_CONNECT_ERROR) { args ->
-            Log.e(TAG, "WebSocket connection error: type=${args.getOrNull(0)?.javaClass?.simpleName ?: "unknown"}")
+            val type = args.getOrNull(0)?.javaClass?.simpleName ?: "unknown"
+            Log.e(TAG, "WebSocket connection error: type=$type")
+        }
+
+        socket.on("sync_resume") { args ->
+            val data = args.getOrNull(0) as? JSONObject ?: return@on
+            val orderId = data.optString("order_id", "")
+            val lastVersion = data.optLong("last_version", 0L)
+            if (orderId.isNotBlank() && lastVersion > 0) {
+                this.lastEventVersion[orderId] = lastVersion
+            }
         }
 
         socket.on(EVENT_NEW_MESSAGE) { args ->
             val data = args.getOrNull(0) as? JSONObject ?: return@on
-            
+
             try {
                 val jsonStr = data.toString()
                 val message = json.decodeFromString<ChatMessage>(jsonStr)
                 Log.d(TAG, "Received chat event for order=${message.orderId ?: "unknown"} senderRole=${message.senderRole ?: "unknown"}")
-                
+
                 scope.launch {
                     _incomingMessages.emit(message)
                 }
@@ -137,7 +156,17 @@ class SocketManager @Inject constructor(
         socket.on(EVENT_ORDER_TRACKING_UPDATED) { args ->
             val data = args.getOrNull(0) as? JSONObject ?: return@on
             val orderId = data.optString("order_id", data.optString("orderId", ""))
+            val version = data.optLong("version", 0L)
             if (orderId.isNotBlank()) {
+                // CORE-2026-007: drop older/duplicate event by version.
+                if (version > 0) {
+                    val seen = this.lastEventVersion[orderId] ?: 0L
+                    if (version <= seen) {
+                        Log.d(TAG, "Ignoring stale order update v$version (last=$seen) for $orderId")
+                        return@on
+                    }
+                    this.lastEventVersion[orderId] = version
+                }
                 scope.launch { _orderUpdates.emit(orderId) }
             }
         }

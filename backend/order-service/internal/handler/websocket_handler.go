@@ -33,15 +33,22 @@ type WSHandler struct {
 	register   chan *client
 	unregister chan *client
 	mu         sync.RWMutex
+
+	// CORE-2026-007: last-seen event version per (user, order_id) for dedupe.
+	// Prevents clients processing out-of-order or duplicate events after
+	// reconnect/replay.
+	lastVersionMu sync.Mutex
+	lastVersion   map[string]uint64
 }
 
 func NewWSHandler(eb domain.EventBus) *WSHandler {
 	h := &WSHandler{
-		eventBus:   eb,
-		clients:    make(map[*client]bool),
-		rooms:      make(map[string]map[*client]bool),
-		register:   make(chan *client),
-		unregister: make(chan *client),
+		eventBus:     eb,
+		clients:      make(map[*client]bool),
+		rooms:        make(map[string]map[*client]bool),
+		register:     make(chan *client),
+		unregister:   make(chan *client),
+		lastVersion:  make(map[string]uint64),
 	}
 	go h.run()
 	go h.listenToEvents()
@@ -96,7 +103,10 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	h.register <- c
 
-	// Always join user's private room
+	// CORE-2026-007: On connect, the client must fetch the authoritative
+	// snapshot via GetTrackingByOrder / order REST endpoints. The WS layer
+	// only emits new events from this point forward; reconnects therefore
+	// do not replay stale state.
 	h.joinRoom(c, "user:"+userID)
 
 	go c.writePump()
@@ -135,6 +145,11 @@ func (h *WSHandler) readPump(c *client) {
 			h.joinRoom(c, msg.Room)
 		case "leave":
 			h.leaveRoom(c, msg.Room)
+		case "sync_request":
+			// CORE-2026-007: client reconnected and asks for authoritative
+			// snapshot. Push the latest order_events version per order so the
+			// client knows where to resume from (prevents blind mutation).
+			h.sendResumeVersion(c, msg.Room)
 		}
 	}
 }
@@ -154,7 +169,6 @@ func (c *client) writePump() {
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
 				return
@@ -201,10 +215,33 @@ func (h *WSHandler) leaveRoom(c *client, room string) {
 	delete(c.rooms, room)
 }
 
+// sendResumeVersion pushes the last-seen event version for an order room so a
+// freshly connected client knows the authoritative version it must not regress
+// below (CORE-2026-007 dedupe/reconnect contract).
+func (h *WSHandler) sendResumeVersion(c *client, room string) {
+	orderID := extractOrderIDFromRoom(room)
+	if orderID == "" {
+		return
+	}
+	h.lastVersionMu.Lock()
+	v := h.lastVersion[h.versionKey(c.userID, orderID)]
+	h.lastVersionMu.Unlock()
+
+	resume := map[string]interface{}{
+		"action":       "sync_resume",
+		"order_id":     orderID,
+		"last_version": v,
+	}
+	payload, _ := json.Marshal(resume)
+	select {
+	case c.send <- payload:
+	default:
+	}
+}
+
 func (h *WSHandler) listenToEvents() {
 	ctx := context.Background()
 
-	// Topics to listen to
 	topics := []string{"order.updates", "courier.locations", "order.chats"}
 
 	for _, topic := range topics {
@@ -213,7 +250,6 @@ func (h *WSHandler) listenToEvents() {
 			log.Printf("WS failed to subscribe to topic %s: %v", topic, err)
 			continue
 		}
-
 		go func(t string, c <-chan string) {
 			for msg := range c {
 				h.broadcastToRoomFromEvent(t, msg)
@@ -222,40 +258,68 @@ func (h *WSHandler) listenToEvents() {
 	}
 }
 
+// versionedEvent is the on-the-wire shape parsed from the event bus payload to
+// perform per-order deduplication (CORE-2026-007).
+type versionedEvent struct {
+	OrderID    string `json:"order_id"`
+	UserID     string `json:"user_id"`
+	Version    uint64 `json:"version"`
+}
+
 func (h *WSHandler) broadcastToRoomFromEvent(topic, payload string) {
-	var event struct {
-		OrderID string `json:"order_id"`
-		UserID  string `json:"user_id"`
-	}
+	var event versionedEvent
 	_ = json.Unmarshal([]byte(payload), &event)
 
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	// Broadcast to order room if present
+	// CORE-2026-007: skip duplicate / older events. Only forward an event to a
+	// room if its version is strictly greater than the last version seen for
+	// that (user, order). This makes event ordering authoritative server-side.
 	if event.OrderID != "" {
-		room := "order:" + event.OrderID
-		if clients, ok := h.rooms[room]; ok {
-			for c := range clients {
-				select {
-				case c.send <- []byte(payload):
-				default:
-					// Drop slow clients
-				}
-			}
+		h.lastVersionMu.Lock()
+		key := h.versionKey("", event.OrderID)
+		last := h.lastVersion[key]
+		if event.Version > 0 && event.Version <= last {
+			h.lastVersionMu.Unlock()
+			return
 		}
+		if event.Version > last {
+			h.lastVersion[key] = event.Version
+		}
+		h.lastVersionMu.Unlock()
 	}
 
-	// Also broadcast to user room if present
+	h.broadcastToRoom("order:"+event.OrderID, payload)
 	if event.UserID != "" {
-		room := "user:" + event.UserID
-		if clients, ok := h.rooms[room]; ok {
-			for c := range clients {
-				select {
-				case c.send <- []byte(payload):
-				default:
-				}
+		h.broadcastToRoom("user:"+event.UserID, payload)
+	}
+}
+
+// broadcastToRoom emits payload to all clients in a room.
+func (h *WSHandler) broadcastToRoom(room, payload string) {
+	if clients, ok := h.rooms[room]; ok {
+		for c := range clients {
+			select {
+			case c.send <- []byte(payload):
+			default:
+				// Drop slow clients
 			}
 		}
 	}
+}
+
+func (h *WSHandler) versionKey(userID, orderID string) string {
+	if userID == "" {
+		return "o:" + orderID
+	}
+	return userID + ":" + orderID
+}
+
+func extractOrderIDFromRoom(room string) string {
+	const prefix = "order:"
+	if len(room) > len(prefix) && room[:len(prefix)] == prefix {
+		return room[len(prefix):]
+	}
+	return ""
 }

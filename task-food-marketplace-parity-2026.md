@@ -331,11 +331,11 @@ _Local quote contract and server enforcement are complete; authenticated staging
 - `frontend/src/lib/socket.ts`
 
 **Checklist**
-- [ ] Event ordering/version contract.
-- [ ] Ignore duplicate/older events.
-- [ ] Reconnect fetches authoritative snapshot.
-- [ ] Push tidak mutasi state authoritative secara buta.
-- [ ] Offline only queues safe/idempotent mutation.
+- [x] Event ordering/version contract.
+- [x] Ignore duplicate/older events.
+- [x] Reconnect fetches authoritative snapshot.
+- [x] Push tidak mutasi state authoritative secara buta.
+- [x] Offline only queues safe/idempotent mutation.
 
 ---
 
@@ -350,9 +350,9 @@ _Local quote contract and server enforcement are complete; authenticated staging
 - `android-app/app/src/main/java/com/tembus/courier/ui/components/ErrorReference.kt`
 
 **Checklist**
-- [ ] Standardize `REQUOTE_REQUIRED`, `OUT_OF_SERVICE_AREA`, `NO_COURIER`, `PROVIDER_UNAVAILABLE`, `ITEM_UNAVAILABLE`, `INVALID_TRANSITION`, `PAYMENT_PENDING`, `PROOF_REQUIRED`, `HANDOFF_INVALID`, `SCHEDULE_INVALID`, `CAPABILITY_MISMATCH`, `CARRIER_RATE_EXPIRED`, `CARRIER_EVENT_UNKNOWN`.
-- [ ] Error carries correlation id.
-- [ ] Client renders next action, not raw internal error.
+- [x] Standardize `REQUOTE_REQUIRED`, `OUT_OF_SERVICE_AREA`, `NO_COURIER`, `PROVIDER_UNAVAILABLE`, `ITEM_UNAVAILABLE`, `INVALID_TRANSITION`, `PAYMENT_PENDING`, `PROOF_REQUIRED`, `HANDOFF_INVALID`, `SCHEDULE_INVALID`, `CAPABILITY_MISMATCH`, `CARRIER_RATE_EXPIRED`, `CARRIER_EVENT_UNKNOWN`.
+- [x] Error carries correlation id.
+- [x] Client renders next action, not raw internal error.
 
 ---
 

@@ -61,6 +61,9 @@ func (r *batchFoodRepo) CreateFoodBatch(ctx context.Context, batch *domain.FoodB
 type stubEventRepo struct{}
 
 func (s *stubEventRepo) SaveEvent(ctx context.Context, event domain.OrderEvent) error { return nil }
+func (s *stubEventRepo) NextEventVersion(_ context.Context, _ string) (uint64, error) {
+	return 0, nil
+}
 func (s *stubEventRepo) ListEventsByUserID(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {
 	return nil, nil
 }

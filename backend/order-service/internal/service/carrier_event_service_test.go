@@ -40,6 +40,9 @@ func (s *carrierEventOrderEventsStub) SaveEvent(_ context.Context, event domain.
 	s.saved = append(s.saved, event)
 	return nil
 }
+func (s *carrierEventOrderEventsStub) NextEventVersion(_ context.Context, _ string) (uint64, error) {
+	return 0, nil
+}
 func (s *carrierEventOrderEventsStub) ListEventsByUserID(context.Context, string, time.Time) ([]domain.OrderEvent, error) {
 	return nil, nil
 }

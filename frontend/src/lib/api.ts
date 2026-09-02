@@ -134,13 +134,28 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor
+// CORE-2026-008: normalize backend typed errors to a client-readable shape so
+// the UI can render a next action instead of raw internal text.
+const normalizeApiError = (error: any) => {
+  const data = error?.response?.data;
+  if (data && typeof data === 'object' && data.code) {
+    error.apiCode = data.code;
+    error.correlationId = data.correlation_id ?? error.correlationId;
+    error.recoverable = data.recoverable ?? false;
+    if (!error.userMessage && typeof data.message === 'string') {
+      error.userMessage = data.message;
+    }
+  }
+  return error;
+};
+
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   async (error) => {
     attachErrorReference(error);
+    normalizeApiError(error);
     const originalRequest = error.config;
 
     // Check if error is due to expired or missing token (401 Unauthorized)
