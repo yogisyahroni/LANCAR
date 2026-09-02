@@ -332,10 +332,10 @@ _Local quote contract and server enforcement are complete; authenticated staging
 - `frontend/src/lib/socket.ts`
 
 **Checklist**
-- [ ] Event ordering/version contract.
-- [ ] Ignore duplicate/older events.
-- [ ] Reconnect fetches authoritative snapshot.
-- [ ] Push tidak mutasi state authoritative secara buta.
+- [x] Event ordering/version contract.
+- [x] Ignore duplicate/older events.
+- [x] Reconnect fetches authoritative snapshot.
+- [x] Push tidak mutasi state authoritative secara buta.
 - [ ] Offline only queues safe/idempotent mutation.
 
 ---
