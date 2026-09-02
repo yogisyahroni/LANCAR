@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"time"
 )
@@ -17,21 +18,37 @@ func NewPaymentLinkRepository(db *sql.DB) domain.PaymentLinkRepository {
 }
 
 func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.PaymentLink) error {
+	if quoteID := strings.TrimSpace(domain.AggregatorQuoteIDFromContext(ctx)); quoteID != "" {
+		quote, err := r.GetValidAggregatorRateQuote(ctx, quoteID, time.Now())
+		if err != nil {
+			return fmt.Errorf("validate aggregator quote before payment link create: %w", err)
+		}
+		if quote == nil {
+			return &domain.RequoteRequiredError{Reason: "quote expired or was not found"}
+		}
+		if !strings.EqualFold(strings.TrimSpace(quote.ProviderCode), strings.TrimSpace(link.LogisticsProvider)) ||
+			!strings.EqualFold(strings.TrimSpace(quote.ServiceCode), strings.TrimSpace(link.LogisticsServiceType)) {
+			return &domain.RequoteRequiredError{Reason: "quote does not match the selected provider service"}
+		}
+		link.AggregatorQuoteID = quote.ID
+		link.DeliveryFeeAmount = quote.CustomerTariffIDR
+	}
+
 	query := `
 		INSERT INTO payment_links (
-			id, merchant_id, item_name, item_price, item_image_url, 
-			merchant_fee_amount, dropoff_address, dropoff_city, dropoff_zip_code, dropoff_lat, dropoff_lng, 
+			id, merchant_id, item_name, item_price, item_image_url,
+			merchant_fee_amount, dropoff_address, dropoff_city, dropoff_zip_code, dropoff_lat, dropoff_lng,
 			status, expired_at, estimate_id, pickup_address, pickup_city, pickup_zip_code, pickup_lat, pickup_lng,
 			delivery_fee_amount, service_code, order_id, recipient_phone, recipient_name,
-			logistics_provider, logistics_service_type,
+			logistics_provider, logistics_service_type, aggregator_quote_id,
 			created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, 
-			$6, $7, $8, $9, $10, $11, 
+			$1, $2, $3, $4, $5,
+			$6, $7, $8, $9, $10, $11,
 			$12, $13, $14, $15, $16, $17, $18, $19,
 			$20, $21, $22, $23, $24,
-			$25, $26,
-			$27, $28
+			$25, $26, NULLIF($27, '')::uuid,
+			$28, $29
 		)
 	`
 	_, err := r.db.ExecContext(ctx, query,
@@ -39,7 +56,7 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 		link.MerchantFeeAmount, link.DropoffAddress, link.DropoffCity, link.DropoffZipCode, link.DropoffLat, link.DropoffLng,
 		link.Status, link.ExpiredAt, link.EstimateID, link.PickupAddress, link.PickupCity, link.PickupZipCode, link.PickupLat, link.PickupLng,
 		link.DeliveryFeeAmount, link.ServiceCode, link.OrderID, link.RecipientPhone, link.RecipientName,
-		link.LogisticsProvider, link.LogisticsServiceType,
+		link.LogisticsProvider, link.LogisticsServiceType, link.AggregatorQuoteID,
 		link.CreatedAt, link.UpdatedAt,
 	)
 	if err != nil {
@@ -50,12 +67,12 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 
 func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*domain.PaymentLink, error) {
 	query := `
-		SELECT pl.id, pl.merchant_id, pl.item_name, pl.item_price, pl.item_image_url, 
-		       pl.merchant_fee_amount, pl.dropoff_address, COALESCE(pl.dropoff_city, ''), COALESCE(pl.dropoff_zip_code, ''), pl.dropoff_lat, pl.dropoff_lng, 
+		SELECT pl.id, pl.merchant_id, pl.item_name, pl.item_price, pl.item_image_url,
+		       pl.merchant_fee_amount, pl.dropoff_address, COALESCE(pl.dropoff_city, ''), COALESCE(pl.dropoff_zip_code, ''), pl.dropoff_lat, pl.dropoff_lng,
 		       pl.status, pl.expired_at, pl.deleted_at, pl.estimate_id, pl.pickup_address, COALESCE(pl.pickup_city, ''), COALESCE(pl.pickup_zip_code, ''), pl.pickup_lat, pl.pickup_lng,
 		       pl.delivery_fee_amount, pl.service_code, pl.order_id,
 		       COALESCE(pl.recipient_phone, ''), COALESCE(pl.recipient_name, ''),
-		       COALESCE(pl.logistics_provider, ''), COALESCE(pl.logistics_service_type, ''),
+		       COALESCE(pl.logistics_provider, ''), COALESCE(pl.logistics_service_type, ''), COALESCE(pl.aggregator_quote_id::text, ''),
 		       pl.created_at, pl.updated_at, u.store_name
 		FROM payment_links pl
 		LEFT JOIN users u ON pl.merchant_id = u.id
@@ -79,7 +96,7 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 		&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffCity, &link.DropoffZipCode, &link.DropoffLat, &link.DropoffLng,
 		&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupCity, &pickupZipCode, &pickupLat, &pickupLng,
 		&deliveryFee, &serviceCode, &orderID, &link.RecipientPhone, &link.RecipientName,
-		&link.LogisticsProvider, &link.LogisticsServiceType,
+		&link.LogisticsProvider, &link.LogisticsServiceType, &link.AggregatorQuoteID,
 		&link.CreatedAt, &link.UpdatedAt, &storeName,
 	)
 	if err != nil {
@@ -112,8 +129,8 @@ func (r *paymentLinkRepositoryImpl) UpdateStatus(ctx context.Context, id string,
 // sudah diproses sebelumnya (idempotent safe).
 func (r *paymentLinkRepositoryImpl) AtomicMarkPaid(ctx context.Context, id string) (bool, error) {
 	query := `
-		UPDATE payment_links 
-		SET status = $1, updated_at = NOW() 
+		UPDATE payment_links
+		SET status = $1, updated_at = NOW()
 		WHERE id = $2 AND status = $3
 		RETURNING id
 	`
@@ -125,16 +142,14 @@ func (r *paymentLinkRepositoryImpl) AtomicMarkPaid(ctx context.Context, id strin
 	).Scan(&returnedID)
 
 	if err == sql.ErrNoRows {
-		// Link tidak ditemukan ATAU statusnya bukan PENDING (sudah diproses)
 		return false, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("atomic_mark_paid: db error: %w", err)
 	}
 
-	return true, nil // Berhasil diupdate dari PENDING → PAID
+	return true, nil
 }
-
 
 func (r *paymentLinkRepositoryImpl) UpdateOrderID(ctx context.Context, id string, orderID string) error {
 	query := `UPDATE payment_links SET order_id = $1, updated_at = NOW() WHERE id = $2`
@@ -142,13 +157,13 @@ func (r *paymentLinkRepositoryImpl) UpdateOrderID(ctx context.Context, id string
 	return err
 }
 
-	func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.PaymentLink, error) {
+func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.PaymentLink, error) {
 	query := `
-		SELECT id, merchant_id, item_name, item_price, item_image_url, 
-		       merchant_fee_amount, dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''), dropoff_lat, dropoff_lng, 
+		SELECT id, merchant_id, item_name, item_price, item_image_url,
+		       merchant_fee_amount, dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''), dropoff_lat, dropoff_lng,
 		       status, expired_at, deleted_at, estimate_id, pickup_address, COALESCE(pickup_city, ''), COALESCE(pickup_zip_code, ''), pickup_lat, pickup_lng,
 		       delivery_fee_amount, service_code, order_id,
-		       COALESCE(logistics_provider, ''), COALESCE(logistics_service_type, ''),
+		       COALESCE(logistics_provider, ''), COALESCE(logistics_service_type, ''), COALESCE(aggregator_quote_id::text, ''),
 		       created_at, updated_at
 		FROM payment_links
 		WHERE merchant_id = $1 AND deleted_at IS NULL
@@ -179,7 +194,7 @@ func (r *paymentLinkRepositoryImpl) UpdateOrderID(ctx context.Context, id string
 			&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffCity, &link.DropoffZipCode, &link.DropoffLat, &link.DropoffLng,
 			&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupCity, &pickupZipCode, &pickupLat, &pickupLng,
 			&deliveryFee, &serviceCode, &orderID,
-			&link.LogisticsProvider, &link.LogisticsServiceType,
+			&link.LogisticsProvider, &link.LogisticsServiceType, &link.AggregatorQuoteID,
 			&link.CreatedAt, &link.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -214,8 +229,8 @@ func (r *paymentLinkRepositoryImpl) UpdateOrderID(ctx context.Context, id string
 
 func (r *paymentLinkRepositoryImpl) MarkExpired(ctx context.Context, before time.Time) (int64, error) {
 	query := `
-		UPDATE payment_links 
-		SET status = $1, updated_at = NOW() 
+		UPDATE payment_links
+		SET status = $1, updated_at = NOW()
 		WHERE status = $2 AND expired_at < $3
 	`
 	res, err := r.db.ExecContext(ctx, query, domain.PaymentLinkStatusExpired, domain.PaymentLinkStatusPending, before)
@@ -227,8 +242,8 @@ func (r *paymentLinkRepositoryImpl) MarkExpired(ctx context.Context, before time
 
 func (r *paymentLinkRepositoryImpl) SoftDeleteExpiredLinks(ctx context.Context, olderThan time.Time) (int64, error) {
 	query := `
-		UPDATE payment_links 
-		SET deleted_at = NOW(), updated_at = NOW() 
+		UPDATE payment_links
+		SET deleted_at = NOW(), updated_at = NOW()
 		WHERE status = $1 AND deleted_at IS NULL AND expired_at < $2
 	`
 	res, err := r.db.ExecContext(ctx, query, domain.PaymentLinkStatusExpired, olderThan)
@@ -236,4 +251,57 @@ func (r *paymentLinkRepositoryImpl) SoftDeleteExpiredLinks(ctx context.Context, 
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+func (r *paymentLinkRepositoryImpl) CreateAggregatorRateQuote(ctx context.Context, quote *domain.AggregatorRateQuote) error {
+	const query = `
+		INSERT INTO aggregator_rate_quotes (
+			id, provider_code, origin_code, destination_code, chargeable_weight_kg,
+			length_cm, width_cm, height_cm, item_value_idr, category, insurance, cod,
+			service_code, service_name, normalized_category, tariff_gross_idr,
+			tariff_net_idr, customer_tariff_idr, eta, eta_source, rule_version,
+			expires_at, created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+			$13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+		)`
+	_, err := r.db.ExecContext(ctx, query,
+		quote.ID, quote.ProviderCode, quote.OriginCode, quote.DestinationCode,
+		quote.ChargeableWeightKG, quote.LengthCM, quote.WidthCM, quote.HeightCM,
+		quote.ItemValueIDR, quote.Category, quote.Insurance, quote.COD,
+		quote.ServiceCode, quote.ServiceName, quote.NormalizedCategory,
+		quote.TariffGrossIDR, quote.TariffNetIDR, quote.CustomerTariffIDR,
+		quote.ETA, quote.ETASource, quote.RuleVersion, quote.ExpiresAt, quote.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("create aggregator rate quote: %w", err)
+	}
+	return nil
+}
+
+func (r *paymentLinkRepositoryImpl) GetValidAggregatorRateQuote(ctx context.Context, id string, now time.Time) (*domain.AggregatorRateQuote, error) {
+	const query = `
+		SELECT id, provider_code, origin_code, destination_code, chargeable_weight_kg,
+		       length_cm, width_cm, height_cm, item_value_idr, category, insurance, cod,
+		       service_code, service_name, normalized_category, tariff_gross_idr,
+		       tariff_net_idr, customer_tariff_idr, eta, eta_source, rule_version,
+		       expires_at, created_at
+		FROM aggregator_rate_quotes
+		WHERE id = NULLIF($1, '')::uuid AND expires_at > $2`
+	var quote domain.AggregatorRateQuote
+	err := r.db.QueryRowContext(ctx, query, id, now).Scan(
+		&quote.ID, &quote.ProviderCode, &quote.OriginCode, &quote.DestinationCode,
+		&quote.ChargeableWeightKG, &quote.LengthCM, &quote.WidthCM, &quote.HeightCM,
+		&quote.ItemValueIDR, &quote.Category, &quote.Insurance, &quote.COD,
+		&quote.ServiceCode, &quote.ServiceName, &quote.NormalizedCategory,
+		&quote.TariffGrossIDR, &quote.TariffNetIDR, &quote.CustomerTariffIDR,
+		&quote.ETA, &quote.ETASource, &quote.RuleVersion, &quote.ExpiresAt, &quote.CreatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get valid aggregator rate quote: %w", err)
+	}
+	return &quote, nil
 }
