@@ -21,6 +21,8 @@ data class Merchant(
     // (mis. "2026-08-09T12:30:00Z"). NULL = tidak pause. Auto un-pause
     // backend saat waktu habis, tanpa aksi merchant.
     @SerializedName("paused_until") val pausedUntil: String? = null,
+    @SerializedName("busy_until") val busyUntil: String? = null,
+    @SerializedName("busy_extra_prep_minutes") val busyExtraPrepMinutes: Int = 0,
     @SerializedName("completion_rate_pct") val completionRatePct: Double = 0.0,
     @SerializedName("verification_status") val verificationStatus: String = "pending",
     // Rating restoran — di-update order-service tiap customer submit rating (FOOD-BIKE-059/060).
@@ -187,6 +189,12 @@ data class ToggleOpenRequest(
 /** FB-107: body POST /merchant/pause — durasi pause dalam menit (1-180). */
 data class PauseRequest(
     @SerializedName("duration_minutes") val durationMinutes: Int
+)
+
+/** FOOD-2026-011: tetap menerima order dengan prep tambahan sementara. */
+data class BusyRequest(
+    @SerializedName("until") val until: String,
+    @SerializedName("extra_prep_minutes") val extraPrepMinutes: Int
 )
 
 /** FB-109: body PATCH /merchant/profile — update minimal order (IDR). */

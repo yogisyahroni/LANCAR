@@ -36,6 +36,8 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			is_open,
 			verification_status,
 			paused_until,
+			busy_until,
+			busy_extra_prep_minutes,
 			min_order_idr,
 			COALESCE(ST_Y(lokasi::geometry), 0),
 			COALESCE(ST_X(lokasi::geometry), 0),
@@ -48,9 +50,10 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	m := &domain.FoodMerchantInfo{}
 	var jamBuka, jamTutup, halalStatus sql.NullString
 	var pausedUntil sql.NullTime
+	var busyUntil sql.NullTime
 	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
 		&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
-		&pausedUntil, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus,
+		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -60,6 +63,9 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	}
 	if pausedUntil.Valid {
 		m.PausedUntil = &pausedUntil.Time
+	}
+	if busyUntil.Valid {
+		m.BusyUntil = &busyUntil.Time
 	}
 	if jamBuka.Valid {
 		m.JamBuka = &jamBuka.String

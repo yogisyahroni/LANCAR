@@ -69,6 +69,8 @@ type MerchantService interface {
 	Pause(ctx context.Context, userID string, until time.Time) (*Merchant, error)
 	// Resume (FB-107): batalkan pause sementara lebih awal.
 	Resume(ctx context.Context, userID string) (*Merchant, error)
+	// Busy: tetap menerima order dengan tambahan waktu prep sampai `until`.
+	Busy(ctx context.Context, userID string, until time.Time, extraPrepMinutes int) (*Merchant, error)
 	// UpdateFoodDocs update dokumen pangan (FB-092): nomor sertifikat halal
 	// BPJPH, SPP-IRT, izin edar BPOM + masa berlaku. Buka toko ditolak
 	// kalau belum lengkap / expired.

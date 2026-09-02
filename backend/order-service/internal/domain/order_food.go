@@ -118,6 +118,9 @@ type FoodMerchantInfo struct {
 	// FB-107: pause sementara — merchant tidak terima order baru selama
 	// PausedUntil > NOW(). NULL = tidak pause.
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
+	// FOOD-2026-011: busy accepts orders but adds prep time until expiry.
+	BusyUntil            *time.Time `json:"busy_until,omitempty"`
+	BusyExtraPrepMinutes int        `json:"busy_extra_prep_minutes"`
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
 	MinOrderIDR int64 `json:"min_order_idr"`
 	// FOOD-BIKE-055: metrik browse merchant

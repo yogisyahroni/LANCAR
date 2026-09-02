@@ -25,6 +25,9 @@ type Merchant struct {
 	// FB-107: pause sementara sampai jam ini (NULL = tidak pause). Auto
 	// un-pause ketika waktu habis — tidak mengubah is_open / jam operasional.
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
+	// FOOD-2026-011: busy menerima order tetapi menambah waktu persiapan.
+	BusyUntil            *time.Time `json:"busy_until,omitempty"`
+	BusyExtraPrepMinutes int        `json:"busy_extra_prep_minutes"`
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa batas minimum.
 	MinOrderIDR       int64   `json:"min_order_idr"`
 	CompletionRatePct float64 `json:"completion_rate_pct"`

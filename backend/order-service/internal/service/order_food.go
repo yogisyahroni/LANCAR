@@ -189,6 +189,9 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		return nil, fmt.Errorf("minimum order di toko ini Rp %d — subtotal kamu Rp %d",
 			merchant.MinOrderIDR, subtotal)
 	}
+	if merchant.BusyUntil != nil && merchant.BusyUntil.After(time.Now()) {
+		maxPrep += merchant.BusyExtraPrepMinutes
+	}
 
 	// 5. Ongkir: jarak merchant → dropoff, tarif dari service product food_delivery
 	distanceKM := haversineKM(merchant.Lat, merchant.Lng, req.DropoffLat, req.DropoffLng)

@@ -49,6 +49,10 @@ class MerchantRepository(
     suspend fun resume(): Result<Merchant> =
         request { api.resume() }
 
+    // FOOD-2026-011: tetap menerima order dengan prep tambahan sementara.
+    suspend fun busy(until: String, extraPrepMinutes: Int): Result<Merchant> =
+        request { api.busy(BusyRequest(until, extraPrepMinutes)) }
+
     suspend fun updateFoodDocs(req: UpdateFoodDocsRequest): Result<Merchant> =
         request { api.updateFoodDocs(req) }
 

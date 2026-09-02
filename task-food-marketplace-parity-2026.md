@@ -676,8 +676,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [ ] No-show/cancel policy.
 
 ## FOOD-2026-011 — Merchant Busy vs Paused [P1]
-- [ ] Busy extends prep/ETA while accepting orders.
-- [ ] Pause stops new orders.
+- [x] Busy extends prep/ETA while accepting orders.
+- [x] Pause stops new orders.
 - [ ] Timed busy supported.
 
 ## FOOD-2026-012 — Quantity-aware inventory [P1]

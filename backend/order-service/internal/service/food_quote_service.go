@@ -198,6 +198,9 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		etaSpeed = 20
 	}
 	prepMinutes := maxPrep
+	if merchant.BusyUntil != nil && merchant.BusyUntil.After(time.Now()) {
+		prepMinutes += merchant.BusyExtraPrepMinutes
+	}
 	// Live traffic and courier supply are not known at quote time. Keep those
 	// signals explicit instead of presenting configured route speed as traffic.
 	pickupTravelMinutes := int(math.Ceil(distanceKM / etaSpeed * 60))

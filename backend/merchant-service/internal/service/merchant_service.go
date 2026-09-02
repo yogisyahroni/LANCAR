@@ -335,6 +335,34 @@ func (s *merchantServiceImpl) Resume(ctx context.Context, userID string) (*domai
 	return s.merchantRepo.GetByID(ctx, m.ID)
 }
 
+// Busy (FOOD-2026-011): merchant tetap menerima order, tetapi quote Food
+// memasukkan tambahan prep yang tersimpan sampai `until`.
+func (s *merchantServiceImpl) Busy(ctx context.Context, userID string, until time.Time, extraPrepMinutes int) (*domain.Merchant, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	if until.Before(time.Now()) {
+		return nil, errors.New("waktu busy harus di masa depan")
+	}
+	if extraPrepMinutes < 0 || extraPrepMinutes > 180 {
+		return nil, errors.New("extra_prep_minutes harus 0-180")
+	}
+	repo, ok := s.merchantRepo.(interface {
+		SetBusy(context.Context, string, *time.Time, int) error
+	})
+	if !ok {
+		return nil, errors.New("konfigurasi busy belum tersedia")
+	}
+	if err := repo.SetBusy(ctx, m.ID, &until, extraPrepMinutes); err != nil {
+		return nil, err
+	}
+	return s.merchantRepo.GetByID(ctx, m.ID)
+}
+
 // UpdateFoodDocs — FB-092 + ADR 003: update nomor + masa berlaku dokumen
 // pangan. Patch semantics: hanya field yang diisi yang diperbarui; field yang
 // tidak diisi dipertahankan dari data lama. SEMUA dokumen OPSIONAL (soft-gate)
