@@ -170,6 +170,12 @@ api.interceptors.response.use(
   async (error) => {
     attachErrorReference(error);
     error.recoverable = getRecoverableApiError(error);
+    if (error.recoverable?.action && typeof error.response?.data?.message === 'string') {
+      const action = error.recoverable.action;
+      if (!error.response.data.message.includes(action)) {
+        error.response.data.message = `${error.response.data.message} ${action}`;
+      }
+    }
     const originalRequest = error.config;
 
     // Check if error is due to expired or missing token (401 Unauthorized)
