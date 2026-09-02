@@ -75,6 +75,56 @@ describe('on-demand courier proof to ledger lifecycle', () => {
     jest.restoreAllMocks();
   });
 
+  it('rejects pickup evidence until the courier records arrival', async () => {
+    const pickupClient = makeClient();
+    const auditClient = makeClient();
+    (db.connect as jest.Mock)
+      .mockResolvedValueOnce(pickupClient)
+      .mockResolvedValueOnce(auditClient);
+
+    pickupClient.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 'order-before-arrival',
+          customer_id: 'customer-1',
+          order_number: 'LCR-OD-ARRIVAL',
+          status: 'accepted',
+          model: 'p2p',
+          service_code: 'instant',
+          leg_id: 'leg-1',
+          leg_status: 'accepted',
+          distance_m: 8,
+          face_verification_required: true,
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+    auditClient.query.mockResolvedValue({ rows: [] });
+
+    const res = makeResponse();
+    await scanMobileCourierOrder({
+      user: { id: 'courier-1', role: 'courier' },
+      body: {
+        order_id: 'order-before-arrival',
+        scan_type: 'pickup',
+        latitude: -6.175392,
+        longitude: 106.827153,
+        accuracy: 10,
+        barcode_value: 'TOKEN-HO-ARRIVAL',
+      },
+    } as any, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: false,
+      code: 'ERR_PICKUP_ARRIVAL_REQUIRED',
+      data: expect.objectContaining({ required_status: 'pickup_arrived' }),
+    }));
+    expect(auditClient.query.mock.calls.some(([sql, params]: any[]) =>
+      String(sql).includes('courier_proof_attempts') && params.includes('pickup_arrival_required')
+    )).toBe(true);
+  });
+
   it('requires pickup scan plus pickup photo before delivery, then credits ledger after POD', async () => {
     const pickupScanClient = makeClient();
     const pickupPhotoClient = makeClient();

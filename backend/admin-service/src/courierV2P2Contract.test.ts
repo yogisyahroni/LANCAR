@@ -246,6 +246,53 @@ describe('courier v2 P2 contracts', () => {
     expect(client.release).toHaveBeenCalled();
   });
 
+  it('records pickup_arrived as the audited custody prerequisite', async () => {
+    const client = makeClient();
+    (db.connect as jest.Mock).mockResolvedValueOnce(client);
+
+    client.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{
+          order_id: 'order-od-arrival',
+          order_number: 'TMB-OD-ARRIVAL',
+          customer_id: 'customer-1',
+          merchant_id: null,
+          model: 'p2p',
+          order_status: 'accepted',
+          service_code: 'instant',
+          batch_id: null,
+          leg_id: 'leg-arrival',
+          leg_status: 'accepted',
+          service_category: 'on_demand',
+          failed_delivery_policy: 'must_deliver',
+          regular_max_reschedule_attempts: 3,
+          workflow_role: 'on_demand',
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [{ total: 2 }] })
+      .mockResolvedValueOnce({ rows: [{ to_status: 'pickup_arrived', label: 'Konfirmasi tiba di pickup', requires_proof: false }] })
+      .mockResolvedValueOnce({ rows: [] }) // order leg update
+      .mockResolvedValueOnce({ rows: [] }) // order update
+      .mockResolvedValueOnce({ rows: [] }) // audited status event
+      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+    const res = makeResponse();
+    await updateMobileCourierOrderStatus(
+      makeReq({ body: { order_id: 'order-od-arrival', status: 'pickup_arrived' } }),
+      res,
+    );
+
+    expect(res.bodyValue).toEqual(expect.objectContaining({ success: true }));
+    const eventCall = client.query.mock.calls.find((call: any[]) => String(call[0]).includes('INSERT INTO order_events'));
+    expect(eventCall[1][2]).toBe('pickup_arrived');
+    expect(JSON.parse(eventCall[1][4])).toEqual(expect.objectContaining({
+      from_status: 'accepted',
+      to_status: 'pickup_arrived',
+      source: 'courier_mobile',
+    }));
+  });
+
   it('moves regular delivery to return_required after the configured failed-delivery attempt limit', async () => {
     const client = makeClient();
     (db.connect as jest.Mock).mockResolvedValueOnce(client);
