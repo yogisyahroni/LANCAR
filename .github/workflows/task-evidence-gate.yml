@@ -2,11 +2,19 @@ name: Task Evidence Gate
 
 on:
   pull_request:
+    branches:
+      - main
   push:
     branches:
       - staging
       - main
       - master
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "hotfix/**"
+      - "recovery/**"
+      - "agent/**"
   workflow_dispatch:
 
 permissions:
