@@ -100,18 +100,13 @@ function AddressModal({
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-          );
-          const data = await res.json();
-          const addr = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-          const city =
-            data.address?.city ||
-            data.address?.town ||
-            data.address?.county ||
-            data.address?.state ||
-            "";
-          const postcode = data.address?.postcode || "";
+          const res = await api.get("/maps/reverse-geocode", {
+            params: { latitude: lat, longitude: lng, scope: "web_customer" },
+          });
+          const result = res.data?.result;
+          const addr = result?.display_label || result?.label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          const city = result?.city || "";
+          const postcode = result?.postal_code || "";
           setForm((prev) => ({
             ...prev,
             address: addr,

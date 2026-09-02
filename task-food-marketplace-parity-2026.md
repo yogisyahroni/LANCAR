@@ -849,8 +849,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 **Recommended new file**
 - `backend/integration-gateway/internal/handler/logistics_location_handler.go`
 
-- [ ] Remove direct browser third-party geocode.
-- [ ] Normalize display label separately from city/district/postal/provider code.
+- [x] Remove direct browser third-party geocode.
+- [x] Normalize display label separately from city/district/postal/provider code.
 - [ ] Provider-location mapping is server controlled/cacheable/auditable.
 
 ---

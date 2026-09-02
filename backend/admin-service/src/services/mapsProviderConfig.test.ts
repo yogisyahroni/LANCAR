@@ -240,6 +240,7 @@ describe('mapsProviderConfig', () => {
             lat: '-6.17539',
             lon: '106.82715',
             importance: 0.91,
+            address: { city: 'Jakarta', city_district: 'Gambir', postcode: '10110' },
           },
         ],
       };
@@ -252,6 +253,10 @@ describe('mapsProviderConfig', () => {
       provider: 'openstreetmap_nominatim',
       latitude: -6.17539,
       longitude: 106.82715,
+      display_label: 'Monumen Nasional, Gambir, Jakarta Pusat, Indonesia',
+      city: 'Jakarta',
+      district: 'Gambir',
+      postal_code: '10110',
     }));
     expect(axios.get).toHaveBeenCalledWith(
       expect.stringContaining('api.tomtom.com'),
@@ -269,12 +274,19 @@ describe('mapsProviderConfig', () => {
       data: {
         display_name: 'Fresh Jakarta address',
         importance: 0.9,
+        address: { city: 'Jakarta', city_district: 'Menteng', postcode: '10310' },
       },
     });
 
     const result = await reverseGeocodePoint({ latitude: -6.2088, longitude: 106.8456 }, 'web_customer');
 
     expect(result?.label).toBe('Fresh Jakarta address');
+    expect(result).toEqual(expect.objectContaining({
+      display_label: 'Fresh Jakarta address',
+      city: 'Jakarta',
+      district: 'Menteng',
+      postal_code: '10310',
+    }));
     expect(redis.set).toHaveBeenCalledWith(
       expect.stringMatching(/^maps:reverse_geocode:/),
       expect.stringContaining('Fresh Jakarta address'),

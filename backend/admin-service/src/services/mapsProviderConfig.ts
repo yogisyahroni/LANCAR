@@ -105,11 +105,31 @@ export type RouteSnapshotOptions = {
 
 export type MapsGeocodeResult = {
   label: string;
+  display_label?: string;
   latitude: number;
   longitude: number;
   provider: string;
   confidence?: number | null;
+  city?: string;
+  district?: string;
+  postal_code?: string;
 };
+
+const firstAddressText = (...values: unknown[]): string | undefined => {
+  const value = values.find((item) => typeof item === 'string' && item.trim().length > 0);
+  return typeof value === 'string' ? value.trim() : undefined;
+};
+
+const normalizedAddressParts = (address: Record<string, unknown> | undefined) => ({
+  city: firstAddressText(address?.city, address?.town, address?.village, address?.municipality),
+  district: firstAddressText(address?.city_district, address?.district, address?.municipalitySubdivision, address?.suburb, address?.county),
+  postal_code: firstAddressText(address?.postcode, address?.postalCode),
+});
+
+const mapsGeocodeResult = (value: Omit<MapsGeocodeResult, 'display_label'>): MapsGeocodeResult => ({
+  ...value,
+  display_label: value.label,
+});
 
 export type MapsTileSnapshot = {
   body: Buffer;
@@ -1906,12 +1926,13 @@ const fetchOpenStreetMapGeocode = async (normalizedQuery: string): Promise<MapsG
     },
     timeout: 2500,
   });
-  return (response.data || []).map((item: any) => ({
+  return (response.data || []).map((item: any) => mapsGeocodeResult({
     label: item.display_name,
     latitude: Number(item.lat),
     longitude: Number(item.lon),
     provider: 'openstreetmap_nominatim',
     confidence: item.importance ? Number(item.importance) : null,
+    ...normalizedAddressParts(item.address),
   })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
 };
 
@@ -1933,13 +1954,14 @@ const fetchOpenStreetMapReverseGeocode = async (point: MapPoint): Promise<MapsGe
     timeout: 2500,
   });
   if (!response.data?.display_name) return null;
-  return {
+  return mapsGeocodeResult({
     label: response.data.display_name,
     latitude: point.latitude,
     longitude: point.longitude,
     provider: 'openstreetmap_reverse_nominatim',
     confidence: response.data.importance ? Number(response.data.importance) : null,
-  };
+    ...normalizedAddressParts(response.data.address),
+  });
 };
 
 export const geocodeAddress = async (query: string, scope: MapProviderScope = 'web_customer'): Promise<MapsGeocodeResult[]> => {
@@ -2001,12 +2023,13 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
         },
         timeout: 2500,
       });
-      results = (response.data?.results || []).slice(0, 8).map((item: any) => ({
+      results = (response.data?.results || []).slice(0, 8).map((item: any) => mapsGeocodeResult({
         label: item.address?.freeformAddress || item.poi?.name || normalizedQuery,
         latitude: Number(item.position?.lat),
         longitude: Number(item.position?.lon),
         provider: 'tomtom_search',
         confidence: typeof item.score === 'number' ? item.score : null,
+        ...normalizedAddressParts(item.address),
       })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
     } else {
       results = await fetchOpenStreetMapGeocode(normalizedQuery);
@@ -2139,13 +2162,14 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       });
       const item = response.data?.addresses?.[0];
       if (!item) return null;
-      result = {
+      result = mapsGeocodeResult({
         label: item.address?.freeformAddress || `${point.latitude.toFixed(5)}, ${point.longitude.toFixed(5)}`,
         latitude: point.latitude,
         longitude: point.longitude,
         provider: 'tomtom_reverse_geocoding',
         confidence: null,
-      };
+        ...normalizedAddressParts(item.address),
+      });
     } else {
       result = await fetchOpenStreetMapReverseGeocode(point);
       if (!result) return null;

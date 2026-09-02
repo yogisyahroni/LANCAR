@@ -170,12 +170,11 @@ export function AggregatorWizard() {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-          // Bypass backend and call Nominatim directly
-          const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
-          const res = await fetch(url);
-          if (!res.ok) throw new Error("Gagal mengambil data dari Nominatim");
-          const data = await res.json();
-          const label = data.display_name;
+          const res = await api.get("/maps/reverse-geocode", {
+            params: { latitude, longitude, scope: "web_customer" },
+          });
+          const result = res.data?.result;
+          const label = result?.display_label || result?.label;
           if (label) {
             setValue("pickup_address", label, { shouldValidate: true });
           } else {
