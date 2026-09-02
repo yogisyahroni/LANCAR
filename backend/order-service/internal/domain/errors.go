@@ -5,6 +5,33 @@ import (
 	"fmt"
 )
 
+type RecoverableErrorDescriptor struct {
+	Code      string
+	Action    string
+	Retryable bool
+}
+
+var recoverableErrorDescriptors = map[string]RecoverableErrorDescriptor{
+	"REQUOTE_REQUIRED":      {Code: "REQUOTE_REQUIRED", Action: "Tinjau harga terbaru lalu lanjutkan kembali.", Retryable: false},
+	"OUT_OF_SERVICE_AREA":   {Code: "OUT_OF_SERVICE_AREA", Action: "Pilih alamat lain yang masih terjangkau layanan.", Retryable: false},
+	"NO_COURIER":            {Code: "NO_COURIER", Action: "Coba lagi beberapa saat atau pilih layanan lain.", Retryable: true},
+	"PROVIDER_UNAVAILABLE":  {Code: "PROVIDER_UNAVAILABLE", Action: "Pilih provider atau layanan lain.", Retryable: false},
+	"ITEM_UNAVAILABLE":      {Code: "ITEM_UNAVAILABLE", Action: "Hapus item yang tidak tersedia atau pilih pengganti.", Retryable: false},
+	"INVALID_TRANSITION":    {Code: "INVALID_TRANSITION", Action: "Muat ulang status terbaru sebelum mencoba lagi.", Retryable: true},
+	"PAYMENT_PENDING":       {Code: "PAYMENT_PENDING", Action: "Tunggu konfirmasi pembayaran sebelum mengulangi aksi.", Retryable: true},
+	"PROOF_REQUIRED":        {Code: "PROOF_REQUIRED", Action: "Lengkapi bukti yang diwajibkan lalu kirim ulang.", Retryable: false},
+	"HANDOFF_INVALID":       {Code: "HANDOFF_INVALID", Action: "Minta kode serah-terima baru dan ulangi verifikasi.", Retryable: true},
+	"SCHEDULE_INVALID":      {Code: "SCHEDULE_INVALID", Action: "Pilih jadwal yang masih tersedia.", Retryable: false},
+	"CAPABILITY_MISMATCH":   {Code: "CAPABILITY_MISMATCH", Action: "Pilih layanan yang sesuai kemampuan akun/perangkat.", Retryable: false},
+	"CARRIER_RATE_EXPIRED":  {Code: "CARRIER_RATE_EXPIRED", Action: "Hitung tarif terbaru sebelum melanjutkan.", Retryable: true},
+	"CARRIER_EVENT_UNKNOWN": {Code: "CARRIER_EVENT_UNKNOWN", Action: "Muat ulang pelacakan atau hubungi dukungan.", Retryable: true},
+}
+
+func RecoverableErrorForCode(code string) (RecoverableErrorDescriptor, bool) {
+	descriptor, ok := recoverableErrorDescriptors[code]
+	return descriptor, ok
+}
+
 type RequoteRequiredError struct {
 	Reason       string
 	QuoteID      string

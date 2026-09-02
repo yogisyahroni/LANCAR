@@ -4,6 +4,26 @@ import { customerApiUrl } from './runtimeConfig';
 
 const API_URL = customerApiUrl;
 
+export type RecoverableApiError = {
+  code: string;
+  message: string;
+  action?: string;
+  retryable: boolean;
+  correlationId?: string;
+};
+
+export const getRecoverableApiError = (error: any): RecoverableApiError | null => {
+  const data = error?.response?.data;
+  if (!data || typeof data.code !== 'string') return null;
+  return {
+    code: data.code,
+    message: typeof data.message === 'string' ? data.message : 'Permintaan belum dapat diproses.',
+    action: typeof data.action === 'string' ? data.action : undefined,
+    retryable: data.retryable === true,
+    correlationId: typeof data.correlation_id === 'string' ? data.correlation_id : undefined,
+  };
+};
+
 const PUBLIC_AUTH_PATHS = [
   '/auth/customer/login/start',
   '/auth/customer/register/start',
@@ -149,6 +169,7 @@ api.interceptors.response.use(
   },
   async (error) => {
     attachErrorReference(error);
+    error.recoverable = getRecoverableApiError(error);
     const originalRequest = error.config;
 
     // Check if error is due to expired or missing token (401 Unauthorized)

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.api.withRequestReference
+import com.tembus.courier.data.api.withRecoverableNextAction
 import com.tembus.courier.data.model.CourierProfile
 import com.tembus.courier.data.model.CourierCapabilityProfile
 import com.tembus.courier.data.model.CourierEarningsLedger
@@ -352,10 +353,9 @@ class OrderViewModel @Inject constructor(
 
         val raw = errorBody()?.string() ?: return fallback.withRequestReference(this)
         return try {
-            userSafeMessage(
-                Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content,
-                fallback
-            )
+            val body = Json.parseToJsonElement(raw).jsonObject
+            userSafeMessage(body["message"]?.jsonPrimitive?.content, fallback)
+                .withRecoverableNextAction(body["code"]?.jsonPrimitive?.content)
                 .withRequestReference(this)
         } catch (_: Exception) {
             fallback.withRequestReference(this)

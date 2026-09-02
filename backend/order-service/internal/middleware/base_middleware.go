@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"runtime/debug"
 	"strings"
+	"tembus/order-service/internal/domain"
 	"time"
 )
 
@@ -229,9 +230,12 @@ type ErrorResponse struct {
 	Code          string `json:"code"`
 	Message       string `json:"message"`
 	CorrelationID string `json:"correlation_id,omitempty"`
+	Action        string `json:"action,omitempty"`
+	Retryable     bool   `json:"retryable,omitempty"`
 }
 
 func WriteError(w http.ResponseWriter, status int, code, message, correlationID string) {
+	descriptor, recoverable := domain.RecoverableErrorForCode(code)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(ErrorResponse{
@@ -239,6 +243,8 @@ func WriteError(w http.ResponseWriter, status int, code, message, correlationID 
 		Code:          code,
 		Message:       message,
 		CorrelationID: correlationID,
+		Action:        descriptor.Action,
+		Retryable:     recoverable && descriptor.Retryable,
 	})
 }
 

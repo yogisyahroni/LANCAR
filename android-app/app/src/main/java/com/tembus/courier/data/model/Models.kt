@@ -97,7 +97,13 @@ data class ApiResponse<T>(
     val message: String?,
 
     @SerialName("code")
-    val code: String? = null
+    val code: String? = null,
+
+    @SerialName("action")
+    val action: String? = null,
+
+    @SerialName("retryable")
+    val retryable: Boolean = false
 )
 
 /**
