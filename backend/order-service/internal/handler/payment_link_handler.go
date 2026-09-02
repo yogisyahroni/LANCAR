@@ -4,6 +4,7 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"strconv"
@@ -20,9 +21,18 @@ func NewPaymentLinkHandler(svc domain.PaymentLinkService, configRepo domain.Conf
 	return &PaymentLinkHandler{svc: svc, configRepo: configRepo}
 }
 
+func writeRequoteRequired(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusConflict)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":          false,
+		"code":             "REQUOTE_REQUIRED",
+		"error":            err.Error(),
+		"requires_requote": true,
+	})
+}
+
 func (h *PaymentLinkHandler) CreateLink(w http.ResponseWriter, r *http.Request) {
-	// In a real app, merchantID comes from JWT auth context.
-	// For now, let's assume it's in the header or we parse it.
 	merchantID := r.Header.Get("X-User-ID")
 	if merchantID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -35,14 +45,38 @@ func (h *PaymentLinkHandler) CreateLink(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Basic validation
 	if req.ItemName == "" || req.DropoffAddress == "" || req.ItemImageURL == "" {
 		http.Error(w, "Missing required fields", http.StatusBadRequest)
 		return
 	}
 
-	link, err := h.svc.CreateLink(r.Context(), merchantID, req)
+	ctx := r.Context()
+	if strings.TrimSpace(req.LogisticsProvider) != "" {
+		quoteSvc, ok := h.svc.(domain.AggregatorRateQuoteService)
+		if !ok {
+			http.Error(w, "authoritative carrier quote service is unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		quote, err := quoteSvc.ValidateSelection(ctx, req.AggregatorQuoteID, req.LogisticsProvider, req.LogisticsServiceType)
+		if err != nil {
+			var requoteErr *domain.RequoteRequiredError
+			if errors.As(err, &requoteErr) {
+				writeRequoteRequired(w, err)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		ctx = domain.WithAggregatorQuoteID(ctx, quote.ID)
+	}
+
+	link, err := h.svc.CreateLink(ctx, merchantID, req)
 	if err != nil {
+		var requoteErr *domain.RequoteRequiredError
+		if errors.As(err, &requoteErr) {
+			writeRequoteRequired(w, err)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -56,7 +90,6 @@ func (h *PaymentLinkHandler) CreateLink(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *PaymentLinkHandler) GetLink(w http.ResponseWriter, r *http.Request) {
-	// Extract ID from URL path, e.g. /api/v1/payment-links/{id}
 	parts := strings.Split(r.URL.Path, "/")
 	id := parts[len(parts)-1]
 
@@ -111,7 +144,6 @@ func (h *PaymentLinkHandler) ListLinks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PaymentLinkHandler) CheckoutLink(w http.ResponseWriter, r *http.Request) {
-	// Extract ID from URL path, e.g. /api/v1/payment-links/{id}/checkout
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 2 {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
@@ -138,7 +170,6 @@ func (h *PaymentLinkHandler) CheckoutLink(w http.ResponseWriter, r *http.Request
 }
 
 func (h *PaymentLinkHandler) HandleRequest(w http.ResponseWriter, r *http.Request) {
-	// Simple routing for /api/v1/payment-links based on Method and Path
 	if r.Method == http.MethodPost {
 		if strings.HasSuffix(r.URL.Path, "/checkout") {
 			h.CheckoutLink(w, r)
@@ -161,7 +192,6 @@ func (h *PaymentLinkHandler) HandleRequest(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *PaymentLinkHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
-	// Midtrans webhook sends JSON body. We simulate standard payload reading.
 	var data map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
@@ -180,9 +210,7 @@ func (h *PaymentLinkHandler) HandleWebhook(w http.ResponseWriter, r *http.Reques
 	}
 
 	serverKey := h.configRepo.GetStringConfig(r.Context(), "midtrans_server_key", os.Getenv("MIDTRANS_SERVER_KEY"))
-	
-	// Validate signature
-	// SHA512(order_id + status_code + gross_amount + server_key)
+
 	hash := sha512.New()
 	hash.Write([]byte(orderID + statusCode + grossAmount + serverKey))
 	expectedSignature := hex.EncodeToString(hash.Sum(nil))
@@ -192,10 +220,7 @@ func (h *PaymentLinkHandler) HandleWebhook(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Route to service
 	if err := h.svc.HandleWebhook(r.Context(), orderID, transactionStatus); err != nil {
-		// Log error, but usually webhooks should return 200 to acknowledge receipt
-		// unless we want Midtrans to retry. We'll return 400 for bad requests for now.
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -216,18 +241,37 @@ func (h *PaymentLinkHandler) CheckTariff(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	origin := r.URL.Query().Get("origin_code")
-	dest := r.URL.Query().Get("destination_code")
-	
-	weightStr := r.URL.Query().Get("weight_kg")
-	weight, _ := strconv.ParseFloat(weightStr, 64)
+	weight, _ := strconv.ParseFloat(r.URL.Query().Get("weight_kg"), 64)
 	if weight <= 0 {
-		weight = 1.0 // default 1kg
+		weight = 1.0
 	}
+	length, _ := strconv.ParseFloat(r.URL.Query().Get("length_cm"), 64)
+	width, _ := strconv.ParseFloat(r.URL.Query().Get("width_cm"), 64)
+	height, _ := strconv.ParseFloat(r.URL.Query().Get("height_cm"), 64)
+	itemValue, _ := strconv.ParseInt(r.URL.Query().Get("item_value_idr"), 10, 64)
+	insurance, _ := strconv.ParseBool(r.URL.Query().Get("insurance"))
+	cod, _ := strconv.ParseBool(r.URL.Query().Get("cod"))
 
-	resp, err := h.svc.CheckTariff(r.Context(), provider, origin, dest, weight)
+	quoteSvc, ok := h.svc.(domain.AggregatorRateQuoteService)
+	if !ok {
+		http.Error(w, "authoritative carrier quote service is unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	resp, err := quoteSvc.Quote(r.Context(), domain.CheckTariffRequest{
+		Provider:        provider,
+		OriginCode:      r.URL.Query().Get("origin_code"),
+		DestinationCode: r.URL.Query().Get("destination_code"),
+		WeightKG:        weight,
+		LengthCM:        length,
+		WidthCM:         width,
+		HeightCM:        height,
+		ItemValueIDR:    itemValue,
+		Category:        r.URL.Query().Get("category"),
+		Insurance:       insurance,
+		COD:             cod,
+	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
