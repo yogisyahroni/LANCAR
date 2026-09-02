@@ -446,6 +446,7 @@ type PackageScan struct {
 	// IdempotencyKey is supplied by the transport layer and is never exposed
 	// as part of the public scan representation.
 	IdempotencyKey string    `json:"-"`
+	HandoffToken   string    `json:"-"`
 	ScannedByRole  string    `json:"-"`
 	Latitude       float64   `json:"latitude"`
 	Longitude      float64   `json:"longitude"`

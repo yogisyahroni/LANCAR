@@ -309,11 +309,12 @@ _Local quote contract and server enforcement are complete; authenticated staging
 - `database/migrations/<timestamp>_add_handoff_verification.sql`
 
 **Checklist**
-- [ ] Proof requirement matrix per service/stage.
-- [ ] One-time token binds order + actor + stage + expiry + attempts.
-- [ ] Replay/wrong actor/wrong order rejected.
-- [ ] Proof immutable after stage final.
-- [ ] Completion blocked if mandatory proof missing.
+- [x] Proof requirement matrix per service/stage.
+- [x] One-time token binds order + actor + stage + expiry + attempts.
+- [x] Replay/wrong actor/wrong order rejected.
+- [x] Proof immutable after stage final.
+- [x] Completion blocked if mandatory proof missing.
+- [ ] Authenticated staging multi-actor proof/PIN/QR flow and deployed migration verification completed.
 
 ---
 

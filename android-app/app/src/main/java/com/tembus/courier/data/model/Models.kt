@@ -142,7 +142,24 @@ data class ScanRequest(
     val photoUrl: String? = null,
     
     @SerialName("bag_number")
-    val bagNumber: String? = null
+    val bagNumber: String? = null,
+
+    @SerialName("handoff_token")
+    val handoffToken: String? = null
+)
+
+@Serializable
+data class IssueHandoffTokenRequest(
+    @SerialName("order_id") val orderId: String,
+    val stage: String,
+    @SerialName("ttl_seconds") val ttlSeconds: Int? = null
+)
+
+@Serializable
+data class ConsumeHandoffTokenRequest(
+    @SerialName("order_id") val orderId: String,
+    val stage: String,
+    val token: String
 )
 
 @Serializable

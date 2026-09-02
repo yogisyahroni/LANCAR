@@ -33,6 +33,7 @@ type orderServiceImpl struct {
 	voucherSvc       domain.VoucherService
 	tipSvc           domain.TipService  // FB-083: refund tip saat order batal
 	pushSvc          domain.PushService // FB-084: notif push customer saat merchant reject/timeout
+	handoffSvc       domain.HandoffService
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -62,6 +63,10 @@ func (s *orderServiceImpl) SetTipService(ts domain.TipService) {
 
 func (s *orderServiceImpl) SetPushService(ps domain.PushService) {
 	s.pushSvc = ps
+}
+
+func (s *orderServiceImpl) SetHandoffService(hs domain.HandoffService) {
+	s.handoffSvc = hs
 }
 
 // SetMerchantSettlementService inject settlement service (FOOD-BIKE-067).

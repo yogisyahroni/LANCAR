@@ -24,6 +24,18 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 	if order == nil {
 		return errors.New("order not found")
 	}
+	if scan.HandoffToken != "" {
+		if s.handoffSvc == nil {
+			return errors.New("handoff verification is not available")
+		}
+		stage := domain.HandoffStageDelivery
+		if scan.ScanType == "pickup" {
+			stage = domain.HandoffStagePickup
+		}
+		if err := s.handoffSvc.Consume(ctx, scan.HandoffToken, order.ID, scannedBy, stage); err != nil {
+			return fmt.Errorf("handoff verification failed: %w", err)
+		}
+	}
 
 	var targetStatus domain.OrderStatus
 	switch scan.ScanType {

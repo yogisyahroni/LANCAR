@@ -12,6 +12,7 @@ type OrderHandler struct {
 	pricingSvc      domain.PricingService
 	orderSvc        domain.OrderService
 	meetingPointSvc domain.MeetingPointService
+	handoffSvc      domain.HandoffService
 }
 
 func NewOrderHandler(p domain.PricingService, o domain.OrderService, m domain.MeetingPointService) *OrderHandler {
@@ -20,6 +21,10 @@ func NewOrderHandler(p domain.PricingService, o domain.OrderService, m domain.Me
 		orderSvc:        o,
 		meetingPointSvc: m,
 	}
+}
+
+func (h *OrderHandler) SetHandoffService(svc domain.HandoffService) {
+	h.handoffSvc = svc
 }
 
 // userSafeError maps internal errors to safe user-facing messages and
@@ -283,13 +288,14 @@ var cancellableStatuses = map[domain.OrderStatus]bool{
 
 // ScanRequest represents the request payload for scanning a package
 type ScanRequest struct {
-	OrderID     string  `json:"order_id"`
-	ScanType    string  `json:"scan_type"`
-	Latitude    float64 `json:"latitude"`
-	Longitude   float64 `json:"longitude"`
-	WarehouseID *string `json:"warehouse_id,omitempty"`
-	PhotoURL    *string `json:"photo_url,omitempty"`
-	BagNumber   *string `json:"bag_number,omitempty"`
+	OrderID      string  `json:"order_id"`
+	ScanType     string  `json:"scan_type"`
+	Latitude     float64 `json:"latitude"`
+	Longitude    float64 `json:"longitude"`
+	WarehouseID  *string `json:"warehouse_id,omitempty"`
+	PhotoURL     *string `json:"photo_url,omitempty"`
+	BagNumber    *string `json:"bag_number,omitempty"`
+	HandoffToken string  `json:"handoff_token,omitempty"`
 }
 
 // ScanPackage godoc
