@@ -19,6 +19,16 @@ func (registryTrackingStub) TrackOrder(context.Context, string) (*domain.Trackin
 	return &domain.TrackingResponse{AWBNumber: "AWB-1", Status: "IN_TRANSIT"}, nil
 }
 
+type registryUnavailableStub struct{}
+
+func (registryUnavailableStub) CheckTariff(context.Context, domain.TariffRequest) (*domain.TariffResponse, error) {
+	return &domain.TariffResponse{}, nil
+}
+
+func (registryUnavailableStub) Availability() (bool, string) {
+	return false, "circuit_open"
+}
+
 func TestLogisticsProviderRegistryNormalizesAndListsDescriptors(t *testing.T) {
 	registry := NewLogisticsProviderRegistry()
 	registry.Register(domain.ProviderRegistration{
@@ -91,5 +101,26 @@ func TestLogisticsProviderRegistryExposesTrackingModeAndDegradedState(t *testing
 	}
 	if byCode["manual"].TrackingMode != "degraded_manual" || !byCode["manual"].TrackingDegraded {
 		t.Fatalf("expected degraded manual descriptor, got %#v", byCode["manual"])
+	}
+}
+
+func TestLogisticsProviderRegistryExposesRuntimeAvailability(t *testing.T) {
+	registry := NewLogisticsProviderRegistry()
+	registry.Register(domain.ProviderRegistration{
+		Descriptor: domain.ProviderDescriptor{Code: "down", Name: "Down Provider", Capabilities: []domain.LogisticsCapability{domain.CapabilityTariff}},
+		Tariff:     registryUnavailableStub{},
+	})
+
+	listed := registry.List()
+	if len(listed) != 1 || listed[0].Available || listed[0].AvailabilityReason != "circuit_open" {
+		t.Fatalf("expected unavailable provider descriptor, got %#v", listed)
+	}
+	registration, ok := registry.Get("down")
+	if !ok || registration.Descriptor.Available {
+		t.Fatalf("expected unavailable provider from Get, got %#v (ok=%v)", registration, ok)
+	}
+	diagnostics := registry.Diagnostics()
+	if len(diagnostics) != 1 || diagnostics[0].Ready || diagnostics[0].Available || diagnostics[0].AvailabilityReason != "circuit_open" {
+		t.Fatalf("expected unavailable diagnostics, got %#v", diagnostics)
 	}
 }

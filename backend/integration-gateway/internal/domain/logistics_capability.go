@@ -27,18 +27,22 @@ type ProviderService struct {
 }
 
 type ProviderDescriptor struct {
-	Code             string                `json:"code"`
-	Name             string                `json:"name"`
-	Capabilities     []LogisticsCapability `json:"capabilities"`
-	Services         []ProviderService     `json:"services,omitempty"`
-	TrackingMode     string                `json:"tracking_mode,omitempty"`
-	TrackingDegraded bool                  `json:"tracking_degraded"`
+	Code               string                `json:"code"`
+	Name               string                `json:"name"`
+	Capabilities       []LogisticsCapability `json:"capabilities"`
+	Services           []ProviderService     `json:"services,omitempty"`
+	TrackingMode       string                `json:"tracking_mode,omitempty"`
+	TrackingDegraded   bool                  `json:"tracking_degraded"`
+	Available          bool                  `json:"available"`
+	AvailabilityReason string                `json:"availability_reason,omitempty"`
 }
 
 type ProviderDiagnostic struct {
-	Code         string                `json:"code"`
-	Name         string                `json:"name"`
-	Ready        bool                  `json:"ready"`
-	Missing      []LogisticsCapability `json:"missing_capabilities,omitempty"`
-	Capabilities []LogisticsCapability `json:"capabilities"`
+	Code               string                `json:"code"`
+	Name               string                `json:"name"`
+	Ready              bool                  `json:"ready"`
+	Missing            []LogisticsCapability `json:"missing_capabilities,omitempty"`
+	Capabilities       []LogisticsCapability `json:"capabilities"`
+	Available          bool                  `json:"available"`
+	AvailabilityReason string                `json:"availability_reason,omitempty"`
 }

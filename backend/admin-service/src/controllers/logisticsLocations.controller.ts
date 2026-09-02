@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
 import { readDb } from '../db';
 
-const SUPPORTED_PROVIDERS = new Set(['jne', 'jnt']);
-
 const normalizeProvider = (value: unknown): string => String(value || '').trim().toLowerCase();
 
 /**
@@ -14,11 +12,11 @@ const normalizeProvider = (value: unknown): string => String(value || '').trim()
  */
 export const listCustomerLogisticsLocations = async (req: Request, res: Response): Promise<void> => {
   const provider = normalizeProvider(req.query.provider);
-  if (!SUPPORTED_PROVIDERS.has(provider)) {
+  if (!provider) {
     res.status(400).json({
       success: false,
-      error: 'Provider logistics tidak didukung atau belum dipilih',
-      code: 'UNSUPPORTED_LOGISTICS_PROVIDER',
+      error: 'Provider logistics belum dipilih',
+      code: 'LOGISTICS_PROVIDER_REQUIRED',
     });
     return;
   }

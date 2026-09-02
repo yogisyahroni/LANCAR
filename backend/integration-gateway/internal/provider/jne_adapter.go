@@ -38,6 +38,19 @@ func NewJNEProvider() *JNEProvider {
 	}
 }
 
+// Availability reports whether JNE can be selected for a new quote/order.
+// The adapter owns both credential and circuit state, so this cannot drift from
+// the actual call path.
+func (p *JNEProvider) Availability() (bool, string) {
+	if strings.TrimSpace(p.apiKey) == "" || strings.TrimSpace(p.username) == "" {
+		return false, "credentials_not_configured"
+	}
+	if p.cb != nil && p.cb.State() == "open" {
+		return false, "circuit_open"
+	}
+	return true, ""
+}
+
 // CheckTariff checks estimated shipping cost between origin and destination
 func (p *JNEProvider) CheckTariff(ctx context.Context, req domain.TariffRequest) (*domain.TariffResponse, error) {
 	if p.apiKey == "" || p.username == "" {

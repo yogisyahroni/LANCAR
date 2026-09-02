@@ -24,6 +24,13 @@ type CODProvider interface{}
 type ReturnProvider interface{}
 type ClaimProvider interface{}
 
+// ProviderAvailability is an optional runtime health contract. Providers that
+// depend on credentials or a circuit breaker implement it so the registry can
+// expose selectable providers without leaking fake availability to clients.
+type ProviderAvailability interface {
+	Availability() (available bool, reason string)
+}
+
 type ProviderRegistration struct {
 	Descriptor ProviderDescriptor
 	Tariff     TariffProvider

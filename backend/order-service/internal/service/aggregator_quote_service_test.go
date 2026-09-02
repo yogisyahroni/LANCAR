@@ -1,6 +1,23 @@
 package service
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"tembus/order-service/internal/domain"
+)
+
+type quoteValidationAWBStub struct{}
+
+func (quoteValidationAWBStub) CheckTariff(context.Context, domain.CheckTariffRequest) (*domain.CheckTariffResponse, error) {
+	return &domain.CheckTariffResponse{}, nil
+}
+
+func (quoteValidationAWBStub) CreateAWB(context.Context, domain.AWBRequest) (*domain.AWBResponse, error) {
+	return nil, nil
+}
+
+func (quoteValidationAWBStub) SendWhatsApp(context.Context, string, string) error { return nil }
 
 func TestChargeableWeightKgUsesActualWeightWhenHigher(t *testing.T) {
 	if got := chargeableWeightKg(2, 10, 10, 10); got != 2 {
@@ -23,5 +40,14 @@ func TestChargeableWeightKgIgnoresIncompleteDimensions(t *testing.T) {
 func TestNormalizeAggregatorCategoryIsStable(t *testing.T) {
 	if got := normalizeAggregatorCategory("  Makanan   Beku "); got != "makanan-beku" {
 		t.Fatalf("expected normalized category makanan-beku, got %q", got)
+	}
+}
+
+func TestAggregatorQuoteRejectsMissingProviderAreaCodes(t *testing.T) {
+	service := &paymentLinkServiceImpl{awbClient: quoteValidationAWBStub{}}
+	if _, err := service.Quote(context.Background(), domain.CheckTariffRequest{
+		Provider: "jne", WeightKG: 1,
+	}); err == nil {
+		t.Fatal("expected missing provider area codes to be rejected")
 	}
 }

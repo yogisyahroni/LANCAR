@@ -828,11 +828,11 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `frontend/src/hooks/useLogisticsProviders.ts`
 - `frontend/src/types/logistics.ts`
 
-- [ ] Origin from validated pickup address/provider location mapping.
-- [ ] Destination resolved to canonical/provider-compatible location code.
-- [ ] Provider/service list comes from backend capability registry.
+- [x] Origin from validated pickup address/provider location mapping.
+- [x] Destination resolved to canonical/provider-compatible location code.
+- [x] Provider/service list comes from backend capability registry.
 - [ ] Provider circuit-open/unavailable not selectable.
-- [ ] No production mock city/provider fallback.
+- [x] No production mock city/provider fallback.
 
 ---
 

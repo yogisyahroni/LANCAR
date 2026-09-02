@@ -38,12 +38,9 @@ func (s *paymentLinkServiceImpl) Quote(ctx context.Context, req domain.CheckTari
 	req.Provider = strings.ToLower(strings.TrimSpace(req.Provider))
 	req.OriginCode = strings.TrimSpace(req.OriginCode)
 	req.DestinationCode = strings.TrimSpace(req.DestinationCode)
-	if req.OriginCode == "" {
-		req.OriginCode = strings.TrimSpace(s.configRepo.GetStringConfig(ctx, "awb_origin_code", ""))
-	}
-	if req.DestinationCode == "" {
-		req.DestinationCode = strings.TrimSpace(s.configRepo.GetStringConfig(ctx, "awb_destination_code", ""))
-	}
+	// Provider area codes must come from the validated provider mapping selected
+	// by the caller. Never substitute a global AWB config value here: doing so
+	// can quote the wrong lane while appearing to succeed.
 	if req.Provider == "" || req.OriginCode == "" || req.DestinationCode == "" || req.WeightKG <= 0 {
 		return nil, fmt.Errorf("provider, origin, destination, and positive weight are required")
 	}

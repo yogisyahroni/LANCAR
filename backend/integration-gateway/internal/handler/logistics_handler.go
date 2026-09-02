@@ -76,6 +76,13 @@ func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if !registration.Descriptor.Available {
+		h.respondJSON(w, http.StatusServiceUnavailable, CreateLogisticsOrderResponse{
+			Success: false,
+			Message: fmt.Sprintf("Logistics provider %s is unavailable: %s", provName, registration.Descriptor.AvailabilityReason),
+		})
+		return
+	}
 
 	orderReq := domain.LogisticsOrderRequest{
 		IdempotencyKey:  req.IdempotencyKey,
@@ -155,6 +162,13 @@ func (h *LogisticsHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
 		h.respondJSON(w, http.StatusNotImplemented, map[string]interface{}{
 			"success": false,
 			"message": fmt.Sprintf("Logistics provider %s does not support tariff quotes", provider),
+		})
+		return
+	}
+	if !registration.Descriptor.Available {
+		h.respondJSON(w, http.StatusServiceUnavailable, map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("Logistics provider %s is unavailable: %s", provider, registration.Descriptor.AvailabilityReason),
 		})
 		return
 	}

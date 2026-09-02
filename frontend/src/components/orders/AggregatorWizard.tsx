@@ -43,15 +43,14 @@ import {
   requestAggregatorOrder,
   requestAggregatorPaymentSession,
 } from "@/hooks/useCreateAggregatorOrder";
+import {
+  isLogisticsProviderAvailable,
+  providerAvailabilityMessage,
+} from "@/types/logistics";
+import type { LogisticsProviderOption } from "@/types/logistics";
 
 // ─── Types & Constants ──────────────────────────────────────────────────
-type ProviderOption = {
-  code: string;
-  name: string;
-  capabilities?: string[];
-  tracking_mode?: "webhook" | "polling" | "degraded_manual";
-  tracking_degraded?: boolean;
-};
+type ProviderOption = LogisticsProviderOption;
 
 type LogisticsCity = { code: string; name: string; type: "origin" | "destination" | "both" };
 
@@ -220,7 +219,14 @@ export function AggregatorWizard() {
       formData.append('pickup_lat', String(values.pickup_location.lat));
       formData.append('pickup_lng', String(values.pickup_location.lng));
       formData.append('pickup_address', values.pickup_address);
-      formData.append('service_code', values.provider || 'tembus_instant');
+      const providerCode = String(values.provider || '').trim();
+      const provider = providers.find((item) => item.code === providerCode);
+      if (!providerCode || !isLogisticsProviderAvailable(provider)) {
+        setIsUploading(false);
+        setUploadError("Pilih provider yang siap digunakan sebelum mengunggah file.");
+        return;
+      }
+      formData.append('service_code', providerCode);
 
       const uploadRes = await api.post("/auth/web/orders/bulk/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" }
@@ -295,8 +301,9 @@ export function AggregatorWizard() {
 
   const currentProvider = watch("provider");
   const selectedProvider = providers.find((provider) => provider.code === currentProvider);
-  const carrierHandoffSupported = Boolean(selectedProvider?.capabilities?.some((capability) => String(capability).toLowerCase() === "shipment"));
-  const codSupported = Boolean(selectedProvider?.capabilities?.some((capability) => String(capability).toLowerCase() === "cod"));
+  const selectedProviderAvailable = isLogisticsProviderAvailable(selectedProvider);
+  const carrierHandoffSupported = selectedProviderAvailable && Boolean(selectedProvider?.capabilities?.some((capability) => String(capability).toLowerCase() === "shipment"));
+  const codSupported = selectedProviderAvailable && Boolean(selectedProvider?.capabilities?.some((capability) => String(capability).toLowerCase() === "cod"));
   const paymentType = watch("payment_type");
   const paymentOptions: Array<"COD" | "NON_COD"> = codSupported ? ["COD", "NON_COD"] : ["NON_COD"];
   const scheduleType = watch("schedule_type");
@@ -692,17 +699,25 @@ export function AggregatorWizard() {
                     <button
                       key={provider.code}
                       type="button"
-                      onClick={() => setValue("provider", provider.code, { shouldValidate: true })}
+                      onClick={() => {
+                        if (isLogisticsProviderAvailable(provider)) {
+                          setValue("provider", provider.code, { shouldValidate: true });
+                        }
+                      }}
+                      disabled={!isLogisticsProviderAvailable(provider)}
+                      aria-disabled={!isLogisticsProviderAvailable(provider)}
                       className={[
                         "rounded-xl border-2 px-4 py-4 text-center transition-all",
                         currentProvider === provider.code
                           ? "border-indigo-400 bg-white/10 shadow-lg shadow-white/5"
                           : "border-white/10 bg-background/40 hover:bg-white/5 hover:border-white/20",
+                        !isLogisticsProviderAvailable(provider) ? "cursor-not-allowed opacity-50" : ""
                       ].join(" ")}
                     >
                       <span className="block font-bold text-foreground">{provider.name}</span>
                       <span className="mt-1 block text-[10px] text-muted-foreground">{provider.capabilities?.length ? provider.capabilities.map(capabilityLabel).join(" · ") : "Capability belum diberikan"}</span>
                       <span className={`mt-1 block text-[10px] ${provider.tracking_degraded ? "text-amber-300" : "text-muted-foreground"}`}>{provider.tracking_degraded ? "Tracking degraded · manual" : `Tracking: ${provider.tracking_mode || "belum ditentukan"}`}</span>
+                      <span className={`mt-1 block text-[10px] ${isLogisticsProviderAvailable(provider) ? "text-emerald-300" : "text-amber-300"}`}>{providerAvailabilityMessage(provider)}</span>
                     </button>
                   ))}
                 </div>
