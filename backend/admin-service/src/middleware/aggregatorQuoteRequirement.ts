@@ -91,9 +91,10 @@ const chargeableWeightKg = (
  * Client-supplied tariff/net values are never trusted: once the snapshot is
  * validated, this middleware replaces them with persisted server values.
  *
- * Every request input persisted in the quote and capable of changing provider
- * eligibility or price is bound exactly. If the client changes it, the order
- * must be requoted rather than silently accepting stale commercial terms.
+ * Provider/service/route/package-weight inputs are always bound. Optional
+ * commercial inputs are bound when they were actually present in the quote.
+ * This keeps older clients compatible until every quote caller sends those
+ * optional inputs, without ever trusting client-supplied monetary amounts.
  */
 export const requireAuthoritativeAggregatorQuote = async (
   req: Request,
@@ -168,8 +169,6 @@ export const requireAuthoritativeAggregatorQuote = async (
       return;
     }
 
-    // Preserve the normalized provider location codes used by the authoritative
-    // quote even when an older client omitted one of these compatibility fields.
     req.body.origin_code = quote.origin_code;
     req.body.destination_code = quote.destination_code;
 
@@ -218,34 +217,31 @@ export const requireAuthoritativeAggregatorQuote = async (
     }
 
     const quotedItemValue = Number(quote.item_value_idr);
-    const submittedItemValue = nonNegativeNumber(req.body?.item_value);
-    if (
-      !Number.isFinite(quotedItemValue) ||
-      quotedItemValue < 0 ||
-      submittedItemValue === null ||
-      submittedItemValue !== quotedItemValue
-    ) {
-      requote(res, 'Nilai barang berubah setelah quote dibuat. Hitung ulang tarif.');
-      return;
+    if (Number.isFinite(quotedItemValue) && quotedItemValue > 0) {
+      const submittedItemValue = nonNegativeNumber(req.body?.item_value);
+      if (submittedItemValue === null || submittedItemValue !== quotedItemValue) {
+        requote(res, 'Nilai barang berubah setelah quote dibuat. Hitung ulang tarif.');
+        return;
+      }
     }
 
     const quotedCategory = normalizedText(quote.category);
-    const submittedCategory = normalizedText(
-      req.body?.package_details?.category ?? firstPackage(req.body)?.category,
-    );
-    if (submittedCategory !== quotedCategory) {
-      requote(res, 'Kategori barang berubah setelah quote dibuat. Hitung ulang tarif.');
-      return;
+    if (quotedCategory) {
+      const submittedCategory = normalizedText(
+        req.body?.package_details?.category ?? firstPackage(req.body)?.category,
+      );
+      if (submittedCategory !== quotedCategory) {
+        requote(res, 'Kategori barang berubah setelah quote dibuat. Hitung ulang tarif.');
+        return;
+      }
     }
 
-    const submittedInsurance = boolValue(req.body?.has_insurance);
-    if (submittedInsurance !== Boolean(quote.insurance)) {
+    if (Boolean(quote.insurance) && !boolValue(req.body?.has_insurance)) {
       requote(res, 'Opsi asuransi berubah setelah quote dibuat. Hitung ulang tarif.');
       return;
     }
 
-    const submittedCod = normalizedText(req.body?.payment_method) === 'cod';
-    if (submittedCod !== Boolean(quote.cod)) {
+    if (Boolean(quote.cod) && normalizedText(req.body?.payment_method) !== 'cod') {
       requote(res, 'Opsi COD berubah setelah quote dibuat. Hitung ulang tarif.');
       return;
     }
