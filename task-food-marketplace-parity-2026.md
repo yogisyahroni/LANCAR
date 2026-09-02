@@ -683,7 +683,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 ## FOOD-2026-012 — Quantity-aware inventory [P1]
 - [x] Stock/sales limit + reset schedule.
 - [x] Atomic reserve/decrement/release.
-- [ ] Prevent oversell.
+- [x] Prevent oversell.
 
 ## FOOD-2026-013 — Substitution/customer approval [P1]
 - [ ] Merchant proposes item delta.
