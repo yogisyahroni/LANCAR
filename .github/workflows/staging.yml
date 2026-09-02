@@ -3,11 +3,11 @@ name: CI/CD Staging
 on:
   workflow_dispatch:
   push:
-    branches: [staging, "chore/**", "feat/**", "fix/**"]
-  pull_request:
-    branches: [staging]
+    branches: [staging, "chore/**", "feat/**", "fix/**", "hotfix/**", "recovery/**", "agent/**"]
 
-# Cancel in-progress runs on the same branch (save CI minutes)
+# Ordinary TASK-ID development is PR-less. Worker branches run the full
+# pre-integration verification path; only the staging ref may publish/deploy.
+# Cancel in-progress runs on the same branch (save CI minutes).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -129,8 +129,7 @@ jobs:
 
       - name: Run Linter
         working-directory: ./backend/admin-service
-        # Assuming eslint might not be defined explicitly in package.json, we use npx if needed, but it should be available.
-        run: npx eslint . || echo "ESLint not fully configured yet"
+        run: npx eslint .
 
       - name: Run tests
         working-directory: ./backend/admin-service
@@ -330,7 +329,6 @@ jobs:
     permissions:
       contents: read
       checks: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -363,21 +361,27 @@ jobs:
       - name: govulncheck (auth-service)
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          cd backend/auth-service && go mod tidy && govulncheck ./... || echo "⚠️  govulncheck found issues — review logs above"
+          cd backend/auth-service
+          go mod tidy
+          govulncheck ./...
 
       - name: govulncheck (routing-service)
         run: |
-          cd backend/routing-service && go mod tidy && govulncheck ./... || echo "⚠️  govulncheck found issues — review logs above"
+          cd backend/routing-service
+          go mod tidy
+          govulncheck ./...
 
       # ── Go static security analysis ───────────────────────
       - name: gosec (auth-service)
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          cd backend/auth-service && gosec -severity high -confidence high ./... 2>&1 || true
+          cd backend/auth-service
+          gosec -severity high -confidence high ./...
 
       - name: gosec (routing-service)
         run: |
-          cd backend/routing-service && gosec -severity high -confidence high ./... 2>&1 || true
+          cd backend/routing-service
+          gosec -severity high -confidence high ./...
 
       # ── Secret scanning ───────────────────────────────────
       - name: Gitleaks (secret scanning)
@@ -688,18 +692,13 @@ jobs:
 
           for svc in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
             echo "  ↻ Rolling update for \${svc}..."
-            
-            # Find the old container ID
+
             OLD_CONTAINER=\$(docker-compose ps -q \${svc} | head -n 1 || true)
-            
-            # Scale up to 2 instances to create the new container alongside the old one
             docker-compose up -d --no-deps --scale \${svc}=2 --no-recreate \${svc} || true
-            
-            # Wait for the new container to become healthy
+
             echo "  ⏳ Waiting 30s for \${svc} healthcheck to pass..."
             sleep 30
-            
-            # Auto-Rollback check
+
             NEW_CONTAINER=\$(docker-compose ps -q \${svc} | grep -v "^\${OLD_CONTAINER}\$" | head -n 1 || true)
             if [ -n "\${NEW_CONTAINER}" ]; then
               IS_HEALTHY=\$(docker inspect --format='{{json .State.Health.Status}}' \${NEW_CONTAINER} 2>/dev/null || echo '"healthy"')
@@ -712,15 +711,13 @@ jobs:
                  exit 1
               fi
             fi
-            
-            # Stop and remove the old container
+
             if [ -n "\${OLD_CONTAINER}" ]; then
               echo "  ⏹️ Stopping old \${svc} container (\${OLD_CONTAINER})..."
               docker stop \${OLD_CONTAINER} || true
               docker rm \${OLD_CONTAINER} || true
             fi
-            
-            # Reconcile compose state back to 1 instance
+
             docker-compose up -d --no-deps --scale \${svc}=1 --no-recreate \${svc} || true
           done
 
@@ -776,8 +773,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     if: github.ref == 'refs/heads/staging'
-    # HARD GATE: regression E2E wajib hijau sebelum deploy dinyatakan sukses.
-    # Staging sudah live (bawain.my.id) — kegagalan E2E = merah, bukan skip.
     steps:
       - uses: actions/checkout@v4
 
@@ -828,13 +823,12 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 7
 
-      - name: Comment on PR if E2E failed
+      - name: Print E2E failure summary
         if: failure() && steps.check_url.outputs.skip == 'false'
-        uses: mshick/add-pr-comment@v2
-        with:
-          message: |
-            ❌ **E2E Test Failed** - ada error di browser staging.
-            Lihat report: [Playwright Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        run: |
+          echo "E2E staging validation failed."
+          echo "Inspect the Playwright report artifact from this workflow run."
+          exit 1
 
   # ═══════════════════════════════════════════════════════════
   # PHASE 6: NOTIFICATION (Telegram)
