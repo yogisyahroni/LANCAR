@@ -479,9 +479,35 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 }
 
 func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
-	query := `UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3`
+	query := `UPDATE orders
+	             SET status = $1, updated_at = $2
+	           WHERE id = $3
+	             AND (status = $1 OR status NOT IN ('delivered', 'cancelled'))`
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
 	return err
+}
+
+// UpdateStatusOptimistic commits a transition only when the caller still owns
+// the version it read. PostgreSQL row-level locking makes the compare-and-set
+// atomic across order-service instances; terminal states cannot be resurrected
+// even if a delayed worker races with a current transition.
+func (r *postgresRepo) UpdateStatusOptimistic(ctx context.Context, id string, status domain.OrderStatus, expectedVersion int64) (bool, error) {
+	if expectedVersion < 1 {
+		expectedVersion = 1
+	}
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE orders
+		   SET status = $1,
+		       updated_at = $2
+		 WHERE id = $3
+		   AND COALESCE(state_version, 1) = $4
+		   AND status NOT IN ('delivered', 'cancelled')`,
+		status, time.Now(), id, expectedVersion)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
 }
 
 // UpdateLegsStatus — FB-121: tandai semua leg aktif order sebagai final.
@@ -682,7 +708,7 @@ func (r *postgresRepo) ReleaseGhostedOrder(ctx context.Context, orderID string) 
 	return err
 }
 func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error {
-	query := `INSERT INTO order_events (order_id, user_id, status, message, created_at) 
+	query := `INSERT INTO order_events (order_id, user_id, event_type, description, created_at)
 			  VALUES ($1, $2, $3, $4, $5)`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -692,7 +718,7 @@ func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error
 }
 
 func (r *postgresRepo) ListEventsByUserID(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {
-	query := `SELECT id, order_id, user_id, status, message, created_at 
+	query := `SELECT id, order_id, user_id, event_type, description, created_at
 			  FROM order_events WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, userID, since)
@@ -714,7 +740,7 @@ func (r *postgresRepo) ListEventsByUserID(ctx context.Context, userID string, si
 }
 
 func (r *postgresRepo) ListEventsByOrderID(ctx context.Context, orderID string) ([]domain.OrderEvent, error) {
-	query := `SELECT id, order_id, user_id, status, message, created_at 
+	query := `SELECT id, order_id, user_id, event_type, description, created_at
 			  FROM order_events WHERE order_id = $1 ORDER BY created_at ASC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, orderID)

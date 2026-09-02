@@ -11,6 +11,11 @@ type RequoteRequiredError struct {
 	CurrentTotal int64
 }
 
+func IsInvalidOrderTransition(err error) bool {
+	var transitionErr *InvalidOrderTransitionError
+	return errors.As(err, &transitionErr)
+}
+
 func (e *RequoteRequiredError) Error() string {
 	return "REQUOTE_REQUIRED: " + e.Reason
 }

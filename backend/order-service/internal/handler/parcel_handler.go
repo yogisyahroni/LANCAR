@@ -448,6 +448,32 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	// ─────────────────────────────────────────────────────────────────────
 
+	// Apply the canonical lifecycle contract after endpoint-level ownership
+	// checks. This keeps the generic compatibility endpoint from bypassing the
+	// service/actor transition matrix used by internal orchestration.
+	if targetOrder != nil {
+		actor := domain.OrderActor("unknown")
+		switch {
+		case isAdmin:
+			actor = domain.OrderActorAdmin
+		case isCourier:
+			actor = domain.OrderActorCourier
+		case isCustomer:
+			actor = domain.OrderActorCustomer
+		case role == "merchant":
+			actor = domain.OrderActorMerchant
+		}
+		category := targetOrder.ServiceCategory
+		if category == "" {
+			targetOrder.ApplyCanonicalOrderContract()
+			category = targetOrder.ServiceCategory
+		}
+		if transitionErr := domain.ValidateOrderTransition(targetOrder.Status, status, actor, category); transitionErr != nil {
+			middleware.WriteError(w, http.StatusConflict, "ERR_INVALID_ORDER_TRANSITION", transitionErr.Error(), correlationID)
+			return
+		}
+	}
+
 	// Update dimensions if provided (Enterprise Volumetric Consistency)
 	if req.Length != nil || req.Width != nil || req.Height != nil || req.Weight != nil {
 		if err := h.orderSvc.UpdateDimensions(r.Context(), orderID, req.Length, req.Width, req.Height, req.Weight); err != nil {

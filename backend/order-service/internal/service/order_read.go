@@ -95,14 +95,34 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 		if prevOrder.Status == status {
 			return nil
 		}
-		if (prevOrder.Status == domain.StatusDelivered || prevOrder.Status == domain.StatusCancelled) &&
-			status != prevOrder.Status {
-			return fmt.Errorf("order %s sudah berstatus final (%s), tidak bisa diubah ke %s",
-				orderID, prevOrder.Status, status)
+		category := prevOrder.ServiceCategory
+		if category == "" {
+			prevOrder.ApplyCanonicalOrderContract()
+			category = prevOrder.ServiceCategory
+		}
+		if err := domain.ValidateOrderTransition(prevOrder.Status, status, domain.OrderActorPlatform, category); err != nil {
+			return err
 		}
 	}
 
-	err := s.orderRepo.UpdateStatus(ctx, orderID, status)
+	var err error
+	if prevOrder != nil {
+		if optimisticRepo, ok := s.orderRepo.(interface {
+			UpdateStatusOptimistic(context.Context, string, domain.OrderStatus, int64) (bool, error)
+		}); ok {
+			updated, updateErr := optimisticRepo.UpdateStatusOptimistic(ctx, orderID, status, prevOrder.StateVersion)
+			if updateErr != nil {
+				return updateErr
+			}
+			if !updated {
+				return &domain.ConcurrentOrderTransitionError{OrderID: orderID}
+			}
+		} else {
+			err = s.orderRepo.UpdateStatus(ctx, orderID, status)
+		}
+	} else {
+		err = s.orderRepo.UpdateStatus(ctx, orderID, status)
+	}
 	if err != nil {
 		return err
 	}
