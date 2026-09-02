@@ -1967,3 +1967,23 @@ Never describe a pushed feature branch as merged.
 Never describe an open PR as deployed.
 
 Never describe a merge as successful before verifying the resulting remote state.
+
+# ACCEPTANCE-SCOPE PROTECTION
+
+Task evidence must prove the existing master blueprint, not rewrite it.
+
+The agent MUST NOT add, strengthen, or invent TASK-ID acceptance criteria merely because stronger staging, provider, deployment, production, observability, migration, rollback, or release evidence would be desirable.
+
+Only the repository owner may intentionally change product acceptance scope.
+
+Pending release/runtime validation that is NOT explicitly required by the original TASK-ID must be recorded as release follow-up and MUST NOT automatically convert an otherwise proven TASK-ID into BLOCKED.
+
+TASK COMPLETE and RELEASE READY are separate states:
+
+TASK COMPLETE
+= original TASK-ID requirements proven with applicable evidence.
+
+RELEASE READY
+= required staging/provider/deployment/production gates additionally proven.
+
+Do not confuse these states.
