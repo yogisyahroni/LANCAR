@@ -106,22 +106,23 @@ type FoodOrderItemVariant struct {
 }
 
 type FoodMerchantInfo struct {
-	ID                 string  `json:"id"`
-	Name               string  `json:"name"`
-	Address            string  `json:"address"`
-	IsOpen             bool    `json:"is_open"`
-	VerificationStatus string  `json:"verification_status"`
-	Lat                float64 `json:"lat"`
-	Lng                float64 `json:"lng"`
-	JamBuka            *string `json:"jam_buka,omitempty"`
-	JamTutup           *string `json:"jam_tutup,omitempty"`
-	LastOrderMinutesBeforeClose int `json:"last_order_minutes_before_close"`
+	ID                          string  `json:"id"`
+	Name                        string  `json:"name"`
+	Address                     string  `json:"address"`
+	IsOpen                      bool    `json:"is_open"`
+	VerificationStatus          string  `json:"verification_status"`
+	Lat                         float64 `json:"lat"`
+	Lng                         float64 `json:"lng"`
+	JamBuka                     *string `json:"jam_buka,omitempty"`
+	JamTutup                    *string `json:"jam_tutup,omitempty"`
+	LastOrderMinutesBeforeClose int     `json:"last_order_minutes_before_close"`
 	// FB-107: pause sementara — merchant tidak terima order baru selama
 	// PausedUntil > NOW(). NULL = tidak pause.
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
 	// FOOD-2026-011: busy accepts orders but adds prep time until expiry.
-	BusyUntil            *time.Time `json:"busy_until,omitempty"`
-	BusyExtraPrepMinutes int        `json:"busy_extra_prep_minutes"`
+	BusyUntil            *time.Time          `json:"busy_until,omitempty"`
+	BusyExtraPrepMinutes int                 `json:"busy_extra_prep_minutes"`
+	OperatingHours       []FoodOperatingHour `json:"operating_hours,omitempty"`
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
 	MinOrderIDR int64 `json:"min_order_idr"`
 	// FOOD-BIKE-055: metrik browse merchant
@@ -132,6 +133,16 @@ type FoodMerchantInfo struct {
 	// customer — halal_certified | non_halal | unknown.
 	HalalStatus string             `json:"halal_status"`
 	MenuItems   []FoodMenuItemInfo `json:"menu_items,omitempty"`
+}
+
+// FoodOperatingHour is the merchant-owned weekday schedule used to validate
+// future Food orders. Weekday follows time.Weekday: Sunday=0 through Saturday=6.
+type FoodOperatingHour struct {
+	Weekday                     int     `json:"weekday"`
+	IsOpen                      bool    `json:"is_open"`
+	OpensAt                     *string `json:"opens_at,omitempty"`
+	ClosesAt                    *string `json:"closes_at,omitempty"`
+	LastOrderMinutesBeforeClose int     `json:"last_order_minutes_before_close"`
 }
 
 type FoodMenuItemInfo struct {

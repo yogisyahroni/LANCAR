@@ -43,10 +43,10 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if merchant.VerificationStatus != "approved" {
 		return nil, domain.NewUserFacingError("merchant belum terverifikasi")
 	}
-	if !merchant.IsOpen {
+	if !merchant.IsOpen && (!req.IsScheduled || len(merchant.OperatingHours) == 0) {
 		return nil, domain.NewUserFacingError("merchant tutup")
 	}
-	if foodLastOrderClosed(merchant, time.Now()) {
+	if !req.IsScheduled && foodLastOrderClosed(merchant, time.Now()) {
 		return nil, domain.NewUserFacingError("batas waktu pemesanan merchant sudah lewat — pilih waktu atau merchant lain")
 	}
 	if merchant.PausedUntil != nil && merchant.PausedUntil.After(time.Now()) {
@@ -56,7 +56,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		return nil, domain.NewUserFacingError("merchant belum melengkapi lokasi toko")
 	}
 	if req.IsScheduled {
-		if err := validateScheduledAt(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup, time.Now()); err != nil {
+		if err := validateFoodScheduledAt(req.ScheduledAt, merchant, time.Now()); err != nil {
 			return nil, domain.NewUserFacingError(err.Error())
 		}
 	}
@@ -234,6 +234,39 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		return nil, fmt.Errorf("save food quote: %w", err)
 	}
 	return quote, nil
+}
+
+func validateFoodScheduledAt(sa *time.Time, merchant *domain.FoodMerchantInfo, now time.Time) error {
+	if merchant == nil {
+		return validateScheduledAt(sa, nil, nil, now)
+	}
+	if len(merchant.OperatingHours) == 0 {
+		return validateScheduledAt(sa, merchant.JamBuka, merchant.JamTutup, now)
+	}
+	if sa == nil {
+		return fmt.Errorf("waktu jadwal wajib diisi (scheduled_at)")
+	}
+	if sa.Before(now.Add(30 * time.Minute)) {
+		return fmt.Errorf("waktu jadwal minimal 30 menit dari sekarang")
+	}
+	target := inJakarta(*sa)
+	hour, found := findFoodOperatingHour(merchant.OperatingHours, int(target.Weekday()))
+	if !found || !hour.IsOpen {
+		return fmt.Errorf("merchant tutup pada %s — pilih hari lain", target.Format("Monday"))
+	}
+	if hour.OpensAt == nil || hour.ClosesAt == nil {
+		return nil
+	}
+	return validateScheduledTimeWindow(target, *hour.OpensAt, *hour.ClosesAt, hour.LastOrderMinutesBeforeClose)
+}
+
+func findFoodOperatingHour(hours []domain.FoodOperatingHour, weekday int) (domain.FoodOperatingHour, bool) {
+	for _, hour := range hours {
+		if hour.Weekday == weekday {
+			return hour, true
+		}
+	}
+	return domain.FoodOperatingHour{}, false
 }
 
 func foodLastOrderClosed(merchant *domain.FoodMerchantInfo, now time.Time) bool {

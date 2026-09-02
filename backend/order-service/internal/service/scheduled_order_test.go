@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"tembus/order-service/internal/domain"
 )
 
 func strPtr(s string) *string { return &s }
@@ -66,6 +68,38 @@ func TestValidateScheduledAt_FB123(t *testing.T) {
 				t.Fatalf("expected no error, got: %v", err)
 			}
 		})
+	}
+}
+
+func TestValidateFoodScheduledAtUsesFutureWeekdayHours(t *testing.T) {
+	now := time.Date(2026, 9, 2, 10, 0, 0, 0, jakartaLoc)    // Wednesday
+	target := time.Date(2026, 9, 5, 12, 0, 0, 0, jakartaLoc) // Saturday
+	open, close := "08:00", "22:00"
+	hours := []domain.FoodOperatingHour{
+		{Weekday: int(target.Weekday()), IsOpen: true, OpensAt: &open, ClosesAt: &close, LastOrderMinutesBeforeClose: 30},
+	}
+	merchant := &domain.FoodMerchantInfo{OperatingHours: hours}
+
+	if err := validateFoodScheduledAt(&target, merchant, now); err != nil {
+		t.Fatalf("future scheduled order during an open weekday should pass: %v", err)
+	}
+
+	closed := target.AddDate(0, 0, 1)
+	if err := validateFoodScheduledAt(&closed, merchant, now); err == nil {
+		t.Fatal("future scheduled order on a weekday without an operating-hour row must fail")
+	}
+}
+
+func TestValidateFoodScheduledAtHonorsFutureWeekdayCutoff(t *testing.T) {
+	now := time.Date(2026, 9, 2, 10, 0, 0, 0, jakartaLoc)
+	target := time.Date(2026, 9, 5, 21, 45, 0, 0, jakartaLoc)
+	open, close := "08:00", "22:00"
+	merchant := &domain.FoodMerchantInfo{OperatingHours: []domain.FoodOperatingHour{
+		{Weekday: int(target.Weekday()), IsOpen: true, OpensAt: &open, ClosesAt: &close, LastOrderMinutesBeforeClose: 30},
+	}}
+
+	if err := validateFoodScheduledAt(&target, merchant, now); err == nil {
+		t.Fatal("scheduled order inside the last-order cutoff must fail")
 	}
 }
 

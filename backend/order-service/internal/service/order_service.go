@@ -240,24 +240,43 @@ func validateScheduledAt(sa *time.Time, jamBuka, jamTutup *string, now time.Time
 	// Jam operasional merchant (jam_buka/jam_tutup TIME "HH:MM[:SS]").
 	// Jam merchant diasumsikan zona WIB (operasi di Indonesia).
 	if jamBuka != nil && jamTutup != nil {
-		openH, openM, errO := parseHHMM(*jamBuka)
-		closeH, closeM, errC := parseHHMM(*jamTutup)
+		_, _, errO := parseHHMM(*jamBuka)
+		_, _, errC := parseHHMM(*jamTutup)
 		if errO == nil && errC == nil {
-			targetMin := saJkt.Hour()*60 + saJkt.Minute()
-			openMin := openH*60 + openM
-			closeMin := closeH*60 + closeM
-			// M3: rentang lintas tengah malam (tutup < buka, mis. 18:00–02:00):
-			// valid kalau target >= buka ATAU target <= tutup.
-			if closeMin < openMin {
-				if targetMin < openMin && targetMin > closeMin {
-					return fmt.Errorf("merchant buka jam %s–%s — pilih waktu di dalam jam operasional",
-						*jamBuka, *jamTutup)
-				}
-			} else if targetMin < openMin || targetMin > closeMin {
-				return fmt.Errorf("merchant buka jam %s–%s — pilih waktu di dalam jam operasional",
-					*jamBuka, *jamTutup)
+			if err := validateScheduledTimeWindow(saJkt, *jamBuka, *jamTutup, 0); err != nil {
+				return err
 			}
 		}
+	}
+	return nil
+}
+
+func validateScheduledTimeWindow(target time.Time, jamBuka, jamTutup string, lastOrderMinutes int) error {
+	openH, openM, errO := parseHHMM(jamBuka)
+	closeH, closeM, errC := parseHHMM(jamTutup)
+	if errO != nil || errC != nil {
+		return nil
+	}
+	targetMin := target.Hour()*60 + target.Minute()
+	openMin := openH*60 + openM
+	closeMin := closeH*60 + closeM
+	inside := targetMin >= openMin && targetMin <= closeMin
+	if closeMin < openMin {
+		inside = targetMin >= openMin || targetMin <= closeMin
+	}
+	if !inside {
+		return fmt.Errorf("merchant buka jam %s–%s — pilih waktu di dalam jam operasional", jamBuka, jamTutup)
+	}
+	if lastOrderMinutes <= 0 {
+		return nil
+	}
+	cutoffMin := closeMin - lastOrderMinutes
+	insideCutoff := targetMin <= cutoffMin
+	if closeMin < openMin {
+		insideCutoff = targetMin >= openMin || targetMin <= cutoffMin
+	}
+	if !insideCutoff {
+		return fmt.Errorf("pesanan terjadwal harus dibuat minimal %d menit sebelum toko tutup", lastOrderMinutes)
 	}
 	return nil
 }

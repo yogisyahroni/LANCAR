@@ -83,6 +83,35 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	if halalStatus.Valid {
 		m.HalalStatus = halalStatus.String
 	}
+	hoursRows, err := r.readDB.QueryContext(ctx, `
+		SELECT weekday, is_open,
+		       NULLIF(TO_CHAR(opens_at, 'HH24:MI'), ''),
+		       NULLIF(TO_CHAR(closes_at, 'HH24:MI'), ''),
+		       last_order_minutes_before_close
+		FROM merchant_operating_hours
+		WHERE merchant_id = $1
+		ORDER BY weekday`, merchantID)
+	if err != nil {
+		return nil, fmt.Errorf("get merchant operating hours: %w", err)
+	}
+	defer hoursRows.Close()
+	for hoursRows.Next() {
+		var hour domain.FoodOperatingHour
+		var opensAt, closesAt sql.NullString
+		if err := hoursRows.Scan(&hour.Weekday, &hour.IsOpen, &opensAt, &closesAt, &hour.LastOrderMinutesBeforeClose); err != nil {
+			return nil, fmt.Errorf("scan merchant operating hour: %w", err)
+		}
+		if opensAt.Valid {
+			hour.OpensAt = &opensAt.String
+		}
+		if closesAt.Valid {
+			hour.ClosesAt = &closesAt.String
+		}
+		m.OperatingHours = append(m.OperatingHours, hour)
+	}
+	if err := hoursRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate merchant operating hours: %w", err)
+	}
 	return m, nil
 }
 
