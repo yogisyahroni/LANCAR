@@ -580,8 +580,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/handler/food_handler.go`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodViewModel.kt`
 
-- [ ] Apply CORE idempotency.
-- [ ] Duplicate callback cannot duplicate notification/dispatch/ledger.
+- [x] Apply CORE idempotency.
+- [x] Duplicate callback cannot duplicate notification/dispatch/ledger.
 
 ## FOOD-2026-004 — Secure merchant handoff [P0]
 
@@ -681,8 +681,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [ ] Timed busy supported.
 
 ## FOOD-2026-012 — Quantity-aware inventory [P1]
-- [ ] Stock/sales limit + reset schedule.
-- [ ] Atomic reserve/decrement/release.
+- [x] Stock/sales limit + reset schedule.
+- [x] Atomic reserve/decrement/release.
 - [ ] Prevent oversell.
 
 ## FOOD-2026-013 — Substitution/customer approval [P1]
