@@ -10,7 +10,6 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Camera Permission for Proof of Delivery -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -21,10 +20,9 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <!-- Network State for offline sync -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Location Permissions for real-time GPS tracking (PTLAAA-46) -->
+    <!-- Location is requested only when the customer explicitly chooses a pin. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <!-- Removed: REQUEST_INSTALL_PACKAGES — use Play Store for updates instead -->
 
     <application
@@ -100,13 +98,6 @@
             </intent-filter>
         </service>
 
-        <!-- Location Tracker Service for real-time GPS tracking (PTLAAA-46) -->
-        <service
-            android:name=".service.LocationTrackerService"
-            android:exported="false"
-            android:foregroundServiceType="location">
-        </service>
-
         <!-- Default notification channel (required for Android 8+) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
@@ -122,7 +113,7 @@
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/primary" />
 
-        <!-- Boot receiver for re-registering FCM and restarting location tracking -->
+        <!-- Boot receiver only schedules authenticated data resync; no GPS tracking. -->
         <receiver
             android:name=".receiver.BootReceiver"
             android:enabled="true"

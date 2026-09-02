@@ -653,8 +653,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `android-app-customer/app/src/main/java/com/tembus/customer/service/LocationTrackerService.kt`
 - Food customer screens
 
-- [ ] Least privilege location.
-- [ ] Manual/saved address works without location permission.
+- [x] Least privilege location.
+- [x] Manual/saved address works without location permission.
 - [ ] No unjustified boot background tracking.
 
 ## FOOD-2026-009 — Food finance invariants [P0]
