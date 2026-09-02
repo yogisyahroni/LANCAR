@@ -253,9 +253,9 @@ _Local quote contract and server enforcement are complete; authenticated staging
 - [x] Allowed transition defined per service + actor.
 - [x] Optimistic version/row locking prevents race.
 - [x] Terminal state tidak mundur karena delayed/replayed event.
-- [ ] State + audit + required proof/ledger effects transactional.
-- [ ] Duplicate event idempotent; invalid transition typed error.
-- [ ] Admin override reasoned/audited.
+- [x] State + audit + required proof/ledger effects transactional.
+- [x] Duplicate event idempotent; invalid transition typed error.
+- [x] Admin override reasoned/audited.
 
 ---
 
