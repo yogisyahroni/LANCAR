@@ -593,7 +593,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 
 - [x] One-time PIN/QR binds order/merchant/courier or pickup customer/state/expiry.
 - [x] Verify + picked_up atomic.
-- [ ] Replay/wrong actor rejected.
+- [x] Replay/wrong actor rejected.
 
 ## FOOD-2026-005 — Server-authoritative ETA/readiness [P0]
 
@@ -604,8 +604,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/order_food.go`
 - `backend/order-service/internal/service/matching_service.go`
 
-- [ ] Remove fabricated client ETA.
-- [ ] ETA includes prep/supply/pickup travel/traffic/batching/confidence.
+- [x] Remove fabricated client ETA.
+- [x] ETA includes prep/supply/pickup travel/traffic/batching/confidence.
 - [ ] Measure predicted vs actual.
 
 ## FOOD-2026-006 — Contactless end-to-end [P0]
@@ -616,8 +616,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/order_food.go`
 - courier `ProofOfDeliveryScreen.kt`
 
-- [ ] Persist contactless + structured instructions.
-- [ ] Courier sees instruction before delivery.
+- [x] Persist contactless + structured instructions.
+- [x] Courier sees instruction before delivery.
 - [ ] Contactless-compatible POD.
 
 ## FOOD-2026-007 — Canonical Food state machine + cross-app tests [P0]

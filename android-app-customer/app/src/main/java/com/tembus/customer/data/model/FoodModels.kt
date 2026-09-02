@@ -109,6 +109,9 @@ data class CreateFoodOrderRequest(
     @SerialName("scheduled_at") val scheduledAt: String? = null,
     @SerialName("voucher_code") val voucherCode: String? = null, // FB-078
     @SerialName("order_notes") val orderNotes: String? = null, // FB-121
+    // FB-089: instruksi antar tanpa kontak fisik. Disimpan sebagai field
+    // terstruktur; catatan bebas tetap berada di order_notes.
+    @SerialName("contactless") val contactless: Boolean = false,
     @SerialName("quote_id") val quoteId: String? = null,
     @SerialName("quote_input_fingerprint") val quoteInputFingerprint: String? = null
 )
@@ -163,6 +166,12 @@ data class FoodQuoteResponse(
     @SerialName("distance_km") val distanceKm: Double = 0.0,
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
     @SerialName("eta_source") val etaSource: String = "",
+    @SerialName("prep_minutes") val prepMinutes: Int = 0,
+    @SerialName("pickup_travel_minutes") val pickupTravelMinutes: Int = 0,
+    @SerialName("traffic_minutes") val trafficMinutes: Int? = null,
+    @SerialName("batching_minutes") val batchingMinutes: Int? = null,
+    @SerialName("supply_status") val supplyStatus: String = "",
+    @SerialName("confidence") val confidence: String = "",
     @SerialName("pricing_rule_version") val pricingRuleVersion: String = "",
     @SerialName("expires_at") val expiresAt: String = ""
 )

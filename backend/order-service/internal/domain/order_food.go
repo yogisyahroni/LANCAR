@@ -59,21 +59,29 @@ type FoodQuoteItem struct {
 }
 
 type FoodQuoteResponse struct {
-	QuoteID            string          `json:"quote_id"`
-	InputFingerprint   string          `json:"input_fingerprint"`
-	MerchantID         string          `json:"merchant_id"`
-	Items              []FoodQuoteItem `json:"items"`
-	SubtotalIDR        int64           `json:"subtotal_idr"`
-	DeliveryFeeIDR     int64           `json:"delivery_fee_idr"`
-	PlatformFeeIDR     int64           `json:"platform_fee_idr"`
-	TaxIDR             int64           `json:"tax_idr"`
-	DiscountIDR        int64           `json:"discount_idr"`
-	TotalPriceIDR      int64           `json:"total_price_idr"`
-	DistanceKM         float64         `json:"distance_km"`
-	ETAMinutes         int             `json:"eta_minutes"`
-	ETASource          string          `json:"eta_source"`
-	PricingRuleVersion string          `json:"pricing_rule_version"`
-	ExpiresAt          time.Time       `json:"expires_at"`
+	QuoteID          string          `json:"quote_id"`
+	InputFingerprint string          `json:"input_fingerprint"`
+	MerchantID       string          `json:"merchant_id"`
+	Items            []FoodQuoteItem `json:"items"`
+	SubtotalIDR      int64           `json:"subtotal_idr"`
+	DeliveryFeeIDR   int64           `json:"delivery_fee_idr"`
+	PlatformFeeIDR   int64           `json:"platform_fee_idr"`
+	TaxIDR           int64           `json:"tax_idr"`
+	DiscountIDR      int64           `json:"discount_idr"`
+	TotalPriceIDR    int64           `json:"total_price_idr"`
+	DistanceKM       float64         `json:"distance_km"`
+	ETAMinutes       int             `json:"eta_minutes"`
+	ETASource        string          `json:"eta_source"`
+	// ETA components are explicit so unavailable provider signals are not
+	// silently folded into a fabricated client-side number.
+	PrepMinutes         int       `json:"prep_minutes"`
+	PickupTravelMinutes int       `json:"pickup_travel_minutes"`
+	TrafficMinutes      *int      `json:"traffic_minutes"`
+	BatchingMinutes     *int      `json:"batching_minutes"`
+	SupplyStatus        string    `json:"supply_status"`
+	Confidence          string    `json:"confidence"`
+	PricingRuleVersion  string    `json:"pricing_rule_version"`
+	ExpiresAt           time.Time `json:"expires_at"`
 }
 
 type FoodOrderItem struct {

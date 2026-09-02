@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -125,6 +126,7 @@ fun FoodCheckoutScreen(
     var receiverName by remember { mutableStateOf("") }
     var receiverPhone by remember { mutableStateOf("") }
     var orderNotes by remember { mutableStateOf("") } // FB-121: catatan level order
+    var contactless by remember { mutableStateOf(false) } // FB-089
     var voucherInput by remember { mutableStateOf("") }
     val voucherState by viewModel.voucherState.collectAsState()
     // FB-123: pesanan terjadwal — toggle Pesan Sekarang / Jadwalkan.
@@ -536,10 +538,20 @@ fun FoodCheckoutScreen(
             }
             foodQuote?.let { quote ->
                 Text(
-                    "Subtotal Rp ${formatRupiah(quote.subtotalIdr)} • Antar Rp ${formatRupiah(quote.deliveryFeeIdr)} • ETA ~${quote.etaMinutes} menit",
+                    "Subtotal Rp ${formatRupiah(quote.subtotalIdr)} • Antar Rp ${formatRupiah(quote.deliveryFeeIdr)} • ETA ${quote.etaMinutes} menit",
                     color = Success,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "Persiapan ${quote.prepMinutes} mnt + perjalanan pickup ${quote.pickupTravelMinutes} mnt • sumber: ${quote.etaSource}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
+                )
+                Text(
+                    "Supply: ${quote.supplyStatus.ifBlank { "belum dinilai saat quote" }}${if (quote.trafficMinutes == null) " • lalu lintas live belum tersedia" else ""}${if (quote.batchingMinutes == null) " • batching belum ditetapkan" else ""}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
                 )
                 Text(
                     "Total server: Rp ${formatRupiah(quote.totalPriceIdr)}",
@@ -576,6 +588,38 @@ fun FoodCheckoutScreen(
                 minLines = 2,
                 shape = RoundedCornerShape(TembusRadius.Input)
             )
+
+            Spacer(Modifier.height(10.dp))
+            // FB-089: pilihan terstruktur untuk drop-off tanpa kontak.
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(TembusRadius.Input),
+                color = if (contactless) Primary.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, if (contactless) Primary else MaterialTheme.colorScheme.outline)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = contactless,
+                        onCheckedChange = { contactless = it }
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Antar tanpa kontak",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "Kurir meletakkan pesanan di titik antar. Foto bukti tetap wajib.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
 
             submitError?.let {
                 Spacer(Modifier.height(10.dp))
@@ -618,6 +662,7 @@ fun FoodCheckoutScreen(
                             receiverPhone = receiverPhone.ifBlank { null },
                             voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
                             orderNotes = orderNotes, // FB-121
+                            contactless = contactless, // FB-089
                             isScheduled = !scheduleNow, // FB-123
                             scheduledAt = scheduledAtMs?.let {
                                 // ISO-8601 dengan offset lokal (mis. 2026-08-09T13:30:00+07:00).

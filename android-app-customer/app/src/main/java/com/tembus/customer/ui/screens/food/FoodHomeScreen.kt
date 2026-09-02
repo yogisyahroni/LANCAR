@@ -383,14 +383,9 @@ private fun FoodMerchantCard(
                         fontWeight = FontWeight.Bold,
                         color = if (merchant.isOpen) Success else Error
                     )
-                    // Estimasi waktu (mirip GrabFood "≈25 mnt")
-                    val etaMin = if (merchant.distanceKm != null) (8 + (merchant.distanceKm * 4)).toInt() else 25
-                    Text("•", color = MaterialTheme.colorScheme.outlineVariant)
-                    Text(
-                        "≈$etaMin mnt",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // ETA hanya sah setelah server menghitung quote berdasarkan
+                    // menu, alamat tujuan, jadwal, dan supply. Jangan tampilkan
+                    // angka hasil rumus client sebelum input checkout lengkap.
                 }
             }
         }

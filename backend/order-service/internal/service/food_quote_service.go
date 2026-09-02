@@ -197,13 +197,19 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if etaSpeed <= 0 {
 		etaSpeed = 20
 	}
+	prepMinutes := maxPrep
+	// Live traffic and courier supply are not known at quote time. Keep those
+	// signals explicit instead of presenting configured route speed as traffic.
+	pickupTravelMinutes := int(math.Ceil(distanceKM / etaSpeed * 60))
 	quote := &domain.FoodQuoteResponse{
 		QuoteID: uuid.New().String(), InputFingerprint: foodQuoteInputFingerprint(req),
 		MerchantID: req.MerchantID, Items: quoteItems, SubtotalIDR: subtotal,
 		DeliveryFeeIDR: deliveryFee, PlatformFeeIDR: platformFee, TaxIDR: taxIDR, DiscountIDR: discount,
 		TotalPriceIDR: total, DistanceKM: distanceKM,
-		ETAMinutes: maxPrep + int(math.Ceil(distanceKM/etaSpeed*60)),
+		ETAMinutes: prepMinutes + pickupTravelMinutes,
 		ETASource:  "merchant_prep_plus_configured_route_speed", PricingRuleVersion: ruleVersion,
+		PrepMinutes: prepMinutes, PickupTravelMinutes: pickupTravelMinutes,
+		SupplyStatus: "not_assessed_at_quote", Confidence: "configured_route_speed",
 		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}
 	stored := &domain.PricingEstimateResponse{
