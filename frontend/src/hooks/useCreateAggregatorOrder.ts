@@ -21,7 +21,7 @@ export type AggregatorQuote = {
 
 export type AggregatorOrderDraft = {
   provider: string;
-  origin_code: string;
+  origin_code?: string;
   pickup_address: string;
   pickup_location: Coordinate;
   dropoff_address: string;
@@ -87,12 +87,6 @@ const isAggregatorTransactionStage = (value: unknown): value is AggregatorTransa
   value === "payment_session_requested" ||
   value === "awaiting_payment";
 
-/**
- * Parse the server-order reference kept across a browser refresh.
- * The legacy `idempotency_key` field is accepted so an in-flight transaction
- * created by the previous build can still be recovered without creating a
- * second order.
- */
 export function parsePendingAggregatorTransaction(
   raw: string | null,
   now = Date.now(),
@@ -198,7 +192,7 @@ export function buildAggregatorOrderPayload(
     dropoff_location: draft.dropoff_location,
     recipient_name: draft.recipient_name.trim(),
     recipient_phone: draft.recipient_phone.trim(),
-    origin_code: draft.origin_code,
+    ...(draft.origin_code ? { origin_code: draft.origin_code } : {}),
     destination_code: draft.destination_code,
     pickup_city: draft.pickup_city,
     dropoff_city: draft.dropoff_city,
