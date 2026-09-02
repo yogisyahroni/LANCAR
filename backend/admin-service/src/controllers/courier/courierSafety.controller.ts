@@ -134,7 +134,7 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
           serviceCategory: orderContext.service_category,
           failedDeliveryPolicy: orderContext.failed_delivery_policy,
           reasonCode,
-          hasEvidence: Boolean(uploadedPhoto?.fileUrl),
+          hasEvidence: Boolean(req.file),
           custodyTransferred: ['picked_up', 'in_transit', 'delivered', 'completed'].includes(
             String(orderContext.order_status || '').toLowerCase(),
           ),
