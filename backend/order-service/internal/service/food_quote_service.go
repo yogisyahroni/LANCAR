@@ -200,10 +200,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if etaSpeed <= 0 {
 		etaSpeed = 20
 	}
-	prepMinutes := maxPrep
-	if merchant.BusyUntil != nil && merchant.BusyUntil.After(time.Now()) {
-		prepMinutes += merchant.BusyExtraPrepMinutes
-	}
+	prepMinutes := foodPrepMinutes(merchant, maxPrep, time.Now())
 	// Live traffic and courier supply are not known at quote time. Keep those
 	// signals explicit instead of presenting configured route speed as traffic.
 	pickupTravelMinutes := int(math.Ceil(distanceKM / etaSpeed * 60))
@@ -256,6 +253,13 @@ func foodLastOrderClosed(merchant *domain.FoodMerchantInfo, now time.Time) bool 
 		remaining += 24 * 60
 	}
 	return remaining <= merchant.LastOrderMinutesBeforeClose
+}
+
+func foodPrepMinutes(merchant *domain.FoodMerchantInfo, baseMinutes int, now time.Time) int {
+	if merchant == nil || merchant.BusyUntil == nil || !merchant.BusyUntil.After(now) {
+		return baseMinutes
+	}
+	return baseMinutes + merchant.BusyExtraPrepMinutes
 }
 
 func validateFoodInventory(item domain.FoodMenuItemInfo, quantity int, now time.Time) error {

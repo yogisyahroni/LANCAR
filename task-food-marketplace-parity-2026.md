@@ -618,7 +618,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 
 - [x] Persist contactless + structured instructions.
 - [x] Courier sees instruction before delivery.
-- [ ] Contactless-compatible POD.
+- [x] Contactless-compatible POD: drop-off photo remains mandatory while recipient signature is skipped only for contactless delivery.
 
 ## FOOD-2026-007 — Canonical Food state machine + cross-app tests [P0]
 
@@ -655,7 +655,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 
 - [x] Least privilege location.
 - [x] Manual/saved address works without location permission.
-- [ ] No unjustified boot background tracking.
+- [x] No unjustified boot background tracking.
 
 ## FOOD-2026-009 — Food finance invariants [P0]
 
@@ -678,7 +678,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 ## FOOD-2026-011 — Merchant Busy vs Paused [P1]
 - [x] Busy extends prep/ETA while accepting orders.
 - [x] Pause stops new orders.
-- [ ] Timed busy supported.
+- [x] Timed busy supported.
 
 ## FOOD-2026-012 — Quantity-aware inventory [P1]
 - [x] Stock/sales limit + reset schedule.

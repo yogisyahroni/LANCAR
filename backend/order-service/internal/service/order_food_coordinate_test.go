@@ -109,3 +109,16 @@ func TestFoodLastOrderClosedUsesJakartaClockAndSupportsOvernightClose(t *testing
 		t.Fatal("01:20 WIB must remain orderable with a 30-minute last-order cutoff")
 	}
 }
+
+func TestFoodPrepMinutesHonorsTimedBusyWindow(t *testing.T) {
+	now := time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)
+	activeUntil := now.Add(30 * time.Minute)
+	merchant := &domain.FoodMerchantInfo{BusyUntil: &activeUntil, BusyExtraPrepMinutes: 15}
+
+	if got := foodPrepMinutes(merchant, 20, now); got != 35 {
+		t.Fatalf("active timed busy should add prep time: got %d, want 35", got)
+	}
+	if got := foodPrepMinutes(merchant, 20, activeUntil); got != 20 {
+		t.Fatalf("expired timed busy should stop adding prep time: got %d, want 20", got)
+	}
+}

@@ -50,6 +50,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.domain.CourierProofTypes
+import com.tembus.courier.domain.requiresRecipientSignature
 import com.tembus.courier.ui.theme.Primary
 import java.io.File
 import java.util.concurrent.Executor
@@ -84,6 +85,7 @@ fun ProofOfDeliveryScreen(
     val uiState by viewModel.uiState.collectAsState()
     val normalizedProofMode = remember(proofMode) { CourierProofTypes.normalize(proofMode) }
     val isPickupProof = CourierProofTypes.isPickupProof(normalizedProofMode)
+    val requiresSignature = requiresRecipientSignature(order.contactless, isPickupProof)
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
@@ -164,7 +166,7 @@ fun ProofOfDeliveryScreen(
                     )
                 }
                 uiState.capturedImageUri != null -> {
-                    if (!isPickupProof && !uiState.isSignatureCaptured) {
+                    if (requiresSignature && !uiState.isSignatureCaptured) {
                         SignatureCaptureContent(
                             onSignatureCaptured = { bitmap ->
                                 viewModel.combinePhotoAndSignature(context, bitmap)

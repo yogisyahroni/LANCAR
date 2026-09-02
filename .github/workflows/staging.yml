@@ -71,6 +71,35 @@ jobs:
             exit 1
           fi
 
+  customer-location-privacy-guard:
+    name: Customer Location Privacy Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify customer app never starts GPS at boot
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest='android-app-customer/app/src/main/AndroidManifest.xml'
+          boot_receiver='android-app-customer/app/src/main/java/com/tembus/customer/receiver/BootReceiver.kt'
+          location_service='android-app-customer/app/src/main/java/com/tembus/customer/service/LocationTrackerService.kt'
+
+          if grep -n 'ACCESS_BACKGROUND_LOCATION' "$manifest"; then
+            echo 'Customer app must not request background location.' >&2
+            exit 1
+          fi
+          if [[ -e "$location_service" ]]; then
+            echo 'Unused customer location tracking service must not exist.' >&2
+            exit 1
+          fi
+          if grep -nE 'LocationServices|FusedLocation|startService|startForegroundService' "$boot_receiver"; then
+            echo 'BootReceiver must never start location tracking.' >&2
+            exit 1
+          fi
+          grep -q 'BOOT_COMPLETED' "$manifest"
+          grep -q 'CustomerResyncWorker.enqueue' "$boot_receiver"
+
   admin-service:
     name: Admin Service Test
     runs-on: ubuntu-latest
@@ -295,7 +324,7 @@ jobs:
     name: Observability Guard
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [frontend, maps-runtime-guard, admin-service, auth-service, routing-service, migration-test, food-inventory-concurrency]
+    needs: [frontend, maps-runtime-guard, customer-location-privacy-guard, admin-service, auth-service, routing-service, migration-test, food-inventory-concurrency]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
