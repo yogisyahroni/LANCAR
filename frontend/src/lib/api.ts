@@ -4,26 +4,6 @@ import { customerApiUrl } from './runtimeConfig';
 
 const API_URL = customerApiUrl;
 
-export type RecoverableApiError = {
-  code: string;
-  message: string;
-  action?: string;
-  retryable: boolean;
-  correlationId?: string;
-};
-
-export const getRecoverableApiError = (error: any): RecoverableApiError | null => {
-  const data = error?.response?.data;
-  if (!data || typeof data.code !== 'string') return null;
-  return {
-    code: data.code,
-    message: typeof data.message === 'string' ? data.message : 'Permintaan belum dapat diproses.',
-    action: typeof data.action === 'string' ? data.action : undefined,
-    retryable: data.retryable === true,
-    correlationId: typeof data.correlation_id === 'string' ? data.correlation_id : undefined,
-  };
-};
-
 const PUBLIC_AUTH_PATHS = [
   '/auth/customer/login/start',
   '/auth/customer/register/start',
@@ -134,14 +114,6 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 api.interceptors.request.use((config) => {
-  // Compatibility bridge for the current aggregator wizard. The gateway already
-  // owns /payment-links while the broader /logistics tariff prefix is not yet
-  // part of its allowlisted proxy surface. Both admin routes resolve to the same
-  // authoritative tariff controller.
-  if (config.url === '/logistics/check-tariff' || config.url === '/logistics/tariff') {
-    config.url = '/payment-links/tariff';
-  }
-
   config.headers = setHeader(config.headers, 'X-Request-ID', createRequestId());
 
   const method = (config.method ?? 'get').toLowerCase();
@@ -162,20 +134,43 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor
+// CORE-2026-008: normalize backend typed errors to client-readable RecoveryError
+// so the UI (recoverableError.ts) renders next-action instead of raw text.
+export interface RecoveryError {
+  apiCode?: string;
+  userMessage?: string;
+  correlationId?: string;
+  retryable?: boolean;
+  // CORE-2026-008 — full shape consumed by recoverableError.ts
+  message?: string;
+  action?: string;
+}
+// CORE-2026-008: exported type consumed by recoverableError.ts.
+export type RecoverableApiError = RecoveryError;
+
+// CORE-2026-008: normalize backend typed error so UI renders next-action,
+// not raw internal text. Attaches a `recoverable` RecoveryError bag.
+const normalizeApiError = (error: any): void => {
+  const data = error?.response?.data;
+  if (data && typeof data === 'object' && data.code) {
+    error.recoverable = {
+      apiCode: data.code,
+      message: typeof data.message === 'string' ? data.message : undefined,
+      userMessage: typeof data.message === 'string' ? data.message : undefined,
+      correlationId: data.correlation_id,
+      retryable: data.recoverable === true,
+      action: data.action,
+    } as RecoveryError;
+  }
+};
+
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   async (error) => {
     attachErrorReference(error);
-    error.recoverable = getRecoverableApiError(error);
-    if (error.recoverable?.action && typeof error.response?.data?.message === 'string') {
-      const action = error.recoverable.action;
-      if (!error.response.data.message.includes(action)) {
-        error.response.data.message = `${error.response.data.message} ${action}`;
-      }
-    }
+    normalizeApiError(error);
     const originalRequest = error.config;
 
     // Check if error is due to expired or missing token (401 Unauthorized)

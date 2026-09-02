@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.api.withRequestReference
+import com.tembus.courier.data.model.ProofTokenIssueRequest
+import com.tembus.courier.data.model.ProofTokenIssueResponse
 import com.tembus.courier.data.model.ScanRequest
 import com.tembus.courier.data.model.ScanResponse
 import com.tembus.courier.data.repository.OrderRepository
@@ -34,7 +36,11 @@ class ScanViewModel @Inject constructor(
     val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
 
     /**
-     * Process a scanned barcode
+     * Process a scanned barcode.
+     *
+     * After a successful pickup scan the backend proof matrix (CORE-2026-006)
+     * requires a one-time custody token. The token is issued here and persisted
+     * locally so [ProofOfDeliveryViewModel] can verify it when uploading POD.
      */
     fun processScan(
         orderId: String,
@@ -59,19 +65,32 @@ class ScanViewModel @Inject constructor(
                     handoffToken = handoffToken,
                     spoofRisk = accuracy?.let { if (it > 50f) "low_accuracy" else "normal" } ?: "unknown_accuracy"
                 )
-                
+
                 val response = apiService.scanPackage(
                     idempotencyKey = "courier-scan-$orderId-$scanType-${UUID.randomUUID()}",
                     request = request
                 )
-                
+
                 if (response.isSuccessful && response.body()?.success == true) {
                     val scanData = response.body()?.data
-                    if (scanData != null) {
-                        orderRepository.saveScanLocally(orderId, latitude, longitude, scanType, synced = true)
-                        _uiState.value = ScanUiState.Success(scanData)
-                    } else {
+                    if (scanData == null) {
                         _uiState.value = ScanUiState.Error("Respons verifikasi tidak valid. Coba lagi.")
+                        return@launch
+                    }
+                    orderRepository.saveScanLocally(orderId, latitude, longitude, scanType, synced = true)
+
+                    // CORE-2026-006: issue one-time proof token after pickup scan.
+                    if (CourierProofTypes.isPickupProof(scanType)) {
+                        val tokenResult = issueProofToken(orderId, scanType)
+                        tokenResult.onSuccess { token ->
+                            orderRepository.saveProofToken(orderId, token.tokenId, token.plaintext, token.stage)
+                            _uiState.value = ScanUiState.ScanSuccessWithToken(scanData, token)
+                        }
+                        tokenResult.onFailure {
+                            _uiState.value = ScanUiState.ScanSuccess(scanData)
+                        }
+                    } else {
+                        _uiState.value = ScanUiState.ScanSuccess(scanData)
                     }
                 } else {
                     _uiState.value = ScanUiState.Error(response.errorMessage())
@@ -81,6 +100,33 @@ class ScanViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Issue a one-time proof token for the given [stage] via the backend
+     * proof chain-of-custody service (CORE-2026-006).
+     */
+    private suspend fun issueProofToken(orderId: String, stage: String): Result<ProofTokenIssueResponse> {
+        return try {
+            val proofStage = when (stage) {
+                CourierProofTypes.PICKUP_SCAN,
+                CourierProofTypes.PICKUP_PHOTO,
+                CourierProofTypes.PICKUP_OTP -> "picked_up"
+                else -> stage
+            }
+            val request = ProofTokenIssueRequest(stage = proofStage, tokenFormat = "numeric_6")
+            val response = apiService.issueProofToken(orderId = orderId, request = request)
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body != null) Result.success(body)
+                else Result.failure(IllegalStateException("Token tidak valid"))
+            } else {
+                Result.failure(IllegalStateException(response.errorMessage()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
 
     private fun retrofit2.Response<*>.errorMessage(): String {
         val fallback = "Verifikasi ditolak. Pastikan Anda berada di titik yang benar."
@@ -107,6 +153,7 @@ class ScanViewModel @Inject constructor(
 sealed class ScanUiState {
     object Idle : ScanUiState()
     object Loading : ScanUiState()
-    data class Success(val scanData: ScanResponse) : ScanUiState()
+    data class ScanSuccess(val scanData: ScanResponse) : ScanUiState()
+    data class ScanSuccessWithToken(val scanData: ScanResponse, val token: ProofTokenIssueResponse) : ScanUiState()
     data class Error(val message: String) : ScanUiState()
 }

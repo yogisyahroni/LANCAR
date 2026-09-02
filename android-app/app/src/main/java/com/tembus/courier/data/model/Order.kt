@@ -208,6 +208,22 @@ data class Order(
     @SerialName("proof_requirements")
     val proofRequirements: CourierProofRequirements? = null,
 
+    // CORE-2026-006: locally cached one-time proof token issued by the backend
+    // for the current pickup/delivery stage. `proofTokenPlaintext` is the OTP
+    // the courier reads aloud/types; it must never be persisted beyond the
+    // in-memory session and is cleared once consumed.
+    @ColumnInfo(name = "proof_token_id")
+    @SerialName("proof_token_id")
+    val proofTokenId: String? = null,
+
+    @ColumnInfo(name = "proof_token_plaintext", defaultValue = "")
+    @SerialName("proof_token_plaintext")
+    val proofTokenPlaintext: String? = null,
+
+    @ColumnInfo(name = "proof_token_stage")
+    @SerialName("proof_token_stage")
+    val proofTokenStage: String? = null,
+
     @ColumnInfo(name = "service_code")
     @SerialName("service_code")
     val serviceCode: String? = null,

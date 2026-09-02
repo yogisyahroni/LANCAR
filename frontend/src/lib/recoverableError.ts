@@ -13,7 +13,7 @@ export function presentRecoverableError(error: any, fallback: string): ErrorPres
     return {
       message: data.message || fallback,
       action: data.action,
-      retryable: data.retryable,
+      retryable: !!data.retryable,
       reference: data.correlationId,
     };
   }

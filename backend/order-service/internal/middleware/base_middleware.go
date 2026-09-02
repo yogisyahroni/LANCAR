@@ -230,12 +230,10 @@ type ErrorResponse struct {
 	Code          string `json:"code"`
 	Message       string `json:"message"`
 	CorrelationID string `json:"correlation_id,omitempty"`
-	Action        string `json:"action,omitempty"`
-	Retryable     bool   `json:"retryable,omitempty"`
+	Recoverable   bool   `json:"recoverable,omitempty"`
 }
 
 func WriteError(w http.ResponseWriter, status int, code, message, correlationID string) {
-	descriptor, recoverable := domain.RecoverableErrorForCode(code)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(ErrorResponse{
@@ -243,9 +241,45 @@ func WriteError(w http.ResponseWriter, status int, code, message, correlationID 
 		Code:          code,
 		Message:       message,
 		CorrelationID: correlationID,
-		Action:        descriptor.Action,
-		Retryable:     recoverable && descriptor.Retryable,
 	})
+}
+
+// WriteAppError renders a domain.TypedError as a canonical ErrorResponse.
+// CAR-2026-008: error carries correlation id + canonical code so clients
+// render recovery instead of raw internal text.
+func WriteAppError(w http.ResponseWriter, err error) {
+	cid := GetCorrelationIDFromError(err)
+	if te, ok := err.(*domain.TypedError); ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(te.HTTPStatus())
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
+			Success:       false,
+			Code:          string(te.Code),
+			Message:       te.UserMessage,
+			CorrelationID: cid,
+			Recoverable:   te.Recoverable,
+		})
+		return
+	}
+	// Fallback for non-typed errors
+	WriteError(w, http.StatusInternalServerError, string(domain.CodeInternal),
+		"Terjadi kesalahan. Tim kami sudah diberi tahu.", cid)
+}
+
+// GetCorrelationIDFromError extracts correlation_id if the error wraps one;
+// otherwise returns empty (callers may set X-Correlation-ID header on the
+// response themselves).
+func GetCorrelationIDFromError(err error) string {
+	if err == nil {
+		return ""
+	}
+	type cidCarrier interface{ CorrelationID() string }
+	if c, ok := err.(cidCarrier); ok {
+		if v := c.CorrelationID(); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 type SuccessResponse struct {

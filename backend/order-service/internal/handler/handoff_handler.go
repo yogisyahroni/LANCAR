@@ -1,119 +1,218 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
+	"strings"
+	"time"
+
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
-	"time"
+
+	"github.com/google/uuid"
 )
 
-type issueHandoffTokenRequest struct {
-	OrderID    string `json:"order_id"`
-	Stage      string `json:"stage"`
-	TTLSeconds int    `json:"ttl_seconds,omitempty"`
+// HandoffHandler implements CORE-2026-006 proof/PIN/QR/signature endpoints.
+type HandoffHandler struct {
+	svc HandoffService
 }
 
-type consumeHandoffTokenRequest struct {
-	OrderID string `json:"order_id"`
-	Stage   string `json:"stage"`
-	Token   string `json:"token"`
+// HandoffService is the interface the handler depends on.
+type HandoffService interface {
+	IssueProofToken(ctx context.Context, req domain.IssueProofTokenRequest, actorID, actorRole string) (*domain.ProofVerificationToken, string, error)
+	VerifyProofToken(ctx context.Context, req domain.VerifyProofTokenRequest) (*domain.ProofVerificationResult, error)
+	GetProofRequirements(ctx context.Context, serviceCategory, stage string) ([]domain.ProofRequirement, error)
 }
 
-func (h *OrderHandler) IssueHandoffToken(w http.ResponseWriter, r *http.Request) {
+// NewHandoffHandler constructs the proof chain-of-custody handler.
+func NewHandoffHandler(svc HandoffService) *HandoffHandler {
+	return &HandoffHandler{svc: svc}
+}
+
+// IssueProofToken issues a one-time OTP/PIN/QR token bound to order+stage+actor.
+// POST /api/v1/orders/{id}/proof/token
+func (h *HandoffHandler) IssueProofToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if h.handoffSvc == nil {
-		writeHandoffError(w, r, http.StatusServiceUnavailable, "HANDOFF_UNAVAILABLE", "Layanan verifikasi serah terima belum tersedia")
-		return
-	}
+
+	orderID := strings.TrimPrefix(r.URL.Path, "/api/v1/orders/")
+	orderID = strings.TrimSuffix(orderID, "/proof/token")
+
 	actorID := middleware.GetUserIDFromContext(r.Context())
-	role := middleware.GetRoleFromContext(r.Context())
+	actorRole := middleware.GetRoleFromContext(r.Context())
 	if actorID == "" {
-		writeHandoffError(w, r, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Sesi tidak valid")
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", cid)
 		return
 	}
-	if role != "courier" && role != "admin" && role != "super_admin" {
-		writeHandoffError(w, r, http.StatusForbidden, "ERR_FORBIDDEN", "Hanya petugas yang dapat menerbitkan token serah terima")
+
+	if actorRole != "courier" && actorRole != "warehouse" && actorRole != "admin" && actorRole != "super_admin" {
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Only courier/warehouse/admin can issue proof tokens", cid)
 		return
 	}
-	var req issueHandoffTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeHandoffError(w, r, http.StatusBadRequest, "ERR_BAD_REQUEST", "Format request tidak valid")
+
+	var body struct {
+		Stage       string             `json:"stage"`
+		TokenFormat domain.TokenFormat `json:"token_format"`
+		MaxAttempts *int               `json:"max_attempts,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid payload: "+err.Error(), cid)
 		return
 	}
-	order, err := h.orderSvc.GetOrder(r.Context(), req.OrderID)
-	if err != nil || order == nil {
-		writeHandoffError(w, r, http.StatusNotFound, "ERR_NOT_FOUND", "Order tidak ditemukan")
+	if body.Stage == "" {
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_MISSING_PARAM", "stage is required", cid)
 		return
 	}
-	if role == "courier" && (order.CourierID == nil || *order.CourierID != actorID) {
-		writeHandoffError(w, r, http.StatusForbidden, "ERR_FORBIDDEN", "Token hanya dapat diterbitkan oleh kurir yang ditugaskan")
-		return
-	}
-	ttl := time.Duration(req.TTLSeconds) * time.Second
-	code, record, err := h.handoffSvc.Issue(r.Context(), req.OrderID, actorID, domain.HandoffStage(req.Stage), ttl)
+
+	stage, err := domain.ParseProofStage(body.Stage)
 	if err != nil {
-		writeHandoffError(w, r, http.StatusBadRequest, "HANDOFF_TOKEN_INVALID", err.Error())
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", err.Error(), cid)
 		return
 	}
+
+	maxAttempts := domain.DefaultMaxAttempts
+	if body.MaxAttempts != nil && *body.MaxAttempts > 0 {
+		maxAttempts = *body.MaxAttempts
+	}
+
+	token, plaintext, err := h.svc.IssueProofToken(r.Context(), domain.IssueProofTokenRequest{
+		OrderID:       orderID,
+		Stage:         stage,
+		TokenFormat:   body.TokenFormat,
+		ExpiresAt:     time.Now().Add(10 * time.Minute).UTC(),
+		MaxAttempts:   maxAttempts,
+	}, actorID, actorRole)
+	if err != nil {
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "already finalized") || strings.Contains(err.Error(), "already has proof") {
+			status = http.StatusConflict
+		} else if strings.Contains(err.Error(), "not found") {
+			status = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"token":      code,
-			"order_id":   record.OrderID,
-			"stage":      record.Stage,
-			"expires_at": record.ExpiresAt,
-		},
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":       "success",
+		"token_id":     token.ID,
+		"plaintext":    plaintext,
+		"token_format": token.TokenFormat,
+		"expires_at":   token.ExpiresAt,
+		"max_attempts": token.MaxAttempts,
+		"stage":        token.Stage,
 	})
 }
 
-func (h *OrderHandler) ConsumeHandoffToken(w http.ResponseWriter, r *http.Request) {
+// VerifyProofToken consumes a one-time token, enforcing single-use, expiry,
+// max attempts, and actor/order binding.
+// POST /api/v1/orders/{id}/proof/verify
+func (h *HandoffHandler) VerifyProofToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if h.handoffSvc == nil {
-		writeHandoffError(w, r, http.StatusServiceUnavailable, "HANDOFF_UNAVAILABLE", "Layanan verifikasi serah terima belum tersedia")
-		return
-	}
+
+	orderID := strings.TrimPrefix(r.URL.Path, "/api/v1/orders/")
+	orderID = strings.TrimSuffix(orderID, "/proof/verify")
+
 	actorID := middleware.GetUserIDFromContext(r.Context())
+	actorRole := middleware.GetRoleFromContext(r.Context())
 	if actorID == "" {
-		writeHandoffError(w, r, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Sesi tidak valid")
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", cid)
 		return
 	}
-	var req consumeHandoffTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeHandoffError(w, r, http.StatusBadRequest, "ERR_BAD_REQUEST", "Format request tidak valid")
+	_ = orderID
+
+	var body struct {
+		TokenID    string  `json:"token_id"`
+		ProofValue string  `json:"proof_value"`
+		PhotoURL   *string `json:"photo_url,omitempty"`
+		Signature  *string `json:"signature,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid payload: "+err.Error(), cid)
 		return
 	}
-	if err := h.handoffSvc.Consume(r.Context(), req.Token, req.OrderID, actorID, domain.HandoffStage(req.Stage)); err != nil {
-		status, code := http.StatusConflict, "HANDOFF_TOKEN_INVALID"
-		switch {
-		case errors.Is(err, domain.ErrHandoffTokenExpired):
-			code = "HANDOFF_TOKEN_EXPIRED"
-		case errors.Is(err, domain.ErrHandoffTokenConsumed):
-			code = "HANDOFF_TOKEN_CONSUMED"
-		case errors.Is(err, domain.ErrHandoffTokenAttemptsLimit):
-			code = "HANDOFF_TOKEN_ATTEMPTS_EXCEEDED"
-		case errors.Is(err, domain.ErrHandoffActorMismatch):
-			status, code = http.StatusForbidden, "HANDOFF_ACTOR_MISMATCH"
-		case errors.Is(err, domain.ErrHandoffOrderMismatch):
-			status, code = http.StatusConflict, "HANDOFF_ORDER_MISMATCH"
-		case errors.Is(err, domain.ErrHandoffStageMismatch):
-			status, code = http.StatusConflict, "HANDOFF_STAGE_MISMATCH"
+	if body.TokenID == "" || body.ProofValue == "" {
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_MISSING_PARAM", "token_id and proof_value are required", cid)
+		return
+	}
+
+	if _, err := uuid.Parse(body.TokenID); err != nil {
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "token_id must be a valid UUID", cid)
+		return
+	}
+
+	result, err := h.svc.VerifyProofToken(r.Context(), domain.VerifyProofTokenRequest{
+		TokenID:    body.TokenID,
+		ActorID:    actorID,
+		ActorRole:  actorRole,
+		ProofValue: body.ProofValue,
+		PhotoURL:   body.PhotoURL,
+		Signature:  body.Signature,
+	})
+	if err != nil {
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "expired") {
+			status = http.StatusForbidden
+		} else if strings.Contains(err.Error(), "exhausted") {
+			status = http.StatusTooManyRequests
+		} else if strings.Contains(err.Error(), "used") {
+			status = http.StatusConflict
 		}
-		writeHandoffError(w, r, status, code, "Token serah terima ditolak")
+		http.Error(w, err.Error(), status)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": map[string]string{"order_id": req.OrderID, "stage": req.Stage, "status": "consumed"}})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":           "success",
+		"consumed":         result.Consumed,
+		"order_id":         result.OrderID,
+		"stage":            result.Stage,
+		"service_category": result.ServiceCategory,
+	})
 }
 
-func writeHandoffError(w http.ResponseWriter, r *http.Request, status int, code, message string) {
-	middleware.WriteError(w, status, code, message, middleware.GetCorrelationID(r.Context()))
+// GetProofRequirements returns the proof requirement matrix for a service+stage.
+// GET /api/v1/proofs/requirements?service_category=food&stage=delivering
+func (h *HandoffHandler) GetProofRequirements(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	serviceCategory := r.URL.Query().Get("service_category")
+	stage := r.URL.Query().Get("stage")
+	if serviceCategory == "" || stage == "" {
+		cid := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_MISSING_PARAM", "service_category and stage are required", cid)
+		return
+	}
+
+	requirements, err := h.svc.GetProofRequirements(r.Context(), serviceCategory, stage)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":      "success",
+		"requirements": requirements,
+	})
 }

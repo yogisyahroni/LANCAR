@@ -417,22 +417,27 @@ type MeetingPointAnalytics struct {
 
 type OrderEventRepository interface {
 	SaveEvent(ctx context.Context, event OrderEvent) error
+	// NextEventVersion returns the next monotonic version for the given order.
+	// Used by the server to stamp event ordering before publishing (CORE-2026-007).
+	NextEventVersion(ctx context.Context, orderID string) (uint64, error)
 	ListEventsByUserID(ctx context.Context, userID string, since time.Time) ([]OrderEvent, error)
 	ListEventsByOrderID(ctx context.Context, orderID string) ([]OrderEvent, error)
 }
 
 type OrderEvent struct {
-	ID        string      `json:"id"`
-	OrderID   string      `json:"order_id"`
-	UserID    string      `json:"user_id"`
-	Status    OrderStatus `json:"status"`
-	Message   string      `json:"message,omitempty"`
-	CreatedAt time.Time   `json:"created_at"`
-	// EventVersion is a monotonic client cursor derived from the server event
-	// timestamp. StateVersion, when available, is the authoritative order CAS
-	// version; clients must resync the snapshot before applying state changes.
-	EventVersion int64 `json:"event_version,omitempty"`
-	StateVersion int64 `json:"state_version,omitempty"`
+	ID            string      `json:"id"`
+	OrderID       string      `json:"order_id"`
+	UserID        string      `json:"user_id"`
+	Status        OrderStatus `json:"status"`
+	Message       string      `json:"message,omitempty"`
+	CreatedAt     time.Time   `json:"created_at"`
+	// Version is a monotonically increasing sequence number per order, set
+	// server-side. Clients use it to discard out-of-order/duplicate events
+	// (CORE-2026-007).
+	Version       uint64      `json:"version"`
+	// CorrelationID links related events across services for tracing
+	// (CORE-2026-007).
+	CorrelationID string      `json:"correlation_id,omitempty"`
 }
 
 type MeetingPointService interface {
@@ -451,7 +456,6 @@ type PackageScan struct {
 	// IdempotencyKey is supplied by the transport layer and is never exposed
 	// as part of the public scan representation.
 	IdempotencyKey string    `json:"-"`
-	HandoffToken   string    `json:"-"`
 	ScannedByRole  string    `json:"-"`
 	Latitude       float64   `json:"latitude"`
 	Longitude      float64   `json:"longitude"`

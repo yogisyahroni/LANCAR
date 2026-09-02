@@ -1,25 +1,24 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { shouldAcceptRealtimeEvent } from '@/lib/realtimeEventGuard';
 
 interface WebSocketHookOptions {
   onMessage?: (data: any) => void;
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (error: Event) => void;
-  /** Fetch authoritative state after every connection, including reconnects. */
-  onResync?: () => void;
   autoConnect?: boolean;
 }
 
+// CORE-2026-007: client-side dedupe for out-of-order / duplicate events.
+let lastEventVersion: Record<string, number> = {};
+
 export function useWebSocket(url: string | null, options: WebSocketHookOptions = {}) {
-  const { onMessage, onOpen, onClose, onError, onResync, autoConnect = true } = options;
+  const { onMessage, onOpen, onClose, onError, autoConnect = true } = options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Event | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const seenVersionsRef = useRef(new Map<string, number>());
 
   const connect = useCallback(() => {
     if (!url) return;
@@ -34,15 +33,27 @@ export function useWebSocket(url: string | null, options: WebSocketHookOptions =
       ws.onopen = () => {
         setIsConnected(true);
         setError(null);
+        // CORE-2026-007: on (re)connect, request authoritative resume version
+        // so the client knows which events to ignore as older/duplicate.
+        try {
+          ws.send(JSON.stringify({ action: 'sync_request', room: 'sync' }));
+        } catch {}
         if (onOpen) onOpen();
-        if (onResync) onResync();
       };
 
       ws.onmessage = (event) => {
         try {
           const parsed = JSON.parse(event.data);
-          if (parsed && typeof parsed === 'object' && !shouldAcceptRealtimeEvent(seenVersionsRef.current, parsed)) {
-            return;
+          // Dedupe: ignore stale/duplicate events by version per order (CORE-2026-007).
+          if (parsed && typeof parsed === 'object' && parsed.version && parsed.order_id) {
+            const key = String(parsed.order_id);
+            const incoming = Number(parsed.version);
+            const seen = lastEventVersion[key] || 0;
+            if (incoming <= seen) {
+              // Older or duplicate — drop silently.
+              return;
+            }
+            lastEventVersion[key] = incoming;
           }
           if (onMessage) onMessage(parsed);
         } catch (err) {
@@ -93,6 +104,6 @@ export function useWebSocket(url: string | null, options: WebSocketHookOptions =
     error,
     sendMessage,
     connect,
-    disconnect
+    disconnect,
   };
 }

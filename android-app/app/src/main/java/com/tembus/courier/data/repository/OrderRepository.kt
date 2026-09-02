@@ -212,6 +212,42 @@ class OrderRepository @Inject constructor(
     }
 
     /**
+     * Persist a one-time proof token issued by the backend (CORE-2026-006).
+     * Called after a successful pickup/delivery stage verification.
+     */
+    suspend fun saveProofToken(
+        orderId: String,
+        tokenId: String,
+        plaintext: String,
+        stage: String
+    ) = withContext(Dispatchers.IO) {
+        val order = orderDao.getOrderById(orderId) ?: return@withContext
+        orderDao.update(
+            order.copy(
+                proofTokenId = tokenId,
+                proofTokenPlaintext = plaintext,
+                proofTokenStage = stage,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    /**
+     * Clear the locally cached proof token after it has been consumed.
+     */
+    suspend fun clearProofToken(orderId: String) = withContext(Dispatchers.IO) {
+        val order = orderDao.getOrderById(orderId) ?: return@withContext
+        orderDao.update(
+            order.copy(
+                proofTokenId = null,
+                proofTokenPlaintext = null,
+                proofTokenStage = null,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    /**
      * Update order with new data
      */
     suspend fun updateOrder(order: Order) = withContext(Dispatchers.IO) {

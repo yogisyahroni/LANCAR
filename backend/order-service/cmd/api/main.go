@@ -348,6 +348,9 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
 	paymentLinkHandler := handler.NewPaymentLinkHandler(paymentLinkSvc, configRepo)
 	carrierHandoffHandler := handler.NewCarrierHandoffHandler(carrierHandoffSvc)
+	// CORE-2026-006: Proof/PIN/QR/signature chain-of-custody handler.
+	handoffSvc := service.NewHandoffService(pgRepo, pgRepo)
+	proofHandler := handler.NewHandoffHandler(handoffSvc)
 	chatHandler := handler.NewChatHandler(chatSvc)
 	sosHandler := handler.NewSosHandler(sosSvc)
 	resiHandler := handler.NewResiHandler(resiSvc)
@@ -533,7 +536,10 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/bags/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetConsolidationBag)))
 	mux.HandleFunc("/api/v1/orders/scan/auto-detect", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AutoDetectScanType)))
 
-	// SOS Endpoints
+	// CORE-2026-006: Proof/PIN/QR/signature chain-of-custody.
+	mux.HandleFunc("/api/v1/orders/{id}/proof/token", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.proof.token", proofHandler.IssueProofToken))))
+	mux.HandleFunc("/api/v1/orders/{id}/proof/verify", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.proof.verify", proofHandler.VerifyProofToken))))
+	mux.HandleFunc("/api/v1/proofs/requirements", middleware.BaseChain(middleware.AuthMiddleware(proofHandler.GetProofRequirements)))
 	mux.HandleFunc("/api/v1/couriers/sos/trigger", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.TriggerSOS)))
 	mux.HandleFunc("/api/v1/couriers/sos/accept", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.AcceptSOS)))
 	mux.HandleFunc("/api/v1/couriers/sos/arrive", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.ArriveAtSOS)))

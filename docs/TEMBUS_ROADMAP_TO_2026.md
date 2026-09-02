@@ -47,6 +47,8 @@ Verifikasi langsung ke kode (bukan asumsi). Legend: ✅ selesai · 🟡 parsial 
 | 11.1 | **[AUDIT 2026-08-27] Brand-consistency web A1** | ✅ **DONE 2026-08-28** — 14 `blue-500` non-brand occurrence di 10 file → token `primary`/`info` (glow=bg-primary/10, info state=bg-info/10 text-info, selected=border-primary). Palette brand emerald sekarang punya token `brand-emerald-*`, dan seluruh pemakaian frontend sudah dimigrasikan. `npm run build` EXIT 0. |
 | 1 | Split `customerOrder.controller.ts` | ✅ |
 | 1 | Split `order_service.go` | ✅ |
+| CORE-2026-004 | Canonical state machine + actor authorization | ✅ **DONE 2026-09-02** — implementation d1b9e692, `go test ./...` PASS, `go vet ./...` PASS, isolated PostgreSQL concurrency/replay/proof/admin/assignment tests PASS |
+| CORE-2026-005 | Payment/refund/payout/settlement/reconciliation invariants | ✅ **DONE 2026-09-02** — implementation 12e7e9fe, `go test ./...` PASS, `npm test` 233 tests PASS, local PostgreSQL reconciliation + exception queue verified |
 | 1 | OnDemandMapScreens / PayoutScreens / HubScreens | ✅ SPLIT DONE — facade files 160/159/159 lines + extracted composables; compile verified 2026-08-26 |
 | 1 | Split `order_handler.go` | ✅ DONE (346 baris + 4 handler) |
 | 1 | Split domain `order.go` | ✅ DONE (order.go 444 + order_food.go 237) |

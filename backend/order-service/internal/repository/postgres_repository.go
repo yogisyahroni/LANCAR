@@ -777,13 +777,26 @@ func (r *postgresRepo) ReleaseGhostedOrder(ctx context.Context, orderID string) 
 	return nil
 }
 func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error {
-	query := `INSERT INTO order_events (order_id, user_id, event_type, description, created_at)
-			  VALUES ($1, $2, $3, $4, $5)`
-
+	query := `INSERT INTO order_events (order_id, user_id, event_type, description, created_at, version, correlation_id)
+			  VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	_, err := r.db.ExecContext(ctx, query,
-		e.OrderID, e.UserID, e.Status, e.Message, time.Now(),
+		e.OrderID, e.UserID, e.Status, e.Message, time.Now(), e.Version, e.CorrelationID,
 	)
 	return err
+}
+
+// NextEventVersion returns the next monotonic version for the given order
+// (CORE-2026-007). Callers stamp the version on the event before SaveEvent.
+func (r *postgresRepo) NextEventVersion(ctx context.Context, orderID string) (uint64, error) {
+	var v uint64
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COALESCE(MAX(version), 0) + 1 FROM order_events WHERE order_id = $1`,
+		orderID,
+	).Scan(&v)
+	if err != nil {
+		return 0, err
+	}
+	return v, nil
 }
 
 func (r *postgresRepo) ListEventsByUserID(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {

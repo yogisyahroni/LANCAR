@@ -907,6 +907,67 @@ data class ScanResponse(
 )
 
 /**
+ * Proof-of-custody token issued by the backend (CORE-2026-006).
+ * `plaintext` is the one-time OTP/PIN/QR handed to the courier; `tokenId`
+ * is the persisted hash reference used to verify later.
+ */
+@Serializable
+data class ProofTokenIssueResponse(
+    @SerialName("token_id") val tokenId: String,
+    @SerialName("plaintext") val plaintext: String,
+    @SerialName("token_format") val tokenFormat: String,
+    @SerialName("expires_at") val expiresAt: String,
+    @SerialName("max_attempts") val maxAttempts: Int,
+    @SerialName("stage") val stage: String
+)
+
+/**
+ * Result of verifying a one-time proof token (CORE-2026-006).
+ */
+@Serializable
+data class ProofTokenVerifyResponse(
+    @SerialName("token_id") val tokenId: String,
+    @SerialName("order_id") val orderId: String,
+    @SerialName("consumed") val consumed: Boolean,
+    @SerialName("stage") val stage: String,
+    @SerialName("service_category") val serviceCategory: String
+)
+
+/**
+ * Request to issue a one-time proof token for pickup/delivery verification.
+ */
+@Serializable
+data class ProofTokenIssueRequest(
+    @SerialName("stage") val stage: String,
+    @SerialName("token_format") val tokenFormat: String? = null,
+    @SerialName("max_attempts") val maxAttempts: Int? = null
+)
+
+/**
+ * Request to verify a one-time proof token.
+ */
+@Serializable
+data class ProofTokenVerifyRequest(
+    @SerialName("token_id") val tokenId: String,
+    @SerialName("proof_value") val proofValue: String,
+    @SerialName("photo_url") val photoUrl: String? = null,
+    @SerialName("signature") val signature: String? = null
+)
+
+/**
+ * Proof requirement entry for a service+stage matrix.
+ */
+@Serializable
+data class ProofRequirementDto(
+    @SerialName("service_category") val serviceCategory: String,
+    @SerialName("stage") val stage: String,
+    @SerialName("proof_type") val proofType: String,
+    @SerialName("required") val required: Boolean,
+    @SerialName("min_value") val minValue: Int? = null,
+    @SerialName("max_value") val maxValue: Int? = null
+)
+
+/**
  * Order Status Update Request
  */
 @Serializable

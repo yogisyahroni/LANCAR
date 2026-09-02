@@ -25,7 +25,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 22,
+    version = 23,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -307,6 +307,15 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        /** Version 23: CORE-2026-006 proof chain-of-custody token cache columns. */
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addOrderColumnIfMissing(db, "proof_token_id", "ALTER TABLE `orders` ADD COLUMN `proof_token_id` TEXT")
+                addOrderColumnIfMissing(db, "proof_token_plaintext", "ALTER TABLE `orders` ADD COLUMN `proof_token_plaintext` TEXT")
+                addOrderColumnIfMissing(db, "proof_token_stage", "ALTER TABLE `orders` ADD COLUMN `proof_token_stage` TEXT")
+            }
+        }
+
         val ALL_MIGRATIONS = arrayOf(
             MIGRATION_2_3,
             MIGRATION_3_4,
@@ -328,6 +337,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_19_20,
             MIGRATION_20_21,
             MIGRATION_21_22,
+            MIGRATION_22_23,
             MIGRATION_10_13,
             MIGRATION_11_13
         )
