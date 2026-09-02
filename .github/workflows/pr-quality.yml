@@ -1,9 +1,11 @@
-name: PR Quality Gates
+name: Release PR Quality Gates
 
 on:
   pull_request:
-    branches: [development, staging, main]
+    branches: [main]
 
+# PR quality gates are reserved for controlled release promotion into main.
+# Ordinary TASK-ID development is verified on branch push and integrated directly to staging.
 # Ephemeral GitHub Actions service database only; these values are scoped to CI
 # test containers and are not production or staging runtime credentials.
 env:
