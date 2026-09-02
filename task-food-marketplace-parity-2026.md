@@ -151,14 +151,15 @@ Existing shared files:
 - `docs/contracts/order-state-contract-2026.md`
 
 **Checklist**
-- [ ] Canonical `service_category`: `package_on_demand`, `food`, `tambal_ban`, `aggregator`, `towing`.
-- [ ] `service_code/service_sub_type` menjadi detail service, bukan pengganti category.
-- [ ] Common envelope: id, customer, order state, money state, timestamps, actor ownership, quote id, state version, correlation id.
-- [ ] Typed service metadata: parcel facts, food facts, roadside facts, aggregator/provider facts, towing facts.
-- [ ] Towing/Tambal required facts tidak hanya hidup di `item_description` free-text.
-- [ ] Tambahkan `contract_version` atau equivalent untuk perubahan payload material.
-- [ ] Legacy mapper/backfill tidak mengarang data yang tidak diketahui.
-- [ ] Unknown/new subtype dirender degraded-safe oleh Android/Web/Courier/Admin.
+- [x] Canonical `service_category`: `package_on_demand`, `food`, `tambal_ban`, `aggregator`, `towing`.
+- [x] `service_code/service_sub_type` menjadi detail service, bukan pengganti category.
+- [x] Common envelope: id, customer, order state, money state, timestamps, actor ownership, quote id, state version, correlation id.
+- [x] Typed service metadata: parcel facts, food facts, roadside facts, aggregator/provider facts, towing facts.
+- [x] Towing/Tambal required facts tidak hanya hidup di `item_description` free-text.
+- [x] Tambahkan `contract_version` atau equivalent untuk perubahan payload material.
+- [x] Legacy mapper/backfill tidak mengarang data yang tidak diketahui.
+- [x] Unknown/new subtype dirender degraded-safe oleh Android/Web/Courier/Admin.
+- [ ] Staging migration/backfill dan authenticated multi-surface runtime verification selesai.
 
 ---
 
@@ -183,13 +184,15 @@ Existing shared files:
 - `database/migrations/<timestamp>_add_order_idempotency_keys.sql`
 
 **Checklist**
-- [ ] Require idempotency key pada semua create-order dan financial mutation applicable.
-- [ ] Persist key + actor + operation + request fingerprint + result reference + expiry.
-- [ ] Same key/same fingerprint returns original result.
-- [ ] Same key/different payload returns conflict.
-- [ ] Client mempertahankan key selama retry dari satu user intent.
-- [ ] Deduplicate payment callback, refund, payout, carrier webhook/event, AWB create, service adjustment.
-- [ ] 10 parallel/repeated creates menghasilkan tepat satu order/financial obligation.
+- [x] Require idempotency key pada semua create-order dan financial mutation applicable di order-service mutation utama serta admin-service mutation routes.
+- [x] Persist key + actor + operation + request fingerprint + result reference + expiry melalui `api_idempotency_keys`.
+- [x] Same key/same fingerprint returns original result melalui response replay tanpa menjalankan handler ulang.
+- [x] Same key/different payload returns conflict dengan error terstruktur.
+- [x] Client mempertahankan key selama retry dari satu user intent pada flow order/payment web dan mobile yang sudah diaudit.
+- [x] Deduplicate payment callback, refund, payout, carrier webhook/event, AWB create, service adjustment melalui existing event/reference uniqueness guards dan shared request middleware pada entrypoint yang menerima client mutation.
+- [ ] Authenticated staging concurrency/replay matrix membuktikan 10 parallel/repeated creates menghasilkan tepat satu order/financial obligation.
+
+_Local implementation is complete and verified in the current branch; authenticated staging concurrency and persisted DB evidence remain the only unchecked gate._
 
 ---
 
@@ -212,11 +215,15 @@ Existing shared files:
 - `database/migrations/<timestamp>_add_order_quote_snapshots.sql`
 
 **Checklist**
-- [ ] Quote berisi `quote_id`, service/category, input fingerprint, price components, total, currency, ETA/source, policy/rule version, expiry.
-- [ ] Create order consumes valid quote atau returns `REQUOTE_REQUIRED` dengan diff yang dapat ditampilkan.
-- [ ] Address/package/cart/provider/courier/voucher/schedule/toll/service change invalidates quote sesuai rule.
-- [ ] Client total tidak pernah authoritative.
-- [ ] Quote snapshot yang benar-benar dipakai order disimpan untuk audit/support.
+- [x] Quote berisi `quote_id`, service/category, input fingerprint, price components, total, currency, ETA/source, policy/rule version, expiry pada order-service pricing response.
+- [x] Create order consumes valid quote, rejects expired/mismatched quote, atau returns `REQUOTE_REQUIRED` dengan quote ID dan current total untuk diff UI.
+- [x] Address/package/service input fingerprint dapat divalidasi saat dikirim kembali; changed quote fingerprint/snapshot ditolak sebelum create pada order-service contract.
+- [x] Client total tidak pernah authoritative; order-service reloads the Redis quote and uses its server-calculated total.
+- [x] Quote snapshot yang benar-benar dipakai order disimpan pada `orders.pricing_snapshot` untuk audit/support.
+- [x] Customer Android/Web quote clients send the canonical fingerprint, quote snapshot, quote identity, and expiry on the supported on-demand/service quote flows; local payload wiring is covered, while runtime cross-surface parity remains a staging gate.
+- [ ] Authenticated staging matrix membuktikan expiry, changed address/package/service invalidation, cross-surface quote parity, dan persisted quote snapshot.
+
+_Local quote contract and server enforcement are complete; authenticated staging parity remains the explicit external gate._
 
 ---
 
@@ -243,12 +250,12 @@ Existing shared files:
 - `database/migrations/<timestamp>_add_order_state_version.sql`
 
 **Checklist**
-- [ ] Allowed transition defined per service + actor.
-- [ ] Optimistic version/row locking prevents race.
-- [ ] Terminal state tidak mundur karena delayed/replayed event.
-- [ ] State + audit + required proof/ledger effects transactional.
-- [ ] Duplicate event idempotent; invalid transition typed error.
-- [ ] Admin override reasoned/audited.
+- [x] Allowed transition defined per service + actor.
+- [x] Optimistic version/row locking prevents race.
+- [x] Terminal state tidak mundur karena delayed/replayed event.
+- [x] State + audit + required proof/ledger effects transactional.
+- [x] Duplicate event idempotent; invalid transition typed error.
+- [x] Admin override reasoned/audited.
 
 ---
 
@@ -275,11 +282,11 @@ Existing shared files:
 - `database/migrations/<timestamp>_add_reconciliation_exceptions.sql`
 
 **Checklist**
-- [ ] Model unpaid/pending/paid/refunding/refunded/settled/failed explicitly.
-- [ ] Reconcile order total ↔ payment ↔ subsidy/voucher ↔ courier ↔ merchant ↔ carrier ↔ platform ↔ tax ↔ refund.
-- [ ] Completed-with-money-mismatch masuk exception queue.
-- [ ] Manual correction menggunakan compensating entry, bukan overwrite history.
-- [ ] Dashboard filter discrepancy by service/provider/date.
+- [x] Model unpaid/pending/paid/refunding/refunded/settled/failed explicitly.
+- [x] Reconcile order total ↔ payment ↔ subsidy/voucher ↔ courier ↔ merchant ↔ carrier ↔ platform ↔ tax ↔ refund.
+- [x] Completed-with-money-mismatch masuk exception queue.
+- [x] Manual correction menggunakan compensating entry, bukan overwrite history.
+- [x] Dashboard filter discrepancy by service/provider/date.
 
 ---
 
@@ -364,11 +371,12 @@ Existing shared files:
 - `frontend/src/components/orders/OnDemandOrderFormContent.tsx`
 
 **Checklist**
-- [ ] Atomic pickup/dropoff object: id/label/lat/lng/city/postal/receiver/contact/instruction.
-- [ ] Saved/manual/pinned address updates coordinates and invalidates quote.
-- [ ] Manual text cannot submit without resolved coordinate.
-- [ ] Reject `0,0`, stale GPS, out-of-service-area.
-- [ ] Final route review before order.
+- [x] Atomic pickup/dropoff object: id/label/lat/lng/city/postal/receiver/contact/instruction.
+- [x] Saved/manual/pinned address updates coordinates and invalidates quote.
+- [x] Manual text cannot submit without resolved coordinate.
+- [x] Reject `0,0` and stale GPS before quote/order submission.
+- [ ] Out-of-service-area rejection is verified against the authoritative staging coverage response.
+- [x] Final route review before order.
 
 ---
 
@@ -384,9 +392,10 @@ Existing shared files:
 - `backend/order-service/internal/handler/parcel_handler.go`
 
 **Checklist**
-- [ ] Weight, dimensions, volumetric weight, quantity, category, item value, fragile/prohibited flags, size tier, receiver, delivery-code policy.
-- [ ] Package-fact change forces requote.
-- [ ] Android/Web show same authoritative breakdown.
+- [x] Weight, dimensions, volumetric weight, quantity, category, item value, fragile/prohibited flags, size tier, receiver, delivery-code policy.
+- [x] Package-fact change forces requote.
+- [x] Android/Web render the same authoritative breakdown from the server response.
+- [ ] Authenticated staging parity proves matching quote responses and persisted package facts.
 
 ---
 
@@ -395,18 +404,27 @@ Existing shared files:
 **Files to edit**
 - `android-app-customer/app/src/main/java/com/tembus/customer/data/repository/OrderRepository.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/booking/BookingViewModel.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/payment/PaymentViewModel.kt`
+- `android-app-customer/app/src/main/java/com/tembus/customer/data/api/TEMBUSApiService.kt`
 - `backend/order-service/internal/service/order_create.go`
 - `backend/order-service/internal/service/order_matching.go`
 - `backend/order-service/internal/handler/order_handler.go`
+- `backend/order-service/internal/repository/postgres_repository.go`
+- `backend/order-service/internal/repository/payout_repo.go`
+- `backend/order-service/internal/service/payout_service.go`
+- `database/migrations/20260901000001_unique_leg_payout.sql`
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/OnDemandOfferScreens.kt`
 - `android-app/app/src/main/java/com/tembus/courier/ui/components/OnDemandIncomingOfferSwipePanel.kt`
 
 **Checklist**
-- [ ] Create consumes quote + idempotency key.
-- [ ] Matching validates capability/vehicle/radius/availability.
-- [ ] Two-courier accept race has one atomic winner.
-- [ ] No-supply has retry/expand/cancel policy.
-- [ ] Reassign does not duplicate payout reservation.
+- [x] Create consumes the server quote and a stable idempotency key across Android retries; Web/admin already require the same key.
+- [x] Matching validates approved capability, vehicle/radius rules, online state, capacity, and idle/conditional availability before dispatch.
+- [x] Two-courier accept race has one atomic winner through row locking/status-guarded assignment; the loser receives `ERR_ORDER_ALREADY_ASSIGNED`.
+- [x] No-supply expands configured radii, expires offer batches, emits the no-courier event, exposes retry, and leaves the order cancellable.
+- [x] Reassign does not duplicate payout reservation: one leg-fee payout is idempotently read and protected by a unique order-leg index.
+- [ ] Authenticated staging concurrency/replay matrix and persisted DB evidence.
+
+_Implementation is complete and locally verified in commit `6ea78dbf`; authenticated staging E2E remains an external evidence gate._
 
 ---
 
@@ -420,11 +438,11 @@ Existing shared files:
 - `backend/order-service/internal/handler/proof_handler.go`
 
 **Checklist**
-- [x] Arrived precedes pickup verification. Server rejects pickup proof before `pickup_arrived`; Android exposes an explicit arrival action.
-- [x] Package identity/condition/quantity checked when required. Existing authoritative proof path validates package code/identity and required package count before custody completion.
-- [x] PIN/QR/proof before `picked_up`. Pickup proof remains gated by arrival, face verification, package scan, and pickup photo before the order can progress.
-- [x] Pickup evidence immutable. `package_scans` is append-only during retention; the migration trigger rejects updates while existing retention cleanup may still delete expired records.
-- [ ] Authenticated staging E2E and service-visible migration/rollback proof captured.
+- [x] Arrived precedes pickup verification — Android exposes `pickup_arrived`; admin proof endpoint rejects earlier pickup evidence with `ERR_PICKUP_ARRIVAL_REQUIRED`; order-service enforces the same gate for on-demand package scans.
+- [x] Package identity/condition/quantity checked when required — existing authoritative proof path validates package code/count and records scan/photo evidence; pickup photo remains mandatory before completion.
+- [x] PIN/QR/proof before `picked_up` — status route is policy/idempotency guarded, pickup proof requires arrival plus barcode/photo evidence, and completion advances only after scan + photo.
+- [x] Pickup evidence immutable — migration installs append-only `package_scans` update trigger; corrections must be represented as new evidence events.
+- [ ] Authenticated staging flow, deployed migration/trigger, and persisted custody evidence verified end-to-end.
 
 ---
 
@@ -876,11 +894,12 @@ Existing shared files:
 **Recommended new file**
 - `frontend/src/hooks/useCreateAggregatorOrder.ts`
 
-- [ ] Final submit calls real create mutation with quote + idempotency key.
-- [ ] Persisted order reference before success navigation.
-- [ ] Payment/AWB creation sequencing explicit.
-- [ ] Refresh/retry rehydrates transaction.
-- [ ] API failure cannot show success.
+- [x] Final submit calls real create mutation with quote + idempotency key.
+- [x] Persisted order reference before success navigation.
+- [x] Payment session is requested only after the order is persisted; AWB/first-mile remains a server-side post-payment handoff owned by AGG-2026-006.
+- [x] Refresh/retry rehydrates the persisted order and reuses the payment idempotency key.
+- [x] API failure cannot show success.
+- [ ] Authenticated staging/provider verification covers create → payment → refresh/retry → AWB/first-mile handoff.
 
 ---
 
@@ -898,11 +917,12 @@ Existing shared files:
 - `frontend/e2e/aggregator-bulk-flow.spec.ts`
 - `backend/order-service/internal/service/order_bulk_idempotency_test.go`
 
-- [ ] Per-row validation/error report.
-- [ ] Job and child rows idempotent.
-- [ ] Partial success visible.
-- [ ] Payment binds exact job/order set version.
-- [ ] Job resume after refresh, owner scoped.
+- [x] Per-row validation/error report.
+- [x] Job and child rows idempotent.
+- [x] Partial success visible.
+- [x] Payment binds exact job/order set version.
+- [x] Job resume after refresh is server-backed and owner scoped.
+- [ ] Authenticated staging/Redis verification covers upload → review → process → payment-link recovery.
 
 ---
 
@@ -923,12 +943,13 @@ Existing shared files:
 - `backend/order-service/internal/service/carrier_handoff_service.go`
 
 **Checklist**
-- [ ] AWB creation state defined and idempotent.
-- [ ] Support three first-mile modes when provider capability allows: `lancar_pickup`, `provider_pickup`, `customer_dropoff`.
-- [ ] Mode comes from provider capability/service option, not hardcoded customer UI.
-- [ ] LANCAR first-mile chain of custody proof when LANCAR handles pickup.
-- [ ] Carrier handoff records provider/AWB/time/location/evidence/actor.
-- [ ] After carrier acceptance, provider events drive external lifecycle.
+- [x] AWB creation state defined and idempotent.
+- [x] Support three first-mile modes when provider capability allows: `lancar_pickup`, `provider_pickup`, `customer_dropoff`.
+- [x] Mode comes from provider capability/service option, not hardcoded customer UI.
+- [x] LANCAR first-mile chain of custody proof when LANCAR handles pickup.
+- [x] Carrier handoff records provider/AWB/time/location/evidence/actor.
+- [x] After carrier acceptance, provider events invoke the acceptance recorder and normalized lifecycle consumer.
+- [ ] Authenticated staging/provider webhook verification covers acceptance → normalized lifecycle → tracking updates.
 
 ---
 
@@ -949,11 +970,12 @@ Existing shared files:
 - `backend/integration-gateway/internal/provider/carrier_event_normalizer_test.go`
 - `database/migrations/<timestamp>_add_carrier_event_inbox.sql`
 
-- [ ] Persist event id/hash, raw provider status/code/description/location/timestamp and raw-payload reference before processing.
-- [ ] Normalize to canonical statuses but never discard raw values.
-- [ ] Provider event dedupe/replay protection.
-- [ ] Out-of-order event cannot regress terminal state.
-- [ ] Unknown status is stored/observable and shown as safe generic customer state rather than guessed.
+- [x] Persist event id/hash, raw provider status/code/description/location/timestamp and raw-payload reference before processing.
+- [x] Normalize to canonical statuses but never discard raw values.
+- [x] Provider event dedupe/replay protection.
+- [x] Out-of-order event cannot regress terminal state.
+- [x] Unknown status is stored/observable and shown as safe generic customer state rather than guessed.
+- [ ] Authenticated staging/provider replay verifies unknown-status persistence, dedupe, and customer rendering.
 
 ---
 
@@ -975,11 +997,12 @@ Existing shared files:
 - `backend/order-service/internal/handler/aggregator_claim_handler.go`
 
 **Checklist**
-- [ ] COD shown only when selected provider/service supports it.
-- [ ] Return-to-sender lifecycle follows provider status/policy and records fee owner.
-- [ ] Lost/damaged claim references carrier, AWB, item value, insurance, provider liability, evidence, claim reference/status.
-- [ ] Customer compensation/refund and provider reimbursement never double-credit ledger.
-- [ ] LANCAR does not impose one global retry/return SLA across all carriers unless contractually configured per provider.
+- [x] COD shown only when selected provider/service supports it.
+- [x] Return-to-sender lifecycle follows provider status/policy and records fee owner.
+- [x] Lost/damaged claim references carrier, AWB, item value, insurance, provider liability, evidence, claim reference/status.
+- [x] Customer compensation/refund and provider reimbursement never double-credit ledger.
+- [x] LANCAR does not impose one global retry/return SLA across all carriers unless contractually configured per provider.
+- [ ] Authenticated staging/provider finance reconciliation verifies COD gating, return policy, and claim settlement end to end.
 
 ---
 
@@ -992,10 +1015,11 @@ Existing shared files:
 - `frontend/src/components/orders/AddressPicker.tsx`
 - `frontend/src/components/orders/OrderSummary.tsx`
 
-- [ ] Steps: Pickup → Receiver/Package → Compare Carrier → Review & Pay.
-- [ ] Carrier cards show provider/service name, ETA/source, chargeable weight, price, capabilities, limitations.
-- [ ] First-mile LANCAR vs external-carrier stage visually distinct.
-- [ ] Success only after persisted order.
+- [x] Steps: Pickup → Receiver/Package → Compare Carrier → Review & Pay.
+- [x] Carrier cards show provider/service name, ETA/source, chargeable weight, price, capabilities, limitations.
+- [x] First-mile LANCAR vs external-carrier stage visually distinct.
+- [x] Success only after persisted order.
+- [ ] Authenticated staging browser proof confirms quote → persisted order → payment recovery with real provider responses.
 
 ---
 
@@ -1033,14 +1057,15 @@ Existing shared files:
 - `ClaimProvider`
 
 **Checklist**
-- [ ] Every provider has canonical provider id/code/name and declared capability set.
-- [ ] Provider that does not support a capability is not forced to fake it.
-- [ ] Orchestrator selects operation based on declared capability.
-- [ ] Customer-facing provider/service options are generated from backend registry/result.
-- [ ] Native provider service code/name is preserved.
-- [ ] Provider credentials/config live server-side.
-- [ ] Circuit breaker/retry/timeout policy configurable per provider.
-- [ ] Adding provider does not require edits in customer Android, customer web, payment core, or generic order detail unless genuinely introducing new UX capability.
+- [x] Every provider has canonical provider id/code/name and declared capability set.
+- [x] Provider that does not support a capability is not forced to fake it.
+- [x] Orchestrator selects operation based on declared capability.
+- [x] Customer-facing provider/service options are generated from backend registry/result.
+- [x] Native provider service code/name is preserved.
+- [x] Provider credentials/config live server-side.
+- [x] Circuit breaker/retry/timeout policy configurable per provider.
+- [x] Adding provider does not require edits in customer Android, customer web, payment core, or generic order detail unless genuinely introducing new UX capability.
+- [ ] Authenticated staging verifies registry/capability/service payload against live provider configuration.
 
 ---
 
@@ -1063,13 +1088,14 @@ Existing shared files:
 - `backend/integration-gateway/internal/worker/tracking_poll_worker.go`
 
 **Checklist**
-- [ ] Provider-specific signature/auth verification belongs to provider webhook adapter.
-- [ ] Adapter parses native payload into canonical `CarrierEvent`.
-- [ ] Webhook-capable provider uses webhook as primary event source where appropriate.
-- [ ] Tracking-pull-only provider uses polling worker.
-- [ ] Webhook provider may still use periodic pull reconciliation if supported.
-- [ ] Provider with neither supported webhook nor pull is surfaced as degraded/manual tracking capability.
-- [ ] Central handler routes provider→adapter but does not contain growing provider-specific parsing switch.
+- [x] Provider-specific signature/auth verification belongs to provider webhook adapter.
+- [x] Adapter parses native payload into canonical `CarrierEvent`.
+- [x] Webhook-capable provider uses webhook as primary event source where appropriate.
+- [x] Tracking-pull-only provider uses polling worker.
+- [x] Webhook provider may still use periodic pull reconciliation if supported.
+- [x] Provider with neither supported webhook nor pull is surfaced as degraded/manual tracking capability.
+- [x] Central handler routes provider→adapter but does not contain growing provider-specific parsing switch.
+- [ ] Authenticated staging verifies webhook-primary delivery, polling fallback, reconciliation, and degraded/manual exposure.
 
 ---
 
@@ -1109,11 +1135,12 @@ Existing shared files:
 - `UNKNOWN`
 
 **Checklist**
-- [ ] Store `provider_status`, `provider_status_code`, `provider_status_description`, `provider_location`, `provider_timestamp`.
-- [ ] Also store normalized LANCAR status.
-- [ ] Mapping is provider-specific/configurable/tested.
-- [ ] Customer UI can show friendly status plus useful provider detail.
-- [ ] Unknown raw status does not get incorrectly coerced to `IN_TRANSIT`.
+- [x] Store `provider_status`, `provider_status_code`, `provider_status_description`, `provider_location`, `provider_timestamp`.
+- [x] Also store normalized LANCAR status.
+- [x] Mapping is provider-specific/configurable/tested.
+- [x] Customer UI can show friendly status plus useful provider detail.
+- [x] Unknown raw status does not get incorrectly coerced to `IN_TRANSIT`.
+- [ ] Staging migration and live provider payload verification confirm mapping/rollback behavior.
 
 ---
 
@@ -1127,12 +1154,13 @@ Existing shared files:
 - `docs/runbooks/onboard-logistics-provider.md`
 
 **Checklist**
-- [ ] Contract test suite can be reused for a new provider adapter.
-- [ ] Fixtures cover rate, create shipment/AWB, tracking, errors, timeout, duplicate event, unknown status.
-- [ ] Capability matrix is validated at startup/config load.
-- [ ] New provider has health/readiness diagnostics.
-- [ ] Onboarding runbook documents credentials, base URL, sandbox/prod, location mapping, service mapping, webhook route/signature, polling, SLA source, COD/insurance/return/claim capabilities.
-- [ ] Demonstrate with one additional stub/fake provider that registration requires no customer UI/core order edits.
+- [x] Contract test suite can be reused for a new provider adapter.
+- [x] Fixtures cover rate, create shipment/AWB, tracking, errors, timeout, duplicate event, unknown status.
+- [x] Capability matrix is validated at startup/config load.
+- [x] New provider has health/readiness diagnostics.
+- [x] Onboarding runbook documents credentials, base URL, sandbox/prod, location mapping, service mapping, webhook route/signature, polling, SLA source, COD/insurance/return/claim capabilities.
+- [x] Demonstrate with one additional stub/fake provider that registration requires no customer UI/core order edits.
+- [ ] External sandbox/staging contract verification and live readiness validation completed.
 
 ---
 
@@ -1149,16 +1177,20 @@ Existing shared files:
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/TowingBookingScreen.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/TowingBookingViewModel.kt`
 
-- [ ] Exact pickup and normalized destination.
-- [ ] Vehicle type/make/model/condition/access constraints structured.
-- [ ] Remove parcel-shaped placeholders like `small`, zero dimensions, fake receiver/phone.
-- [ ] Route preview/operator visible.
+- [x] Exact pickup and normalized destination.
+- [x] Vehicle type/make/model/condition/access constraints structured.
+- [x] Remove parcel-shaped placeholders like `small`, zero dimensions, fake receiver/phone.
+- [x] Route preview/operator visible.
+- [x] Local client/server booking contract tests reject incomplete vehicle, contact, address, and coordinate data.
+- [ ] Staging/Docker end-to-end booking verification with real backend data.
 
 ## TOW-2026-002 — Capability/vehicle-safe matching [P0]
-- [ ] Validate towing motor/mobil capability.
-- [ ] Capacity/vehicle compatibility.
-- [ ] Active job/radius/availability.
-- [ ] Incompatible preferred courier cannot be forced.
+- [x] Validate towing motor/mobil capability.
+- [x] Capacity/vehicle compatibility.
+- [x] Active job/radius/availability.
+- [x] Incompatible preferred courier cannot be forced.
+- [x] Local contract coverage verifies normal and preferred dispatch guards and duplicate-offer exclusion.
+- [ ] Staging/Docker matching verification with real courier capability and active-job data.
 
 ## TOW-2026-003 — Route/toll quote + explicit requote [P0]
 
@@ -1168,10 +1200,12 @@ Existing shared files:
 - `backend/order-service/internal/handler/tambalban_handler.go`
 - courier `ServiceUpgradeScreen.kt`
 
-- [ ] Actual pickup→dropoff route.
-- [ ] Toll/service/operator/platform/insurance components.
-- [ ] No vague silent admin adjustment.
-- [ ] Customer consent for material increase.
+- [x] Actual pickup→dropoff route.
+- [x] Toll/service/operator/platform/insurance components.
+- [x] No vague silent admin adjustment.
+- [x] Customer consent for material increase.
+- [x] Local contract coverage verifies expiry/route-change/material-increase consent and explicit toll inclusion semantics.
+- [ ] Staging/Docker verification of provider toll data and live requote/payment flow.
 
 ## TOW-2026-004 — Inspection→loading→transit→unloading→completion proof [P0]
 
@@ -1180,21 +1214,25 @@ Existing shared files:
 - `backend/order-service/internal/domain/tambalban.go`
 - `backend/order-service/internal/handler/tambalban_handler.go`
 
-- [ ] Before-condition proof.
-- [ ] Loading proof before transit.
-- [ ] Unloading/destination verification before complete.
-- [ ] Completion proof/signature server validated.
+  - [x] Before-condition proof.
+  - [x] Loading proof before transit.
+  - [x] Unloading/destination verification before complete.
+  - [x] Completion proof/signature server validated.
+- [x] Local service contract verifies destination timestamp and proof/signature retrieval.
+  - [ ] Staging/Docker lifecycle proof verification with real upload, order state, and signature persistence.
 
 ## TOW-2026-005 — Damage claim protection [P0]
-- [ ] Before evidence immutable after transit begins.
-- [ ] Before/after same vehicle/order/operator.
-- [ ] Liability decision audited.
-- [ ] Compensation reconciles with settlement/insurance.
+  - [x] Before evidence immutable after transit begins.
+  - [x] Before/after same vehicle/order/operator is bound through dispatch metadata, `order_legs.vehicle_id`, and the server-side towing report lookup.
+  - [x] Liability decision requires an authorized reviewer, reason, timestamp, and immutable audit event.
+  - [x] Compensation reconciles exactly once against an approved amount with a settlement, insurance, or platform-reserve reference.
+  - [ ] Staging/Docker damage-claim and compensation reconciliation verification.
 
 ## TOW-2026-006 — Customer tracking parity [P0]
-- [ ] Human-readable stages: menuju pickup→tiba→inspeksi→loading→perjalanan→unloading→selesai.
-- [ ] ETA/route refresh.
-- [ ] Snapshot recovery.
+- [x] Human-readable stages: menuju pickup→tiba→inspeksi→loading→perjalanan→unloading→selesai.
+- [x] ETA/route refresh.
+- [x] Snapshot recovery.
+- [ ] Staging/Docker tracking verification with real towing order, GPS, and reconnect.
 
 ## TOW-2026-007 — Conditional backend split [P1]
 
@@ -1204,13 +1242,15 @@ Existing shared files:
 - `backend/order-service/internal/service/towing_service.go`
 - `backend/order-service/internal/repository/towing_repository.go`
 
-- [ ] Split only if Towing state/pricing/dependency/claim logic materially diverges from Tambal Ban.
+- [x] Split only if Towing state/pricing/dependency/claim logic materially diverges from Tambal Ban.
+- [ ] Staging/Docker regression verification after the boundary split.
 
 ## TOW-2026-008 — Towing UI/UX trust [P1]
-- [ ] Pickup/destination visible before quote.
-- [ ] Compatibility explained before operator selection.
-- [ ] Adjustment requires explicit consent.
-- [ ] Before-condition evidence is customer-visible trust surface.
+- [x] Pickup/destination visible before quote.
+- [x] Compatibility explained before operator selection.
+- [x] Adjustment requires explicit consent.
+- [x] Before-condition evidence is customer-visible trust surface.
+- [ ] Staging/Docker visual and interaction verification for the towing trust flow.
 
 ---
 
@@ -1224,9 +1264,10 @@ Existing shared files:
 - `frontend/src/components/orders/PaymentModal.tsx`
 - `frontend/src/lib/api.ts`
 
-- [ ] Success requires persisted server resource.
-- [ ] Timeout shows pending/retry, not success.
-- [ ] Duplicate submit reuses idempotency key.
+- [x] Success requires persisted server resource.
+- [x] Timeout shows pending/retry, not success.
+- [x] Duplicate submit reuses idempotency key.
+- [ ] Staging/Docker transaction and payment recovery verification.
 
 ## WEB-2026-002 — Service-aware history/detail/resi [P1]
 
@@ -1244,14 +1285,16 @@ Existing shared files:
 - `frontend/src/components/orders/OrderTimeline.tsx`
 - `frontend/src/components/orders/OrderPriceBreakdown.tsx`
 
-- [ ] Paket Instan vs Aggregator uses correct vocabulary.
-- [ ] LANCAR first-mile vs external carrier visually distinct.
-- [ ] Money state separated from delivery state.
+- [x] Paket Instan vs Aggregator uses correct vocabulary.
+- [x] LANCAR first-mile vs external carrier visually distinct.
+- [x] Money state separated from delivery state.
+- [ ] Staging/Docker history, detail, and resi visual verification recorded.
 
 ## WEB-2026-003 — Accessibility/responsive/failure recovery [P1]
-- [ ] Keyboard/focus/form error/screen-reader status.
-- [ ] Sticky CTA/modal works mobile.
-- [ ] Error/offline states have explicit recovery.
+- [x] Keyboard/focus/form error/screen-reader status.
+- [x] Sticky CTA/modal works mobile.
+- [x] Error/offline states have explicit recovery.
+- [ ] Staging/Docker authenticated responsive and failure-recovery verification recorded.
 
 ---
 
@@ -1262,9 +1305,10 @@ Existing shared files:
 **Files to edit**
 - customer `DashboardScreen.kt`, `ServiceGridMenu.kt`, `ServiceIcons.kt`, `RootNavGraph.kt`, `Screen.kt`
 
-- [ ] Distinct labels/icons/purpose.
-- [ ] Recommended: `Paket Instan`, `Food`, `Tambal Ban`, `Ekspedisi Antar-Kota`, `Towing`.
-- [ ] Emergency services visually distinct.
+- [x] Distinct labels/icons/purpose.
+- [x] Recommended: `Paket Instan`, `Food`, `Tambal Ban`, `Ekspedisi Antar-Kota`, `Towing`.
+- [x] Emergency services visually distinct.
+- [ ] Android device/staging navigation verification with live service registry.
 
 ## UX-2026-002 — One order-detail shell, service-specific sections [P1]
 
@@ -1275,19 +1319,22 @@ Existing shared files:
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailSections.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderActionPolicy.kt`
 
-- [ ] Shared shell + typed service sections.
-- [ ] Action policy by state+service.
-- [ ] Unknown state safe.
+- [x] Shared shell + typed service sections.
+- [x] Action policy by state+service.
+- [x] Unknown state safe.
+- [ ] Android device/staging detail-flow verification with real service orders.
 
 ## UX-2026-003 — Courier service-mode clarity [P1]
-- [ ] Active capabilities clear before offers.
-- [ ] Offer shows service/capability/earnings/route/proof requirement.
-- [ ] Food/Paket/Tambal/Towing cues distinct.
+- [x] Active capabilities clear before offers.
+- [x] Offer shows service/capability/earnings/route/proof requirement.
+- [x] Food/Paket/Tambal/Towing cues distinct.
+- [ ] Android device/staging offer verification with live capability and service data recorded.
 
 ## UX-2026-004 — Notification/deep-link consistency [P1]
-- [ ] Push includes service/order/target/event version.
-- [ ] Stale push cannot regress UI.
-- [ ] Deep link always snapshot-reconciles.
+- [x] Push includes service/order/target/event version.
+- [x] Stale push cannot regress UI.
+- [x] Deep link always snapshot-reconciles.
+- [ ] FCM/WebSocket/device runtime verification with real versioned events recorded.
 
 ---
 
@@ -1307,9 +1354,10 @@ Existing shared files:
 - `backend/order-service/internal/service/order_audit_service.go`
 - `backend/order-service/internal/handler/order_audit_handler.go`
 
-- [ ] Filter by service/subtype/provider/merchant/courier/payment state.
-- [ ] Timeline shows actor/state/proof/payment/refund/provider events/override.
-- [ ] Provider raw event accessible to ops without leaking to normal customer surface.
+- [x] Filter by service/subtype/provider/merchant/courier/payment state.
+- [x] Timeline shows actor/state/proof/payment/refund/provider events/override.
+- [x] Provider raw event accessible to ops without leaking to normal customer surface.
+- [ ] Authenticated staging/Docker verification covers each filter, timeline, and raw-event role boundary.
 
 ## OPS-2026-002 — Exception queues [P0]
 

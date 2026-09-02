@@ -7,6 +7,7 @@ import com.tembus.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import java.util.UUID
 import org.json.JSONObject
 import retrofit2.Response
 import javax.inject.Inject
@@ -127,14 +128,23 @@ class OrderRepository @Inject constructor(
         }
     }
 
-    fun createCustomerOnDemandOrder(request: CustomerOrderCreateRequest): Flow<Result<CreatedCustomerOrder>> = flow {
+    class PriceConsentRequiredException(
+        val deltaIdr: Long,
+        val trustedPriceBreakdown: PriceBreakdown?
+    ) : Exception("Harga towing berubah. Tinjau kenaikan lalu setujui untuk melanjutkan.")
+
+    fun createCustomerOnDemandOrder(request: CustomerOrderCreateRequest, idempotencyKey: String = UUID.randomUUID().toString()): Flow<Result<CreatedCustomerOrder>> = flow {
         try {
-            val response = apiService.createCustomerOnDemandOrder(request)
+            val response = apiService.createCustomerOnDemandOrder(idempotencyKey, request)
             val body = response.body()
             val order = body?.order
             if (response.isSuccessful && body?.success == true && order != null) {
                 emit(Result.success(order))
             } else {
+                if (body?.code == "REQUOTE_REQUIRED" || body?.requiresPriceConsent == true) {
+                    emit(Result.failure(PriceConsentRequiredException(body.priceDeltaIdr, body.trustedPriceBreakdown)))
+                    return@flow
+                }
                 emit(Result.failure(Exception(response.readErrorMessage(body?.error ?: "Gagal membuat order"))))
             }
         } catch (e: Exception) {
@@ -341,10 +351,11 @@ class OrderRepository @Inject constructor(
         }
     }
 
-    fun createCustomerPaymentSession(orderId: String, paymentMethod: String): Flow<Result<CustomerPaymentSetup>> = flow {
+    fun createCustomerPaymentSession(orderId: String, paymentMethod: String, idempotencyKey: String = UUID.randomUUID().toString()): Flow<Result<CustomerPaymentSetup>> = flow {
         try {
             val response = apiService.createCustomerPaymentSession(
                 orderId,
+                idempotencyKey,
                 CustomerPaymentCreateRequest(paymentMethod = paymentMethod)
             )
             val body = response.body()
@@ -374,9 +385,9 @@ class OrderRepository @Inject constructor(
         }
     }
 
-    suspend fun confirmCustomerPayment(orderId: String): Result<CustomerPaymentSetup> {
+    suspend fun confirmCustomerPayment(orderId: String, idempotencyKey: String = UUID.randomUUID().toString()): Result<CustomerPaymentSetup> {
         return try {
-            val response = apiService.confirmCustomerPayment(orderId)
+            val response = apiService.confirmCustomerPayment(orderId, idempotencyKey)
             val body = response.body()
             val payment = body?.payment
             if (response.isSuccessful && body?.success == true && payment != null) {
@@ -757,4 +768,3 @@ class OrderRepository @Inject constructor(
             }
         }
     }
-

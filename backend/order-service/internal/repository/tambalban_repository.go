@@ -456,6 +456,7 @@ func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *d
 	).Scan(&report.ID, &report.CreatedAt); err != nil {
 		return err
 	}
+
 	return tx.Commit()
 }
 
@@ -497,6 +498,20 @@ func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *doma
 		return fmt.Errorf("lock towing report: %w", err)
 	}
 
+	if err := tx.QueryRowContext(ctx, `
+		SELECT ol.vehicle_id
+		FROM order_legs ol
+		JOIN courier_profiles cp ON cp.user_id = ol.courier_id AND cp.user_id = $2
+		WHERE ol.order_id = $1
+		  AND ol.leg_number = 1
+		  AND ol.vehicle_id IS NOT NULL
+		FOR UPDATE`, report.OrderID, report.CourierID).Scan(&report.VehicleID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("towing report vehicle binding is required: %w", domain.ErrInvalidServiceReport)
+		}
+		return fmt.Errorf("resolve towing report vehicle binding: %w", err)
+	}
+
 	existing := tx.QueryRowContext(ctx, `
 		SELECT id, created_at
 		FROM towing_reports
@@ -520,15 +535,15 @@ func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *doma
 
 	query := `
 		INSERT INTO towing_reports 
-		    (order_id, courier_id, vehicle_condition_before, vehicle_photo_before_url, odometer_reading,
+		    (order_id, courier_id, vehicle_id, vehicle_condition_before, vehicle_photo_before_url, odometer_reading,
 		     loading_photo_url, loading_started_at,
 		     transit_started_at, transit_ended_at,
 		     unloading_photo_url, unloading_completed_at, odometer_after,
 		     completion_photo_url, signature_url, damage_report, completed_at, notes)
-		VALUES ($1, (SELECT id FROM courier_profiles WHERE user_id = $2), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, (SELECT id FROM courier_profiles WHERE user_id = $2), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING id, created_at`
 	if err := tx.QueryRowContext(ctx, query,
-		report.OrderID, report.CourierID,
+		report.OrderID, report.CourierID, report.VehicleID,
 		report.VehicleConditionBefore, report.VehiclePhotoBeforeURL, report.OdometerReading,
 		report.LoadingPhotoURL, report.LoadingStartedAt,
 		report.TransitStartedAt, report.TransitEndedAt,
@@ -537,12 +552,31 @@ func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *doma
 	).Scan(&report.ID, &report.CreatedAt); err != nil {
 		return err
 	}
+
+	damageAudit := map[string]any{
+		"damage_report_present": report.DamageReport != nil,
+	}
+	if report.DamageReport != nil {
+		damageAudit["severity"] = report.DamageReport.Severity
+		damageAudit["safe_to_transport"] = report.DamageReport.SafeToTransport
+		damageAudit["areas_count"] = len(report.DamageReport.Areas)
+	}
+	damageAuditJSON, err := json.Marshal(damageAudit)
+	if err != nil {
+		return fmt.Errorf("encode towing damage audit: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO audit_logs (actor_id, action, target_id, payload)
+		VALUES ($1, 'towing.damage_report.recorded', $2, $3)`,
+		report.CourierID, report.OrderID, damageAuditJSON); err != nil {
+		return fmt.Errorf("audit towing damage report: %w", err)
+	}
 	return tx.Commit()
 }
 
 func (r *serviceReportRepo) GetTowingReportByOrderID(ctx context.Context, orderID string) (*domain.TowingReport, error) {
 	query := `
-		SELECT id, order_id, courier_id, vehicle_condition_before, vehicle_photo_before_url, odometer_reading,
+		SELECT id, order_id, courier_id, vehicle_id, vehicle_condition_before, vehicle_photo_before_url, odometer_reading,
 		       loading_photo_url, loading_started_at,
 		       transit_started_at, transit_ended_at,
 		       unloading_photo_url, unloading_completed_at, odometer_after,
@@ -553,6 +587,7 @@ func (r *serviceReportRepo) GetTowingReportByOrderID(ctx context.Context, orderI
 	var damageReportJSON []byte
 	err := r.db.QueryRowContext(ctx, query, orderID).Scan(
 		&report.ID, &report.OrderID, &report.CourierID,
+		&report.VehicleID,
 		&report.VehicleConditionBefore, &report.VehiclePhotoBeforeURL, &report.OdometerReading,
 		&report.LoadingPhotoURL, &report.LoadingStartedAt,
 		&report.TransitStartedAt, &report.TransitEndedAt,

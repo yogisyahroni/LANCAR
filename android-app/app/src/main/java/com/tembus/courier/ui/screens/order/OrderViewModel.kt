@@ -826,6 +826,11 @@ class OrderViewModel @Inject constructor(
                 "towing" -> {
                     reportRequest["vehicle_photo_before_url"] = beforePhotoUrl
                     reportRequest["vehicle_condition_before"] = "Foto inspeksi awal kendaraan diambil di aplikasi kurir."
+                    proofDraftStore.getProofUrl(orderId, serviceType, "loading_photo")?.let { reportRequest["loading_photo_url"] = it }
+                    proofDraftStore.getProofUrl(orderId, serviceType, "unloading_photo")?.let {
+                        reportRequest["unloading_photo_url"] = it
+                        reportRequest["unloading_completed_at"] = utcNowRfc3339()
+                    }
                 }
             }
             if (completionPhoto != null) {
@@ -868,6 +873,10 @@ class OrderViewModel @Inject constructor(
                 .onSuccess {
                     orderRepository.updateOrderStatus(orderId, "completed")
                     proofDraftStore.clearBeforePhotoUrl(orderId, serviceType)
+                    if (serviceType == "towing") {
+                        proofDraftStore.clearProofUrl(orderId, serviceType, "loading_photo")
+                        proofDraftStore.clearProofUrl(orderId, serviceType, "unloading_photo")
+                    }
                 }
                 .onFailure { error ->
                     _error.update { error.message ?: "Laporan layanan belum berhasil dikirim." }

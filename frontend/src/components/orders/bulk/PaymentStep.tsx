@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, Loader2, Package, RefreshCw } from 'lucide-react';
@@ -11,7 +11,14 @@ interface PaymentStepProps {
   onComplete: () => void;
 }
 
-type PaymentStatus = 'idle' | 'creating' | 'opening_snap' | 'pending_payment' | 'paid' | 'error';
+type PaymentStatus = 'idle' | 'creating' | 'opening_snap' | 'pending_payment' | 'processed' | 'error';
+
+type BulkPaymentLink = {
+  order_id: string;
+  order_number: string;
+  payment_url: string;
+  expires_at?: string;
+};
 
 declare global {
   interface Window {
@@ -45,6 +52,7 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [payment, setPayment] = useState<any>(null);
+  const [paymentLinks, setPaymentLinks] = useState<BulkPaymentLink[]>([]);
 
   const validRows = useMemo(() => data.rows?.filter((row: any) => row.status === 'valid') || [], [data.rows]);
   const totalOrders = validRows.length;
@@ -53,10 +61,14 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
 
   const formatCurrency = (value: number) => `Rp ${value.toLocaleString('id-ID')}`;
 
-  const completePayment = () => {
-    setPaymentStatus('paid');
-    onComplete();
-    setTimeout(() => router.push('/orders'), 1600);
+  const processKeyRef = useRef<string>('');
+
+  const completeProcessing = () => {
+    setPaymentStatus('processed');
+    setTimeout(() => {
+      onComplete();
+      router.push('/orders');
+    }, 1600);
   };
 
   const openSnap = async (snapPayment: any) => {
@@ -72,7 +84,7 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
     }
 
     window.snap.pay(snapPayment.snap_token, {
-      onSuccess: () => completePayment(),
+      onSuccess: () => setPaymentStatus('pending_payment'),
       onPending: () => setPaymentStatus('pending_payment'),
       onError: () => {
         setPaymentStatus('error');
@@ -87,10 +99,22 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
     setError(null);
 
     try {
-      const res = await api.post('/auth/web/orders/bulk/process', { job_id: jobId });
+      if (!processKeyRef.current) {
+        processKeyRef.current = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `bulk-process-${Date.now()}`;
+      }
+      const res = await api.post('/auth/web/orders/bulk/process', {
+        job_id: jobId,
+        job_revision: Number(data.revision || 1),
+      }, { headers: { 'X-Idempotency-Key': processKeyRef.current } });
+      if (res.data?.success !== true || !Array.isArray(res.data?.order_ids) || res.data.order_ids.length === 0) {
+        throw new Error('Server belum mengonfirmasi order bulk tersimpan.');
+      }
       const snapPayment = res.data.payment;
       if (!snapPayment) {
-        completePayment();
+        setPaymentLinks(Array.isArray(res.data.payment_links) ? res.data.payment_links : []);
+        completeProcessing();
         return;
       }
       setPayment(snapPayment);
@@ -113,16 +137,29 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
     }
   };
 
-  if (paymentStatus === 'paid') {
+  if (paymentStatus === 'processed') {
     return (
       <div className="flex flex-col items-center justify-center py-16 animate-in zoom-in duration-500">
         <div className="w-20 h-20 bg-brand-emerald-500/20 rounded-full flex items-center justify-center mb-6">
           <CheckCircle2 className="w-10 h-10 text-brand-emerald-500" />
         </div>
-        <h2 className="text-2xl font-bold text-brand-emerald-500 mb-2">Pembayaran Berhasil!</h2>
+        <h2 className="text-2xl font-bold text-brand-emerald-500 mb-2">Order Massal Tersimpan</h2>
         <p className="text-muted-foreground text-center max-w-md">
-          {totalOrders} pesanan sudah dibuat dan masuk antrean dispatch. Mengalihkan ke riwayat pesanan...
+          {totalOrders} pesanan sudah dibuat. Payment link dari server siap dibagikan ke penerima. Mengalihkan ke riwayat pesanan...
         </p>
+        {paymentLinks.length > 0 && (
+          <div className="w-full max-w-xl rounded-xl border border-border bg-card p-4 text-left space-y-2">
+            <h3 className="font-semibold">Payment link per pesanan</h3>
+            {paymentLinks.map((link) => (
+              <div key={link.order_id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 p-3 text-sm">
+                <span className="font-medium">{link.order_number}</span>
+                <a href={link.payment_url} target="_blank" rel="noreferrer" className="text-primary hover:underline break-all">
+                  {link.payment_url}
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

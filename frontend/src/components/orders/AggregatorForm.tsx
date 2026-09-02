@@ -6,6 +6,11 @@ import {
   Loader2, MapPin, ArrowRight, Check, Info, TrendingDown,
   Package, Truck, ChevronRight, Plus, Navigation, X, Store
 } from "lucide-react";
+import {
+  AggregatorCarrierQuote,
+  capabilityLabel,
+  normalizeAggregatorCarrierQuote,
+} from "@/lib/aggregatorQuotePresentation";
 
 // ─── Types ────────────────────────────────────────────────────────
 interface CityOption {
@@ -14,16 +19,7 @@ interface CityOption {
   type: "origin" | "destination" | "both";
 }
 
-interface TariffOption {
-  provider: string;
-  provider_name: string;
-  service: string;
-  service_name: string;
-  price: number;
-  net_price?: number;
-  etd: string;
-  weight_kg: number;
-}
+type TariffOption = AggregatorCarrierQuote & { weight_kg: number };
 
 interface PickupAddress {
   shopName: string;
@@ -40,7 +36,7 @@ interface AggregatorFormProps {
     provider_code: string;
     service_type: string;
     tariff_idr: number;
-    net_cost_idr: number;
+    net_cost_idr?: number;
     origin_city: string;
     destination_city: string;
     weight_kg: number;
@@ -51,24 +47,13 @@ interface AggregatorFormProps {
   }) => void;
 }
 
+interface ProviderOption {
+  code: string;
+  name: string;
+  capabilities?: string[];
+}
+
 // ─── Constants ─────────────────────────────────────────────────────
-const PROVIDERS = [
-  { id: "jne",      name: "JNE",      fullName: "JNE Express",  color: "text-blue-400",   accent: "border-blue-400 bg-blue-400/10",     logo: "🚚" },
-  { id: "jnt",      name: "J&T",      fullName: "J&T Express",  color: "text-red-400",    accent: "border-red-400 bg-red-400/10",       logo: "🔴" },
-  { id: "sicepat",  name: "SiCepat",  fullName: "SiCepat",      color: "text-orange-400", accent: "border-orange-400 bg-orange-400/10", logo: "⚡" },
-  { id: "anteraja", name: "AnterAja", fullName: "AnterAja",     color: "text-green-400",  accent: "border-green-400 bg-green-400/10",   logo: "🟢" },
-];
-
-const MOCK_CITIES: CityOption[] = [
-  { code: "CGK", name: "Jakarta",       type: "both" },
-  { code: "BDO", name: "Bandung",       type: "both" },
-  { code: "SRG", name: "Semarang",      type: "both" },
-  { code: "SUB", name: "Surabaya",      type: "both" },
-  { code: "JOG", name: "Yogyakarta",    type: "both" },
-  { code: "DPS", name: "Denpasar/Bali", type: "both" },
-  { code: "MDN", name: "Medan",         type: "both" },
-];
-
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatPrice(price: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -284,7 +269,9 @@ function AddressModal({
 
 // ─── Component ─────────────────────────────────────────────────────
 export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
-  const [cities, setCities] = useState<CityOption[]>(MOCK_CITIES);
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [providerError, setProviderError] = useState<string | null>(null);
+  const [cities, setCities] = useState<CityOption[]>([]);
   const [originCode, setOriginCode] = useState("");
   const [destCode, setDestCode] = useState("");
   const [weight, setWeight] = useState(1);
@@ -295,6 +282,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
   const [tariffs, setTariffs] = useState<TariffOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   // ─── Pickup address state ─────────────────────────────────────────
@@ -303,14 +291,41 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
 
   const volumeCm3 = calcVolumeCm3(lengthCm, widthCm, heightCm);
   const vehicleRec = getVehicleRec(volumeCm3, weight);
-  const selectedProvider = PROVIDERS.find(p => p.id === selectedProviderId);
+  const selectedProvider = providers.find(p => p.code === selectedProviderId);
 
   useEffect(() => {
-    api.get("/locations/cities").then((res) => {
-      const data = res.data?.data || res.data;
-      if (Array.isArray(data) && data.length > 0) setCities(data);
-    }).catch(() => setCities(MOCK_CITIES));
+    let active = true;
+    api.get("/logistics/providers").then((res) => {
+      const data = res.data?.providers;
+      if (!active) return;
+      if (!Array.isArray(data) || data.length === 0 || data.some((provider) => !provider?.code || !provider?.name)) {
+        setProviderError("Daftar provider belum tersedia dari server.");
+        return;
+      }
+      setProviders(data as ProviderOption[]);
+      setProviderError(null);
+    }).catch(() => {
+      if (active) setProviderError("Daftar provider tidak dapat dimuat. Coba lagi setelah layanan aktif.");
+    });
+    return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    setCities([]);
+    setOriginCode("");
+    setDestCode("");
+    setLocationError(null);
+    if (!selectedProviderId) return;
+
+    api.get("/logistics/locations", { params: { provider: selectedProviderId } }).then((res) => {
+      const data = res.data?.data || res.data;
+      if (!Array.isArray(data) || data.length === 0 || data.some((city) => !city?.code || !city?.name)) {
+        setLocationError("Data area provider belum tersedia dari server.");
+        return;
+      }
+      setCities(data);
+    }).catch(() => setLocationError("Data area provider tidak dapat dimuat. Lengkapi mapping provider atau coba lagi."));
+  }, [selectedProviderId]);
 
   useEffect(() => {
     if (!originCode || !destCode || !weight || !selectedProviderId) {
@@ -335,19 +350,20 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             weight_kg: weight,
           } as any,
         });
-        const raw = res.data?.data?.services || res.data?.tariffs || [];
+        const quoteResponse = res.data?.data || {};
+        const raw = quoteResponse.services || res.data?.tariffs || [];
         const items = Array.isArray(raw) ? raw : [raw];
 
-        const allTariffs: TariffOption[] = items.map((item: any) => ({
-          provider: selectedProviderId,
-          provider_name: PROVIDERS.find(p => p.id === selectedProviderId)?.fullName || selectedProviderId,
-          service: item.service_code || item.service || "reg",
-          service_name: item.service_name || item.service || "Reguler",
-          price: Number(item.tariff_gross || item.price || item.total_price_idr || 0),
-          net_price: Number(item.tariff_net || 0),
-          etd: item.etd || item.estimated_days || "1-3 hari",
-          weight_kg: Number(item.weight_kg || weight),
-        }));
+        const provider = providers.find(p => p.code === selectedProviderId);
+        const allTariffs: TariffOption[] = items
+          .map((item: any) => normalizeAggregatorCarrierQuote(
+            { ...item, source: item.source || quoteResponse.source },
+            { provider: selectedProviderId, provider_name: provider?.name || selectedProviderId },
+            weight,
+            provider?.capabilities || [],
+          ))
+          .filter((quote): quote is AggregatorCarrierQuote => quote !== null)
+          .map((quote) => ({ ...quote, weight_kg: weight }));
 
         allTariffs.sort((a, b) => a.price - b.price);
 
@@ -390,7 +406,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
         provider_code: tariff.provider,
         service_type: tariff.service,
         tariff_idr: tariff.price,
-        net_cost_idr: tariff.net_price || Math.round(tariff.price * 0.85),
+        ...(tariff.net_price ? { net_cost_idr: tariff.net_price } : {}),
         origin_city: originCityName,
         destination_city: destCityName,
         weight_kg: tariff.weight_kg,
@@ -412,24 +428,23 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
           <label className="text-sm font-semibold text-foreground">Pilih Ekspedisi</label>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {PROVIDERS.map((provider) => (
+          {providers.map((provider) => (
             <button
-              key={provider.id}
+              key={provider.code}
               type="button"
-              onClick={() => { setSelectedProviderId(provider.id); setTariffs([]); setSelectedIndex(null); }}
+              onClick={() => { setSelectedProviderId(provider.code); setTariffs([]); setSelectedIndex(null); }}
               className={[
                 "rounded-xl border-2 px-3 py-3.5 text-center transition-all duration-150",
-                selectedProviderId === provider.id
-                  ? provider.accent + " shadow-lg scale-[1.02]"
+                selectedProviderId === provider.code
+                  ? "border-indigo-400 bg-indigo-400/10 shadow-lg scale-[1.02]"
                   : "border-white/10 bg-background/40 hover:border-white/20 hover:bg-white/5",
               ].join(" ")}
             >
-              <span className="block text-xl mb-1">{provider.logo}</span>
-              <span className={`block text-sm font-bold ${selectedProviderId === provider.id ? provider.color : "text-foreground"}`}>
+              <span className="block text-sm font-bold text-foreground">
                 {provider.name}
               </span>
-              {selectedProviderId === provider.id && (
-                <Check className={`mx-auto mt-1 h-3 w-3 ${provider.color}`} />
+              {selectedProviderId === provider.code && (
+                <Check className="mx-auto mt-1 h-3 w-3 text-indigo-300" />
               )}
             </button>
           ))}
@@ -437,9 +452,10 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
         {selectedProvider && (
           <p className="mt-2 text-xs text-muted-foreground">
             Menampilkan layanan dari{" "}
-            <span className={`font-semibold ${selectedProvider.color}`}>{selectedProvider.fullName}</span>
+            <span className="font-semibold text-foreground">{selectedProvider.name}</span>
           </p>
         )}
+        {providerError && <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100" role="alert">{providerError}</p>}
       </div>
 
       {/* STEP 2 — Alamat Pengirim (Mengantar-style) */}
@@ -545,6 +561,11 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             </div>
           </div>
         </div>
+        {locationError && (
+          <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100" role="alert">
+            {locationError}
+          </p>
+        )}
       </div>
 
       {/* STEP 4 — Berat & Dimensi */}
@@ -614,14 +635,14 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">5</span>
             <label className="text-sm font-semibold text-foreground">
-              Pilih Layanan {selectedProvider?.fullName}
+              Pilih Layanan {selectedProvider?.name}
             </label>
           </div>
 
           {isLoading ? (
             <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 px-4 py-5 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Memuat layanan {selectedProvider?.fullName}...
+              Memuat layanan {selectedProvider?.name}...
             </div>
           ) : error ? (
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-100">
@@ -659,7 +680,14 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-semibold text-foreground">{tariff.service_name}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">Estimasi {tariff.etd}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{tariff.etd ? `Estimasi ${tariff.etd}` : "ETA belum diberikan provider"}</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground/80">Berat tagihan: {tariff.chargeable_weight_kg ? `${tariff.chargeable_weight_kg} kg` : "belum diberikan provider"} · Sumber: {tariff.source || "respons tarif provider"}</p>
+                        <div className="mt-2 text-[11px] text-muted-foreground">
+                          Capability: {tariff.capabilities.length > 0 ? tariff.capabilities.map(capabilityLabel).join(", ") : "belum diberikan provider"}
+                        </div>
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          Limitasi: {tariff.limitations.length > 0 ? tariff.limitations.join(", ") : "detail belum diberikan provider"}
+                        </div>
                       </div>
                       {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
                     </div>
@@ -672,7 +700,10 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm font-bold text-foreground">{formatPrice(tariff.price)}</p>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-foreground">{formatPrice(tariff.price)}</p>
+                        <p className="text-[11px] text-muted-foreground">{tariff.net_price ? `Net ${formatPrice(tariff.net_price)}` : "Net belum diberikan provider"}</p>
+                      </div>
                     </div>
                   </button>
                 );

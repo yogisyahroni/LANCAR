@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"tembus/order-service/internal/domain"
@@ -38,8 +39,22 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 	})
 
 	var ufe *domain.UserFacingError
+	var requoteErr *domain.RequoteRequiredError
+	var concurrentErr *domain.ConcurrentOrderTransitionError
 
 	switch {
+	case errors.As(err, &requoteErr):
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":                 false,
+			"code":                    "REQUOTE_REQUIRED",
+			"message":                 "Quote perlu dihitung ulang sebelum order dapat dibuat.",
+			"quote_id":                requoteErr.QuoteID,
+			"current_total_price_idr": requoteErr.CurrentTotal,
+			"requires_requote":        true,
+			"correlation_id":          correlationID,
+		})
 	case errors.Is(err, domain.ErrNotFound):
 		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Data tidak ditemukan", correlationID)
 	case errors.Is(err, domain.ErrForbidden):
@@ -50,8 +65,20 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 		middleware.WriteError(w, http.StatusConflict, "ERR_CONFLICT", "Operasi konflik. Coba lagi.", correlationID)
 	case errors.Is(err, domain.ErrInvalidEstimate):
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ESTIMATE", "Estimasi harga tidak valid atau sudah kedaluwarsa", correlationID)
+	case errors.Is(err, domain.ErrInvalidCoordinates):
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_COORDINATES", "Pilih titik pickup dan tujuan yang valid", correlationID)
 	case errors.Is(err, domain.ErrLocationNotCovered):
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_LOCATION_NOT_COVERED", "Alamat pickup atau tujuan tidak tercover oleh layanan kami", correlationID)
+	case errors.Is(err, domain.ErrOrderAlreadyAssigned):
+		middleware.WriteError(w, http.StatusConflict, "ERR_ORDER_ALREADY_ASSIGNED", "Order sudah diterima kurir lain", correlationID)
+	case errors.Is(err, domain.ErrTransitionProofRequired):
+		middleware.WriteError(w, http.StatusConflict, "ERR_TRANSITION_PROOF_REQUIRED", "Bukti pengantaran wajib tersedia sebelum order diselesaikan", correlationID)
+	case errors.Is(err, domain.ErrTransitionLedgerRequired):
+		middleware.WriteError(w, http.StatusConflict, "ERR_TRANSITION_LEDGER_REQUIRED", "Efek ledger order belum siap, status tidak diubah", correlationID)
+	case errors.Is(err, domain.ErrAdminOverrideReasonRequired):
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_ADMIN_OVERRIDE_REASON_REQUIRED", "Alasan admin override wajib diisi", correlationID)
+	case errors.As(err, &concurrentErr):
+		middleware.WriteError(w, http.StatusConflict, "ERR_CONCURRENT_ORDER_TRANSITION", "Order berubah bersamaan, silakan coba lagi", correlationID)
 	case errors.As(err, &ufe) && ufe.UserMsg != "":
 		// UAT-C-012/C-014: error bisnis user-facing → tampilkan pesan asli
 		// (bukan ERR_INTERNAL generic).

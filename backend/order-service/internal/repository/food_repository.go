@@ -45,33 +45,33 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			FROM merchants
 			WHERE id = $1`
 
-			m := &domain.FoodMerchantInfo{}
-			var jamBuka, jamTutup, halalStatus sql.NullString
-			var pausedUntil sql.NullTime
-			err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
-			&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
-			&pausedUntil, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus,
-			)
-			if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, fmt.Errorf("merchant not found: %s", merchantID)
-			}
-			return nil, err
-			}
-			if pausedUntil.Valid {
-			m.PausedUntil = &pausedUntil.Time
-			}
-			if jamBuka.Valid {
-			m.JamBuka = &jamBuka.String
-			}
-			if jamTutup.Valid {
-			m.JamTutup = &jamTutup.String
-			}
-			if halalStatus.Valid {
-			m.HalalStatus = halalStatus.String
-			}
-			return m, nil
-			}
+	m := &domain.FoodMerchantInfo{}
+	var jamBuka, jamTutup, halalStatus sql.NullString
+	var pausedUntil sql.NullTime
+	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
+		&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
+		&pausedUntil, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("merchant not found: %s", merchantID)
+		}
+		return nil, err
+	}
+	if pausedUntil.Valid {
+		m.PausedUntil = &pausedUntil.Time
+	}
+	if jamBuka.Valid {
+		m.JamBuka = &jamBuka.String
+	}
+	if jamTutup.Valid {
+		m.JamTutup = &jamTutup.String
+	}
+	if halalStatus.Valid {
+		m.HalalStatus = halalStatus.String
+	}
+	return m, nil
+}
 
 // GetFoodMenuItems — ambil menu items by IDs (harga diambil server-side,
 // client TIDAK bisa kirim harga sendiri — zero-trust).
@@ -298,6 +298,17 @@ func (r *foodRepo) GetFoodOrderForMerchant(ctx context.Context, orderID, merchan
 // AcceptFoodOrder — pending_merchant → preparing.
 // food_ready_at = NOW() + prep_time_minutes (dasar trigger matching worker).
 func (r *foodRepo) AcceptFoodOrder(ctx context.Context, orderID string, prepMinutes int) error {
+	if r.postgresRepo != nil {
+		_, err := r.postgresRepo.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:            orderID,
+			Actor:              domain.OrderActorPlatform,
+			TargetStatus:       domain.StatusPreparing,
+			IdempotencyKey:     "food-accept:" + orderID,
+			EventMessage:       "Pesanan makanan diterima — makanan disiapkan",
+			PreparationMinutes: prepMinutes,
+		})
+		return err
+	}
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE orders SET
 			status = 'preparing',
@@ -322,6 +333,17 @@ func (r *foodRepo) AcceptFoodOrder(ctx context.Context, orderID string, prepMinu
 // RejectFoodOrder — pending_merchant → cancelled + cancellation_reason.
 // Dipakai merchant menolak, dan worker auto-cancel timeout (FOOD-BIKE-022).
 func (r *foodRepo) RejectFoodOrder(ctx context.Context, orderID, reason string) error {
+	if r.postgresRepo != nil {
+		_, err := r.postgresRepo.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:        orderID,
+			Actor:          domain.OrderActorPlatform,
+			TargetStatus:   domain.StatusCancelled,
+			Reason:         reason,
+			IdempotencyKey: "food-reject:" + orderID,
+			EventMessage:   "Pesanan makanan ditolak: " + reason,
+		})
+		return err
+	}
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE orders SET
 			status = 'cancelled',
@@ -503,6 +525,17 @@ func (r *foodRepo) GetScheduledFoodOrdersDue(ctx context.Context) ([]domain.Sche
 // aktivasi gagal (merchant tidak valid / lewat jam tutup). Guard
 // WHERE status='scheduled' supaya tidak menimpa transisi yang sudah jalan.
 func (r *foodRepo) CancelScheduledFoodOrder(ctx context.Context, orderID, reason string) error {
+	if r.postgresRepo != nil {
+		_, err := r.postgresRepo.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:        orderID,
+			Actor:          domain.OrderActorPlatform,
+			TargetStatus:   domain.StatusCancelled,
+			Reason:         reason,
+			IdempotencyKey: "scheduled-cancel:" + orderID,
+			EventMessage:   "Pesanan terjadwal dibatalkan: " + reason,
+		})
+		return err
+	}
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE orders SET
 			status = 'cancelled',
@@ -528,6 +561,16 @@ func (r *foodRepo) CancelScheduledFoodOrder(ctx context.Context, orderID, reason
 // saat aktivasi (merchant re-validated OK). Guard status supaya tidak
 // menimpa cancel yang sudah jalan duluan.
 func (r *foodRepo) ActivateScheduledFoodOrder(ctx context.Context, orderID string) error {
+	if r.postgresRepo != nil {
+		_, err := r.postgresRepo.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:        orderID,
+			Actor:          domain.OrderActorPlatform,
+			TargetStatus:   domain.StatusPendingMerchant,
+			IdempotencyKey: "scheduled-activate:" + orderID,
+			EventMessage:   "Pesanan terjadwal diaktifkan",
+		})
+		return err
+	}
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE orders SET
 			status = 'pending_merchant'

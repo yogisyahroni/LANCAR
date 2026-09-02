@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -448,6 +449,32 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	// ─────────────────────────────────────────────────────────────────────
 
+	// Apply the canonical lifecycle contract after endpoint-level ownership
+	// checks. This keeps the generic compatibility endpoint from bypassing the
+	// service/actor transition matrix used by internal orchestration.
+	if targetOrder != nil {
+		actor := domain.OrderActor("unknown")
+		switch {
+		case isAdmin:
+			actor = domain.OrderActorAdmin
+		case isCourier:
+			actor = domain.OrderActorCourier
+		case isCustomer:
+			actor = domain.OrderActorCustomer
+		case role == "merchant":
+			actor = domain.OrderActorMerchant
+		}
+		category := targetOrder.ServiceCategory
+		if category == "" {
+			targetOrder.ApplyCanonicalOrderContract()
+			category = targetOrder.ServiceCategory
+		}
+		if transitionErr := domain.ValidateOrderTransition(targetOrder.Status, status, actor, category); transitionErr != nil {
+			middleware.WriteError(w, http.StatusConflict, "ERR_INVALID_ORDER_TRANSITION", transitionErr.Error(), correlationID)
+			return
+		}
+	}
+
 	// Update dimensions if provided (Enterprise Volumetric Consistency)
 	if req.Length != nil || req.Width != nil || req.Height != nil || req.Weight != nil {
 		if err := h.orderSvc.UpdateDimensions(r.Context(), orderID, req.Length, req.Width, req.Height, req.Weight); err != nil {
@@ -459,7 +486,25 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err := h.orderSvc.UpdateStatus(r.Context(), orderID, status)
+	actor := domain.OrderActorPlatform
+	switch {
+	case isAdmin:
+		actor = domain.OrderActorAdmin
+	case isCourier:
+		actor = domain.OrderActorCourier
+	case isCustomer:
+		actor = domain.OrderActorCustomer
+	case role == "merchant":
+		actor = domain.OrderActorMerchant
+	}
+	var err error
+	if actorUpdater, ok := h.orderSvc.(interface {
+		UpdateStatusWithActor(context.Context, string, domain.OrderStatus, string, domain.OrderActor, string, string) error
+	}); ok {
+		err = actorUpdater.UpdateStatusWithActor(r.Context(), orderID, status, userID, actor, req.Notes, middleware.GetIdempotencyKey(r.Context()))
+	} else {
+		err = h.orderSvc.UpdateStatus(r.Context(), orderID, status)
+	}
 	if err != nil {
 		userSafeError(w, r, err, http.StatusInternalServerError)
 		return

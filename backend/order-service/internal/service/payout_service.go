@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -41,6 +42,17 @@ func NewPayoutService(
 // CalculateOrderLegPayout creates a payout record for a completed order leg.
 // It resolves the courier_id from the order_leg record rather than using a placeholder.
 func (s *payoutService) CalculateOrderLegPayout(ctx context.Context, orderLegID uuid.UUID, fee int, penalty int, idleComp int) (*domain.PayoutRecord, error) {
+	// A delivery completion can be replayed by webhook/worker retry. Resolve
+	// the existing leg payout first; the DB unique index below is the final
+	// concurrency guard for two workers racing this read.
+	existing, lookupErr := s.repo.GetByOrderLegID(ctx, orderLegID)
+	if lookupErr == nil && existing != nil {
+		return existing, nil
+	}
+	if lookupErr != nil && !errors.Is(lookupErr, domain.ErrNotFound) {
+		return nil, fmt.Errorf("failed to check existing payout for order leg %s: %w", orderLegID, lookupErr)
+	}
+
 	// 1. Resolve the courier who was assigned to this leg from the DB
 	courierID, err := s.relayRepo.GetCourierIDForOrderLeg(ctx, orderLegID)
 	if err != nil {
@@ -79,6 +91,12 @@ func (s *payoutService) CalculateOrderLegPayout(ctx context.Context, orderLegID 
 	}
 
 	if err := s.repo.CreatePayout(ctx, record); err != nil {
+		// The unique leg index can win a concurrent race after both workers
+		// passed the read above. Return the winner instead of surfacing a
+		// duplicate-key failure to the delivery worker.
+		if existing, lookupErr := s.repo.GetByOrderLegID(ctx, orderLegID); lookupErr == nil && existing != nil {
+			return existing, nil
+		}
 		return nil, fmt.Errorf("failed to create payout record: %w", err)
 	}
 

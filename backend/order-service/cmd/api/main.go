@@ -164,6 +164,7 @@ func main() {
 		log.Fatal("Failed to connect to read database:", err)
 	}
 	defer readDB.Close()
+	writeDB := sqlx.NewDb(db, "postgres")
 
 	// Redis connection
 	redisURL := os.Getenv("REDIS_URL")
@@ -278,6 +279,9 @@ func main() {
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
 	analyticsSvc := service.NewAnalyticsService(analyticsRepo)
+	awbClient := infrastructure.NewIntegrationGatewayClient(configRepo)
+	carrierHandoffRepo := repository.NewCarrierHandoffRepository(db)
+	carrierHandoffSvc := service.NewCarrierHandoffService(carrierHandoffRepo, awbClient, pgRepo, configRepo)
 	paymentLinkSvc := service.NewPaymentLinkService(
 		paymentLinkRepo,
 		pricingSvc,
@@ -285,7 +289,8 @@ func main() {
 		pgRepo, // orderRepo — untuk UpdateOrderAWB
 		paymentGw,
 		notificationSvc,
-		infrastructure.NewIntegrationGatewayClient(configRepo), // awbClient — HTTP ke integration-gateway
+		awbClient, // awbClient — HTTP ke integration-gateway
+		carrierHandoffSvc,
 		configRepo,
 	)
 	chatSvc := service.NewChatService(chatRepo, eb)
@@ -316,6 +321,8 @@ func main() {
 	deviceTokenHandler := handler.NewDeviceTokenHandler(deviceTokenRepo)
 	aggregatorFinanceRepo := repository.NewAggregatorFinanceRepository(db)
 	aggregatorFinanceSvc := service.NewAggregatorFinanceService(aggregatorFinanceRepo, ledgerRepo)
+	carrierEventRepo := repository.NewCarrierEventRepository(db)
+	carrierEventSvc := service.NewCarrierEventServiceWithDependencies(carrierEventRepo, pgRepo, pgRepo, carrierHandoffSvc, aggregatorFinanceSvc)
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
@@ -332,11 +339,13 @@ func main() {
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
 	paymentLinkHandler := handler.NewPaymentLinkHandler(paymentLinkSvc, configRepo)
+	carrierHandoffHandler := handler.NewCarrierHandoffHandler(carrierHandoffSvc)
 	chatHandler := handler.NewChatHandler(chatSvc)
 	sosHandler := handler.NewSosHandler(sosSvc)
 	resiHandler := handler.NewResiHandler(resiSvc)
 	productCatalogHandler := handler.NewProductCatalogHandler(productCatalogSvc)
-	deliveryWebhookHandler := handler.NewDeliveryWebhookHandler(merchantSettlementSvc)
+	deliveryWebhookHandler := handler.NewDeliveryWebhookHandler(merchantSettlementSvc, carrierEventSvc)
+	trackingPollTargetsHandler := handler.NewTrackingPollTargetsHandler(pgRepo)
 	taxHandler := handler.NewTaxHandler(taxSvc)
 	// FB-077: tips driver — semua service (parcel/tambal/towing/food)
 	tipRepo := repository.NewPostgresTipRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
@@ -362,8 +371,13 @@ func main() {
 	availabilitySvc := service.NewAvailabilityService(availabilityRepo)
 	vehicleValidator := service.NewVehicleValidator(availabilityRepo)
 	serviceReportSvc := service.NewServiceReportService(serviceReportRepo)
+	towingClaimRepo := repository.NewTowingDamageClaimRepository(db)
+	towingClaimSvc := service.NewTowingDamageClaimService(serviceReportSvc, towingClaimRepo)
 	orderSvc.SetServiceReportService(serviceReportSvc)
+	orderSvc.SetAvailabilityRepository(availabilityRepo)
 	tambalBanHandler := handler.NewTambalBanHandler(settlementSvc, availabilitySvc, vehicleValidator, serviceReportSvc)
+	towingHandler := handler.NewTowingHandler(serviceReportSvc)
+	towingClaimHandler := handler.NewTowingClaimHandler(towingClaimSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
@@ -444,7 +458,7 @@ func main() {
 	mux.HandleFunc("/api/v1/orders", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			// Apply rate limit to order creation
-			middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateOrderRequest{})(orderHandler.CreateOrder)).ServeHTTP(w, r)
+			middleware.RequireIdempotencyKey(writeDB, "order.create", middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateOrderRequest{})(orderHandler.CreateOrder))).ServeHTTP(w, r)
 		} else if r.Method == http.MethodGet {
 			// Apply global IP rate limit to order listing to prevent enumeration
 			middleware.LimitByIP(rdb)(orderHandler.ListOrders).ServeHTTP(w, r)
@@ -455,7 +469,7 @@ func main() {
 
 	// Food delivery (FOOD-BIKE-074): POST /api/v1/orders/food
 	mux.HandleFunc("/api/v1/orders/food", middleware.BaseChain(middleware.AuthMiddleware(
-		middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateFoodOrderRequest{})(orderHandler.CreateFoodOrder)),
+		middleware.RequireIdempotencyKey(writeDB, "food_order.create", middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateFoodOrderRequest{})(orderHandler.CreateFoodOrder))),
 	)))
 
 	// Food delivery — browse merchant (FOOD-BIKE-055/056)
@@ -478,7 +492,7 @@ func main() {
 
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
 	mux.HandleFunc("/api/v1/orders/reorder-info", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.ReorderCheck))))
-	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateBulkOrderRequest{})(orderHandler.CreateBulkOrder)))))
+	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "order.bulk_create", middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateBulkOrderRequest{})(orderHandler.CreateBulkOrder))))))
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.PollOrderUpdates))))
 	mux.HandleFunc("/api/v1/orders/retry-matching", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.RetryMatching))))
 	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
@@ -489,7 +503,7 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/{id}/conversation/read", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
 
 	// FB-077: Tips driver — semua service (parcel/tambal/towing/food)
-	mux.HandleFunc("/api/v1/orders/{id}/tips", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(tipHandler.CreateTip))))
+	mux.HandleFunc("/api/v1/orders/{id}/tips", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "tip.create", middleware.LimitByIP(rdb)(tipHandler.CreateTip)))))
 	mux.HandleFunc("/api/v1/orders/{id}/tip", middleware.BaseChain(middleware.AuthMiddleware(tipHandler.GetTipByOrder)))
 	mux.HandleFunc("/api/v1/couriers/tips", middleware.BaseChain(middleware.AuthMiddleware(tipHandler.ListCourierTips)))
 	mux.HandleFunc("/api/v1/couriers/tips/summary", middleware.BaseChain(middleware.AuthMiddleware(tipHandler.GetCourierTipSummary)))
@@ -498,8 +512,8 @@ func main() {
 
 	// Courier Workflow Routes
 	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))
-	mux.HandleFunc("/api/v1/orders/status", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.UpdateStatus))))
-	mux.HandleFunc("/api/v1/orders/scan", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ScanPackage)))
+	mux.HandleFunc("/api/v1/orders/status", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.status.update", middleware.LimitByIP(rdb)(orderHandler.UpdateStatus)))))
+	mux.HandleFunc("/api/v1/orders/scan", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.proof.scan", orderHandler.ScanPackage))))
 	mux.HandleFunc("/api/v1/orders/scans", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetPackageScans)))
 	mux.HandleFunc("/api/v1/orders/bags", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CreateConsolidationBag)))
 	mux.HandleFunc("/api/v1/orders/bags/open", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.OpenConsolidationBag)))
@@ -535,7 +549,10 @@ func main() {
 	mux.HandleFunc("/api/v1/courier/radius", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.UpdateRadius)))
 
 	mux.HandleFunc("/api/v1/courier/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTambalBanReport)))
-	mux.HandleFunc("/api/v1/courier/service-report/towing", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTowingReport)))
+	mux.HandleFunc("/api/v1/courier/service-report/towing", middleware.BaseChain(middleware.AuthMiddleware(towingHandler.CreateTowingReport)))
+	mux.HandleFunc("/api/v1/courier/towing/damage-claims", middleware.BaseChain(middleware.AuthMiddleware(towingClaimHandler.SubmitClaim)))
+	mux.HandleFunc("/api/v1/admin/towing/damage-claims/{id}/decision", middleware.BaseChain(middleware.AuthMiddleware(towingClaimHandler.DecideClaim)))
+	mux.HandleFunc("/api/v1/admin/towing/damage-claims/{id}/reconcile", middleware.BaseChain(middleware.AuthMiddleware(towingClaimHandler.ReconcileCompensation)))
 
 	// Internal Orchestration Routes (Should be IP-whitelisted or internally routed)
 	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.InternalStartMatching)
@@ -545,12 +562,12 @@ func main() {
 	mux.HandleFunc("/api/v1/customer/orders/", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		// Manual routing for /api/v1/customer/orders/{id}/rating
 		if strings.HasSuffix(r.URL.Path, "/rating") && r.Method == http.MethodPost {
-			orderHandler.SubmitCourierRating(w, r)
+			middleware.RequireIdempotencyKey(writeDB, "rating.courier.create", orderHandler.SubmitCourierRating).ServeHTTP(w, r)
 			return
 		}
 		// FOOD-BIKE-059/060: rating makanan merchant, terpisah dari driver
 		if strings.HasSuffix(r.URL.Path, "/merchant-rating") && r.Method == http.MethodPost {
-			orderHandler.SubmitMerchantRating(w, r)
+			middleware.RequireIdempotencyKey(writeDB, "rating.merchant.create", orderHandler.SubmitMerchantRating).ServeHTTP(w, r)
 			return
 		}
 		// If other /orders/ routes exist, handle them here...
@@ -633,7 +650,7 @@ func main() {
 	mux.HandleFunc("/api/v1/courier/earnings-ledger", middleware.BaseChain(middleware.AuthMiddleware(payoutHandler.GetCourierEarnings)))
 
 	// Payment Routes
-	mux.HandleFunc("/api/v1/payments/create", middleware.BaseChain(middleware.AuthMiddleware(paymentHandler.CreatePayment)))
+	mux.HandleFunc("/api/v1/payments/create", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "payment.create", paymentHandler.CreatePayment))))
 	mux.HandleFunc("/api/v1/payments/", middleware.BaseChain(middleware.AuthMiddleware(paymentHandler.GetPaymentStatus))) // for GET /payments/:id
 
 	// Webhook Route (no auth, verify signature inside)
@@ -642,9 +659,13 @@ func main() {
 	mux.HandleFunc("/api/v1/payment-links", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/webhook", middleware.BaseChain(paymentLinkHandler.HandleWebhook))
+	// Aggregator first-mile handoff: actor-authenticated proof and internal provider acceptance.
+	mux.HandleFunc("/api/v1/internal/aggregator/handoffs", middleware.BaseChain(middleware.AuthMiddleware(carrierHandoffHandler.RecordHandoff)))
+	mux.HandleFunc("/api/v1/internal/aggregator/handoffs/provider-acceptance", middleware.BaseChain(carrierHandoffHandler.ApplyCarrierAcceptance))
 
 	// Internal Delivery & Merchant Settlement Routes
 	mux.HandleFunc("/api/v1/internal/delivery/webhook", middleware.BaseChain(deliveryWebhookHandler.HandleDeliveryEvent))
+	mux.HandleFunc("/api/v1/internal/delivery/tracking-poll-targets", middleware.BaseChain(trackingPollTargetsHandler.Handle))
 	mux.HandleFunc("/api/v1/internal/merchant-settlements", middleware.BaseChain(deliveryWebhookHandler.HandleListSettlements))
 	// FB-080: chargeback settlement merchant per order (dipanggil admin-service saat dispute food resolved memihak customer)
 	mux.HandleFunc("/api/v1/internal/settlements/chargeback", middleware.BaseChain(deliveryWebhookHandler.HandleChargeback))

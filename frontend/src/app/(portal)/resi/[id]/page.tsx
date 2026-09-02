@@ -18,6 +18,9 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import Barcode from 'react-barcode';
 import Link from 'next/link';
+import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
+import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
+import { presentCarrierStatus } from '@/lib/carrierStatusPresentation';
 
 interface Order {
   id: string;
@@ -29,11 +32,36 @@ interface Order {
   sender_name?: string;
   sender_phone?: string;
   model: string;
+  service_category?: string | null;
+  service_code?: string | null;
+  order_contract?: {
+    service?: { category?: string | null; degraded?: boolean } | null;
+  } | null;
+  service_snapshot?: {
+    name?: string | null;
+    service_name?: string | null;
+    category?: string | null;
+    service_category?: string | null;
+  } | null;
   status: string;
+  payment_status?: string | null;
   distance_km: number;
   total_price_idr: number;
   created_at: string;
   awb_number?: string;
+  logistics_provider?: string | null;
+  logistics_service_type?: string | null;
+  carrier_events?: Array<{
+    id: string;
+    provider: string;
+    canonical_status: string;
+    provider_status?: string | null;
+    provider_status_code?: string | null;
+    provider_status_description?: string | null;
+    provider_location?: string | null;
+    occurred_at?: string | null;
+    received_at: string;
+  }>;
 }
 
 export default function ResiDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -132,21 +160,21 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
     return val
       .replace(/{{order_number}}/g, currentOrder.order_number || '')
       .replace(/{{awb_number}}/g, currentOrder.awb_number || '')
-      .replace(/{{provider_name}}/g, currentOrder.model.toUpperCase() || '')
-      .replace(/{{service_type}}/g, currentOrder.model.toUpperCase() || '')
-      .replace(/{{service_name}}/g, currentOrder.model.toUpperCase() || '')
+      .replace(/{{provider_name}}/g, currentOrder.logistics_provider || currentOrder.model || '')
+      .replace(/{{service_type}}/g, currentOrder.logistics_service_type || currentOrder.model || '')
+      .replace(/{{service_name}}/g, currentOrder.service_snapshot?.service_name || currentOrder.model || '')
       .replace(/{{total_price}}/g, formatIDR(currentOrder.total_price_idr || 0))
       .replace(/{{total_price_idr}}/g, formatIDR(currentOrder.total_price_idr || 0))
       .replace(/{{customer_name}}/g, currentOrder.recipient_name || '')
-      .replace(/{{sender_name}}/g, currentOrder.sender_name || 'Toko TEMBUS Official')
-      .replace(/{{sender_phone}}/g, currentOrder.sender_phone || '0812-3456-7890')
-      .replace(/{{sender_address}}/g, currentOrder.pickup_address || 'Jakarta Pusat')
-      .replace(/{{receiver_name}}/g, currentOrder.recipient_name || 'Penerima Paket')
+      .replace(/{{sender_name}}/g, currentOrder.sender_name || '-')
+      .replace(/{{sender_phone}}/g, currentOrder.sender_phone || '-')
+      .replace(/{{sender_address}}/g, currentOrder.pickup_address || '-')
+      .replace(/{{receiver_name}}/g, currentOrder.recipient_name || '-')
       .replace(/{{receiver_phone}}/g, currentOrder.recipient_phone || '-')
       .replace(/{{receiver_address}}/g, currentOrder.dropoff_address || '-')
-      .replace(/{{item_names}}/g, (currentOrder as any).item_names || 'Paket Logistik (Regular)')
-      .replace(/{{total_weight}}/g, String((currentOrder as any).total_weight || 1.0))
-      .replace(/{{total_items}}/g, String((currentOrder as any).total_items || 1))
+      .replace(/{{item_names}}/g, (currentOrder as any).item_names || '-')
+      .replace(/{{total_weight}}/g, String((currentOrder as any).total_weight ?? '-'))
+      .replace(/{{total_items}}/g, String((currentOrder as any).total_items ?? '-'))
       .replace(/{{order_id}}/g, currentOrder.order_number || currentOrder.id || '')
       .replace(/{{tracking_url}}/g, `${window.location.origin}/resi/${currentOrder.id}`);
   };
@@ -183,6 +211,20 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
             <Printer className="h-3.5 w-3.5" /> Cetak Resi
           </button>
         </div>
+      </div>
+
+      <div className="print:hidden grid gap-3 rounded-2xl border border-border/40 bg-card/40 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+        <OrderServiceBadge
+          model={order.model}
+          service_category={order.service_category}
+          service_code={order.service_code}
+          order_contract={order.order_contract}
+          service_snapshot={order.service_snapshot}
+          logistics_provider={order.logistics_provider}
+          logistics_service_type={order.logistics_service_type}
+          awb_number={order.awb_number}
+        />
+        <OrderPriceBreakdown compact totalPriceIdr={order.total_price_idr} paymentStatus={order.payment_status} deliveryStatus={order.status} />
       </div>
 
       {/* Actual Resi Document layout (optimized for print:block and @media print) */}
@@ -317,6 +359,34 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
               </div>
             </div>
+
+            {(order.carrier_events || []).length > 0 && (
+              <div className="border-t border-slate-200/60 pt-5 mt-5">
+                <h4 className="text-xs font-bold uppercase text-slate-400">Update kurir eksternal</h4>
+                <div className="mt-3 space-y-2">
+                  {order.carrier_events?.map((event) => (
+                    <div key={event.id} className={`rounded-lg border px-3 py-2 text-xs ${presentCarrierStatus(event.canonical_status).isUnknown ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-bold text-slate-800">
+                          {presentCarrierStatus(event.canonical_status).label} · {event.provider}
+                        </span>
+                        <span>{new Date(event.occurred_at || event.received_at).toLocaleString('id-ID')}</span>
+                      </div>
+                      {presentCarrierStatus(event.canonical_status).isUnknown && (
+                        <p className="mt-1">{presentCarrierStatus(event.canonical_status).description}</p>
+                      )}
+                      {event.provider_status && <p className="mt-1">Status asli: {event.provider_status}</p>}
+                      {event.provider_status_description && <p>{event.provider_status_description}</p>}
+                      {(event.provider_status_code || event.provider_location) && (
+                        <p className="mt-1 text-slate-500">
+                          {[event.provider_status_code && `Kode ${event.provider_status_code}`, event.provider_location && `Lokasi ${event.provider_location}`].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Footer of the resi document */}
             <div className="border-t border-slate-200/60 pt-4 flex flex-col md:flex-row md:items-center justify-between text-slate-400 text-[10px] select-none gap-2">

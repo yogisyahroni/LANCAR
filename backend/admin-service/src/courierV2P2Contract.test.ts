@@ -4,7 +4,8 @@ import {
   getMobileCourierOnDemandServices,
   updateMobileCourierOrderStatus,
 } from './controllers/courierAuth.controller';
-import { updateAdminDeliveryService } from './controllers/deliveryServices.controller';
+import { dispatchNextOnDemandCourier, dispatchToPreferredCourier } from './controllers/courier/courierOnDemand.controller';
+import { findDeliveryServiceByCode, updateAdminDeliveryService } from './controllers/deliveryServices.controller';
 import { db } from './db';
 import { createNotification } from './notifications';
 
@@ -193,6 +194,24 @@ describe('courier v2 P2 contracts', () => {
     }));
   });
 
+  it('resolves enabled aggregator services even when their route model is hub-and-spoke', async () => {
+    (db.query as jest.Mock).mockResolvedValueOnce({ rows: [{
+      ...serviceRow,
+      code: 'tembus_aggregator',
+      service_category: 'aggregator',
+      route_model: 'hub_and_spoke',
+    }] });
+
+    const service = await findDeliveryServiceByCode('tembus_aggregator');
+
+    expect(service).toEqual(expect.objectContaining({
+      code: 'tembus_aggregator',
+      service_category: 'aggregator',
+      route_model: 'hub_and_spoke',
+    }));
+    expect((db.query as jest.Mock).mock.calls[0][0]).toContain("route_model = 'p2p' OR service_category = 'aggregator'");
+  });
+
   it('rejects on-demand failed or return statuses because the service must be delivered', async () => {
     const client = makeClient();
     (db.connect as jest.Mock).mockResolvedValueOnce(client);
@@ -368,5 +387,50 @@ describe('courier v2 P2 contracts', () => {
     expect(res.bodyValue).toEqual(expect.objectContaining({ code: 'ERR_COURIER_NOT_ELIGIBLE' }));
     expect(createNotification).not.toHaveBeenCalled();
     expect(client.release).toHaveBeenCalled();
+  });
+
+  it('guards preferred towing dispatch with vehicle, freshness, radius, and active-job policy', async () => {
+    const client = makeClient();
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await dispatchToPreferredCourier(client, 'order-towing-1', 'courier-user-id');
+
+    expect(result).toBeNull();
+    const candidateQuery = client.query.mock.calls[2][0] as string;
+    expect(candidateQuery).toContain('JOIN courier_vehicles cv');
+    expect(candidateQuery).toContain("cv.verification_status = 'approved'");
+    expect(candidateQuery).toContain("COALESCE(o.service_code, o.service_sub_type) = 'towing_motor'");
+    expect(candidateQuery).toContain("COALESCE(o.service_code, o.service_sub_type) = 'towing_mobil'");
+    expect(candidateQuery).toContain('COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)');
+    expect(candidateQuery).toContain('assignment_radius_pickup_km');
+  });
+
+  it('guards normal towing dispatch with persisted capability, payment, zone, and workload policy', async () => {
+    const client = makeClient();
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await dispatchNextOnDemandCourier(client, 'order-towing-2');
+
+    expect(result).toBeNull();
+    const candidateQuery = client.query.mock.calls[2][0] as string;
+    expect(candidateQuery).toContain("cp.verification_status = 'approved'");
+    expect(candidateQuery).toContain('cp.is_online = TRUE');
+    expect(candidateQuery).toContain("cp.last_location_at >= NOW() - INTERVAL '10 minutes'");
+    expect(candidateQuery).toContain('JOIN courier_service_capabilities csc');
+    expect(candidateQuery).toContain("csc.status = 'enabled'");
+    expect(candidateQuery).toContain('JOIN courier_vehicles cv');
+    expect(candidateQuery).toContain("cv.verification_status = 'approved'");
+    expect(candidateQuery).toContain("p.status = 'paid'");
+    expect(candidateQuery).toContain('JOIN zones z');
+    expect(candidateQuery).toContain('z.is_active = TRUE');
+    expect(candidateQuery).toContain('COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)');
+    expect(candidateQuery).toContain('assignment_radius_pickup_km');
+    expect(candidateQuery).toContain('NOT EXISTS');
   });
 });

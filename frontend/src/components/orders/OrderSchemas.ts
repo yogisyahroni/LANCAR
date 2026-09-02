@@ -2,8 +2,30 @@ import * as z from "zod";
 import { RuntimeConfig } from "@/hooks/useRuntimeConfig";
 
 export const coordinateSchema = z.object({
-  lat: z.number(),
-  lng: z.number()
+  lat: z.number().finite().min(-90).max(90),
+  lng: z.number().finite().min(-180).max(180)
+}).refine(({ lat, lng }) => !(lat === 0 && lng === 0), {
+  message: "Pilih titik lokasi yang valid, bukan koordinat 0,0"
+});
+
+export const addressPointSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  address: z.string().min(1),
+  city: z.string().optional(),
+  postal_code: z.string().optional(),
+  receiver: z.object({
+    name: z.string().optional(),
+    phone: z.string().optional()
+  }).optional(),
+  contact: z.string().optional(),
+  instruction: z.string().optional(),
+  lat: coordinateSchema.shape.lat,
+  lng: coordinateSchema.shape.lng,
+  source: z.enum(["saved", "search", "gps", "manual"]),
+  resolved_at: z.string().datetime()
+}).refine(({ lat, lng }) => !(lat === 0 && lng === 0), {
+  message: "Pilih titik lokasi yang valid, bukan koordinat 0,0"
 });
 
 export const CUSTOMER_ORDER_DRAFT_KEY = "tembus_customer_order_draft_v2";
@@ -23,13 +45,22 @@ export const createOrderSchema = (config?: RuntimeConfig | null, mode: 'instan' 
   size_tier: z.string().optional(),
   pickup_address: z.string().min(5, "Alamat pickup minimal 5 karakter"),
   pickup_location: coordinateSchema.optional(),
+  pickup_point: addressPointSchema.optional(),
   dropoff_address: z.string().min(5, "Alamat tujuan minimal 5 karakter"),
   dropoff_location: coordinateSchema.optional(),
+  dropoff_point: addressPointSchema.optional(),
   recipient_name: z.string().min(3, "Nama penerima wajib diisi"),
   recipient_phone: z.string().regex(/^(08|628|\+628)[0-9]{8,11}$/, "Nomor HP tidak valid"),
   package_details: z.object({
     category: z.string().min(1, "Pilih kategori paket"),
     item_description: z.string().min(5, "Deskripsi barang minimal 5 karakter"),
+    quantity: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined) ? 1 : Number(val),
+      z.number({ message: "Jumlah harus berupa angka" }).int().min(1, "Jumlah minimal 1").max(100, "Jumlah maksimal 100")
+    ).default(1),
+    is_fragile: z.boolean().default(false),
+    is_prohibited: z.boolean().default(false),
+    requires_delivery_code: z.boolean().default(false),
     vehicle_type: z.enum(["Motor", "Mobil", "Truk"]).default("Motor"),
     weight_kg: z.preprocess(
       (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
@@ -107,6 +138,12 @@ export type OrderFormValues = z.infer<typeof defaultSchema>;
 
 export type LocationValue = { lat: number; lng: number };
 export type AddressMode = "pickup" | "dropoff";
+export type AddressPoint = z.infer<typeof addressPointSchema>;
+
+export const isValidLocation = (location?: LocationValue | null): location is LocationValue => {
+  if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) return false;
+  return location.lat >= -90 && location.lat <= 90 && location.lng >= -180 && location.lng <= 180 && !(location.lat === 0 && location.lng === 0);
+};
 
 export interface SavedAddress {
   id: string;
@@ -190,8 +227,8 @@ export interface DeliveryService {
 export const isLocationValue = (value: unknown): value is LocationValue => {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
-  return typeof record.lat === "number" && Number.isFinite(record.lat) &&
-    typeof record.lng === "number" && Number.isFinite(record.lng);
+  return typeof record.lat === "number" && typeof record.lng === "number" &&
+    isValidLocation({ lat: record.lat, lng: record.lng });
 };
 
 export const asTrimmedString = (value: unknown, maxLength: number) => {
@@ -215,7 +252,14 @@ export const buildSafeOrderDraftForm = (values: OrderFormValues): Partial<OrderF
   const width = asFiniteNumber(values.package_details?.dimensions?.width);
   const height = asFiniteNumber(values.package_details?.dimensions?.height);
 
+  const itemDescription = asTrimmedString(values.package_details?.item_description, 180);
+  const quantity = Math.min(100, Math.max(1, Math.trunc(asFiniteNumber(values.package_details?.quantity) || 1)));
   if (category) safePackageDetails.category = category;
+  if (itemDescription) safePackageDetails.item_description = itemDescription;
+  safePackageDetails.quantity = quantity;
+  safePackageDetails.is_fragile = Boolean(values.package_details?.is_fragile);
+  safePackageDetails.is_prohibited = Boolean(values.package_details?.is_prohibited);
+  safePackageDetails.requires_delivery_code = Boolean(values.package_details?.requires_delivery_code);
   if (vehicle_type) safePackageDetails.vehicle_type = vehicle_type;
   if (weightKg !== undefined) safePackageDetails.weight_kg = weightKg;
   safePackageDetails.dimensions_scanned = Boolean(values.package_details?.dimensions_scanned);
@@ -254,6 +298,8 @@ export const buildSafeOrderDraftForm = (values: OrderFormValues): Partial<OrderF
   if (itemValue !== undefined) draft.item_value = itemValue;
   if (isLocationValue(values.pickup_location)) draft.pickup_location = values.pickup_location;
   if (isLocationValue(values.dropoff_location)) draft.dropoff_location = values.dropoff_location;
+  if (values.pickup_point) draft.pickup_point = values.pickup_point;
+  if (values.dropoff_point) draft.dropoff_point = values.dropoff_point;
 
   return draft;
 };
@@ -297,4 +343,4 @@ export const mergeDraftWithCurrentValues = (
     }
   }
 });
-
+

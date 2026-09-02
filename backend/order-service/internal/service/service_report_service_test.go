@@ -12,6 +12,7 @@ import (
 type fakeServiceReportRepo struct {
 	tambalCreated bool
 	towingCreated bool
+	towingReport  *domain.TowingReport
 }
 
 func (r *fakeServiceReportRepo) CreateTambalBanReport(ctx context.Context, report *domain.TambalBanReport) error {
@@ -25,11 +26,12 @@ func (r *fakeServiceReportRepo) GetTambalBanReportByOrderID(ctx context.Context,
 
 func (r *fakeServiceReportRepo) CreateTowingReport(ctx context.Context, report *domain.TowingReport) error {
 	r.towingCreated = true
+	r.towingReport = report
 	return nil
 }
 
 func (r *fakeServiceReportRepo) GetTowingReportByOrderID(ctx context.Context, orderID string) (*domain.TowingReport, error) {
-	return nil, nil
+	return r.towingReport, nil
 }
 
 func reportStringPtr(value string) *string {
@@ -81,6 +83,9 @@ func TestServiceReportRequiresTowingProofs(t *testing.T) {
 		OrderID:               "order-1",
 		CourierID:             "courier-1",
 		VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		LoadingPhotoURL:       reportStringPtr("/uploads/loading.jpg"),
+		UnloadingPhotoURL:     reportStringPtr("/uploads/unloading.jpg"),
+		UnloadingCompletedAt:  &now,
 		CompletionPhotoURL:    reportStringPtr("/uploads/completion.jpg"),
 		SignatureURL:          nil,
 		CompletedAt:           &now,
@@ -92,10 +97,45 @@ func TestServiceReportRequiresTowingProofs(t *testing.T) {
 		t.Fatal("repo should not be called when towing signature is missing")
 	}
 
+	repo = &fakeServiceReportRepo{}
+	svc = NewServiceReportService(repo)
+	err = svc.CreateTowingReport(context.Background(), &domain.TowingReport{
+		OrderID: "order-1", CourierID: "courier-1",
+		VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		LoadingPhotoURL:       reportStringPtr("/uploads/loading.jpg"),
+		UnloadingPhotoURL:     reportStringPtr("/uploads/unloading.jpg"),
+		CompletionPhotoURL:    reportStringPtr("/uploads/completion.jpg"),
+		SignatureURL:          reportStringPtr("/uploads/signature.jpg"), CompletedAt: &now,
+	})
+	if !errors.Is(err, domain.ErrInvalidServiceReport) {
+		t.Fatal("expected unloading destination timestamp to be required")
+	}
+	if repo.towingCreated {
+		t.Fatal("repo should not be called when destination verification timestamp is missing")
+	}
+
 	err = svc.CreateTowingReport(context.Background(), &domain.TowingReport{
 		OrderID:               "order-1",
 		CourierID:             "courier-1",
 		VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		CompletionPhotoURL:    reportStringPtr("/uploads/completion.jpg"),
+		SignatureURL:          reportStringPtr("/uploads/signature.jpg"),
+		CompletedAt:           &now,
+	})
+	if !errors.Is(err, domain.ErrInvalidServiceReport) {
+		t.Fatalf("expected invalid towing report error when loading/unloading proof is missing, got %v", err)
+	}
+	if repo.towingCreated {
+		t.Fatal("repo should not be called when towing loading/unloading proof is missing")
+	}
+
+	err = svc.CreateTowingReport(context.Background(), &domain.TowingReport{
+		OrderID:               "order-1",
+		CourierID:             "courier-1",
+		VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		LoadingPhotoURL:       reportStringPtr("/uploads/loading.jpg"),
+		UnloadingPhotoURL:     reportStringPtr("/uploads/unloading.jpg"),
+		UnloadingCompletedAt:  &now,
 		CompletionPhotoURL:    reportStringPtr("/uploads/completion.jpg"),
 		SignatureURL:          reportStringPtr("/uploads/signature.jpg"),
 		CompletedAt:           &now,
@@ -134,11 +174,37 @@ func TestCreateTowingReportAcceptsStructuredDamageReport(t *testing.T) {
 	now := time.Now()
 	report := &domain.TowingReport{
 		OrderID: "order-damage", VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
-		CompletionPhotoURL: reportStringPtr("/uploads/completion.jpg"), SignatureURL: reportStringPtr("/uploads/signature.jpg"),
+		LoadingPhotoURL: reportStringPtr("/uploads/loading.jpg"), UnloadingPhotoURL: reportStringPtr("/uploads/unloading.jpg"),
+		UnloadingCompletedAt: &now,
+		CompletionPhotoURL:   reportStringPtr("/uploads/completion.jpg"), SignatureURL: reportStringPtr("/uploads/signature.jpg"),
 		DamageReport: &domain.TowingDamageReport{Areas: []string{"front_bumper", "left_door"}, Severity: "minor", SafeToTransport: true},
 		CompletedAt:  &now,
 	}
 	if err := svc.CreateTowingReport(context.Background(), report); err != nil {
 		t.Fatalf("expected structured damage report to be accepted: %v", err)
+	}
+}
+
+func TestTowingReportRetrievalPreservesProofAndSignature(t *testing.T) {
+	repo := &fakeServiceReportRepo{}
+	svc := NewServiceReportService(repo)
+	now := time.Now()
+	report := &domain.TowingReport{
+		OrderID: "order-retrieval", CourierID: "courier-1",
+		VehiclePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
+		LoadingPhotoURL:       reportStringPtr("/uploads/loading.jpg"),
+		UnloadingPhotoURL:     reportStringPtr("/uploads/unloading.jpg"), UnloadingCompletedAt: &now,
+		CompletionPhotoURL: reportStringPtr("/uploads/completion.jpg"), SignatureURL: reportStringPtr("/uploads/signature.jpg"),
+		CompletedAt: &now,
+	}
+	if err := svc.CreateTowingReport(context.Background(), report); err != nil {
+		t.Fatalf("expected report persistence contract to pass: %v", err)
+	}
+	loaded, err := svc.GetTowingReport(context.Background(), report.OrderID)
+	if err != nil {
+		t.Fatalf("expected report retrieval to pass: %v", err)
+	}
+	if loaded == nil || loaded.LoadingPhotoURL == nil || *loaded.LoadingPhotoURL != "/uploads/loading.jpg" || loaded.SignatureURL == nil || *loaded.SignatureURL != "/uploads/signature.jpg" || loaded.UnloadingCompletedAt == nil {
+		t.Fatalf("proof/signature/destination verification was not preserved: %#v", loaded)
 	}
 }

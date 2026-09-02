@@ -4,11 +4,15 @@ import { ArrowLeft, Share2, Download, AlertTriangle, Loader2, RefreshCw, X, Chec
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
+import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
+import { presentCarrierStatus } from '@/lib/carrierStatusPresentation';
 
 type OrderDetailContentProps = {
   order: any,
   tracking: any,
   events: any,
+  carrierEvents: any,
   proofs: any,
   proofGroups: any,
   serviceProofs: any,
@@ -74,6 +78,7 @@ export function OrderDetailContent({
   order,
   tracking,
   events,
+  carrierEvents,
   proofs,
   proofGroups,
   serviceProofs,
@@ -516,7 +521,17 @@ export function OrderDetailContent({
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Metode Pengiriman</p>
-                <p className="text-sm font-medium capitalize">{order.model || 'p2p'}</p>
+                <OrderServiceBadge
+                  compact
+                  model={order.model}
+                  service_category={order.service_category}
+                  service_code={order.service_code}
+                  order_contract={order.order_contract}
+                  service_snapshot={order.service_snapshot}
+                  logistics_provider={order.logistics_provider}
+                  logistics_service_type={order.logistics_service_type}
+                  awb_number={order.awb_number}
+                />
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Jarak Tempuh</p>
@@ -532,6 +547,12 @@ export function OrderDetailContent({
               </div>
             </div>
           </div>
+
+          <OrderPriceBreakdown
+            totalPriceIdr={order.total_price_idr}
+            paymentStatus={order.payment_status}
+            deliveryStatus={order.status}
+          />
 
           {hasPackageDetails && (
             <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-5">
@@ -687,6 +708,57 @@ export function OrderDetailContent({
               )}
             </div>
           </div>
+
+          {carrierEvents.length > 0 && (
+            <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-6">
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <Truck className="h-5 w-5 text-primary" /> Update Kurir Eksternal
+                </h3>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  {carrierEvents.length} update
+                </span>
+              </div>
+              <div className="space-y-3">
+                {carrierEvents.map((event: any) => {
+                  const statusPresentation = presentCarrierStatus(event.canonical_status);
+                  const providerStatus = String(event.provider_status || '').trim();
+                  return (
+                    <div key={event.id} className={cn(
+                      "rounded-xl border bg-background/40 p-4",
+                      statusPresentation.isUnknown ? "border-amber-400/30" : "border-white/10",
+                    )}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide",
+                            statusPresentation.isUnknown ? "bg-amber-400/15 text-amber-300" : "bg-primary/15 text-primary",
+                          )}>
+                            {statusPresentation.label}
+                          </span>
+                          <span className="text-xs font-semibold text-muted-foreground">{event.provider}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{formatDate(event.occurred_at || event.received_at)}</span>
+                      </div>
+                      {statusPresentation.isUnknown && (
+                        <p className="mt-2 text-sm text-amber-100/80">{statusPresentation.description}</p>
+                      )}
+                      {providerStatus && providerStatus.toUpperCase() !== statusPresentation.label && (
+                        <p className="mt-2 text-sm text-white/90">Status {event.provider}: {providerStatus}</p>
+                      )}
+                      {event.provider_status_description && (
+                        <p className="mt-1 text-sm text-muted-foreground">{event.provider_status_description}</p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        {event.provider_status_code && <span>Kode: {event.provider_status_code}</span>}
+                        {event.provider_location && <span>Lokasi: {event.provider_location}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-5">
             <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">

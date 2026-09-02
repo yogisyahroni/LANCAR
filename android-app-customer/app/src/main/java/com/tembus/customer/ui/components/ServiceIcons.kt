@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.filled.Warning
@@ -16,6 +17,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 // ============================================================
 
 object ServiceIcons {
+    // Package services
+    val PaketInstan: ImageVector = Icons.Default.LocalShipping
+    val EkspedisiAntarKota: ImageVector = Icons.Default.LocalShipping
+    val Food: ImageVector = Icons.Default.Restaurant
+
     // Tambal Ban icons
     val TambalBanMotor: ImageVector = Icons.Default.Build // Wrench icon for repair
     val TambalBanMobil: ImageVector = Icons.Default.Build

@@ -37,7 +37,12 @@ data class NotificationData(
     val promoId: String? = null,
     val metadata: JsonElement? = null,
     @SerialName("deep_link")
-    val deepLink: String? = null
+    val deepLink: String? = null,
+    @SerialName("service_code")
+    val serviceCode: String? = null,
+    @SerialName("event_version")
+    val eventVersion: String? = null,
+    val target: String? = null
 )
 
 @Serializable
@@ -57,7 +62,12 @@ data class NotificationRealtimeEvent(
     @SerialName("deep_link")
     val deepLink: String? = null,
     @SerialName("created_at")
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    @SerialName("service_code")
+    val serviceCode: String? = null,
+    @SerialName("event_version")
+    val eventVersion: String? = null,
+    val target: String? = null
 )
 
 @Serializable

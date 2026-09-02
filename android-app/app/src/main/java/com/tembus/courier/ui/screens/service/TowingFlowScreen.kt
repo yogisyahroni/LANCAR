@@ -72,6 +72,8 @@ fun TowingFlowScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var inspectionPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
+    var loadingPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
+    var unloadingPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
     var pendingCriticalAction by remember { mutableStateOf<TowingNextActionType?>(null) }
 
     // Auto-navigate when completed without needing extra tap
@@ -98,11 +100,17 @@ fun TowingFlowScreen(
         var overrideArrival by remember(orderId) { mutableStateOf(false) }
         val runNextAction: (TowingNextActionType) -> Unit = { actionType ->
             if (actionType == TowingNextActionType.CAPTURE_COMPLETION) {
-                onOpenCompletion(orderId, "towing")
+                if (uiState.unloadingPhotoUrl.isNullOrBlank()) {
+                    unloadingPhoto?.let { viewModel.captureUnloading(it) }
+                } else {
+                    onOpenCompletion(orderId, "towing")
+                }
             } else if (actionType == TowingNextActionType.VERIFY_FACE) {
                 onVerifyFace(orderId, "towing")
             } else if (actionType == TowingNextActionType.CAPTURE_INSPECTION) {
                 inspectionPhoto?.let { viewModel.captureInspection(it) }
+            } else if (actionType == TowingNextActionType.START_TRANSIT && uiState.loadingPhotoUrl.isNullOrBlank()) {
+                loadingPhoto?.let { viewModel.captureLoading(it) }
             } else {
                 viewModel.handleNextAction(actionType)
             }
@@ -165,9 +173,13 @@ fun TowingFlowScreen(
                             // Soft-gate: tombol "Saya di lokasi" butuh jarak ≤100m, kecuali override
                             val isArriveAction = uiState.nextActionType == TowingNextActionType.ARRIVED_AT_PICKUP
                             val isInspectionAction = uiState.nextActionType == TowingNextActionType.CAPTURE_INSPECTION
+                            val isLoadingProofAction = uiState.nextActionType == TowingNextActionType.START_TRANSIT && uiState.loadingPhotoUrl.isNullOrBlank()
+                            val isUnloadingProofAction = uiState.nextActionType == TowingNextActionType.CAPTURE_COMPLETION && uiState.unloadingPhotoUrl.isNullOrBlank()
                             val withinRadius = distanceM != null && distanceM!! <= ARRIVAL_RADIUS_M
                             val gateBlocked = isArriveAction && !overrideArrival && !withinRadius
                             val inspectionBlocked = isInspectionAction && inspectionPhoto == null
+                            val loadingBlocked = isLoadingProofAction && loadingPhoto == null
+                            val unloadingBlocked = isUnloadingProofAction && unloadingPhoto == null
                             Surface(shadowElevation = 8.dp) {
                                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                     if (uiState.error != null) {
@@ -214,6 +226,20 @@ fun TowingFlowScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(bottom = 8.dp)
                                         )
+                                    } else if (loadingBlocked) {
+                                        Text(
+                                            "Ambil foto kendaraan saat loading sebelum memulai transit.",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                    } else if (unloadingBlocked) {
+                                        Text(
+                                            "Ambil foto saat unloading sebelum menyelesaikan serah terima.",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
                                     }
                                     Button(
                                         onClick = {
@@ -224,7 +250,7 @@ fun TowingFlowScreen(
                                             }
                                         },
                                         modifier = Modifier.fillMaxWidth(),
-                                        enabled = !uiState.isLoading && !gateBlocked && !inspectionBlocked,
+                                        enabled = !uiState.isLoading && !gateBlocked && !inspectionBlocked && !loadingBlocked && !unloadingBlocked,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.primary
                                         )
@@ -321,6 +347,28 @@ fun TowingFlowScreen(
                     title = "Foto kondisi awal kendaraan",
                     description = "Ambil foto kendaraan sebelum proses loading sebagai bukti inspeksi.",
                     onPhotoCaptured = { inspectionPhoto = it }
+                )
+            }
+
+            if (uiState.nextActionType == TowingNextActionType.START_TRANSIT && uiState.loadingPhotoUrl.isNullOrBlank()) {
+                Spacer(Modifier.height(16.dp))
+                InspectionPhotoCard(
+                    photo = loadingPhoto,
+                    uploadedUrl = uiState.loadingPhotoUrl,
+                    title = "Foto kendaraan saat loading",
+                    description = "Ambil foto ketika kendaraan sudah siap diangkut sebagai bukti sebelum transit.",
+                    onPhotoCaptured = { loadingPhoto = it }
+                )
+            }
+
+            if (uiState.nextActionType == TowingNextActionType.CAPTURE_COMPLETION && uiState.unloadingPhotoUrl.isNullOrBlank()) {
+                Spacer(Modifier.height(16.dp))
+                InspectionPhotoCard(
+                    photo = unloadingPhoto,
+                    uploadedUrl = uiState.unloadingPhotoUrl,
+                    title = "Foto kendaraan saat unloading",
+                    description = "Ambil foto saat kendaraan diturunkan di tujuan sebelum serah terima selesai.",
+                    onPhotoCaptured = { unloadingPhoto = it }
                 )
             }
 

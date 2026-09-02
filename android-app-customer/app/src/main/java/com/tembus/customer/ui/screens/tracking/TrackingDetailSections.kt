@@ -402,10 +402,21 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
     val copy = trackingCopy(detail.order.serviceSubType, detail.order.model, detail.order.merchantId)
     val isFood = copy.kind == TrackingServiceKind.FOOD
     val isCancelled = status in setOf("cancelled", "failed") || completedTypes.contains("pickup_cancelled_by_courier")
+    val isTowing = copy.kind == TrackingServiceKind.TOWING
     val steps = if (isCancelled) {
         listOf(
             TimelineStep("merchant_order", "Order diterima", true),
             TimelineStep("cancelled", copy.cancelledLabel, true)
+        )
+    } else if (isTowing) {
+        fun pastOrAt(vararg states: String) = status in states || status == "delivered" || status == "completed"
+        listOf(
+            TimelineStep("menuju_pickup", "Menuju pickup", pastOrAt("accepted", "assigned", "picking_up", "arrived_pickup", "service_started", "loading", "in_transit", "arrived_dropoff", "unloading")),
+            TimelineStep("inspeksi", "Inspeksi kendaraan", pastOrAt("arrived_pickup", "service_started", "loading", "in_transit", "arrived_dropoff", "unloading")),
+            TimelineStep("loading", "Loading kendaraan", pastOrAt("loading", "in_transit", "arrived_dropoff", "unloading")),
+            TimelineStep("perjalanan", "Perjalanan towing", pastOrAt("in_transit", "arrived_dropoff", "unloading")),
+            TimelineStep("unloading", "Unloading di tujuan", pastOrAt("arrived_dropoff", "unloading")),
+            TimelineStep("pod", "Selesai", status in setOf("delivered", "completed"))
         )
     } else if (isFood) {
         // FOOD-BIKE-058: timeline khusus food — tahap merchant sebelum kurir

@@ -109,8 +109,11 @@ class TrackingViewModel @Inject constructor(
         val result = repository.getTrackingData(orderId)
         
         result.onSuccess { data ->
+            val incomingStage = data.stage ?: data.status
             val liveRoutePoints = decodeEncodedPolyline(data.routePolyline)
             _uiState.update { currentState ->
+                val currentStage = currentState.detail?.tracking?.stage
+                if (!shouldAcceptTrackingSnapshot(currentStage, incomingStage)) return@update currentState
                 val orderRoutePolyline = data.orderRoutePolyline
                     ?: data.orderRouteSnapshot?.routePolyline
                     ?: currentState.detail?.order?.routePolyline
@@ -175,6 +178,9 @@ class TrackingViewModel @Inject constructor(
                     ?: detail.order.routeSnapshot?.routePolyline
             )
             _uiState.update { currentState ->
+                val currentStage = currentState.detail?.tracking?.stage
+                val incomingStage = detail.tracking?.stage
+                if (!shouldAcceptTrackingSnapshot(currentStage, incomingStage)) return@update currentState
                 val etaFromOrder = detail.tracking?.eta
                     ?: detail.tracking?.orderRouteSnapshot?.eta
                     ?: detail.tracking?.etaMinutes?.takeIf { minutes -> minutes > 0 }?.let { minutes -> "$minutes menit" }

@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,6 +38,24 @@ func (r *PostgresPayoutRepo) CreatePayout(ctx context.Context, record *domain.Pa
 	`
 	_, err := r.db.NamedExecContext(ctx, query, record)
 	return err
+}
+
+func (r *PostgresPayoutRepo) GetByOrderLegID(ctx context.Context, orderLegID uuid.UUID) (*domain.PayoutRecord, error) {
+	var record domain.PayoutRecord
+	// Read from primary: a retry immediately after CreatePayout must not be
+	// hidden by read-replica lag.
+	err := r.db.GetContext(ctx, &record, `
+		SELECT * FROM payout_records
+		WHERE order_leg_id = $1 AND type = 'leg_fee'
+		ORDER BY created_at ASC
+		LIMIT 1`, orderLegID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to find payout for order leg %s: %w", orderLegID, err)
+	}
+	return &record, nil
 }
 
 func (r *PostgresPayoutRepo) UpdatePayoutStatus(ctx context.Context, id uuid.UUID, status domain.PayoutStatus, ref *string, errReason *string) error {

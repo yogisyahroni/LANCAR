@@ -564,7 +564,12 @@ internal fun RecipientCard(
     state: BookingState,
     onNameChange: (String) -> Unit,
     onPhoneChange: (String) -> Unit,
-    onItemChange: (String) -> Unit
+    onItemChange: (String) -> Unit,
+    onCategoryChange: (String) -> Unit,
+    onQuantityChange: (String) -> Unit,
+    onItemValueChange: (String) -> Unit,
+    onFragileChange: (Boolean) -> Unit,
+    onProhibitedChange: (Boolean) -> Unit
 ) {
     LcCard {
         Text("Detail penerima & barang", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
@@ -600,6 +605,49 @@ internal fun RecipientCard(
             shape = RoundedCornerShape(TembusRadius.Input),
             colors = tembusLightTextFieldColors()
         )
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = state.packageCategory,
+                onValueChange = onCategoryChange,
+                modifier = Modifier.weight(1f),
+                label = { Text("Kategori barang") },
+                singleLine = true,
+                shape = RoundedCornerShape(TembusRadius.Input),
+                colors = tembusLightTextFieldColors()
+            )
+            OutlinedTextField(
+                value = state.packageQuantity.toString(),
+                onValueChange = onQuantityChange,
+                modifier = Modifier.width(105.dp),
+                label = { Text("Jumlah") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(TembusRadius.Input),
+                colors = tembusLightTextFieldColors()
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = if (state.itemValue == 0L) "" else state.itemValue.toString(),
+            onValueChange = onItemValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Nilai barang (Rp, opsional)") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = RoundedCornerShape(TembusRadius.Input),
+            colors = tembusLightTextFieldColors()
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Checkbox(checked = state.packageIsFragile, onCheckedChange = { onFragileChange(it) })
+                Text("Barang rapuh", color = Muted, fontSize = 13.sp)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Checkbox(checked = state.packageIsProhibited, onCheckedChange = { onProhibitedChange(it) })
+                Text("Barang terlarang", color = Error, fontSize = 13.sp)
+            }
+        }
     }
 }
 
@@ -1246,6 +1294,22 @@ internal fun BookingReviewSheet(
         ReviewRouteSnapshotBlock(state = state, price = price)
         ReviewInfoRow("Penerima", state.recipientName, state.recipientPhone)
         ReviewInfoRow("Isi paket", state.itemDescription, packageSummary)
+        price?.let { breakdown ->
+            val facts = breakdown.packageFacts
+            Card(
+                colors = CardDefaults.cardColors(containerColor = PrimaryPale),
+                border = BorderStroke(1.dp, Outline),
+                shape = RoundedCornerShape(TembusRadius.Card),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("Fakta paket dari quote server", color = Primary, fontWeight = FontWeight.ExtraBold)
+                    Text("${facts?.category?.ifBlank { state.packageCategory } ?: state.packageCategory} • ${facts?.quantity ?: state.packageQuantity} item", color = Ink, fontSize = 13.sp)
+                    Text("Aktual ${formatWeightKg(breakdown.actualWeightKg)} kg • Volumetrik ${formatWeightKg(breakdown.dimensionalWeightKg)} kg • Ditagihkan ${formatWeightKg(breakdown.chargeableWeightKg)} kg", color = Muted, fontSize = 12.sp)
+                    Text("Kode terima: ${if (facts?.deliveryCodePolicy == "required") "Wajib" else "Opsional"}${if (facts?.fragile == true || state.packageIsFragile) " • Rapuh" else ""}", color = Muted, fontSize = 12.sp)
+                }
+            }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()

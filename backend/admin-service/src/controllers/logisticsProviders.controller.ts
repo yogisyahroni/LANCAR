@@ -1,6 +1,26 @@
 import { Request, Response } from 'express';
+import axios from 'axios';
 import { securityLog } from '../security/logRedaction';
 import { db, readDb } from '../db';
+
+const INTEGRATION_GATEWAY_URL = process.env.INTEGRATION_GATEWAY_URL || 'http://integration-gateway:8085';
+
+export const listCustomerLogisticsProviders = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const response = await axios.get(`${INTEGRATION_GATEWAY_URL.replace(/\/$/, '')}/api/internal/logistics/providers`, {
+      headers: { 'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || '' },
+      timeout: 5000,
+    });
+    res.status(response.status).json(response.data);
+  } catch (error: any) {
+    securityLog.error('Error fetching registered logistics providers:', error);
+    res.status(error.response?.status || 503).json({
+      success: false,
+      error: 'Daftar provider logistics belum dapat dimuat dari server.',
+      code: 'LOGISTICS_PROVIDER_REGISTRY_UNAVAILABLE',
+    });
+  }
+};
 
 export const getLogisticsProviders = async (req: Request, res: Response): Promise<void> => {
   try {

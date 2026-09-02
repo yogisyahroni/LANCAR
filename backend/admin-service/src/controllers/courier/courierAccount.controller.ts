@@ -670,4 +670,3 @@ export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Respo
     client.release();
   }
 };
-

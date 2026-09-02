@@ -158,7 +158,12 @@ internal fun BookingStepContent(
                     state = state,
                     onNameChange = viewModel::setRecipientName,
                     onPhoneChange = viewModel::setRecipientPhone,
-                    onItemChange = viewModel::setItemDescription
+                    onItemChange = viewModel::setItemDescription,
+                    onCategoryChange = viewModel::setPackageCategory,
+                    onQuantityChange = viewModel::setPackageQuantity,
+                    onItemValueChange = viewModel::setItemValue,
+                    onFragileChange = viewModel::setPackageFragile,
+                    onProhibitedChange = viewModel::setPackageProhibited
                 )
             }
             item {

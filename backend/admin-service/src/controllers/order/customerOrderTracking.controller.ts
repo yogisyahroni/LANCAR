@@ -370,6 +370,24 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
       ORDER BY created_at ASC
     `, [id]);
 
+    const { rows: carrierEvents } = await db.query(`
+      SELECT cei.id,
+             cei.provider,
+             cei.awb_number,
+             cei.canonical_status,
+             cei.provider_status,
+             cei.provider_status_code,
+             cei.provider_status_description,
+             cei.provider_location,
+             cei.provider_timestamp,
+             cei.occurred_at,
+             cei.received_at
+      FROM carrier_event_inbox cei
+      JOIN orders carrier_order ON carrier_order.awb_number = cei.awb_number
+      WHERE carrier_order.id = $1 AND carrier_order.customer_id = $2
+      ORDER BY COALESCE(cei.occurred_at, cei.received_at) ASC, cei.received_at ASC
+    `, [id, customer_id]);
+
     const { rows: packages } = await db.query(`
       SELECT id AS package_id,
              package_index,
@@ -485,6 +503,7 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
       data: {
         order,
         events,
+        carrier_events: carrierEvents,
         packages,
         proofs,
         tracking,

@@ -75,6 +75,7 @@ export * from './userNotifications.controller';
 export * from './warehouse.controller';
 export * from './uploads.controller';
 export * as paymentLink from './paymentLink.controller';
+export * as logisticsLocations from './logisticsLocations.controller';
 
 // Business API Requests
 export * as businessApiRequest from './businessApiRequest';

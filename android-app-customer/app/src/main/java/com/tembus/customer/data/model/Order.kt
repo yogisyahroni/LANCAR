@@ -133,6 +133,26 @@ data class Order(
     @SerialName("service_sub_type")
     var serviceSubType: String? = null,
 
+    @ColumnInfo(name = "service_category")
+    @SerialName("service_category")
+    var serviceCategory: String? = null,
+
+    @ColumnInfo(name = "contract_version")
+    @SerialName("contract_version")
+    var contractVersion: String? = null,
+
+    @ColumnInfo(name = "state_version", defaultValue = "1")
+    @SerialName("state_version")
+    var stateVersion: Long = 1,
+
+    @ColumnInfo(name = "quote_id")
+    @SerialName("quote_id")
+    var quoteId: String? = null,
+
+    @ColumnInfo(name = "correlation_id")
+    @SerialName("correlation_id")
+    var correlationId: String? = null,
+
     // FB-111: rincian item pesanan food (snapshot food_order_items dari
     // backend getCustomerOrderById). Kosong [] untuk order non-food.
     @ColumnInfo(name = "food_items")

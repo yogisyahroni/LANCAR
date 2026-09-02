@@ -5,9 +5,13 @@ Validate LANCAR master-task evidence.
 Rules:
 1. Any TASK-ID section with at least one checked box must have
    docs/task-evidence/<TASK-ID>.md.
-2. A fully checked task must have COMPLETE evidence and pass
+2. PARTIAL evidence must explicitly retain locally actionable work; it is
+   never a valid stopping state.
+3. BLOCKED evidence must have no locally actionable work plus an exact blocker
+   and unblock condition.
+4. A fully checked task must have COMPLETE evidence and pass
    REALITY-2026-003 + REALITY-2026-011.
-3. COMPLETE evidence cannot contain unproven requirements/blockers and
+5. COMPLETE evidence cannot contain unproven requirements/blockers and
    every applicability field must be PASS or justified N/A.
 
 This intentionally validates evidence integrity, not business correctness.
@@ -49,6 +53,10 @@ REQUIRED_FRONTMATTER = (
     *APPLICABILITY_FIELDS,
     "unproven_requirements",
     "known_blockers",
+    "locally_actionable_remaining",
+    "unblock_condition",
+    "dependency_chain_blocked",
+    "next_eligible_task",
     "updated_at",
 )
 REQUIRED_BODY_HEADINGS = (
@@ -198,6 +206,13 @@ def validate_evidence(
             f"{task.task_id}: updated_at must be YYYY-MM-DD, got {meta['updated_at']!r}"
         )
 
+    dependency_chain_blocked = normalized(meta["dependency_chain_blocked"])
+    if dependency_chain_blocked not in {"TRUE", "FALSE"}:
+        errors.append(
+            f"{task.task_id}: dependency_chain_blocked must be true or false, "
+            f"got {meta['dependency_chain_blocked']!r}"
+        )
+
     for heading in REQUIRED_BODY_HEADINGS:
         if heading not in body:
             errors.append(f"{task.task_id}: evidence body missing heading {heading!r}")
@@ -213,6 +228,45 @@ def validate_evidence(
             f"{task.task_id}: master task is fully checked but evidence status is {status!r}, "
             "expected COMPLETE"
         )
+
+    local_remaining = meta["locally_actionable_remaining"].strip()
+    unblock_condition = meta["unblock_condition"].strip()
+    known_blockers = meta["known_blockers"].strip()
+    unproven = meta["unproven_requirements"].strip()
+
+    if status == "PARTIAL":
+        if not has_meaningful_value(local_remaining):
+            errors.append(
+                f"{task.task_id}: PARTIAL requires locally_actionable_remaining "
+                "to describe remaining local work; use BLOCKED only when it is NONE"
+            )
+        if not has_meaningful_value(unblock_condition):
+            errors.append(
+                f"{task.task_id}: PARTIAL requires an explicit unblock_condition "
+                "(use a truthful local completion condition when no external blocker exists)"
+            )
+        if normalized(meta["next_eligible_task"]) not in {"NONE", "N/A"}:
+            warnings.append(
+                f"{task.task_id}: next_eligible_task is advisory while status is PARTIAL"
+            )
+
+    if status == "BLOCKED":
+        if normalized(local_remaining) != "NONE":
+            errors.append(
+                f"{task.task_id}: BLOCKED requires locally_actionable_remaining: NONE"
+            )
+        if not has_meaningful_value(known_blockers):
+            errors.append(
+                f"{task.task_id}: BLOCKED requires an exact known_blockers value"
+            )
+        if not has_meaningful_value(unblock_condition):
+            errors.append(
+                f"{task.task_id}: BLOCKED requires an exact unblock_condition"
+            )
+        if not has_meaningful_value(unproven):
+            errors.append(
+                f"{task.task_id}: BLOCKED requires unproven_requirements to name remaining proof"
+            )
 
     if status != "COMPLETE":
         return
@@ -252,6 +306,22 @@ def validate_evidence(
     if normalized(meta["known_blockers"]) != "NONE":
         errors.append(
             f"{task.task_id}: COMPLETE requires known_blockers: NONE"
+        )
+    if normalized(local_remaining) != "NONE":
+        errors.append(
+            f"{task.task_id}: COMPLETE requires locally_actionable_remaining: NONE"
+        )
+    if normalized(unblock_condition) != "NONE":
+        errors.append(
+            f"{task.task_id}: COMPLETE requires unblock_condition: NONE"
+        )
+    if dependency_chain_blocked != "FALSE":
+        errors.append(
+            f"{task.task_id}: COMPLETE requires dependency_chain_blocked: false"
+        )
+    if normalized(meta["next_eligible_task"]) in {"", "NONE", "N/A"}:
+        warnings.append(
+            f"{task.task_id}: COMPLETE should identify next_eligible_task or explicitly state none"
         )
 
 

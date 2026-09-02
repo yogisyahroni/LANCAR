@@ -60,6 +60,7 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
           customer_name: offer.customer_name || '',
           service_name: offer.service_name || 'TEMBUS On Demand',
           service_code: offer.service_code || '',
+          vehicle_id: offer.vehicle_id || null,
           vehicle_type: offer.vehicle_type || '',
           route_profile: offer.route_profile || '',
           route_provider: offer.route_provider || '',
@@ -92,6 +93,7 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
           customer_name: offer.customer_name || '',
           service_name: offer.service_name || 'TEMBUS On Demand',
           service_code: offer.service_code || '',
+          vehicle_id: offer.vehicle_id || '',
           vehicle_type: offer.vehicle_type || '',
           route_profile: offer.route_profile || '',
           route_provider: offer.route_provider || '',
@@ -237,7 +239,6 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       service_code: acceptedRouteContract.service_code || dispatch.service_code,
       courier_payout_estimate_idr: Number(dispatch.courier_payout_estimate_idr || 0),
     };
-
     if (dispatch.dispatch_status !== 'offered' || new Date(dispatch.expires_at).getTime() <= Date.now()) {
       await client.query('ROLLBACK');
       res.status(409).json({
@@ -313,6 +314,49 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       return;
     }
 
+    let dispatchMetadata: Record<string, any> = {};
+    if (dispatch.dispatch_metadata && typeof dispatch.dispatch_metadata === 'object') {
+      dispatchMetadata = dispatch.dispatch_metadata;
+    } else if (typeof dispatch.dispatch_metadata === 'string') {
+      try {
+        dispatchMetadata = JSON.parse(dispatch.dispatch_metadata);
+      } catch {
+        dispatchMetadata = {};
+      }
+    }
+    const selectedVehicleId = typeof dispatchMetadata.vehicle_id === 'string' ? dispatchMetadata.vehicle_id.trim() : '';
+    if (!selectedVehicleId) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: 'Offer tidak memiliki kendaraan terverifikasi. Silakan minta dispatch ulang.',
+        code: 'ERR_VEHICLE_BINDING_REQUIRED',
+      });
+      return;
+    }
+
+    const vehicleBinding = await client.query(
+      `SELECT cv.id
+       FROM courier_vehicles cv
+       JOIN courier_profiles cp ON cp.id = cv.courier_profile_id
+       WHERE cv.id = $1
+         AND cp.user_id = $2
+         AND cv.verification_status = 'approved'
+       LIMIT 1`,
+      [selectedVehicleId, req.user.id]
+    );
+    if (vehicleBinding.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: 'Kendaraan offer tidak lagi terverifikasi untuk akun kurir ini.',
+        code: 'ERR_VEHICLE_BINDING_CONFLICT',
+      });
+      return;
+    }
+
     await client.query(
       `SELECT id
        FROM orders
@@ -324,7 +368,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
     );
 
     const existingLeg = await client.query(
-      `SELECT id, courier_id, status
+      `SELECT id, courier_id, vehicle_id, status
        FROM order_legs
        WHERE order_id = $1 AND leg_number = 1
        FOR UPDATE`,
@@ -339,11 +383,16 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
     }
 
     if (leg) {
+      if (leg.vehicle_id && leg.vehicle_id !== selectedVehicleId) {
+        await client.query('ROLLBACK');
+        res.status(409).json({ success: false, data: null, message: 'Kendaraan offer tidak sesuai dengan kendaraan yang sudah terikat.', code: 'ERR_VEHICLE_BINDING_CONFLICT' });
+        return;
+      }
       await client.query(
         `UPDATE order_legs
-         SET courier_id = $1, status = 'accepted', assigned_at = COALESCE(assigned_at, NOW()), updated_at = NOW()
+         SET courier_id = $1, vehicle_id = $3, status = 'accepted', assigned_at = COALESCE(assigned_at, NOW()), updated_at = NOW()
          WHERE id = $2`,
-        [req.user.id, leg.id]
+        [req.user.id, leg.id, selectedVehicleId]
       );
       await client.query(
         `UPDATE courier_offer_dispatches
@@ -353,10 +402,11 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       );
     } else {
       const createdLeg = await client.query(
-        `INSERT INTO order_legs (order_id, leg_number, courier_id, status, assigned_fee_idr, assigned_at)
-         VALUES ($1, 1, $2, 'accepted', $3, NOW())
+        `INSERT INTO order_legs (order_id, leg_number, courier_id, vehicle_id, status, assigned_fee_idr, assigned_at)
+         VALUES ($1, 1, $2, $3, 'accepted', $4, NOW())
          ON CONFLICT (order_id, leg_number) DO UPDATE
            SET courier_id = EXCLUDED.courier_id,
+               vehicle_id = EXCLUDED.vehicle_id,
                status = 'accepted',
                assigned_fee_idr = EXCLUDED.assigned_fee_idr,
                assigned_at = COALESCE(order_legs.assigned_at, NOW()),
@@ -365,6 +415,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
         [
           dispatch.order_id,
           req.user.id,
+          selectedVehicleId,
           dispatch.courier_payout_estimate_idr ||
             Math.max((dispatch.total_price_idr || 0) - (dispatch.platform_commission_idr || 0), 0)
         ]
@@ -405,6 +456,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       [dispatch.order_id, req.user.id, JSON.stringify({
         source: 'courier_app',
         dispatch_id: dispatch.dispatch_id,
+        vehicle_id: selectedVehicleId,
         ...acceptedRouteMetadata,
       })]
     );

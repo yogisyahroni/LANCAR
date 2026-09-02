@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -18,27 +20,51 @@ import (
 // Endpoint ini HANYA boleh dipanggil oleh internal service (integration-gateway)
 // menggunakan X-Internal-Api-Key header. Tidak boleh terekspos ke publik.
 type DeliveryWebhookHandler struct {
-	settlementSvc  domain.MerchantSettlementService
-	internalAPIKey string
+	settlementSvc   domain.MerchantSettlementService
+	carrierEventSvc domain.CarrierEventService
+	internalAPIKey  string
 }
 
 // NewDeliveryWebhookHandler membuat handler untuk delivery webhook internal.
-func NewDeliveryWebhookHandler(settlementSvc domain.MerchantSettlementService) *DeliveryWebhookHandler {
+func NewDeliveryWebhookHandler(settlementSvc domain.MerchantSettlementService, carrierEventSvc domain.CarrierEventService) *DeliveryWebhookHandler {
 	return &DeliveryWebhookHandler{
-		settlementSvc:  settlementSvc,
-		internalAPIKey: os.Getenv("INTERNAL_API_KEY"),
+		settlementSvc:   settlementSvc,
+		carrierEventSvc: carrierEventSvc,
+		internalAPIKey:  os.Getenv("INTERNAL_API_KEY"),
 	}
 }
 
 // deliveryWebhookPayload adalah payload yang dikirim oleh integration-gateway
 // setelah menerima dan memverifikasi webhook DELIVERED dari 3PL.
 type deliveryWebhookPayload struct {
-	AWBNumber   string `json:"awb_number"`
-	Provider    string `json:"provider"`
-	Status      string `json:"status"` // "DELIVERED", "IN_TRANSIT", dll
-	PodURL      string `json:"pod_url,omitempty"`
-	ConfirmedAt string `json:"confirmed_at,omitempty"` // RFC3339
-	RawPayload  string `json:"raw_payload,omitempty"`
+	EventID           string `json:"event_id,omitempty"`
+	PayloadHash       string `json:"payload_hash,omitempty"`
+	AWBNumber         string `json:"awb_number"`
+	Provider          string `json:"provider"`
+	Status            string `json:"status"` // "DELIVERED", "IN_TRANSIT", dll
+	CanonicalStatus   string `json:"canonical_status,omitempty"`
+	ProviderStatus    string `json:"provider_status,omitempty"`
+	ProviderCode      string `json:"provider_status_code,omitempty"`
+	ProviderDetail    string `json:"provider_status_description,omitempty"`
+	ProviderLocation  string `json:"provider_location,omitempty"`
+	ProviderTimestamp string `json:"provider_timestamp,omitempty"`
+	PodURL            string `json:"pod_url,omitempty"`
+	ConfirmedAt       string `json:"confirmed_at,omitempty"` // RFC3339
+	RawPayload        string `json:"raw_payload,omitempty"`
+	RawStatus         string `json:"raw_status,omitempty"`
+	RawCode           string `json:"raw_code,omitempty"`
+	RawDescription    string `json:"raw_description,omitempty"`
+	RawLocation       string `json:"raw_location,omitempty"`
+	OccurredAt        string `json:"occurred_at,omitempty"`
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // HandleChargeback adalah endpoint POST /api/v1/internal/settlements/chargeback.
@@ -177,7 +203,44 @@ func (h *DeliveryWebhookHandler) HandleDeliveryEvent(w http.ResponseWriter, r *h
 		return
 	}
 
-	// ─── Hanya proses event DELIVERED ─────────────────────────────────────────
+	// Raw-first inbox: persist every provider event before any settlement or
+	// lifecycle side effect. Missing provider event IDs fall back to body hash.
+	if h.carrierEventSvc != nil {
+		eventID := strings.TrimSpace(payload.EventID)
+		payloadHash := strings.TrimSpace(payload.PayloadHash)
+		if payloadHash == "" {
+			sum := sha256.Sum256(body)
+			payloadHash = hex.EncodeToString(sum[:])
+		}
+		if eventID == "" {
+			eventID = payload.Provider + ":" + payloadHash
+		}
+		var occurredAt *time.Time
+		if payload.OccurredAt != "" {
+			if parsed, parseErr := time.Parse(time.RFC3339, payload.OccurredAt); parseErr == nil {
+				occurredAt = &parsed
+			}
+		}
+		if err := h.carrierEventSvc.Process(r.Context(), &domain.CarrierEvent{
+			ID: uuid.NewString(), Provider: strings.TrimSpace(payload.Provider), EventID: eventID,
+			PayloadHash: payloadHash, AWBNumber: strings.TrimSpace(payload.AWBNumber),
+			CanonicalStatus:   firstNonEmpty(strings.ToUpper(strings.TrimSpace(payload.CanonicalStatus)), strings.ToUpper(strings.TrimSpace(payload.Status))),
+			ProviderStatus:    firstNonEmpty(payload.ProviderStatus, payload.RawStatus),
+			ProviderCode:      firstNonEmpty(payload.ProviderCode, payload.RawCode),
+			ProviderDetail:    firstNonEmpty(payload.ProviderDetail, payload.RawDescription),
+			ProviderLocation:  firstNonEmpty(payload.ProviderLocation, payload.RawLocation),
+			ProviderTimestamp: firstNonEmpty(payload.ProviderTimestamp, payload.OccurredAt),
+			RawStatus:         firstNonEmpty(payload.RawStatus, payload.ProviderStatus, payload.Status),
+			RawCode:           firstNonEmpty(payload.RawCode, payload.ProviderCode), RawDescription: firstNonEmpty(payload.RawDescription, payload.ProviderDetail), RawLocation: firstNonEmpty(payload.RawLocation, payload.ProviderLocation),
+			OccurredAt: occurredAt, ReceivedAt: time.Now(), RawPayload: string(body),
+		}); err != nil {
+			slog.ErrorContext(r.Context(), "delivery_webhook: carrier event inbox failed", "awb_number", payload.AWBNumber, "error", err)
+			http.Error(w, "Failed to persist carrier event", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// ─── Settlement hanya untuk event DELIVERED; event lain sudah masuk inbox ─
 	normalizedStatus := strings.ToUpper(strings.TrimSpace(payload.Status))
 	if normalizedStatus != "DELIVERED" {
 		// Event lain (IN_TRANSIT, PICKED_UP, dll) — log dan return 200 tanpa proses

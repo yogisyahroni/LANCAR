@@ -285,7 +285,7 @@ export const uploadMobileCourierServiceReportProof = async (req: Request, res: R
   }
 
   const ownership = await db.query(
-    `SELECT 1
+    `SELECT status, vehicle_id
        FROM order_legs
       WHERE order_id = $1
         AND courier_id = $2
@@ -303,7 +303,45 @@ export const uploadMobileCourierServiceReportProof = async (req: Request, res: R
     return;
   }
 
+  const legStatus = String(ownership.rows[0]?.status || '').trim().toLowerCase();
+  const boundVehicleId = typeof ownership.rows[0]?.vehicle_id === 'string' ? ownership.rows[0].vehicle_id.trim() : '';
+  if (serviceType === 'towing' && !boundVehicleId) {
+    res.status(409).json({
+      success: false,
+      data: null,
+      message: 'Kendaraan towing belum terikat pada order ini.',
+      code: 'ERR_VEHICLE_BINDING_REQUIRED',
+    });
+    return;
+  }
+  if (proofType === 'vehicle_photo_before' && towingBeforeProofIsLocked(legStatus)) {
+    res.status(409).json({
+      success: false,
+      data: null,
+      message: 'Bukti kondisi awal kendaraan sudah terkunci setelah transit dimulai.',
+      code: 'ERR_PROOF_IMMUTABLE',
+    });
+    return;
+  }
+
   const savedUpload = saveSecureUploadBuffer(req.file, `service-reports/${serviceType}/${proofType}`);
+
+  await db.query(
+    `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+     VALUES ($1, $2, $3, $4)`,
+    [
+      courierId,
+      'towing.proof.uploaded',
+      orderId,
+      JSON.stringify({
+        service_type: serviceType,
+        proof_type: proofType,
+        vehicle_id: boundVehicleId || null,
+        storage_key: savedUpload.storageKey,
+        checksum_sha256: req.file.checksumSha256 || null,
+      }),
+    ],
+  );
 
   res.status(201).json({
     success: true,
@@ -319,6 +357,21 @@ export const uploadMobileCourierServiceReportProof = async (req: Request, res: R
     message: 'Bukti layanan tersimpan.',
   });
 };
+
+/**
+ * Before-condition evidence is a historical fact. It must not be captured
+ * once the assigned leg has entered transit or any downstream stage.
+ */
+export const towingBeforeProofIsLocked = (legStatus: string): boolean =>
+  new Set([
+    'in_transit',
+    'arrived_dropoff',
+    'unloading',
+    'completed',
+    'delivered',
+    'cancelled',
+    'failed',
+  ]).has(legStatus.trim().toLowerCase());
 
 
 

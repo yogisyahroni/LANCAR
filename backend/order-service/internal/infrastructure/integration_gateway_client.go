@@ -47,6 +47,8 @@ func NewIntegrationGatewayClient(configRepo domain.ConfigRepository) *Integratio
 // createAWBRequest adalah struktur JSON yang dikirim ke integration-gateway.
 type createAWBRequest struct {
 	Provider        string  `json:"provider"`
+	IdempotencyKey  string  `json:"idempotency_key,omitempty"`
+	FirstMileMode   string  `json:"first_mile_mode,omitempty"`
 	ReferenceID     string  `json:"reference_id"`
 	SenderName      string  `json:"sender_name"`
 	SenderPhone     string  `json:"sender_phone"`
@@ -68,17 +70,17 @@ type createAWBRequest struct {
 
 // createAWBResponseData adalah field data dalam respons integration-gateway.
 type createAWBResponseData struct {
-	AWBNumber   string `json:"awb_number"`
-	Provider    string `json:"provider"`
-	ServiceType string `json:"service_type"`
-	BookingCode string `json:"booking_code"`
+	AWBNumber   string  `json:"awb_number"`
+	Provider    string  `json:"provider"`
+	ServiceType string  `json:"service_type"`
+	BookingCode string  `json:"booking_code"`
 	TotalAmount float64 `json:"total_amount"`
 }
 
 // createAWBResponseEnvelope adalah wrapper respons standar integration-gateway.
 type createAWBResponseEnvelope struct {
-	Success bool                  `json:"success"`
-	Message string                `json:"message"`
+	Success bool                   `json:"success"`
+	Message string                 `json:"message"`
 	Data    *createAWBResponseData `json:"data"`
 }
 
@@ -86,6 +88,8 @@ type createAWBResponseEnvelope struct {
 func (c *IntegrationGatewayClient) CreateAWB(ctx context.Context, req domain.AWBRequest) (*domain.AWBResponse, error) {
 	payload := createAWBRequest{
 		Provider:        req.Provider,
+		IdempotencyKey:  req.IdempotencyKey,
+		FirstMileMode:   string(req.FirstMileMode),
 		ReferenceID:     req.ReferenceID,
 		SenderName:      req.SenderName,
 		SenderPhone:     req.SenderPhone,
@@ -117,6 +121,9 @@ func (c *IntegrationGatewayClient) CreateAWB(ctx context.Context, req domain.AWB
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("X-Internal-Api-Key", c.apiKey)
+	if req.IdempotencyKey != "" {
+		httpReq.Header.Set("X-Idempotency-Key", req.IdempotencyKey)
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -229,14 +236,14 @@ func (c *IntegrationGatewayClient) CheckTariff(ctx context.Context, req domain.C
 	// Struktur data di dalam envelope menggunakan TariffResponse dari domain gateway
 	// yang sudah menggunakan TariffGross int64 dengan JSON tag "tariff_gross".
 	var envelope struct {
-		Success bool `json:"success"`
+		Success bool   `json:"success"`
 		Message string `json:"message"`
 		Data    *struct {
 			Provider string `json:"provider"`
 			Services []struct {
 				ServiceCode   string `json:"service_code"`
 				ServiceName   string `json:"service_name"`
-				TariffGross   int64  `json:"tariff_gross"`   // ← field name setelah fix domain
+				TariffGross   int64  `json:"tariff_gross"` // ← field name setelah fix domain
 				EstimatedDays string `json:"estimated_days"`
 			} `json:"services"`
 		} `json:"data"`

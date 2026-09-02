@@ -99,6 +99,8 @@ export function useFinanceData() {
   const [ledgerEndDate, setLedgerEndDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [ledgerAccountFilter, setLedgerAccountFilter] = useState<string>('');
   const [ledgerJournalTypeFilter, setLedgerJournalTypeFilter] = useState<string>('');
+  const [reconciliationServiceFilter, setReconciliationServiceFilter] = useState<string>('');
+  const [reconciliationProviderFilter, setReconciliationProviderFilter] = useState<string>('');
 
   // Simulator States
   const [simInfraCost, setSimInfraCost] = useState<number>(1500);
@@ -347,10 +349,16 @@ export function useFinanceData() {
   });
 
   const { data: reconciliationSummary, isLoading: isLoadingRecon } = useQuery({
-    queryKey: ['reconciliation-summary'],
+    queryKey: ['reconciliation-summary', reconciliationServiceFilter, reconciliationProviderFilter, ledgerStartDate, ledgerEndDate],
     enabled: activeTab === 'reconciliation',
     queryFn: async () => {
-      const res = await api.get('/admin/finance/reconciliation/summary');
+      const query = new URLSearchParams({
+        service: reconciliationServiceFilter,
+        provider: reconciliationProviderFilter,
+        from: ledgerStartDate,
+        to: ledgerEndDate,
+      });
+      const res = await api.get(`/admin/finance/reconciliation/summary?${query.toString()}`);
       return res.data?.data || [];
     }
   });
@@ -594,6 +602,10 @@ export function useFinanceData() {
     setLedgerAccountFilter,
     ledgerJournalTypeFilter,
     setLedgerJournalTypeFilter,
+    reconciliationServiceFilter,
+    setReconciliationServiceFilter,
+    reconciliationProviderFilter,
+    setReconciliationProviderFilter,
     simInfraCost,
     setSimInfraCost,
     simSalaryCost,

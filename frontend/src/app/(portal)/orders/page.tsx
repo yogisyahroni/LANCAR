@@ -9,6 +9,9 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { downloadCsv, type CsvRow } from '@/lib/csv';
 import { Search, Filter, Calendar, Download, Eye, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
+import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
+import { AsyncRecoveryState } from '@/components/ui/AsyncRecoveryState';
 
 interface Order {
   id: string;
@@ -17,6 +20,20 @@ interface Order {
   dropoff_address: string;
   recipient_name: string;
   model: string;
+  service_category?: string | null;
+  service_code?: string | null;
+  order_contract?: {
+    service?: { category?: string | null; degraded?: boolean } | null;
+  } | null;
+  service_snapshot?: {
+    name?: string | null;
+    service_name?: string | null;
+    category?: string | null;
+    service_category?: string | null;
+  } | null;
+  logistics_provider?: string | null;
+  logistics_service_type?: string | null;
+  payment_status?: string | null;
   status: string;
   distance_km: number;
   total_price_idr: number;
@@ -31,6 +48,7 @@ function OrderListContent() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
   // Pagination & Filter state from URL
@@ -60,6 +78,7 @@ function OrderListContent() {
 
   const fetchOrders = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams();
       if (searchParam) params.append('search', searchParam);
@@ -73,9 +92,12 @@ function OrderListContent() {
       const res = await api.get(`/auth/web/orders?${params.toString()}`);
       if (res.data && res.data.success) {
         setOrders(res.data.orders);
+      } else {
+        throw new Error('Customer orders response was not successful');
       }
     } catch (error: any) {
       clientLog.error('Failed to fetch customer orders', { error });
+      setLoadError('Daftar order belum dapat dimuat dari server. Data yang tampil tidak diisi dengan data contoh.');
       addNotification({ title: 'Gagal', message: 'Gagal mengambil data order.', type: 'error' });
     } finally {
       setLoading(false);
@@ -173,6 +195,7 @@ function OrderListContent() {
     switch (statusStr?.toLowerCase()) {
       case 'created':
       case 'pending':
+      case 'pending_payment':
         return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
       case 'picked_up':
       case 'in_transit':
@@ -182,6 +205,8 @@ function OrderListContent() {
       case 'delivered':
         return 'bg-green-500/10 text-green-500 border-green-500/20';
       case 'cancelled':
+      case 'payment_failed':
+      case 'expired':
         return 'bg-red-500/10 text-red-500 border-red-500/20';
       default:
         return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
@@ -213,6 +238,8 @@ function OrderListContent() {
       {/* Tabs */}
       <div className="flex bg-muted/60 p-1 rounded-xl border border-border/40 select-none w-fit">
         <button
+          role="tab"
+          aria-selected={model === 'all'}
           onClick={() => updateFilters({ model: 'all', page: 1 })}
           className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
             model === 'all' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -221,6 +248,8 @@ function OrderListContent() {
           Semua
         </button>
         <button
+          role="tab"
+          aria-selected={model === 'p2p'}
           onClick={() => updateFilters({ model: 'p2p', page: 1 })}
           className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
             model === 'p2p' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -229,6 +258,8 @@ function OrderListContent() {
           🚀 Instan
         </button>
         <button
+          role="tab"
+          aria-selected={model === 'hub_and_spoke'}
           onClick={() => updateFilters({ model: 'hub_and_spoke', page: 1 })}
           className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
             model === 'hub_and_spoke' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -244,7 +275,9 @@ function OrderListContent() {
           {/* Search bar */}
           <div className="relative col-span-1 md:col-span-2">
             <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground select-none" />
+            <label htmlFor="order-search" className="sr-only">Cari order, resi, atau penerima</label>
             <input
+              id="order-search"
               type="text"
               placeholder="Cari order, resi, atau penerima (Tekan Enter)..."
               value={search}
@@ -266,6 +299,7 @@ function OrderListContent() {
             >
               <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Status</option>
               <option value="pending" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Pending</option>
+              <option value="pending_payment" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Menunggu pembayaran</option>
               <option value="in_transit" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dalam Perjalanan</option>
               <option value="completed" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Selesai</option>
               <option value="cancelled" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dibatalkan</option>
@@ -364,6 +398,8 @@ function OrderListContent() {
       <div className="bg-card/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-sm overflow-hidden">
         {loading ? (
           <CustomerPageSkeleton />
+        ) : loadError ? (
+          <AsyncRecoveryState title="Daftar order belum tersedia" message={loadError} onRetry={() => void fetchOrders()} retrying={loading} />
         ) : orders.length === 0 ? (
           <div className="p-16 text-center text-muted-foreground flex flex-col items-center justify-center space-y-2">
             <p className="text-lg font-semibold text-white">Belum ada order</p>
@@ -376,6 +412,7 @@ function OrderListContent() {
                 <tr className="border-b border-white/10 bg-white/5">
                   <th className="px-5 py-4 w-12 text-center">
                     <input
+                      aria-label="Pilih semua order"
                       type="checkbox"
                       checked={orders.length > 0 && selectedOrders.length === orders.length}
                       onChange={toggleSelectAll}
@@ -423,6 +460,7 @@ function OrderListContent() {
                     >
                       <td className="px-5 py-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
                         <input
+                          aria-label={`Pilih order ${order.order_number}`}
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => toggleSelectOrder(order.id)}
@@ -448,14 +486,34 @@ function OrderListContent() {
                           {order.status?.toUpperCase() || 'UNKNOWN'}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-sm capitalize">{order.model || 'p2p'}</td>
-                      <td className="px-5 py-4 text-sm font-medium">{formatPrice(order.total_price_idr)}</td>
+                      <td className="px-5 py-4 text-sm">
+                        <OrderServiceBadge
+                          compact
+                          model={order.model}
+                          service_category={order.service_category}
+                          service_code={order.service_code}
+                          order_contract={order.order_contract}
+                          service_snapshot={order.service_snapshot}
+                          logistics_provider={order.logistics_provider}
+                          logistics_service_type={order.logistics_service_type}
+                          awb_number={order.awb_number}
+                        />
+                      </td>
+                      <td className="px-5 py-4 text-sm font-medium">
+                        <OrderPriceBreakdown
+                          compact
+                          totalPriceIdr={order.total_price_idr}
+                          paymentStatus={order.payment_status}
+                          deliveryStatus={order.status}
+                        />
+                      </td>
                       <td className="px-5 py-4 text-sm text-muted-foreground">{formatDate(order.created_at)}</td>
                       <td className="px-5 py-4 text-sm text-center">
                         <Link
                           href={`/orders/${order.id}`}
                           className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white/5 hover:bg-primary hover:text-primary-foreground border border-white/10 hover:border-primary transition-all duration-200"
                           title="Lihat Detail"
+                          aria-label={`Lihat detail order ${order.order_number}`}
                         >
                           <Eye className="h-4 w-4" />
                         </Link>

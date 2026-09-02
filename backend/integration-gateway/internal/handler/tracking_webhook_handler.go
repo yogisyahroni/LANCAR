@@ -3,7 +3,6 @@ package handler
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,6 +13,9 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"tembus/integration-gateway/internal/domain"
+	providerpkg "tembus/integration-gateway/internal/provider"
 )
 
 // TrackingWebhookHandler bertanggung jawab menerima webhook tracking/POD
@@ -24,6 +26,7 @@ type TrackingWebhookHandler struct {
 	internalAPIKey  string
 	webhookSecret   string // rahasia verifikasi signature webhook dari 3PL
 	httpClient      *http.Client
+	webhookAdapters domain.WebhookAdapterRegistry
 }
 
 // NewTrackingWebhookHandler membuat instance TrackingWebhookHandler baru.
@@ -40,35 +43,13 @@ func NewTrackingWebhookHandler() *TrackingWebhookHandler {
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		webhookAdapters: providerpkg.NewWebhookAdapterRegistry(),
 	}
 }
 
-// NormalizedTrackingEvent mewakili format payload standar yang dikirim ke order-service.
-type NormalizedTrackingEvent struct {
-	AWBNumber   string `json:"awb_number"`
-	Provider    string `json:"provider"`
-	Status      string `json:"status"` // "DELIVERED", "IN_TRANSIT", dll
-	PodURL      string `json:"pod_url,omitempty"`
-	ConfirmedAt string `json:"confirmed_at,omitempty"` // RFC3339 timestamp
-	RawPayload  string `json:"raw_payload,omitempty"`
-}
-
-// jneWebhookPayload merepresentasikan format webhook JNE
-type jneWebhookPayload struct {
-	AWB       string `json:"cnote_no"`
-	Status    string `json:"status"` // "DELIVERED", dll
-	Receiver  string `json:"receiver_name"`
-	Date      string `json:"delivery_date"`
-	PODImage  string `json:"pod_photo_url"`
-}
-
-// jntWebhookPayload merepresentasikan format webhook J&T Express
-type jntWebhookPayload struct {
-	WaybillNo string `json:"billcode"`
-	ScanType  string `json:"scantype"` // "Penandatanganan" / "Delivered"
-	PhotoURL  string `json:"signpic"`
-	ScanTime  string `json:"scantime"`
-}
+// NormalizedTrackingEvent is retained as a compatibility alias for callers
+// while the canonical event contract lives in domain.CarrierEvent.
+type NormalizedTrackingEvent = domain.CarrierEvent
 
 // HandleProviderWebhook adalah endpoint universal/spesifik untuk menerima webhook tracking 3PL.
 // Route: POST /api/v1/logistics/webhook/{provider} atau POST /api/v1/logistics/webhook
@@ -102,27 +83,22 @@ func (h *TrackingWebhookHandler) HandleProviderWebhook(w http.ResponseWriter, r 
 	}
 	defer r.Body.Close()
 
-	// ─── 3. Verifikasi Signature Webhook (WAJIB) ────────────────────────────────
-	// SECURITY FIX (2026): Menghapus "Fail-Open" configuration.
-	// LOGISTICS_WEBHOOK_SECRET wajib ada. Jika tidak ada, tolak request untuk 
-	// mencegah bypass signature dan eskalasi pencairan escrow.
-	if h.webhookSecret == "" {
-		slog.ErrorContext(r.Context(), "tracking_webhook: CRITICAL SECURITY ERROR — LOGISTICS_WEBHOOK_SECRET is empty. Denying webhook.")
-		http.Error(w, "Webhook verification secret is not configured", http.StatusInternalServerError)
-		return
+	// ─── 3. Resolve adapter and verify provider-owned signature ────────────────
+	adapter, knownProvider := h.webhookAdapters.Get(provider)
+	if !knownProvider {
+		// Unknown providers are accepted only through the generic raw-preserving
+		// adapter and remain UNKNOWN/manual until an adapter is registered.
+		adapter = providerpkg.NewGenericWebhookAdapter(provider)
+		slog.WarnContext(r.Context(), "tracking_webhook: provider has no registered adapter; degraded manual tracking", "provider", provider)
 	}
-
-	receivedSig := r.Header.Get("X-Webhook-Signature")
-	if receivedSig == "" {
-		slog.WarnContext(r.Context(), "tracking_webhook: missing required X-Webhook-Signature header", "provider", provider)
-		http.Error(w, "Missing webhook signature", http.StatusUnauthorized)
-		return
-	}
-
-	expectedSig := h.computeHMAC(bodyBytes, h.webhookSecret)
-	if !hmac.Equal([]byte(receivedSig), []byte(expectedSig)) {
-		slog.WarnContext(r.Context(), "tracking_webhook: HMAC signature mismatch — possible unauthorized webhook injection", "provider", provider)
-		http.Error(w, "Invalid webhook signature", http.StatusUnauthorized)
+	if err := adapter.VerifySignature(r.Header, bodyBytes, h.webhookSecret); err != nil {
+		if strings.Contains(err.Error(), "not configured") {
+			slog.ErrorContext(r.Context(), "tracking_webhook: verification secret is not configured", "provider", provider)
+			http.Error(w, "Webhook verification secret is not configured", http.StatusInternalServerError)
+			return
+		}
+		slog.WarnContext(r.Context(), "tracking_webhook: provider signature verification failed", "provider", provider, "error", err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
@@ -137,6 +113,12 @@ func (h *TrackingWebhookHandler) HandleProviderWebhook(w http.ResponseWriter, r 
 
 	// Simpan raw payload asli untuk keperluan audit
 	event.RawPayload = string(bodyBytes)
+	event.PayloadHash = sha256Hex(bodyBytes)
+	if headerID := strings.TrimSpace(r.Header.Get("X-Event-ID")); headerID != "" {
+		event.EventID = headerID
+	} else {
+		event.EventID = provider + ":" + event.PayloadHash
+	}
 
 	// ─── 5. Teruskan event ke order-service internal delivery webhook ─────────
 	if err := h.forwardToOrderService(r.Context(), event); err != nil {
@@ -159,64 +141,59 @@ func (h *TrackingWebhookHandler) HandleProviderWebhook(w http.ResponseWriter, r 
 	})
 }
 
-// normalizePayload menormalisasi webhook dari berbagai provider 3PL.
+// normalizePayload delegates provider-specific parsing to the registered
+// adapter. The central handler remains transport/security orchestration only.
 func (h *TrackingWebhookHandler) normalizePayload(provider string, body []byte) (NormalizedTrackingEvent, error) {
-	var event NormalizedTrackingEvent
-	event.Provider = strings.ToUpper(provider)
-	event.ConfirmedAt = time.Now().Format(time.RFC3339)
-
-	switch provider {
-	case "jne":
-		var p jneWebhookPayload
-		if err := json.Unmarshal(body, &p); err != nil {
-			return event, err
-		}
-		event.AWBNumber = p.AWB
-		event.PodURL = p.PODImage
-		if strings.EqualFold(p.Status, "DELIVERED") {
-			event.Status = "DELIVERED"
-		} else {
-			event.Status = strings.ToUpper(p.Status)
-		}
-
-	case "jnt", "jnt_express":
-		var p jntWebhookPayload
-		if err := json.Unmarshal(body, &p); err != nil {
-			return event, err
-		}
-		event.AWBNumber = p.WaybillNo
-		event.PodURL = p.PhotoURL
-		if strings.Contains(strings.ToLower(p.ScanType), "delivered") ||
-			strings.Contains(strings.ToLower(p.ScanType), "penandatanganan") {
-			event.Status = "DELIVERED"
-		} else {
-			event.Status = strings.ToUpper(p.ScanType)
-		}
-
-	default:
-		// Generic JSON payload with standardized fields
-		var generic map[string]any
-		if err := json.Unmarshal(body, &generic); err != nil {
-			return event, err
-		}
-		if awb, ok := generic["awb_number"].(string); ok {
-			event.AWBNumber = awb
-		} else if awb, ok := generic["awb"].(string); ok {
-			event.AWBNumber = awb
-		}
-		if status, ok := generic["status"].(string); ok {
-			event.Status = strings.ToUpper(status)
-		}
-		if pod, ok := generic["pod_url"].(string); ok {
-			event.PodURL = pod
-		}
+	registry := h.webhookAdapters
+	if registry == nil {
+		registry = providerpkg.NewWebhookAdapterRegistry()
 	}
-
-	if event.AWBNumber == "" {
-		return event, fmt.Errorf("could not extract AWB number from %s webhook payload", provider)
+	var adapter domain.WebhookAdapter
+	ok := false
+	adapter, ok = registry.Get(provider)
+	if !ok {
+		adapter = providerpkg.NewGenericWebhookAdapter(provider)
 	}
-
+	event, err := adapter.Normalize(body)
+	if err != nil {
+		return NormalizedTrackingEvent{}, err
+	}
+	if event.RawStatus == "" {
+		event.RawStatus = event.Status
+	}
+	if event.Status == "" {
+		event.Status = "UNKNOWN"
+	}
+	if event.CanonicalStatus == "" {
+		event.CanonicalStatus = event.Status
+	}
+	if event.ProviderStatus == "" {
+		event.ProviderStatus = event.RawStatus
+	}
+	if event.ProviderCode == "" {
+		event.ProviderCode = event.RawCode
+	}
+	if event.ProviderDetail == "" {
+		event.ProviderDetail = event.RawDescription
+	}
+	if event.ProviderLocation == "" {
+		event.ProviderLocation = event.RawLocation
+	}
+	if event.ProviderTimestamp == "" {
+		event.ProviderTimestamp = event.OccurredAt
+	}
+	if event.RawStatus == "" {
+		event.RawStatus = "UNKNOWN"
+	}
+	if event.ProviderStatus == "" {
+		event.ProviderStatus = event.RawStatus
+	}
 	return event, nil
+}
+
+func sha256Hex(payload []byte) string {
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
 }
 
 // forwardToOrderService mengirim event yang sudah dinormalisasi ke endpoint internal order-service.
@@ -249,10 +226,4 @@ func (h *TrackingWebhookHandler) forwardToOrderService(ctx context.Context, even
 	}
 
 	return nil
-}
-
-func (h *TrackingWebhookHandler) computeHMAC(payload []byte, secret string) string {
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(payload)
-	return hex.EncodeToString(mac.Sum(nil))
 }

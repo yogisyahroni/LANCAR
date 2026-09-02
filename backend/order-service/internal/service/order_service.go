@@ -11,27 +11,28 @@ import (
 )
 
 type orderServiceImpl struct {
-	orderRepo       domain.OrderRepository
-	eventRepo       domain.OrderEventRepository
-	redisRepo       domain.RedisRepository
-	pricingRepo     domain.PricingRepository
-	relayRepo       domain.RelayRepository
-	eventBus        domain.EventBus
-	taskQueue       queue.Queue
-	flagReader      featureflags.FlagReader
-	notificationSvc domain.NotificationService
-	configRepo      domain.ConfigRepository
-	refundSvc       domain.RefundService
-	reportSvc       domain.ServiceReportService
-	ledgerRepo      domain.FinanceLedgerRepository
-	taxSvc          domain.TaxService
-	foodRepo        domain.FoodRepository
-	settlementSvc   domain.MerchantSettlementService
-	pointsSvc       domain.DriverPointsService
-	penaltySvc      domain.DriverPenaltyService
-	voucherSvc      domain.VoucherService
-	tipSvc          domain.TipService  // FB-083: refund tip saat order batal
-	pushSvc         domain.PushService // FB-084: notif push customer saat merchant reject/timeout
+	orderRepo        domain.OrderRepository
+	eventRepo        domain.OrderEventRepository
+	redisRepo        domain.RedisRepository
+	pricingRepo      domain.PricingRepository
+	relayRepo        domain.RelayRepository
+	availabilityRepo domain.AvailabilityRepository
+	eventBus         domain.EventBus
+	taskQueue        queue.Queue
+	flagReader       featureflags.FlagReader
+	notificationSvc  domain.NotificationService
+	configRepo       domain.ConfigRepository
+	refundSvc        domain.RefundService
+	reportSvc        domain.ServiceReportService
+	ledgerRepo       domain.FinanceLedgerRepository
+	taxSvc           domain.TaxService
+	foodRepo         domain.FoodRepository
+	settlementSvc    domain.MerchantSettlementService
+	pointsSvc        domain.DriverPointsService
+	penaltySvc       domain.DriverPenaltyService
+	voucherSvc       domain.VoucherService
+	tipSvc           domain.TipService  // FB-083: refund tip saat order batal
+	pushSvc          domain.PushService // FB-084: notif push customer saat merchant reject/timeout
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -84,6 +85,13 @@ func (s *orderServiceImpl) SetServiceReportService(reportSvc domain.ServiceRepor
 // Dipanggil dari wiring setelah service di-construct.
 func (s *orderServiceImpl) SetFoodRepository(fr domain.FoodRepository) {
 	s.foodRepo = fr
+}
+
+// SetAvailabilityRepository injects the operational capability and state
+// source used by matching. Redis remains the fast proximity index; this
+// repository is the authoritative eligibility check before an offer is sent.
+func (s *orderServiceImpl) SetAvailabilityRepository(ar domain.AvailabilityRepository) {
+	s.availabilityRepo = ar
 }
 
 // SetVoucherService — inject voucher service (FB-078).

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -23,28 +23,42 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AddressPicker } from "./AddressPicker";
+import { PaymentModal } from "./PaymentModal";
+import {
+  AggregatorCarrierQuote,
+  capabilityLabel,
+  normalizeAggregatorCarrierQuote,
+} from "@/lib/aggregatorQuotePresentation";
+import {
+  AggregatorOrder,
+  AggregatorPayment,
+  AggregatorQuote,
+  buildAggregatorOrderPayload,
+  createPendingAggregatorTransaction,
+  createIdempotencyKey,
+  markAggregatorAwaitingPayment,
+  markAggregatorPaymentSessionRequested,
+  parsePendingAggregatorTransaction,
+  PendingAggregatorTransaction,
+  requestAggregatorOrder,
+  requestAggregatorPaymentSession,
+} from "@/hooks/useCreateAggregatorOrder";
 
 // ─── Types & Constants ──────────────────────────────────────────────────
-const PROVIDERS = [
-  { id: "jne", name: "JNE Express", color: "text-blue-400", border: "border-blue-400" },
-  { id: "jnt", name: "J&T Express", color: "text-red-400", border: "border-red-400" },
-  { id: "sicepat", name: "SiCepat", color: "text-orange-400", border: "border-orange-400" },
-  { id: "anteraja", name: "AnterAja", color: "text-green-400", border: "border-green-400" },
-];
+type ProviderOption = {
+  code: string;
+  name: string;
+  capabilities?: string[];
+  tracking_mode?: "webhook" | "polling" | "degraded_manual";
+  tracking_degraded?: boolean;
+};
 
-const mockCities = [
-  { code: "CGK", name: "Jakarta", type: "both" },
-  { code: "BDO", name: "Bandung", type: "both" },
-  { code: "SRG", name: "Semarang", type: "both" },
-  { code: "SUB", name: "Surabaya", type: "both" },
-  { code: "JOG", name: "Yogyakarta", type: "both" },
-  { code: "DPS", name: "Denpasar/Bali", type: "both" },
-  { code: "MDN", name: "Medan", type: "both" },
-];
+type LogisticsCity = { code: string; name: string; type: "origin" | "destination" | "both" };
 
-// Step 1: Pick Up — origin_code removed from UI, defaulted to CGK (Jakarta)
+// Step 1: Pick Up — provider area is selected from the server-backed mapping.
 const step1Schema = z.object({
   provider: z.string().min(1, "Pilih Ekspedisi"),
+  origin_code: z.string().min(1, "Pilih kota asal"),
   pickup_address: z.string().min(5, "Alamat pickup minimal 5 karakter"),
   pickup_location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(),
   schedule_type: z.enum(["now", "scheduled"]).default("now"),
@@ -65,6 +79,7 @@ const step1Schema = z.object({
 const step2Schema = z.object({
   destination_code: z.string().min(1, "Pilih kota tujuan"),
   dropoff_address: z.string().min(5, "Alamat tujuan minimal 5 karakter"),
+  dropoff_location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(),
   recipient_name: z.string().min(3, "Nama penerima wajib diisi"),
   recipient_phone: z.string().regex(/^(08|628|\+628)[0-9]{8,11}$/, "Nomor HP tidak valid"),
   payment_type: z.enum(["COD", "NON_COD"]).default("NON_COD"),
@@ -75,10 +90,18 @@ const step2Schema = z.object({
   category: z.string().optional(),
   dangerous_goods: z.boolean().default(false),
   delivery_notes: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (!data.dropoff_location) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["dropoff_location"],
+      message: "Pilih alamat tujuan dari hasil pencarian agar koordinat tersimpan",
+    });
+  }
 });
 
 
-// Step 3: Review & Service
+// Step 3: Compare Carrier / Step 4: Review & Pay
 const step3Schema = z.object({
   service_code: z.string().min(1, "Pilih layanan pengiriman"),
   tariff_idr: z.number(),
@@ -90,8 +113,22 @@ type Step3Values = z.infer<typeof step3Schema>;
 
 type WizardValues = Step1Values & Step2Values & Step3Values;
 
+const PENDING_AGGREGATOR_STORAGE_KEY = "tembus.aggregator.pending-transaction";
+
 function formatPrice(price: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(price);
+}
+
+function clearPendingAggregatorTransaction(): void {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem(PENDING_AGGREGATOR_STORAGE_KEY);
+  }
+}
+
+function persistPendingAggregatorTransaction(transaction: PendingAggregatorTransaction): void {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(PENDING_AGGREGATOR_STORAGE_KEY, JSON.stringify(transaction));
+  }
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────
@@ -99,8 +136,11 @@ export function AggregatorWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [orderMode, setOrderMode] = useState<"manual" | "upload" | null>(null);
-  const [cities, setCities] = useState(mockCities);
-  const [tariffs, setTariffs] = useState<any[]>([]);
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [providerError, setProviderError] = useState<string | null>(null);
+  const [cities, setCities] = useState<LogisticsCity[]>([]);
+  const [cityError, setCityError] = useState<string | null>(null);
+  const [tariffs, setTariffs] = useState<AggregatorCarrierQuote[]>([]);
   const [isLoadingTariff, setIsLoadingTariff] = useState(false);
   const [tariffError, setTariffError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,6 +150,15 @@ export function AggregatorWizard() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [bulkRows, setBulkRows] = useState<any[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [bulkRevision, setBulkRevision] = useState(1);
+  const [createdOrder, setCreatedOrder] = useState<AggregatorOrder | null>(null);
+  const [payment, setPayment] = useState<AggregatorPayment | null>(null);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
+  const createTransactionRef = useRef<{ fingerprint: string; key: string }>({ fingerprint: "", key: "" });
+  const paymentKeyRef = useRef<{ orderId: string; key: string }>({ orderId: "", key: "" });
+  const bulkProcessKeyRef = useRef<string>("");
 
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
@@ -193,6 +242,7 @@ export function AggregatorWizard() {
             clearInterval(pollInterval);
             setUploadProgress(100);
             setBulkRows(jobData.rows || []);
+            setBulkRevision(Number(jobData.revision || 1));
             setIsUploading(false);
             setStep(3); // Auto-advance to review step
           } else if (jobData.status === 'failed') {
@@ -216,16 +266,15 @@ export function AggregatorWizard() {
 
   // Initialize unified form — NO global resolver; we validate per-step manually
   // to avoid Zod v4 ↔ @hookform/resolvers incompatibility (uncaught ZodError).
-  // origin_code is removed from UI; always defaults to CGK (Jakarta) for tariff calc.
-  const ORIGIN_CODE = "CGK";
-
   const methods = useForm<WizardValues>({
     defaultValues: {
       provider: "",
+      origin_code: "",
       pickup_address: "",
       schedule_type: "now",
       destination_code: "",
       dropoff_address: "",
+      dropoff_location: null,
       recipient_name: "",
       recipient_phone: "",
       payment_type: "NON_COD",
@@ -245,12 +294,154 @@ export function AggregatorWizard() {
   const { register, watch, setValue, formState: { errors } } = methods;
 
   const currentProvider = watch("provider");
+  const selectedProvider = providers.find((provider) => provider.code === currentProvider);
+  const carrierHandoffSupported = Boolean(selectedProvider?.capabilities?.some((capability) => String(capability).toLowerCase() === "shipment"));
+  const codSupported = Boolean(selectedProvider?.capabilities?.some((capability) => String(capability).toLowerCase() === "cod"));
+  const paymentType = watch("payment_type");
+  const paymentOptions: Array<"COD" | "NON_COD"> = codSupported ? ["COD", "NON_COD"] : ["NON_COD"];
   const scheduleType = watch("schedule_type");
   const pickup_address = watch("pickup_address");
   const pickup_location = watch("pickup_location");
+  const dropoff_address = watch("dropoff_address");
+  const dropoff_location = watch("dropoff_location");
+
+  useEffect(() => {
+    if (!codSupported && paymentType === "COD") {
+      setValue("payment_type", "NON_COD", { shouldValidate: true });
+    }
+  }, [codSupported, paymentType, setValue]);
+
+  useEffect(() => {
+    let active = true;
+    api.get("/logistics/providers")
+      .then((response) => {
+        const data = response.data?.providers;
+        if (!active) return;
+        if (!Array.isArray(data) || data.length === 0 || data.some((provider) => !provider?.code || !provider?.name)) {
+          setProviderError("Daftar provider belum tersedia dari server.");
+          return;
+        }
+        setProviders(data as ProviderOption[]);
+        setProviderError(null);
+      })
+      .catch(() => {
+        if (active) setProviderError("Daftar provider tidak dapat dimuat. Coba lagi setelah layanan aktif.");
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    setCities([]);
+    setCityError(null);
+    setValue("origin_code", "", { shouldValidate: false });
+    setValue("destination_code", "", { shouldValidate: false });
+    if (!currentProvider) return;
+
+    let active = true;
+    api.get("/logistics/locations", { params: { provider: currentProvider } })
+      .then((response) => {
+        const data = response.data?.data || response.data;
+        if (!active) return;
+        if (!Array.isArray(data) || data.length === 0 || data.some((city) => !city?.code || !city?.name)) {
+          setCityError("Data area provider belum tersedia dari server.");
+          return;
+        }
+        setCities(data as LogisticsCity[]);
+        setCityError(null);
+      })
+      .catch(() => {
+        if (active) setCityError("Data area provider tidak dapat dimuat. Lengkapi mapping provider atau coba lagi.");
+      });
+    return () => { active = false; };
+  }, [currentProvider, setValue]);
+
+  const startPaymentForOrder = useCallback(async (order: AggregatorOrder) => {
+    if (!order.id) throw new Error("Referensi order tidak valid");
+
+    if (order.status && order.status !== "pending_payment") {
+      clearPendingAggregatorTransaction();
+      router.push(`/orders/${order.id}`);
+      return;
+    }
+
+    const pendingTransaction = typeof window !== "undefined"
+      ? parsePendingAggregatorTransaction(window.sessionStorage.getItem(PENDING_AGGREGATOR_STORAGE_KEY))
+      : null;
+    const transaction = pendingTransaction?.order_id === order.id
+      ? pendingTransaction
+      : createPendingAggregatorTransaction(order.id, createIdempotencyKey());
+    if (paymentKeyRef.current.orderId !== order.id) {
+      paymentKeyRef.current = {
+        orderId: order.id,
+        key: transaction.payment_idempotency_key || createIdempotencyKey(),
+      };
+    }
+    const paymentRequestedTransaction = markAggregatorPaymentSessionRequested(
+      transaction,
+      paymentKeyRef.current.key,
+    );
+    persistPendingAggregatorTransaction(paymentRequestedTransaction);
+
+    const paymentSession = await requestAggregatorPaymentSession(
+      api,
+      order.id,
+      paymentKeyRef.current.key,
+    );
+
+    if (!paymentSession) {
+      clearPendingAggregatorTransaction();
+      router.push(`/orders/${order.id}`);
+      return;
+    }
+
+    if (paymentSession.payment_status === "paid" || paymentSession.order_status !== "pending_payment") {
+      clearPendingAggregatorTransaction();
+      router.push(`/orders/${order.id}`);
+      return;
+    }
+
+    setPayment(paymentSession);
+    persistPendingAggregatorTransaction(markAggregatorAwaitingPayment(paymentRequestedTransaction));
+    setIsPaymentOpen(true);
+  }, [router]);
+
+  // Recovery is server-backed: a refresh can restore the persisted order reference
+  // and continue payment without creating a second order.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.sessionStorage.getItem(PENDING_AGGREGATOR_STORAGE_KEY);
+    if (!raw) return;
+
+    const transaction = parsePendingAggregatorTransaction(raw);
+    if (!transaction) {
+      clearPendingAggregatorTransaction();
+      return;
+    }
+
+    let active = true;
+    setSubmitError(null);
+    api.get(`/auth/web/orders/${transaction.order_id}`)
+      .then(async (response) => {
+        const order = response.data?.order;
+        if (!active || !order?.id) throw new Error("Order transaksi tidak ditemukan");
+        setCreatedOrder(order);
+        setOrderMode("manual");
+        setStep(4);
+        setRecoveryNotice(`Order ${order.order_number || order.id} dipulihkan. Lanjutkan pembayaran untuk order ini.`);
+        await startPaymentForOrder(order);
+      })
+      .catch((error: any) => {
+        if (!active) return;
+        setSubmitError(error.response?.data?.error || "Transaksi tersimpan belum dapat dipulihkan. Coba lagi.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [startPaymentForOrder]);
 
 
-  // Load tariffs when entering Step 3
+  // Load tariffs when entering Step 3 (Compare Carrier)
   useEffect(() => {
     if (step !== 3) return;
 
@@ -264,22 +455,25 @@ export function AggregatorWizard() {
         const res = await api.get("/logistics/check-tariff", {
           params: {
             provider: values.provider,
-            origin_code: ORIGIN_CODE,
+            origin_code: values.origin_code,
             destination_code: values.destination_code,
             weight_kg: values.weight_kg,
           } as any,
         });
         
-        const data = res.data?.data?.services || res.data?.tariffs || [];
+        const quoteResponse = res.data?.data || {};
+        const data = quoteResponse.services || res.data?.tariffs || [];
         const items = Array.isArray(data) ? data : [data];
         
-        const allTariffs = items.map((item: any) => ({
-          service: item.service_code || item.service || "reg",
-          service_name: item.service_name || item.service || "Reguler",
-          price: Number(item.tariff_gross || item.price || item.total_price_idr || 0),
-          net_price: Number(item.tariff_net || 0),
-          etd: item.etd || item.estimated_days || "1-3 hari",
-        }));
+        const provider = providers.find((item) => item.code === values.provider);
+        const allTariffs = items
+          .map((item: any) => normalizeAggregatorCarrierQuote(
+            { ...item, source: item.source || quoteResponse.source },
+            { provider: values.provider, provider_name: provider?.name || values.provider },
+            values.weight_kg,
+            provider?.capabilities || [],
+          ))
+          .filter((quote): quote is AggregatorCarrierQuote => quote !== null);
 
         allTariffs.sort((a, b) => a.price - b.price);
 
@@ -339,28 +533,103 @@ export function AggregatorWizard() {
   };
 
   const onSubmitFinal = async () => {
+    setSubmitError(null);
     setIsSubmitting(true);
     try {
       if (orderMode === "upload") {
         if (!jobId || bulkRows.length === 0) {
-          alert("Data upload tidak valid.");
+          setSubmitError("Data upload tidak valid.");
           return;
         }
-        await api.post("/auth/web/orders/bulk/process", { job_id: jobId });
-        router.push("/orders?success=true");
+        if (!bulkProcessKeyRef.current) bulkProcessKeyRef.current = createIdempotencyKey();
+        const response = await api.post("/auth/web/orders/bulk/process", {
+          job_id: jobId,
+          job_revision: bulkRevision,
+        }, { headers: { "X-Idempotency-Key": bulkProcessKeyRef.current } });
+        if (response.data?.success !== true || Number(response.data?.processed_count || 0) < 1) {
+          throw new Error("Server belum mengonfirmasi order bulk tersimpan");
+        }
+        router.push("/orders");
       } else {
-        const isValid = await validateStep(3);
+        if (createdOrder) {
+          await startPaymentForOrder(createdOrder);
+          return;
+        }
+
+        const isValid = await validateStep(4);
         if (!isValid) return;
-        // Proceed with manual submission mock
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        router.push("/orders?success=true");
+
+        const values = methods.getValues();
+        const selectedTariff = tariffs.find((tariff) => tariff.service === values.service_code);
+        if (!selectedTariff || !values.pickup_location || !values.dropoff_location) {
+          throw new Error("Kutipan tarif dan koordinat pickup/dropoff wajib tersedia");
+        }
+
+        const destinationCity = cities.find((city) => city.code === values.destination_code)?.name;
+        const originCity = cities.find((city) => city.code === values.origin_code)?.name;
+        if (!destinationCity || !originCity) {
+          throw new Error("Data kota asal/tujuan belum tersedia dari server");
+        }
+        const payload = buildAggregatorOrderPayload({
+          provider: values.provider,
+          pickup_address: values.pickup_address,
+          pickup_location: values.pickup_location,
+          dropoff_address: values.dropoff_address,
+          dropoff_location: values.dropoff_location,
+          recipient_name: values.recipient_name,
+          recipient_phone: values.recipient_phone,
+          destination_code: values.destination_code,
+          pickup_city: originCity,
+          dropoff_city: destinationCity,
+          payment_type: values.payment_type,
+          item_value: values.item_value,
+          weight_kg: values.weight_kg,
+          quantity: values.quantity,
+          item_description: values.item_description,
+          category: values.category,
+          dangerous_goods: values.dangerous_goods,
+          delivery_notes: values.delivery_notes,
+          schedule_type: values.schedule_type,
+          scheduled_at: values.scheduled_at,
+          vehicle_type: values.vehicle_type,
+        }, selectedTariff as AggregatorQuote);
+
+        const fingerprint = JSON.stringify(payload);
+        if (createTransactionRef.current.fingerprint !== fingerprint) {
+          createTransactionRef.current = { fingerprint, key: createIdempotencyKey() };
+        }
+
+        const order = await requestAggregatorOrder(
+          api,
+          payload,
+          createTransactionRef.current.key,
+        );
+        setCreatedOrder(order);
+        if (typeof window !== "undefined") {
+          persistPendingAggregatorTransaction(createPendingAggregatorTransaction(
+            order.id,
+            createTransactionRef.current.key,
+          ));
+        }
+        await startPaymentForOrder(order);
       }
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.error || "Gagal membuat pesanan");
+      setSubmitError(error.response?.data?.error || error.response?.data?.message || error.message || "Gagal membuat pesanan");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    const orderId = createdOrder?.id;
+    if (!orderId) {
+      setSubmitError("Pembayaran terkonfirmasi tetapi referensi order tidak tersedia. Buka Riwayat Pesanan untuk memeriksa status.");
+      return;
+    }
+    clearPendingAggregatorTransaction();
+    setIsPaymentOpen(false);
+    router.push(`/orders/${orderId}`);
   };
 
   return (
@@ -371,13 +640,14 @@ export function AggregatorWizard() {
           <div className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 bg-white/10" />
           <div 
             className="absolute left-0 top-1/2 h-0.5 -translate-y-1/2 bg-indigo-500 transition-all duration-300" 
-            style={{ width: `${((step - 1) / 2) * 100}%` }} 
+            style={{ width: `${((step - 1) / 3) * 100}%` }}
           />
           
           {[
             { num: 1, label: "Pick Up" },
-            { num: 2, label: "Order" },
-            { num: 3, label: "Review" },
+            { num: 2, label: "Receiver / Package" },
+            { num: 3, label: "Bandingkan Kurir" },
+            { num: 4, label: "Review & Bayar" },
           ].map((s) => (
             <div key={s.num} className="relative z-10 flex flex-col items-center gap-2 bg-background px-2">
               <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 font-bold text-sm transition-colors ${step >= s.num ? "border-indigo-500 bg-indigo-500 text-white" : "border-white/20 bg-background text-muted-foreground"}`}>
@@ -389,6 +659,25 @@ export function AggregatorWizard() {
         </div>
       </div>
 
+      {(recoveryNotice || submitError) && (
+        <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${submitError
+          ? "border-red-500/30 bg-red-500/10 text-red-200"
+          : "border-indigo-500/30 bg-indigo-500/10 text-indigo-200"}`} role="status">
+          {submitError || recoveryNotice}
+        </div>
+      )}
+
+      {cityError && (
+        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="alert">
+          {cityError}
+        </div>
+      )}
+      {providerError && (
+        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="alert">
+          {providerError}
+        </div>
+      )}
+
       <FormProvider {...methods}>
         <form onSubmit={(e) => { e.preventDefault(); onSubmitFinal(); }} className="space-y-6">
           
@@ -399,28 +688,44 @@ export function AggregatorWizard() {
               <div>
                 <label className="mb-3 block text-base font-semibold text-foreground">1. Pilih Ekspedisi</label>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {PROVIDERS.map((provider) => (
+                  {providers.map((provider) => (
                     <button
-                      key={provider.id}
+                      key={provider.code}
                       type="button"
-                      onClick={() => setValue("provider", provider.id, { shouldValidate: true })}
+                      onClick={() => setValue("provider", provider.code, { shouldValidate: true })}
                       className={[
                         "rounded-xl border-2 px-4 py-4 text-center transition-all",
-                        currentProvider === provider.id
-                          ? `${provider.border} bg-white/10 shadow-lg shadow-white/5`
+                        currentProvider === provider.code
+                          ? "border-indigo-400 bg-white/10 shadow-lg shadow-white/5"
                           : "border-white/10 bg-background/40 hover:bg-white/5 hover:border-white/20",
                       ].join(" ")}
                     >
-                      <span className={`block font-bold ${provider.color}`}>{provider.name}</span>
+                      <span className="block font-bold text-foreground">{provider.name}</span>
+                      <span className="mt-1 block text-[10px] text-muted-foreground">{provider.capabilities?.length ? provider.capabilities.map(capabilityLabel).join(" · ") : "Capability belum diberikan"}</span>
+                      <span className={`mt-1 block text-[10px] ${provider.tracking_degraded ? "text-amber-300" : "text-muted-foreground"}`}>{provider.tracking_degraded ? "Tracking degraded · manual" : `Tracking: ${provider.tracking_mode || "belum ditentukan"}`}</span>
                     </button>
                   ))}
                 </div>
                 {errors.provider && <p className="mt-2 text-xs text-destructive">{errors.provider.message}</p>}
               </div>
 
+              <div className="rounded-xl border border-indigo-400/20 bg-indigo-400/5 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-200">Tahap first-mile</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-indigo-400/30 bg-indigo-400/10 p-3">
+                    <p className="text-sm font-semibold text-indigo-100">Pickup oleh LANCAR</p>
+                    <p className="mt-1 text-xs text-indigo-100/70">Alamat dan koordinat pickup disiapkan untuk proses serah-terima.</p>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-background/30 p-3">
+                    <p className="text-sm font-semibold text-foreground">Handoff ke {currentProvider ? currentProvider.toUpperCase() : "carrier"}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{carrierHandoffSupported ? "Capability shipment provider aktif; AWB dan status carrier diproses setelah order tersimpan." : "Provider belum mendeklarasikan capability shipment."}</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="h-px bg-white/10" />
 
-              {/* 2. Detail Pengirim — only AddressPicker, Kota Asal removed */}
+              {/* 2. Detail Pengirim */}
               <div>
                 <label className="mb-3 block text-base font-semibold text-foreground">2. Detail Pengirim</label>
                 <div className="space-y-4">
@@ -435,6 +740,20 @@ export function AggregatorWizard() {
                       locationError={undefined}
                       cardPicker={true}
                     />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Kota area pickup provider</label>
+                    <select
+                      {...register("origin_code")}
+                      disabled={!currentProvider || cities.length === 0}
+                      className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="">{currentProvider ? "Pilih kota asal..." : "Pilih ekspedisi dahulu"}</option>
+                      {cities.filter((city) => city.type === "origin" || city.type === "both").map((city) => (
+                        <option key={city.code} value={city.code}>{city.name}</option>
+                      ))}
+                    </select>
+                    {errors.origin_code && <p className="mt-1 text-xs text-destructive">{errors.origin_code.message}</p>}
                   </div>
                 </div>
               </div>
@@ -527,17 +846,17 @@ export function AggregatorWizard() {
                     <span className="text-base">🔄</span> Select Courier
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {PROVIDERS.map(p => (
+                    {providers.map(p => (
                       <span
-                        key={p.id}
+                        key={p.code}
                         className={[
                           "relative inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
-                          watch("provider") === p.id
-                            ? `${p.border} ${p.color} bg-white/5`
+                          watch("provider") === p.code
+                            ? "border-indigo-400 text-indigo-200 bg-white/5"
                             : "border-white/10 text-muted-foreground",
                         ].join(" ")}
                       >
-                        {watch("provider") === p.id && (
+                        {watch("provider") === p.code && (
                           <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-brand-emerald-500 flex items-center justify-center">
                             <Check className="h-2 w-2 text-white" />
                           </span>
@@ -676,15 +995,18 @@ export function AggregatorWizard() {
                         </div>
                       </div>
 
-                      {/* 2. Alamat */}
+                      {/* 2. Alamat + koordinat tujuan */}
                       <div>
                         <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Alamat</label>
-                        <input
-                          {...register("dropoff_address")}
-                          placeholder="Jl. Raya Mawar 10"
-                          className="w-full rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                        <AddressPicker
+                          mode="dropoff"
+                          address={dropoff_address}
+                          location={dropoff_location as any}
+                          setValue={setValue as any}
+                          error={errors.dropoff_address?.message}
+                          locationError={errors.dropoff_location?.message as string | undefined}
+                          cardPicker={true}
                         />
-                        {errors.dropoff_address && <p className="mt-1 text-xs text-destructive">{errors.dropoff_address.message}</p>}
                       </div>
 
                       {/* 3. Provinsi / Kota */}
@@ -698,7 +1020,7 @@ export function AggregatorWizard() {
                             className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 pl-10 pr-8 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
                           >
                             <option value="">Pilih kota / kecamatan...</option>
-                            {cities.filter(c => c.type === "destination" || c.type === "both").map(city => (
+                            {cities.filter(c => (c.type === "destination" || c.type === "both") && c.code !== watch("origin_code")).map(city => (
                               <option key={city.code} value={city.code}>{city.name}</option>
                             ))}
                           </select>
@@ -713,19 +1035,19 @@ export function AggregatorWizard() {
                         <div>
                           <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Payment</label>
                           <div className="flex gap-2">
-                            {(["COD", "NON_COD"] as const).map(pt => (
+                            {paymentOptions.map(pt => (
                               <button
                                 key={pt}
                                 type="button"
                                 onClick={() => setValue("payment_type", pt, { shouldValidate: true })}
                                 className={[
                                   "relative flex-1 flex items-center justify-center gap-1.5 rounded-lg border py-2.5 text-sm font-medium transition-all",
-                                  watch("payment_type") === pt
+                                  paymentType === pt
                                     ? "border-indigo-500 bg-indigo-500/15 text-indigo-300"
                                     : "border-white/10 bg-background/40 text-muted-foreground hover:bg-white/5",
                                 ].join(" ")}
                               >
-                                {watch("payment_type") === pt && (
+                                {paymentType === pt && (
                                   <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-indigo-500 flex items-center justify-center">
                                     <Check className="h-2 w-2 text-white" />
                                   </span>
@@ -735,10 +1057,13 @@ export function AggregatorWizard() {
                               </button>
                             ))}
                           </div>
+                          {!codSupported && (
+                            <p className="mt-2 text-xs text-muted-foreground">COD belum tersedia untuk provider dan layanan yang dipilih.</p>
+                          )}
                         </div>
                         <div>
                           <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                            {watch("payment_type") === "COD" ? "Nilai COD" : "Nilai Barang"} <Info className="h-3.5 w-3.5" />
+                            {paymentType === "COD" ? "Nilai COD" : "Nilai Barang"} <Info className="h-3.5 w-3.5" />
                           </label>
                           <input
                             {...register("item_value", { valueAsNumber: true })}
@@ -972,7 +1297,7 @@ export function AggregatorWizard() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (bulkRows.length > 0) setStep(3);
+                          if (bulkRows.length > 0) setStep(4);
                         }}
                         disabled={bulkRows.length === 0}
                         className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
@@ -990,7 +1315,7 @@ export function AggregatorWizard() {
 
 
 
-          {/* STEP 3: REVIEW & SERVICE */}
+          {/* STEP 3: COMPARE CARRIER */}
           {step === 3 && orderMode !== "upload" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               
@@ -999,12 +1324,12 @@ export function AggregatorWizard() {
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Dari</p>
-                    <p className="font-medium">{cities.find(c => c.code === ORIGIN_CODE)?.name ?? "Jakarta"}</p>
+                    <p className="font-medium">{cities.find(c => c.code === watch("origin_code"))?.name ?? "Data kota belum tersedia"}</p>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Tujuan</p>
-                    <p className="font-medium">{cities.find(c => c.code === watch("destination_code"))?.name}</p>
+                    <p className="font-medium">{cities.find(c => c.code === watch("destination_code"))?.name ?? "Data kota belum tersedia"}</p>
                   </div>
                 </div>
                 <div className="mt-4 flex gap-6 border-t border-white/10 pt-4 text-sm">
@@ -1058,14 +1383,32 @@ export function AggregatorWizard() {
                             <p className="font-bold text-foreground">{tariff.service_name}</p>
                             {isSelected && <Check className="h-4 w-4 text-indigo-400" />}
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">Estimasi {tariff.etd}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{tariff.provider_name} · {tariff.etd ? `Estimasi ${tariff.etd}` : "ETA belum diberikan provider"}</p>
+                          <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground/80">
+                            <span>Berat tagihan: {tariff.chargeable_weight_kg ? `${tariff.chargeable_weight_kg} kg` : "belum diberikan provider"} ({tariff.chargeable_weight_source === "provider" ? "provider" : "berdasarkan berat paket"})</span>
+                            <span>Sumber quote: {tariff.source || "respons tarif provider"}</span>
+                          </div>
+                          <div className="mt-3 space-y-2 text-[11px]">
+                            <div>
+                              <span className="text-muted-foreground">Capability: </span>
+                              {tariff.capabilities.length > 0 ? tariff.capabilities.map((capability) => (
+                                <span key={capability} className="mr-1 inline-flex rounded-full border border-indigo-400/30 bg-indigo-400/10 px-1.5 py-0.5 text-indigo-200">{capabilityLabel(capability)}</span>
+                              )) : <span className="text-muted-foreground">belum diberikan provider</span>}
+                            </div>
+                            <div className="text-muted-foreground">
+                              <span>Limitasi: </span>{tariff.limitations.length > 0 ? tariff.limitations.join(", ") : "detail belum diberikan provider"}
+                            </div>
+                          </div>
                           <div className="mt-3 flex items-end justify-between">
                             <div className="text-[10px]">
                               {idx === 0 && (
                                 <span className="rounded border border-brand-emerald-500/30 bg-brand-emerald-500/10 px-1.5 py-0.5 text-brand-emerald-300">Termurah</span>
                               )}
                             </div>
-                            <p className="text-sm font-bold text-indigo-400">{formatPrice(tariff.price)}</p>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-indigo-400">{formatPrice(tariff.price)}</p>
+                              {tariff.net_price ? <p className="text-[11px] text-muted-foreground">Net {formatPrice(tariff.net_price)}</p> : <p className="text-[11px] text-muted-foreground">Net belum diberikan provider</p>}
+                            </div>
                           </div>
                         </button>
                       );
@@ -1077,7 +1420,43 @@ export function AggregatorWizard() {
             </div>
           )}
 
-          {step === 3 && orderMode === "upload" && (
+          {step === 4 && orderMode !== "upload" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="rounded-xl border border-brand-emerald-500/30 bg-brand-emerald-500/5 p-5">
+                <h3 className="mb-4 flex items-center gap-2 font-semibold">
+                  <Check className="h-5 w-5 text-brand-emerald-400" />
+                  Review &amp; Bayar
+                </h3>
+                <div className="grid gap-4 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Provider / layanan</p>
+                    <p className="font-semibold">{providers.find((provider) => provider.code === watch("provider"))?.name || watch("provider").toUpperCase()} · {tariffs.find((tariff) => tariff.service === watch("service_code"))?.service_name || watch("service_code")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Tarif provider</p>
+                    <p className="font-semibold text-brand-emerald-300">{formatPrice(Number(watch("tariff_idr") || 0))}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Berat tagihan / ETA</p>
+                    <p className="font-medium">{(() => { const quote = tariffs.find((tariff) => tariff.service === watch("service_code")); return quote ? `${quote.chargeable_weight_kg || "-"} kg · ${quote.etd || "belum diberikan provider"}` : "-"; })()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Rute</p>
+                    <p className="font-medium">{cities.find(c => c.code === watch("origin_code"))?.name || "—"} → {cities.find(c => c.code === watch("destination_code"))?.name || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Penerima</p>
+                    <p className="font-medium">{watch("recipient_name")} · {watch("recipient_phone")}</p>
+                  </div>
+                </div>
+                <p className="mt-5 border-t border-white/10 pt-4 text-xs text-muted-foreground">
+                  Order baru dianggap berhasil setelah server mengembalikan referensi order tersimpan. Pembayaran dilanjutkan setelah itu.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(step === 3 || step === 4) && orderMode === "upload" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="rounded-xl border border-white/10 bg-white/5 p-5">
                 <h3 className="mb-4 font-semibold flex items-center justify-between">
@@ -1129,7 +1508,7 @@ export function AggregatorWizard() {
           )}
 
           {/* Stepper Footer Controls */}
-          <div className="flex items-center justify-between pt-6 border-t border-white/10 mt-8">
+          <div className="sticky bottom-0 z-20 -mx-2 mt-8 flex items-center justify-between border-t border-white/10 bg-background/95 px-2 py-4 pt-6 backdrop-blur-md sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:pt-6">
             {step > 1 ? (
               <button
                 type="button"
@@ -1141,7 +1520,7 @@ export function AggregatorWizard() {
               </button>
             ) : <div />}
 
-            {step < 3 ? (
+            {step < 4 ? (
               <button
                 type="button"
                 onClick={onNextStep}
@@ -1153,7 +1532,7 @@ export function AggregatorWizard() {
             ) : (
               <button
                 type="submit"
-                disabled={isSubmitting || (orderMode === "upload" ? bulkRows.length === 0 : (isLoadingTariff || tariffs.length === 0))}
+                disabled={isSubmitting || (orderMode === "upload" ? bulkRows.length === 0 : (!createdOrder && (isLoadingTariff || tariffs.length === 0)))}
                 className="inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg bg-brand-emerald-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-brand-emerald-600 transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? (
@@ -1161,7 +1540,7 @@ export function AggregatorWizard() {
                 ) : (
                   <>
                     <Check className="h-4 w-4" />
-                    Buat Pesanan
+                    {createdOrder ? "Lanjutkan Pembayaran" : "Buat Pesanan"}
                   </>
                 )}
               </button>
@@ -1170,6 +1549,20 @@ export function AggregatorWizard() {
 
         </form>
       </FormProvider>
+
+      {payment && createdOrder && (
+        <PaymentModal
+          isOpen={isPaymentOpen}
+          onClose={() => setIsPaymentOpen(false)}
+          orderId={createdOrder.id}
+          snapToken={payment.snap_token || ""}
+          snapJsUrl={payment.snap_js_url || ""}
+          clientKey={payment.client_key || ""}
+          redirectUrl={payment.redirect_url || undefined}
+          amount={Number(payment.amount_idr || createdOrder.total_price_idr || 0)}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 }

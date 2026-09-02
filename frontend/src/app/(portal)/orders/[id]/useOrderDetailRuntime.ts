@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import {
   ChatMessage,
   Event,
+  CarrierEvent,
   OnDemandRealtimePayload,
   Order,
   TrackingData,
@@ -21,11 +22,13 @@ export function useOrderDetailRuntime(id: string) {
   const { addNotification } = useNotificationStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
+  const [carrierEvents, setCarrierEvents] = useState<CarrierEvent[]>([]);
   const [proofs, setProofs] = useState<TrackingProof[]>([]);
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
   const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [trackingError, setTrackingError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [chatsLoading, setChatsLoading] = useState(false);
   const [sharingTracking, setSharingTracking] = useState(false);
   const [retryingMatching, setRetryingMatching] = useState(false);
@@ -56,17 +59,24 @@ export function useOrderDetailRuntime(id: string) {
   const fetchOrderDetail = useCallback(async (showLoader = true) => {
     if (!id) return;
     if (showLoader) setLoading(true);
+    if (showLoader) setLoadError(null);
     try {
       const res = await api.get(`/auth/web/orders/${id}`);
       if (res.data?.success) {
         setOrder({ ...res.data.order, food_items: res.data.food_items || res.data.order?.food_items || [] });
         setEvents(res.data.events || []);
+        setCarrierEvents(res.data.carrier_events || []);
         setProofs(res.data.proofs || []);
         if (showLoader) void fetchOrderChats();
+      } else if (showLoader) {
+        throw new Error('Customer order detail response was not successful');
       }
     } catch (error) {
       clientLog.error('Failed to fetch customer order detail', { error, orderId: id });
-      if (showLoader) addNotification({ title: 'Gagal', message: 'Gagal mengambil detail order.', type: 'error' });
+      if (showLoader) {
+        setLoadError('Detail order belum dapat dimuat dari server. Data contoh tidak digunakan.');
+        addNotification({ title: 'Gagal', message: 'Gagal mengambil detail order.', type: 'error' });
+      }
     } finally {
       if (showLoader) setLoading(false);
     }
@@ -248,12 +258,12 @@ export function useOrderDetailRuntime(id: string) {
   };
 
   return {
-    user, addNotification, order, events, proofs, isDisputeModalOpen, setIsDisputeModalOpen,
-    tracking, trackingError, loading, chatsLoading, sharingTracking, retryingMatching,
+    user, addNotification, order, events, carrierEvents, proofs, isDisputeModalOpen, setIsDisputeModalOpen,
+    tracking, trackingError, loading, loadError, chatsLoading, sharingTracking, retryingMatching,
     cancellingOrder, showCancelModal, setShowCancelModal, activePhoto, setActivePhoto,
     chatInput, setChatInput, chatMessages, uploading, previewImage, setPreviewImage,
     selectedFile, setSelectedFile, chatScrollRef, fileInputRef, handleFileUpload,
     handlePaste, handleSendMessage, handleCreatePublicTrackingLink, handleRetryMatching,
-    handleCancelOrder, handleDownloadResi, handleReportIssue,
+    handleCancelOrder, handleDownloadResi, handleReportIssue, refresh: () => fetchOrderDetail(),
   };
 }

@@ -1,18 +1,56 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { UploadStep } from '@/components/orders/bulk/UploadStep';
 import { ReviewStep } from '@/components/orders/bulk/ReviewStep';
 import { PaymentStep } from '@/components/orders/bulk/PaymentStep';
+import { api } from '@/lib/api';
+import { resolveBulkJobRecovery } from '@/lib/bulkJobRecovery';
+
+const BULK_JOB_STORAGE_KEY = 'tembus.bulk.pending-job';
 
 export default function BulkOrderPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [jobId, setJobId] = useState<string | null>(null);
   const [validatedData, setValidatedData] = useState<any>(null);
+  const [isRestoring, setIsRestoring] = useState(true);
+
+  useEffect(() => {
+    const storedJobId = window.sessionStorage.getItem(BULK_JOB_STORAGE_KEY);
+    if (!storedJobId) {
+      setIsRestoring(false);
+      return;
+    }
+
+    api.get(`/auth/web/orders/bulk/status/${storedJobId}`)
+      .then((response) => {
+        const data = response.data;
+        const recovery = resolveBulkJobRecovery(data);
+        if (recovery.kind === 'redirect_orders') {
+          window.sessionStorage.removeItem(BULK_JOB_STORAGE_KEY);
+          window.location.assign('/orders');
+          return;
+        }
+        if (recovery.kind === 'clear_pending') {
+          window.sessionStorage.removeItem(BULK_JOB_STORAGE_KEY);
+          return;
+        }
+        setJobId(storedJobId);
+        if (recovery.kind === 'review') {
+          setValidatedData(data);
+          setCurrentStep(2);
+        }
+      })
+      .catch(() => {
+        window.sessionStorage.removeItem(BULK_JOB_STORAGE_KEY);
+      })
+      .finally(() => setIsRestoring(false));
+  }, []);
 
   const handleUploadComplete = (id: string, data: any) => {
     setJobId(id);
     setValidatedData(data);
+    window.sessionStorage.setItem(BULK_JOB_STORAGE_KEY, id);
     setCurrentStep(2);
   };
 
@@ -22,6 +60,7 @@ export default function BulkOrderPage() {
   };
 
   const handlePaymentComplete = () => {
+    window.sessionStorage.removeItem(BULK_JOB_STORAGE_KEY);
     setCurrentStep(1);
     setJobId(null);
     setValidatedData(null);
@@ -75,8 +114,9 @@ export default function BulkOrderPage() {
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border p-6 min-h-[500px]">
+        {isRestoring && <p className="text-sm text-muted-foreground">Memulihkan sesi upload...</p>}
         {currentStep === 1 && (
-          <UploadStep onComplete={handleUploadComplete} />
+          <UploadStep onComplete={handleUploadComplete} resumeJobId={jobId} />
         )}
         
         {currentStep === 2 && jobId && validatedData && (

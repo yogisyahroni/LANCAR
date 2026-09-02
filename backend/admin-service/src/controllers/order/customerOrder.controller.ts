@@ -33,6 +33,15 @@ import {
 
 import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
+import { assertProviderCapability, LogisticsCapabilityError } from '../../services/logisticsCapabilities';
+import {
+  buildOrderServiceMetadata,
+  normalizeServiceCategory,
+  ORDER_CONTRACT_VERSION,
+  withCanonicalOrderContract,
+} from '../../services/orderContract';
+import { validateTowingBookingContract } from './towingBookingContract';
+import { evaluateTowingQuoteConsent } from './towingQuotePolicy';
 
 import { releasePromoReservation, validatePromoForCheckout } from '../../services/promoEngine';
 import {
@@ -105,7 +114,14 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       pickup_city,
       dropoff_city,
       preferred_courier_id,
-      material_codes
+      material_codes,
+      quote_total_price_idr,
+      quote_id,
+      quote_snapshot_hash,
+      quote_input_fingerprint,
+      quote_expires_at,
+      quote_consent,
+      payment_method,
     } = req.body;
 
     // Home services: harga jasa petugas dipakai utk hitung breakdown server-side
@@ -119,6 +135,43 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         error: 'Layanan pengiriman tidak tersedia'
       });
       return;
+    }
+
+    const requestedPaymentMethod = String(payment_method || 'midtrans').trim().toLowerCase();
+    if (requestedPaymentMethod === 'cod' && service.price_mode === 'quote' && logistics_provider) {
+      try {
+        await assertProviderCapability(logistics_provider, 'cod');
+      } catch (error) {
+        const capabilityError = error instanceof LogisticsCapabilityError ? error : null;
+        client.release();
+        res.status(capabilityError?.statusCode || 503).json({
+          success: false,
+          code: capabilityError?.code || 'LOGISTICS_PROVIDER_CAPABILITY_UNAVAILABLE',
+          error: capabilityError?.message || 'Capability COD provider belum dapat diverifikasi.',
+        });
+        return;
+      }
+    }
+
+    const isTowingService = service.service_category === 'towing' || String(service.code).startsWith('towing_');
+    if (isTowingService) {
+      const towingContract = validateTowingBookingContract({
+        vehicleDetails: package_details?.vehicle_details,
+        recipientName: recipient_name,
+        recipientPhone: recipient_phone,
+        pickupAddress: pickup_address,
+        dropoffAddress: dropoff_address,
+        pickupLocation: pickup_location,
+        dropoffLocation: dropoff_location,
+      });
+      if (!towingContract.valid) {
+        client.release();
+        res.status(400).json({
+          code: towingContract.code,
+          error: towingContract.message,
+        });
+        return;
+      }
     }
 
     const normalizedPackages = normalizePackageInputs(raw_packages, package_details || {});
@@ -170,8 +223,67 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       sizeTier: package_details?.size_tier || normalizedPackages[0]?.size_tier,
       courierId: courierIdForPricing,
       materialCodes: material_codes ?? package_details?.service_material_codes,
+      recipientName: recipient_name,
+      recipientPhone: recipient_phone,
+      requiresDeliveryCode: package_details?.requires_delivery_code,
     });
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
+
+    const submittedQuoteFingerprint = String(
+      quote_input_fingerprint || price_breakdown?.input_fingerprint || '',
+    ).trim();
+    const trustedQuoteFingerprint = String(trustedPriceBreakdown.input_fingerprint || '').trim();
+    const submittedQuoteExpiresAt = String(
+      quote_expires_at || price_breakdown?.expires_at || '',
+    ).trim();
+    if (submittedQuoteExpiresAt && (!Number.isFinite(Date.parse(submittedQuoteExpiresAt)) || Date.parse(submittedQuoteExpiresAt) <= Date.now())) {
+      client.release();
+      res.status(409).json({
+        success: false,
+        code: 'REQUOTE_REQUIRED',
+        error: 'Quote sudah kedaluwarsa. Hitung ulang harga sebelum order dibuat.',
+        requires_requote: true,
+        quote_id: quote_id || price_breakdown?.quote_id || null,
+        trusted_price_breakdown: trustedPriceBreakdown,
+      });
+      return;
+    }
+    if (submittedQuoteFingerprint && trustedQuoteFingerprint && submittedQuoteFingerprint !== trustedQuoteFingerprint) {
+      client.release();
+      res.status(409).json({
+        success: false,
+        code: 'REQUOTE_REQUIRED',
+        error: 'Input alamat, paket, layanan, atau konfigurasi quote berubah. Hitung ulang harga.',
+        requires_requote: true,
+        quote_id: quote_id || price_breakdown?.quote_id || null,
+        trusted_price_breakdown: trustedPriceBreakdown,
+      });
+      return;
+    }
+
+    const submittedQuoteTotal = Number(quote_total_price_idr ?? price_breakdown?.total_price_idr);
+    const trustedQuoteTotal = Number(trustedPriceBreakdown.total_price_idr || 0);
+    const quoteConsent = evaluateTowingQuoteConsent({
+      submittedTotalIdr: Number.isFinite(submittedQuoteTotal) ? submittedQuoteTotal : trustedQuoteTotal,
+      trustedTotalIdr: trustedQuoteTotal,
+      quoteGeneratedAt: price_breakdown?.route_snapshot?.generated_at,
+      submittedSnapshotHash: quote_snapshot_hash,
+      trustedSnapshotHash: trustedRouteSnapshot.snapshot_hash,
+      consent: Boolean(quote_consent),
+    });
+    const priceDeltaIdr = quoteConsent.priceDeltaIdr;
+    if (isTowingService && quoteConsent.requiresConsent) {
+      client.release();
+      res.status(409).json({
+        success: false,
+        code: 'REQUOTE_REQUIRED',
+        error: 'Harga towing berubah atau quote sudah kedaluwarsa. Tinjau rincian terbaru dan berikan persetujuan eksplisit.',
+        requires_price_consent: true,
+        price_delta_idr: priceDeltaIdr,
+        trusted_price_breakdown: trustedPriceBreakdown,
+      });
+      return;
+    }
 
     // For quote-based pricing (aggregator/3PL), use the logistics tariff as the gross price
     const effectiveTotalPriceIdr = service.price_mode === 'quote'
@@ -405,12 +517,17 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         pickup_city,
         dropoff_city,
         preferred_courier_id,
+        toll_cost,
+        service_category,
+        contract_version,
+        correlation_id,
+        service_metadata,
         created_at
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
-        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, NOW()
+        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, NOW()
       ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
@@ -476,11 +593,49 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
           logistics_net_cost_idr || null,
           pickup_city || null,
           dropoff_city || null,
-          resolvedPreferredCourierUserId
+          resolvedPreferredCourierUserId,
+           Number(trustedPriceBreakdown.toll_cost_idr || 0),
+           normalizeServiceCategory({
+             model: service.route_model,
+             service_category: service.service_category,
+             service_code: service.code,
+             service_sub_type: String(service.code).startsWith('towing_') || String(service.code).startsWith('tambal_ban_') ? service.code : null,
+             logistics_provider,
+           }),
+           ORDER_CONTRACT_VERSION,
+           crypto.randomUUID(),
+           JSON.stringify(buildOrderServiceMetadata({
+             model: service.route_model,
+             service_category: service.service_category,
+             service_code: service.code,
+             service_sub_type: String(service.code).startsWith('towing_') || String(service.code).startsWith('tambal_ban_') ? service.code : null,
+             package_details: normalizePackageDetailsForOrder(package_details || {}, service, selectedTier, packageChargeableWeight, normalizedPackages),
+             item_description: package_details?.item_description,
+             item_image_url: package_details?.item_image_url,
+             logistics_provider,
+             logistics_service_type,
+             logistics_tariff_idr,
+             logistics_net_cost_idr,
+           }))
         ];
 
         const result = await client.query(insertQuery, values);
         const newOrder = result.rows[0];
+
+        // Persist the server-calculated quote snapshot and the client-visible
+        // quote identity together with the order. The client total is never
+        // used here; trustedPriceBreakdown is the only source of truth.
+        await client.query(
+          `UPDATE orders
+              SET quote_id = $1,
+                  pricing_snapshot = $2::jsonb
+            WHERE id = $3`,
+          [
+            String(quote_id || price_breakdown?.quote_id || trustedPriceBreakdown.quote_id || ''),
+            JSON.stringify(trustedPriceBreakdown),
+            newOrder.id,
+          ],
+        );
 
         if (voucherId) {
       await client.query(
@@ -577,9 +732,17 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     // Create Order Event
     await client.query(`
-      INSERT INTO order_events (order_id, user_id, event_type, description)
-      VALUES ($1, $2, 'created', 'Customer created order via Web Portal')
-    `, [newOrder.id, customer_id]);
+      INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+      VALUES ($1, $2, 'created', 'Customer created order via Web Portal', $3)
+    `, [newOrder.id, customer_id, JSON.stringify({
+      quote_total_price_idr: Number.isFinite(submittedQuoteTotal) ? submittedQuoteTotal : null,
+      trusted_total_price_idr: trustedQuoteTotal,
+      price_delta_idr: priceDeltaIdr,
+      quote_snapshot_hash: quote_snapshot_hash || null,
+      trusted_snapshot_hash: trustedRouteSnapshot.snapshot_hash || null,
+      quote_consent: Boolean(quote_consent),
+      quote_consent_at: quote_consent ? new Date().toISOString() : null,
+    })]);
 
     await enqueueOutboxEvent(client, {
       aggregateType: 'order',
@@ -789,40 +952,50 @@ export const getCustomerOrders = async (req: Request, res: Response): Promise<vo
     const { status, search, startDate, endDate, model, limit, offset } = req.query;
 
     let queryStr = `
-      SELECT id, order_number, pickup_address, dropoff_address, recipient_name, model, status,
-             distance_km, total_price_idr, route_snapshot, route_provider, route_profile,
-             route_polyline, created_at
-      FROM orders
-      WHERE customer_id = $1
+      SELECT o.id, o.customer_id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name,
+             o.model, o.service_code, o.service_snapshot, o.status, o.distance_km,
+             o.service_category, o.contract_version, o.quote_id, o.state_version, o.correlation_id, o.service_metadata,
+             o.total_price_idr, o.route_snapshot, o.route_provider, o.route_profile,
+             o.route_polyline, o.logistics_provider, o.logistics_service_type,
+             o.awb_number, o.created_at, p.status AS payment_status
+      FROM orders o
+      LEFT JOIN LATERAL (
+        SELECT status
+        FROM payments
+        WHERE order_id = o.id
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+      ) p ON TRUE
+      WHERE o.customer_id = $1
     `;
     const params: any[] = [customer_id];
 
     if (status && status !== 'all') {
       params.push(status);
-      queryStr += ` AND status = $${params.length}`;
+      queryStr += ` AND o.status = $${params.length}`;
     }
 
     if (model && model !== 'all') {
       params.push(model);
-      queryStr += ` AND model = $${params.length}`;
+      queryStr += ` AND o.model = $${params.length}`;
     }
 
     if (startDate) {
       params.push(new Date(startDate as string));
-      queryStr += ` AND created_at >= $${params.length}`;
+      queryStr += ` AND o.created_at >= $${params.length}`;
     }
 
     if (endDate) {
       params.push(new Date(endDate as string));
-      queryStr += ` AND created_at <= $${params.length}`;
+      queryStr += ` AND o.created_at <= $${params.length}`;
     }
 
     if (search) {
       params.push(`%${search}%`);
-      queryStr += ` AND (order_number ILIKE $${params.length} OR recipient_name ILIKE $${params.length} OR dropoff_address ILIKE $${params.length} OR pickup_address ILIKE $${params.length})`;
+      queryStr += ` AND (o.order_number ILIKE $${params.length} OR o.recipient_name ILIKE $${params.length} OR o.dropoff_address ILIKE $${params.length} OR o.pickup_address ILIKE $${params.length})`;
     }
 
-    queryStr += ` ORDER BY created_at DESC`;
+    queryStr += ` ORDER BY o.created_at DESC`;
 
     const limitVal = parseInt(limit as string) || 50;
     const offsetVal = parseInt(offset as string) || 0;
@@ -835,7 +1008,7 @@ export const getCustomerOrders = async (req: Request, res: Response): Promise<vo
 
     const { rows } = await db.query(queryStr, params);
 
-    res.json({ success: true, orders: rows });
+    res.json({ success: true, orders: rows.map((row) => withCanonicalOrderContract(row)) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -853,16 +1026,26 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     }
 
     const queryStr = `
-      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.status, o.distance_km,
+      SELECT o.id, o.customer_id, o.order_number, o.awb_number, o.tracking_url, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.service_code, o.service_snapshot, o.status, o.distance_km,
+             o.service_category, o.contract_version, o.quote_id, o.state_version, o.correlation_id, o.service_metadata,
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.base_price_idr, o.volumetric_surcharge_idr, o.insurance_premium_idr, o.total_price_idr, o.has_insurance, o.insured_value_idr, 
-             o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at, o.created_at,
+             o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at,
+             o.logistics_provider, o.logistics_service_type, o.logistics_tariff_idr, o.logistics_net_cost_idr,
+             o.pickup_city, o.dropoff_city, o.created_at, p.status AS payment_status,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate, cp.avg_partner_rating as courier_rating,
              NULL::text as courier_phone
       FROM orders o
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
       LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+      LEFT JOIN LATERAL (
+        SELECT status
+        FROM payments
+        WHERE order_id = o.id
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+      ) p ON TRUE
       WHERE o.customer_id = $1 AND o.id = $2
     `;
 
@@ -872,7 +1055,7 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
       return;
     }
 
-    const order = rows[0];
+    const order = withCanonicalOrderContract(rows[0]);
 
     // Get order events for timeline
     const eventQuery = `
@@ -882,6 +1065,27 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
       ORDER BY created_at ASC
     `;
     const { rows: events } = await db.query(eventQuery, [id]);
+
+    // Carrier inbox is joined through the customer's own order AWB. Provider
+    // fields are safe to expose here because the order ownership predicate is
+    // enforced in the subquery; raw_payload is intentionally never returned.
+    const { rows: carrierEvents } = await db.query(`
+      SELECT cei.id,
+             cei.provider,
+             cei.awb_number,
+             cei.canonical_status,
+             cei.provider_status,
+             cei.provider_status_code,
+             cei.provider_status_description,
+             cei.provider_location,
+             cei.provider_timestamp,
+             cei.occurred_at,
+             cei.received_at
+      FROM carrier_event_inbox cei
+      JOIN orders carrier_order ON carrier_order.awb_number = cei.awb_number
+      WHERE carrier_order.id = $1 AND carrier_order.customer_id = $2
+      ORDER BY COALESCE(cei.occurred_at, cei.received_at) ASC, cei.received_at ASC
+    `, [id, customer_id]);
 
     const { rows: proofs } = await db.query(`
       SELECT id,
@@ -962,7 +1166,7 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     order.tambal_ban_report = tambalBanReports[0] || null;
     order.towing_report = towingReports[0] || null;
 
-    res.json({ success: true, order, events, proofs, food_items: foodItems });
+    res.json({ success: true, order, events, carrier_events: carrierEvents, proofs, food_items: foodItems });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -1019,4 +1223,3 @@ export const retryCustomerOrderMatching = async (req: Request, res: Response): P
     client.release();
   }
 };
-

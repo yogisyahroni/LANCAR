@@ -40,10 +40,10 @@ type PaymentLink struct {
 	StoreName         string            `json:"store_name,omitempty"`
 	// RecipientPhone adalah nomor HP konsignee (penerima paket) — opsional.
 	// Dipakai untuk broadcast WhatsApp saat link pembayaran berhasil dibuat.
-	RecipientPhone       string `json:"recipient_phone,omitempty"`
-	RecipientName        string `json:"recipient_name,omitempty"`
-	LogisticsProvider    string `json:"logistics_provider,omitempty"`
-	LogisticsServiceType string `json:"logistics_service_type,omitempty"`
+	RecipientPhone       string    `json:"recipient_phone,omitempty"`
+	RecipientName        string    `json:"recipient_name,omitempty"`
+	LogisticsProvider    string    `json:"logistics_provider,omitempty"`
+	LogisticsServiceType string    `json:"logistics_service_type,omitempty"`
 	CreatedAt            time.Time `json:"created_at"`
 	UpdatedAt            time.Time `json:"updated_at"`
 	PaymentURL           string    `json:"payment_url,omitempty"`
@@ -65,9 +65,9 @@ type PaymentLinkRepository interface {
 }
 
 type CreatePaymentLinkRequest struct {
-	ItemName       string  `json:"item_name" validate:"required"`
-	ItemPrice      int64   `json:"item_price" validate:"required,gt=0"`
-	ItemImageURL   string  `json:"item_image_url" validate:"required"`
+	ItemName     string `json:"item_name" validate:"required"`
+	ItemPrice    int64  `json:"item_price" validate:"required,gt=0"`
+	ItemImageURL string `json:"item_image_url" validate:"required"`
 	// ServiceCode wajib untuk mode on-demand (kode layanan kurir p2p).
 	// Untuk mode 3PL, field ini boleh kosong — yang dipakai adalah LogisticsServiceType.
 	ServiceCode    string  `json:"service_code,omitempty"`
@@ -94,25 +94,27 @@ type CreatePaymentLinkRequest struct {
 
 // AWBRequest adalah request pembuatan AWB ke integration-gateway.
 type AWBRequest struct {
-	Provider        string  `json:"provider"` // "jne" atau "jnt"
-	ReferenceID     string  `json:"reference_id"`
-	SenderAlias     string  `json:"sender_alias"` // dari users.awb_sender_name
-	SenderName      string  `json:"sender_name"`
-	SenderPhone     string  `json:"sender_phone"`
-	SenderAddress   string  `json:"sender_address"`
-	SenderCity      string  `json:"sender_city"`
-	SenderZipCode   string  `json:"sender_zip_code"`
-	ReceiverName    string  `json:"receiver_name"`
-	ReceiverPhone   string  `json:"receiver_phone"`
-	ReceiverAddress string  `json:"receiver_address"`
-	ReceiverCity    string  `json:"receiver_city"`
-	ReceiverZipCode string  `json:"receiver_zip_code"`
-	OriginCode      string  `json:"origin_code"`
-	DestinationCode string  `json:"destination_code"`
-	WeightKG        float64 `json:"weight_kg"`
-	ItemDescription string  `json:"item_description"`
-	ItemValue       float64 `json:"item_value"`
-	ServiceType     string  `json:"service_type"`
+	Provider        string        `json:"provider"` // "jne" atau "jnt"
+	IdempotencyKey  string        `json:"idempotency_key,omitempty"`
+	FirstMileMode   FirstMileMode `json:"first_mile_mode,omitempty"`
+	ReferenceID     string        `json:"reference_id"`
+	SenderAlias     string        `json:"sender_alias"` // dari users.awb_sender_name
+	SenderName      string        `json:"sender_name"`
+	SenderPhone     string        `json:"sender_phone"`
+	SenderAddress   string        `json:"sender_address"`
+	SenderCity      string        `json:"sender_city"`
+	SenderZipCode   string        `json:"sender_zip_code"`
+	ReceiverName    string        `json:"receiver_name"`
+	ReceiverPhone   string        `json:"receiver_phone"`
+	ReceiverAddress string        `json:"receiver_address"`
+	ReceiverCity    string        `json:"receiver_city"`
+	ReceiverZipCode string        `json:"receiver_zip_code"`
+	OriginCode      string        `json:"origin_code"`
+	DestinationCode string        `json:"destination_code"`
+	WeightKG        float64       `json:"weight_kg"`
+	ItemDescription string        `json:"item_description"`
+	ItemValue       float64       `json:"item_value"`
+	ServiceType     string        `json:"service_type"`
 }
 
 // AWBResponse adalah respons dari integration-gateway setelah AWB dibuat.

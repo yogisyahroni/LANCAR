@@ -1,0 +1,1 @@
+{"provider":"jne","scenario":"rate","request":{"origin_code":"JKT","destination_code":"BDG","weight_kg":1,"service_type":"REG"},"response":{"service_code":"REG","service_name":"REG","tariff_gross":10000}}

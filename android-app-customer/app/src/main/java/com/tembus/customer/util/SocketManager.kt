@@ -251,6 +251,9 @@ private fun JSONObject.toNotificationRealtimeEvent(): NotificationRealtimeEvent?
         conversationId = cleanString("conversation_id") ?: cleanString("conversationId"),
         promoId = cleanString("promo_id") ?: cleanString("promoId"),
         deepLink = deepLink,
-        createdAt = cleanString("created_at") ?: cleanString("createdAt")
+        createdAt = cleanString("created_at") ?: cleanString("createdAt"),
+        serviceCode = cleanString("service_code") ?: cleanString("serviceCode"),
+        eventVersion = cleanString("event_version") ?: cleanString("eventVersion"),
+        target = cleanString("target")
     )
 }

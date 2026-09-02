@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,11 +11,11 @@ import (
 type ProviderInvoiceStatus string
 
 const (
-	ProviderInvoiceStatusPending   ProviderInvoiceStatus = "PENDING_RECONCILIATION"
+	ProviderInvoiceStatusPending    ProviderInvoiceStatus = "PENDING_RECONCILIATION"
 	ProviderInvoiceStatusReconciled ProviderInvoiceStatus = "RECONCILED"
-	ProviderInvoiceStatusApproved  ProviderInvoiceStatus = "APPROVED"
-	ProviderInvoiceStatusDisputed  ProviderInvoiceStatus = "DISPUTED"
-	ProviderInvoiceStatusPaid      ProviderInvoiceStatus = "PAID"
+	ProviderInvoiceStatusApproved   ProviderInvoiceStatus = "APPROVED"
+	ProviderInvoiceStatusDisputed   ProviderInvoiceStatus = "DISPUTED"
+	ProviderInvoiceStatusPaid       ProviderInvoiceStatus = "PAID"
 )
 
 type DiscrepancyType string
@@ -76,20 +77,26 @@ type LogisticsExceptionPolicy struct {
 }
 
 type LogisticsExceptionClaim struct {
-	ID                      uuid.UUID  `json:"id"`
-	OrderID                 uuid.UUID  `json:"order_id"`
-	AWBNumber               string     `json:"awb_number"`
-	ExceptionType           string     `json:"exception_type"`
-	ProviderName            string     `json:"provider_name"`
-	ClaimAmountIDR          int64      `json:"claim_amount_idr"`
-	ProviderPayoutIDR       int64      `json:"provider_payout_idr"`
-	CustomerCompensationIDR int64      `json:"customer_compensation_idr"`
-	MerchantCompensationIDR int64      `json:"merchant_compensation_idr"`
-	LedgerJournalID         *uuid.UUID `json:"ledger_journal_id,omitempty"`
-	Status                  string     `json:"status"` // SUBMITTED, APPROVED, REJECTED, PAID, COMPENSATED
-	Notes                   string     `json:"notes"`
-	ResolvedAt              *time.Time `json:"resolved_at,omitempty"`
-	CreatedAt               time.Time  `json:"created_at"`
+	ID                      uuid.UUID       `json:"id"`
+	OrderID                 uuid.UUID       `json:"order_id"`
+	AWBNumber               string          `json:"awb_number"`
+	ExceptionType           string          `json:"exception_type"`
+	ProviderName            string          `json:"provider_name"`
+	ClaimAmountIDR          int64           `json:"claim_amount_idr"`
+	ItemValueIDR            int64           `json:"item_value_idr"`
+	InsuranceCoverageIDR    int64           `json:"insurance_coverage_idr"`
+	ProviderPayoutIDR       int64           `json:"provider_payout_idr"`
+	CustomerCompensationIDR int64           `json:"customer_compensation_idr"`
+	MerchantCompensationIDR int64           `json:"merchant_compensation_idr"`
+	LedgerJournalID         *uuid.UUID      `json:"ledger_journal_id,omitempty"`
+	Status                  string          `json:"status"` // SUBMITTED, APPROVED, REJECTED, PAID, COMPENSATED
+	ProviderClaimReference  string          `json:"provider_claim_reference,omitempty"`
+	FeeBorneBy              string          `json:"fee_borne_by,omitempty"`
+	EvidenceURLs            json.RawMessage `json:"evidence_urls,omitempty"`
+	Notes                   string          `json:"notes"`
+	ResolvedAt              *time.Time      `json:"resolved_at,omitempty"`
+	CreatedAt               time.Time       `json:"created_at"`
+	UpdatedAt               time.Time       `json:"updated_at"`
 }
 
 type AggregatorFinanceRepository interface {

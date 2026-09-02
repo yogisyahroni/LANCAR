@@ -22,6 +22,9 @@ import {
   Loader2 
 } from 'lucide-react';
 import Link from 'next/link';
+import { OrderPriceBreakdown } from '@/components/orders/OrderPriceBreakdown';
+import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
+import { AsyncRecoveryState } from '@/components/ui/AsyncRecoveryState';
 
 interface Order {
   id: string;
@@ -30,6 +33,21 @@ interface Order {
   dropoff_address: string;
   recipient_name: string;
   model: string;
+  service_category?: string | null;
+  awb_number?: string | null;
+  service_code?: string | null;
+  order_contract?: {
+    service?: { category?: string | null; degraded?: boolean } | null;
+  } | null;
+  service_snapshot?: {
+    name?: string | null;
+    service_name?: string | null;
+    category?: string | null;
+    service_category?: string | null;
+  } | null;
+  logistics_provider?: string | null;
+  logistics_service_type?: string | null;
+  payment_status?: string | null;
   status: string;
   distance_km: number;
   total_price_idr: number;
@@ -42,6 +60,7 @@ export default function ResiPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   
   // Searching and Filtering
@@ -60,13 +79,13 @@ export default function ResiPage() {
 
   const fetchOrders = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get('/auth/web/orders');
       if (res.data && res.data.success && res.data.orders) {
         setOrders(res.data.orders);
       } else {
-        // API returned success:false or no orders — set empty, don't use mock data
-        setOrders([]);
+        throw new Error('Customer receipts response was not successful');
       }
     } catch (error: any) {
       clientLog.error('Failed to fetch customer receipts', { error });
@@ -76,7 +95,7 @@ export default function ResiPage() {
         message: error?.response?.data?.error || 'Tidak dapat memuat daftar resi. Periksa koneksi internet Anda.',
         type: 'error',
       });
-      // Show empty state — no mock data
+      setLoadError('Daftar resi belum dapat dimuat dari server. Data yang tampil tidak diisi dengan data contoh.');
       setOrders([]);
     } finally {
       setLoading(false);
@@ -215,6 +234,14 @@ export default function ResiPage() {
     return <CustomerPageSkeleton />;
   }
 
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <AsyncRecoveryState title="Daftar resi belum tersedia" message={loadError} onRetry={() => void fetchOrders()} retrying={loading} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 select-none">
       <motion.div
@@ -251,7 +278,9 @@ export default function ResiPage() {
         {/* Search Input */}
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none" />
+          <label htmlFor="resi-search" className="sr-only">Cari nomor resi atau nama penerima</label>
           <input
+            id="resi-search"
             type="text"
             placeholder="Cari No. Resi atau nama penerima..."
             value={search}
@@ -285,9 +314,8 @@ export default function ResiPage() {
             className="w-full bg-zinc-900/90 border border-white/10 pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all select-none appearance-none cursor-pointer shadow-sm"
           >
             <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Jenis Layanan</option>
-            <option value="instant" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Instant (GoSend/Grab)</option>
-            <option value="same_day" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Same Day</option>
-            <option value="standard" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Reguler / Standard</option>
+            <option value="p2p" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Instan LANCAR</option>
+            <option value="hub_and_spoke" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Ekspedisi aggregator</option>
           </select>
         </div>
       </div>
@@ -305,6 +333,7 @@ export default function ResiPage() {
               <tr className="bg-muted/40 border-b border-border/40 text-xs font-bold text-muted-foreground tracking-tight select-none">
                 <th className="px-5 py-3.5 w-12 text-center select-none">
                   <input
+                    aria-label="Pilih semua resi"
                     type="checkbox"
                     checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0}
                     onChange={toggleSelectAll}
@@ -313,6 +342,7 @@ export default function ResiPage() {
                 </th>
                 <th className="px-5 py-3.5 select-none">No. Resi</th>
                 <th className="px-5 py-3.5 select-none">Penerima</th>
+                <th className="px-5 py-3.5 select-none">Layanan</th>
                 <th className="px-5 py-3.5 select-none">Status</th>
                 <th className="px-5 py-3.5 select-none">Harga</th>
                 <th className="px-5 py-3.5 select-none">Created At</th>
@@ -342,12 +372,25 @@ export default function ResiPage() {
                       {order.recipient_name}
                     </td>
                     <td className="px-5 py-3.5 select-none">
+                      <OrderServiceBadge
+                        compact
+                        model={order.model}
+                        service_category={order.service_category}
+                        service_code={order.service_code}
+                        order_contract={order.order_contract}
+                        service_snapshot={order.service_snapshot}
+                        logistics_provider={order.logistics_provider}
+                        logistics_service_type={order.logistics_service_type}
+                        awb_number={order.awb_number}
+                      />
+                    </td>
+                    <td className="px-5 py-3.5 select-none">
                       <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary font-bold rounded-full shadow-sm capitalize select-none">
                         {order.status.replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-xs select-none truncate">
-                      {formatIDR(order.total_price_idr)}
+                      <OrderPriceBreakdown compact totalPriceIdr={order.total_price_idr} paymentStatus={order.payment_status} deliveryStatus={order.status} />
                     </td>
                     <td className="px-5 py-3.5 text-xs text-muted-foreground select-none truncate">
                       {new Date(order.created_at).toLocaleDateString('id-ID')}
@@ -369,7 +412,7 @@ export default function ResiPage() {
 
               {filteredOrders.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-muted-foreground select-none">
+                  <td colSpan={8} className="px-5 py-8 text-center text-muted-foreground select-none">
                     Tidak ada resi yang ditemukan.
                   </td>
                 </tr>

@@ -419,6 +419,18 @@ export function OnDemandOrderFormContent({
               />
               {errors.package_details?.category && <p className="mt-1 text-xs text-destructive">{errors.package_details.category.message}</p>}
             </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-muted-foreground">Jumlah Paket/Barang</label>
+              <input
+                {...register("package_details.quantity", { setValueAs: (v: any) => v === "" ? 1 : Number(v) })}
+                data-testid="package-quantity-input"
+                type="number"
+                min={1}
+                max={100}
+                className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-3 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              />
+              {errors.package_details?.quantity && <p className="mt-1 text-xs text-destructive">{errors.package_details.quantity.message}</p>}
+            </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Detail Barang</label>
               <textarea
@@ -442,6 +454,20 @@ export function OnDemandOrderFormContent({
                 <option value="Truk">Truk 🚚</option>
               </select>
               {errors.package_details?.vehicle_type && <p className="mt-1 text-xs text-destructive">{errors.package_details.vehicle_type.message}</p>}
+            </div>
+            <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2">
+              <label className="flex items-center gap-3 rounded-lg border border-white/10 bg-background/30 px-4 py-3 text-sm">
+                <input type="checkbox" {...register("package_details.is_fragile")} className="h-4 w-4 rounded border-white/10 bg-background" />
+                <span><b>Barang rapuh</b><span className="block text-xs text-muted-foreground">Kurir akan menangani paket dengan perhatian ekstra.</span></span>
+              </label>
+              <label className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm">
+                <input type="checkbox" {...register("package_details.is_prohibited")} className="h-4 w-4 rounded border-white/10 bg-background" />
+                <span><b>Barang terlarang</b><span className="block text-xs text-muted-foreground">Paket terlarang akan ditolak saat validasi.</span></span>
+              </label>
+              <label className="flex items-center gap-3 rounded-lg border border-white/10 bg-background/30 px-4 py-3 text-sm">
+                <input type="checkbox" {...register("package_details.requires_delivery_code")} className="h-4 w-4 rounded border-white/10 bg-background" />
+                <span><b>Kode terima paket</b><span className="block text-xs text-muted-foreground">Penerima wajib memberikan kode saat paket diterima.</span></span>
+              </label>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Berat Aktual (kg)</label>

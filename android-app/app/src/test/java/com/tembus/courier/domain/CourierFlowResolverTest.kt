@@ -9,8 +9,8 @@ import org.junit.Test
 class CourierFlowResolverTest {
 
     @Test
-    fun `assigned order stays on navigation until arrival`() {
-        val order = Order(orderId = "TMB-001", status = "assigned", workflowRole = "on_demand")
+    fun `arrived order requires pickup scan first`() {
+        val order = Order(orderId = "TMB-001", status = "pickup_arrived", workflowRole = "on_demand")
 
         val flow = CourierFlowResolver.resolve(
             order = order, 
@@ -18,16 +18,16 @@ class CourierFlowResolverTest {
             pickupPhotoRequired = false
         )
 
-        assertEquals(CourierStage.ASSIGNED, flow.stage)
-        assertEquals(CourierNextActionType.NAVIGATE_TO_PICKUP, flow.nextAction.type)
+        assertEquals(CourierStage.PICKUP_SCAN_REQUIRED, flow.stage)
+        assertEquals(CourierNextActionType.SCAN_PICKUP, flow.nextAction.type)
         assertFalse(flow.pickupDone)
     }
 
     @Test
-    fun `accepted order requires explicit arrival before pickup verification`() {
-        val order = Order(orderId = "TMB-001A", status = "accepted", workflowRole = "on_demand")
+    fun `accepted on-demand order requires arrival confirmation before proof`() {
+        val order = Order(orderId = "TMB-ARRIVAL", status = "accepted", workflowRole = "on_demand")
 
-        val flow = CourierFlowResolver.resolve(order, pickupPhotoRequired = true)
+        val flow = CourierFlowResolver.resolve(order, pickupPhotoRequired = false)
 
         assertEquals(CourierStage.GOING_TO_PICKUP, flow.stage)
         assertEquals(CourierNextActionType.MARK_PICKUP_ARRIVED, flow.nextAction.type)

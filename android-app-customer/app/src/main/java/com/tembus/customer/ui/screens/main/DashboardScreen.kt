@@ -84,6 +84,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -243,6 +247,7 @@ fun DashboardScreen(
                         GojekServiceGrid(
                             onPickupClick = { onBookingClick("pickup") }, // Gabung ambil/kirim
                             onFoodClick = onFoodClick,
+                            onAggregatorClick = { onBookingClick("aggregator") },
                             onTambalBanClick = { onBookingClick("tambal_ban") },
                             onTowingClick = { onBookingClick("towing") }
                         )
@@ -533,6 +538,7 @@ private fun WalletAction(icon: ImageVector, label: String) {
 private fun GojekServiceGrid(
     onPickupClick: () -> Unit,
     onFoodClick: () -> Unit,
+    onAggregatorClick: () -> Unit,
     onTambalBanClick: () -> Unit,
     onTowingClick: () -> Unit
 ) {
@@ -542,11 +548,16 @@ private fun GojekServiceGrid(
         Text("Mau apa hari ini?", color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
         Text("Layanan utama TEMBUS, satu tap ke pesanan.", color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            GojekServiceTile("Kirim Paket", Icons.Default.LocalShipping, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onPickupClick, modifier = Modifier.weight(1f))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GojekServiceTile("Paket Instan", Icons.Default.LocalShipping, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onPickupClick, modifier = Modifier.weight(1f))
             GojekServiceTile("Food", Icons.Default.Restaurant, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.onTertiary, onFoodClick, modifier = Modifier.weight(1f))
-            GojekServiceTile("Tambal Ban", Icons.Default.Build, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, onTambalBanClick, modifier = Modifier.weight(1f))
-            GojekServiceTile("Towing", Icons.Default.DirectionsCar, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, onTowingClick, modifier = Modifier.weight(1f))
+            GojekServiceTile("Ekspedisi\nAntar-Kota", Icons.Default.LocalShipping, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, onAggregatorClick, modifier = Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GojekServiceTile("Tambal Ban", Icons.Default.Build, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, onTambalBanClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
+            GojekServiceTile("Towing", Icons.Default.DirectionsCar, MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, onTowingClick, badge = "SOS", emergency = true, modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -559,10 +570,16 @@ private fun GojekServiceTile(
     iconColor: Color,
     onClick: () -> Unit,
     badge: String? = null,
+    emergency: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.clickable { onClick() },
+        modifier = modifier
+            .semantics {
+                contentDescription = if (emergency) "$label, layanan darurat" else label
+                role = Role.Button
+            }
+            .clickable(role = Role.Button) { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box {

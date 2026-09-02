@@ -8,17 +8,18 @@ import { UploadCloud, AlertCircle, CheckCircle2, Download, Loader2, MapPin, Navi
 
 interface UploadStepProps {
   onComplete: (jobId: string, validatedData: any) => void;
+  resumeJobId?: string | null;
 }
 
-export function UploadStep({ onComplete }: UploadStepProps) {
+export function UploadStep({ onComplete, resumeJobId = null }: UploadStepProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+  const [pollingJobId, setPollingJobId] = useState<string | null>(resumeJobId);
   const [progress, setProgress] = useState({ total: 0, processed: 0 });
   const [pickupAddress, setPickupAddress] = useState('');
-  const [pickupLat, setPickupLat] = useState(-6.200000);
-  const [pickupLng, setPickupLng] = useState(106.816666);
+  const [pickupLat, setPickupLat] = useState<number | null>(null);
+  const [pickupLng, setPickupLng] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [serviceCode, setServiceCode] = useState('tembus_instant');
 
@@ -64,6 +65,10 @@ export function UploadStep({ onComplete }: UploadStepProps) {
       setError('Alamat pickup wajib diisi');
       return;
     }
+    if (pickupLat === null || pickupLng === null || !Number.isFinite(pickupLat) || !Number.isFinite(pickupLng)) {
+      setError('Titik pickup wajib dipilih dari lokasi saat ini sebelum upload.');
+      return;
+    }
 
     // S3-CW-04: Sanitize pickup_address to strip CSV injection prefixes.
     // Cells starting with =, +, -, @ are CSV injection vectors when exported.
@@ -81,8 +86,8 @@ export function UploadStep({ onComplete }: UploadStepProps) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('pickup_address', pickupAddress);
-      formData.append('pickup_lat', pickupLat.toString());
-      formData.append('pickup_lng', pickupLng.toString());
+      formData.append('pickup_lat', String(pickupLat));
+      formData.append('pickup_lng', String(pickupLng));
       formData.append('service_code', serviceCode);
 
       const res = await api.post('/auth/web/orders/bulk/upload', formData, {
@@ -181,6 +186,11 @@ export function UploadStep({ onComplete }: UploadStepProps) {
           clearInterval(interval);
           setIsUploading(false);
           onComplete(pollingJobId, data);
+        } else if (data.status === 'processed') {
+          clearInterval(interval);
+          setIsUploading(false);
+          window.sessionStorage.removeItem('tembus.bulk.pending-job');
+          window.location.assign('/orders');
         } else if (data.status === 'failed') {
           clearInterval(interval);
           setIsUploading(false);
@@ -202,6 +212,13 @@ export function UploadStep({ onComplete }: UploadStepProps) {
       if (interval) clearInterval(interval);
     };
   }, [pollingJobId, onComplete]);
+
+  useEffect(() => {
+    if (resumeJobId) {
+      setPollingJobId(resumeJobId);
+      setIsUploading(true);
+    }
+  }, [resumeJobId]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -267,7 +284,9 @@ export function UploadStep({ onComplete }: UploadStepProps) {
             Gunakan Lokasi Saya
           </button>
           <p className="text-xs text-muted-foreground">
-            Koordinat pickup: {pickupLat.toFixed(5)}, {pickupLng.toFixed(5)}
+            Koordinat pickup: {pickupLat === null || pickupLng === null
+              ? 'belum dipilih'
+              : `${pickupLat.toFixed(5)}, ${pickupLng.toFixed(5)}`}
           </p>
         </div>
       </section>

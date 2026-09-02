@@ -335,39 +335,3 @@ func (h *TambalBanHandler) CreateTambalBanReport(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(req)
 }
-
-// ============================================================
-// POST /api/v1/courier/service-report/towing
-// Create towing service report
-// ============================================================
-func (h *TambalBanHandler) CreateTowingReport(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserIDFromContext(r.Context())
-	if userID == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	var req domain.TowingReport
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "Invalid request body",
-			middleware.GetCorrelationID(r.Context()))
-		return
-	}
-	req.CourierID = userID
-
-	err := h.reportSvc.CreateTowingReport(r.Context(), &req)
-	if err != nil {
-		if errors.Is(err, domain.ErrInvalidServiceReport) {
-			middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_SERVICE_REPORT", err.Error(),
-				middleware.GetCorrelationID(r.Context()))
-			return
-		}
-		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create report",
-			middleware.GetCorrelationID(r.Context()))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(req)
-}

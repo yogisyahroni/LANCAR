@@ -22,7 +22,7 @@ courierRoutes.get('/api/v1/courier/performance', requireMobileOrWebAuth, (req, r
 courierRoutes.get('/api/v1/courier/earnings-ledger', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierEarningsLedger(req, res));
 courierRoutes.get('/api/v1/courier/payout/summary', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPayoutSummary(req, res));
 courierRoutes.get('/api/v1/courier/payout/requests', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPayoutRequests(req, res));
-courierRoutes.post('/api/v1/courier/payout/requests', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierPayoutRequest(req, res));
+courierRoutes.post('/api/v1/courier/payout/requests', requireMobileOrWebAuth, requireIdempotencyKey('courier.payout.request'), (req, res) => controllers.createMobileCourierPayoutRequest(req, res));
 courierRoutes.get('/api/v1/courier/capabilities', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierCapabilities(req, res));
 courierRoutes.post('/api/v1/courier/capabilities/request', requireMobileOrWebAuth, (req, res) => controllers.requestMobileCourierCapabilityUpgrade(req, res));
 courierRoutes.post('/api/v1/courier/training/complete', requireMobileOrWebAuth, (req, res) => controllers.completeMobileCourierTraining(req, res));

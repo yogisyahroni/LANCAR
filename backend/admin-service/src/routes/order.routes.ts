@@ -12,6 +12,11 @@ import { secureUploadSingle } from '../security/uploadSecurity';
 // order routes (extracted from routes.ts)
 export const orderRoutes = Router();
 
+// Keep the operational order surface behind the same admin identity and role
+// boundary as the rest of the dashboard. This is especially important because
+// the order-detail response contains provider raw payloads for operators.
+orderRoutes.use('/admin/orders', requireAuth, requireRole(['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'finance', 'cs_agent', 'zone_manager']));
+
 orderRoutes.post('/api/v1/tracking/sync', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.syncCourierTracking(req, res));
 orderRoutes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderTracking(req, res));
 orderRoutes.get('/api/v1/tracking/public', (req, res, next) => controllers.publicTracking.publicTrackingRateLimiter(req, res, next), (req, res) => controllers.publicTracking.getPublicTrackingByResi(req, res));
@@ -61,8 +66,8 @@ orderRoutes.get('/auth/web/orders/bulk/status/:job_id', verifyWebSession, (req, 
 orderRoutes.post('/auth/web/orders/bulk/validate/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.validateBulkRow(req, res));
 orderRoutes.put('/auth/web/orders/bulk/row/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.validateBulkRow(req, res));
 orderRoutes.delete('/auth/web/orders/bulk/rows/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.deleteBulkRows(req, res));
-orderRoutes.post('/auth/web/orders/bulk/process', verifyWebSession, (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
-orderRoutes.post('/auth/web/orders/bulk/pay', verifyWebSession, (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
+orderRoutes.post('/auth/web/orders/bulk/process', verifyWebSession, requireIdempotencyKey('web.bulk.process'), (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
+orderRoutes.post('/auth/web/orders/bulk/pay', verifyWebSession, requireIdempotencyKey('web.bulk.process'), (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
 orderRoutes.get('/admin/orders', (req, res) => controllers.getAllOrders(req, res));
 orderRoutes.get('/admin/orders/stats', (req, res) => controllers.getOrderStats(req, res));
 orderRoutes.get('/admin/orders/:id', (req, res) => controllers.getOrderById(req, res));

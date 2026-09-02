@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -38,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -68,7 +71,13 @@ fun ServiceBookingScreen(
 
     var vehicleType by remember { mutableStateOf("") }
     var damageType by remember { mutableStateOf("") }
+    var vehicleMake by remember { mutableStateOf("") }
+    var vehicleModel by remember { mutableStateOf("") }
+    var vehicleCondition by remember { mutableStateOf("") }
+    var accessConstraints by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var destinationContactName by remember { mutableStateOf("") }
+    var destinationContactPhone by remember { mutableStateOf("") }
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -139,6 +148,14 @@ fun ServiceBookingScreen(
                 onVehicleTypeChange = { vehicleType = it },
                 damageType = damageType,
                 onDamageTypeChange = { damageType = it },
+                vehicleMake = vehicleMake,
+                onVehicleMakeChange = { vehicleMake = it },
+                vehicleModel = vehicleModel,
+                onVehicleModelChange = { vehicleModel = it },
+                vehicleCondition = vehicleCondition,
+                onVehicleConditionChange = { vehicleCondition = it },
+                accessConstraints = accessConstraints,
+                onAccessConstraintsChange = { accessConstraints = it },
                 notes = notes,
                 onNotesChange = { notes = it }
             )
@@ -292,6 +309,26 @@ fun ServiceBookingScreen(
                 }
 
                 Spacer(Modifier.height(16.dp))
+
+                Text("Kontak tujuan", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = destinationContactName,
+                    onValueChange = { destinationContactName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Nama bengkel/penerima") },
+                    singleLine = true
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = destinationContactPhone,
+                    onValueChange = { destinationContactPhone = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Nomor kontak tujuan (wajib)") },
+                    singleLine = true
+                )
+
+                Spacer(Modifier.height(16.dp))
             }
 
             // Selected courier (dari "Pilih Petugas")
@@ -390,6 +427,13 @@ fun ServiceBookingScreen(
                         if (estimate.materialCost > 0) {
                             Text("Material: Rp ${formatRupiah(estimate.materialCost)}", fontSize = 14.sp)
                         }
+                        if (isTowing) {
+                            Text(
+                                if (estimate.tollCost > 0) "Tol: Rp ${formatRupiah(estimate.tollCost)}" else "Tol: belum termasuk (tarif provider belum tersedia)",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text("Biaya layanan platform: Rp ${formatRupiah(estimate.platformFee)}", fontSize = 14.sp)
                         Spacer(Modifier.height(10.dp))
                         Text(
@@ -411,6 +455,52 @@ fun ServiceBookingScreen(
 
                 Spacer(Modifier.height(24.dp))
 
+                if (isTowing) {
+                    val route = uiState.rawPriceBreakdown?.routeSnapshot
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(TembusRadius.Card),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text("Ringkasan rute towing", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Text("Pickup: ${uiState.customerAddress.ifBlank { "Lokasi GPS" }}", fontSize = 12.sp)
+                            Text("Tujuan: ${uiState.dropoffAddress}", fontSize = 12.sp)
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Operator rute: ${route?.provider?.ifBlank { "Belum tersedia" } ?: "Belum tersedia"} • " +
+                                    "Jarak ${"%.1f".format(estimate.distanceKm)} km",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+
+                if (isTowing && uiState.requiresPriceConsent) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = uiState.priceConsent,
+                                onCheckedChange = viewModel::setPriceConsent
+                            )
+                            Text(
+                                "Saya menyetujui kenaikan harga Rp ${formatRupiah(uiState.priceDeltaIdr)} berdasarkan rute/komponen aktual yang ditampilkan server.",
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 // Submit button
                 Button(
                     onClick = {
@@ -418,12 +508,18 @@ fun ServiceBookingScreen(
                             serviceSubType = serviceSubType,
                             vehicleType = vehicleType,
                             damageType = damageType,
+                            vehicleMake = vehicleMake,
+                            vehicleModel = vehicleModel,
+                            vehicleCondition = vehicleCondition,
+                            accessConstraints = accessConstraints,
                             notes = notes,
+                            destinationContactName = destinationContactName,
+                            destinationContactPhone = destinationContactPhone,
                             preferredCourierId = courierId
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = courierId != null && !uiState.isLoading && (!isTowing || uiState.dropoffAddress.isNotBlank()),
+                    enabled = courierId != null && !uiState.isLoading && (!isTowing || uiState.dropoffAddress.isNotBlank()) && (!uiState.requiresPriceConsent || uiState.priceConsent),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )

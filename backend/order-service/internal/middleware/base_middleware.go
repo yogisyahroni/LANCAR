@@ -17,6 +17,7 @@ type contextKey string
 
 const correlationIDKey contextKey = "correlation_id"
 const requestIDKey contextKey = "request_id"
+const idempotencyKey contextKey = "idempotency_key"
 const correlationIDHeader = "X-Correlation-ID"
 const requestIDHeader = "X-Request-ID"
 
@@ -63,6 +64,13 @@ func GetCorrelationID(ctx context.Context) string {
 
 func GetRequestID(ctx context.Context) string {
 	if v, ok := ctx.Value(requestIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+func GetIdempotencyKey(ctx context.Context) string {
+	if v, ok := ctx.Value(idempotencyKey).(string); ok {
 		return v
 	}
 	return ""
@@ -192,7 +200,7 @@ func CORSMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Correlation-ID")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Correlation-ID, X-Idempotency-Key, Idempotency-Key")
 		w.Header().Set("Access-Control-Max-Age", "86400")
 
 		if r.Method == http.MethodOptions {

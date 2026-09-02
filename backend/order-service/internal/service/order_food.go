@@ -285,6 +285,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		PrepTimeMinutes:    &prepMin,
 		ScheduledAt:        scheduledAt, // FB-123: NULL = pesan langsung
 		IsScheduled:        scheduledAt != nil,
+		CorrelationID:      uuid.New().String(),
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
@@ -341,10 +342,34 @@ func (s *orderServiceImpl) AcceptByMerchant(ctx context.Context, orderID string,
 	if o.PrepTimeMinutes != nil && *o.PrepTimeMinutes > 0 {
 		prep = *o.PrepTimeMinutes
 	}
-	if err := s.foodRepo.AcceptFoodOrder(ctx, orderID, prep); err != nil {
+	transactional := false
+	if transitionRepo, ok := s.foodRepo.(domain.OrderTransitionRepository); ok {
+		result, transitionErr := transitionRepo.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:            orderID,
+			ActorID:            merchantID,
+			Actor:              domain.OrderActorMerchant,
+			TargetStatus:       domain.StatusPreparing,
+			IdempotencyKey:     "merchant-accept:" + orderID + ":" + merchantID,
+			EventMessage:       "Merchant menerima pesanan — makanan disiapkan",
+			PreparationMinutes: prep,
+		})
+		if transitionErr != nil {
+			return transitionErr
+		}
+		if result.Replayed {
+			return nil
+		}
+		transactional = true
+	} else if err := s.foodRepo.AcceptFoodOrder(ctx, orderID, prep); err != nil {
 		return err
 	}
-	s.publishOrderEvent(ctx, orderID, domain.StatusPreparing, "Merchant menerima pesanan — makanan disiapkan")
+	if transactional {
+		if s.eventBus != nil {
+			_ = s.eventBus.Publish(ctx, "order.updates", domain.OrderEvent{OrderID: orderID, UserID: o.CustomerID, Status: domain.StatusPreparing, Message: "Merchant menerima pesanan — makanan disiapkan", CreatedAt: time.Now().UTC()})
+		}
+	} else {
+		s.publishOrderEvent(ctx, orderID, domain.StatusPreparing, "Merchant menerima pesanan — makanan disiapkan")
+	}
 
 	// FB-124: notif customer bahwa merchant menerima pesanannya.
 	// Wajib masuk inbox juga supaya C-041/UI tracking konsisten.
@@ -379,10 +404,34 @@ func (s *orderServiceImpl) RejectByMerchant(ctx context.Context, orderID string,
 	if o.Status != domain.StatusPendingMerchant {
 		return fmt.Errorf("order %s tidak dalam status pending_merchant (status: %s)", orderID, o.Status)
 	}
-	if err := s.foodRepo.RejectFoodOrder(ctx, orderID, reason); err != nil {
+	transactional := false
+	if transitionRepo, ok := s.foodRepo.(domain.OrderTransitionRepository); ok {
+		result, transitionErr := transitionRepo.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:        orderID,
+			ActorID:        merchantID,
+			Actor:          domain.OrderActorMerchant,
+			TargetStatus:   domain.StatusCancelled,
+			Reason:         reason,
+			IdempotencyKey: "merchant-reject:" + orderID + ":" + merchantID,
+			EventMessage:   "Pesanan ditolak merchant: " + reason,
+		})
+		if transitionErr != nil {
+			return transitionErr
+		}
+		if result.Replayed {
+			return nil
+		}
+		transactional = true
+	} else if err := s.foodRepo.RejectFoodOrder(ctx, orderID, reason); err != nil {
 		return err
 	}
-	s.publishOrderEvent(ctx, orderID, domain.StatusCancelled, "Pesanan ditolak merchant: "+reason)
+	if transactional {
+		if s.eventBus != nil {
+			_ = s.eventBus.Publish(ctx, "order.updates", domain.OrderEvent{OrderID: orderID, UserID: o.CustomerID, Status: domain.StatusCancelled, Message: "Pesanan ditolak merchant: " + reason, CreatedAt: time.Now().UTC()})
+		}
+	} else {
+		s.publishOrderEvent(ctx, orderID, domain.StatusCancelled, "Pesanan ditolak merchant: "+reason)
+	}
 
 	// FB-081: merchant menolak = kesalahan merchant → refund penuh
 	// FB-082: fee di-charge ke merchant (customer refund 100%, platform tidak rugi)

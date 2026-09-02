@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, Loader2, X } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -39,6 +39,47 @@ export function PaymentModal({
   const [state, setState] = useState<PaymentState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [snapReady, setSnapReady] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+  const paymentCheckKeyRef = useRef<string>("");
+  const checkInFlightRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
+        ));
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    paymentCheckKeyRef.current = "";
+    checkInFlightRef.current = false;
+  }, [orderId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -77,11 +118,65 @@ export function PaymentModal({
   }, [isOpen, snapJsUrl, clientKey]);
 
   const confirmPaid = async () => {
-    if (orderId) {
-      await api.post(`/auth/web/orders/${orderId}/payment/check`).catch(() => null);
+    if (!orderId) {
+      setState("error");
+      setMessage("Referensi order tidak tersedia untuk konfirmasi pembayaran.");
+      return;
     }
-    setState("paid");
-    window.setTimeout(onSuccess, 700);
+    if (checkInFlightRef.current) return;
+    checkInFlightRef.current = true;
+    setIsChecking(true);
+
+    if (!paymentCheckKeyRef.current) {
+      paymentCheckKeyRef.current = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `payment-check-${Date.now()}`;
+    }
+
+    setState("pending");
+    setMessage("Pembayaran diterima Midtrans. Menunggu konfirmasi status dari server...");
+
+    try {
+      const response = await api.post(
+        `/auth/web/orders/${orderId}/payment/check`,
+        undefined,
+        { headers: { "X-Idempotency-Key": paymentCheckKeyRef.current } },
+      );
+      const initialStatus = response.data?.payment_status || response.data?.payment?.payment_status;
+      if (initialStatus === "paid") {
+        setState("paid");
+        window.setTimeout(onSuccess, 700);
+        return;
+      }
+
+      // Webhook Midtrans can arrive after the browser callback. Poll the
+      // server-owned status briefly; never mark the payment paid locally.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        const statusResponse = await api.get(`/auth/web/orders/${orderId}/payment/status`);
+        const status = statusResponse.data?.payment_status || statusResponse.data?.payment?.payment_status;
+        if (status === "paid") {
+          setState("paid");
+          window.setTimeout(onSuccess, 700);
+          return;
+        }
+        if (status === "failed" || status === "expired") {
+          setState("error");
+          setMessage("Pembayaran tidak berhasil dikonfirmasi. Silakan coba metode pembayaran lain.");
+          return;
+        }
+      }
+
+      setState("pending");
+      setMessage("Pembayaran belum terkonfirmasi. Status akan diperbarui dari notifikasi gateway; order tetap tersimpan.");
+    } catch (error) {
+      console.error("Payment confirmation failed", error);
+      setState("error");
+      setMessage("Gagal mengonfirmasi pembayaran ke server. Order tetap tersimpan, silakan coba lagi.");
+    } finally {
+      checkInFlightRef.current = false;
+      setIsChecking(false);
+    }
   };
 
   const openSnap = () => {
@@ -130,14 +225,19 @@ export function PaymentModal({
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-md"
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="payment-modal-title"
+            tabIndex={-1}
+            className="relative max-h-[min(90vh,720px)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-md"
           >
             <div className="flex items-start justify-between border-b border-white/10 p-5">
               <div>
-                <h2 className="text-xl font-bold tracking-tight text-foreground">Pembayaran Midtrans Snap</h2>
+                <h2 id="payment-modal-title" className="text-xl font-bold tracking-tight text-foreground">Pembayaran Midtrans Snap</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Pilih QRIS, e-wallet, virtual account, atau metode lain dari Snap.</p>
               </div>
-              <button type="button" onClick={onClose} className="rounded-full p-2 hover:bg-white/10" aria-label="Tutup pembayaran">
+              <button ref={closeButtonRef} type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label="Tutup pembayaran">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -155,7 +255,7 @@ export function PaymentModal({
               </div>
 
               {message && (
-                <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
+                <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200" role="status" aria-live="polite">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   {message}
                 </div>
@@ -178,6 +278,17 @@ export function PaymentModal({
                   {state === "loading_snap" || state === "opened" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
                   {state === "loading_snap" ? "Memuat Snap..." : "Bayar dengan Midtrans"}
                 </button>
+                {state === "pending" && (
+                  <button
+                    type="button"
+                    onClick={() => void confirmPaid()}
+                    disabled={isChecking}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 py-3 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {isChecking ? "Mengecek status..." : "Cek status pembayaran lagi"}
+                  </button>
+                )}
                 {redirectUrl && (
                   <a
                     href={redirectUrl}

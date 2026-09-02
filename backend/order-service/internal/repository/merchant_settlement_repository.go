@@ -14,12 +14,16 @@ import (
 )
 
 type merchantSettlementRepository struct {
-	db *sql.DB
+	db             *sql.DB
+	transitionRepo domain.OrderTransitionRepository
 }
 
 // NewMerchantSettlementRepository membuat implementasi PostgreSQL untuk MerchantSettlementRepository.
 func NewMerchantSettlementRepository(db *sql.DB) domain.MerchantSettlementRepository {
-	return &merchantSettlementRepository{db: db}
+	return &merchantSettlementRepository{
+		db:             db,
+		transitionRepo: NewPostgresRepository(db, db, nil),
+	}
 }
 
 func (r *merchantSettlementRepository) Create(ctx context.Context, s *domain.MerchantSettlement) error {
@@ -332,13 +336,27 @@ func (r *merchantSettlementRepository) GetPaymentLinkByOrderID(ctx context.Conte
 }
 
 func (r *merchantSettlementRepository) UpdateOrderDeliveryConfirmed(ctx context.Context, orderID string, confirmedAt time.Time, podURL string) error {
+	if r.transitionRepo != nil {
+		if podURL == "" {
+			return domain.ErrTransitionProofRequired
+		}
+		if _, err := r.transitionRepo.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:        orderID,
+			Actor:          domain.OrderActorPlatform,
+			TargetStatus:   domain.StatusDelivered,
+			ProofReference: podURL,
+			IdempotencyKey: "settlement-delivery:" + orderID,
+			EventMessage:   "Pengiriman dikonfirmasi dengan POD",
+		}); err != nil {
+			return err
+		}
+	}
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE orders
 		SET delivery_confirmed_at = $1,
 		    delivery_pod_url = $2,
-		    status = 'delivered',
 		    updated_at = NOW()
-		WHERE id = $3`,
+		WHERE id = $3 AND status = 'delivered'`,
 		confirmedAt, podURL, orderID)
 	return err
 }

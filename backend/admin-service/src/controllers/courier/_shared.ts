@@ -689,6 +689,7 @@ export type CreatedDispatchOffer = {
   dispatch_id: string;
   order_id: string;
   courier_id: string;
+  vehicle_id?: string | null;
   merchant_id?: string | null;
   pickup_address: string | null;
   dropoff_address: string | null;

@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"sort"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/domain/queue"
 	"tembus/order-service/pkg/alerting"
@@ -40,15 +43,22 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 		batchOrders = []*domain.Order{order}
 	}
 
-	// Assign courier to all orders in the batch
+	assignedOrders := 0
+	// Assign courier to all orders in the batch. AssignCourier locks the row and
+	// updates only while it is still searching; this makes the first accept the
+	// sole winner when multiple courier requests arrive concurrently.
 	for _, o := range batchOrders {
-		if o.Status == domain.StatusSearching {
+		if o.Status == domain.StatusSearching || o.Status == domain.StatusFailedDelivery {
 			// 2. Assign Courier in DB
 			err = s.orderRepo.AssignCourier(ctx, o.ID, courierID)
 			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
 				log.Printf("failed to assign courier to order %s: %v", o.ID, err)
-				continue
+				return fmt.Errorf("assign courier to order %s: %w", o.ID, err)
 			}
+			assignedOrders++
 
 			// 3. Update Status to Accepted
 			err = s.orderRepo.UpdateStatus(ctx, o.ID, domain.StatusAccepted)
@@ -89,6 +99,9 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 				},
 			})
 		}
+	}
+	if assignedOrders == 0 {
+		return domain.ErrOrderAlreadyAssigned
 	}
 
 	// FB-088: kalau batch ini adalah food batch → tandai courier di
@@ -155,6 +168,11 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 		courierIDs, err := s.redisRepo.FindNearbyCouriers(ctx, order.PickupLat, order.PickupLng, radius)
 		if err != nil || len(courierIDs) == 0 {
 			log.Printf("[Matching] No couriers in %.0fkm radius for order %s", radius, order.OrderNumber)
+			continue
+		}
+		courierIDs = s.filterEligibleDispatchCouriers(ctx, order, courierIDs, radius)
+		if len(courierIDs) == 0 {
+			log.Printf("[Matching] No capability/availability-eligible couriers in %.0fkm radius for order %s", radius, order.OrderNumber)
 			continue
 		}
 
@@ -236,6 +254,91 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 	}
 
 	return errors.New("no couriers accepted the order within the search window")
+}
+
+// matchingCapabilityCode maps the persisted order contract to the capability
+// vocabulary used by courier_profiles.service_categories. Legacy package
+// models are all represented by the single on_demand capability.
+func matchingCapabilityCode(order *domain.Order) string {
+	if order == nil {
+		return ""
+	}
+	if subtype := strings.TrimSpace(order.ServiceSubType); subtype != "" {
+		return subtype
+	}
+	category := domain.CanonicalServiceCategoryFor(order)
+	if category == nil {
+		return ""
+	}
+	if *category == domain.CanonicalFood {
+		return "food_delivery"
+	}
+	if *category == domain.CanonicalPackageOnDemand {
+		return "on_demand"
+	}
+	return ""
+}
+
+// filterEligibleDispatchCouriers turns the Redis proximity result into a
+// dispatch-safe candidate list. Redis only knows location; the DB check
+// enforces approved capability, vehicle/radius rules, and availability state.
+func (s *orderServiceImpl) filterEligibleDispatchCouriers(ctx context.Context, order *domain.Order, courierIDs []string, radiusKM float64) []string {
+	if s.availabilityRepo == nil {
+		return courierIDs
+	}
+	capability := matchingCapabilityCode(order)
+	if capability == "" {
+		return courierIDs
+	}
+
+	capable, err := s.availabilityRepo.FindCouriersByCapability(ctx, capability, radiusKM, order.PickupLat, order.PickupLng)
+	if err != nil {
+		log.Printf("[Matching] capability lookup failed for order %s: %v", order.ID, err)
+		return nil
+	}
+	capableSet := make(map[string]struct{}, len(capable))
+	for _, courier := range capable {
+		if courier != nil {
+			capableSet[courier.CourierID] = struct{}{}
+		}
+	}
+
+	eligible := make([]string, 0, len(courierIDs))
+	for _, courierID := range courierIDs {
+		if _, ok := capableSet[courierID]; !ok {
+			continue
+		}
+		if s.courierAvailableForMatching(ctx, courierID, order.PickupLat, order.PickupLng) {
+			eligible = append(eligible, courierID)
+		}
+	}
+	return eligible
+}
+
+func (s *orderServiceImpl) courierAvailableForMatching(ctx context.Context, courierID string, pickupLat, pickupLng float64) bool {
+	state, err := s.availabilityRepo.GetAvailabilityState(ctx, courierID)
+	if err != nil {
+		// The availability service's established fail-safe treats a missing
+		// state row as idle; capability/online/radius still passed above.
+		return true
+	}
+
+	switch state.CurrentState {
+	case domain.AvailabilityStateIdle:
+		return true
+	case domain.AvailabilityStateNavigatingToPickup:
+		distanceKM, distanceErr := s.availabilityRepo.EstimateDistanceKM(ctx, state.Latitude, state.Longitude, pickupLat, pickupLng)
+		if distanceErr != nil || distanceKM > 2.0 {
+			return false
+		}
+		remainingMinutes, remainingErr := s.availabilityRepo.GetActiveOrderRemainingMinutes(ctx, courierID)
+		if remainingErr != nil || remainingMinutes < 15 {
+			return false
+		}
+		return int(math.Ceil(distanceKM*2.5)) <= 10
+	default:
+		return false
+	}
 }
 
 func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []string, order *domain.Order, totalWeight float64, packageCount int) []scoredCourier {
@@ -406,6 +509,23 @@ func (s *orderServiceImpl) notifyCustomerNoCourier(ctx context.Context, order *d
 
 func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) error {
 	log.Printf("[OrderService] Triggering automated matching for order: %s", orderID)
+	if s.relayRepo == nil {
+		return errors.New("matching relay repository is not configured")
+	}
+	parsedOrderID, err := uuid.Parse(orderID)
+	if err != nil {
+		return fmt.Errorf("invalid order id for matching: %w", err)
+	}
+	locked, err := s.relayRepo.AcquireMatchLock(ctx, parsedOrderID, 2*time.Minute)
+	if err != nil {
+		return fmt.Errorf("failed to acquire matching lock: %w", err)
+	}
+	if !locked {
+		// Another payment callback or retry already owns the transition. The
+		// operation is idempotent; do not launch a second matching goroutine.
+		return nil
+	}
+	defer func() { _ = s.relayRepo.ReleaseMatchLock(ctx, parsedOrderID) }()
 
 	// 1. Get current order state
 	order, err := s.orderRepo.GetByID(ctx, orderID)
@@ -416,8 +536,15 @@ func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) er
 		return fmt.Errorf("order %s not found", orderID)
 	}
 
-	// 2. Validate state (should be pending_payment or similar after confirmation)
-	// Some enterprise flows might skip 'pending_payment' if it's already confirmed via webhook
+	// 2. Validate state (should be pending_assignment after payment confirmation).
+	// Repeated callbacks are safe: an order already searching/assigned has
+	// already crossed this transition and must not spawn another matcher.
+	if order.Status == domain.StatusSearching || order.Status == domain.StatusAssigned || order.Status == domain.StatusAccepted {
+		return nil
+	}
+	if order.Status != domain.StatusPendingAssignment && order.Status != domain.StatusPending {
+		return fmt.Errorf("order cannot start matching from status: %s", order.Status)
+	}
 
 	// 3. Update status to 'searching'
 	if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.StatusSearching); err != nil {

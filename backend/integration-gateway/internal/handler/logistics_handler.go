@@ -12,18 +12,16 @@ import (
 )
 
 type LogisticsHandler struct {
-	jneProvider domain.Logistics3PLProvider
-	jntProvider domain.Logistics3PLProvider
+	registry domain.LogisticsProviderRegistry
 }
 
-func NewLogisticsHandler(jneProv, jntProv domain.Logistics3PLProvider) *LogisticsHandler {
-	return &LogisticsHandler{
-		jneProvider: jneProv,
-		jntProvider: jntProv,
-	}
+func NewLogisticsHandler(registry domain.LogisticsProviderRegistry) *LogisticsHandler {
+	return &LogisticsHandler{registry: registry}
 }
 
 type CreateLogisticsOrderRequest struct {
+	IdempotencyKey  string  `json:"idempotency_key,omitempty"`
+	FirstMileMode   string  `json:"first_mile_mode,omitempty"`
 	Provider        string  `json:"provider"` // "jne" or "jnt"
 	ReferenceID     string  `json:"reference_id"`
 	SenderName      string  `json:"sender_name"`
@@ -45,9 +43,9 @@ type CreateLogisticsOrderRequest struct {
 }
 
 type CreateLogisticsOrderResponse struct {
-	Success bool                               `json:"success"`
-	Message string                             `json:"message,omitempty"`
-	Data    *domain.LogisticsOrderResponse     `json:"data,omitempty"`
+	Success bool                           `json:"success"`
+	Message string                         `json:"message,omitempty"`
+	Data    *domain.LogisticsOrderResponse `json:"data,omitempty"`
 }
 
 func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
@@ -62,23 +60,26 @@ func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var prov domain.Logistics3PLProvider
 	provName := strings.ToLower(strings.TrimSpace(req.Provider))
-	if provName == "jnt" || provName == "j&t" {
-		prov = h.jntProvider
-	} else {
-		prov = h.jneProvider
-	}
-
-	if prov == nil {
-		h.respondJSON(w, http.StatusInternalServerError, CreateLogisticsOrderResponse{
+	registration, ok := h.registry.Get(provName)
+	if !ok {
+		h.respondJSON(w, http.StatusBadRequest, CreateLogisticsOrderResponse{
 			Success: false,
-			Message: fmt.Sprintf("Logistics provider %s is not configured", req.Provider),
+			Message: fmt.Sprintf("Logistics provider %s is not registered", req.Provider),
+		})
+		return
+	}
+	if registration.Shipment == nil {
+		h.respondJSON(w, http.StatusNotImplemented, CreateLogisticsOrderResponse{
+			Success: false,
+			Message: fmt.Sprintf("Logistics provider %s does not support shipment creation", req.Provider),
 		})
 		return
 	}
 
 	orderReq := domain.LogisticsOrderRequest{
+		IdempotencyKey:  req.IdempotencyKey,
+		FirstMileMode:   req.FirstMileMode,
 		ReferenceID:     req.ReferenceID,
 		SenderName:      req.SenderName,
 		SenderPhone:     req.SenderPhone,
@@ -98,7 +99,7 @@ func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		ServiceType:     req.ServiceType,
 	}
 
-	res, err := prov.CreateOrder(r.Context(), orderReq)
+	res, err := registration.Shipment.CreateOrder(r.Context(), orderReq)
 	if err != nil {
 		log.Printf("[integration-gateway] CreateOrder Error (%s): %v", provName, err)
 		h.respondJSON(w, http.StatusBadGateway, CreateLogisticsOrderResponse{
@@ -142,22 +143,23 @@ func (h *LogisticsHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
 		ServiceType:     "",
 	}
 
-	var prov domain.Logistics3PLProvider
-	if provider == "jnt" || provider == "j&t" {
-		prov = h.jntProvider
-	} else {
-		prov = h.jneProvider
-	}
-
-	if prov == nil {
-		h.respondJSON(w, http.StatusInternalServerError, map[string]interface{}{
+	registration, ok := h.registry.Get(provider)
+	if !ok {
+		h.respondJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"success": false,
-			"message": fmt.Sprintf("Logistics provider %s is not configured", provider),
+			"message": fmt.Sprintf("Logistics provider %s is not registered", provider),
+		})
+		return
+	}
+	if registration.Tariff == nil {
+		h.respondJSON(w, http.StatusNotImplemented, map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("Logistics provider %s does not support tariff quotes", provider),
 		})
 		return
 	}
 
-	res, err := prov.CheckTariff(r.Context(), req)
+	res, err := registration.Tariff.CheckTariff(r.Context(), req)
 	if err != nil {
 		log.Printf("[integration-gateway] CheckTariff Error (%s): %v", provider, err)
 		h.respondJSON(w, http.StatusBadGateway, map[string]interface{}{
@@ -166,10 +168,27 @@ func (h *LogisticsHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	// Keep the provider capability contract alongside the lane-specific quote.
+	// The adapter may add service-level capabilities, but must not be required to
+	// duplicate the registry declaration for every returned service.
+	if len(res.Capabilities) == 0 {
+		res.Capabilities = registration.Descriptor.Capabilities
+	}
 
 	h.respondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    res,
+	})
+}
+
+func (h *LogisticsHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":   true,
+		"providers": h.registry.List(),
 	})
 }
 

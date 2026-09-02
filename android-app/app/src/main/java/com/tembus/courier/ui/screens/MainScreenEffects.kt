@@ -165,6 +165,7 @@ internal fun MainScreenEffects(deps: MainScreenDeps) {
     var selectedOrder by deps.selectedOrder
     val roleOrders = deps.roleOrders
     val onDemandOffers = deps.onDemandOffers
+    val capabilityProfile = deps.capabilityProfile
     val orderViewModel = deps.orderViewModel
     val callEventsViewModel = deps.callEventsViewModel
     val courierRole = deps.courierRole
@@ -217,6 +218,7 @@ internal fun MainScreenEffects(deps: MainScreenDeps) {
             activeJobCount = activeOnDemandJobCount,
             maxActiveJobs = maxActiveOnDemandJobs,
             acceptBlocked = capacityBlocked,
+            activeCapabilities = capabilityProfile?.serviceCapabilities.orEmpty(),
             onAccept = { offer ->
                 orderViewModel.acceptOffer(offer) { accepted ->
                     openOrderDetail(accepted)

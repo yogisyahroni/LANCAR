@@ -12,6 +12,11 @@ internal fun eventMatchesStep(eventType: String, step: String): Boolean {
         "merchant_prep" -> normalized in setOf("preparing", "food_preparing", "food_ready")
         "accepted" -> normalized in setOf("accepted", "assigned", "courier_assigned")
         "pickup" -> normalized in setOf("pickup_verified", "picked_up")
+        "menuju_pickup" -> normalized in setOf("accepted", "assigned", "courier_assigned", "picking_up")
+        "inspeksi" -> normalized in setOf("arrived_pickup", "pickup_verified", "service_started")
+        "loading" -> normalized in setOf("loading", "service_started")
+        "perjalanan" -> normalized in setOf("in_transit", "delivery_started", "picked_up")
+        "unloading" -> normalized in setOf("arrived_dropoff", "unloading")
         "delivery" -> normalized in setOf("delivery_started", "in_transit", "picked_up", "delivering")
         "pod" -> normalized in setOf("pod_verified", "delivered")
         "cancelled" -> normalized in setOf("pickup_cancelled_by_courier", "cancelled", "failed")
@@ -118,7 +123,7 @@ internal fun trackingStageText(status: String?, serviceSubType: String?): String
         }
         "arrived_pickup" -> when (copy.kind) {
             TrackingServiceKind.TAMBAL_BAN -> "Teknisi sudah tiba di lokasi"
-            TrackingServiceKind.TOWING -> "Driver towing tiba di titik jempat"
+            TrackingServiceKind.TOWING -> "Driver towing tiba di titik jemput"
             else -> "Kurir tiba di titik pickup"
         }
         "service_started" -> copy.activeLabel

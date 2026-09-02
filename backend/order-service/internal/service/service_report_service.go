@@ -75,6 +75,15 @@ func validateTowingReport(report *domain.TowingReport) error {
 	if !hasValue(report.VehiclePhotoBeforeURL) {
 		return fmt.Errorf("%w: vehicle_photo_before_url wajib diisi", domain.ErrInvalidServiceReport)
 	}
+	if !hasValue(report.LoadingPhotoURL) {
+		return fmt.Errorf("%w: loading_photo_url wajib diisi sebelum transit", domain.ErrInvalidServiceReport)
+	}
+	if !hasValue(report.UnloadingPhotoURL) {
+		return fmt.Errorf("%w: unloading_photo_url wajib diisi sebelum completion", domain.ErrInvalidServiceReport)
+	}
+	if report.UnloadingCompletedAt == nil {
+		return fmt.Errorf("%w: unloading_completed_at wajib diisi sebagai verifikasi tujuan", domain.ErrInvalidServiceReport)
+	}
 	if !hasValue(report.CompletionPhotoURL) {
 		return fmt.Errorf("%w: completion_photo_url wajib diisi", domain.ErrInvalidServiceReport)
 	}

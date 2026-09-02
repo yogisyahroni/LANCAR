@@ -19,6 +19,9 @@ func NewPostgresLedgerRepository(db *sql.DB) domain.FinanceLedgerRepository {
 }
 
 func (r *postgresLedgerRepository) CreateJournalWithEntries(ctx context.Context, journal *domain.LedgerJournal, entries []domain.LedgerEntry) error {
+	if err := domain.ValidateLedgerEntries(entries); err != nil {
+		return fmt.Errorf("validate ledger journal: %w", err)
+	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -75,6 +78,9 @@ func (r *postgresLedgerRepository) CreateJournalWithEntries(ctx context.Context,
 }
 
 func (r *postgresLedgerRepository) CreateJournalReturningID(ctx context.Context, journal *domain.LedgerJournal, entries []domain.LedgerEntry) (uuid.UUID, error) {
+	if err := domain.ValidateLedgerEntries(entries); err != nil {
+		return uuid.Nil, fmt.Errorf("validate ledger journal: %w", err)
+	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("failed to begin transaction: %w", err)
@@ -135,4 +141,3 @@ func (r *postgresLedgerRepository) CreateJournalReturningID(ctx context.Context,
 	}
 	return journalUUID, nil
 }
-

@@ -125,7 +125,6 @@ func (m *MockConfigRepo) GetStringConfig(ctx context.Context, key string, fallba
 	return fallback
 }
 
-
 type MockFlagReader struct {
 	Flags map[string]*featureflags.FeatureFlag
 	Err   error
@@ -355,5 +354,43 @@ func TestPricingService_RoundingAndPromoAccounting(t *testing.T) {
 	// Verify ceiling rounding precision 500
 	if resp.TotalPriceIDR%500 != 0 {
 		t.Errorf("expected TotalPriceIDR to be multiple of 500 (ceil mode), got %d", resp.TotalPriceIDR)
+	}
+}
+
+func TestPricingService_ProducesAuditableQuoteMetadata(t *testing.T) {
+	mockPricing := &MockPricingRepo{
+		Config: &domain.PricingConfig{BaseFare: 10000, PricePerKM: 2000},
+	}
+	svc := service.NewPricingService(
+		mockPricing,
+		&MockMapsRepo{DistKM: 5, DurMin: 15, OriginAddr: "Pickup", DestAddr: "Dropoff"},
+		&MockRedisRepo{Multiplier: 1},
+		&MockFlagReader{Flags: map[string]*featureflags.FeatureFlag{}},
+		&MockConfigRepo{Configs: map[string]interface{}{}},
+	)
+	req := &domain.PricingEstimateRequest{
+		PickupLat: -6.2, PickupLng: 106.8, DropoffLat: -6.3, DropoffLng: 106.9,
+		Length: 10, Width: 10, Height: 10, Weight: 1, Models: []string{"model_p2p"},
+		PackageFacts: domain.PackageFacts{Quantity: 1, Category: "document"},
+	}
+
+	quote, err := svc.EstimatePrice(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if quote.QuoteID == "" || quote.QuoteID != quote.EstimateID {
+		t.Fatalf("quote identity was not bridged for legacy clients: %+v", quote)
+	}
+	if quote.InputFingerprint != domain.QuoteInputFingerprint(*req) {
+		t.Fatalf("input fingerprint does not match request")
+	}
+	if quote.SnapshotHash == "" || quote.SnapshotHash != domain.QuoteSnapshotHash(*quote) || quote.Currency != "IDR" || quote.ETASource != "maps.traffic" {
+		t.Fatalf("quote metadata incomplete: %+v", quote)
+	}
+	if quote.ServiceCategory != "package_on_demand" || quote.PriceComponents["total_price_idr"] != quote.TotalPriceIDR {
+		t.Fatalf("quote components incomplete: %+v", quote.PriceComponents)
+	}
+	if !quote.ExpiresAt.After(time.Now()) {
+		t.Fatalf("quote must expire in the future")
 	}
 }

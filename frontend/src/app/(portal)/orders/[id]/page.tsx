@@ -6,6 +6,7 @@ import { AlertTriangle, Calendar, MapPin, Navigation, Package, Phone, Truck, Ute
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+import { AsyncRecoveryState } from '@/components/ui/AsyncRecoveryState';
 import { OrderDetailContent } from './OrderDetailContent';
 import { useOrderDetailRuntime } from './useOrderDetailRuntime';
 
@@ -14,7 +15,7 @@ export default function OrderDetailPage() {
   const id = params?.id as string;
   const runtime = useOrderDetailRuntime(id);
   const {
-    order, events, proofs, tracking, trackingError, loading, chatsLoading, sharingTracking,
+    order, events, carrierEvents, proofs, tracking, trackingError, loading, loadError, chatsLoading, sharingTracking,
     retryingMatching, cancellingOrder, showCancelModal, setShowCancelModal, activePhoto,
     setActivePhoto, isDisputeModalOpen, setIsDisputeModalOpen, chatInput, setChatInput,
     chatMessages, uploading, previewImage, setPreviewImage, selectedFile, setSelectedFile,
@@ -86,17 +87,23 @@ export default function OrderDetailPage() {
   if (loading) return <CustomerPageSkeleton />;
   if (!order) {
     return (
-      <div className="p-12 text-center bg-card border border-white/10 rounded-2xl max-w-xl mx-auto my-12 flex flex-col items-center space-y-4">
-        <AlertTriangle className="h-10 w-10 text-red-500" />
-        <h3 className="text-xl font-bold">Order tidak ditemukan</h3>
-        <p className="text-sm text-muted-foreground">Detail order yang Anda cari mungkin telah dihapus atau tidak dapat diakses.</p>
-        <Link href="/orders" className="text-sm font-semibold text-primary underline">Kembali ke Daftar Order</Link>
+      <div className="mx-auto my-12 max-w-xl space-y-4">
+        {loadError ? (
+          <AsyncRecoveryState title="Detail order belum tersedia" message={loadError} onRetry={() => void runtime.refresh()} retrying={loading} />
+        ) : (
+          <div className="flex flex-col items-center space-y-4 rounded-2xl border border-white/10 bg-card p-12 text-center">
+            <AlertTriangle className="h-10 w-10 text-red-500" aria-hidden="true" />
+            <h3 className="text-xl font-bold">Order tidak ditemukan</h3>
+            <p className="text-sm text-muted-foreground">Detail order yang Anda cari mungkin telah dihapus atau tidak dapat diakses.</p>
+            <Link href="/orders" className="text-sm font-semibold text-primary underline">Kembali ke Daftar Order</Link>
+          </div>
+        )}
       </div>
     );
   }
 
   return <OrderDetailContent
-    order={order} tracking={tracking} events={events} proofs={proofs} proofGroups={proofGroups}
+    order={order} tracking={tracking} events={events} carrierEvents={carrierEvents} proofs={proofs} proofGroups={proofGroups}
     serviceProofs={serviceProofs} serviceReportNotes={serviceReportNotes} foodItems={foodItems}
     packageCount={packageCount} packageDetails={packageDetails} activePhoto={activePhoto}
     isDisputeModalOpen={isDisputeModalOpen} showCancelModal={showCancelModal}

@@ -28,10 +28,8 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 	var targetStatus domain.OrderStatus
 	switch scan.ScanType {
 	case "pickup":
-		// The mobile on-demand proof path records arrival in the canonical
-		// order status before custody evidence. Legacy warehouse/regular scans
-		// retain their existing accepted/picking_up transition.
-		onDemandPickup := order.ServiceSubType == "food_delivery" || order.ServiceCode != ""
+		category := domain.CanonicalServiceCategoryFor(order)
+		onDemandPickup := category != nil && *category == domain.CanonicalPackageOnDemand
 		if onDemandPickup && order.Status != domain.StatusPickupArrived {
 			return fmt.Errorf("pickup arrival confirmation required before package verification (current status %s)", order.Status)
 		}
@@ -118,6 +116,13 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		targetStatus = domain.StatusReturnToSender
 	default:
 		return fmt.Errorf("unknown scan type: %s", scan.ScanType)
+	}
+
+	// Production PostgreSQL repositories expose a transactional transition
+	// boundary. Keep the legacy sequence below only for lightweight test
+	// repositories that do not implement that capability.
+	if _, ok := s.orderRepo.(domain.OrderTransitionRepository); ok {
+		return s.scanPackageThroughBoundary(ctx, order, scannedBy, scan, targetStatus)
 	}
 
 	// 1. Update order status in DB
@@ -292,6 +297,74 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		},
 	})
 
+	return nil
+}
+
+func (s *orderServiceImpl) scanPackageThroughBoundary(ctx context.Context, order *domain.Order, scannedBy string, scan *domain.PackageScan, targetStatus domain.OrderStatus) error {
+	scan.ScannedBy = scannedBy
+	key := scan.IdempotencyKey
+	if key == "" {
+		key = fmt.Sprintf("package-scan:%s:%s:%s", order.ID, scan.ScanType, scannedBy)
+	}
+	message := fmt.Sprintf("Package scan recorded: %s", scan.ScanType)
+	if scan.ScanType == "delivered" {
+		message = "Package delivered successfully. ePOD recorded."
+	}
+	result, err := s.orderRepo.(domain.OrderTransitionRepository).TransitionOrder(ctx, domain.OrderTransitionRequest{
+		OrderID:        order.ID,
+		ActorID:        scannedBy,
+		Actor:          domain.OrderActorCourier,
+		TargetStatus:   targetStatus,
+		IdempotencyKey: key,
+		EventMessage:   message,
+		Proof:          scan,
+	})
+	if err != nil {
+		return fmt.Errorf("commit package scan transition: %w", err)
+	}
+	if result.Replayed || !result.Applied {
+		return nil
+	}
+	scan.ID = result.ProofID
+	scan.RecordedAt = time.Now().UTC()
+
+	event := domain.OrderEvent{
+		OrderID:   order.ID,
+		UserID:    order.CustomerID,
+		Status:    targetStatus,
+		Message:   message,
+		CreatedAt: time.Now().UTC(),
+	}
+	if s.eventBus != nil {
+		_ = s.eventBus.Publish(ctx, "order.updates", event)
+	}
+	if targetStatus == domain.StatusDelivered && order.MerchantID != nil && s.settlementSvc != nil {
+		if err := s.settlementSvc.HandleFoodOrderDelivered(ctx, order.ID); err != nil {
+			log.Printf("[settlement] transactional delivery follow-up failed for order %s: %v", order.ID, err)
+		}
+	}
+	if targetStatus == domain.StatusDelivered && order.CourierID != nil && s.pointsSvc != nil {
+		courierID, courierErr := uuid.Parse(*order.CourierID)
+		orderID, orderErr := uuid.Parse(order.ID)
+		if courierErr == nil && orderErr == nil {
+			if err := s.pointsSvc.AddPoints(ctx, courierID, orderID); err != nil {
+				log.Printf("[points] transactional delivery follow-up failed for order %s: %v", order.ID, err)
+			}
+		}
+	}
+	if s.notificationSvc != nil {
+		_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
+			UserID:  order.CustomerID,
+			Title:   "Package status updated",
+			Message: message,
+			Channel: domain.ChannelPush,
+			Data: map[string]string{
+				"order_id":  order.ID,
+				"scan_type": scan.ScanType,
+				"type":      "package_scan",
+			},
+		})
+	}
 	return nil
 }
 

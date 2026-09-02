@@ -163,7 +163,15 @@ fun OrderDetailScreen(
                     )
                 }
                 is OrderDetailUiState.Error -> {
-                    Text(res.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.Center))
+                    Column(
+                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("Detail pesanan belum tersedia", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                        Text(res.message, color = OnSurfaceVariant)
+                        Button(onClick = { viewModel.fetchOrderDetail(orderId) }) { Text("Coba lagi") }
+                    }
                 }
                 is OrderDetailUiState.Success -> {
                     val order = res.order
@@ -215,83 +223,7 @@ fun OrderDetailScreen(
                             }
                         }
 
-                        Spacer(Modifier.height(16.dp))
-
-                        // FB-111: Rincian item pesanan food (snapshot
-                        // food_order_items dari backend) — customer bisa lihat
-                        // lagi isi pesanan setelah order selesai.
-                        if (order.foodItems.isNotEmpty()) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(TembusRadius.Card),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                border = BorderStroke(1.dp, Outline)
-                            ) {
-                            Column(Modifier.padding(20.dp)) {
-                                    Text("Rincian Pesanan", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OnSurface)
-                                    Spacer(Modifier.height(12.dp))
-                                    order.foodItems.forEach { item ->
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                            verticalAlignment = Alignment.Top,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            Text(
-                                                "${item.quantity}×",
-                                                fontWeight = FontWeight.Black,
-                                                color = Accent
-                                            )
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(item.name, fontWeight = FontWeight.SemiBold, color = OnSurface)
-                                                // FB-108: tampilkan pilihan varian yang dipilih
-                                                // (mis. "Level Pedas: Extra Pedas").
-                                                if (!item.variants.isNullOrEmpty()) {
-                                                    Text(
-                                                        item.variants.joinToString(" · ") { v ->
-                                                            "${v.variantName ?: ""}${if (v.variantName.isNullOrBlank()) "" else ": "}${v.optionName ?: ""}"
-                                                        },
-                                                        fontSize = 12.sp,
-                                                        color = OnSurfaceVariant
-                                                    )
-                                                }
-                                                if (!item.notes.isNullOrBlank()) {
-                                                    Text(
-                                                        "Catatan: ${item.notes}",
-                                                        fontSize = 12.sp,
-                                                        color = OnSurfaceVariant
-                                                    )
-                                                }
-                                            }
-                                            if (item.subtotal > 0) {
-                                                Text(
-                                                    "Rp ${item.subtotal}",
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Primary
-                                                )
-                                            }
-                                        }
-                                        HorizontalDivider(color = Outline.copy(alpha = 0.4f))
-                                    }
-                                    // FB-121: catatan level order (mis. "pisahin sambal semua")
-                                    if (!order.orderNotes.isNullOrBlank()) {
-                                        Spacer(Modifier.height(10.dp))
-                                        Text(
-                                            "Catatan untuk merchant:",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = OnSurfaceVariant
-                                        )
-                                        Text(
-                                            order.orderNotes!!,
-                                            fontSize = 14.sp,
-                                            color = OnSurface,
-                                            modifier = Modifier.padding(top = 2.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(16.dp))
-                        }
+                        OrderServiceSpecificSections(order)
 
                         // Info Pembayaran
                         Card(
@@ -312,17 +244,19 @@ fun OrderDetailScreen(
                         
                         Spacer(Modifier.height(24.dp))
 
-                        if (order.status.lowercase() != "delivered" && order.status.lowercase() != "cancelled") {
+                        if (OrderActionPolicy.canTrack(order.status) || OrderActionPolicy.canChat(order.status) || OrderActionPolicy.canCancel(order.status, order.serviceSubType)) {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Button(
-                                    onClick = { onTrackClick(order.orderId) },
-                                    modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Lacak posisi kurir"),
-                                    shape = RoundedCornerShape(TembusRadius.Button),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
-                                ) {
-                                    Icon(Icons.Default.MyLocation, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Lacak Posisi Kurir", fontWeight = FontWeight.Bold)
+                                if (OrderActionPolicy.canTrack(order.status)) {
+                                    Button(
+                                        onClick = { onTrackClick(order.orderId) },
+                                        modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Lacak posisi kurir"),
+                                        shape = RoundedCornerShape(TembusRadius.Button),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
+                                    ) {
+                                        Icon(Icons.Default.MyLocation, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Lacak Posisi Kurir", fontWeight = FontWeight.Bold)
+                                    }
                                 }
 
                                 if (canOpenConversation(order.status)) {
@@ -339,7 +273,7 @@ fun OrderDetailScreen(
                                 }
 
                                 // S2-CUSTOMER-02: Cancel button with reason picker
-                                if (canCancelOrder(order.status)) {
+                                if (canCancelOrder(order.status, order.serviceSubType)) {
                                     OutlinedButton(
                                         onClick = { showCancelDialog = true },
                                         modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Batalkan pesanan"),
@@ -397,50 +331,16 @@ fun OrderDetailScreen(
 
 // statusDisplayText — label status yang ramah user (FB-123: scheduled → "Terjadwal").
 private fun statusDisplayText(status: String): String {
-    return when (status.lowercase()) {
-        "scheduled" -> "Terjadwal"
-        "pending_merchant" -> "Menunggu Merchant"
-        "preparing" -> "Disiapkan"
-        "searching" -> "Mencari Kurir"
-        "accepted" -> "Kurir Menuju Merchant"
-        "picked_up" -> "Sedang Diantar"
-        "delivering" -> "Sedang Diantar"
-        "delivered" -> "Selesai"
-        "cancelled" -> "Dibatalkan"
-        else -> status.uppercase()
-    }
+    return OrderActionPolicy.statusLabel(status)
 }
 
 private fun canOpenConversation(status: String): Boolean {
-    return status.lowercase() in setOf(
-        "assigned",
-        "accepted",
-        "picking_up",
-        "picked_up",
-        "in_transit",
-        "delivering"
-    )
+    return OrderActionPolicy.canChat(status)
 }
 
 // S2-CUSTOMER-02: Only allow cancellation before pickup
-private fun canCancelOrder(status: String): Boolean {
-    return status.lowercase() in setOf(
-        "searching",
-        "assigned",
-        "accepted",
-        "pending_assignment",
-        "pending",
-        "pending_payment",
-        "no_courier_found",
-        // FB-079: food order — cancel window diperpanjang (free sebelum driver,
-        // kena biaya layanan saat accepted/picking_up)
-        "pending_merchant",
-        "preparing",
-        "ready_for_pickup",
-        "picking_up",
-        // FB-123: order terjadwal — masih ditahan, bebas dibatalkan.
-        "scheduled"
-    )
+private fun canCancelOrder(status: String, serviceSubType: String?): Boolean {
+    return OrderActionPolicy.canCancel(status, serviceSubType)
 }
 
 /**

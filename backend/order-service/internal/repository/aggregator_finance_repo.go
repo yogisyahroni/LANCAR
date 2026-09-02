@@ -247,17 +247,23 @@ func (r *aggregatorFinanceRepository) CreateOrUpdatePolicy(ctx context.Context, 
 }
 
 func (r *aggregatorFinanceRepository) CreateClaim(ctx context.Context, claim *domain.LogisticsExceptionClaim) error {
+	evidence := claim.EvidenceURLs
+	if len(evidence) == 0 {
+		evidence = json.RawMessage(`[]`)
+	}
 	query := `
 		INSERT INTO logistics_exception_claims (
 			id, order_id, awb_number, exception_type, provider_name, claim_amount_idr,
-			provider_payout_idr, customer_compensation_idr, merchant_compensation_idr,
-			status, notes, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+			item_value_idr, insurance_coverage_idr, provider_payout_idr, customer_compensation_idr, merchant_compensation_idr,
+			provider_claim_reference, fee_borne_by, evidence_urls, status, notes, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+		ON CONFLICT (order_id, exception_type) DO NOTHING
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		claim.ID, claim.OrderID, claim.AWBNumber, claim.ExceptionType, claim.ProviderName,
-		claim.ClaimAmountIDR, claim.ProviderPayoutIDR, claim.CustomerCompensationIDR,
-		claim.MerchantCompensationIDR, claim.Status, claim.Notes,
+		claim.ClaimAmountIDR, claim.ItemValueIDR, claim.InsuranceCoverageIDR,
+		claim.ProviderPayoutIDR, claim.CustomerCompensationIDR, claim.MerchantCompensationIDR,
+		claim.ProviderClaimReference, claim.FeeBorneBy, evidence, claim.Status, claim.Notes,
 	)
 	return err
 }
@@ -265,16 +271,18 @@ func (r *aggregatorFinanceRepository) CreateClaim(ctx context.Context, claim *do
 func (r *aggregatorFinanceRepository) GetClaimByID(ctx context.Context, id uuid.UUID) (*domain.LogisticsExceptionClaim, error) {
 	query := `
 		SELECT id, order_id, awb_number, exception_type, provider_name, claim_amount_idr,
-		       provider_payout_idr, customer_compensation_idr, merchant_compensation_idr,
-		       status, COALESCE(notes, ''), created_at
+		       item_value_idr, insurance_coverage_idr, provider_payout_idr, customer_compensation_idr, merchant_compensation_idr,
+		       COALESCE(provider_claim_reference, ''), COALESCE(fee_borne_by, ''), COALESCE(evidence_urls, '[]'::jsonb),
+		       status, COALESCE(notes, ''), resolved_at, created_at, updated_at
 		FROM logistics_exception_claims
 		WHERE id = $1
 	`
 	c := &domain.LogisticsExceptionClaim{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&c.ID, &c.OrderID, &c.AWBNumber, &c.ExceptionType, &c.ProviderName,
-		&c.ClaimAmountIDR, &c.ProviderPayoutIDR, &c.CustomerCompensationIDR,
-		&c.MerchantCompensationIDR, &c.Status, &c.Notes, &c.CreatedAt,
+		&c.ClaimAmountIDR, &c.ItemValueIDR, &c.InsuranceCoverageIDR, &c.ProviderPayoutIDR, &c.CustomerCompensationIDR,
+		&c.MerchantCompensationIDR, &c.ProviderClaimReference, &c.FeeBorneBy, &c.EvidenceURLs,
+		&c.Status, &c.Notes, &c.ResolvedAt, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -285,8 +293,9 @@ func (r *aggregatorFinanceRepository) GetClaimByID(ctx context.Context, id uuid.
 func (r *aggregatorFinanceRepository) ListClaims(ctx context.Context, status string, limit, offset int) ([]*domain.LogisticsExceptionClaim, error) {
 	query := `
 		SELECT id, order_id, awb_number, exception_type, provider_name, claim_amount_idr,
-		       provider_payout_idr, customer_compensation_idr, merchant_compensation_idr,
-		       status, COALESCE(notes, ''), created_at
+		       item_value_idr, insurance_coverage_idr, provider_payout_idr, customer_compensation_idr, merchant_compensation_idr,
+		       COALESCE(provider_claim_reference, ''), COALESCE(fee_borne_by, ''), COALESCE(evidence_urls, '[]'::jsonb),
+		       status, COALESCE(notes, ''), resolved_at, created_at, updated_at
 		FROM logistics_exception_claims
 		WHERE ($1 = '' OR status = $1)
 		ORDER BY created_at DESC
@@ -303,8 +312,9 @@ func (r *aggregatorFinanceRepository) ListClaims(ctx context.Context, status str
 		c := &domain.LogisticsExceptionClaim{}
 		if err := rows.Scan(
 			&c.ID, &c.OrderID, &c.AWBNumber, &c.ExceptionType, &c.ProviderName,
-			&c.ClaimAmountIDR, &c.ProviderPayoutIDR, &c.CustomerCompensationIDR,
-			&c.MerchantCompensationIDR, &c.Status, &c.Notes, &c.CreatedAt,
+			&c.ClaimAmountIDR, &c.ItemValueIDR, &c.InsuranceCoverageIDR, &c.ProviderPayoutIDR, &c.CustomerCompensationIDR,
+			&c.MerchantCompensationIDR, &c.ProviderClaimReference, &c.FeeBorneBy, &c.EvidenceURLs,
+			&c.Status, &c.Notes, &c.ResolvedAt, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -316,7 +326,7 @@ func (r *aggregatorFinanceRepository) ListClaims(ctx context.Context, status str
 func (r *aggregatorFinanceRepository) UpdateClaimStatus(ctx context.Context, id uuid.UUID, status string, journalID *uuid.UUID) error {
 	query := `
 		UPDATE logistics_exception_claims
-		SET status = $1, ledger_journal_id = $2, resolved_at = NOW()
+		SET status = $1, ledger_journal_id = COALESCE($2, ledger_journal_id), resolved_at = NOW(), updated_at = NOW()
 		WHERE id = $3
 	`
 	_, err := r.db.ExecContext(ctx, query, status, journalID, id)

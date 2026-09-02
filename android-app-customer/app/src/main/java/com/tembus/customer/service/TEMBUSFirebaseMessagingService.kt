@@ -6,6 +6,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.util.NotificationHelper
+import com.tembus.customer.util.NotificationEventVersionStore
 import com.tembus.customer.worker.CustomerResyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,9 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject
     lateinit var notificationHelper: NotificationHelper
+
+    @Inject
+    lateinit var notificationEventVersionStore: NotificationEventVersionStore
 
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.IO + job)
@@ -44,6 +48,13 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         debugLog("FCM message received: ${messageSummary(remoteMessage.data)}")
+
+        val orderId = remoteMessage.data["order_id"] ?: remoteMessage.data["orderId"]
+        val eventVersion = remoteMessage.data["event_version"] ?: remoteMessage.data["eventVersion"]
+        if (!notificationEventVersionStore.accept(orderId, eventVersion)) {
+            debugLog("Ignoring stale notification for order=${orderId ?: "none"}")
+            return
+        }
 
         // Check if message contains a notification payload.
         remoteMessage.notification?.let {

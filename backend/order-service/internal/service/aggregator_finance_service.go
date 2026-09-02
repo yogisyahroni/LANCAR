@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"tembus/order-service/internal/domain"
@@ -11,6 +12,11 @@ import (
 type aggregatorFinanceService struct {
 	repo       domain.AggregatorFinanceRepository
 	ledgerRepo domain.FinanceLedgerRepository
+}
+
+func terminalClaimStatus(status string) bool {
+	status = strings.ToUpper(strings.TrimSpace(status))
+	return status == "PAID" || status == "COMPENSATED"
 }
 
 func NewAggregatorFinanceService(repo domain.AggregatorFinanceRepository, ledgerRepo domain.FinanceLedgerRepository) domain.AggregatorFinanceService {
@@ -143,6 +149,18 @@ func (s *aggregatorFinanceService) ApproveInvoice(ctx context.Context, invoiceID
 }
 
 func (s *aggregatorFinanceService) SubmitClaim(ctx context.Context, claim *domain.LogisticsExceptionClaim) (*domain.LogisticsExceptionClaim, error) {
+	if claim == nil || claim.OrderID == uuid.Nil || strings.TrimSpace(claim.AWBNumber) == "" || strings.TrimSpace(claim.ProviderName) == "" {
+		return nil, fmt.Errorf("order_id, awb_number, and provider_name are required")
+	}
+	claim.ExceptionType = strings.ToUpper(strings.TrimSpace(claim.ExceptionType))
+	switch claim.ExceptionType {
+	case "RETURN", "FAILED_DELIVERY", "LOST_CLAIM", "DAMAGED_CLAIM":
+	default:
+		return nil, fmt.Errorf("unsupported logistics exception type %q", claim.ExceptionType)
+	}
+	if (claim.ExceptionType == "LOST_CLAIM" || claim.ExceptionType == "DAMAGED_CLAIM") && len(claim.EvidenceURLs) == 0 {
+		return nil, fmt.Errorf("evidence_urls is required for %s", claim.ExceptionType)
+	}
 	if claim.ID == uuid.Nil {
 		claim.ID = uuid.New()
 	}
@@ -155,6 +173,7 @@ func (s *aggregatorFinanceService) SubmitClaim(ctx context.Context, claim *domai
 		return nil, err
 	}
 	if policy != nil {
+		claim.FeeBorneBy = policy.FeeBorneBy
 		// Calculate dynamic compensation based on policy
 		baseAmt := policy.FeeAmountIDR
 		if policy.FeePctOrder > 0 {
@@ -181,6 +200,16 @@ func (s *aggregatorFinanceService) ResolveClaim(ctx context.Context, claimID uui
 	}
 	if claim == nil {
 		return fmt.Errorf("claim not found")
+	}
+	status = strings.ToUpper(strings.TrimSpace(status))
+	if status == "" {
+		return fmt.Errorf("claim status is required")
+	}
+	if claim.Status == status {
+		return nil
+	}
+	if terminalClaimStatus(claim.Status) {
+		return fmt.Errorf("claim %s is already terminal with status %s", claim.ID, claim.Status)
 	}
 
 	var journalID *uuid.UUID

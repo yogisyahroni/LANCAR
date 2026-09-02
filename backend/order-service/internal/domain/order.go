@@ -20,6 +20,7 @@ const (
 	StatusPendingAssignment   OrderStatus = "pending_assignment"
 	StatusReadyForPickup      OrderStatus = "ready_for_pickup"
 	StatusSearching           OrderStatus = "searching"
+	StatusAssigned            OrderStatus = "assigned"
 	StatusAccepted            OrderStatus = "accepted"
 	StatusPickupArrived       OrderStatus = "pickup_arrived"
 	StatusPickingUp           OrderStatus = "picking_up"
@@ -57,6 +58,7 @@ type Order struct {
 	Height          float64     `json:"height,omitempty"`
 	Weight          float64     `json:"weight,omitempty"`
 	ItemDescription string      `json:"item_description,omitempty"`
+	ItemCategory    string      `json:"item_category,omitempty" db:"-"`
 	ItemImageURL    string      `json:"item_image_url,omitempty"`
 	// FB-121: catatan keseluruhan order (ditulis customer saat checkout).
 	OrderNotes         string  `json:"order_notes,omitempty"`
@@ -113,13 +115,21 @@ type Order struct {
 	RatingReminderCount    int          `json:"rating_reminder_count,omitempty"`   // Sudah berapa kali diingatkan
 	LastRatingReminderAt   *time.Time   `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
 	// Food delivery (FOOD-BIKE-006): service_sub_type + merchant fields
-	ServiceSubType     string     `json:"service_sub_type,omitempty" db:"service_sub_type"`
-	ServiceCode        string     `json:"service_code,omitempty" db:"service_code"`
-	MerchantID         *string    `json:"merchant_id,omitempty" db:"merchant_id"`
-	MerchantName       *string    `json:"merchant_name,omitempty" db:"merchant_name"` // LEFT JOIN merchants (FOOD-BIKE-060)
-	MerchantAcceptedAt *time.Time `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
-	PrepTimeMinutes    *int       `json:"prep_time_minutes,omitempty" db:"prep_time_minutes"`
-	FoodReadyAt        *time.Time `json:"food_ready_at,omitempty" db:"food_ready_at"`
+	ServiceSubType     string                   `json:"service_sub_type,omitempty" db:"service_sub_type"`
+	ServiceCode        string                   `json:"service_code,omitempty" db:"service_code"`
+	ServiceCategory    CanonicalServiceCategory `json:"service_category,omitempty" db:"service_category"`
+	ContractVersion    string                   `json:"contract_version" db:"contract_version"`
+	QuoteID            string                   `json:"quote_id,omitempty" db:"quote_id"`
+	StateVersion       int64                    `json:"state_version" db:"state_version"`
+	CorrelationID      string                   `json:"correlation_id,omitempty" db:"correlation_id"`
+	PaymentStatus      string                   `json:"payment_status,omitempty" db:"payment_status"`
+	ActorOwnership     OrderActorOwnership      `json:"actor_ownership" db:"-"`
+	ServiceMetadata    OrderServiceMetadata     `json:"service_metadata" db:"-"`
+	MerchantID         *string                  `json:"merchant_id,omitempty" db:"merchant_id"`
+	MerchantName       *string                  `json:"merchant_name,omitempty" db:"merchant_name"` // LEFT JOIN merchants (FOOD-BIKE-060)
+	MerchantAcceptedAt *time.Time               `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
+	PrepTimeMinutes    *int                     `json:"prep_time_minutes,omitempty" db:"prep_time_minutes"`
+	FoodReadyAt        *time.Time               `json:"food_ready_at,omitempty" db:"food_ready_at"`
 	// FB-089: contactless delivery — antar tanpa kontak fisik, POD tetap wajib.
 	Contactless     bool             `json:"contactless,omitempty" db:"contactless"`
 	TambalBanReport *TambalBanReport `json:"tambal_ban_report,omitempty"` // Laporan Tambal Ban
@@ -139,8 +149,10 @@ type CourierInfo struct {
 }
 
 type CreateOrderRequest struct {
-	EstimateID      string `json:"estimate_id" validate:"required"` // For on-demand, or tariff ID for 3PL
-	ItemDescription string `json:"item_description" validate:"required,min=5"`
+	EstimateID            string `json:"estimate_id" validate:"required"` // For on-demand, or tariff ID for 3PL
+	QuoteInputFingerprint string `json:"quote_input_fingerprint,omitempty"`
+	QuoteSnapshotHash     string `json:"quote_snapshot_hash,omitempty"`
+	ItemDescription       string `json:"item_description" validate:"required,min=5"`
 	// Category barang: document, electronic, food, fragile, dll.
 	// Nilai terlarang (gas, chemical, weapon, flammable, explosive) dicegah (TC-LOG-005).
 	Category     string `json:"category,omitempty"`
@@ -266,6 +278,9 @@ type OrderService interface {
 	SetServiceReportService(s ServiceReportService)
 	// SetFoodRepository inject food repository untuk CreateFoodOrder (FOOD-BIKE-073)
 	SetFoodRepository(fr FoodRepository)
+	// SetAvailabilityRepository injects capability and availability state for
+	// dispatch eligibility checks.
+	SetAvailabilityRepository(ar AvailabilityRepository)
 	// SetVoucherService inject voucher service untuk apply voucher (FB-078)
 	SetVoucherService(vs VoucherService)
 	// SetTipService inject tip service untuk refund tip saat order batal (FB-083)
@@ -424,16 +439,20 @@ type MeetingPointService interface {
 }
 
 type PackageScan struct {
-	ID          string    `json:"id"`
-	OrderID     string    `json:"order_id"`
-	ScanType    string    `json:"scan_type"`
-	ScannedBy   string    `json:"scanned_by"`
-	Latitude    float64   `json:"latitude"`
-	Longitude   float64   `json:"longitude"`
-	WarehouseID *string   `json:"warehouse_id,omitempty"`
-	PhotoURL    *string   `json:"photo_url,omitempty"`
-	BagNumber   *string   `json:"bag_number,omitempty"`
-	RecordedAt  time.Time `json:"recorded_at"`
+	ID        string `json:"id"`
+	OrderID   string `json:"order_id"`
+	ScanType  string `json:"scan_type"`
+	ScannedBy string `json:"scanned_by"`
+	// IdempotencyKey is supplied by the transport layer and is never exposed
+	// as part of the public scan representation.
+	IdempotencyKey string    `json:"-"`
+	ScannedByRole  string    `json:"-"`
+	Latitude       float64   `json:"latitude"`
+	Longitude      float64   `json:"longitude"`
+	WarehouseID    *string   `json:"warehouse_id,omitempty"`
+	PhotoURL       *string   `json:"photo_url,omitempty"`
+	BagNumber      *string   `json:"bag_number,omitempty"`
+	RecordedAt     time.Time `json:"recorded_at"`
 }
 
 type ConsolidationBag struct {

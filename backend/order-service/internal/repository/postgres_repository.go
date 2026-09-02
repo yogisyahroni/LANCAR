@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"time"
 )
@@ -14,6 +15,38 @@ type postgresRepo struct {
 	db         *sql.DB // writer
 	readDB     *sql.DB // reader
 	configRepo domain.ConfigRepository
+}
+
+// ListTrackingPollTargets returns active aggregator shipments with a provider
+// AWB. The integration gateway uses this as its durable polling queue source.
+func (r *postgresRepo) ListTrackingPollTargets(ctx context.Context) ([]domain.TrackingPollTarget, error) {
+	const query = `
+		SELECT LOWER(TRIM(logistics_provider)), TRIM(awb_number)
+		FROM orders
+		WHERE NULLIF(TRIM(logistics_provider), '') IS NOT NULL
+		  AND NULLIF(TRIM(awb_number), '') IS NOT NULL
+		  AND status NOT IN ('delivered', 'completed', 'cancelled', 'failed', 'rejected')
+		ORDER BY updated_at ASC
+		LIMIT 500`
+
+	rows, err := r.readDB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list tracking poll targets: %w", err)
+	}
+	defer rows.Close()
+
+	targets := make([]domain.TrackingPollTarget, 0)
+	for rows.Next() {
+		var target domain.TrackingPollTarget
+		if err := rows.Scan(&target.Provider, &target.AWB); err != nil {
+			return nil, fmt.Errorf("scan tracking poll target: %w", err)
+		}
+		targets = append(targets, target)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tracking poll targets: %w", err)
+	}
+	return targets, nil
 }
 
 func NewPostgresRepository(db, readDB *sql.DB, configRepo domain.ConfigRepository) *postgresRepo {
@@ -130,7 +163,16 @@ type execer interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
+func sqlNullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
 func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Order) error {
+	o.ApplyCanonicalOrderContract()
+	serviceMetadata, _ := json.Marshal(o.ServiceMetadata)
 	query := `INSERT INTO orders (
 				id, order_number, customer_id, model, status, 
 				pickup_location, pickup_address, pickup_city, pickup_zip_code,
@@ -149,6 +191,7 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 					order_notes,
 					-- FB-123: NULL = pesan langsung; diisi = terjadwal
 					scheduled_at,
+					service_category, contract_version, quote_id, state_version, correlation_id, service_metadata,
 					created_at, updated_at
 					) VALUES (
 					$1, $2, $3, $4, $5, 
@@ -159,7 +202,7 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 					$36, $37, $38, $39, $40, $41, $42, $43, $44,
 					$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55,
 					$56, $57, $58, $59, $60,
-					$61, $62, $63
+					$61, $62, $63, $64, $65, $66, $67, $68, $69
 					)`
 
 	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
@@ -194,6 +237,7 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 		o.Contactless,
 		o.OrderNotes,
 		o.ScheduledAt, // FB-123
+		o.ServiceCategory, o.ContractVersion, sqlNullableString(o.QuoteID), o.StateVersion, sqlNullableString(o.CorrelationID), serviceMetadata,
 		o.CreatedAt, o.UpdatedAt,
 	)
 	return err
@@ -219,6 +263,8 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				COALESCE(o.contactless, false),
 				COALESCE(o.order_notes, ''),
 				o.scheduled_at,
+				COALESCE(o.service_category, ''), COALESCE(o.contract_version, '2026-09-01'), COALESCE(o.quote_id, ''),
+				COALESCE(o.state_version, 1), COALESCE(o.correlation_id::text, ''), COALESCE(o.service_metadata, '{}'::jsonb),
 				COALESCE(m.nama_toko, ''),
 				o.created_at, o.updated_at
 				FROM orders o
@@ -227,6 +273,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 
 	o := &domain.Order{}
 	var courierID, merchantID string
+	var serviceMetadata []byte
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
 		&o.PickupLat, &o.PickupLng, &o.PickupAddress, &o.PickupCity, &o.PickupZipCode,
@@ -244,6 +291,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.Contactless,
 		&o.OrderNotes,
 		&o.ScheduledAt, // FB-123: NULL = pesan langsung
+		&o.ServiceCategory, &o.ContractVersion, &o.QuoteID, &o.StateVersion, &o.CorrelationID, &serviceMetadata,
 		&o.MerchantName,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
@@ -261,6 +309,8 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 	}
 	// FB-123: IsScheduled = turunan dari scheduled_at (computed).
 	o.IsScheduled = o.ScheduledAt != nil
+	_ = json.Unmarshal(serviceMetadata, &o.ServiceMetadata)
+	o.ApplyCanonicalOrderContract()
 	return o, nil
 }
 
@@ -303,6 +353,7 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 	if courierID != "" {
 		o.CourierID = &courierID
 	}
+	o.ApplyCanonicalOrderContract()
 	return o, nil
 }
 
@@ -318,27 +369,28 @@ func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order,
 				COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
 				FROM orders WHERE awb_number = $1`
 
-				o := &domain.Order{}
-				var courierID string
-				err := r.readDB.QueryRowContext(ctx, query, awb).Scan(
-				&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
-				&o.PickupLat, &o.PickupLng, &o.PickupAddress,
-				&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
-				&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
-				&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-				&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
-				)
-				if err != nil {
-				if err == sql.ErrNoRows {
-				return nil, nil
-				}
-				return nil, err
-				}
-				if courierID != "" {
-				o.CourierID = &courierID
-				}
-				return o, nil
-				}
+	o := &domain.Order{}
+	var courierID string
+	err := r.readDB.QueryRowContext(ctx, query, awb).Scan(
+		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
+		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
+		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if courierID != "" {
+		o.CourierID = &courierID
+	}
+	o.ApplyCanonicalOrderContract()
+	return o, nil
+}
 
 func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*domain.Order, error) {
 	query := `
@@ -379,6 +431,7 @@ func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*dom
 		if courierID != "" {
 			o.CourierID = &courierID
 		}
+		o.ApplyCanonicalOrderContract()
 		orders = append(orders, o)
 	}
 	return orders, nil
@@ -396,39 +449,66 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 				created_at, updated_at
 				FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
 
-				rows, err := r.readDB.QueryContext(ctx, query, userID)
-				if err != nil {
-				return nil, err
-				}
-				defer rows.Close()
+	rows, err := r.readDB.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-				orders := []*domain.Order{}
-				for rows.Next() {
-				o := &domain.Order{}
-				var courierID string
-				err := rows.Scan(
-				&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
-				&o.PickupLat, &o.PickupLng, &o.PickupAddress,
-				&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
-				&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
-				&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-				&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.CreatedAt, &o.UpdatedAt,
-				)
-				if err != nil {
-				return nil, err
-				}
-				if courierID != "" {
-				o.CourierID = &courierID
-				}
-				orders = append(orders, o)
-				}
-				return orders, nil
-				}
+	orders := []*domain.Order{}
+	for rows.Next() {
+		o := &domain.Order{}
+		var courierID string
+		err := rows.Scan(
+			&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+			&o.PickupLat, &o.PickupLng, &o.PickupAddress,
+			&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+			&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
+			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.CreatedAt, &o.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if courierID != "" {
+			o.CourierID = &courierID
+		}
+		o.ApplyCanonicalOrderContract()
+		orders = append(orders, o)
+	}
+	return orders, nil
+}
 
 func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
-	query := `UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3`
+	query := `UPDATE orders
+	             SET status = $1, updated_at = $2
+	           WHERE id = $3
+	             AND (status = $1 OR status NOT IN ('delivered', 'cancelled'))`
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
 	return err
+}
+
+// UpdateStatusOptimistic commits a transition only when the caller still owns
+// the version it read. PostgreSQL row-level locking makes the compare-and-set
+// atomic across order-service instances; terminal states cannot be resurrected
+// even if a delayed worker races with a current transition.
+func (r *postgresRepo) UpdateStatusOptimistic(ctx context.Context, id string, status domain.OrderStatus, expectedVersion int64) (bool, error) {
+	if expectedVersion < 1 {
+		expectedVersion = 1
+	}
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE orders
+		   SET status = $1,
+		       updated_at = $2
+		 WHERE id = $3
+		   AND COALESCE(state_version, 1) = $4
+		   AND status NOT IN ('delivered', 'cancelled')`,
+		status, time.Now(), id, expectedVersion)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
 }
 
 // UpdateLegsStatus — FB-121: tandai semua leg aktif order sebagai final.
@@ -469,52 +549,113 @@ func (r *postgresRepo) UpdateDimensions(ctx context.Context, id string, length, 
 }
 
 func (r *postgresRepo) CancelExpiredOrders(ctx context.Context, timeout time.Duration) (int64, error) {
-	query := `UPDATE orders 
-			  SET status = 'cancelled', updated_at = NOW(), cancellation_reason = 'Payment timeout'
-			  WHERE status = 'pending_payment' AND created_at < $1`
-
 	expiryTime := time.Now().Add(-timeout)
-	res, err := r.db.ExecContext(ctx, query, expiryTime)
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT id::text
+		FROM orders
+		WHERE status = 'pending_payment' AND created_at < $1
+		ORDER BY created_at ASC`, expiryTime)
 	if err != nil {
 		return 0, err
 	}
-	return res.RowsAffected()
+	defer rows.Close()
+
+	var orderIDs []string
+	for rows.Next() {
+		var orderID string
+		if err := rows.Scan(&orderID); err != nil {
+			return 0, err
+		}
+		orderIDs = append(orderIDs, orderID)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	var cancelled int64
+	for _, orderID := range orderIDs {
+		result, err := r.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:        orderID,
+			Actor:          domain.OrderActorPlatform,
+			TargetStatus:   domain.StatusCancelled,
+			Reason:         "Payment timeout",
+			IdempotencyKey: "payment-timeout:" + orderID,
+			EventMessage:   "Pesanan dibatalkan karena pembayaran melewati batas waktu",
+		})
+		if err != nil {
+			return cancelled, err
+		}
+		if result.Applied {
+			cancelled++
+		}
+	}
+	return cancelled, nil
 }
 
 func (r *postgresRepo) AssignCourier(ctx context.Context, orderID string, courierID string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
+	if strings.TrimSpace(courierID) == "" {
+		return fmt.Errorf("courier id is required")
+	}
+	var batchID sql.NullString
+	if err := r.db.QueryRowContext(ctx, `SELECT batch_id::text FROM orders WHERE id = $1`, orderID).Scan(&batchID); err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback() }()
-
-	// Check if order is still searching
-	var status domain.OrderStatus
-	var batchID *string
-	err = tx.QueryRowContext(ctx, "SELECT status, batch_id FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&status, &batchID)
-	if err != nil {
-		return err
-	}
-
-	if status != domain.StatusSearching {
-		return sql.ErrNoRows // Or a custom error like "Order already assigned"
-	}
-
-	if batchID != nil && *batchID != "" {
-		query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW(), dispatch_expiry = NULL WHERE batch_id = $2 AND status = 'searching'`
-		_, err = tx.ExecContext(ctx, query, courierID, *batchID)
+	ids := []string{orderID}
+	if batchID.Valid && batchID.String != "" {
+		rows, err := r.db.QueryContext(ctx, `
+			SELECT id::text
+			FROM orders
+			WHERE batch_id = $1 AND status IN ('searching', 'failed_delivery')
+			ORDER BY sequence_no, created_at`, batchID.String)
 		if err != nil {
 			return err
 		}
-	} else {
-		query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW(), dispatch_expiry = NULL WHERE id = $2`
-		_, err = tx.ExecContext(ctx, query, courierID, orderID)
-		if err != nil {
+		defer rows.Close()
+		ids = ids[:0]
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		if err := rows.Err(); err != nil {
 			return err
 		}
 	}
 
-	return tx.Commit()
+	assigned := 0
+	for _, id := range ids {
+		result, err := r.TransitionOrder(ctx, domain.OrderTransitionRequest{
+			OrderID:             id,
+			ActorID:             courierID,
+			Actor:               domain.OrderActorPlatform,
+			TargetStatus:        domain.StatusAssigned,
+			CourierID:           courierID,
+			ClearDispatchExpiry: true,
+			IdempotencyKey:      "courier-assign:" + id + ":" + courierID,
+			EventMessage:        "Order ditugaskan ke kurir",
+		})
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return err
+		}
+		if result.Applied || result.Replayed {
+			assigned++
+		}
+	}
+	if assigned == 0 {
+		var currentStatus domain.OrderStatus
+		var currentCourier sql.NullString
+		if err := r.db.QueryRowContext(ctx, `SELECT status, courier_id::text FROM orders WHERE id = $1`, orderID).Scan(&currentStatus, &currentCourier); err == nil &&
+			currentStatus == domain.StatusAssigned && currentCourier.Valid && currentCourier.String == courierID {
+			return nil
+		}
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *postgresRepo) SetDispatchExpiry(ctx context.Context, orderID string, expiry time.Time) error {
@@ -618,16 +759,25 @@ func (r *postgresRepo) GetGhostedAcceptedOrders(ctx context.Context, timeout tim
 // courier_id → NULL, status → searching, dispatch_expiry direset agar
 // matching worker bisa menawarkan lagi ke driver lain.
 func (r *postgresRepo) ReleaseGhostedOrder(ctx context.Context, orderID string) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE orders
-		 SET courier_id = NULL, status = 'searching', dispatch_expiry = NULL, updated_at = NOW()
-		 WHERE id = $1 AND status = 'accepted'`,
-		orderID,
-	)
-	return err
+	result, err := r.TransitionOrder(ctx, domain.OrderTransitionRequest{
+		OrderID:             orderID,
+		Actor:               domain.OrderActorPlatform,
+		TargetStatus:        domain.StatusSearching,
+		IdempotencyKey:      "ghost-release:" + orderID,
+		EventMessage:        "Driver ghost dilepas dan pesanan dikembalikan ke pencarian",
+		ClearCourier:        true,
+		ClearDispatchExpiry: true,
+	})
+	if err != nil {
+		return err
+	}
+	if !result.Applied && !result.Replayed {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error {
-	query := `INSERT INTO order_events (order_id, user_id, status, message, created_at) 
+	query := `INSERT INTO order_events (order_id, user_id, event_type, description, created_at)
 			  VALUES ($1, $2, $3, $4, $5)`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -637,7 +787,7 @@ func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error
 }
 
 func (r *postgresRepo) ListEventsByUserID(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {
-	query := `SELECT id, order_id, user_id, status, message, created_at 
+	query := `SELECT id, order_id, user_id, event_type, description, created_at
 			  FROM order_events WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, userID, since)
@@ -659,7 +809,7 @@ func (r *postgresRepo) ListEventsByUserID(ctx context.Context, userID string, si
 }
 
 func (r *postgresRepo) ListEventsByOrderID(ctx context.Context, orderID string) ([]domain.OrderEvent, error) {
-	query := `SELECT id, order_id, user_id, status, message, created_at 
+	query := `SELECT id, order_id, user_id, event_type, description, created_at
 			  FROM order_events WHERE order_id = $1 ORDER BY created_at ASC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, orderID)
@@ -821,22 +971,26 @@ func (r *postgresRepo) CheckCoverage(ctx context.Context, lat, lng float64) (boo
 }
 
 func (r *postgresRepo) SaveScan(ctx context.Context, scan *domain.PackageScan) error {
+	scannedByRole := scan.ScannedByRole
+	if scannedByRole == "" {
+		scannedByRole = "courier"
+	}
 	query := `INSERT INTO package_scans (
-				order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number
-			  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			  RETURNING id, recorded_at`
+				order_id, scan_type, scanned_by, scanned_by_role, latitude, longitude, photo_url, bag_number, scanned_at
+			  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+			  RETURNING id, scanned_at`
 
 	err := r.db.QueryRowContext(ctx, query,
-		scan.OrderID, scan.ScanType, scan.ScannedBy, scan.Latitude, scan.Longitude, scan.WarehouseID, scan.PhotoURL, scan.BagNumber,
+		scan.OrderID, scan.ScanType, scan.ScannedBy, scannedByRole, scan.Latitude, scan.Longitude, scan.PhotoURL, scan.BagNumber,
 	).Scan(&scan.ID, &scan.RecordedAt)
 	return err
 }
 
 func (r *postgresRepo) GetScansForOrder(ctx context.Context, orderID string) ([]*domain.PackageScan, error) {
-	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number, recorded_at
+	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, NULL::uuid, photo_url, bag_number, scanned_at
 			  FROM package_scans
 			  WHERE order_id = $1
-			  ORDER BY recorded_at ASC`
+			  ORDER BY scanned_at ASC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, orderID)
 	if err != nil {
@@ -896,10 +1050,10 @@ func (r *postgresRepo) UpdateConsolidationBagStatus(ctx context.Context, bagNumb
 }
 
 func (r *postgresRepo) GetLatestScanForOrder(ctx context.Context, orderID string) (*domain.PackageScan, error) {
-	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number, recorded_at
+	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, NULL::uuid, photo_url, bag_number, scanned_at
 			  FROM package_scans
 			  WHERE order_id = $1
-			  ORDER BY recorded_at DESC
+			  ORDER BY scanned_at DESC
 			  LIMIT 1`
 
 	scan := &domain.PackageScan{}
@@ -917,10 +1071,10 @@ func (r *postgresRepo) GetLatestScanForOrder(ctx context.Context, orderID string
 }
 
 func (r *postgresRepo) GetScansByBagNumber(ctx context.Context, bagNumber string) ([]*domain.PackageScan, error) {
-	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number, recorded_at
+	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, NULL::uuid, photo_url, bag_number, scanned_at
 			  FROM package_scans
 			  WHERE bag_number = $1
-			  ORDER BY recorded_at ASC`
+			  ORDER BY scanned_at ASC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, bagNumber)
 	if err != nil {

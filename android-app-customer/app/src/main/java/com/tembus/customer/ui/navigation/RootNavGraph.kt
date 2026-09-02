@@ -129,20 +129,16 @@ fun RootNavGraph(
         if (lastHandledDeepLink.value == key) return@LaunchedEffect
         lastHandledDeepLink.value = key
 
-        val path = deepLink.pathSegments
-        when {
-            path.size >= 3 && path[0] == "orders" && path[2] == "chat" -> {
-                val orderId = path[1]
-                if (orderId.isNotBlank()) {
-                    navController.navigate(Screen.Chat.createRoute(orderId, null)) { launchSingleTop = true }
-                }
-            }
-            path.size >= 3 && path[0] == "orders" && path[2] == "tracking" -> {
-                val orderId = path[1]
-                if (orderId.isNotBlank()) {
-                    navController.navigate(Screen.Tracking.createRoute(orderId)) { launchSingleTop = true }
-                }
-            }
+        when (val target = resolveCustomerDeepLink(deepLink.scheme, deepLink.host, deepLink.pathSegments, deepLink.getQueryParameter("promo"))) {
+            is CustomerDeepLinkTarget.Chat ->
+                navController.navigate(Screen.Chat.createRoute(target.orderId, null)) { launchSingleTop = true }
+            is CustomerDeepLinkTarget.Tracking ->
+                navController.navigate(Screen.Tracking.createRoute(target.orderId)) { launchSingleTop = true }
+            is CustomerDeepLinkTarget.OrderDetail ->
+                navController.navigate(Screen.OrderDetail.createRoute(target.orderId)) { launchSingleTop = false }
+            is CustomerDeepLinkTarget.Booking ->
+                navController.navigate(Screen.Booking.createRoute(promoCode = target.promo)) { launchSingleTop = true }
+            null -> Unit
         }
         onDeepLinkConsumed()
     }
@@ -233,13 +229,16 @@ fun RootNavGraph(
                 DashboardScreen(
                     onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
                     onBookingClick = { open ->
-                        when (open) {
-                            "tambal_ban_motor", "tambal_ban_mobil", "towing_motor", "towing_mobil" -> navController.navigate(Screen.ServiceBooking.createRoute(open))
-                            "tambal_ban" -> navController.navigate(Screen.TambalBanHome.route)
-                            "towing" -> navController.navigate(Screen.ServiceCategory.route)
-                            "food_delivery" -> navController.navigate(Screen.FoodHome.route)
-                            "food_favorites" -> navController.navigate(Screen.FoodFavorites.route)
-                            else -> navController.navigate(Screen.Booking.createRoute(open))
+                        when (val destination = dashboardServiceDestination(open)) {
+                            is DashboardServiceDestination.ServiceBooking ->
+                                navController.navigate(Screen.ServiceBooking.createRoute(destination.serviceSubType))
+                            DashboardServiceDestination.TambalBan -> navController.navigate(Screen.TambalBanHome.route)
+                            DashboardServiceDestination.Towing -> navController.navigate(Screen.ServiceCategory.route)
+                            DashboardServiceDestination.FoodHome -> navController.navigate(Screen.FoodHome.route)
+                            DashboardServiceDestination.FoodFavorites -> navController.navigate(Screen.FoodFavorites.route)
+                            DashboardServiceDestination.Aggregator -> navController.navigate(Screen.Booking.createRoute("aggregator"))
+                            is DashboardServiceDestination.GenericBooking ->
+                                navController.navigate(Screen.Booking.createRoute(destination.serviceCode))
                         }
                     },
                     onFoodClick = { navController.navigate(Screen.FoodHome.route) },
@@ -614,6 +613,9 @@ private fun openForegroundNotification(
     val promoCode = runCatching { Uri.parse(deepLink).getQueryParameter("promo") }.getOrNull()
 
     when {
+        event.target == "customer_order_detail" && orderId.isNotBlank() -> {
+            navController.navigate(Screen.OrderDetail.createRoute(orderId)) { launchSingleTop = false }
+        }
         event.category == "message" && orderId.isNotBlank() -> {
             navController.navigate(Screen.Chat.createRoute(orderId, null)) { launchSingleTop = true }
         }

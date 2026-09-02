@@ -4,6 +4,8 @@ import { securityLog } from '../../security/logRedaction';
 import type { PoolClient } from 'pg';
 import { db } from '../../db';
 
+import { withCanonicalOrderContract } from '../../services/orderContract';
+
 import { createNotification } from '../../notifications';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../../midtrans';
 
@@ -55,6 +57,7 @@ export type NormalizedOrderPackage = {
   package_code: string;
   description: string;
   category: string;
+  quantity: number;
   size_tier: string | null;
   weight_kg: number;
   length_cm: number;
@@ -62,6 +65,9 @@ export type NormalizedOrderPackage = {
   height_cm: number;
   declared_value_idr: number;
   dimensions_scanned: boolean;
+  is_fragile: boolean;
+  is_prohibited: boolean;
+  requires_delivery_code: boolean;
   metadata: Record<string, any>;
 };
 
@@ -566,10 +572,20 @@ export const normalizePackageDetailsForOrder = (
     dimensions_scanned: Boolean(packageDetails?.dimensions_scanned),
     requires_dimension_scan: Boolean(service.requires_dimension_scan),
     requires_delivery_code: Boolean(packageDetails?.requires_delivery_code),
+    package_facts: {
+      quantity: packages.reduce((sum, item) => sum + item.quantity, 0) || 1,
+      category: packages[0]?.category || packageDetails?.category || 'other',
+      item_description: packages[0]?.description || packageDetails?.item_description || '',
+      item_value_idr: packages.reduce((sum, item) => sum + item.declared_value_idr * item.quantity, 0),
+      fragile: packages.some((item) => item.is_fragile),
+      prohibited: packages.some((item) => item.is_prohibited),
+      size_tier: selectedTier?.code || packageDetails?.size_tier || null,
+      delivery_code_policy: packageDetails?.requires_delivery_code ? 'required' : 'optional',
+    },
     service_code: service.code,
     service_name: service.name,
     vehicle_types: service.vehicle_types || [],
-    package_count: packages.length || 1,
+    package_count: packages.reduce((sum, item) => sum + item.quantity, 0) || 1,
     packages: packages.length > 0 ? packages : undefined
   };
 };
@@ -606,6 +622,7 @@ export const normalizePackageInputs = (rawPackages: any, legacyPackageDetails: a
       package_code: packageCode,
       description: sanitizePackageString(item?.description || item?.item_description || legacyPackageDetails?.description, 'Paket'),
       category: sanitizePackageString(item?.category || item?.item_category || legacyPackageDetails?.category, 'other'),
+      quantity: Math.min(100, Math.max(1, Math.trunc(toNumber(item?.quantity ?? legacyPackageDetails?.quantity, 1)))),
       size_tier: item?.size_tier ? sanitizePackageString(item.size_tier).slice(0, 50) : null,
       weight_kg: Math.max(0, toNumber(item?.weight_kg ?? legacyPackageDetails?.weight_kg, 0)),
       length_cm: Math.max(0, toNumber(item?.length_cm ?? dimensions.length ?? legacyPackageDetails?.length_cm, 0)),
@@ -613,6 +630,9 @@ export const normalizePackageInputs = (rawPackages: any, legacyPackageDetails: a
       height_cm: Math.max(0, toNumber(item?.height_cm ?? dimensions.height ?? legacyPackageDetails?.height_cm, 0)),
       declared_value_idr: Math.max(0, Math.trunc(toNumber(item?.declared_value_idr ?? item?.item_value_idr, 0))),
       dimensions_scanned: Boolean(item?.dimensions_scanned ?? legacyPackageDetails?.dimensions_scanned),
+      is_fragile: Boolean(item?.is_fragile ?? legacyPackageDetails?.is_fragile),
+      is_prohibited: Boolean(item?.is_prohibited ?? legacyPackageDetails?.is_prohibited),
+      requires_delivery_code: Boolean(item?.requires_delivery_code ?? legacyPackageDetails?.requires_delivery_code),
       metadata: {
         source: Array.isArray(rawPackages) && rawPackages.length > 0 ? 'packages_array' : 'legacy_package_details',
       },
@@ -626,9 +646,9 @@ export const packageChargeableWeight = (service: DeliveryServiceProduct, item: N
     ? (item.length_cm * item.width_cm * item.height_cm) / divisor
     : 0;
   return {
-    actual: item.weight_kg,
-    volumetric,
-    chargeable: Math.max(item.weight_kg, volumetric),
+    actual: item.weight_kg * item.quantity,
+    volumetric: volumetric * item.quantity,
+    chargeable: Math.max(item.weight_kg, volumetric) * item.quantity,
   };
 };
 
@@ -650,7 +670,7 @@ export const summarizePackages = (service: DeliveryServiceProduct, packages: Nor
   );
 
   return {
-    package_count: packages.length,
+    package_count: packages.reduce((sum, item) => sum + item.quantity, 0),
     actual_weight_kg: actualWeightKg,
     dimensional_weight_kg: volumetricWeightKg,
     chargeable_weight_kg: chargeableWeightKg,
@@ -660,7 +680,8 @@ export const summarizePackages = (service: DeliveryServiceProduct, packages: Nor
 };
 
 export const validatePackagePolicy = (service: DeliveryServiceProduct, packages: NormalizedOrderPackage[]) => {
-  if (packages.length > service.max_packages_per_order) {
+  const packageCount = packages.reduce((sum, item) => sum + item.quantity, 0);
+  if (packageCount > service.max_packages_per_order) {
     const error = new Error(`${service.name} maksimal ${service.max_packages_per_order} paket dalam satu order.`);
     (error as any).statusCode = 400;
     (error as any).code = 'ERR_SERVICE_PACKAGE_LIMIT';
@@ -671,6 +692,13 @@ export const validatePackagePolicy = (service: DeliveryServiceProduct, packages:
     const error = new Error(`${service.name} wajib scan dimensi untuk semua paket sebelum order dibuat.`);
     (error as any).statusCode = 400;
     (error as any).code = 'ERR_DIMENSION_SCAN_REQUIRED';
+    throw error;
+  }
+
+  if (packages.some((item) => item.is_prohibited)) {
+    const error = new Error('Barang yang ditandai terlarang tidak dapat dikirim melalui layanan ini.');
+    (error as any).statusCode = 400;
+    (error as any).code = 'ERR_PROHIBITED_ITEM';
     throw error;
   }
 };
@@ -764,6 +792,33 @@ export type CustomerPriceCalculationInput = {
   routeSnapshotOverride?: RouteEtaSnapshot;
   courierId?: string | null;
   materialCodes?: string[];
+  recipientName?: string | null;
+  recipientPhone?: string | null;
+  requiresDeliveryCode?: boolean;
+};
+
+const packageFactsSnapshot = (
+  service: DeliveryServiceProduct,
+  packages: NormalizedOrderPackage[],
+  recipientName?: string | null,
+  recipientPhone?: string | null,
+  requiresDeliveryCode?: boolean,
+) => {
+  const summary = summarizePackages(service, packages);
+  return {
+    quantity: summary.package_count,
+    category: packages[0]?.category || 'other',
+    item_description: packages[0]?.description || '',
+    item_value_idr: packages.reduce((sum, item) => sum + item.declared_value_idr * item.quantity, 0),
+    fragile: packages.some((item) => item.is_fragile),
+    prohibited: packages.some((item) => item.is_prohibited),
+    size_tier: packages[0]?.size_tier || null,
+    delivery_code_policy: requiresDeliveryCode || packages.some((item) => item.requires_delivery_code) ? 'required' : 'optional',
+    receiver: {
+      name: recipientName || null,
+      phone: recipientPhone || null,
+    },
+  };
 };
 
 type SelectedTambalBanMaterial = {
@@ -825,7 +880,32 @@ export const calculateCustomerPriceBreakdown = async ({
     routeSnapshotOverride,
     courierId,
     materialCodes,
+    recipientName,
+    recipientPhone,
+    requiresDeliveryCode,
   }: CustomerPriceCalculationInput) => {
+  const quoteId = crypto.randomUUID();
+  const quoteExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const quoteInputFingerprint = (normalizedPackages: NormalizedOrderPackage[]) => crypto
+    .createHash('sha256')
+    .update(JSON.stringify({
+      service_code: service.code,
+      pickup: pickupPoint,
+      dropoff: dropoffPoint,
+      dimensions: dimensions || null,
+      weight_kg: weightKg || null,
+      packages: normalizedPackages,
+      has_insurance: Boolean(hasInsurance),
+      item_value: toNumber(itemValue),
+      size_tier: sizeTier || null,
+      courier_id: courierId || null,
+      material_codes: normalizeMaterialCodes(materialCodes),
+      recipient_name: recipientName || null,
+      recipient_phone: recipientPhone || null,
+      requires_delivery_code: Boolean(requiresDeliveryCode),
+    }))
+    .digest('hex');
+
   // ─── Quote-based pricing (aggregator/3PL) ────────────────────
   // These services don't use internal distance × multiplier pricing.
   // The price comes from the logistics provider's tariff, stored as
@@ -853,29 +933,42 @@ export const calculateCustomerPriceBreakdown = async ({
         ? packages
         : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
     const pkgSummary = summarizePackages(service, normalizedPkgs);
+    const inputFingerprint = quoteInputFingerprint(normalizedPkgs);
+    const publicQuoteRoute = publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` });
 
     return {
+      quote_id: quoteId,
+      input_fingerprint: inputFingerprint,
+      snapshot_hash: publicQuoteRoute.snapshot_hash,
+      expires_at: quoteExpiresAt,
+      currency: 'IDR',
+      eta_source: routeSnapshot.provider || 'maps',
+      pricing_rule_version: process.env.PRICING_RULE_VERSION || 'pricing-2026-09-01',
       service_code: service.code,
       service_name: service.name,
       service_snapshot: publicServiceSnapshot(service),
       selected_size_tier: null,
       distance_km: distance,
-      route_snapshot: publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` }),
+      route_snapshot: publicQuoteRoute,
       base_price_idr: 0,
       actual_weight_kg: Number(pkgSummary.actual_weight_kg.toFixed(2)),
       dimensional_weight_kg: Number(pkgSummary.dimensional_weight_kg.toFixed(2)),
       chargeable_weight_kg: Number(pkgSummary.chargeable_weight_kg.toFixed(2)),
       package_count: pkgSummary.package_count,
       packages: normalizedPkgs,
+      package_facts: packageFactsSnapshot(service, normalizedPkgs, recipientName, recipientPhone, requiresDeliveryCode),
       volumetric_surcharge_idr: 0,
       insurance_premium_idr: 0,
       dynamic_price_idr: 0,
       platform_fee_idr: 0,
+      toll_cost_idr: 0,
+      toll_cost_source: 'unavailable',
       material_cost_idr: 0,
       materials: [],
       delivery_model: service.route_model,
       eta_minutes: etaMinutes,
       total_price_idr: 0, // Actual price is logistics_tariff_idr, stored separately
+      price_components: { total_price_idr: 0 },
     };
   }
 
@@ -921,6 +1014,7 @@ export const calculateCustomerPriceBreakdown = async ({
     : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
   validatePackagePolicy(service, normalizedPackages);
   const packageSummary = summarizePackages(service, normalizedPackages);
+  const inputFingerprint = quoteInputFingerprint(normalizedPackages);
   const selectedTier = resolveSizeTier(service, sizeTier || normalizedPackages[0]?.size_tier || undefined);
   const divisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
   const surchargeThreshold = toNumber(service.dimension_rules?.surcharge_threshold_kg, service.max_weight_kg || 20);
@@ -1010,6 +1104,7 @@ export const calculateCustomerPriceBreakdown = async ({
 
   const routeEta = routeSnapshot.eta_minutes || Math.ceil(20 + (distance * 3.5) + (service.batching_allowed ? 120 : 0));
   const etaMinutes = Math.min(service.max_eta_minutes, Math.max(20, routeEta));
+  const publicQuoteRoute = publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` });
   const priceAfterSurge = basePrice + dynamicPrice;
     // Home services: fee platform dihitung dari komponen JARAK (base fare
     // produk + per_km) saja — harga jasa petugas TIDAK kena fee platform.
@@ -1020,15 +1115,23 @@ export const calculateCustomerPriceBreakdown = async ({
         + (distanceChargeKm * service.per_km_idr);
     }
     const platformFee = Math.ceil(service.platform_fee_idr + (platformFeeBase * service.platform_fee_pct));
-    const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee + materialCost;
+  const tollCost = toNumber(service.metadata?.toll_cost_idr, 0);
+  const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee + materialCost + tollCost;
 
   return {
+    quote_id: quoteId,
+    input_fingerprint: inputFingerprint,
+    snapshot_hash: publicQuoteRoute.snapshot_hash,
+    expires_at: quoteExpiresAt,
+    currency: 'IDR',
+    eta_source: routeSnapshot.provider || 'maps',
+    pricing_rule_version: process.env.PRICING_RULE_VERSION || 'pricing-2026-09-01',
       service_code: service.code,
       service_name: service.name,
       service_snapshot: publicServiceSnapshot(service),
       selected_size_tier: selectedTier,
       distance_km: distance,
-      route_snapshot: publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` }),
+      route_snapshot: publicQuoteRoute,
       base_price_idr: basePrice,
       service_fee_idr: isHomeService && courierId && courierPrice && courierPrice.rows.length > 0
         ? toNumber(courierPrice.rows[0].price_amount, toNumber(service.base_fare_idr, 0))
@@ -1049,15 +1152,28 @@ export const calculateCustomerPriceBreakdown = async ({
     chargeable_weight_kg: Number(chargeableWeight.toFixed(2)),
     package_count: packageSummary.package_count,
     packages: normalizedPackages,
+    package_facts: packageFactsSnapshot(service, normalizedPackages, recipientName, recipientPhone, requiresDeliveryCode),
     volumetric_surcharge_idr: volumetricSurcharge,
     insurance_premium_idr: insurancePremium,
     dynamic_price_idr: dynamicPrice,
       platform_fee_idr: platformFee,
+      toll_cost_idr: tollCost,
+      toll_cost_source: tollCost > 0 ? 'service_configuration' : 'unavailable',
       material_cost_idr: materialCost,
       materials: selectedMaterials,
       delivery_model: service.route_model,
     eta_minutes: etaMinutes,
     total_price_idr: totalPrice,
+    price_components: {
+      base_fare_idr: toNumber(service.base_fare_idr, 0),
+      volumetric_surcharge_idr: volumetricSurcharge,
+      insurance_premium_idr: insurancePremium,
+      dynamic_price_idr: dynamicPrice,
+      platform_fee_idr: platformFee,
+      material_cost_idr: materialCost,
+      toll_cost_idr: tollCost,
+      total_price_idr: totalPrice,
+    },
   };
 };
 
@@ -1361,7 +1477,9 @@ export const toMobileCustomerOrderDto = (row: any) => {
   const createdAtMs = row.created_at ? new Date(row.created_at).getTime() : Date.now();
   const updatedAtMs = row.updated_at ? new Date(row.updated_at).getTime() : createdAtMs;
 
+  const canonical = withCanonicalOrderContract(row);
   return {
+    ...canonical,
     local_id: 0,
     order_id: row.id,
     order_number: row.order_number || '',
