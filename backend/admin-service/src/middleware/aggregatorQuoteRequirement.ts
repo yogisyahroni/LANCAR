@@ -7,6 +7,9 @@ type AggregatorRateQuoteRow = {
   origin_code: string;
   destination_code: string;
   chargeable_weight_kg: string | number;
+  length_cm: string | number;
+  width_cm: string | number;
+  height_cm: string | number;
   item_value_idr: string | number;
   category: string;
   insurance: boolean;
@@ -23,6 +26,7 @@ type AggregatorRateQuoteRow = {
 };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EPSILON = 0.001;
 
 const normalizedText = (value: unknown) => String(value ?? '').trim().toLowerCase();
 
@@ -31,7 +35,14 @@ const positiveNumber = (value: unknown): number | null => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
+const nonNegativeNumber = (value: unknown): number | null => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+};
+
 const boolValue = (value: unknown): boolean => value === true || value === 'true' || value === 1 || value === '1';
+
+const nearlyEqual = (left: number, right: number) => Math.abs(left - right) <= EPSILON;
 
 const requote = (res: Response, message: string) => {
   res.status(409).json({
@@ -44,14 +55,45 @@ const requote = (res: Response, message: string) => {
   });
 };
 
+const firstPackage = (body: any) => Array.isArray(body?.packages) ? body.packages[0] : undefined;
+
+const requestDimensions = (body: any) => {
+  const packageDetails = body?.package_details ?? {};
+  const dimensions = packageDetails?.dimensions ?? {};
+  const pkg = firstPackage(body) ?? {};
+  return {
+    length: nonNegativeNumber(
+      dimensions?.length_cm ?? dimensions?.length ?? packageDetails?.length_cm ?? pkg?.length_cm,
+    ) ?? 0,
+    width: nonNegativeNumber(
+      dimensions?.width_cm ?? dimensions?.width ?? packageDetails?.width_cm ?? pkg?.width_cm,
+    ) ?? 0,
+    height: nonNegativeNumber(
+      dimensions?.height_cm ?? dimensions?.height ?? packageDetails?.height_cm ?? pkg?.height_cm,
+    ) ?? 0,
+  };
+};
+
+const chargeableWeightKg = (
+  actualWeightKg: number,
+  lengthCm: number,
+  widthCm: number,
+  heightCm: number,
+) => {
+  if (lengthCm <= 0 || widthCm <= 0 || heightCm <= 0) {
+    return actualWeightKg;
+  }
+  return Math.max(actualWeightKg, (lengthCm * widthCm * heightCm) / 6000);
+};
+
 /**
  * Re-validates an immutable carrier-rate snapshot at the order-create boundary.
  * Client-supplied tariff/net values are never trusted: once the snapshot is
  * validated, this middleware replaces them with persisted server values.
  *
- * Optional provider inputs (item value/category/insurance/COD) are bound only
- * when they were part of the rate request. This keeps older clients compatible
- * while remaining fail-closed for every input that currently drives tariff.
+ * Every request input persisted in the quote and capable of changing provider
+ * eligibility or price is bound exactly. If the client changes it, the order
+ * must be requoted rather than silently accepting stale commercial terms.
  */
 export const requireAuthoritativeAggregatorQuote = async (
   req: Request,
@@ -78,6 +120,9 @@ export const requireAuthoritativeAggregatorQuote = async (
               origin_code,
               destination_code,
               chargeable_weight_kg,
+              length_cm,
+              width_cm,
+              height_cm,
               item_value_idr,
               category,
               insurance,
@@ -123,43 +168,84 @@ export const requireAuthoritativeAggregatorQuote = async (
       return;
     }
 
+    // Preserve the normalized provider location codes used by the authoritative
+    // quote even when an older client omitted one of these compatibility fields.
+    req.body.origin_code = quote.origin_code;
+    req.body.destination_code = quote.destination_code;
+
     const packageWeight = positiveNumber(
-      req.body?.package_details?.weight_kg ?? req.body?.packages?.[0]?.weight_kg,
+      req.body?.package_details?.weight_kg ?? firstPackage(req.body)?.weight_kg,
     );
+    if (!packageWeight) {
+      requote(res, 'Berat paket wajib sama dengan input quote. Hitung ulang tarif.');
+      return;
+    }
+
+    const dimensions = requestDimensions(req.body);
+    const quotedLength = Number(quote.length_cm);
+    const quotedWidth = Number(quote.width_cm);
+    const quotedHeight = Number(quote.height_cm);
     const quotedWeight = Number(quote.chargeable_weight_kg);
-    if (packageWeight && Number.isFinite(quotedWeight) && Math.abs(packageWeight - quotedWeight) > 0.001) {
-      requote(res, 'Berat paket berubah setelah quote dibuat. Hitung ulang tarif.');
+    if (
+      !Number.isFinite(quotedLength) ||
+      !Number.isFinite(quotedWidth) ||
+      !Number.isFinite(quotedHeight) ||
+      !Number.isFinite(quotedWeight) ||
+      quotedWeight <= 0
+    ) {
+      next(new Error('Persisted aggregator quote contains invalid package dimensions or weight'));
+      return;
+    }
+
+    if (
+      !nearlyEqual(dimensions.length, quotedLength) ||
+      !nearlyEqual(dimensions.width, quotedWidth) ||
+      !nearlyEqual(dimensions.height, quotedHeight)
+    ) {
+      requote(res, 'Dimensi paket berubah setelah quote dibuat. Hitung ulang tarif.');
+      return;
+    }
+
+    const submittedChargeableWeight = chargeableWeightKg(
+      packageWeight,
+      dimensions.length,
+      dimensions.width,
+      dimensions.height,
+    );
+    if (!nearlyEqual(submittedChargeableWeight, quotedWeight)) {
+      requote(res, 'Berat hitung paket berubah setelah quote dibuat. Hitung ulang tarif.');
       return;
     }
 
     const quotedItemValue = Number(quote.item_value_idr);
-    if (Number.isFinite(quotedItemValue) && quotedItemValue > 0) {
-      const submittedItemValue = Number(req.body?.item_value);
-      if (!Number.isFinite(submittedItemValue) || submittedItemValue !== quotedItemValue) {
-        requote(res, 'Nilai barang berubah setelah quote dibuat. Hitung ulang tarif.');
-        return;
-      }
+    const submittedItemValue = nonNegativeNumber(req.body?.item_value);
+    if (
+      !Number.isFinite(quotedItemValue) ||
+      quotedItemValue < 0 ||
+      submittedItemValue === null ||
+      submittedItemValue !== quotedItemValue
+    ) {
+      requote(res, 'Nilai barang berubah setelah quote dibuat. Hitung ulang tarif.');
+      return;
     }
 
     const quotedCategory = normalizedText(quote.category);
-    if (quotedCategory) {
-      const submittedCategory = normalizedText(
-        req.body?.package_details?.category ?? req.body?.packages?.[0]?.category,
-      );
-      if (submittedCategory !== quotedCategory) {
-        requote(res, 'Kategori barang berubah setelah quote dibuat. Hitung ulang tarif.');
-        return;
-      }
+    const submittedCategory = normalizedText(
+      req.body?.package_details?.category ?? firstPackage(req.body)?.category,
+    );
+    if (submittedCategory !== quotedCategory) {
+      requote(res, 'Kategori barang berubah setelah quote dibuat. Hitung ulang tarif.');
+      return;
     }
 
-    // If the rate was explicitly priced with insurance/COD enabled, creation
-    // must preserve those flags. A future client that requests these options in
-    // the quote path will therefore get strict binding automatically.
-    if (quote.insurance && !boolValue(req.body?.has_insurance)) {
+    const submittedInsurance = boolValue(req.body?.has_insurance);
+    if (submittedInsurance !== Boolean(quote.insurance)) {
       requote(res, 'Opsi asuransi berubah setelah quote dibuat. Hitung ulang tarif.');
       return;
     }
-    if (quote.cod && normalizedText(req.body?.payment_method) !== 'cod') {
+
+    const submittedCod = normalizedText(req.body?.payment_method) === 'cod';
+    if (submittedCod !== Boolean(quote.cod)) {
       requote(res, 'Opsi COD berubah setelah quote dibuat. Hitung ulang tarif.');
       return;
     }
