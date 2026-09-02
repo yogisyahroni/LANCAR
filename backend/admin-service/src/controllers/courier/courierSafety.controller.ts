@@ -16,6 +16,7 @@ import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../../services/
 
 import { evaluateOnDemandRealtimeAlerts } from '../../services/realtimeObservability';
 import { buildMapsRouteEtaSnapshot } from '../../services/mapsProviderConfig';
+import { getTrackingFreshness } from '../../services/onDemandTracking';
 
 import { isFeatureFlagEnabled } from '../../services/featureFlags';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
@@ -199,7 +200,7 @@ export const createMobileCourierTripShare = async (req: Request, res: Response) 
 
 export const getPublicTripShare = async (req: Request, res: Response) => {
   const token = String(req.params.token || '');
-  if (!token) {
+  if (!/^[A-Za-z0-9_-]{10,128}$/.test(token)) {
     res.status(404).json({ success: false, data: null, message: 'Tracking link tidak ditemukan.', code: 'ERR_NOT_FOUND' });
     return;
   }
@@ -220,6 +221,9 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
          ST_Y(cp.current_location::geometry)::float8 AS courier_latitude,
          ST_X(cp.current_location::geometry)::float8 AS courier_longitude,
          cp.last_location_at,
+         o.route_duration_seconds,
+         o.route_provider,
+         o.route_snapshot,
          tst.expires_at
        FROM trip_share_tokens tst
        JOIN orders o ON o.id = tst.order_id
@@ -238,7 +242,28 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
       return;
     }
 
-    res.json({ success: true, data: row, message: 'Trip tracking loaded' });
+    const freshness = getTrackingFreshness(row.last_location_at);
+    const routeSnapshot = row.route_snapshot && typeof row.route_snapshot === 'object' ? row.route_snapshot : {};
+    const etaMinutes = Number.isFinite(Number(row.route_duration_seconds)) && Number(row.route_duration_seconds) > 0
+      ? Math.max(1, Math.ceil(Number(row.route_duration_seconds) / 60))
+      : Number.isFinite(Number(routeSnapshot.eta_minutes)) && Number(routeSnapshot.eta_minutes) > 0
+        ? Number(routeSnapshot.eta_minutes)
+        : null;
+
+    res.json({
+      success: true,
+      data: {
+        ...row,
+        route_snapshot: undefined,
+        eta_minutes: etaMinutes,
+        eta: etaMinutes == null ? null : `${etaMinutes} menit`,
+        eta_source: row.route_provider || routeSnapshot.provider || null,
+        location_stale: freshness.is_stale,
+        location_age_seconds: freshness.age_seconds,
+        location_stale_reason: freshness.stale_reason,
+      },
+      message: 'Trip tracking loaded',
+    });
   } catch (error) {
     securityLog.error('Get public trip share error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
@@ -355,5 +380,4 @@ export const updateAdminGpsRiskAlert = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
-
 

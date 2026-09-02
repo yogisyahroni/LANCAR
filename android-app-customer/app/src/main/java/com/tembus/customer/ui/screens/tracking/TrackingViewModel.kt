@@ -135,7 +135,11 @@ class TrackingViewModel @Inject constructor(
                     routePoints = resolvedRoutePoints,
                     eta = data.eta ?: etaFromSnapshot ?: currentState.eta,
                     lastLiveTrackingAt = System.currentTimeMillis(),
-                    staleTrackingReason = null
+                    staleTrackingReason = if (data.locationStale) {
+                        data.locationStaleReason ?: "Posisi terakhir sudah kedaluwarsa. Menunggu update GPS baru."
+                    } else {
+                        null
+                    }
                 )
             }
         }.onFailure { exception ->

@@ -256,13 +256,15 @@ export function OrderDetailContent({
                   <p className="text-sm font-bold text-white">
                     {order.status.toLowerCase() === 'cancelled' 
                       ? 'Dibatalkan' 
-                      : (tracking?.eta || (tracking?.location ? 'Lokasi kurir aktif' : 'Menunggu lokasi kurir'))}
+                      : (tracking?.location_stale
+                        ? 'Posisi terakhir'
+                        : (tracking?.eta || (tracking?.location ? 'Lokasi kurir aktif' : 'Menunggu lokasi kurir')))}
                   </p>
                 </div>
               </div>
               <span className={cn(
                 "h-2 w-2 rounded-full",
-                order.status.toLowerCase() === 'cancelled' ? "bg-slate-500" : tracking?.location ? "bg-green-500 animate-ping" : "bg-amber-400"
+                order.status.toLowerCase() === 'cancelled' ? "bg-slate-500" : tracking?.location_stale ? "bg-amber-400" : tracking?.location ? "bg-green-500 animate-ping" : "bg-amber-400"
               )} />
             </div>
 
@@ -280,6 +282,8 @@ export function OrderDetailContent({
                 <p className="text-xs text-muted-foreground max-w-xs mx-auto">
                   {order.status.toLowerCase() === 'cancelled' 
                     ? 'Pesanan dibatalkan. Tracking dihentikan.'
+                    : tracking?.location_stale
+                      ? `Posisi terakhir diperbarui ${formatTrackingTime(tracking.location?.timestamp)}. Menunggu update GPS baru.`
                     : tracking?.location
                       ? `Update terakhir ${formatTrackingTime(tracking.location.timestamp)}`
                       : trackingError || 'Lokasi kurir otomatis muncul setelah pekerjaan diterima dan tracking aktif.'}

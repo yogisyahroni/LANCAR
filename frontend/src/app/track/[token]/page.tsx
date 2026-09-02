@@ -17,6 +17,11 @@ type PublicTrackingResponse = {
     courier_latitude?: number | null;
     courier_longitude?: number | null;
     last_location_at?: string | null;
+    location_stale?: boolean;
+    location_age_seconds?: number | null;
+    eta?: string | null;
+    eta_minutes?: number | null;
+    eta_source?: string | null;
     expires_at?: string | null;
   };
   message?: string;
@@ -115,7 +120,9 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
                 </div>
                 <div className="rounded-2xl bg-slate-900 p-4">
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Update lokasi</p>
-                  <p className="mt-1 font-bold">{formatTime(data.last_location_at)}</p>
+                  <p className={`mt-1 font-bold ${data.location_stale ? 'text-amber-300' : ''}`}>
+                    {data.location_stale ? 'Posisi terakhir' : formatTime(data.last_location_at)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -126,6 +133,11 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
                 Live Tracking
               </h3>
               <div className="mt-5 rounded-3xl border border-white/10 bg-slate-900 p-5">
+                {data.eta && (
+                  <p className="mb-4 text-sm font-bold text-brand-emerald-200">
+                    ETA dari server: {data.eta}{data.eta_source ? ` · ${data.eta_source}` : ''}
+                  </p>
+                )}
                 {hasCourierLocation ? (
                   <a
                     className="block rounded-2xl bg-brand-emerald-500 px-5 py-4 text-center font-black text-slate-950"
@@ -138,6 +150,11 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
                 ) : (
                   <p className="text-sm leading-6 text-slate-300">
                     Posisi kurir akan tampil setelah tracking aktif dari aplikasi kurir.
+                  </p>
+                )}
+                {data.location_stale && (
+                  <p className="mt-4 text-xs leading-5 text-amber-200">
+                    GPS terakhir sudah lebih dari batas freshness. Tunggu update baru sebelum mengambil keputusan berdasarkan posisi ini.
                   </p>
                 )}
               </div>

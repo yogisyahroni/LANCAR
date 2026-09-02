@@ -26,6 +26,18 @@ data class TrackingResponse(
     @SerialName("eta_minutes")
     val etaMinutes: Int? = null,
 
+    @SerialName("eta_source")
+    val etaSource: String? = null,
+
+    @SerialName("location_stale")
+    val locationStale: Boolean = false,
+
+    @SerialName("location_age_seconds")
+    val locationAgeSeconds: Int? = null,
+
+    @SerialName("location_stale_reason")
+    val locationStaleReason: String? = null,
+
     @SerialName("route_provider")
     val routeProvider: String? = null,
 

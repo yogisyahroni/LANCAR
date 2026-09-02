@@ -13,6 +13,32 @@ export type TrackingPoint = {
   timestamp?: string;
 };
 
+export const TRACKING_STALE_AFTER_SECONDS = 90;
+
+export type TrackingFreshness = {
+  is_stale: boolean;
+  age_seconds: number | null;
+  stale_reason: 'location_unavailable' | 'timestamp_invalid' | 'location_expired' | null;
+};
+
+export const getTrackingFreshness = (timestamp?: string | Date | null, now = Date.now()): TrackingFreshness => {
+  if (!timestamp) {
+    return { is_stale: true, age_seconds: null, stale_reason: 'location_unavailable' };
+  }
+
+  const recordedAt = timestamp instanceof Date ? timestamp.getTime() : new Date(timestamp).getTime();
+  if (!Number.isFinite(recordedAt)) {
+    return { is_stale: true, age_seconds: null, stale_reason: 'timestamp_invalid' };
+  }
+
+  const ageSeconds = Math.max(0, Math.floor((now - recordedAt) / 1000));
+  return {
+    is_stale: ageSeconds > TRACKING_STALE_AFTER_SECONDS,
+    age_seconds: ageSeconds,
+    stale_reason: ageSeconds > TRACKING_STALE_AFTER_SECONDS ? 'location_expired' : null,
+  };
+};
+
 export type LocationQualityResult = {
   accepted: boolean;
   severity: 'info' | 'medium' | 'high' | 'critical';
@@ -289,6 +315,7 @@ export const buildOnDemandTrackingSnapshot = async (
     accuracy: latest.accuracy_m == null ? undefined : toNumber(latest.accuracy_m),
     timestamp: latest.recorded_at,
   } : null;
+  const freshness = getTrackingFreshness(location?.timestamp ?? null);
 
   const pickupTarget = Number.isFinite(Number(order.pickup_latitude)) && Number.isFinite(Number(order.pickup_longitude))
     ? { latitude: Number(order.pickup_latitude), longitude: Number(order.pickup_longitude), address: order.pickup_address, type: 'pickup' }
@@ -365,7 +392,11 @@ export const buildOnDemandTrackingSnapshot = async (
     quality: {
       source: location ? 'last_valid_location' : 'unavailable',
       customer_visible: Boolean(location),
+      ...freshness,
     },
+    location_stale: freshness.is_stale,
+    location_age_seconds: freshness.age_seconds,
+    location_stale_reason: freshness.stale_reason,
     timeline: isTowingService(order.service_type)
       ? [
           { key: 'mencari_kurir', label: stageLabel('mencari_kurir'), completed: !['mencari_kurir'].includes(stage) },

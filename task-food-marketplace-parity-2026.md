@@ -458,10 +458,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `frontend/src/app/(portal)/orders/[id]/RouteSnapshotPanel.tsx`
 
 **Checklist**
-- [ ] ETA backend sourced.
-- [ ] Show GPS staleness.
-- [ ] Mask contact by lifecycle/privacy policy.
-- [ ] Public tracking token scoped/expiring/revocable.
+- [x] ETA backend sourced.
+- [x] Show GPS staleness.
+- [x] Mask contact by lifecycle/privacy policy.
+- [x] Public tracking token scoped/expiring/revocable.
 - [ ] Offline reconnect uses snapshot.
 
 ---

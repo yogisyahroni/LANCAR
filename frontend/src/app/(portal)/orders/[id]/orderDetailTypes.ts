@@ -222,6 +222,17 @@ export interface TrackingData {
   };
   eta?: string;
   eta_minutes?: number;
+  eta_source?: string | null;
+  location_stale?: boolean;
+  location_age_seconds?: number | null;
+  location_stale_reason?: 'location_unavailable' | 'timestamp_invalid' | 'location_expired' | string | null;
+  quality?: {
+    source?: string;
+    customer_visible?: boolean;
+    is_stale?: boolean;
+    age_seconds?: number | null;
+    stale_reason?: string | null;
+  };
   route_provider?: string;
   route_polyline?: string;
   order_route_snapshot?: RouteSnapshot | null;

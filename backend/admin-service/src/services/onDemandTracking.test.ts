@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { redis } from '../redis';
-import { buildRouteEtaSnapshot, evaluateLocationQuality, resolveTowingTrackingStage, resolveTrackingStage } from './onDemandTracking';
+import { buildRouteEtaSnapshot, evaluateLocationQuality, getTrackingFreshness, resolveTowingTrackingStage, resolveTrackingStage, TRACKING_STALE_AFTER_SECONDS } from './onDemandTracking';
 import {
   getActiveTomTomMapsServerCredential,
   hasTomTomMapsServerCredential,
@@ -155,6 +155,26 @@ describe('on-demand tracking policy', () => {
     );
     expect(jump.accepted).toBe(false);
     expect(jump.reasons).toContain('impossible_location_jump');
+  });
+
+  it('marks a last-known location stale without changing the coordinate', () => {
+    const now = Date.parse('2026-09-02T10:00:00.000Z');
+    const fresh = getTrackingFreshness(new Date(now - (TRACKING_STALE_AFTER_SECONDS * 1000)), now);
+    const stale = getTrackingFreshness(new Date(now - ((TRACKING_STALE_AFTER_SECONDS + 1) * 1000)), now);
+    const unavailable = getTrackingFreshness(null, now);
+
+    expect(fresh.is_stale).toBe(false);
+    expect(fresh.age_seconds).toBe(TRACKING_STALE_AFTER_SECONDS);
+    expect(stale).toEqual({
+      is_stale: true,
+      age_seconds: TRACKING_STALE_AFTER_SECONDS + 1,
+      stale_reason: 'location_expired',
+    });
+    expect(unavailable).toEqual({
+      is_stale: true,
+      age_seconds: null,
+      stale_reason: 'location_unavailable',
+    });
   });
 
   it('returns honest fallback ETA when route provider is not configured', async () => {
