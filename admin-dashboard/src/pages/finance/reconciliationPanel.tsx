@@ -37,6 +37,10 @@ export function ReconciliationPanel({ data }: { data: FinanceData }) {
     setLedgerAccountFilter,
     ledgerJournalTypeFilter,
     setLedgerJournalTypeFilter,
+    reconciliationServiceFilter,
+    setReconciliationServiceFilter,
+    reconciliationProviderFilter,
+    setReconciliationProviderFilter,
     simInfraCost,
     setSimInfraCost,
     simSalaryCost,
@@ -151,6 +155,45 @@ export function ReconciliationPanel({ data }: { data: FinanceData }) {
               )}
               Jalankan Rekonsiliasi Sekarang
             </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-zinc-900 border border-white/5">
+            <span className="text-xs font-black uppercase tracking-widest text-zinc-500">Filter audit</span>
+            <select
+              value={reconciliationServiceFilter}
+              onChange={(e) => setReconciliationServiceFilter(e.target.value)}
+              className="bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none"
+              aria-label="Filter layanan rekonsiliasi"
+            >
+              <option value="">Semua layanan</option>
+              <option value="parcel">Paket</option>
+              <option value="food_delivery">Food</option>
+              <option value="tambal_ban_motor">Tambal Ban Motor</option>
+              <option value="tambal_ban_mobil">Tambal Ban Mobil</option>
+              <option value="towing_motor">Towing Motor</option>
+              <option value="towing_mobil">Towing Mobil</option>
+            </select>
+            <input
+              value={reconciliationProviderFilter}
+              onChange={(e) => setReconciliationProviderFilter(e.target.value)}
+              placeholder="Provider"
+              className="bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none w-36"
+              aria-label="Filter provider rekonsiliasi"
+            />
+            <input
+              type="date"
+              value={ledgerStartDate}
+              onChange={(e) => setLedgerStartDate(e.target.value)}
+              className="bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none"
+              aria-label="Tanggal mulai rekonsiliasi"
+            />
+            <input
+              type="date"
+              value={ledgerEndDate}
+              onChange={(e) => setLedgerEndDate(e.target.value)}
+              className="bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none"
+              aria-label="Tanggal akhir rekonsiliasi"
+            />
           </div>
 
           <div className="glass-card p-6 rounded-3xl border-white/5">

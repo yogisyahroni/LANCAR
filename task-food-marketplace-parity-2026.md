@@ -282,11 +282,11 @@ _Local quote contract and server enforcement are complete; authenticated staging
 - `database/migrations/<timestamp>_add_reconciliation_exceptions.sql`
 
 **Checklist**
-- [ ] Model unpaid/pending/paid/refunding/refunded/settled/failed explicitly.
-- [ ] Reconcile order total ↔ payment ↔ subsidy/voucher ↔ courier ↔ merchant ↔ carrier ↔ platform ↔ tax ↔ refund.
-- [ ] Completed-with-money-mismatch masuk exception queue.
-- [ ] Manual correction menggunakan compensating entry, bukan overwrite history.
-- [ ] Dashboard filter discrepancy by service/provider/date.
+- [x] Model unpaid/pending/paid/refunding/refunded/settled/failed explicitly.
+- [x] Reconcile order total ↔ payment ↔ subsidy/voucher ↔ courier ↔ merchant ↔ carrier ↔ platform ↔ tax ↔ refund.
+- [x] Completed-with-money-mismatch masuk exception queue.
+- [x] Manual correction menggunakan compensating entry, bukan overwrite history.
+- [x] Dashboard filter discrepancy by service/provider/date.
 
 ---
 

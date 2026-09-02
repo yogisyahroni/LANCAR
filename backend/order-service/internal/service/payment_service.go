@@ -60,7 +60,7 @@ type DefaultPaymentService struct {
 	configRepo     domain.ConfigRepository
 	taxService     domain.TaxService
 	pushSvc        domain.PushService
-	refundSvc      domain.RefundService // AUDIT-FIX: refund late-payment/resurrection
+	refundSvc      domain.RefundService  // AUDIT-FIX: refund late-payment/resurrection
 	foodRepo       domain.FoodRepository // AUDIT-FIX: auto-cancel scheduled lewat jadwal
 }
 
@@ -119,7 +119,7 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 	// MDR 0.7% for QRIS
 	mdrRate := s.configRepo.GetFloatConfig(ctx, "payment_mdr_rate", 0.007)
 	mdr := int(float64(amount) * mdrRate)
-	
+
 	// PPN calculated dynamically via tax engine
 	taxSnapshot, _ := s.taxService.CalculatePaymentMDRTax(ctx, int64(mdr))
 	ppn := int(taxSnapshot.PPNIDR)
@@ -298,6 +298,13 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "ignored", stringPtr("unknown_transaction_status"))
 		}
 		return nil
+	}
+
+	if err := domain.ValidatePaymentTransition(payment.Status, newStatus); err != nil {
+		if hasAuditRepo {
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "ignored", stringPtr("invalid_payment_transition"))
+		}
+		return fmt.Errorf("invalid payment transition for %s: %w", payment.ID, err)
 	}
 
 	// 5. Update DB
