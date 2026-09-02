@@ -44,7 +44,36 @@ type CreateFoodOrderRequest struct {
 	Contactless bool `json:"contactless,omitempty"`
 
 	// FB-078: kode voucher diskon (opsional). Divalidasi + dihitung server-side.
-	VoucherCode string `json:"voucher_code,omitempty"`
+	VoucherCode           string `json:"voucher_code,omitempty"`
+	QuoteID               string `json:"quote_id,omitempty"`
+	QuoteInputFingerprint string `json:"quote_input_fingerprint,omitempty"`
+}
+
+type FoodQuoteItem struct {
+	MenuItemID string                 `json:"menu_item_id"`
+	ItemName   string                 `json:"item_name"`
+	UnitPrice  int64                  `json:"unit_price_idr"`
+	Quantity   int                    `json:"quantity"`
+	Subtotal   int64                  `json:"subtotal_idr"`
+	Variants   []FoodOrderItemVariant `json:"variants,omitempty"`
+}
+
+type FoodQuoteResponse struct {
+	QuoteID            string          `json:"quote_id"`
+	InputFingerprint   string          `json:"input_fingerprint"`
+	MerchantID         string          `json:"merchant_id"`
+	Items              []FoodQuoteItem `json:"items"`
+	SubtotalIDR        int64           `json:"subtotal_idr"`
+	DeliveryFeeIDR     int64           `json:"delivery_fee_idr"`
+	PlatformFeeIDR     int64           `json:"platform_fee_idr"`
+	TaxIDR             int64           `json:"tax_idr"`
+	DiscountIDR        int64           `json:"discount_idr"`
+	TotalPriceIDR      int64           `json:"total_price_idr"`
+	DistanceKM         float64         `json:"distance_km"`
+	ETAMinutes         int             `json:"eta_minutes"`
+	ETASource          string          `json:"eta_source"`
+	PricingRuleVersion string          `json:"pricing_rule_version"`
+	ExpiresAt          time.Time       `json:"expires_at"`
 }
 
 type FoodOrderItem struct {
@@ -212,6 +241,10 @@ type FoodRepository interface {
 	// ActivateScheduledFoodOrder — FB-123: transisi scheduled → pending_merchant
 	// saat aktivasi (merchant re-validated OK). Guard status.
 	ActivateScheduledFoodOrder(ctx context.Context, orderID string) error
+}
+
+type FoodQuoteService interface {
+	QuoteFood(ctx context.Context, userID string, req CreateFoodOrderRequest) (*FoodQuoteResponse, error)
 }
 
 type ScheduledFoodOrder struct {

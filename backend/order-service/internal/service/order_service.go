@@ -160,6 +160,25 @@ func validateFoodDeliveryDistance(distanceKM float64) error {
 	return nil
 }
 
+// validateFoodDestination — FOOD-2026-001: checkout food harus membawa
+// pasangan alamat + pin tujuan yang sama. Discovery location tidak boleh
+// menjadi fallback diam-diam karena ongkir/radius dihitung dari pin ini.
+func validateFoodDestination(req domain.CreateFoodOrderRequest) error {
+	if strings.TrimSpace(req.DropoffAddress) == "" {
+		return fmt.Errorf("alamat pengantaran wajib diisi")
+	}
+	if math.IsNaN(req.DropoffLat) || math.IsInf(req.DropoffLat, 0) || req.DropoffLat < -90 || req.DropoffLat > 90 {
+		return fmt.Errorf("latitude tujuan tidak valid")
+	}
+	if math.IsNaN(req.DropoffLng) || math.IsInf(req.DropoffLng, 0) || req.DropoffLng < -180 || req.DropoffLng > 180 {
+		return fmt.Errorf("longitude tujuan tidak valid")
+	}
+	if req.DropoffLat == 0 && req.DropoffLng == 0 {
+		return fmt.Errorf("pin lokasi tujuan wajib dipilih")
+	}
+	return nil
+}
+
 // validateItemCategory — TC-LOG-005: cegah order dengan kategori/deskripsi
 // barang terlarang (gas, chemical, weapon, flammable, explosive, dll).
 // Case-insensitive. Cek baik field `category` eksplisit maupun kata kunci

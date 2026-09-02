@@ -11,6 +11,7 @@ import (
 type OrderHandler struct {
 	pricingSvc      domain.PricingService
 	orderSvc        domain.OrderService
+	foodQuoteSvc    domain.FoodQuoteService
 	meetingPointSvc domain.MeetingPointService
 	handoffSvc      domain.HandoffService
 }
@@ -25,6 +26,10 @@ func NewOrderHandler(p domain.PricingService, o domain.OrderService, m domain.Me
 
 func (h *OrderHandler) SetHandoffService(svc domain.HandoffService) {
 	h.handoffSvc = svc
+}
+
+func (h *OrderHandler) SetFoodQuoteService(svc domain.FoodQuoteService) {
+	h.foodQuoteSvc = svc
 }
 
 // userSafeError maps internal errors to safe user-facing messages and

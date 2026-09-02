@@ -2,11 +2,40 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
 )
+
+func (h *OrderHandler) QuoteFoodOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if h.foodQuoteSvc == nil {
+		userSafeError(w, r, fmt.Errorf("food quote service not wired"), http.StatusServiceUnavailable)
+		return
+	}
+	req, ok := middleware.GetValidatedData(r.Context()).(*domain.CreateFoodOrderRequest)
+	if !ok || req == nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to retrieve validated request", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	quote, err := h.foodQuoteSvc.QuoteFood(r.Context(), userID, *req)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(quote)
+}
 
 // Auto-generated split of OrderHandler methods (god-file refactor).
 func (h *OrderHandler) CreateFoodOrder(w http.ResponseWriter, r *http.Request) {

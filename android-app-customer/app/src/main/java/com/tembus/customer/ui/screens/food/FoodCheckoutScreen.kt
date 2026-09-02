@@ -63,6 +63,13 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import android.app.TimePickerDialog
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 
 // FOOD-BIKE-075: checkout — alamat antar + receiver + ringkasan + submit
 @Composable
@@ -74,15 +81,50 @@ fun FoodCheckoutScreen(
     val cart by viewModel.cart.collectAsState()
     val cartTotal by viewModel.cartTotal.collectAsState()
     val loading by viewModel.loading.collectAsState()
-    val userLat by viewModel.userLat.collectAsState()
-    val userLng by viewModel.userLng.collectAsState()
+    val checkoutLat by viewModel.checkoutLat.collectAsState()
+    val checkoutLng by viewModel.checkoutLng.collectAsState()
+    val checkoutAddressResults by viewModel.checkoutAddressResults.collectAsState()
+    val checkoutAddressSearchError by viewModel.checkoutAddressSearchError.collectAsState()
+    val checkoutAddressSearching by viewModel.checkoutAddressSearching.collectAsState()
+    val foodQuote by viewModel.foodQuote.collectAsState()
+    val context = LocalContext.current
+    val locationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    var locating by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var submitError by remember { mutableStateOf<String?>(null) }
+
+    fun readCurrentDestination() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            submitError = "Izin lokasi diperlukan untuk menetapkan titik pengantaran."
+            return
+        }
+        locating = true
+        locationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+            .addOnSuccessListener { location ->
+                locating = false
+                if (location == null) {
+                    submitError = "Lokasi belum tersedia. Aktifkan GPS lalu coba lagi."
+                } else {
+                    viewModel.setCheckoutLocation(location.latitude, location.longitude)
+                    submitError = null
+                }
+            }
+            .addOnFailureListener {
+                locating = false
+                submitError = "Lokasi tidak dapat dibaca. Aktifkan GPS lalu coba lagi."
+            }
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) readCurrentDestination()
+        else submitError = "Izin lokasi ditolak. Pilih alamat tersimpan yang memiliki pin lokasi."
+    }
 
     var address by remember { mutableStateOf("") }
     var receiverName by remember { mutableStateOf("") }
     var receiverPhone by remember { mutableStateOf("") }
     var orderNotes by remember { mutableStateOf("") } // FB-121: catatan level order
-    var submitError by remember { mutableStateOf<String?>(null) }
     var voucherInput by remember { mutableStateOf("") }
     val voucherState by viewModel.voucherState.collectAsState()
     // FB-123: pesanan terjadwal — toggle Pesan Sekarang / Jadwalkan.
@@ -184,6 +226,7 @@ fun FoodCheckoutScreen(
                         onClick = {
                             scheduleNow = isNow
                             if (isNow) scheduledAtMs = null
+                            viewModel.clearFoodQuote()
                             submitError = null
                         },
                         shape = RoundedCornerShape(TembusRadius.Button),
@@ -295,7 +338,7 @@ fun FoodCheckoutScreen(
                                 color = Success
                             )
                         }
-                        TextButton(onClick = { viewModel.clearVoucher(); voucherInput = "" }) {
+                        TextButton(onClick = { viewModel.clearVoucher(); voucherInput = ""; viewModel.clearFoodQuote() }) {
                             Text("Hapus", color = Error, fontSize = 13.sp)
                         }
                     }
@@ -309,6 +352,7 @@ fun FoodCheckoutScreen(
                             value = voucherInput,
                             onValueChange = {
                                 voucherInput = it
+                                viewModel.clearFoodQuote()
                                 if (it.isBlank()) viewModel.clearVoucher()
                             },
                             modifier = Modifier.weight(1f),
@@ -357,6 +401,7 @@ fun FoodCheckoutScreen(
                         Surface(
                             onClick = {
                                 address = saved.address
+                                viewModel.setCheckoutLocation(saved.lat, saved.lng)
                                 if (saved.contactName != null) receiverName = saved.contactName
                             },
                             shape = RoundedCornerShape(TembusRadius.Chip),
@@ -383,12 +428,126 @@ fun FoodCheckoutScreen(
             }
             OutlinedTextField(
                 value = address,
-                onValueChange = { address = it },
+                onValueChange = {
+                    address = it
+                    // A changed address is a new destination until its pin is
+                    // explicitly selected; stale discovery/saved coordinates
+                    // must never be sent with the new text.
+                    viewModel.clearCheckoutLocation()
+                    viewModel.clearCheckoutAddressSearch()
+                },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Contoh: Jl. Sudirman No. 12, Jakarta", fontSize = 14.sp) },
                 minLines = 2,
                 shape = RoundedCornerShape(TembusRadius.Input)
             )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { viewModel.searchCheckoutAddress(address) },
+                enabled = address.trim().length >= 3 && !checkoutAddressSearching,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(TembusRadius.Button)
+            ) {
+                if (checkoutAddressSearching) {
+                    CircularProgressIndicator(modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Cari dan pilih pin alamat", fontSize = 13.sp)
+                }
+            }
+            checkoutAddressResults.forEach { result ->
+                Surface(
+                    onClick = {
+                        address = result.label
+                        viewModel.selectCheckoutAddress(result)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(TembusRadius.Input)
+                ) {
+                    Text(
+                        text = result.label,
+                        modifier = Modifier.padding(12.dp),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+            checkoutAddressSearchError?.let {
+                Text(it, color = Error, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                        readCurrentDestination()
+                    } else {
+                        locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                },
+                enabled = !locating,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(TembusRadius.Button)
+            ) {
+                if (locating) CircularProgressIndicator(modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp)
+                else Text("Gunakan lokasi perangkat sebagai titik antar", fontSize = 13.sp)
+            }
+            Text(
+                if (checkoutLat != null && checkoutLng != null) "Pin pengantaran terpilih — harga akan dihitung dari titik ini."
+                else "Pilih alamat tersimpan atau tetapkan pin perangkat sebelum checkout.",
+                color = if (checkoutLat != null && checkoutLng != null) Success else Error,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = {
+                    submitError = null
+                    val lat = checkoutLat
+                    val lng = checkoutLng
+                    if (lat == null || lng == null) {
+                        submitError = "Titik pengantaran belum dipilih."
+                        return@OutlinedButton
+                    }
+                    viewModel.quote(
+                        merchantId = merchantId,
+                        dropoffAddress = address,
+                        dropoffLat = lat,
+                        dropoffLng = lng,
+                        voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
+                        isScheduled = !scheduleNow,
+                        scheduledAt = scheduledAtMs?.let {
+                            Instant.ofEpochMilli(it)
+                                .atZone(ZoneId.systemDefault())
+                                .toOffsetDateTime()
+                                .withSecond(0).withNano(0)
+                                .toString()
+                        },
+                        onResult = { result ->
+                            result.onFailure { submitError = it.message ?: "Gagal menghitung harga terbaru" }
+                        }
+                    )
+                },
+                enabled = address.isNotBlank() && checkoutLat != null && checkoutLng != null && cart.isNotEmpty() && !loading,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(TembusRadius.Button)
+            ) {
+                Text(if (foodQuote == null) "Hitung harga dan ETA" else "Perbarui harga dan ETA", fontSize = 13.sp)
+            }
+            foodQuote?.let { quote ->
+                Text(
+                    "Subtotal Rp ${formatRupiah(quote.subtotalIdr)} • Antar Rp ${formatRupiah(quote.deliveryFeeIdr)} • ETA ~${quote.etaMinutes} menit",
+                    color = Success,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "Total server: Rp ${formatRupiah(quote.totalPriceIdr)}",
+                    color = Primary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value = receiverName,
@@ -432,6 +591,14 @@ fun FoodCheckoutScreen(
                         submitError = "Alamat pengantaran wajib diisi"
                         return@Button
                     }
+                    if (checkoutLat == null || checkoutLng == null) {
+                        submitError = "Titik pengantaran belum dipilih. Pilih alamat tersimpan atau gunakan lokasi perangkat."
+                        return@Button
+                    }
+                    if (foodQuote == null) {
+                        submitError = "Hitung harga dan ETA terbaru sebelum membuat pesanan."
+                        return@Button
+                    }
                     if (cart.isEmpty()) {
                         submitError = "Keranjang kosong"
                         return@Button
@@ -445,8 +612,8 @@ fun FoodCheckoutScreen(
                         viewModel.checkout(
                             merchantId = merchantId,
                             dropoffAddress = address,
-                            dropoffLat = userLat,
-                            dropoffLng = userLng,
+                            dropoffLat = checkoutLat,
+                            dropoffLng = checkoutLng,
                             receiverName = receiverName.ifBlank { null },
                             receiverPhone = receiverPhone.ifBlank { null },
                             voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
@@ -478,7 +645,7 @@ fun FoodCheckoutScreen(
                 if (loading) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.height(22.dp).width(22.dp))
                 } else {
-                    Text("Buat Pesanan • Rp ${formatRupiah(cartTotal)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Buat Pesanan • Rp ${formatRupiah(foodQuote?.totalPriceIdr ?: cartTotal)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
 

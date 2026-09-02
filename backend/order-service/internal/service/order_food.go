@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -17,6 +18,13 @@ import (
 func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, req domain.CreateFoodOrderRequest) (*domain.Order, error) {
 	if s.foodRepo == nil {
 		return nil, fmt.Errorf("food repository not wired")
+	}
+	if err := validateFoodDestination(req); err != nil {
+		return nil, domain.NewUserFacingError(err.Error())
+	}
+	foodQuote, err := s.requireFoodQuote(ctx, req)
+	if err != nil {
+		return nil, err
 	}
 
 	// 1. Validasi merchant: ada, approved, buka
@@ -210,8 +218,14 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		platformFeePct = 10
 	}
 	platformFee := int64(math.Round(float64(subtotal) * platformFeePct / 100))
-
-	total := subtotal + deliveryFee + platformFee
+	if s.taxSvc == nil {
+		return nil, fmt.Errorf("food tax service not wired")
+	}
+	taxSnapshot, err := s.taxSvc.CalculateOrderTax(ctx, subtotal+deliveryFee, platformFee, false)
+	if err != nil {
+		return nil, fmt.Errorf("calculate food tax: %w", err)
+	}
+	total := subtotal + deliveryFee + platformFee + taxSnapshot.PPNIDR
 
 	// 6b. FB-078: apply voucher diskon (kalau ada) — zero-trust server-side.
 	// Base diskon = subtotal + deliveryFee (platform fee tidak boleh kena diskon).
@@ -234,6 +248,16 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		total -= voucherDiscount
 		voucherUsage = vres
 	}
+	if total != foodQuote.TotalPriceIDR {
+		return nil, &domain.RequoteRequiredError{
+			QuoteID: foodQuote.QuoteID, CurrentTotal: total,
+			Reason: "harga menu, ongkir, biaya layanan, atau voucher berubah",
+		}
+	}
+	pricingSnapshot, err := json.Marshal(foodQuote)
+	if err != nil {
+		return nil, fmt.Errorf("marshal food pricing snapshot: %w", err)
+	}
 
 	// 7. Build Order (status awal pending_payment, service_sub_type food_delivery)
 	orderNum := fmt.Sprintf("TMBS%s", strings.ToUpper(uuid.New().String()[:6]))
@@ -248,46 +272,50 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	serviceSubType := "food_delivery"
 	now := time.Now()
 	order := &domain.Order{
-		ID:                 orderID,
-		OrderNumber:        orderNum,
-		CustomerID:         userID,
-		Model:              "p2p", // CHECK constraint orders_model_check — hanya p2p/two_legs/three_legs/hub_and_spoke; food = p2p + service_sub_type food_delivery
-		Status:             domain.StatusPendingPayment,
-		PickupAddress:      merchant.Address,
-		PickupLat:          merchant.Lat,
-		PickupLng:          merchant.Lng,
-		DropoffAddress:     req.DropoffAddress,
-		DropoffCity:        req.DropoffCity,
-		DropoffZipCode:     req.DropoffZipCode,
-		DropoffLat:         req.DropoffLat,
-		DropoffLng:         req.DropoffLng,
-		ItemDescription:    "Pesanan makanan",
-		DistanceKM:         distanceKM,
-		IncludedDistanceKM: svc.IncludedDistanceKM,
-		DistanceFeeIDR:     deliveryFee,
-		BasePriceIDR:       subtotal,
-		DynamicPriceIDR:    subtotal,
-		TotalPriceIDR:      total,
-		DiscountIDR:        voucherDiscount,
-		PromoCode:          req.VoucherCode,
-		PricingSnapshot:    "{}",     // kolom json NOT NULL — food tidak punya snap struct; kirim objek kosong
-		TaxRuleCode:        "PPN_11", // FK tax_rules.code — food kena PPN standar 11%
-		PlatformFeeIDR:     platformFee,
-		PlatformFeePct:     platformFeePct,
-		HandoverToken:      handoverToken,
-		QRCodeURL:          qrURL,
-		ReceiverName:       req.ReceiverName,
-		ReceiverPhone:      req.ReceiverPhone,
-		ServiceSubType:     serviceSubType,
-		Contactless:        req.Contactless,
-		OrderNotes:         req.OrderNotes, // FB-121: catatan level order
-		MerchantID:         &merchantID,
-		PrepTimeMinutes:    &prepMin,
-		ScheduledAt:        scheduledAt, // FB-123: NULL = pesan langsung
-		IsScheduled:        scheduledAt != nil,
-		CorrelationID:      uuid.New().String(),
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		ID:                  orderID,
+		OrderNumber:         orderNum,
+		CustomerID:          userID,
+		Model:               "p2p", // CHECK constraint orders_model_check — hanya p2p/two_legs/three_legs/hub_and_spoke; food = p2p + service_sub_type food_delivery
+		Status:              domain.StatusPendingPayment,
+		PickupAddress:       merchant.Address,
+		PickupLat:           merchant.Lat,
+		PickupLng:           merchant.Lng,
+		DropoffAddress:      req.DropoffAddress,
+		DropoffCity:         req.DropoffCity,
+		DropoffZipCode:      req.DropoffZipCode,
+		DropoffLat:          req.DropoffLat,
+		DropoffLng:          req.DropoffLng,
+		ItemDescription:     "Pesanan makanan",
+		DistanceKM:          distanceKM,
+		IncludedDistanceKM:  svc.IncludedDistanceKM,
+		DistanceFeeIDR:      deliveryFee,
+		BasePriceIDR:        subtotal,
+		DynamicPriceIDR:     subtotal,
+		TotalPriceIDR:       total,
+		DiscountIDR:         voucherDiscount,
+		PromoCode:           req.VoucherCode,
+		PricingSnapshot:     string(pricingSnapshot),
+		TaxRuleCode:         taxSnapshot.TaxRuleCode,
+		PPNRateEffectivePct: taxSnapshot.PPNRateEffectivePct,
+		PPNRateStatutoryPct: taxSnapshot.PPNRateStatutoryPct,
+		DPPIDR:              taxSnapshot.DPPIDR,
+		PPNIDR:              taxSnapshot.PPNIDR,
+		PlatformFeeIDR:      platformFee,
+		PlatformFeePct:      platformFeePct,
+		HandoverToken:       handoverToken,
+		QRCodeURL:           qrURL,
+		ReceiverName:        req.ReceiverName,
+		ReceiverPhone:       req.ReceiverPhone,
+		ServiceSubType:      serviceSubType,
+		Contactless:         req.Contactless,
+		OrderNotes:          req.OrderNotes, // FB-121: catatan level order
+		MerchantID:          &merchantID,
+		PrepTimeMinutes:     &prepMin,
+		ScheduledAt:         scheduledAt, // FB-123: NULL = pesan langsung
+		IsScheduled:         scheduledAt != nil,
+		CorrelationID:       uuid.New().String(),
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	}
 
 	// 8. Simpan order + items dalam SATU transaksi

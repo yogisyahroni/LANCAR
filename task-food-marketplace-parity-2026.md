@@ -553,9 +553,9 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/handler/food_handler.go`
 - `backend/order-service/internal/service/order_food.go`
 
-- [ ] Atomic address+coordinate destination.
-- [ ] Saved/manual/pinned change coordinates.
-- [ ] Discovery GPS not silently reused as checkout destination.
+- [x] Atomic address+coordinate destination.
+- [x] Saved/manual/pinned change coordinates.
+- [x] Discovery GPS not silently reused as checkout destination.
 - [ ] Address change requotes.
 
 ## FOOD-2026-002 — Authoritative Food Quote [P0]
@@ -570,8 +570,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/food_quote_service.go`
 
 - [ ] Validate merchant/item/variant/stock/voucher/radius/tax/fee/schedule.
-- [ ] Return itemized total + ETA + expiry.
-- [ ] Create consumes quote/requote diff.
+- [x] Return itemized total + ETA + expiry.
+- [x] Create consumes quote/requote diff.
 
 ## FOOD-2026-003 — Idempotent Food create [P0]
 

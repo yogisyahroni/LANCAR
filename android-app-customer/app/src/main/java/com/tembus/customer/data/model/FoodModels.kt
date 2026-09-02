@@ -104,7 +104,9 @@ data class CreateFoodOrderRequest(
     // is_scheduled=true. Same-day only, min now+30 menit.
     @SerialName("scheduled_at") val scheduledAt: String? = null,
     @SerialName("voucher_code") val voucherCode: String? = null, // FB-078
-    @SerialName("order_notes") val orderNotes: String? = null // FB-121
+    @SerialName("order_notes") val orderNotes: String? = null, // FB-121
+    @SerialName("quote_id") val quoteId: String? = null,
+    @SerialName("quote_input_fingerprint") val quoteInputFingerprint: String? = null
 )
 
 @Serializable
@@ -121,6 +123,44 @@ data class FoodOrderItemRequest(
 data class FoodOrderItemVariantRequest(
     @SerialName("variant_id") val variantId: String,
     @SerialName("option_id") val optionId: String
+)
+
+@Serializable
+data class FoodQuoteItem(
+    @SerialName("menu_item_id") val menuItemId: String,
+    @SerialName("item_name") val itemName: String,
+    @SerialName("unit_price_idr") val unitPriceIdr: Long,
+    @SerialName("quantity") val quantity: Int,
+    @SerialName("subtotal_idr") val subtotalIdr: Long,
+    @SerialName("variants") val variants: List<FoodOrderItemVariant> = emptyList()
+)
+
+@Serializable
+data class FoodOrderItemVariant(
+    @SerialName("variant_id") val variantId: String,
+    @SerialName("option_id") val optionId: String,
+    @SerialName("variant_name") val variantName: String,
+    @SerialName("option_name") val optionName: String,
+    @SerialName("price_delta") val priceDelta: Long
+)
+
+@Serializable
+data class FoodQuoteResponse(
+    @SerialName("quote_id") val quoteId: String,
+    @SerialName("input_fingerprint") val inputFingerprint: String,
+    @SerialName("merchant_id") val merchantId: String,
+    @SerialName("items") val items: List<FoodQuoteItem> = emptyList(),
+    @SerialName("subtotal_idr") val subtotalIdr: Long = 0,
+    @SerialName("delivery_fee_idr") val deliveryFeeIdr: Long = 0,
+    @SerialName("platform_fee_idr") val platformFeeIdr: Long = 0,
+    @SerialName("tax_idr") val taxIdr: Long = 0,
+    @SerialName("discount_idr") val discountIdr: Long = 0,
+    @SerialName("total_price_idr") val totalPriceIdr: Long = 0,
+    @SerialName("distance_km") val distanceKm: Double = 0.0,
+    @SerialName("eta_minutes") val etaMinutes: Int = 0,
+    @SerialName("eta_source") val etaSource: String = "",
+    @SerialName("pricing_rule_version") val pricingRuleVersion: String = "",
+    @SerialName("expires_at") val expiresAt: String = ""
 )
 
 // Response POST /orders/food — handler return Order object langsung

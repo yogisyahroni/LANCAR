@@ -331,6 +331,9 @@ func main() {
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
 	orderHandler.SetHandoffService(handoffSvc)
+	if foodQuoteSvc, ok := orderSvc.(domain.FoodQuoteService); ok {
+		orderHandler.SetFoodQuoteService(foodQuoteSvc)
+	}
 	adminHandler := handler.NewAdminHandler(meetingPointSvc, pricingSvc)
 	wsHandler := handler.NewWSHandler(eb)
 	paymentHandler := handler.NewPaymentHandler(paymentSvc)
@@ -473,6 +476,9 @@ func main() {
 	})))
 
 	// Food delivery (FOOD-BIKE-074): POST /api/v1/orders/food
+	mux.HandleFunc("/api/v1/orders/food/quote", middleware.BaseChain(middleware.AuthMiddleware(
+		middleware.LimitByIP(rdb)(middleware.ValidateBody(domain.CreateFoodOrderRequest{})(orderHandler.QuoteFoodOrder)),
+	)))
 	mux.HandleFunc("/api/v1/orders/food", middleware.BaseChain(middleware.AuthMiddleware(
 		middleware.RequireIdempotencyKey(writeDB, "food_order.create", middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateFoodOrderRequest{})(orderHandler.CreateFoodOrder))),
 	)))

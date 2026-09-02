@@ -15,6 +15,8 @@ import com.tembus.customer.data.model.FavoriteMerchant
 import com.tembus.customer.data.model.FavoriteActionResponse
 import com.tembus.customer.data.model.FavoriteMerchantsResponse
 import com.tembus.customer.data.model.FavoriteCheckResponse
+import com.tembus.customer.data.model.MapsGeocodeResult
+import com.tembus.customer.data.model.FoodQuoteResponse
 import com.tembus.customer.data.model.VoucherValidateRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,15 +61,28 @@ class FoodViewModel @Inject constructor(
     private val _checkoutResult = MutableStateFlow<FoodOrderCreateResponse?>(null)
     val checkoutResult: StateFlow<FoodOrderCreateResponse?> = _checkoutResult.asStateFlow()
 
+    private val _foodQuote = MutableStateFlow<FoodQuoteResponse?>(null)
+    val foodQuote: StateFlow<FoodQuoteResponse?> = _foodQuote.asStateFlow()
+
     // ── FB-078: Voucher redeem ──
     private val _voucherState = MutableStateFlow<VoucherState>(VoucherState.Idle)
     val voucherState: StateFlow<VoucherState> = _voucherState.asStateFlow()
 
-    // Lokasi user terakhir — dipakai default dropoff saat checkout
-    private val _userLat = MutableStateFlow(-6.2088)
-    val userLat: StateFlow<Double> = _userLat.asStateFlow()
-    private val _userLng = MutableStateFlow(106.8456)
-    val userLng: StateFlow<Double> = _userLng.asStateFlow()
+    // Discovery location and checkout destination are separate contracts.
+    // There is deliberately no geographic fallback here: checkout must use
+    // a coordinate explicitly selected for the destination.
+    private val _checkoutLat = MutableStateFlow<Double?>(null)
+    val checkoutLat: StateFlow<Double?> = _checkoutLat.asStateFlow()
+    private val _checkoutLng = MutableStateFlow<Double?>(null)
+    val checkoutLng: StateFlow<Double?> = _checkoutLng.asStateFlow()
+    private val _checkoutAddressResults = MutableStateFlow<List<MapsGeocodeResult>>(emptyList())
+    val checkoutAddressResults: StateFlow<List<MapsGeocodeResult>> = _checkoutAddressResults.asStateFlow()
+    private val _checkoutAddressSearchError = MutableStateFlow<String?>(null)
+    val checkoutAddressSearchError: StateFlow<String?> = _checkoutAddressSearchError.asStateFlow()
+    private val _checkoutAddressSearching = MutableStateFlow(false)
+    val checkoutAddressSearching: StateFlow<Boolean> = _checkoutAddressSearching.asStateFlow()
+    private var discoveryLat: Double? = null
+    private var discoveryLng: Double? = null
 
     // ── FB-090: Saved addresses — reuse alamat favorit customer di checkout food ──
     private val _addressBook = MutableStateFlow<List<CustomerAddress>>(emptyList())
@@ -96,9 +111,79 @@ class FoodViewModel @Inject constructor(
         }
     }
 
+    fun setCheckoutLocation(lat: Double, lng: Double) {
+        if (lat !in -90.0..90.0 || lng !in -180.0..180.0 || (lat == 0.0 && lng == 0.0)) {
+            clearCheckoutLocation()
+            return
+        }
+        _checkoutLat.value = lat
+        _checkoutLng.value = lng
+        clearFoodQuote()
+    }
+
+    fun clearCheckoutLocation() {
+        _checkoutLat.value = null
+        _checkoutLng.value = null
+        clearFoodQuote()
+    }
+
+    fun searchCheckoutAddress(query: String) {
+        val normalized = query.trim()
+        if (normalized.length < 3) {
+            _checkoutAddressResults.value = emptyList()
+            _checkoutAddressSearchError.value = "Ketik minimal 3 karakter untuk mencari titik alamat."
+            return
+        }
+        viewModelScope.launch {
+            _checkoutAddressSearching.value = true
+            _checkoutAddressSearchError.value = null
+            try {
+                val res = apiService.geocodeAddress(normalized, "customer_mobile")
+                if (res.isSuccessful) {
+                    val results = res.body()?.results.orEmpty().filter {
+                        it.latitude in -90.0..90.0 &&
+                            it.longitude in -180.0..180.0 &&
+                            !(it.latitude == 0.0 && it.longitude == 0.0)
+                    }
+                    _checkoutAddressResults.value = results
+                    if (results.isEmpty()) _checkoutAddressSearchError.value = "Alamat tidak ditemukan."
+                } else {
+                    _checkoutAddressResults.value = emptyList()
+                    _checkoutAddressSearchError.value = "Gagal mencari titik alamat (${res.code()})."
+                }
+            } catch (e: Exception) {
+                _checkoutAddressResults.value = emptyList()
+                _checkoutAddressSearchError.value = e.localizedMessage ?: "Gagal mencari titik alamat."
+            } finally {
+                _checkoutAddressSearching.value = false
+            }
+        }
+    }
+
+    fun selectCheckoutAddress(result: MapsGeocodeResult) {
+        if (result.latitude !in -90.0..90.0 || result.longitude !in -180.0..180.0 ||
+            (result.latitude == 0.0 && result.longitude == 0.0)
+        ) {
+            _checkoutAddressSearchError.value = "Hasil alamat tidak memiliki titik koordinat yang valid."
+            return
+        }
+        setCheckoutLocation(result.latitude, result.longitude)
+        _checkoutAddressResults.value = emptyList()
+        _checkoutAddressSearchError.value = null
+    }
+
+    fun clearCheckoutAddressSearch() {
+        _checkoutAddressResults.value = emptyList()
+        _checkoutAddressSearchError.value = null
+    }
+
+    fun clearFoodQuote() {
+        _foodQuote.value = null
+    }
+
     fun loadMerchants(lat: Double, lng: Double, search: String = "") {
-        _userLat.value = lat
-        _userLng.value = lng
+        discoveryLat = lat
+        discoveryLng = lng
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
@@ -123,9 +208,11 @@ class FoodViewModel @Inject constructor(
     fun setHalalFilter(filter: String) {
         if (_halalFilter.value == filter) return
         _halalFilter.value = filter
-        val lat = _userLat.value
-        val lng = _userLng.value
-        if (lat != 0.0 || lng != 0.0) loadMerchants(lat, lng)
+        // The browse screen owns its discovery coordinates and reloads them
+        // explicitly; never reuse checkout destination state here.
+        val lat = discoveryLat
+        val lng = discoveryLng
+        if (lat != null && lng != null) loadMerchants(lat, lng)
     }
 
     fun loadMerchantDetail(merchantId: String) {
@@ -254,6 +341,8 @@ class FoodViewModel @Inject constructor(
                     receiverPhone = receiverPhone,
                     voucherCode = voucherCode?.ifBlank { null },
                     orderNotes = orderNotes?.ifBlank { null },
+                    quoteId = _foodQuote.value?.quoteId,
+                    quoteInputFingerprint = _foodQuote.value?.inputFingerprint,
                     // FB-123: kalau jadwalkan, kirim flag + waktu ISO-8601.
                     isScheduled = isScheduled,
                     scheduledAt = if (isScheduled) scheduledAt?.ifBlank { null } else null
@@ -264,6 +353,57 @@ class FoodViewModel @Inject constructor(
                     onResult(Result.success(res.body()!!))
                 } else {
                     onResult(Result.failure(Exception("Gagal membuat order food (${res.code()})")))
+                }
+            } catch (e: Exception) {
+                onResult(Result.failure(e))
+            } finally {
+                _loading.value = false
+            }
+        }
+    }
+
+    fun quote(
+        merchantId: String,
+        dropoffAddress: String,
+        dropoffLat: Double,
+        dropoffLng: Double,
+        voucherCode: String? = null,
+        isScheduled: Boolean = false,
+        scheduledAt: String? = null,
+        onResult: (Result<FoodQuoteResponse>) -> Unit
+    ) {
+        val items = cartStore.cart.value.filter { it.quantity > 0 }
+        if (items.isEmpty()) {
+            onResult(Result.failure(Exception("Keranjang kosong")))
+            return
+        }
+        viewModelScope.launch {
+            _loading.value = true
+            try {
+                val request = CreateFoodOrderRequest(
+                    merchantId = merchantId,
+                    items = items.map {
+                        com.tembus.customer.data.model.FoodOrderItemRequest(
+                            menuItemId = it.menuItem.id,
+                            quantity = it.quantity,
+                            notes = it.notes.ifBlank { null },
+                            variants = it.selectedVariants
+                        )
+                    },
+                    dropoffAddress = dropoffAddress,
+                    dropoffLat = dropoffLat,
+                    dropoffLng = dropoffLng,
+                    voucherCode = voucherCode?.ifBlank { null },
+                    isScheduled = isScheduled,
+                    scheduledAt = if (isScheduled) scheduledAt?.ifBlank { null } else null
+                )
+                val res = apiService.quoteFoodOrder(request)
+                val quote = res.body()
+                if (res.isSuccessful && quote != null) {
+                    _foodQuote.value = quote
+                    onResult(Result.success(quote))
+                } else {
+                    onResult(Result.failure(Exception("Gagal menghitung harga food (${res.code()})")))
                 }
             } catch (e: Exception) {
                 onResult(Result.failure(e))
