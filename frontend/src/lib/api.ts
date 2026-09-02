@@ -114,6 +114,14 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 api.interceptors.request.use((config) => {
+  // Compatibility bridge for the current aggregator wizard. The gateway already
+  // owns /payment-links while the broader /logistics tariff prefix is not yet
+  // part of its allowlisted proxy surface. Both admin routes resolve to the same
+  // authoritative tariff controller.
+  if (config.url === '/logistics/check-tariff' || config.url === '/logistics/tariff') {
+    config.url = '/payment-links/tariff';
+  }
+
   config.headers = setHeader(config.headers, 'X-Request-ID', createRequestId());
 
   const method = (config.method ?? 'get').toLowerCase();
