@@ -100,15 +100,17 @@ func TestFoodInventoryReservationPreventsConcurrentOversell(t *testing.T) {
 
 	successes := 0
 	failures := 0
+	var failureMessages []string
 	for createErr := range results {
 		if createErr == nil {
 			successes++
 		} else {
 			failures++
+			failureMessages = append(failureMessages, createErr.Error())
 		}
 	}
 	if successes != 1 || failures != 1 {
-		t.Fatalf("expected one successful reservation and one rejection, successes=%d failures=%d", successes, failures)
+		t.Fatalf("expected one successful reservation and one rejection, successes=%d failures=%d errors=%v", successes, failures, failureMessages)
 	}
 
 	var stock, sales, reservations int
@@ -156,6 +158,7 @@ func newInventoryTestOrder(customerID, merchantID string) *domain.Order {
 		DropoffLng:      106.81,
 		BasePriceIDR:    25000,
 		TotalPriceIDR:   25000,
+		PricingSnapshot: "{}",
 		ServiceSubType:  "food_delivery",
 		ServiceCategory: domain.CanonicalFood,
 		MerchantID:      &merchant,
