@@ -46,6 +46,9 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if !merchant.IsOpen {
 		return nil, domain.NewUserFacingError("merchant tutup")
 	}
+	if foodLastOrderClosed(merchant, time.Now()) {
+		return nil, domain.NewUserFacingError("batas waktu pemesanan merchant sudah lewat — pilih waktu atau merchant lain")
+	}
 	if merchant.PausedUntil != nil && merchant.PausedUntil.After(time.Now()) {
 		return nil, domain.NewUserFacingError("merchant sedang pause — coba lagi nanti")
 	}
@@ -234,6 +237,25 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		return nil, fmt.Errorf("save food quote: %w", err)
 	}
 	return quote, nil
+}
+
+func foodLastOrderClosed(merchant *domain.FoodMerchantInfo, now time.Time) bool {
+	if merchant == nil || merchant.LastOrderMinutesBeforeClose <= 0 || merchant.JamTutup == nil {
+		return false
+	}
+	closeAt, err := time.Parse("15:04", *merchant.JamTutup)
+	if err != nil {
+		return false
+	}
+	jakarta := time.FixedZone("WIB", 7*60*60)
+	now = now.In(jakarta)
+	currentMinutes := now.Hour()*60 + now.Minute()
+	closeMinutes := closeAt.Hour()*60 + closeAt.Minute()
+	remaining := closeMinutes - currentMinutes
+	if remaining < 0 {
+		remaining += 24 * 60
+	}
+	return remaining <= merchant.LastOrderMinutesBeforeClose
 }
 
 func validateFoodInventory(item domain.FoodMenuItemInfo, quantity int, now time.Time) error {

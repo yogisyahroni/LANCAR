@@ -123,6 +123,8 @@ type MerchantOperatingHour struct {
 	IsOpen     bool    `json:"is_open"`
 	OpensAt    *string `json:"opens_at,omitempty"`
 	ClosesAt   *string `json:"closes_at,omitempty"`
+	// 0 means orders remain available until closing time.
+	LastOrderMinutesBeforeClose int `json:"last_order_minutes_before_close"`
 }
 
 // MerchantSpecialClosure menutup toko pada satu tanggal lokal (WIB).

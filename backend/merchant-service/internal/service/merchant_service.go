@@ -219,7 +219,11 @@ func (s *merchantServiceImpl) ReplaceOperatingHours(ctx context.Context, userID 
 		hour.MerchantID = m.ID
 		if !hour.IsOpen {
 			hour.OpensAt, hour.ClosesAt = nil, nil
+			hour.LastOrderMinutesBeforeClose = 0
 			continue
+		}
+		if hour.LastOrderMinutesBeforeClose < 0 || hour.LastOrderMinutesBeforeClose > 180 {
+			return nil, errors.New("batas last order harus antara 0 dan 180 menit")
 		}
 		if hour.OpensAt == nil || hour.ClosesAt == nil || !validClock(*hour.OpensAt) || !validClock(*hour.ClosesAt) || *hour.OpensAt == *hour.ClosesAt {
 			return nil, errors.New("jam buka dan tutup harus valid serta tidak boleh sama")

@@ -501,7 +501,8 @@ func (r *postgresMerchantRepository) ListForOperatingHoursSync(ctx context.Conte
 func (r *postgresMerchantRepository) GetOperatingHours(ctx context.Context, merchantID string) ([]domain.MerchantOperatingHour, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT merchant_id::text, weekday, is_open,
-			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI')
+			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI'),
+			last_order_minutes_before_close
 		FROM merchant_operating_hours
 		WHERE merchant_id = $1
 		ORDER BY weekday`, merchantID)
@@ -522,14 +523,14 @@ func (r *postgresMerchantRepository) ReplaceOperatingHours(ctx context.Context, 
 		return err
 	}
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO merchant_operating_hours (merchant_id, weekday, is_open, opens_at, closes_at)
-		VALUES ($1, $2, $3, $4::time, $5::time)`)
+		INSERT INTO merchant_operating_hours (merchant_id, weekday, is_open, opens_at, closes_at, last_order_minutes_before_close)
+		VALUES ($1, $2, $3, $4::time, $5::time, $6)`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for _, hour := range hours {
-		if _, err = stmt.ExecContext(ctx, merchantID, hour.Weekday, hour.IsOpen, hour.OpensAt, hour.ClosesAt); err != nil {
+		if _, err = stmt.ExecContext(ctx, merchantID, hour.Weekday, hour.IsOpen, hour.OpensAt, hour.ClosesAt, hour.LastOrderMinutesBeforeClose); err != nil {
 			return err
 		}
 	}
@@ -543,7 +544,8 @@ func (r *postgresMerchantRepository) ListOperatingHoursForMerchants(ctx context.
 	}
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT merchant_id::text, weekday, is_open,
-			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI')
+			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI'),
+			last_order_minutes_before_close
 		FROM merchant_operating_hours
 		WHERE merchant_id = ANY($1)
 		ORDER BY merchant_id, weekday`, pq.Array(merchantIDs))
@@ -637,7 +639,7 @@ func scanOperatingHours(rows *sql.Rows) ([]domain.MerchantOperatingHour, error) 
 	for rows.Next() {
 		var hour domain.MerchantOperatingHour
 		var opensAt, closesAt sql.NullString
-		if err := rows.Scan(&hour.MerchantID, &hour.Weekday, &hour.IsOpen, &opensAt, &closesAt); err != nil {
+		if err := rows.Scan(&hour.MerchantID, &hour.Weekday, &hour.IsOpen, &opensAt, &closesAt, &hour.LastOrderMinutesBeforeClose); err != nil {
 			return nil, err
 		}
 		if opensAt.Valid {

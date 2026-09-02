@@ -212,7 +212,8 @@ data class MerchantOperatingHour(
     @SerializedName("weekday") val weekday: Int,
     @SerializedName("is_open") val isOpen: Boolean,
     @SerializedName("opens_at") val opensAt: String? = null,
-    @SerializedName("closes_at") val closesAt: String? = null
+    @SerializedName("closes_at") val closesAt: String? = null,
+    @SerializedName("last_order_minutes_before_close") val lastOrderMinutesBeforeClose: Int = 0
 )
 
 data class MerchantSpecialClosure(

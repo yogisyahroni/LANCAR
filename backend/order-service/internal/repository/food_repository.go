@@ -41,8 +41,15 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			min_order_idr,
 			COALESCE(ST_Y(lokasi::geometry), 0),
 			COALESCE(ST_X(lokasi::geometry), 0),
-			jam_buka::text,
-			jam_tutup::text,
+			COALESCE((SELECT TO_CHAR(h.opens_at, 'HH24:MI') FROM merchant_operating_hours h
+				WHERE h.merchant_id = merchants.id
+				  AND h.weekday = EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Jakarta'))::smallint), jam_buka::text),
+			COALESCE((SELECT TO_CHAR(h.closes_at, 'HH24:MI') FROM merchant_operating_hours h
+				WHERE h.merchant_id = merchants.id
+				  AND h.weekday = EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Jakarta'))::smallint), jam_tutup::text),
+			COALESCE((SELECT h.last_order_minutes_before_close FROM merchant_operating_hours h
+				WHERE h.merchant_id = merchants.id
+				  AND h.weekday = EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Jakarta'))::smallint), 0),
 			halal_status
 			FROM merchants
 			WHERE id = $1`
@@ -53,7 +60,7 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	var busyUntil sql.NullTime
 	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
 		&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
-		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus,
+		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &m.LastOrderMinutesBeforeClose, &halalStatus,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

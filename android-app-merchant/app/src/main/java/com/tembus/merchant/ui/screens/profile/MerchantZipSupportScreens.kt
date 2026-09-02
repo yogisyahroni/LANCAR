@@ -130,6 +130,19 @@ fun OperatingHoursScreen(
                                     modifier = Modifier.weight(1f)
                                 )
                             }
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = hour.lastOrderMinutesBeforeClose.toString(),
+                                onValueChange = { value ->
+                                    val minutes = value.filter(Char::isDigit).take(3).toIntOrNull() ?: 0
+                                    draft = draft.replaceOperatingHour(hour.copy(lastOrderMinutesBeforeClose = minutes))
+                                },
+                                label = { Text("Last order (minutes before close)") },
+                                supportingText = { Text(if (hour.isOpen) "0–180 menit; 0 = sampai jam tutup" else "Closed") },
+                                enabled = hour.isOpen && !state.isSaving,
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                         if (index < weeklyDays.lastIndex) HorizontalDivider()
                     }

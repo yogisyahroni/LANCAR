@@ -96,3 +96,16 @@ func TestValidateFoodInventory(t *testing.T) {
 		t.Fatalf("expired daily limit should reset, got %v", err)
 	}
 }
+
+func TestFoodLastOrderClosedUsesJakartaClockAndSupportsOvernightClose(t *testing.T) {
+	closeAt := "02:00"
+	merchant := &domain.FoodMerchantInfo{JamTutup: &closeAt, LastOrderMinutesBeforeClose: 30}
+	wib := time.FixedZone("WIB", 7*60*60)
+
+	if !foodLastOrderClosed(merchant, time.Date(2026, 9, 2, 1, 40, 0, 0, wib)) {
+		t.Fatal("01:40 WIB must be closed for ordering when last order is 30 minutes before 02:00")
+	}
+	if foodLastOrderClosed(merchant, time.Date(2026, 9, 2, 1, 20, 0, 0, wib)) {
+		t.Fatal("01:20 WIB must remain orderable with a 30-minute last-order cutoff")
+	}
+}
