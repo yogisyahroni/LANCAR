@@ -189,7 +189,7 @@ export function OrderDetailContent({
             onClick={handleReportIssue}
             className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
           >
-            <AlertTriangle className="h-4 w-4" /> Laporkan Masalah
+            <AlertTriangle className="h-4 w-4" /> {order.service_category === 'on_demand' ? 'Bantuan & Laporkan Masalah' : 'Laporkan Masalah'}
           </button>
         </div>
       </div>
@@ -256,13 +256,15 @@ export function OrderDetailContent({
                   <p className="text-sm font-bold text-white">
                     {order.status.toLowerCase() === 'cancelled' 
                       ? 'Dibatalkan' 
-                      : (tracking?.eta || (tracking?.location ? 'Lokasi kurir aktif' : 'Menunggu lokasi kurir'))}
+                      : (tracking?.location_stale
+                        ? 'Posisi terakhir'
+                        : (tracking?.eta || (tracking?.location ? 'Lokasi kurir aktif' : 'Menunggu lokasi kurir')))}
                   </p>
                 </div>
               </div>
               <span className={cn(
                 "h-2 w-2 rounded-full",
-                order.status.toLowerCase() === 'cancelled' ? "bg-slate-500" : tracking?.location ? "bg-green-500 animate-ping" : "bg-amber-400"
+                order.status.toLowerCase() === 'cancelled' ? "bg-slate-500" : tracking?.location_stale ? "bg-amber-400" : tracking?.location ? "bg-green-500 animate-ping" : "bg-amber-400"
               )} />
             </div>
 
@@ -280,6 +282,8 @@ export function OrderDetailContent({
                 <p className="text-xs text-muted-foreground max-w-xs mx-auto">
                   {order.status.toLowerCase() === 'cancelled' 
                     ? 'Pesanan dibatalkan. Tracking dihentikan.'
+                    : tracking?.location_stale
+                      ? `Posisi terakhir diperbarui ${formatTrackingTime(tracking.location?.timestamp)}. Menunggu update GPS baru.`
                     : tracking?.location
                       ? `Update terakhir ${formatTrackingTime(tracking.location.timestamp)}`
                       : trackingError || 'Lokasi kurir otomatis muncul setelah pekerjaan diterima dan tracking aktif.'}
@@ -892,6 +896,7 @@ export function OrderDetailContent({
         isOpen={isDisputeModalOpen}
         onClose={() => setIsDisputeModalOpen(false)}
         orderId={id as string}
+        isOnDemand={order.service_category === 'on_demand'}
         onSuccess={() => {
           addNotification({ title: 'Terkirim', message: 'Laporan Anda telah kami terima dan akan segera diproses.', type: 'success' });
         }}

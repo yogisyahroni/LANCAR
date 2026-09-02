@@ -134,19 +134,34 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// CORE-2026-008: normalize backend typed errors to a client-readable shape so
-// the UI can render a next action instead of raw internal text.
-const normalizeApiError = (error: any) => {
+// CORE-2026-008: normalize backend typed errors to client-readable RecoveryError
+// so the UI (recoverableError.ts) renders next-action instead of raw text.
+export interface RecoveryError {
+  apiCode?: string;
+  userMessage?: string;
+  correlationId?: string;
+  retryable?: boolean;
+  // CORE-2026-008 — full shape consumed by recoverableError.ts
+  message?: string;
+  action?: string;
+}
+// CORE-2026-008: exported type consumed by recoverableError.ts.
+export type RecoverableApiError = RecoveryError;
+
+// CORE-2026-008: normalize backend typed error so UI renders next-action,
+// not raw internal text. Attaches a `recoverable` RecoveryError bag.
+const normalizeApiError = (error: any): void => {
   const data = error?.response?.data;
   if (data && typeof data === 'object' && data.code) {
-    error.apiCode = data.code;
-    error.correlationId = data.correlation_id ?? error.correlationId;
-    error.recoverable = data.recoverable ?? false;
-    if (!error.userMessage && typeof data.message === 'string') {
-      error.userMessage = data.message;
-    }
+    error.recoverable = {
+      apiCode: data.code,
+      message: typeof data.message === 'string' ? data.message : undefined,
+      userMessage: typeof data.message === 'string' ? data.message : undefined,
+      correlationId: data.correlation_id,
+      retryable: data.recoverable === true,
+      action: data.action,
+    } as RecoveryError;
   }
-  return error;
 };
 
 api.interceptors.response.use(

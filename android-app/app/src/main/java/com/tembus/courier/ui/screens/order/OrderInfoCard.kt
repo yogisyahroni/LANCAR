@@ -154,6 +154,31 @@ internal fun OrderInfoCard(order: Order) {
                 InfoRow(label = "Waktu Pickup", value = order.pickupTime)
                 InfoRow(label = "Jarak", value = order.distance)
 
+                if (order.contactless) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        color = Color(0xFFFFF3E0),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE65100).copy(alpha = 0.45f))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.DoNotTouch, contentDescription = null, tint = Color(0xFFE65100))
+                            Column {
+                                Text("Antar tanpa kontak", fontWeight = FontWeight.Bold, color = Color(0xFF8D3B00))
+                                Text(
+                                    "Letakkan pesanan di titik penerima tanpa serah terima fisik. Foto POD tetap wajib.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF6D2E00)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // FB-115: breakdown pendapatan — ongkir dasar + tip + total.
                 val basePayout = order.estimatedNetEarningsIdr()
                 val tipAmount = order.tipAmountIdr

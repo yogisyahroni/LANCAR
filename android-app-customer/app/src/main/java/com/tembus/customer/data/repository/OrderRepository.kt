@@ -2,6 +2,7 @@ package com.tembus.customer.data.repository
 
 import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.data.api.withRequestReference
+import com.tembus.customer.data.api.withRecoverableNextAction
 import com.tembus.customer.data.db.OrderDao
 import com.tembus.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
@@ -541,9 +542,10 @@ class OrderRepository @Inject constructor(
             val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback.withRequestReference(this)
             val parsedMessage = runCatching {
                 val json = JSONObject(raw)
-                json.optString("message").takeIf { it.isNotBlank() }
+                val message = json.optString("message").takeIf { it.isNotBlank() }
                     ?: json.optString("error").takeIf { it.isNotBlank() }
                     ?: json.optString("code").takeIf { it.isNotBlank() }
+                message?.withRecoverableNextAction(json.optString("code").takeIf { it.isNotBlank() })
             }.getOrNull()
             (parsedMessage ?: raw.take(240)).withRequestReference(this)
         } catch (_: Exception) {

@@ -76,6 +76,12 @@ interface TEMBUSApiService {
     @POST("api/v1/merchant/resume")
     suspend fun resume(): Response<Merchant>
 
+    // FOOD-2026-011: busy menerima order dengan tambahan waktu prep.
+    @POST("api/v1/merchant/busy")
+    suspend fun busy(
+        @Body request: BusyRequest
+    ): Response<Merchant>
+
     @PUT("api/v1/merchant/food-docs")
     suspend fun updateFoodDocs(
         @Body request: UpdateFoodDocsRequest
@@ -128,6 +134,12 @@ interface TEMBUSApiService {
     suspend fun setMenuItemAvailability(
         @Path("id") id: String,
         @Body request: AvailabilityRequest
+    ): Response<MenuItem>
+
+    @PUT("api/v1/merchant/menu/{id}/inventory")
+    suspend fun updateMenuInventory(
+        @Path("id") id: String,
+        @Body request: MenuInventoryRequest
     ): Response<MenuItem>
 
     // ── FB-108: varian menu ────────────────────────────────────────────

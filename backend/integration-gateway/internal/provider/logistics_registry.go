@@ -27,6 +27,9 @@ func (r *LogisticsProviderRegistry) Register(registration domain.ProviderRegistr
 
 func (r *LogisticsProviderRegistry) Get(code string) (domain.ProviderRegistration, bool) {
 	registration, ok := r.providers[strings.ToLower(strings.TrimSpace(code))]
+	if ok {
+		registration.Descriptor.Available, registration.Descriptor.AvailabilityReason = providerAvailability(registration)
+	}
 	return registration, ok
 }
 
@@ -35,6 +38,7 @@ func (r *LogisticsProviderRegistry) List() []domain.ProviderDescriptor {
 	for _, registration := range r.providers {
 		descriptor := registration.Descriptor
 		descriptor.TrackingMode, descriptor.TrackingDegraded = trackingMode(registration), false
+		descriptor.Available, descriptor.AvailabilityReason = providerAvailability(registration)
 		if descriptor.TrackingMode == "degraded_manual" {
 			descriptor.TrackingDegraded = true
 		}
@@ -77,14 +81,31 @@ func (r *LogisticsProviderRegistry) Diagnostics() []domain.ProviderDiagnostic {
 				missing = append(missing, capability)
 			}
 		}
+		available, availabilityReason := providerAvailability(registration)
 		items = append(items, domain.ProviderDiagnostic{
 			Code: registration.Descriptor.Code, Name: registration.Descriptor.Name,
-			Ready: len(missing) == 0, Missing: missing,
+			Ready: len(missing) == 0 && available, Missing: missing,
 			Capabilities: registration.Descriptor.Capabilities,
+			Available:    available, AvailabilityReason: availabilityReason,
 		})
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Code < items[j].Code })
 	return items
+}
+
+func providerAvailability(registration domain.ProviderRegistration) (bool, string) {
+	// Test/dry-run adapters that do not implement the optional contract remain
+	// available. Production adapters implement it and report credential/circuit
+	// state from the same object that executes provider calls.
+	for _, adapter := range []any{registration.Tariff, registration.Shipment, registration.Tracking} {
+		if reporter, ok := adapter.(domain.ProviderAvailability); ok {
+			available, reason := reporter.Availability()
+			if !available {
+				return false, reason
+			}
+		}
+	}
+	return true, ""
 }
 
 func hasImplementation(registration domain.ProviderRegistration, capability domain.LogisticsCapability) bool {

@@ -44,7 +44,44 @@ type CreateFoodOrderRequest struct {
 	Contactless bool `json:"contactless,omitempty"`
 
 	// FB-078: kode voucher diskon (opsional). Divalidasi + dihitung server-side.
-	VoucherCode string `json:"voucher_code,omitempty"`
+	VoucherCode           string `json:"voucher_code,omitempty"`
+	QuoteID               string `json:"quote_id,omitempty"`
+	QuoteInputFingerprint string `json:"quote_input_fingerprint,omitempty"`
+}
+
+type FoodQuoteItem struct {
+	MenuItemID string                 `json:"menu_item_id"`
+	ItemName   string                 `json:"item_name"`
+	UnitPrice  int64                  `json:"unit_price_idr"`
+	Quantity   int                    `json:"quantity"`
+	Subtotal   int64                  `json:"subtotal_idr"`
+	Variants   []FoodOrderItemVariant `json:"variants,omitempty"`
+}
+
+type FoodQuoteResponse struct {
+	QuoteID          string          `json:"quote_id"`
+	InputFingerprint string          `json:"input_fingerprint"`
+	MerchantID       string          `json:"merchant_id"`
+	Items            []FoodQuoteItem `json:"items"`
+	SubtotalIDR      int64           `json:"subtotal_idr"`
+	DeliveryFeeIDR   int64           `json:"delivery_fee_idr"`
+	PlatformFeeIDR   int64           `json:"platform_fee_idr"`
+	TaxIDR           int64           `json:"tax_idr"`
+	DiscountIDR      int64           `json:"discount_idr"`
+	TotalPriceIDR    int64           `json:"total_price_idr"`
+	DistanceKM       float64         `json:"distance_km"`
+	ETAMinutes       int             `json:"eta_minutes"`
+	ETASource        string          `json:"eta_source"`
+	// ETA components are explicit so unavailable provider signals are not
+	// silently folded into a fabricated client-side number.
+	PrepMinutes         int       `json:"prep_minutes"`
+	PickupTravelMinutes int       `json:"pickup_travel_minutes"`
+	TrafficMinutes      *int      `json:"traffic_minutes"`
+	BatchingMinutes     *int      `json:"batching_minutes"`
+	SupplyStatus        string    `json:"supply_status"`
+	Confidence          string    `json:"confidence"`
+	PricingRuleVersion  string    `json:"pricing_rule_version"`
+	ExpiresAt           time.Time `json:"expires_at"`
 }
 
 type FoodOrderItem struct {
@@ -78,9 +115,13 @@ type FoodMerchantInfo struct {
 	Lng                float64 `json:"lng"`
 	JamBuka            *string `json:"jam_buka,omitempty"`
 	JamTutup           *string `json:"jam_tutup,omitempty"`
+	LastOrderMinutesBeforeClose int `json:"last_order_minutes_before_close"`
 	// FB-107: pause sementara — merchant tidak terima order baru selama
 	// PausedUntil > NOW(). NULL = tidak pause.
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
+	// FOOD-2026-011: busy accepts orders but adds prep time until expiry.
+	BusyUntil            *time.Time `json:"busy_until,omitempty"`
+	BusyExtraPrepMinutes int        `json:"busy_extra_prep_minutes"`
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
 	MinOrderIDR int64 `json:"min_order_idr"`
 	// FOOD-BIKE-055: metrik browse merchant
@@ -94,12 +135,16 @@ type FoodMerchantInfo struct {
 }
 
 type FoodMenuItemInfo struct {
-	ID              string `json:"id"`
-	MerchantID      string `json:"merchant_id"`
-	Name            string `json:"name"`
-	Price           int64  `json:"price"`
-	IsAvailable     bool   `json:"is_available"`
-	PrepTimeMinutes int    `json:"prep_time_minutes"`
+	ID              string     `json:"id"`
+	MerchantID      string     `json:"merchant_id"`
+	Name            string     `json:"name"`
+	Price           int64      `json:"price"`
+	IsAvailable     bool       `json:"is_available"`
+	PrepTimeMinutes int        `json:"prep_time_minutes"`
+	StockQuantity   *int       `json:"stock_quantity,omitempty"`
+	DailySalesLimit *int       `json:"daily_sales_limit,omitempty"`
+	DailySalesCount int        `json:"daily_sales_count"`
+	SalesResetAt    *time.Time `json:"sales_limit_reset_at,omitempty"`
 	// FOOD-BIKE-055/056: field UI tambahan
 	Kategori *string `json:"kategori,omitempty"`
 	Foto     *string `json:"foto,omitempty"`
@@ -212,6 +257,14 @@ type FoodRepository interface {
 	// ActivateScheduledFoodOrder — FB-123: transisi scheduled → pending_merchant
 	// saat aktivasi (merchant re-validated OK). Guard status.
 	ActivateScheduledFoodOrder(ctx context.Context, orderID string) error
+}
+
+type FoodQuoteService interface {
+	QuoteFood(ctx context.Context, userID string, req CreateFoodOrderRequest) (*FoodQuoteResponse, error)
+}
+
+type FoodInventoryRepository interface {
+	ReleaseFoodInventory(ctx context.Context, orderID string) error
 }
 
 type ScheduledFoodOrder struct {

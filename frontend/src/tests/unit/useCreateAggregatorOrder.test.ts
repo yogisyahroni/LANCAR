@@ -10,8 +10,11 @@ import {
   requestAggregatorPaymentSession,
 } from "@/hooks/useCreateAggregatorOrder";
 
+const QUOTE_ID = "11111111-1111-4111-8111-111111111111";
+
 const draft = {
   provider: "jne",
+  origin_code: "JKT",
   pickup_address: "Jl. Pickup No. 1",
   pickup_location: { lat: -6.2, lng: 106.8 },
   dropoff_address: "Jl. Tujuan No. 2",
@@ -34,21 +37,35 @@ const draft = {
 };
 
 describe("aggregator create API contract", () => {
-  it("builds a persisted-order payload from a server quote", () => {
+  it("builds a persisted-order payload bound to a server quote", () => {
     const payload = buildAggregatorOrderPayload(draft, {
+      quote_id: QUOTE_ID,
       service: "regular",
       service_name: "Reguler",
       price: 32000,
       net_price: 28000,
+      expires_at: "2099-01-01T00:00:00.000Z",
+      rule_version: "agg-2026-v1",
     });
 
     expect(payload.service_code).toBe(AGGREGATOR_SERVICE_CODE);
     expect(payload.pickup_location).toEqual(draft.pickup_location);
     expect(payload.dropoff_location).toEqual(draft.dropoff_location);
+    expect(payload.aggregator_quote_id).toBe(QUOTE_ID);
+    expect(payload.quote_id).toBe(QUOTE_ID);
+    expect(payload.origin_code).toBe("JKT");
     expect(payload.logistics_tariff_idr).toBe(32000);
     expect(payload.logistics_net_cost_idr).toBe(28000);
     expect(payload.packages).toHaveLength(1);
     expect((payload.package_details as { size_tier: string }).size_tier).toBe("small");
+  });
+
+  it("refuses to build an aggregator order without an authoritative quote id", () => {
+    expect(() => buildAggregatorOrderPayload(draft, {
+      quote_id: "",
+      service: "regular",
+      price: 32000,
+    })).toThrow("referensi server");
   });
 
   it("sends a stable idempotency key and refuses a response without an order id", async () => {

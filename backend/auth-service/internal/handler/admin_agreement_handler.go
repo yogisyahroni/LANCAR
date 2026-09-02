@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"tembus/auth-service/internal/domain"
 	"tembus/auth-service/internal/middleware"
@@ -96,12 +95,20 @@ func (h *AdminAgreementHandler) DownloadAgreementPDF(w http.ResponseWriter, r *h
 	}
 
 	if agreement.PDFPath != nil {
-		pdfFullPath := filepath.Join(uploadPath, *agreement.PDFPath)
-		if _, err := os.Stat(pdfFullPath); err == nil {
-			w.Header().Set("Content-Type", "application/pdf")
-			w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="perjanjian_%s.pdf"`, id[:8]))
-			http.ServeFile(w, r, pdfFullPath)
-			return
+		pdfFile, openErr := openAgreementPDFUnderRoot(uploadPath, *agreement.PDFPath)
+		if openErr == nil {
+			defer pdfFile.Close()
+			if info, statErr := pdfFile.Stat(); statErr == nil {
+				shortID := id
+				if len(shortID) > 8 {
+					shortID = shortID[:8]
+				}
+				filename := fmt.Sprintf("perjanjian_%s.pdf", shortID)
+				w.Header().Set("Content-Type", "application/pdf")
+				w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filename))
+				http.ServeContent(w, r, filename, info.ModTime(), pdfFile)
+				return
+			}
 		}
 	}
 
@@ -182,7 +189,7 @@ func (h *AdminAgreementHandler) AcceptAgreement(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"success": true,
 		"data": map[string]string{
-			"id":       agreement.ID,
+			"id":        agreement.ID,
 			"agreed_at": agreement.AgreedAt.Format("2006-01-02T15:04:05Z07:00"),
 		},
 	})

@@ -85,6 +85,8 @@ type CreateMenuItemRequest struct {
 	Kategori        string  `json:"kategori"`
 	PrepTimeMinutes int     `json:"prep_time_minutes"`
 	IsAvailable     *bool   `json:"is_available,omitempty"`
+	StockQuantity   *int    `json:"stock_quantity,omitempty"`
+	DailySalesLimit *int    `json:"daily_sales_limit,omitempty"`
 }
 
 // UpdateMenuItemRequest — body update menu item (semua opsional).
@@ -96,6 +98,15 @@ type UpdateMenuItemRequest struct {
 	Kategori        *string `json:"kategori,omitempty"`
 	PrepTimeMinutes *int    `json:"prep_time_minutes,omitempty"`
 	IsAvailable     *bool   `json:"is_available,omitempty"`
+	StockQuantity   *int    `json:"stock_quantity,omitempty"`
+	DailySalesLimit *int    `json:"daily_sales_limit,omitempty"`
+}
+
+// UpdateMenuInventoryRequest replaces the optional quantity-aware inventory
+// configuration. A null stock/limit disables that specific guard.
+type UpdateMenuInventoryRequest struct {
+	StockQuantity   *int `json:"stock_quantity"`
+	DailySalesLimit *int `json:"daily_sales_limit"`
 }
 
 // MerchantOrderActionRequest — body accept/reject order food (FOOD-BIKE-017/021).

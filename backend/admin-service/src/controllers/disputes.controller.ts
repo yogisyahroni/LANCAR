@@ -271,11 +271,33 @@ export const createDispute = async (req: Request, res: Response) => {
     `;
     const result = await db.query(query, [order_id, user_id, category, description, evidence_urls || []]);
     
-    // Add an audit log or order event if needed
+    // On-demand claims stay inside LANCAR's operational incident flow. Link
+    // the customer claim to the latest courier failure evidence when present;
+    // never hand the customer into an external carrier dispute workflow.
+    const incidentResult = await db.query(
+      `SELECT id
+         FROM courier_safety_events
+        WHERE order_id = $1
+          AND event_type = 'failed_delivery'
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [order_id],
+    );
+    const linkedIncidentId = incidentResult.rows[0]?.id || null;
+
     await db.query(`
-      INSERT INTO order_events (order_id, event_type, description)
-      VALUES ($1, 'DISPUTE_OPENED', $2)
-    `, [order_id, `Dispute opened for ${category}: ${description.substring(0, 50)}...`]);
+      INSERT INTO order_events (order_id, event_type, description, metadata)
+      VALUES ($1, 'DISPUTE_OPENED', $2, $3)
+    `, [
+      order_id,
+      `Dispute opened for ${category}: ${description.substring(0, 50)}...`,
+      JSON.stringify({
+        source: 'lancar_customer_support',
+        claim_kind: category,
+        linked_failed_delivery_incident_id: linkedIncidentId,
+        evidence_urls: evidence_urls || [],
+      }),
+    ]);
 
     // Notify Admins
     try {
@@ -303,7 +325,14 @@ export const createDispute = async (req: Request, res: Response) => {
       console.warn('[Dispute] Failed to notify admins:', notifError);
     }
 
-    res.status(201).json({ success: true, data: result.rows[0] });
+    res.status(201).json({
+      success: true,
+      data: {
+        ...result.rows[0],
+        linked_failed_delivery_incident_id: linkedIncidentId,
+        workflow: 'lancar_internal_ops',
+      },
+    });
   } catch (error: any) {
     securityLog.error('Error creating dispute:', error);
     res.status(500).json({ error: error.message });

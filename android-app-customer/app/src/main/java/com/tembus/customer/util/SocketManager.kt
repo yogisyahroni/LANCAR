@@ -1,11 +1,14 @@
 package com.tembus.customer.util
 
 import android.util.Log
+import android.content.Context
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.model.CallSignalEvent
 import com.tembus.customer.data.model.ChatMessage
 import com.tembus.customer.data.model.NotificationRealtimeEvent
 import com.tembus.customer.data.session.AuthSessionManager
+import com.tembus.customer.worker.CustomerResyncWorker
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.socket.client.IO
 import io.socket.client.Socket
 import kotlinx.coroutines.CoroutineScope
@@ -24,9 +27,11 @@ import javax.inject.Singleton
 
 @Singleton
 class SocketManager @Inject constructor(
+    @ApplicationContext private val applicationContext: Context,
     private val sessionManager: AuthSessionManager,
     private val json: Json,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    private val realtimeEventVersionStore: RealtimeEventVersionStore
 ) {
     private var mSocket: Socket? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -112,6 +117,7 @@ class SocketManager @Inject constructor(
 
         socket.on(Socket.EVENT_CONNECT) {
             Log.i(TAG, "Successfully connected to Real-time Chat WebSocket server!")
+            CustomerResyncWorker.enqueue(applicationContext, "socket_connected")
         }
 
         socket.on(Socket.EVENT_DISCONNECT) { args ->
@@ -151,7 +157,8 @@ class SocketManager @Inject constructor(
         socket.on(EVENT_ORDER_TRACKING_UPDATED) { args ->
             val data = args.getOrNull(0) as? JSONObject ?: return@on
             val orderId = data.optString("order_id", data.optString("orderId", ""))
-            if (orderId.isNotBlank()) {
+            val eventVersion = data.optString("event_version", data.optString("eventVersion", ""))
+            if (orderId.isNotBlank() && realtimeEventVersionStore.accept(orderId, eventVersion)) {
                 scope.launch { _orderUpdates.emit(orderId) }
             }
         }

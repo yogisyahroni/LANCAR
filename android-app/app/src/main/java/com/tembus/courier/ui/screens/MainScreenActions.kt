@@ -110,6 +110,7 @@ class MainScreenActionState(
         orderViewModel: OrderViewModel,
         order: Order?,
         eventType: String,
+        reasonCode: String?,
         severity: String,
         message: String,
         photoFile: File? = null
@@ -118,6 +119,7 @@ class MainScreenActionState(
         val result = orderViewModel.createSafetyEvent(
             orderId = order?.orderId,
             eventType = eventType,
+            reasonCode = reasonCode,
             severity = severity,
             latitude = location?.latitude,
             longitude = location?.longitude,

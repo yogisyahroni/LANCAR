@@ -260,6 +260,10 @@ func main() {
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader, configRepo)
 	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
 	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo, ledgerRepo, taxSvc)
+	handoffSvc := service.NewHandoffService(pgRepo)
+	if configurable, ok := orderSvc.(interface{ SetHandoffService(domain.HandoffService) }); ok {
+		configurable.SetHandoffService(handoffSvc)
+	}
 	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw, configRepo, taxSvc)
 	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo, taxRepo, configRepo, ledgerRepo)
 	// Food delivery (FOOD-BIKE-073): inject food repository untuk CreateFoodOrder
@@ -326,6 +330,10 @@ func main() {
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
+	orderHandler.SetHandoffService(handoffSvc)
+	if foodQuoteSvc, ok := orderSvc.(domain.FoodQuoteService); ok {
+		orderHandler.SetFoodQuoteService(foodQuoteSvc)
+	}
 	adminHandler := handler.NewAdminHandler(meetingPointSvc, pricingSvc)
 	wsHandler := handler.NewWSHandler(eb)
 	paymentHandler := handler.NewPaymentHandler(paymentSvc)
@@ -471,6 +479,9 @@ func main() {
 	})))
 
 	// Food delivery (FOOD-BIKE-074): POST /api/v1/orders/food
+	mux.HandleFunc("/api/v1/orders/food/quote", middleware.BaseChain(middleware.AuthMiddleware(
+		middleware.LimitByIP(rdb)(middleware.ValidateBody(domain.CreateFoodOrderRequest{})(orderHandler.QuoteFoodOrder)),
+	)))
 	mux.HandleFunc("/api/v1/orders/food", middleware.BaseChain(middleware.AuthMiddleware(
 		middleware.RequireIdempotencyKey(writeDB, "food_order.create", middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateFoodOrderRequest{})(orderHandler.CreateFoodOrder))),
 	)))
@@ -517,6 +528,8 @@ func main() {
 	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))
 	mux.HandleFunc("/api/v1/orders/status", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.status.update", middleware.LimitByIP(rdb)(orderHandler.UpdateStatus)))))
 	mux.HandleFunc("/api/v1/orders/scan", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.proof.scan", orderHandler.ScanPackage))))
+	mux.HandleFunc("/api/v1/orders/handoff/tokens", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.handoff.issue", orderHandler.IssueHandoffToken))))
+	mux.HandleFunc("/api/v1/orders/handoff/tokens/consume", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.handoff.consume", orderHandler.ConsumeHandoffToken))))
 	mux.HandleFunc("/api/v1/orders/scans", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetPackageScans)))
 	mux.HandleFunc("/api/v1/orders/bags", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CreateConsolidationBag)))
 	mux.HandleFunc("/api/v1/orders/bags/open", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.OpenConsolidationBag)))

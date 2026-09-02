@@ -79,7 +79,7 @@ var allowedOrderTransitions = map[OrderStatus]map[OrderStatus]bool{
 }
 
 var courierTransitions = map[OrderStatus]bool{
-	StatusPickupArrived: true, StatusPickingUp: true, StatusPickedUp: true,
+	StatusAccepted: true, StatusPickupArrived: true, StatusPickingUp: true, StatusPickedUp: true,
 	StatusInboundOrigin: true, StatusOutboundOrigin: true, StatusInboundDestination: true,
 	StatusOutboundDestination: true, StatusDelivering: true, StatusDelivered: true,
 	StatusFailedDelivery: true, StatusReturnToSender: true,

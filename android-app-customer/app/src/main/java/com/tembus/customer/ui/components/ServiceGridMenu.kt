@@ -66,29 +66,43 @@ fun ServiceGridMenu(
         
         // Grid 3 columns
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Row 1: Antar Barang, Tambal Ban Motor, Tambal Ban Mobil
+            // Row 1: two parcel products stay visually distinct. The
+            // service API remains the source of truth; no missing product is
+            // fabricated when a deployment has only one enabled tier.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Filter services by category
-                val antarBarang = services.find { 
-                    it.serviceCategory == "regular" || it.serviceCategory == "on_demand" || 
-                    it.code == "p2p" || it.code == "regular"
-                }
+                val parcelServices = services.filter { it.code !in setOf("tambal_ban_motor", "tambal_ban_mobil", "towing_motor", "towing_mobil", "food_delivery", "food") }
+                val paketInstan = parcelServices.find { it.serviceCategory == "on_demand" || it.code == "p2p" }
+                val ekspedisiAntarKota = parcelServices.find { it.serviceCategory == "regular" || it.code == "regular" }
                 val tambalBanMotor = services.find { it.code == "tambal_ban_motor" }
-                val tambalBanMobil = services.find { it.code == "tambal_ban_mobil" }
-                
-                antarBarang?.let { 
+
+                paketInstan?.let {
                     ServiceGridItem(
                         service = it,
-                        icon = Icons.Default.LocalShipping,
+                        title = "Paket Instan",
+                        subtitle = "Cepat • ETA sesuai rute",
+                        icon = Icons.Default.TwoWheeler,
                         color = MaterialTheme.colorScheme.primaryContainer,
                         onClick = { onServiceClick(it.code) },
                         modifier = Modifier.weight(1f)
                     )
                 } ?: Spacer(Modifier.weight(1f))
-                
+
+                ekspedisiAntarKota?.let {
+                    ServiceGridItem(
+                        service = it,
+                        title = "Ekspedisi Antar-Kota",
+                        subtitle = "Hemat • ETA terjadwal",
+                        icon = Icons.Default.LocalShipping,
+                        color = Color(0xFFE8EAF6),
+                        onClick = { onServiceClick(it.code) },
+                        modifier = Modifier.weight(1f)
+                    )
+                } ?: Spacer(Modifier.weight(1f))
+
                 tambalBanMotor?.let {
                     ServiceGridItem(
                         service = it,
@@ -98,26 +112,26 @@ fun ServiceGridMenu(
                         modifier = Modifier.weight(1f)
                     )
                 } ?: Spacer(Modifier.weight(1f))
-                
-                tambalBanMobil?.let {
-                    ServiceGridItem(
-                        service = it,
-                        icon = Icons.Default.DirectionsCar,
-                        color = Color(0xFFE3F2FD), // Light blue
-                        onClick = { onServiceClick(it.code) },
-                        modifier = Modifier.weight(1f)
-                    )
-                } ?: Spacer(Modifier.weight(1f))
             }
             
-            // Row 2: Towing Motor, Towing Mobil, Riwayat
+            // Row 2: Tambal Ban Mobil and towing products.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                val tambalBanMobil = services.find { it.code == "tambal_ban_mobil" }
                 val towingMotor = services.find { it.code == "towing_motor" }
                 val towingMobil = services.find { it.code == "towing_mobil" }
-                
+                tambalBanMobil?.let {
+                    ServiceGridItem(
+                        service = it,
+                        icon = Icons.Default.DirectionsCar,
+                        color = Color(0xFFE3F2FD),
+                        onClick = { onServiceClick(it.code) },
+                        modifier = Modifier.weight(1f)
+                    )
+                } ?: Spacer(Modifier.weight(1f))
+
                 towingMotor?.let {
                     ServiceGridItem(
                         service = it,
@@ -138,14 +152,6 @@ fun ServiceGridMenu(
                     )
                 } ?: Spacer(Modifier.weight(1f))
                 
-                // Riwayat button
-                ServiceGridItemFixed(
-                    label = "Riwayat",
-                    icon = Icons.Default.History,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    onClick = onHistoryClick,
-                    modifier = Modifier.weight(1f)
-                )
             }
 
             // Row 3: Food Delivery (FOOD-BIKE-030/030b), Favorit (C3)
@@ -173,7 +179,13 @@ fun ServiceGridMenu(
                     modifier = Modifier.weight(1f)
                 )
                 
-                Spacer(Modifier.weight(1f))
+                ServiceGridItemFixed(
+                    label = "Riwayat",
+                    icon = Icons.Default.History,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    onClick = onHistoryClick,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
@@ -182,6 +194,8 @@ fun ServiceGridMenu(
 @Composable
 private fun ServiceGridItem(
     service: DeliveryServiceProduct,
+    title: String = service.name,
+    subtitle: String? = null,
     icon: ImageVector,
     color: Color,
     onClick: () -> Unit,
@@ -211,20 +225,29 @@ private fun ServiceGridItem(
             ) {
                 Icon(
                     icon,
-                    contentDescription = null,
+                    contentDescription = title,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(28.dp)
                 )
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                service.name,
+                title,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 maxLines = 2
             )
+            subtitle?.let {
+                Text(
+                    it,
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+            }
         }
     }
 }

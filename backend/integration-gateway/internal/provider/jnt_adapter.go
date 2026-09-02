@@ -42,6 +42,17 @@ func NewJNTProvider() *JNTProvider {
 	}
 }
 
+// Availability reports whether J&T can be selected for a new quote/order.
+func (p *JNTProvider) Availability() (bool, string) {
+	if strings.TrimSpace(p.apiAccount) == "" || strings.TrimSpace(p.privateKey) == "" {
+		return false, "credentials_not_configured"
+	}
+	if p.cb != nil && p.cb.State() == "open" {
+		return false, "circuit_open"
+	}
+	return true, ""
+}
+
 func (p *JNTProvider) generateDigest(data string) string {
 	hash := md5.Sum([]byte(data + p.privateKey))
 	return base64.StdEncoding.EncodeToString(hash[:])

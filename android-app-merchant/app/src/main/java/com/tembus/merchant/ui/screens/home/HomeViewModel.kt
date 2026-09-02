@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
+import java.time.Instant
 
 enum class OrderFilter(val label: String, val status: String?) {
     ALL("Semua", null),
@@ -213,6 +214,24 @@ class HomeViewModel(
                     _uiState.value = _uiState.value.copy(
                         isPauseLoading = false,
                         actionError = e.message ?: "Gagal resume toko"
+                    )
+                }
+        }
+    }
+
+    // FOOD-2026-011: busy tidak menghentikan order; hanya menambah waktu prep.
+    fun busy(durationMinutes: Int, extraPrepMinutes: Int) {
+        _uiState.value = _uiState.value.copy(isPauseLoading = true, actionError = null)
+        viewModelScope.launch {
+            val until = Instant.now().plusSeconds(durationMinutes * 60L).toString()
+            merchantRepository.busy(until, extraPrepMinutes)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(merchant = updated, isPauseLoading = false)
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isPauseLoading = false,
+                        actionError = e.message ?: "Gagal mengaktifkan mode sibuk"
                     )
                 }
         }

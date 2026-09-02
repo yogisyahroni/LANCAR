@@ -76,6 +76,13 @@ func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if !registration.Descriptor.Available {
+		h.respondJSON(w, http.StatusServiceUnavailable, CreateLogisticsOrderResponse{
+			Success: false,
+			Message: fmt.Sprintf("Logistics provider %s is unavailable: %s", provName, registration.Descriptor.AvailabilityReason),
+		})
+		return
+	}
 
 	orderReq := domain.LogisticsOrderRequest{
 		IdempotencyKey:  req.IdempotencyKey,
@@ -135,11 +142,24 @@ func (h *LogisticsHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
 	if weightKG <= 0 {
 		weightKG = 1.0
 	}
+	lengthCM, _ := strconv.ParseFloat(r.URL.Query().Get("length_cm"), 64)
+	widthCM, _ := strconv.ParseFloat(r.URL.Query().Get("width_cm"), 64)
+	heightCM, _ := strconv.ParseFloat(r.URL.Query().Get("height_cm"), 64)
+	itemValueIDR, _ := strconv.ParseInt(r.URL.Query().Get("item_value_idr"), 10, 64)
+	insurance, _ := strconv.ParseBool(r.URL.Query().Get("insurance"))
+	cod, _ := strconv.ParseBool(r.URL.Query().Get("cod"))
 
 	req := domain.TariffRequest{
 		OriginCode:      origin,
 		DestinationCode: destination,
 		WeightKG:        weightKG,
+		LengthCM:        lengthCM,
+		WidthCM:         widthCM,
+		HeightCM:        heightCM,
+		ItemValueIDR:    itemValueIDR,
+		Category:        r.URL.Query().Get("category"),
+		Insurance:       insurance,
+		COD:             cod,
 		ServiceType:     "",
 	}
 
@@ -155,6 +175,13 @@ func (h *LogisticsHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
 		h.respondJSON(w, http.StatusNotImplemented, map[string]interface{}{
 			"success": false,
 			"message": fmt.Sprintf("Logistics provider %s does not support tariff quotes", provider),
+		})
+		return
+	}
+	if !registration.Descriptor.Available {
+		h.respondJSON(w, http.StatusServiceUnavailable, map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("Logistics provider %s is unavailable: %s", provider, registration.Descriptor.AvailabilityReason),
 		})
 		return
 	}

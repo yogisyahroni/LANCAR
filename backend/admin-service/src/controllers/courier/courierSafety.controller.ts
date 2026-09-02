@@ -16,6 +16,11 @@ import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../../services/
 
 import { evaluateOnDemandRealtimeAlerts } from '../../services/realtimeObservability';
 import { buildMapsRouteEtaSnapshot } from '../../services/mapsProviderConfig';
+import { getTrackingFreshness } from '../../services/onDemandTracking';
+import {
+  DeliveryRecoveryPolicyError,
+  evaluateOnDemandDeliveryRecovery,
+} from '../../services/onDemandDeliveryRecovery';
 
 import { isFeatureFlagEnabled } from '../../services/featureFlags';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
@@ -64,14 +69,34 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
   const longitude = parseCoordinate(req.body?.longitude);
   const accuracy = parseCoordinate(req.body?.accuracy);
   const message = sanitizeSafetyMessage(req.body?.message);
+  const reasonCode = String(req.body?.reason_code || req.body?.reasonCode || '').trim().toLowerCase();
 
   try {
+    let orderContext: {
+      customer_id: string | null;
+      order_number: string | null;
+      order_status: string | null;
+      service_category: string;
+      failed_delivery_policy: string;
+    } | null = null;
     if (orderId) {
       const ownership = await db.query(
-        `SELECT 1
-         FROM order_legs
-         WHERE order_id = $1
-           AND courier_id = $2
+        `SELECT
+           o.customer_id,
+           o.order_number,
+           o.status AS order_status,
+           COALESCE(dsp.service_category,
+             CASE WHEN LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand') THEN 'on_demand' ELSE 'regular' END
+           ) AS service_category,
+           COALESCE(dsp.failed_delivery_policy,
+             CASE WHEN COALESCE(dsp.service_category, '') = 'regular' THEN 'reschedule_then_return' ELSE 'must_deliver' END
+           ) AS failed_delivery_policy
+         FROM order_legs ol
+         JOIN orders o ON o.id = ol.order_id
+         LEFT JOIN delivery_service_products dsp ON dsp.code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
+         WHERE ol.order_id = $1
+           AND ol.courier_id = $2
+         ORDER BY ol.leg_number ASC
          LIMIT 1`,
         [orderId, req.user.id]
       );
@@ -80,9 +105,59 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
         res.status(403).json({ success: false, data: null, message: 'Order tidak tersedia untuk akun kurir ini.', code: 'ERR_ORDER_FORBIDDEN' });
         return;
       }
+      orderContext = ownership.rows[0];
+    }
+
+    let recoveryDecision: ReturnType<typeof evaluateOnDemandDeliveryRecovery> | null = null;
+    if (eventType === 'failed_delivery') {
+      if (!orderContext || orderContext.service_category !== 'on_demand') {
+        res.status(409).json({
+          success: false,
+          data: null,
+          message: 'Laporan failed delivery hanya tersedia untuk order on-demand.',
+          code: 'ERR_INVALID_SERVICE_CATEGORY',
+        });
+        return;
+      }
+      if (['delivered', 'completed', 'cancelled', 'returned'].includes(String(orderContext.order_status || '').toLowerCase())) {
+        res.status(409).json({
+          success: false,
+          data: null,
+          message: 'Laporan failed delivery tidak dapat ditambahkan setelah order final.',
+          code: 'ERR_FINAL_STATUS',
+        });
+        return;
+      }
+
+      try {
+        recoveryDecision = evaluateOnDemandDeliveryRecovery({
+          serviceCategory: orderContext.service_category,
+          failedDeliveryPolicy: orderContext.failed_delivery_policy,
+          reasonCode,
+          hasEvidence: Boolean(req.file),
+          custodyTransferred: ['picked_up', 'in_transit', 'delivered', 'completed'].includes(
+            String(orderContext.order_status || '').toLowerCase(),
+          ),
+        });
+      } catch (error) {
+        if (error instanceof DeliveryRecoveryPolicyError) {
+          res.status(400).json({ success: false, data: null, message: error.message, code: error.code });
+          return;
+        }
+        throw error;
+      }
     }
 
     const uploadedPhoto = req.file ? saveSecureUploadBuffer(req.file, 'safety-events') : null;
+    const failureMetadata = recoveryDecision ? {
+      reason_code: recoveryDecision.reasonCode,
+      evidence_required: recoveryDecision.evidenceRequired,
+      evidence_present: recoveryDecision.evidencePresent,
+      custody_transferred: recoveryDecision.custodyTransferred,
+      recovery_options: recoveryDecision.recoveryOptions,
+      settlement_eligible: recoveryDecision.settlementEligible,
+      return_to_sender_allowed: recoveryDecision.returnToSenderAllowed,
+    } : null;
 
     const result = await db.query(
       `INSERT INTO courier_safety_events (
@@ -105,9 +180,43 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
           photo_url: uploadedPhoto?.fileUrl || null,
           photo_checksum_sha256: req.file?.checksumSha256 || null,
           photo_mime_type: req.file?.detectedMimeType || null,
+          failure: failureMetadata,
         }),
       ]
     );
+
+    if (recoveryDecision && orderId) {
+      await db.query(
+        `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+         VALUES ($1, $2, 'delivery_failed_reported', 'Failed delivery reported with operational evidence', $3)`,
+        [
+          orderId,
+          req.user.id,
+          JSON.stringify({
+            safety_event_id: result.rows[0].id,
+            order_number: orderContext?.order_number || null,
+            source: 'courier_app',
+            ...failureMetadata,
+            evidence_url: uploadedPhoto?.fileUrl || null,
+          }),
+        ],
+      );
+
+      if (orderContext?.customer_id) {
+        await createNotification({
+          user_id: orderContext.customer_id,
+          title: 'Kendala pengantaran sedang ditangani',
+          body: 'Kurir mengirim laporan dan bukti ke operasional. Gunakan Bantuan untuk mengikuti tindak lanjut pesanan.',
+          type: 'delivery_failed_reported',
+          order_id: orderId,
+          deep_link: `/orders/${orderId}`,
+          metadata: {
+            safety_event_id: result.rows[0].id,
+            recovery_options: recoveryDecision.recoveryOptions,
+          },
+        });
+      }
+    }
 
     await notifyAdminOps({
       title: eventType === 'sos' ? 'SOS Kurir On Demand' : 'Laporan Keamanan Kurir',
@@ -131,9 +240,16 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
         id: result.rows[0].id,
         status: result.rows[0].status,
         created_at: result.rows[0].created_at,
+        ...(recoveryDecision ? {
+          incident_id: result.rows[0].id,
+          failure: failureMetadata,
+          recovery_options: recoveryDecision.recoveryOptions,
+        } : {}),
       },
       message: eventType === 'sos'
         ? 'SOS terkirim. Tim operasional sedang memantau lokasi Anda.'
+        : recoveryDecision
+          ? 'Laporan failed delivery dan bukti sudah tercatat. Pilih tindak lanjut melalui operasional; return tidak dibuat otomatis.'
         : 'Laporan terkirim ke tim operasional.',
     });
   } catch (error) {
@@ -199,7 +315,7 @@ export const createMobileCourierTripShare = async (req: Request, res: Response) 
 
 export const getPublicTripShare = async (req: Request, res: Response) => {
   const token = String(req.params.token || '');
-  if (!token) {
+  if (!/^[A-Za-z0-9_-]{10,128}$/.test(token)) {
     res.status(404).json({ success: false, data: null, message: 'Tracking link tidak ditemukan.', code: 'ERR_NOT_FOUND' });
     return;
   }
@@ -220,6 +336,9 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
          ST_Y(cp.current_location::geometry)::float8 AS courier_latitude,
          ST_X(cp.current_location::geometry)::float8 AS courier_longitude,
          cp.last_location_at,
+         o.route_duration_seconds,
+         o.route_provider,
+         o.route_snapshot,
          tst.expires_at
        FROM trip_share_tokens tst
        JOIN orders o ON o.id = tst.order_id
@@ -238,7 +357,28 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
       return;
     }
 
-    res.json({ success: true, data: row, message: 'Trip tracking loaded' });
+    const freshness = getTrackingFreshness(row.last_location_at);
+    const routeSnapshot = row.route_snapshot && typeof row.route_snapshot === 'object' ? row.route_snapshot : {};
+    const etaMinutes = Number.isFinite(Number(row.route_duration_seconds)) && Number(row.route_duration_seconds) > 0
+      ? Math.max(1, Math.ceil(Number(row.route_duration_seconds) / 60))
+      : Number.isFinite(Number(routeSnapshot.eta_minutes)) && Number(routeSnapshot.eta_minutes) > 0
+        ? Number(routeSnapshot.eta_minutes)
+        : null;
+
+    res.json({
+      success: true,
+      data: {
+        ...row,
+        route_snapshot: undefined,
+        eta_minutes: etaMinutes,
+        eta: etaMinutes == null ? null : `${etaMinutes} menit`,
+        eta_source: row.route_provider || routeSnapshot.provider || null,
+        location_stale: freshness.is_stale,
+        location_age_seconds: freshness.age_seconds,
+        location_stale_reason: freshness.stale_reason,
+      },
+      message: 'Trip tracking loaded',
+    });
   } catch (error) {
     securityLog.error('Get public trip share error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
@@ -355,5 +495,3 @@ export const updateAdminGpsRiskAlert = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
-
-

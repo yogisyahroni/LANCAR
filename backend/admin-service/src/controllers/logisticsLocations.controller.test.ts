@@ -17,13 +17,13 @@ const response = () => {
 describe('listCustomerLogisticsLocations', () => {
   beforeEach(() => query.mockReset());
 
-  it('rejects a provider that is not backed by an adapter', async () => {
+  it('requires a provider code before querying server mappings', async () => {
     const res = response();
 
-    await listCustomerLogisticsLocations({ query: { provider: 'sicepat' } } as any, res);
+    await listCustomerLogisticsLocations({ query: { provider: '   ' } } as any, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'UNSUPPORTED_LOGISTICS_PROVIDER' }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'LOGISTICS_PROVIDER_REQUIRED' }));
     expect(query).not.toHaveBeenCalled();
   });
 

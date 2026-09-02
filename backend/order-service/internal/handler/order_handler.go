@@ -11,7 +11,9 @@ import (
 type OrderHandler struct {
 	pricingSvc      domain.PricingService
 	orderSvc        domain.OrderService
+	foodQuoteSvc    domain.FoodQuoteService
 	meetingPointSvc domain.MeetingPointService
+	handoffSvc      domain.HandoffService
 }
 
 func NewOrderHandler(p domain.PricingService, o domain.OrderService, m domain.MeetingPointService) *OrderHandler {
@@ -20,6 +22,14 @@ func NewOrderHandler(p domain.PricingService, o domain.OrderService, m domain.Me
 		orderSvc:        o,
 		meetingPointSvc: m,
 	}
+}
+
+func (h *OrderHandler) SetHandoffService(svc domain.HandoffService) {
+	h.handoffSvc = svc
+}
+
+func (h *OrderHandler) SetFoodQuoteService(svc domain.FoodQuoteService) {
+	h.foodQuoteSvc = svc
 }
 
 // userSafeError maps internal errors to safe user-facing messages and
@@ -54,6 +64,8 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 			"current_total_price_idr": requoteErr.CurrentTotal,
 			"requires_requote":        true,
 			"correlation_id":          correlationID,
+			"action":                  "Tinjau harga terbaru lalu lanjutkan kembali.",
+			"retryable":               false,
 		})
 	case errors.Is(err, domain.ErrNotFound):
 		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Data tidak ditemukan", correlationID)
@@ -68,17 +80,22 @@ func userSafeError(w http.ResponseWriter, r *http.Request, err error, defaultSta
 	case errors.Is(err, domain.ErrInvalidCoordinates):
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_COORDINATES", "Pilih titik pickup dan tujuan yang valid", correlationID)
 	case errors.Is(err, domain.ErrLocationNotCovered):
-		middleware.WriteError(w, http.StatusBadRequest, "ERR_LOCATION_NOT_COVERED", "Alamat pickup atau tujuan tidak tercover oleh layanan kami", correlationID)
+		middleware.WriteError(w, http.StatusBadRequest, "OUT_OF_SERVICE_AREA", "Alamat pickup atau tujuan tidak tercover oleh layanan kami", correlationID)
 	case errors.Is(err, domain.ErrOrderAlreadyAssigned):
 		middleware.WriteError(w, http.StatusConflict, "ERR_ORDER_ALREADY_ASSIGNED", "Order sudah diterima kurir lain", correlationID)
 	case errors.Is(err, domain.ErrTransitionProofRequired):
-		middleware.WriteError(w, http.StatusConflict, "ERR_TRANSITION_PROOF_REQUIRED", "Bukti pengantaran wajib tersedia sebelum order diselesaikan", correlationID)
+		middleware.WriteError(w, http.StatusConflict, "PROOF_REQUIRED", "Bukti pengantaran wajib tersedia sebelum order diselesaikan", correlationID)
 	case errors.Is(err, domain.ErrTransitionLedgerRequired):
 		middleware.WriteError(w, http.StatusConflict, "ERR_TRANSITION_LEDGER_REQUIRED", "Efek ledger order belum siap, status tidak diubah", correlationID)
 	case errors.Is(err, domain.ErrAdminOverrideReasonRequired):
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_ADMIN_OVERRIDE_REASON_REQUIRED", "Alasan admin override wajib diisi", correlationID)
 	case errors.As(err, &concurrentErr):
-		middleware.WriteError(w, http.StatusConflict, "ERR_CONCURRENT_ORDER_TRANSITION", "Order berubah bersamaan, silakan coba lagi", correlationID)
+		middleware.WriteError(w, http.StatusConflict, "INVALID_TRANSITION", "Order berubah bersamaan, silakan coba lagi", correlationID)
+	case errors.Is(err, domain.ErrHandoffTokenInvalid), errors.Is(err, domain.ErrHandoffTokenExpired),
+		errors.Is(err, domain.ErrHandoffTokenConsumed), errors.Is(err, domain.ErrHandoffTokenAttemptsLimit),
+		errors.Is(err, domain.ErrHandoffActorMismatch), errors.Is(err, domain.ErrHandoffOrderMismatch),
+		errors.Is(err, domain.ErrHandoffStageMismatch):
+		middleware.WriteError(w, http.StatusConflict, "HANDOFF_INVALID", "Verifikasi serah-terima tidak valid", correlationID)
 	case errors.As(err, &ufe) && ufe.UserMsg != "":
 		// UAT-C-012/C-014: error bisnis user-facing → tampilkan pesan asli
 		// (bukan ERR_INTERNAL generic).
@@ -283,13 +300,14 @@ var cancellableStatuses = map[domain.OrderStatus]bool{
 
 // ScanRequest represents the request payload for scanning a package
 type ScanRequest struct {
-	OrderID     string  `json:"order_id"`
-	ScanType    string  `json:"scan_type"`
-	Latitude    float64 `json:"latitude"`
-	Longitude   float64 `json:"longitude"`
-	WarehouseID *string `json:"warehouse_id,omitempty"`
-	PhotoURL    *string `json:"photo_url,omitempty"`
-	BagNumber   *string `json:"bag_number,omitempty"`
+	OrderID      string  `json:"order_id"`
+	ScanType     string  `json:"scan_type"`
+	Latitude     float64 `json:"latitude"`
+	Longitude    float64 `json:"longitude"`
+	WarehouseID  *string `json:"warehouse_id,omitempty"`
+	PhotoURL     *string `json:"photo_url,omitempty"`
+	BagNumber    *string `json:"bag_number,omitempty"`
+	HandoffToken string  `json:"handoff_token,omitempty"`
 }
 
 // ScanPackage godoc

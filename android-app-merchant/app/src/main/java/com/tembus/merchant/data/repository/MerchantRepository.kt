@@ -49,6 +49,10 @@ class MerchantRepository(
     suspend fun resume(): Result<Merchant> =
         request { api.resume() }
 
+    // FOOD-2026-011: tetap menerima order dengan prep tambahan sementara.
+    suspend fun busy(until: String, extraPrepMinutes: Int): Result<Merchant> =
+        request { api.busy(BusyRequest(until, extraPrepMinutes)) }
+
     suspend fun updateFoodDocs(req: UpdateFoodDocsRequest): Result<Merchant> =
         request { api.updateFoodDocs(req) }
 
@@ -84,6 +88,9 @@ class MerchantRepository(
 
     suspend fun setMenuItemAvailability(id: String, available: Boolean): Result<MenuItem> =
         request { api.setMenuItemAvailability(id, AvailabilityRequest(available)) }
+
+    suspend fun updateMenuInventory(id: String, request: MenuInventoryRequest): Result<MenuItem> =
+        request { api.updateMenuInventory(id, request) }
 
     // ── FB-108: varian menu ────────────────────────────────────────────
     suspend fun getMenuItemVariants(id: String): Result<List<MenuItemVariant>> =

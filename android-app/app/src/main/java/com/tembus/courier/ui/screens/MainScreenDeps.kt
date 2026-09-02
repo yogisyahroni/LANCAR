@@ -70,7 +70,7 @@ internal data class MainScreenDeps(
     val openServiceFaceVerify: (String, String) -> Unit,
     val closeRoute: () -> Unit,
     val backToOrderOrHome: () -> Unit,
-    val sendSafetyEvent: suspend (Order?, String, String, String, java.io.File?) -> Unit,
+    val sendSafetyEvent: suspend (Order?, String, String?, String, String, java.io.File?) -> Unit,
     val performDutyToggle: suspend (Boolean) -> Unit,
     val requestDutyToggle: (Boolean) -> Unit
 )

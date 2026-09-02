@@ -110,14 +110,18 @@ export function AddressPicker({
   const isPickup = mode === "pickup";
   const accentClass = isPickup ? "text-primary" : "text-success";
 
-  const performReverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
+  const performReverseGeocode = async (lat: number, lng: number): Promise<{
+    display_label?: string;
+    label?: string;
+    city?: string;
+    district?: string;
+    postal_code?: string;
+  } | null> => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-      const data = await res.json();
-      if (data && data.display_name) {
-        // Example: "Toko ABC, Jl... 12345"
-        return data.display_name;
-      }
+      const res = await api.get("/maps/reverse-geocode", {
+        params: { latitude: lat, longitude: lng, scope: "web_customer" },
+      });
+      return res.data?.result || null;
     } catch (e) {
       console.warn("Reverse geocode failed", e);
     }
@@ -170,7 +174,15 @@ export function AddressPicker({
           }
         });
 
-        const data = (response.data?.results || []) as Array<{ label: string; latitude: number; longitude: number; provider: string }>;
+        const data = (response.data?.results || []) as Array<{
+          label: string;
+          latitude: number;
+          longitude: number;
+          provider: string;
+          city?: string;
+          district?: string;
+          postal_code?: string;
+        }>;
         const providerSuggestions = data.flatMap((item, index): AddressSuggestion[] => {
           const [label, ...rest] = item.label.split(",");
           const normalizedProvider = String(item.provider || "").toLowerCase();
@@ -182,7 +194,10 @@ export function AddressPicker({
             detail: rest.join(",").trim(),
             lat: location.lat,
             lng: location.lng,
-            source: normalizedProvider.includes("tomtom") ? "tomtom" as const : "osm" as const
+            source: normalizedProvider.includes("tomtom") ? "tomtom" as const : "osm" as const,
+            city: item.city,
+            district: item.district,
+            postal_code: item.postal_code,
           }];
         });
 
@@ -217,6 +232,9 @@ export function AddressPicker({
       id: suggestion.id,
       label: suggestion.label,
       address: `${suggestion.label}, ${suggestion.detail}`,
+      city: suggestion.city,
+      district: suggestion.district,
+      postal_code: suggestion.postal_code,
       receiver: { name: suggestion.recipient_name, phone: suggestion.phone },
       lat: location.lat,
       lng: location.lng,
@@ -264,7 +282,7 @@ export function AddressPicker({
         let finalAddr = `Lokasi saat ini (${formatCoordinate(nextLocation)})`;
         const geocoded = await performReverseGeocode(nextLocation.lat, nextLocation.lng);
         if (geocoded) {
-          finalAddr = geocoded;
+          finalAddr = geocoded.display_label || geocoded.label || finalAddr;
         }
 
         if (onSuccess) {
@@ -276,6 +294,9 @@ export function AddressPicker({
             id: `gps-${position.timestamp}`,
             label: "Lokasi saat ini",
             address: finalAddr,
+            city: geocoded?.city,
+            district: geocoded?.district,
+            postal_code: geocoded?.postal_code,
             lat: nextLocation.lat,
             lng: nextLocation.lng,
             source: "gps",

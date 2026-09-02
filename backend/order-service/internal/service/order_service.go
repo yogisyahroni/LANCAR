@@ -33,6 +33,7 @@ type orderServiceImpl struct {
 	voucherSvc       domain.VoucherService
 	tipSvc           domain.TipService  // FB-083: refund tip saat order batal
 	pushSvc          domain.PushService // FB-084: notif push customer saat merchant reject/timeout
+	handoffSvc       domain.HandoffService
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -62,6 +63,10 @@ func (s *orderServiceImpl) SetTipService(ts domain.TipService) {
 
 func (s *orderServiceImpl) SetPushService(ps domain.PushService) {
 	s.pushSvc = ps
+}
+
+func (s *orderServiceImpl) SetHandoffService(hs domain.HandoffService) {
+	s.handoffSvc = hs
 }
 
 // SetMerchantSettlementService inject settlement service (FOOD-BIKE-067).
@@ -151,6 +156,25 @@ func validateFoodDeliveryDistance(distanceKM float64) error {
 	const foodMaxRadiusKM = 20.0
 	if distanceKM > foodMaxRadiusKM {
 		return fmt.Errorf("jarak pengantaran %.1f km melebihi radius maksimum kurir (%.0f km) — pilih merchant yang lebih dekat atau alamat antar yang lain", distanceKM, foodMaxRadiusKM)
+	}
+	return nil
+}
+
+// validateFoodDestination — FOOD-2026-001: checkout food harus membawa
+// pasangan alamat + pin tujuan yang sama. Discovery location tidak boleh
+// menjadi fallback diam-diam karena ongkir/radius dihitung dari pin ini.
+func validateFoodDestination(req domain.CreateFoodOrderRequest) error {
+	if strings.TrimSpace(req.DropoffAddress) == "" {
+		return fmt.Errorf("alamat pengantaran wajib diisi")
+	}
+	if math.IsNaN(req.DropoffLat) || math.IsInf(req.DropoffLat, 0) || req.DropoffLat < -90 || req.DropoffLat > 90 {
+		return fmt.Errorf("latitude tujuan tidak valid")
+	}
+	if math.IsNaN(req.DropoffLng) || math.IsInf(req.DropoffLng, 0) || req.DropoffLng < -180 || req.DropoffLng > 180 {
+		return fmt.Errorf("longitude tujuan tidak valid")
+	}
+	if req.DropoffLat == 0 && req.DropoffLng == 0 {
+		return fmt.Errorf("pin lokasi tujuan wajib dipilih")
 	}
 	return nil
 }

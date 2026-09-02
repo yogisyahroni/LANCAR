@@ -97,7 +97,13 @@ data class ApiResponse<T>(
     val message: String?,
 
     @SerialName("code")
-    val code: String? = null
+    val code: String? = null,
+
+    @SerialName("action")
+    val action: String? = null,
+
+    @SerialName("retryable")
+    val retryable: Boolean = false
 )
 
 /**
@@ -142,7 +148,24 @@ data class ScanRequest(
     val photoUrl: String? = null,
     
     @SerialName("bag_number")
-    val bagNumber: String? = null
+    val bagNumber: String? = null,
+
+    @SerialName("handoff_token")
+    val handoffToken: String? = null
+)
+
+@Serializable
+data class IssueHandoffTokenRequest(
+    @SerialName("order_id") val orderId: String,
+    val stage: String,
+    @SerialName("ttl_seconds") val ttlSeconds: Int? = null
+)
+
+@Serializable
+data class ConsumeHandoffTokenRequest(
+    @SerialName("order_id") val orderId: String,
+    val stage: String,
+    val token: String
 )
 
 @Serializable
@@ -459,6 +482,8 @@ data class CourierSafetyEventRequest(
     val orderId: String? = null,
     @SerialName("event_type")
     val eventType: String,
+    @SerialName("reason_code")
+    val reasonCode: String? = null,
     @SerialName("severity")
     val severity: String = "medium",
     @SerialName("latitude")

@@ -466,8 +466,14 @@ interface TEMBUSApiService {
 
     @POST("api/v1/orders/food")
     suspend fun createFoodOrder(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: CreateFoodOrderRequest
     ): Response<FoodOrderCreateResponse>
+
+    @POST("api/v1/orders/food/quote")
+    suspend fun quoteFoodOrder(
+        @Body request: CreateFoodOrderRequest
+    ): Response<FoodQuoteResponse>
 
     // FB-084 REORDER: validasi ulang item order food lama (harga + availability)
     @GET("api/v1/orders/reorder-info")

@@ -21,6 +21,8 @@ data class Merchant(
     // (mis. "2026-08-09T12:30:00Z"). NULL = tidak pause. Auto un-pause
     // backend saat waktu habis, tanpa aksi merchant.
     @SerializedName("paused_until") val pausedUntil: String? = null,
+    @SerializedName("busy_until") val busyUntil: String? = null,
+    @SerializedName("busy_extra_prep_minutes") val busyExtraPrepMinutes: Int = 0,
     @SerializedName("completion_rate_pct") val completionRatePct: Double = 0.0,
     @SerializedName("verification_status") val verificationStatus: String = "pending",
     // Rating restoran — di-update order-service tiap customer submit rating (FOOD-BIKE-059/060).
@@ -109,6 +111,10 @@ data class MenuItem(
     @SerializedName("kategori") val kategori: String = "",
     @SerializedName("prep_time_minutes") val prepTimeMinutes: Int = 15,
     @SerializedName("is_available") val isAvailable: Boolean = true,
+    @SerializedName("stock_quantity") val stockQuantity: Int? = null,
+    @SerializedName("daily_sales_limit") val dailySalesLimit: Int? = null,
+    @SerializedName("daily_sales_count") val dailySalesCount: Int = 0,
+    @SerializedName("sales_limit_reset_at") val salesLimitResetAt: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null
 )
@@ -121,11 +127,18 @@ data class MenuItemRequest(
     @SerializedName("deskripsi") val deskripsi: String? = null,
     @SerializedName("kategori") val kategori: String,
     @SerializedName("prep_time_minutes") val prepTimeMinutes: Int,
-    @SerializedName("is_available") val isAvailable: Boolean? = null
+    @SerializedName("is_available") val isAvailable: Boolean? = null,
+    @SerializedName("stock_quantity") val stockQuantity: Int? = null,
+    @SerializedName("daily_sales_limit") val dailySalesLimit: Int? = null
 )
 
 data class AvailabilityRequest(
     @SerializedName("is_available") val isAvailable: Boolean
+)
+
+data class MenuInventoryRequest(
+    @SerializedName("stock_quantity") val stockQuantity: Int? = null,
+    @SerializedName("daily_sales_limit") val dailySalesLimit: Int? = null
 )
 
 // ── FB-108: varian menu ────────────────────────────────────────────────
@@ -178,6 +191,12 @@ data class PauseRequest(
     @SerializedName("duration_minutes") val durationMinutes: Int
 )
 
+/** FOOD-2026-011: tetap menerima order dengan prep tambahan sementara. */
+data class BusyRequest(
+    @SerializedName("until") val until: String,
+    @SerializedName("extra_prep_minutes") val extraPrepMinutes: Int
+)
+
 /** FB-109: body PATCH /merchant/profile — update minimal order (IDR). */
 data class UpdateProfileRequest(
     @SerializedName("nama_toko") val namaToko: String? = null,
@@ -193,7 +212,8 @@ data class MerchantOperatingHour(
     @SerializedName("weekday") val weekday: Int,
     @SerializedName("is_open") val isOpen: Boolean,
     @SerializedName("opens_at") val opensAt: String? = null,
-    @SerializedName("closes_at") val closesAt: String? = null
+    @SerializedName("closes_at") val closesAt: String? = null,
+    @SerializedName("last_order_minutes_before_close") val lastOrderMinutesBeforeClose: Int = 0
 )
 
 data class MerchantSpecialClosure(

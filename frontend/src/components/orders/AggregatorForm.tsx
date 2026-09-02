@@ -11,6 +11,11 @@ import {
   capabilityLabel,
   normalizeAggregatorCarrierQuote,
 } from "@/lib/aggregatorQuotePresentation";
+import {
+  isLogisticsProviderAvailable,
+  providerAvailabilityMessage,
+} from "@/types/logistics";
+import type { LogisticsProviderOption } from "@/types/logistics";
 
 // ─── Types ────────────────────────────────────────────────────────
 interface CityOption {
@@ -47,11 +52,7 @@ interface AggregatorFormProps {
   }) => void;
 }
 
-interface ProviderOption {
-  code: string;
-  name: string;
-  capabilities?: string[];
-}
+type ProviderOption = LogisticsProviderOption;
 
 // ─── Constants ─────────────────────────────────────────────────────
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -99,18 +100,13 @@ function AddressModal({
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-          );
-          const data = await res.json();
-          const addr = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-          const city =
-            data.address?.city ||
-            data.address?.town ||
-            data.address?.county ||
-            data.address?.state ||
-            "";
-          const postcode = data.address?.postcode || "";
+          const res = await api.get("/maps/reverse-geocode", {
+            params: { latitude: lat, longitude: lng, scope: "web_customer" },
+          });
+          const result = res.data?.result;
+          const addr = result?.display_label || result?.label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          const city = result?.city || "";
+          const postcode = result?.postal_code || "";
           setForm((prev) => ({
             ...prev,
             address: addr,
@@ -348,6 +344,9 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             origin_code: originCode,
             destination_code: destCode,
             weight_kg: weight,
+            length_cm: lengthCm || undefined,
+            width_cm: widthCm || undefined,
+            height_cm: heightCm || undefined,
           } as any,
         });
         const quoteResponse = res.data?.data || {};
@@ -391,7 +390,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [originCode, destCode, weight, selectedProviderId]);
+  }, [originCode, destCode, weight, lengthCm, widthCm, heightCm, selectedProviderId]);
 
   const selectTariff = (index: number) => {
     setSelectedIndex(index);
@@ -432,17 +431,26 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             <button
               key={provider.code}
               type="button"
-              onClick={() => { setSelectedProviderId(provider.code); setTariffs([]); setSelectedIndex(null); }}
+              onClick={() => {
+                if (!isLogisticsProviderAvailable(provider)) return;
+                setSelectedProviderId(provider.code);
+                setTariffs([]);
+                setSelectedIndex(null);
+              }}
+              disabled={!isLogisticsProviderAvailable(provider)}
+              aria-disabled={!isLogisticsProviderAvailable(provider)}
               className={[
                 "rounded-xl border-2 px-3 py-3.5 text-center transition-all duration-150",
                 selectedProviderId === provider.code
                   ? "border-indigo-400 bg-indigo-400/10 shadow-lg scale-[1.02]"
                   : "border-white/10 bg-background/40 hover:border-white/20 hover:bg-white/5",
+                !isLogisticsProviderAvailable(provider) ? "cursor-not-allowed opacity-50" : ""
               ].join(" ")}
             >
               <span className="block text-sm font-bold text-foreground">
                 {provider.name}
               </span>
+              <span className={`mt-1 block text-[10px] ${isLogisticsProviderAvailable(provider) ? "text-emerald-300" : "text-amber-300"}`}>{providerAvailabilityMessage(provider)}</span>
               {selectedProviderId === provider.code && (
                 <Check className="mx-auto mt-1 h-3 w-3 text-indigo-300" />
               )}

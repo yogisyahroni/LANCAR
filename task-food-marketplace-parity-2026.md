@@ -314,6 +314,7 @@ _Local quote contract and server enforcement are complete; authenticated staging
 - [x] Replay/wrong actor/wrong order rejected.
 - [x] Proof immutable after stage final.
 - [x] Completion blocked if mandatory proof missing.
+- [ ] Authenticated staging multi-actor proof/PIN/QR flow and deployed migration verification completed.
 
 ---
 
@@ -335,7 +336,7 @@ _Local quote contract and server enforcement are complete; authenticated staging
 - [x] Ignore duplicate/older events.
 - [x] Reconnect fetches authoritative snapshot.
 - [x] Push tidak mutasi state authoritative secara buta.
-- [x] Offline only queues safe/idempotent mutation.
+- [ ] Offline only queues safe/idempotent mutation.
 
 ---
 
@@ -352,7 +353,7 @@ _Local quote contract and server enforcement are complete; authenticated staging
 **Checklist**
 - [x] Standardize `REQUOTE_REQUIRED`, `OUT_OF_SERVICE_AREA`, `NO_COURIER`, `PROVIDER_UNAVAILABLE`, `ITEM_UNAVAILABLE`, `INVALID_TRANSITION`, `PAYMENT_PENDING`, `PROOF_REQUIRED`, `HANDOFF_INVALID`, `SCHEDULE_INVALID`, `CAPABILITY_MISMATCH`, `CARRIER_RATE_EXPIRED`, `CARRIER_EVENT_UNKNOWN`.
 - [x] Error carries correlation id.
-- [x] Client renders next action, not raw internal error.
+- [ ] Client renders next action, not raw internal error.
 
 ---
 
@@ -457,10 +458,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `frontend/src/app/(portal)/orders/[id]/RouteSnapshotPanel.tsx`
 
 **Checklist**
-- [ ] ETA backend sourced.
-- [ ] Show GPS staleness.
-- [ ] Mask contact by lifecycle/privacy policy.
-- [ ] Public tracking token scoped/expiring/revocable.
+- [x] ETA backend sourced.
+- [x] Show GPS staleness.
+- [x] Mask contact by lifecycle/privacy policy.
+- [x] Public tracking token scoped/expiring/revocable.
 - [ ] Offline reconnect uses snapshot.
 
 ---
@@ -482,14 +483,15 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/ondemand_delivery_recovery_service.go`
 
 **Checklist**
-- [ ] POD may require photo/signature/PIN based on service/risk policy.
-- [ ] Failed delivery records structured reason + evidence.
-- [ ] Recovery options are policy driven: `retry`, `contact receiver`, `return_to_sender`, `cancel`, `support_review`.
-- [ ] `return_to_sender` only appears when applicable; do not force every failed delivery into return.
-- [ ] Recipient mismatch follows safe handoff rule.
-- [ ] Settlement does not finalize without required proof/state invariants.
-- [ ] Customer CTA is `Bantuan/Laporkan Masalah/Ajukan Klaim`, not generic marketplace dispute.
-- [ ] Internal lost/damaged claim links to LANCAR evidence and operational incident, not external carrier workflow.
+- [x] POD may require photo/signature/PIN based on service/risk policy.
+- [x] Failed delivery records structured reason + evidence.
+- [x] Recovery options are policy driven: `retry`, `contact receiver`, `return_to_sender`, `cancel`, `support_review`.
+- [x] `return_to_sender` only appears when applicable; do not force every failed delivery into return.
+- [x] Recipient mismatch follows safe handoff rule.
+- [x] Settlement does not finalize without required proof/state invariants.
+- [x] Customer CTA is `Bantuan/Laporkan Masalah/Ajukan Klaim`, not generic marketplace dispute.
+- [x] Internal lost/damaged claim links to LANCAR evidence and operational incident, not external carrier workflow.
+- [ ] Authenticated staging courier → customer recovery/POD flow and deployed migration verification completed.
 
 ---
 
@@ -511,9 +513,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 
 **Checklist**
 - [ ] Web journey: login → address → package facts → quote → payment → created → history → detail → tracking → completed/support if needed.
-- [ ] Refresh/back/retry is idempotent.
-- [ ] Mobile responsive and keyboard-accessible.
-- [ ] Web/Android share price/state semantics.
+- [x] Refresh/back/retry is idempotent.
+- [x] Mobile responsive and keyboard-accessible.
+- [x] Web/Android share price/state semantics.
+- [ ] Authenticated staging journey from login through payment, history, tracking, completion/support, and deployed API verification completed.
 
 ---
 
@@ -529,10 +532,11 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `frontend/src/app/(portal)/orders/page.tsx`
 
 **Checklist**
-- [ ] Distinguish `Paket Instan` from `Ekspedisi Antar-Kota` by icon/subtitle/ETA/price expectation.
-- [ ] Progressive disclosure.
-- [ ] Final review: route, package summary, ETA, total, receiver, cancellation policy.
-- [ ] History badges are service-aware.
+- [x] Distinguish `Paket Instan` from `Ekspedisi Antar-Kota` by icon/subtitle/ETA/price expectation.
+- [x] Progressive disclosure.
+- [x] Final review: route, package summary, ETA, total, receiver, cancellation policy.
+- [x] History badges are service-aware.
+- [ ] Authenticated staging visual/interaction verification completed on Android and web.
 
 ---
 
@@ -549,9 +553,9 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/handler/food_handler.go`
 - `backend/order-service/internal/service/order_food.go`
 
-- [ ] Atomic address+coordinate destination.
-- [ ] Saved/manual/pinned change coordinates.
-- [ ] Discovery GPS not silently reused as checkout destination.
+- [x] Atomic address+coordinate destination.
+- [x] Saved/manual/pinned change coordinates.
+- [x] Discovery GPS not silently reused as checkout destination.
 - [ ] Address change requotes.
 
 ## FOOD-2026-002 — Authoritative Food Quote [P0]
@@ -566,8 +570,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/food_quote_service.go`
 
 - [ ] Validate merchant/item/variant/stock/voucher/radius/tax/fee/schedule.
-- [ ] Return itemized total + ETA + expiry.
-- [ ] Create consumes quote/requote diff.
+- [x] Return itemized total + ETA + expiry.
+- [x] Create consumes quote/requote diff.
 
 ## FOOD-2026-003 — Idempotent Food create [P0]
 
@@ -576,8 +580,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/handler/food_handler.go`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/food/FoodViewModel.kt`
 
-- [ ] Apply CORE idempotency.
-- [ ] Duplicate callback cannot duplicate notification/dispatch/ledger.
+- [x] Apply CORE idempotency.
+- [x] Duplicate callback cannot duplicate notification/dispatch/ledger.
 
 ## FOOD-2026-004 — Secure merchant handoff [P0]
 
@@ -587,9 +591,9 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/StitchOrdersDashboardScreen.kt`
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/scan/ScanScreen.kt`
 
-- [ ] One-time PIN/QR binds order/merchant/courier or pickup customer/state/expiry.
-- [ ] Verify + picked_up atomic.
-- [ ] Replay/wrong actor rejected.
+- [x] One-time PIN/QR binds order/merchant/courier or pickup customer/state/expiry.
+- [x] Verify + picked_up atomic.
+- [x] Replay/wrong actor rejected.
 
 ## FOOD-2026-005 — Server-authoritative ETA/readiness [P0]
 
@@ -600,8 +604,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/order_food.go`
 - `backend/order-service/internal/service/matching_service.go`
 
-- [ ] Remove fabricated client ETA.
-- [ ] ETA includes prep/supply/pickup travel/traffic/batching/confidence.
+- [x] Remove fabricated client ETA.
+- [x] ETA includes prep/supply/pickup travel/traffic/batching/confidence.
 - [ ] Measure predicted vs actual.
 
 ## FOOD-2026-006 — Contactless end-to-end [P0]
@@ -612,8 +616,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/order_food.go`
 - courier `ProofOfDeliveryScreen.kt`
 
-- [ ] Persist contactless + structured instructions.
-- [ ] Courier sees instruction before delivery.
+- [x] Persist contactless + structured instructions.
+- [x] Courier sees instruction before delivery.
 - [ ] Contactless-compatible POD.
 
 ## FOOD-2026-007 — Canonical Food state machine + cross-app tests [P0]
@@ -649,8 +653,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `android-app-customer/app/src/main/java/com/tembus/customer/service/LocationTrackerService.kt`
 - Food customer screens
 
-- [ ] Least privilege location.
-- [ ] Manual/saved address works without location permission.
+- [x] Least privilege location.
+- [x] Manual/saved address works without location permission.
 - [ ] No unjustified boot background tracking.
 
 ## FOOD-2026-009 — Food finance invariants [P0]
@@ -672,13 +676,13 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [ ] No-show/cancel policy.
 
 ## FOOD-2026-011 — Merchant Busy vs Paused [P1]
-- [ ] Busy extends prep/ETA while accepting orders.
-- [ ] Pause stops new orders.
+- [x] Busy extends prep/ETA while accepting orders.
+- [x] Pause stops new orders.
 - [ ] Timed busy supported.
 
 ## FOOD-2026-012 — Quantity-aware inventory [P1]
-- [ ] Stock/sales limit + reset schedule.
-- [ ] Atomic reserve/decrement/release.
+- [x] Stock/sales limit + reset schedule.
+- [x] Atomic reserve/decrement/release.
 - [ ] Prevent oversell.
 
 ## FOOD-2026-013 — Substitution/customer approval [P1]
@@ -828,11 +832,11 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `frontend/src/hooks/useLogisticsProviders.ts`
 - `frontend/src/types/logistics.ts`
 
-- [ ] Origin from validated pickup address/provider location mapping.
-- [ ] Destination resolved to canonical/provider-compatible location code.
-- [ ] Provider/service list comes from backend capability registry.
+- [x] Origin from validated pickup address/provider location mapping.
+- [x] Destination resolved to canonical/provider-compatible location code.
+- [x] Provider/service list comes from backend capability registry.
 - [ ] Provider circuit-open/unavailable not selectable.
-- [ ] No production mock city/provider fallback.
+- [x] No production mock city/provider fallback.
 
 ---
 
@@ -849,8 +853,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 **Recommended new file**
 - `backend/integration-gateway/internal/handler/logistics_location_handler.go`
 
-- [ ] Remove direct browser third-party geocode.
-- [ ] Normalize display label separately from city/district/postal/provider code.
+- [x] Remove direct browser third-party geocode.
+- [x] Normalize display label separately from city/district/postal/provider code.
 - [ ] Provider-location mapping is server controlled/cacheable/auditable.
 
 ---
@@ -872,11 +876,12 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/aggregator_quote_service.go`
 - `backend/order-service/internal/service/aggregator_quote_service_test.go`
 
-- [ ] Rate input includes normalized origin/destination, chargeable weight, dimensions, value/category, insurance/COD flags as supported.
-- [ ] Persist provider code, native service code/name, optional normalized category, gross/net tariff, ETA/source, rule version, expiry.
-- [ ] Preserve native provider service codes such as JNE `REG/YES/...` or J&T equivalents.
-- [ ] Do not fabricate ETA. Remove hardcoded fallback such as generic `1-3 hari` unless it comes from explicit provider configuration with provenance.
-- [ ] Rate change after review returns requote.
+- [x] Rate input includes normalized origin/destination, chargeable weight, dimensions, value/category, insurance/COD flags as supported.
+- [x] Persist provider code, native service code/name, optional normalized category, gross/net tariff, ETA/source, rule version, expiry.
+- [x] Preserve native provider service codes such as JNE `REG/YES/...` or J&T equivalents.
+- [x] Do not fabricate ETA. Remove hardcoded fallback such as generic `1-3 hari` unless it comes from explicit provider configuration with provenance.
+- [x] Rate change after review returns requote.
+- [ ] Authenticated staging/provider verification covers quote input, persisted snapshot, expiry, and changed-input requote.
 
 ---
 

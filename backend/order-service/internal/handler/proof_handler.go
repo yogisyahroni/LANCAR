@@ -53,6 +53,7 @@ func (h *OrderHandler) ScanPackage(w http.ResponseWriter, r *http.Request) {
 		WarehouseID:    req.WarehouseID,
 		PhotoURL:       req.PhotoURL,
 		BagNumber:      req.BagNumber,
+		HandoffToken:   req.HandoffToken,
 		IdempotencyKey: middleware.GetIdempotencyKey(r.Context()),
 		ScannedByRole:  middleware.GetRoleFromContext(r.Context()),
 	}

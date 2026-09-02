@@ -280,6 +280,40 @@ func (h *MerchantHandler) Resume(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, m)
 }
 
+// Busy godoc
+// @Summary Busy sementara (FOOD-2026-011): tetap menerima order dengan prep tambahan
+// @Tags merchant
+// @Accept json
+// @Produce json
+// @Param body body object true "until RFC3339 dan extra_prep_minutes 0-180"
+// @Success 200 {object} domain.Merchant
+// @Router /merchant/busy [post]
+func (h *MerchantHandler) Busy(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Until            string `json:"until"`
+		ExtraPrepMinutes int    `json:"extra_prep_minutes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	until, err := time.Parse(time.RFC3339, body.Until)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "until harus RFC3339")
+		return
+	}
+	m, err := h.svc.Busy(r.Context(), userID, until, body.ExtraPrepMinutes)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, m)
+}
+
 // UpdateFoodDocs godoc
 // @Summary Update dokumen pangan (FB-092): sertifikat halal BPJPH, SPP-IRT,
 // izin edar BPOM + masa berlaku. Patch: hanya field yang diisi yang diperbarui.
@@ -505,6 +539,31 @@ func (h *MerchantHandler) SetMenuItemAvailability(w http.ResponseWriter, r *http
 		return
 	}
 	item, err := h.svc.SetMenuItemAvailability(r.Context(), userID, itemID, body.IsAvailable)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, item)
+}
+
+// UpdateMenuInventory replaces stock quantity and daily sales limit for one
+// merchant-owned menu item. Null values disable the corresponding guard.
+func (h *MerchantHandler) UpdateMenuInventory(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	itemID := r.PathValue("id")
+	if itemID == "" {
+		h.respondError(w, http.StatusBadRequest, "id wajib diisi")
+		return
+	}
+	var req domain.UpdateMenuInventoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	item, err := h.svc.UpdateMenuInventory(r.Context(), userID, itemID, req)
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return

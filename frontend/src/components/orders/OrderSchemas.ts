@@ -13,6 +13,7 @@ export const addressPointSchema = z.object({
   label: z.string().min(1),
   address: z.string().min(1),
   city: z.string().optional(),
+  district: z.string().optional(),
   postal_code: z.string().optional(),
   receiver: z.object({
     name: z.string().optional(),
@@ -164,6 +165,9 @@ export interface AddressSuggestion {
   lat: number;
   lng: number;
   source: "tomtom" | "osm" | "saved";
+  city?: string;
+  district?: string;
+  postal_code?: string;
   recipient_name?: string;
   phone?: string;
 }
@@ -343,4 +347,3 @@ export const mergeDraftWithCurrentValues = (
     }
   }
 });
-

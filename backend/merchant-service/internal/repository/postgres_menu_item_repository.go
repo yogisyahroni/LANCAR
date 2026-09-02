@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"tembus/merchant-service/internal/domain"
 )
@@ -20,14 +21,18 @@ func NewPostgresMenuItemRepository(db, readDB *sql.DB) domain.MenuItemRepository
 	return &postgresMenuItemRepository{db: db, readDB: readDB}
 }
 
-const menuItemColumns = `id, merchant_id, nama, harga, foto, deskripsi, kategori, prep_time_minutes, is_available, created_at, updated_at`
+const menuItemColumns = `id, merchant_id, nama, harga, foto, deskripsi, kategori, prep_time_minutes, is_available,
+	stock_quantity, daily_sales_limit, daily_sales_count, sales_limit_reset_at, created_at, updated_at`
 
 func scanMenuItem(row interface{ Scan(...any) error }) (*domain.MenuItem, error) {
 	var item domain.MenuItem
 	var foto, deskripsi sql.NullString
+	var stockQuantity, dailySalesLimit sql.NullInt64
+	var salesResetAt sql.NullTime
 	err := row.Scan(
 		&item.ID, &item.MerchantID, &item.Nama, &item.Harga, &foto, &deskripsi,
-		&item.Kategori, &item.PrepTimeMinutes, &item.IsAvailable,
+		&item.Kategori, &item.PrepTimeMinutes, &item.IsAvailable, &stockQuantity,
+		&dailySalesLimit, &item.DailySalesCount, &salesResetAt,
 		&item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
@@ -38,6 +43,17 @@ func scanMenuItem(row interface{ Scan(...any) error }) (*domain.MenuItem, error)
 	}
 	if deskripsi.Valid {
 		item.Deskripsi = &deskripsi.String
+	}
+	if stockQuantity.Valid {
+		value := int(stockQuantity.Int64)
+		item.StockQuantity = &value
+	}
+	if dailySalesLimit.Valid {
+		value := int(dailySalesLimit.Int64)
+		item.DailySalesLimit = &value
+	}
+	if salesResetAt.Valid {
+		item.SalesResetAt = &salesResetAt.Time
 	}
 	return &item, nil
 }
@@ -51,10 +67,12 @@ func (r *postgresMenuItemRepository) Create(ctx context.Context, item *domain.Me
 		deskripsi = sql.NullString{String: *item.Deskripsi, Valid: true}
 	}
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO merchant_menu_items (id, merchant_id, nama, harga, foto, deskripsi, kategori, prep_time_minutes, is_available)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO merchant_menu_items (id, merchant_id, nama, harga, foto, deskripsi, kategori, prep_time_minutes, is_available,
+			stock_quantity, daily_sales_limit, daily_sales_count, sales_limit_reset_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::int, $11::int, $12, $13::timestamptz)
 		RETURNING created_at, updated_at`,
 		item.ID, item.MerchantID, item.Nama, item.Harga, foto, deskripsi, item.Kategori, item.PrepTimeMinutes, item.IsAvailable,
+		item.StockQuantity, item.DailySalesLimit, item.DailySalesCount, item.SalesResetAt,
 	).Scan(&item.CreatedAt, &item.UpdatedAt)
 	return err
 }
@@ -107,9 +125,14 @@ func (r *postgresMenuItemRepository) Update(ctx context.Context, item *domain.Me
 			kategori = COALESCE(NULLIF($7, ''), kategori),
 			prep_time_minutes = CASE WHEN $8 = 0 THEN prep_time_minutes ELSE $8 END,
 			is_available = COALESCE($9, is_available),
+			stock_quantity = $10::int,
+			daily_sales_limit = $11::int,
+			daily_sales_count = $12,
+			sales_limit_reset_at = $13::timestamptz,
 			updated_at = NOW()
 		WHERE id = $1 AND merchant_id = $2`,
 		item.ID, item.MerchantID, item.Nama, item.Harga, foto, deskripsi, item.Kategori, item.PrepTimeMinutes, item.IsAvailable,
+		item.StockQuantity, item.DailySalesLimit, item.DailySalesCount, item.SalesResetAt,
 	)
 	return err
 }
@@ -119,6 +142,25 @@ func (r *postgresMenuItemRepository) SetAvailability(ctx context.Context, id, me
 		UPDATE merchant_menu_items SET is_available = $3, updated_at = NOW()
 		WHERE id = $1 AND merchant_id = $2`, id, merchantID, available)
 	return err
+}
+
+func (r *postgresMenuItemRepository) UpdateInventory(ctx context.Context, id, merchantID string, stockQuantity *int, dailySalesLimit *int, resetAt *time.Time) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE merchant_menu_items SET
+			stock_quantity = $3::int,
+			daily_sales_limit = $4::int,
+			daily_sales_count = CASE WHEN $4::int IS NULL THEN 0 ELSE LEAST(daily_sales_count, $4::int) END,
+			sales_limit_reset_at = $5::timestamptz,
+			is_available = CASE WHEN $3::int = 0 THEN FALSE ELSE is_available END,
+			updated_at = NOW()
+		WHERE id = $1 AND merchant_id = $2`, id, merchantID, stockQuantity, dailySalesLimit, resetAt)
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return fmt.Errorf("menu item tidak ditemukan")
+	}
+	return nil
 }
 
 func (r *postgresMenuItemRepository) Delete(ctx context.Context, id, merchantID string) error {

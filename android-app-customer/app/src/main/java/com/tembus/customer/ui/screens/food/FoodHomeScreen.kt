@@ -75,13 +75,6 @@ import com.tembus.customer.ui.theme.Warning
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// FOOD-BIKE-055: browse merchant terdekat (list + search + filter)
-private val FOOD_EMOJIS = listOf("🍜", "🍲", "🍛", "🍗", "🍚", "🥘", "🍱", "🥗")
-
-/** Deterministic food emoji so each merchant keeps a stable visual across recompositions. */
-fun foodEmojiFor(seed: String): String =
-    FOOD_EMOJIS[Math.abs(seed.hashCode()) % FOOD_EMOJIS.size]
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FoodHomeScreen(
@@ -297,14 +290,19 @@ private fun FoodMerchantCard(
                         error = rememberVectorPainter(Icons.Default.Store)
                     )
                 } else {
-                    // Brand-gradient placeholder with a food emoji (backend hasn't sent a photo yet).
+                    // Do not invent a food image when the API has no media asset.
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Brush.linearGradient(listOf(PrimaryLight, Primary.copy(alpha = 0.55f)))),
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(foodEmojiFor(merchant.id ?: merchant.name), fontSize = 48.sp)
+                        Icon(
+                            imageVector = Icons.Default.Store,
+                            contentDescription = "Foto merchant belum tersedia",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(32.dp)
+                        )
                     }
                 }
                 // Favorite toggle (top-end of image)
@@ -383,14 +381,9 @@ private fun FoodMerchantCard(
                         fontWeight = FontWeight.Bold,
                         color = if (merchant.isOpen) Success else Error
                     )
-                    // Estimasi waktu (mirip GrabFood "≈25 mnt")
-                    val etaMin = if (merchant.distanceKm != null) (8 + (merchant.distanceKm * 4)).toInt() else 25
-                    Text("•", color = MaterialTheme.colorScheme.outlineVariant)
-                    Text(
-                        "≈$etaMin mnt",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // ETA hanya sah setelah server menghitung quote berdasarkan
+                    // menu, alamat tujuan, jadwal, dan supply. Jangan tampilkan
+                    // angka hasil rumus client sebelum input checkout lengkap.
                 }
             }
         }

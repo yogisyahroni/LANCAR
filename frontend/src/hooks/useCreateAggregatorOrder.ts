@@ -7,15 +7,21 @@ export const AGGREGATOR_SERVICE_CODE = "tembus_aggregator";
 export type Coordinate = { lat: number; lng: number };
 
 export type AggregatorQuote = {
+  quote_id: string;
   service: string;
   price: number;
   net_price?: number;
   service_name?: string;
   etd?: string;
+  etd_source?: string;
+  expires_at?: string;
+  rule_version?: string;
+  chargeable_weight_kg?: number;
 };
 
 export type AggregatorOrderDraft = {
   provider: string;
+  origin_code?: string;
   pickup_address: string;
   pickup_location: Coordinate;
   dropoff_address: string;
@@ -81,12 +87,6 @@ const isAggregatorTransactionStage = (value: unknown): value is AggregatorTransa
   value === "payment_session_requested" ||
   value === "awaiting_payment";
 
-/**
- * Parse the server-order reference kept across a browser refresh.
- * The legacy `idempotency_key` field is accepted so an in-flight transaction
- * created by the previous build can still be recovered without creating a
- * second order.
- */
 export function parsePendingAggregatorTransaction(
   raw: string | null,
   now = Date.now(),
@@ -175,6 +175,15 @@ export function buildAggregatorOrderPayload(
   if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
     throw new Error("Tarif pengiriman dari server tidak valid");
   }
+  if (!quote.quote_id?.trim()) {
+    throw new Error("Quote carrier belum memiliki referensi server. Hitung ulang tarif.");
+  }
+  if (quote.expires_at) {
+    const expiresAt = Date.parse(quote.expires_at);
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      throw new Error("Quote carrier sudah kedaluwarsa. Hitung ulang tarif.");
+    }
+  }
 
   return {
     pickup_address: draft.pickup_address.trim(),
@@ -183,6 +192,8 @@ export function buildAggregatorOrderPayload(
     dropoff_location: draft.dropoff_location,
     recipient_name: draft.recipient_name.trim(),
     recipient_phone: draft.recipient_phone.trim(),
+    ...(draft.origin_code ? { origin_code: draft.origin_code } : {}),
+    destination_code: draft.destination_code,
     pickup_city: draft.pickup_city,
     dropoff_city: draft.dropoff_city,
     schedule_type: draft.schedule_type,
@@ -211,16 +222,25 @@ export function buildAggregatorOrderPayload(
     service_code: AGGREGATOR_SERVICE_CODE,
     logistics_provider: draft.provider,
     logistics_service_type: quote.service,
+    aggregator_quote_id: quote.quote_id,
+    // Compatibility fields only. The server reloads the immutable quote and
+    // overwrites these before create; they are never authoritative input.
     logistics_tariff_idr: totalPrice,
     ...(quote.net_price && quote.net_price > 0
       ? { logistics_net_cost_idr: Number(quote.net_price) }
       : {}),
+    quote_id: quote.quote_id,
+    quote_total_price_idr: totalPrice,
+    quote_expires_at: quote.expires_at || undefined,
     price_breakdown: {
       service_code: AGGREGATOR_SERVICE_CODE,
+      quote_id: quote.quote_id,
       total_price_idr: totalPrice,
       provider: draft.provider,
       service_type: quote.service,
       quote_etd: quote.etd || undefined,
+      quote_etd_source: quote.etd_source || undefined,
+      quote_rule_version: quote.rule_version || undefined,
     },
     payment_method: draft.payment_type === "COD" ? "cod" : "midtrans",
   };

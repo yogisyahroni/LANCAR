@@ -82,3 +82,23 @@ func TestReplaceOperatingHours_PersistsAllDays(t *testing.T) {
 		t.Fatalf("persisted=%d response=%d, want all 7", len(repo.replaced), len(response.Hours))
 	}
 }
+
+func TestReplaceOperatingHours_RejectsLastOrderOutsideSupportedWindow(t *testing.T) {
+	repo := &operatingHoursRepo{foodDocsRepo: &foodDocsRepo{merchant: approvedMerchant()}}
+	svc := service.NewMerchantService(repo, nil, nil, nil)
+	hours := make([]domain.MerchantOperatingHour, 7)
+	for weekday := 0; weekday < 7; weekday++ {
+		open, close := "09:00", "21:00"
+		hours[weekday] = domain.MerchantOperatingHour{
+			Weekday: weekday, IsOpen: true, OpensAt: &open, ClosesAt: &close,
+			LastOrderMinutesBeforeClose: 181,
+		}
+	}
+
+	if _, err := svc.ReplaceOperatingHours(context.Background(), "user-1", hours); err == nil {
+		t.Fatal("last order over 180 minutes must be rejected")
+	}
+	if len(repo.replaced) != 0 {
+		t.Fatal("invalid last-order schedule must not be persisted")
+	}
+}

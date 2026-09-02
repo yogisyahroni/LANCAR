@@ -81,7 +81,7 @@ const merchantColumns = `m.id, m.user_id,
 	m.nama_toko, m.alamat,
 	ST_Y(m.lokasi::geometry), ST_X(m.lokasi::geometry),
 	to_char(m.jam_buka, 'HH24:MI'), to_char(m.jam_tutup, 'HH24:MI'),
-	m.is_open, m.paused_until, m.min_order_idr, m.completion_rate_pct, m.verification_status,
+	m.is_open, m.paused_until, m.busy_until, m.busy_extra_prep_minutes, m.min_order_idr, m.completion_rate_pct, m.verification_status,
 	m.avg_rating, m.rating_count,
 	m.halal_cert_number, to_char(m.halal_expiry_date, 'YYYY-MM-DD'),
 	m.spp_irt_number, to_char(m.spp_irt_expiry_date, 'YYYY-MM-DD'),
@@ -97,6 +97,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var lat, lng sql.NullFloat64
 	var jamBuka, jamTutup sql.NullString
 	var pausedUntil sql.NullTime
+	var busyUntil sql.NullTime
 	var avgRating sql.NullFloat64
 	var ratingCount sql.NullInt64
 	var halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp sql.NullString
@@ -109,7 +110,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&m.ID, &m.UserID, &m.OwnerEmail, &m.OwnerPhone, &m.NamaToko, &m.Alamat,
 		&lat, &lng,
 		&jamBuka, &jamTutup,
-		&m.IsOpen, &pausedUntil, &m.MinOrderIDR, &m.CompletionRatePct, &m.VerificationStatus,
+		&m.IsOpen, &pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.CompletionRatePct, &m.VerificationStatus,
 		&avgRating, &ratingCount,
 		&halalNo, &halalExp, &sppNo, &sppExp, &bpomNo, &bpomExp,
 		&halalStatus,
@@ -126,6 +127,9 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	}
 	if pausedUntil.Valid {
 		m.PausedUntil = &pausedUntil.Time
+	}
+	if busyUntil.Valid {
+		m.BusyUntil = &busyUntil.Time
 	}
 	if avgRating.Valid {
 		m.AvgRating = avgRating.Float64
@@ -308,6 +312,16 @@ func (r *postgresMerchantRepository) SetPaused(ctx context.Context, id string, u
 	return err
 }
 
+// SetBusy stores the temporary busy policy without changing is_open. The
+// order-service reads this same row when building the authoritative Food quote.
+func (r *postgresMerchantRepository) SetBusy(ctx context.Context, id string, until *time.Time, extraPrepMinutes int) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE merchants
+		SET busy_until = $2, busy_extra_prep_minutes = $3, updated_at = NOW()
+		WHERE id = $1`, id, until, extraPrepMinutes)
+	return err
+}
+
 func (r *postgresMerchantRepository) ListByVerificationStatus(ctx context.Context, status string, limit, offset int) ([]*domain.Merchant, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT `+merchantColumns+` FROM merchants m JOIN users u ON u.id = m.user_id
@@ -487,7 +501,8 @@ func (r *postgresMerchantRepository) ListForOperatingHoursSync(ctx context.Conte
 func (r *postgresMerchantRepository) GetOperatingHours(ctx context.Context, merchantID string) ([]domain.MerchantOperatingHour, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT merchant_id::text, weekday, is_open,
-			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI')
+			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI'),
+			last_order_minutes_before_close
 		FROM merchant_operating_hours
 		WHERE merchant_id = $1
 		ORDER BY weekday`, merchantID)
@@ -508,14 +523,14 @@ func (r *postgresMerchantRepository) ReplaceOperatingHours(ctx context.Context, 
 		return err
 	}
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO merchant_operating_hours (merchant_id, weekday, is_open, opens_at, closes_at)
-		VALUES ($1, $2, $3, $4::time, $5::time)`)
+		INSERT INTO merchant_operating_hours (merchant_id, weekday, is_open, opens_at, closes_at, last_order_minutes_before_close)
+		VALUES ($1, $2, $3, $4::time, $5::time, $6)`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for _, hour := range hours {
-		if _, err = stmt.ExecContext(ctx, merchantID, hour.Weekday, hour.IsOpen, hour.OpensAt, hour.ClosesAt); err != nil {
+		if _, err = stmt.ExecContext(ctx, merchantID, hour.Weekday, hour.IsOpen, hour.OpensAt, hour.ClosesAt, hour.LastOrderMinutesBeforeClose); err != nil {
 			return err
 		}
 	}
@@ -529,7 +544,8 @@ func (r *postgresMerchantRepository) ListOperatingHoursForMerchants(ctx context.
 	}
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT merchant_id::text, weekday, is_open,
-			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI')
+			TO_CHAR(opens_at, 'HH24:MI'), TO_CHAR(closes_at, 'HH24:MI'),
+			last_order_minutes_before_close
 		FROM merchant_operating_hours
 		WHERE merchant_id = ANY($1)
 		ORDER BY merchant_id, weekday`, pq.Array(merchantIDs))
@@ -623,7 +639,7 @@ func scanOperatingHours(rows *sql.Rows) ([]domain.MerchantOperatingHour, error) 
 	for rows.Next() {
 		var hour domain.MerchantOperatingHour
 		var opensAt, closesAt sql.NullString
-		if err := rows.Scan(&hour.MerchantID, &hour.Weekday, &hour.IsOpen, &opensAt, &closesAt); err != nil {
+		if err := rows.Scan(&hour.MerchantID, &hour.Weekday, &hour.IsOpen, &opensAt, &closesAt, &hour.LastOrderMinutesBeforeClose); err != nil {
 			return nil, err
 		}
 		if opensAt.Valid {

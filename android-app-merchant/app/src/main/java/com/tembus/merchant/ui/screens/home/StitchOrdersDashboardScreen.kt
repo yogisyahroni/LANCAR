@@ -88,7 +88,11 @@ fun StitchOrdersDashboardScreen(
     var rejectTarget by remember { mutableStateOf<MerchantOrder?>(null) }
     var partialRejectTarget by remember { mutableStateOf<MerchantOrder?>(null) }
     var showPauseDialog by remember { mutableStateOf(false) }
+    var showBusyDialog by remember { mutableStateOf(false) }
     val isPaused = state.merchant?.pausedUntil?.let { value ->
+        runCatching { Instant.parse(value).isAfter(Instant.now()) }.getOrDefault(false)
+    } == true
+    val isBusy = state.merchant?.busyUntil?.let { value ->
         runCatching { Instant.parse(value).isAfter(Instant.now()) }.getOrDefault(false)
     } == true
 
@@ -128,9 +132,11 @@ fun StitchOrdersDashboardScreen(
                     name = state.merchant?.namaToko ?: "Merchant",
                     isOpen = state.merchant?.isOpen == true,
                     isPaused = isPaused,
+                    isBusy = isBusy,
                     onToggle = viewModel::toggleOpen,
                     onPause = { showPauseDialog = true },
                     onResume = viewModel::resume,
+                    onBusy = { showBusyDialog = true },
                 )
             }
             item {
@@ -213,6 +219,17 @@ fun StitchOrdersDashboardScreen(
             onDismiss = { if (!state.isPauseLoading) showPauseDialog = false },
         )
     }
+
+    if (showBusyDialog) {
+        BusyOrdersDialog(
+            isSubmitting = state.isPauseLoading,
+            onConfirm = { duration, extraPrep ->
+                showBusyDialog = false
+                viewModel.busy(duration, extraPrep)
+            },
+            onDismiss = { if (!state.isPauseLoading) showBusyDialog = false },
+        )
+    }
 }
 
 @Composable
@@ -220,9 +237,11 @@ private fun StoreStatusCard(
     name: String,
     isOpen: Boolean,
     isPaused: Boolean,
+    isBusy: Boolean,
     onToggle: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
+    onBusy: () -> Unit,
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -248,6 +267,7 @@ private fun StoreStatusCard(
                 Text(
                     when {
                         isPaused -> "Pesanan dijeda sementara"
+                        isBusy -> "Tetap menerima pesanan — waktu masak bertambah"
                         isOpen -> "Toko aktif"
                         else -> "Toko tidak aktif"
                     },
@@ -258,7 +278,10 @@ private fun StoreStatusCard(
             if (isPaused) {
                 OutlinedButton(onClick = onResume, enabled = true) { Text("Lanjutkan pesanan") }
             } else {
-                OutlinedButton(onClick = onPause, enabled = isOpen) { Text("Jeda pesanan") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onPause, enabled = isOpen && !isBusy, modifier = Modifier.weight(1f)) { Text("Jeda") }
+                    OutlinedButton(onClick = onBusy, enabled = isOpen, modifier = Modifier.weight(1f)) { Text("Mode sibuk") }
+                }
             }
         }
     }
@@ -291,6 +314,45 @@ private fun PauseOrdersDialog(
         confirmButton = {
             Button(onClick = { onConfirm(selectedMinutes) }, enabled = !isSubmitting) {
                 Text(if (isSubmitting) "Menyimpan..." else "Jeda sekarang")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Batal") } },
+    )
+}
+
+@Composable
+private fun BusyOrdersDialog(
+    isSubmitting: Boolean,
+    onConfirm: (durationMinutes: Int, extraPrepMinutes: Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selectedDuration by remember { mutableStateOf(60) }
+    var selectedExtraPrep by remember { mutableStateOf(15) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Mode sibuk") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Toko tetap menerima order, tetapi ETA persiapan ditambah:")
+                Text("Durasi", fontWeight = FontWeight.Bold)
+                listOf(30, 60, 120, 180).forEach { minutes ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = selectedDuration == minutes, onClick = { selectedDuration = minutes })
+                        Text("$minutes menit", modifier = Modifier.clickable { selectedDuration = minutes })
+                    }
+                }
+                Text("Tambahan waktu masak", fontWeight = FontWeight.Bold)
+                listOf(10, 15, 30, 60).forEach { minutes ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = selectedExtraPrep == minutes, onClick = { selectedExtraPrep = minutes })
+                        Text("+$minutes menit", modifier = Modifier.clickable { selectedExtraPrep = minutes })
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(selectedDuration, selectedExtraPrep) }, enabled = !isSubmitting) {
+                Text(if (isSubmitting) "Menyimpan..." else "Aktifkan mode sibuk")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Batal") } },

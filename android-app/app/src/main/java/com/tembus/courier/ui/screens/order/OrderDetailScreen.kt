@@ -126,7 +126,7 @@ fun OrderDetailScreen(
     onOpenTambalBanFlow: () -> Unit = {},
     onOpenTowingFlow: () -> Unit = {},
     onSosClick: () -> Unit = {},
-    onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit = { _, _, _, _ -> },
+    onReportIssue: (eventType: String, reasonCode: String?, severity: String, message: String, photoFile: File?) -> Unit = { _, _, _, _, _ -> },
     onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit = { _, _, _ -> },
     onLogLocalSecurity: (String, () -> Unit) -> Unit = { _, cb -> cb() },
     onRetrySync: () -> Unit = {},

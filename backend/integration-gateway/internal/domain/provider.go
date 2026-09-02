@@ -71,6 +71,13 @@ type TariffRequest struct {
 	OriginCode      string  `json:"origin_code"`
 	DestinationCode string  `json:"destination_code"`
 	WeightKG        float64 `json:"weight_kg"`
+	LengthCM        float64 `json:"length_cm,omitempty"`
+	WidthCM         float64 `json:"width_cm,omitempty"`
+	HeightCM        float64 `json:"height_cm,omitempty"`
+	ItemValueIDR    int64   `json:"item_value_idr,omitempty"`
+	Category        string  `json:"category,omitempty"`
+	Insurance       bool    `json:"insurance,omitempty"`
+	COD             bool    `json:"cod,omitempty"`
 	ServiceType     string  `json:"service_type"` // e.g., REG, YES, EZ
 }
 

@@ -219,7 +219,11 @@ func (s *merchantServiceImpl) ReplaceOperatingHours(ctx context.Context, userID 
 		hour.MerchantID = m.ID
 		if !hour.IsOpen {
 			hour.OpensAt, hour.ClosesAt = nil, nil
+			hour.LastOrderMinutesBeforeClose = 0
 			continue
+		}
+		if hour.LastOrderMinutesBeforeClose < 0 || hour.LastOrderMinutesBeforeClose > 180 {
+			return nil, errors.New("batas last order harus antara 0 dan 180 menit")
 		}
 		if hour.OpensAt == nil || hour.ClosesAt == nil || !validClock(*hour.OpensAt) || !validClock(*hour.ClosesAt) || *hour.OpensAt == *hour.ClosesAt {
 			return nil, errors.New("jam buka dan tutup harus valid serta tidak boleh sama")
@@ -330,6 +334,34 @@ func (s *merchantServiceImpl) Resume(ctx context.Context, userID string) (*domai
 		return nil, err
 	}
 	if err := s.merchantRepo.SetPaused(ctx, m.ID, nil); err != nil {
+		return nil, err
+	}
+	return s.merchantRepo.GetByID(ctx, m.ID)
+}
+
+// Busy (FOOD-2026-011): merchant tetap menerima order, tetapi quote Food
+// memasukkan tambahan prep yang tersimpan sampai `until`.
+func (s *merchantServiceImpl) Busy(ctx context.Context, userID string, until time.Time, extraPrepMinutes int) (*domain.Merchant, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	if until.Before(time.Now()) {
+		return nil, errors.New("waktu busy harus di masa depan")
+	}
+	if extraPrepMinutes < 0 || extraPrepMinutes > 180 {
+		return nil, errors.New("extra_prep_minutes harus 0-180")
+	}
+	repo, ok := s.merchantRepo.(interface {
+		SetBusy(context.Context, string, *time.Time, int) error
+	})
+	if !ok {
+		return nil, errors.New("konfigurasi busy belum tersedia")
+	}
+	if err := repo.SetBusy(ctx, m.ID, &until, extraPrepMinutes); err != nil {
 		return nil, err
 	}
 	return s.merchantRepo.GetByID(ctx, m.ID)
@@ -631,6 +663,12 @@ func (s *merchantServiceImpl) CreateMenuItem(ctx context.Context, userID string,
 	if req.PrepTimeMinutes <= 0 {
 		req.PrepTimeMinutes = 15 // default prep time
 	}
+	if req.StockQuantity != nil && *req.StockQuantity < 0 {
+		return nil, errors.New("stok tidak boleh negatif")
+	}
+	if req.DailySalesLimit != nil && *req.DailySalesLimit < 0 {
+		return nil, errors.New("batas penjualan harian tidak boleh negatif")
+	}
 	available := true
 	if req.IsAvailable != nil {
 		available = *req.IsAvailable
@@ -646,6 +684,12 @@ func (s *merchantServiceImpl) CreateMenuItem(ctx context.Context, userID string,
 		Kategori:        strings.TrimSpace(req.Kategori),
 		PrepTimeMinutes: req.PrepTimeMinutes,
 		IsAvailable:     available,
+		StockQuantity:   req.StockQuantity,
+		DailySalesLimit: req.DailySalesLimit,
+	}
+	if req.DailySalesLimit != nil {
+		resetAt := nextInventoryReset(time.Now())
+		item.SalesResetAt = &resetAt
 	}
 	if err := s.menuRepo.Create(ctx, item); err != nil {
 		return nil, err
@@ -690,6 +734,20 @@ func (s *merchantServiceImpl) UpdateMenuItem(ctx context.Context, userID string,
 	if req.IsAvailable != nil {
 		item.IsAvailable = *req.IsAvailable
 	}
+	if req.StockQuantity != nil {
+		if *req.StockQuantity < 0 {
+			return nil, errors.New("stok tidak boleh negatif")
+		}
+		item.StockQuantity = req.StockQuantity
+	}
+	if req.DailySalesLimit != nil {
+		if *req.DailySalesLimit < 0 {
+			return nil, errors.New("batas penjualan harian tidak boleh negatif")
+		}
+		item.DailySalesLimit = req.DailySalesLimit
+		resetAt := nextInventoryReset(time.Now())
+		item.SalesResetAt = &resetAt
+	}
 
 	if err := s.menuRepo.Update(ctx, item); err != nil {
 		return nil, err
@@ -714,6 +772,40 @@ func (s *merchantServiceImpl) SetMenuItemAvailability(ctx context.Context, userI
 		return nil, err
 	}
 	return s.menuRepo.GetByID(ctx, itemID)
+}
+
+func (s *merchantServiceImpl) UpdateMenuInventory(ctx context.Context, userID string, itemID string, req domain.UpdateMenuInventoryRequest) (*domain.MenuItem, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.menuRepo.GetByID(ctx, itemID)
+	if err != nil {
+		return nil, err
+	}
+	if item == nil || item.MerchantID != m.ID {
+		return nil, errors.New("menu item tidak ditemukan")
+	}
+	if req.StockQuantity != nil && *req.StockQuantity < 0 {
+		return nil, errors.New("stok tidak boleh negatif")
+	}
+	if req.DailySalesLimit != nil && *req.DailySalesLimit < 0 {
+		return nil, errors.New("batas penjualan harian tidak boleh negatif")
+	}
+	var resetAt *time.Time
+	if req.DailySalesLimit != nil {
+		nextDay := nextInventoryReset(time.Now())
+		resetAt = &nextDay
+	}
+	if err := s.menuRepo.UpdateInventory(ctx, itemID, m.ID, req.StockQuantity, req.DailySalesLimit, resetAt); err != nil {
+		return nil, err
+	}
+	return s.menuRepo.GetByID(ctx, itemID)
+}
+
+func nextInventoryReset(now time.Time) time.Time {
+	now = now.In(time.Local)
+	return time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 }
 
 func (s *merchantServiceImpl) ListMenuItems(ctx context.Context, userID string, page, pageSize int) ([]*domain.MenuItem, int, error) {

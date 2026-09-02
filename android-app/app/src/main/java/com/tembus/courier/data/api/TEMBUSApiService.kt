@@ -33,6 +33,8 @@ import com.tembus.courier.data.model.CourierRegistrationData
 import com.tembus.courier.data.model.CourierRegistrationRequest
 import com.tembus.courier.data.model.CancelPickupReason
 import com.tembus.courier.data.model.DutyStatusRequest
+import com.tembus.courier.data.model.IssueHandoffTokenRequest
+import com.tembus.courier.data.model.ConsumeHandoffTokenRequest
 import com.tembus.courier.data.model.FCMTokenRequest
 import com.tembus.courier.data.model.LocationRequest
 import com.tembus.courier.data.model.UpdateCapacityRequest
@@ -215,6 +217,7 @@ interface TEMBUSApiService {
     suspend fun createSafetyEventWithPhoto(
         @Part("order_id") orderId: RequestBody?,
         @Part("event_type") eventType: RequestBody,
+        @Part("reason_code") reasonCode: RequestBody?,
         @Part("severity") severity: RequestBody,
         @Part("latitude") latitude: RequestBody?,
         @Part("longitude") longitude: RequestBody?,
@@ -342,6 +345,18 @@ interface TEMBUSApiService {
         @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: ScanRequest
     ): Response<ApiResponse<ScanResponse>>
+
+    @POST("api/v1/orders/handoff/tokens")
+    suspend fun issueHandoffToken(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: IssueHandoffTokenRequest
+    ): Response<ApiResponse<kotlinx.serialization.json.JsonElement>>
+
+    @POST("api/v1/orders/handoff/tokens/consume")
+    suspend fun consumeHandoffToken(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: ConsumeHandoffTokenRequest
+    ): Response<ApiResponse<kotlinx.serialization.json.JsonElement>>
 
     /**
      * Upload Proof of Delivery image

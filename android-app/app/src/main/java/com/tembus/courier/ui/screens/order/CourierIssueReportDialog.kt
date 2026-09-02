@@ -107,7 +107,7 @@ internal fun CourierIssueReportDialog(
     order: Order,
     pickupDone: Boolean,
     onDismiss: () -> Unit,
-    onSubmit: (eventType: String, severity: String, message: String, photoFile: File) -> Unit
+    onSubmit: (eventType: String, reasonCode: String, severity: String, message: String, photoFile: File) -> Unit
 ) {
     val context = LocalContext.current
     val isOnDemand = order.normalizedWorkflowRole() == "on_demand"
@@ -209,6 +209,7 @@ internal fun CourierIssueReportDialog(
                     val bitmap = proofBitmap
                     if (trimmed.length >= 8 && bitmap != null) {
                         onSubmit(
+                            "failed_delivery",
                             selectedReason.code,
                             selectedReason.severity,
                             "${selectedReason.title}: $trimmed",

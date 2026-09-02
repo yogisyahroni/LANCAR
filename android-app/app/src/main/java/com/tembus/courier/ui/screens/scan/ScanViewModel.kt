@@ -48,7 +48,8 @@ class ScanViewModel @Inject constructor(
         longitude: Double,
         accuracy: Float?,
         scanType: String = CourierProofTypes.PICKUP_SCAN,
-        barcodeValue: String? = null
+        barcodeValue: String? = null,
+        handoffToken: String? = null
     ) {
         viewModelScope.launch {
             _uiState.value = ScanUiState.Loading
@@ -61,6 +62,7 @@ class ScanViewModel @Inject constructor(
                     accuracy = accuracy,
                     barcodeValue = barcodeValue,
                     packageCode = barcodeValue,
+                    handoffToken = handoffToken,
                     spoofRisk = accuracy?.let { if (it > 50f) "low_accuracy" else "normal" } ?: "unknown_accuracy"
                 )
 

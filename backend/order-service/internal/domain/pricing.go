@@ -84,6 +84,15 @@ type PricingEstimateResponse struct {
 	Height       float64      `json:"height,omitempty"`
 	Weight       float64      `json:"weight,omitempty"`
 	PackageFacts PackageFacts `json:"package_facts,omitempty"`
+	// Food quote payload is stored in the existing Redis quote envelope so
+	// order creation can consume the exact server-calculated snapshot.
+	FoodMerchantID     string                 `json:"food_merchant_id,omitempty"`
+	FoodItems          []FoodOrderItemRequest `json:"food_items,omitempty"`
+	FoodDropoffAddress string                 `json:"food_dropoff_address,omitempty"`
+	FoodDropoffCity    string                 `json:"food_dropoff_city,omitempty"`
+	FoodDropoffZipCode string                 `json:"food_dropoff_zip_code,omitempty"`
+	FoodVoucherCode    string                 `json:"food_voucher_code,omitempty"`
+	FoodScheduledAt    *time.Time             `json:"food_scheduled_at,omitempty"`
 }
 
 func (q PricingEstimateResponse) QuoteIDOrEstimateID() string {

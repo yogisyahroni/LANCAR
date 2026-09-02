@@ -69,6 +69,8 @@ type MerchantService interface {
 	Pause(ctx context.Context, userID string, until time.Time) (*Merchant, error)
 	// Resume (FB-107): batalkan pause sementara lebih awal.
 	Resume(ctx context.Context, userID string) (*Merchant, error)
+	// Busy: tetap menerima order dengan tambahan waktu prep sampai `until`.
+	Busy(ctx context.Context, userID string, until time.Time, extraPrepMinutes int) (*Merchant, error)
 	// UpdateFoodDocs update dokumen pangan (FB-092): nomor sertifikat halal
 	// BPJPH, SPP-IRT, izin edar BPOM + masa berlaku. Buka toko ditolak
 	// kalau belum lengkap / expired.
@@ -82,6 +84,7 @@ type MerchantService interface {
 	UpdateMenuItem(ctx context.Context, userID string, itemID string, req UpdateMenuItemRequest) (*MenuItem, error)
 	DeleteMenuItem(ctx context.Context, userID string, itemID string) error
 	SetMenuItemAvailability(ctx context.Context, userID string, itemID string, available bool) (*MenuItem, error)
+	UpdateMenuInventory(ctx context.Context, userID string, itemID string, req UpdateMenuInventoryRequest) (*MenuItem, error)
 	ListMenuItems(ctx context.Context, userID string, page, pageSize int) ([]*MenuItem, int, error)
 	// GetMenuItemVariants (FB-108): grup varian + opsi menu item milik user.
 	GetMenuItemVariants(ctx context.Context, userID string, itemID string) ([]*MenuItemVariant, error)

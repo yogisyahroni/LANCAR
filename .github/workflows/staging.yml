@@ -3,17 +3,14 @@ name: CI/CD Staging
 on:
   workflow_dispatch:
   push:
-    branches: [staging, "chore/**", "feat/**", "fix/**"]
-  pull_request:
-    branches: [staging]
+    branches: [staging, "chore/**", "feat/**", "fix/**", "hotfix/**", "recovery/**", "agent/**"]
 
-# Cancel in-progress runs on the same branch (save CI minutes)
+# Ordinary TASK-ID development is PR-less. Worker branches run the full
+# pre-integration verification path; only the staging ref may publish/deploy.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Ephemeral GitHub Actions service database only; never reuse these values for
-# staging or production runtime infrastructure.
 env:
   CI_POSTGRES_USER: tembus_ci
   CI_POSTGRES_PASSWORD: tembus_ci_ephemeral_db_auth
@@ -27,35 +24,26 @@ env:
   STAGING_ADMIN_SOCKET_URL: ${{ vars.VITE_SOCKET_URL || 'https://api.tembus.id' }}
 
 jobs:
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 1: BUILD & TEST (parallel)
-  # ═══════════════════════════════════════════════════════════
-
   frontend:
     name: Frontend Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install dependencies
         working-directory: ./frontend
         run: npm ci
-
       - name: Run Linter
         working-directory: ./frontend
         run: npm run lint
-
       - name: Run Unit Tests
         working-directory: ./frontend
         run: npm run test
-
       - name: Build
         working-directory: ./frontend
         run: npm run build
@@ -72,23 +60,17 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
       - name: Fail on Google Maps runtime residue
         shell: bash
         run: |
           set -euo pipefail
-
           if grep -RInE 'google_maps|GOOGLE_MAPS|GOOGLE_ROUTES|GOOGLE_DIRECTIONS|maps\.googleapis\.com|routes\.googleapis\.com|GoogleMapCanvas|play-services-maps|com\.google\.maps\.android|com\.google\.android\.gms\.maps|google\.navigation' \
-            --exclude-dir=node_modules \
-            --exclude-dir=build \
-            --exclude-dir=dist \
-            --exclude-dir=.gradle \
+            --exclude-dir=node_modules --exclude-dir=build --exclude-dir=dist --exclude-dir=.gradle \
             backend admin-dashboard frontend android-app android-app-customer docker-compose.yml docker-compose.prod.yml .env.example; then
             echo "Google Maps runtime residue detected. Firebase google-services and Play Services Location are allowed; Google Maps is not." >&2
             exit 1
           fi
 
-  # ───────────────────────────────────────────────
   admin-service:
     name: Admin Service Test
     runs-on: ubuntu-latest
@@ -116,34 +98,25 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: backend/admin-service/package-lock.json
-
       - name: Install dependencies
         working-directory: ./backend/admin-service
         run: npm ci
-
-      - name: Run Linter
+      - name: Typecheck
         working-directory: ./backend/admin-service
-        # Assuming eslint might not be defined explicitly in package.json, we use npx if needed, but it should be available.
-        run: npx eslint . || echo "ESLint not fully configured yet"
-
+        run: npx tsc --noEmit
       - name: Run tests
         working-directory: ./backend/admin-service
-        # Coverage remains a separate opt-in gate until the legacy baseline reaches
-        # the configured thresholds. Functional staging tests must not collect it
-        # implicitly through a stale Jest config on a remote runner.
         run: npm test -- --testTimeout=60000 --coverage=false
         env:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
           NODE_ENV: test
 
-  # ───────────────────────────────────────────────
   auth-service:
     name: Auth Service Test
     runs-on: ubuntu-latest
@@ -171,24 +144,20 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.6'
           cache-dependency-path: backend/auth-service/go.sum
-
       - name: Verify modules are tidy
         working-directory: ./backend/auth-service
         run: |
           go mod tidy
           go mod verify
-
       - name: Run golangci-lint
         working-directory: backend/auth-service
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           golangci-lint run ./... --timeout=5m
-
       - name: Run tests
         working-directory: ./backend/auth-service
         run: go test -v -race -timeout 5m ./...
@@ -196,7 +165,6 @@ jobs:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
-  # ───────────────────────────────────────────────
   routing-service:
     name: Routing Service Test
     runs-on: ubuntu-latest
@@ -224,24 +192,20 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.6'
           cache-dependency-path: backend/routing-service/go.sum
-
       - name: Verify modules are tidy
         working-directory: ./backend/routing-service
         run: |
           go mod tidy
           go mod verify
-
       - name: Run golangci-lint
         working-directory: backend/routing-service
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           golangci-lint run ./... --timeout=5m
-
       - name: Run tests
         working-directory: ./backend/routing-service
         run: go test -v -race -timeout 5m ./...
@@ -249,7 +213,6 @@ jobs:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
-  # ───────────────────────────────────────────────
   migration-test:
     name: Migration Test
     runs-on: ubuntu-latest
@@ -269,29 +232,22 @@ jobs:
           --health-retries 15
     steps:
       - uses: actions/checkout@v4
-
       - name: Install goose
         run: |
           go install github.com/pressly/goose/v3/cmd/goose@latest
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
       - name: Run migrations UP
         run: |
           goose -dir database/migrations postgres \
-            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" \
-            up
-
+            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" up
       - name: Verify migration version
         run: |
           goose -dir database/migrations postgres \
-            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" \
-            version
-
+            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" version
       - name: Run migrations DOWN (rollback test)
         run: |
           goose -dir database/migrations postgres \
-            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" \
-            down
+            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" down
 
   observability-guard:
     name: Observability Guard
@@ -300,27 +256,19 @@ jobs:
     needs: [frontend, maps-runtime-guard, admin-service, auth-service, routing-service, migration-test]
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-
       - name: Static observability leak guard
         run: node scripts/ci/observability-guard.mjs
-
       - name: Validate OpenTelemetry Collector config
         run: |
           docker run --rm \
             -v "${{ github.workspace }}/observability/otel-collector-config.yml:/etc/otelcol/config.yml:ro" \
             otel/opentelemetry-collector-contrib:0.128.0 \
             validate --config=/etc/otelcol/config.yml
-
       - name: Docker Compose observability config check
         run: GRAFANA_ADMIN_PASSWORD=ci-only-observability-password docker compose config --quiet
-
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 2: SECURITY SCANS (needs all tests to pass)
-  # ═══════════════════════════════════════════════════════════
 
   security:
     name: Security Scan
@@ -330,13 +278,10 @@ jobs:
     permissions:
       contents: read
       checks: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history for gitleaks
-
-      # ── Node.js dependency audit ──────────────────────────
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -345,50 +290,41 @@ jobs:
         run: |
           npm ci --quiet
           npm audit --audit-level=high
-
       - name: npm audit (admin-service)
         working-directory: ./backend/admin-service
         run: |
           npm ci --quiet
           npm audit --audit-level=high
-
-      # ── Go vulnerability check ───────────────────────────
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.6'
-
       - name: Show Go version
         run: go version
-
       - name: govulncheck (auth-service)
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          cd backend/auth-service && go mod tidy && govulncheck ./... || echo "⚠️  govulncheck found issues — review logs above"
-
+          cd backend/auth-service
+          go mod tidy
+          govulncheck ./...
       - name: govulncheck (routing-service)
         run: |
-          cd backend/routing-service && go mod tidy && govulncheck ./... || echo "⚠️  govulncheck found issues — review logs above"
-
-      # ── Go static security analysis ───────────────────────
+          cd backend/routing-service
+          go mod tidy
+          govulncheck ./...
       - name: gosec (auth-service)
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          cd backend/auth-service && gosec -severity high -confidence high ./... 2>&1 || true
-
+          cd backend/auth-service
+          gosec -severity high -confidence high ./...
       - name: gosec (routing-service)
         run: |
-          cd backend/routing-service && gosec -severity high -confidence high ./... 2>&1 || true
-
-      # ── Secret scanning ───────────────────────────────────
+          cd backend/routing-service
+          gosec -severity high -confidence high ./...
       - name: Gitleaks (secret scanning)
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
-
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 3: CONTAINER SUPPLY-CHAIN SECURITY GATE
-  # ═══════════════════════════════════════════════════════════
 
   container-security:
     name: Container SBOM & Secret Audit (${{ matrix.image }})
@@ -401,32 +337,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: auth-service
-            context: ./backend/auth-service
-          - image: routing-service
-            context: ./backend/routing-service
-          - image: admin-service
-            context: ./backend/admin-service
-          - image: order-service
-            context: ./backend/order-service
-          - image: datalake-worker
-            context: ./backend/datalake-worker
-          - image: payment-service
-            context: ./backend/payment-service
-          - image: api-gateway
-            context: ./backend/api-gateway
-          - image: frontend
-            context: ./frontend
-          - image: admin-dashboard
-            context: ./admin-dashboard
+          - { image: auth-service, context: ./backend/auth-service }
+          - { image: routing-service, context: ./backend/routing-service }
+          - { image: admin-service, context: ./backend/admin-service }
+          - { image: order-service, context: ./backend/order-service }
+          - { image: datalake-worker, context: ./backend/datalake-worker }
+          - { image: payment-service, context: ./backend/payment-service }
+          - { image: api-gateway, context: ./backend/api-gateway }
+          - { image: frontend, context: ./frontend }
+          - { image: admin-dashboard, context: ./admin-dashboard }
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver: docker
-
       - name: Build local image for audit
         uses: docker/build-push-action@v5
         with:
@@ -442,7 +367,6 @@ jobs:
             VITE_API_URL=${{ env.STAGING_ADMIN_API_URL }}
             VITE_WS_URL=${{ env.STAGING_ADMIN_WS_URL }}
             VITE_SOCKET_URL=${{ env.STAGING_ADMIN_SOCKET_URL }}
-
       - name: Generate CycloneDX SBOM
         uses: aquasecurity/trivy-action@0.35.0
         with:
@@ -450,7 +374,6 @@ jobs:
           image-ref: tembus-local/${{ matrix.image }}:${{ github.sha }}
           format: cyclonedx
           output: sbom-${{ matrix.image }}.cdx.json
-
       - name: Scan image for secrets, vulnerabilities, and config risks
         uses: aquasecurity/trivy-action@0.35.0
         with:
@@ -461,17 +384,12 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           format: table
-
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
           name: sbom-${{ matrix.image }}
           path: sbom-${{ matrix.image }}.cdx.json
           retention-days: 30
-
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 4: DOCKER BUILD & PUSH
-  # ═══════════════════════════════════════════════════════════
 
   docker-build-push:
     name: Build & Push Docker Images
@@ -484,20 +402,16 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Lowercase repo name
         run: echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
-
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and Push Auth Service
         uses: docker/build-push-action@v5
         with:
@@ -509,7 +423,6 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/auth-service:staging
             ghcr.io/${{ env.REPO_LOWER }}/auth-service:staging-${{ github.sha }}
-
       - name: Build and Push Routing Service
         uses: docker/build-push-action@v5
         with:
@@ -521,7 +434,6 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/routing-service:staging
             ghcr.io/${{ env.REPO_LOWER }}/routing-service:staging-${{ github.sha }}
-
       - name: Build and Push Admin Service
         uses: docker/build-push-action@v5
         with:
@@ -533,7 +445,6 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:staging
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:staging-${{ github.sha }}
-
       - name: Build and Push Order Service
         uses: docker/build-push-action@v5
         with:
@@ -545,7 +456,6 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/order-service:staging
             ghcr.io/${{ env.REPO_LOWER }}/order-service:staging-${{ github.sha }}
-
       - name: Build and Push Datalake Worker
         uses: docker/build-push-action@v5
         with:
@@ -557,7 +467,6 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/datalake-worker:staging
             ghcr.io/${{ env.REPO_LOWER }}/datalake-worker:staging-${{ github.sha }}
-
       - name: Build and Push Payment Service
         uses: docker/build-push-action@v5
         with:
@@ -569,7 +478,6 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/payment-service:staging
             ghcr.io/${{ env.REPO_LOWER }}/payment-service:staging-${{ github.sha }}
-
       - name: Build and Push API Gateway
         uses: docker/build-push-action@v5
         with:
@@ -581,7 +489,6 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/api-gateway:staging
             ghcr.io/${{ env.REPO_LOWER }}/api-gateway:staging-${{ github.sha }}
-
       - name: Build and Push Frontend
         uses: docker/build-push-action@v5
         with:
@@ -597,7 +504,6 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/frontend:staging
             ghcr.io/${{ env.REPO_LOWER }}/frontend:staging-${{ github.sha }}
-
       - name: Build and Push Admin Dashboard
         uses: docker/build-push-action@v5
         with:
@@ -614,10 +520,6 @@ jobs:
             ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:staging
             ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:staging-${{ github.sha }}
 
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 5: DEPLOY TO STAGING
-  # ═══════════════════════════════════════════════════════════
-
   deploy:
     name: Deploy to Staging
     runs-on: ubuntu-latest
@@ -625,21 +527,19 @@ jobs:
     needs: [docker-build-push]
     if: github.ref == 'refs/heads/staging'
     environment: staging
+    outputs:
+      deployed: ${{ steps.deploy_ssh.outputs.deployed || 'false' }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Check required secrets
         id: check_secrets
         run: |
           if [ -z "${{ secrets.STAGING_SSH_HOST }}" ]; then
-            echo "⚠️  STAGING_SSH_HOST belum di-set. Deploy di-skip."
-            echo "   Tambahkan di: Settings → Secrets and Variables → Actions"
+            echo "⚠️ STAGING_SSH_HOST belum di-set. Deploy di-skip; release validation tetap pending."
             echo "has_ssh=false" >> $GITHUB_OUTPUT
           else
-            echo "✅ SSH secrets configured. Proceeding with deploy."
             echo "has_ssh=true" >> $GITHUB_OUTPUT
           fi
-
       - name: Write SSH private key
         if: steps.check_secrets.outputs.has_ssh == 'true'
         run: |
@@ -647,8 +547,8 @@ jobs:
           echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p ${{ secrets.STAGING_SSH_PORT || '22' }} ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-
       - name: Deploy via SSH
+        id: deploy_ssh
         if: steps.check_secrets.outputs.has_ssh == 'true'
         env:
           REPO_LOWER: ${{ github.repository }}
@@ -660,15 +560,10 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           REPO_LOWER_LC="${REPO_LOWER,,}"
-
           ssh -i ~/.ssh/id_rsa -p "${STAGING_SSH_PORT}" "${STAGING_SSH_USER}@${STAGING_SSH_HOST}" bash -s << EOF
           set -euo pipefail
           cd "${STAGING_APP_DIR}"
-
-          echo "📋 Step 1: Log in to GHCR..."
           echo "${GHCR_TOKEN}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-          echo "📋 Step 2: Pull new images..."
           docker pull ghcr.io/${REPO_LOWER_LC}/auth-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/routing-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/admin-service:${SHA}
@@ -678,86 +573,64 @@ jobs:
           docker pull ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/frontend:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/admin-dashboard:${SHA}
-
-          echo "📋 Step 3: Starting Traefik (if not running)..."
           docker-compose up -d traefik
-
-          echo "📋 Step 4: Rolling update services (Zero Downtime)..."
           export CURRENT_SHA="${SHA}"
           export REPO="${REPO_LOWER_LC}"
-
           for svc in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
-            echo "  ↻ Rolling update for \${svc}..."
-            
-            # Find the old container ID
             OLD_CONTAINER=\$(docker-compose ps -q \${svc} | head -n 1 || true)
-            
-            # Scale up to 2 instances to create the new container alongside the old one
             docker-compose up -d --no-deps --scale \${svc}=2 --no-recreate \${svc} || true
-            
-            # Wait for the new container to become healthy
-            echo "  ⏳ Waiting 30s for \${svc} healthcheck to pass..."
             sleep 30
-            
-            # Auto-Rollback check
             NEW_CONTAINER=\$(docker-compose ps -q \${svc} | grep -v "^\${OLD_CONTAINER}\$" | head -n 1 || true)
             if [ -n "\${NEW_CONTAINER}" ]; then
               IS_HEALTHY=\$(docker inspect --format='{{json .State.Health.Status}}' \${NEW_CONTAINER} 2>/dev/null || echo '"healthy"')
               if [ "\${IS_HEALTHY}" == '"unhealthy"' ]; then
-                 echo "  🚨 CRITICAL: \${svc} is unhealthy! Initiating Auto-Rollback..."
-                 docker stop \${NEW_CONTAINER} || true
-                 docker rm \${NEW_CONTAINER} || true
-                 docker-compose up -d --no-deps --scale \${svc}=1 --no-recreate \${svc} || true
-                 echo "❌ Deployment failed for \${svc}. Rollback applied."
-                 exit 1
+                docker stop \${NEW_CONTAINER} || true
+                docker rm \${NEW_CONTAINER} || true
+                docker-compose up -d --no-deps --scale \${svc}=1 --no-recreate \${svc} || true
+                exit 1
               fi
             fi
-            
-            # Stop and remove the old container
             if [ -n "\${OLD_CONTAINER}" ]; then
-              echo "  ⏹️ Stopping old \${svc} container (\${OLD_CONTAINER})..."
               docker stop \${OLD_CONTAINER} || true
               docker rm \${OLD_CONTAINER} || true
             fi
-            
-            # Reconcile compose state back to 1 instance
             docker-compose up -d --no-deps --scale \${svc}=1 --no-recreate \${svc} || true
           done
-
-          echo "📋 Step 5: Health check (Traefik Gateway)..."
           sleep 5
-          curl -sf http://localhost:8080/health && echo "✅ API Gateway healthy" || echo "⚠️ Health check failed — check logs"
-
-          echo "📋 Step 6: Cleanup old images..."
+          curl -sf http://localhost:8080/health
           docker image prune -f --filter "until=24h" || true
-
-          echo "🎉 Staging deployment complete!"
           EOF
+          echo "deployed=true" >> "$GITHUB_OUTPUT"
 
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 5: REGRESSION TESTING (setiap push ke staging)
-  # API + E2E browser — hard gate, bukan continue-on-error
-  # ═══════════════════════════════════════════════════════════
+  release-validation-pending:
+    name: Release Validation Pending
+    needs: [deploy]
+    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record pending external validation
+        run: |
+          echo "### Release validation pending" >> "$GITHUB_STEP_SUMMARY"
+          echo "The commit passed repository verification and container publication, but no staging SSH deployment occurred." >> "$GITHUB_STEP_SUMMARY"
+          echo "External staging E2E/API validation is intentionally deferred until staging deployment is configured." >> "$GITHUB_STEP_SUMMARY"
 
   regression-api:
     name: API Regression (k6)
     needs: [deploy]
-    if: github.ref == 'refs/heads/staging'
+    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
       - name: Check staging API availability
         id: check_api
         run: |
           if [ -z "${{ secrets.TEST_USER_EMAIL }}" ] || [ -z "${{ secrets.TEST_USER_PASSWORD }}" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
-            echo "⚠️  TEST_USER_EMAIL/TEST_USER_PASSWORD belum di-set. API regression di-skip."
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
-
       - name: Run k6 API regression
         if: steps.check_api.outputs.skip == 'false'
         uses: grafana/k6-action@v0.3.1
@@ -775,42 +648,31 @@ jobs:
     needs: [deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    if: github.ref == 'refs/heads/staging'
-    # HARD GATE: regression E2E wajib hijau sebelum deploy dinyatakan sukses.
-    # Staging sudah live (bawain.my.id) — kegagalan E2E = merah, bukan skip.
+    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true'
     steps:
       - uses: actions/checkout@v4
-
       - name: Check if STAGING_URL is configured
         id: check_url
         run: |
           if [ -z "${{ vars.STAGING_URL }}" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
-            echo "⚠️  STAGING_URL belum di-set di GitHub Variables."
-            echo "   E2E test di-skip. Set STAGING_URL di:"
-            echo "   Settings → Environments → staging → Variables"
           else
             echo "skip=false" >> $GITHUB_OUTPUT
-            echo "✅ STAGING_URL: ${{ vars.STAGING_URL }}"
           fi
-
       - uses: actions/setup-node@v4
         if: steps.check_url.outputs.skip == 'false'
         with:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install dependencies
         if: steps.check_url.outputs.skip == 'false'
         working-directory: ./frontend
         run: npm ci
-
       - name: Install Playwright Chromium
         if: steps.check_url.outputs.skip == 'false'
         working-directory: ./frontend
         run: npx playwright install --with-deps chromium
-
       - name: Run E2E against Staging URL
         if: steps.check_url.outputs.skip == 'false'
         working-directory: ./frontend
@@ -819,7 +681,6 @@ jobs:
           BASE_URL: ${{ vars.STAGING_URL }}
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-
       - name: Upload Playwright Report
         if: always() && steps.check_url.outputs.skip == 'false'
         uses: actions/upload-artifact@v4
@@ -828,21 +689,9 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 7
 
-      - name: Comment on PR if E2E failed
-        if: failure() && steps.check_url.outputs.skip == 'false'
-        uses: mshick/add-pr-comment@v2
-        with:
-          message: |
-            ❌ **E2E Test Failed** - ada error di browser staging.
-            Lihat report: [Playwright Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 6: NOTIFICATION (Telegram)
-  # ═══════════════════════════════════════════════════════════
-
   notify:
     name: Notification
-    needs: [deploy, e2e-browser-validation, regression-api]
+    needs: [deploy, release-validation-pending, e2e-browser-validation, regression-api]
     runs-on: ubuntu-latest
     if: always() && github.ref == 'refs/heads/staging'
     steps:
@@ -852,29 +701,22 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
-            echo "⏭️ Telegram credentials not set, skipping notification."
             exit 0
           fi
-
-          if [ "${{ needs.deploy.result }}" == "success" ]; then
-            STATUS="✅ *SUCCESS*"
-            MESSAGE="🚀 Update terbaru telah di-deploy ke *Staging*.\n\nSHA: \`${{ github.sha }}\`"
-          else
+          if [ "${{ needs.deploy.result }}" != "success" ]; then
             STATUS="🚨 *FAILED*"
-            MESSAGE="⚠️ Deploy ke Staging gagal atau tertunda.\n\nMohon periksa log di GitHub Actions.\nSHA: \`${{ github.sha }}\`"
+            MESSAGE="⚠️ Deploy ke Staging gagal. SHA: \`${{ github.sha }}\`"
+          elif [ "${{ needs.deploy.outputs.deployed }}" != "true" ]; then
+            STATUS="🟡 *VALIDATION PENDING*"
+            MESSAGE="Repository verification lulus, tetapi staging belum dideploy karena environment deployment belum tersedia. SHA: \`${{ github.sha }}\`"
+          elif [ "${{ needs.e2e-browser-validation.result }}" != "success" ] || [ "${{ needs.regression-api.result }}" != "success" ]; then
+            STATUS="🚨 *VALIDATION FAILED*"
+            MESSAGE="Staging berhasil dideploy tetapi external E2E/API validation gagal. SHA: \`${{ github.sha }}\`"
+          else
+            STATUS="✅ *SUCCESS*"
+            MESSAGE="🚀 Update terbaru telah di-deploy dan divalidasi di *Staging*. SHA: \`${{ github.sha }}\`"
           fi
-
-          if [ "${{ needs.e2e-browser-validation.result }}" == "failure" ]; then
-             STATUS="⚠️ *E2E TEST FAILED*"
-             MESSAGE="✅ Deploy sukses, namun E2E Test gagal di Staging. Mohon cek fungsionalitas."
-          fi
-
-          if [ "${{ needs.e2e-browser-validation.result }}" == "skipped" ] && [ "${{ needs.regression-api.result }}" == "skipped" ]; then
-             STATUS="✅ *SUCCESS (Regression skip)*"
-             MESSAGE="🚀 Deploy sukses. Regression testing di-skip (secret/STAGING_URL belum lengkap)."
-          fi
-
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-               -d chat_id="${TELEGRAM_CHAT_ID}" \
-               -d text="*LANCAR Staging Deployment* - ${STATUS}%0A%0A${MESSAGE}" \
-               -d parse_mode="Markdown"
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d text="*LANCAR Staging Deployment* - ${STATUS}%0A%0A${MESSAGE}" \
+            -d parse_mode="Markdown"
