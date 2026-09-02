@@ -5,7 +5,7 @@ reality_2026_003: PARTIAL
 reality_2026_011: PASS
 implementation_ref: NONE
 tests: NOT_RUN
-e2e_staging: NOT_RUN
+e2e: NOT_RUN
 migration: NOT_RUN
 observability: NOT_RUN
 security_privacy: NOT_RUN

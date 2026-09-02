@@ -94,7 +94,7 @@ reality_2026_003: PARTIAL
 reality_2026_011: PASS
 implementation_ref: "<commit/PR/ref or NONE while blocked>"
 tests: NOT_RUN
-e2e_staging: NOT_RUN
+e2e: NOT_RUN
 migration: N/A
 migration_na_reason: "No persistent schema change."
 observability: NOT_RUN

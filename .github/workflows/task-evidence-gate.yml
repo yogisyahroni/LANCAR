@@ -188,7 +188,7 @@ jobs:
             "reality_2026_011:"
             "implementation_ref:"
             "tests:"
-            "e2e_staging:"
+            "e2e:"
             "migration:"
             "observability:"
             "security_privacy:"

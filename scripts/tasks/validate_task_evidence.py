@@ -38,7 +38,7 @@ ALLOWED_STATUS = {"PARTIAL", "BLOCKED", "COMPLETE"}
 ALLOWED_GATE = {"PASS", "PARTIAL", "FAIL", "NOT_RUN", "N/A"}
 APPLICABILITY_FIELDS = (
     "tests",
-    "e2e_staging",
+    "e2e",
     "migration",
     "observability",
     "security_privacy",
