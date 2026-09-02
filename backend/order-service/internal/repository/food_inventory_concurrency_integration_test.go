@@ -159,6 +159,7 @@ func newInventoryTestOrder(customerID, merchantID string) *domain.Order {
 		BasePriceIDR:    25000,
 		TotalPriceIDR:   25000,
 		PricingSnapshot: "{}",
+		TaxRuleCode:     "PPN_11",
 		ServiceSubType:  "food_delivery",
 		ServiceCategory: domain.CanonicalFood,
 		MerchantID:      &merchant,
