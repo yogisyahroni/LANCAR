@@ -145,6 +145,9 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 	// Fetch order to get UserID for the event
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err == nil {
+		if status == domain.StatusCancelled && order.ServiceSubType == "food_delivery" {
+			s.releaseFoodInventoryIfUnpicked(ctx, orderID, prevStatus)
+		}
 		event := domain.OrderEvent{
 			OrderID:   order.ID,
 			UserID:    order.CustomerID,
@@ -250,6 +253,9 @@ func (s *orderServiceImpl) updateStatusThroughBoundary(ctx context.Context, requ
 	}
 
 	if result.Status == domain.StatusCancelled {
+		if before.ServiceSubType == "food_delivery" {
+			s.releaseFoodInventoryIfUnpicked(ctx, request.OrderID, result.PreviousStatus)
+		}
 		if oid, parseErr := uuid.Parse(request.OrderID); parseErr == nil && s.refundSvc != nil {
 			if _, refundErr := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, "Order cancelled", domain.RefundOptions{OriginalStatus: result.PreviousStatus}); refundErr != nil {
 				log.Printf("[OrderService] Failed to trigger refund for order %s: %v", request.OrderID, refundErr)

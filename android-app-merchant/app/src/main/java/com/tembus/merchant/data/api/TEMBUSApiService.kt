@@ -130,6 +130,12 @@ interface TEMBUSApiService {
         @Body request: AvailabilityRequest
     ): Response<MenuItem>
 
+    @PUT("api/v1/merchant/menu/{id}/inventory")
+    suspend fun updateMenuInventory(
+        @Path("id") id: String,
+        @Body request: MenuInventoryRequest
+    ): Response<MenuItem>
+
     // ── FB-108: varian menu ────────────────────────────────────────────
     @GET("api/v1/merchant/menu/{id}/variants")
     suspend fun getMenuItemVariants(

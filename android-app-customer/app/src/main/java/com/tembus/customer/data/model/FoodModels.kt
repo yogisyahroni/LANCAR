@@ -48,6 +48,10 @@ data class FoodMenuItem(
     @SerialName("price") val price: Long = 0,
     @SerialName("is_available") val isAvailable: Boolean = true,
     @SerialName("prep_time_minutes") val prepTimeMinutes: Int = 10,
+    @SerialName("stock_quantity") val stockQuantity: Int? = null,
+    @SerialName("daily_sales_limit") val dailySalesLimit: Int? = null,
+    @SerialName("daily_sales_count") val dailySalesCount: Int = 0,
+    @SerialName("sales_limit_reset_at") val salesLimitResetAt: String? = null,
     @SerialName("kategori") val kategori: String? = null,
     @SerialName("foto") val foto: String? = null,
     // FB-108: grup varian menu (Ukuran, Level Pedas, Tambahan...).

@@ -85,6 +85,9 @@ class MerchantRepository(
     suspend fun setMenuItemAvailability(id: String, available: Boolean): Result<MenuItem> =
         request { api.setMenuItemAvailability(id, AvailabilityRequest(available)) }
 
+    suspend fun updateMenuInventory(id: String, request: MenuInventoryRequest): Result<MenuItem> =
+        request { api.updateMenuInventory(id, request) }
+
     // ── FB-108: varian menu ────────────────────────────────────────────
     suspend fun getMenuItemVariants(id: String): Result<List<MenuItemVariant>> =
         request { api.getMenuItemVariants(id) }

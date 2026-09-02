@@ -94,7 +94,11 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 			nama,
 			harga,
 			is_available,
-			prep_time_minutes
+			prep_time_minutes,
+			stock_quantity,
+			daily_sales_limit,
+			daily_sales_count,
+			sales_limit_reset_at
 		FROM merchant_menu_items
 		WHERE id IN (%s)`, strings.Join(placeholders, ", "))
 
@@ -107,7 +111,7 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 	var items []domain.FoodMenuItemInfo
 	for rows.Next() {
 		var it domain.FoodMenuItemInfo
-		if err := rows.Scan(&it.ID, &it.MerchantID, &it.Name, &it.Price, &it.IsAvailable, &it.PrepTimeMinutes); err != nil {
+		if err := rows.Scan(&it.ID, &it.MerchantID, &it.Name, &it.Price, &it.IsAvailable, &it.PrepTimeMinutes, &it.StockQuantity, &it.DailySalesLimit, &it.DailySalesCount, &it.SalesResetAt); err != nil {
 			return nil, err
 		}
 		items = append(items, it)
@@ -124,8 +128,65 @@ func (r *foodRepo) CreateFoodOrderWithItems(ctx context.Context, order *domain.O
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	quantities := make(map[string]int, len(items))
+	menuItemIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		if _, exists := quantities[item.MenuItemID]; !exists {
+			menuItemIDs = append(menuItemIDs, item.MenuItemID)
+		}
+		quantities[item.MenuItemID] += item.Quantity
+	}
+	previousAvailability := make(map[string]bool, len(menuItemIDs))
+	for _, menuItemID := range menuItemIDs {
+		var previousAvailable bool
+		if err := tx.QueryRowContext(ctx, `
+			SELECT is_available
+			FROM merchant_menu_items
+			WHERE id = $1
+			FOR UPDATE`, menuItemID).Scan(&previousAvailable); err != nil {
+			return fmt.Errorf("kunci stok item %s: %w", menuItemID, err)
+		}
+		previousAvailability[menuItemID] = previousAvailable
+
+		quantity := quantities[menuItemID]
+		var resetAt *time.Time
+		reserveErr := tx.QueryRowContext(ctx, `
+			WITH normalized AS (
+				SELECT id,
+				       CASE WHEN sales_limit_reset_at IS NOT NULL AND sales_limit_reset_at <= NOW()
+				            THEN 0 ELSE daily_sales_count END AS current_sales,
+				       CASE WHEN sales_limit_reset_at IS NOT NULL AND sales_limit_reset_at <= NOW()
+				            THEN date_trunc('day', NOW()) + interval '1 day'
+				            ELSE sales_limit_reset_at END AS next_reset
+				FROM merchant_menu_items
+				WHERE id = $1
+				FOR UPDATE
+			)
+			UPDATE merchant_menu_items m
+			SET stock_quantity = CASE WHEN m.stock_quantity IS NULL THEN NULL ELSE m.stock_quantity - $2 END,
+			    daily_sales_count = CASE WHEN m.daily_sales_limit IS NULL THEN m.daily_sales_count ELSE n.current_sales + $2 END,
+			    sales_limit_reset_at = CASE WHEN m.daily_sales_limit IS NULL THEN m.sales_limit_reset_at ELSE n.next_reset END,
+			    is_available = CASE WHEN m.stock_quantity IS NOT NULL AND m.stock_quantity = $2 THEN FALSE ELSE m.is_available END,
+			    updated_at = NOW()
+			FROM normalized n
+			WHERE m.id = n.id
+			  AND (m.stock_quantity IS NULL OR m.stock_quantity >= $2)
+			  AND (m.daily_sales_limit IS NULL OR n.current_sales + $2 <= m.daily_sales_limit)
+			RETURNING m.sales_limit_reset_at`, menuItemID, quantity).Scan(&resetAt)
+		if reserveErr != nil {
+			return fmt.Errorf("stok menu tidak cukup atau batas penjualan harian tercapai untuk item %s: %w", menuItemID, reserveErr)
+		}
+	}
+
 	if err := r.insertOrder(ctx, tx, order); err != nil {
 		return fmt.Errorf("insert order: %w", err)
+	}
+	for _, menuItemID := range menuItemIDs {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO food_inventory_reservations (order_id, menu_item_id, quantity, previous_is_available)
+			VALUES ($1, $2, $3, $4)`, order.ID, menuItemID, quantities[menuItemID], previousAvailability[menuItemID]); err != nil {
+			return fmt.Errorf("catat reservasi stok item %s: %w", menuItemID, err)
+		}
 	}
 
 	for i := range items {
@@ -157,6 +218,61 @@ func (r *foodRepo) CreateFoodOrderWithItems(ctx context.Context, order *domain.O
 		}
 	}
 
+	return tx.Commit()
+}
+
+// ReleaseFoodInventory returns a reservation exactly once. It is called by
+// cancellation/refund paths after an order leaves the food lifecycle.
+func (r *foodRepo) ReleaseFoodInventory(ctx context.Context, orderID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	rows, err := tx.QueryContext(ctx, `
+		SELECT menu_item_id::text, quantity, previous_is_available
+		FROM food_inventory_reservations
+		WHERE order_id = $1 AND status = 'reserved'
+		FOR UPDATE`, orderID)
+	if err != nil {
+		return err
+	}
+	type reservation struct {
+		menuItemID        string
+		quantity          int
+		previousAvailable bool
+	}
+	var reservations []reservation
+	for rows.Next() {
+		var item reservation
+		if err := rows.Scan(&item.menuItemID, &item.quantity, &item.previousAvailable); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		reservations = append(reservations, item)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	_ = rows.Close()
+	for _, item := range reservations {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE merchant_menu_items
+			SET stock_quantity = CASE WHEN stock_quantity IS NULL THEN NULL ELSE stock_quantity + $2 END,
+				daily_sales_count = CASE WHEN daily_sales_limit IS NULL THEN daily_sales_count ELSE GREATEST(0, daily_sales_count - $2) END,
+				is_available = $3,
+				updated_at = NOW()
+			WHERE id = $1`, item.menuItemID, item.quantity, item.previousAvailable); err != nil {
+			return fmt.Errorf("release stok item %s: %w", item.menuItemID, err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE food_inventory_reservations
+		SET status = 'released', released_at = NOW()
+		WHERE order_id = $1 AND status = 'reserved'`, orderID); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 

@@ -109,6 +109,10 @@ data class MenuItem(
     @SerializedName("kategori") val kategori: String = "",
     @SerializedName("prep_time_minutes") val prepTimeMinutes: Int = 15,
     @SerializedName("is_available") val isAvailable: Boolean = true,
+    @SerializedName("stock_quantity") val stockQuantity: Int? = null,
+    @SerializedName("daily_sales_limit") val dailySalesLimit: Int? = null,
+    @SerializedName("daily_sales_count") val dailySalesCount: Int = 0,
+    @SerializedName("sales_limit_reset_at") val salesLimitResetAt: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null
 )
@@ -121,11 +125,18 @@ data class MenuItemRequest(
     @SerializedName("deskripsi") val deskripsi: String? = null,
     @SerializedName("kategori") val kategori: String,
     @SerializedName("prep_time_minutes") val prepTimeMinutes: Int,
-    @SerializedName("is_available") val isAvailable: Boolean? = null
+    @SerializedName("is_available") val isAvailable: Boolean? = null,
+    @SerializedName("stock_quantity") val stockQuantity: Int? = null,
+    @SerializedName("daily_sales_limit") val dailySalesLimit: Int? = null
 )
 
 data class AvailabilityRequest(
     @SerializedName("is_available") val isAvailable: Boolean
+)
+
+data class MenuInventoryRequest(
+    @SerializedName("stock_quantity") val stockQuantity: Int? = null,
+    @SerializedName("daily_sales_limit") val dailySalesLimit: Int? = null
 )
 
 // ── FB-108: varian menu ────────────────────────────────────────────────

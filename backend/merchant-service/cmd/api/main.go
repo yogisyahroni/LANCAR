@@ -188,6 +188,7 @@ func main() {
 		}
 	}))
 	mux.HandleFunc("/api/v1/merchant/menu/{id}/availability", middleware.BaseChain(h.SetMenuItemAvailability))
+	mux.HandleFunc("/api/v1/merchant/menu/{id}/inventory", middleware.BaseChain(h.UpdateMenuInventory))
 
 	// FB-108: varian menu — GET lihat, PUT replace atomik (hapus+insert).
 	mux.HandleFunc("/api/v1/merchant/menu/{id}/variants", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {

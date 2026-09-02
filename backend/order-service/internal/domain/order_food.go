@@ -123,12 +123,16 @@ type FoodMerchantInfo struct {
 }
 
 type FoodMenuItemInfo struct {
-	ID              string `json:"id"`
-	MerchantID      string `json:"merchant_id"`
-	Name            string `json:"name"`
-	Price           int64  `json:"price"`
-	IsAvailable     bool   `json:"is_available"`
-	PrepTimeMinutes int    `json:"prep_time_minutes"`
+	ID              string     `json:"id"`
+	MerchantID      string     `json:"merchant_id"`
+	Name            string     `json:"name"`
+	Price           int64      `json:"price"`
+	IsAvailable     bool       `json:"is_available"`
+	PrepTimeMinutes int        `json:"prep_time_minutes"`
+	StockQuantity   *int       `json:"stock_quantity,omitempty"`
+	DailySalesLimit *int       `json:"daily_sales_limit,omitempty"`
+	DailySalesCount int        `json:"daily_sales_count"`
+	SalesResetAt    *time.Time `json:"sales_limit_reset_at,omitempty"`
 	// FOOD-BIKE-055/056: field UI tambahan
 	Kategori *string `json:"kategori,omitempty"`
 	Foto     *string `json:"foto,omitempty"`
@@ -245,6 +249,10 @@ type FoodRepository interface {
 
 type FoodQuoteService interface {
 	QuoteFood(ctx context.Context, userID string, req CreateFoodOrderRequest) (*FoodQuoteResponse, error)
+}
+
+type FoodInventoryRepository interface {
+	ReleaseFoodInventory(ctx context.Context, orderID string) error
 }
 
 type ScheduledFoodOrder struct {

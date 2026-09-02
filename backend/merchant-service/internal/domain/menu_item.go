@@ -8,17 +8,21 @@ import (
 // MenuItem — menu item merchant (FOOD-BIKE-004/016).
 // Harga BIGINT (IDR, tanpa desimal) — konsisten dengan skema harga LANCAR.
 type MenuItem struct {
-	ID              string    `json:"id"`
-	MerchantID      string    `json:"merchant_id"`
-	Nama            string    `json:"nama"`
-	Harga           int64     `json:"harga"`
-	Foto            *string   `json:"foto,omitempty"`
-	Deskripsi       *string   `json:"deskripsi,omitempty"`
-	Kategori        string    `json:"kategori"`
-	PrepTimeMinutes int       `json:"prep_time_minutes"`
-	IsAvailable     bool      `json:"is_available"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID              string     `json:"id"`
+	MerchantID      string     `json:"merchant_id"`
+	Nama            string     `json:"nama"`
+	Harga           int64      `json:"harga"`
+	Foto            *string    `json:"foto,omitempty"`
+	Deskripsi       *string    `json:"deskripsi,omitempty"`
+	Kategori        string     `json:"kategori"`
+	PrepTimeMinutes int        `json:"prep_time_minutes"`
+	IsAvailable     bool       `json:"is_available"`
+	StockQuantity   *int       `json:"stock_quantity,omitempty"`
+	DailySalesLimit *int       `json:"daily_sales_limit,omitempty"`
+	DailySalesCount int        `json:"daily_sales_count"`
+	SalesResetAt    *time.Time `json:"sales_limit_reset_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 // MenuItemRepository — interface CRUD menu merchant.
@@ -31,6 +35,7 @@ type MenuItemRepository interface {
 	Update(ctx context.Context, item *MenuItem) error
 	// SetAvailability toggle is_available (habis/masuk stok).
 	SetAvailability(ctx context.Context, id string, merchantID string, available bool) error
+	UpdateInventory(ctx context.Context, id string, merchantID string, stockQuantity *int, dailySalesLimit *int, resetAt *time.Time) error
 	// Delete hapus menu item (soft-delete via status, atau hard delete).
 	Delete(ctx context.Context, id string, merchantID string) error
 	// CountByMerchant total menu (pagination).

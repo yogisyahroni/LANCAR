@@ -83,6 +83,8 @@ fun MenuItemEditorZipContent(
     var kategori by remember(existing?.id) { mutableStateOf(existing?.kategori ?: "") }
     var deskripsi by remember(existing?.id) { mutableStateOf(existing?.deskripsi.orEmpty()) }
     var prepTime by remember(existing?.id) { mutableStateOf(existing?.prepTimeMinutes?.toString() ?: "15") }
+    var stockQuantity by remember(existing?.id) { mutableStateOf(existing?.stockQuantity?.toString() ?: "") }
+    var dailySalesLimit by remember(existing?.id) { mutableStateOf(existing?.dailySalesLimit?.toString() ?: "") }
     var foto by remember(existing?.id) { mutableStateOf(existing?.foto ?: "") }
     var uploading by remember { mutableStateOf(false) }
     var uploadError by remember { mutableStateOf<String?>(null) }
@@ -175,6 +177,10 @@ fun MenuItemEditorZipContent(
                 OutlinedTextField(value = harga, onValueChange = { harga = it.filter(Char::isDigit) }, label = { Text("Harga") }, prefix = { Text("Rp ") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = deskripsi, onValueChange = { deskripsi = it }, label = { Text("Deskripsi menu") }, minLines = 3, maxLines = 5, modifier = Modifier.fillMaxWidth())
 
+                Text("Inventori (opsional)", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(value = stockQuantity, onValueChange = { stockQuantity = it.filter(Char::isDigit) }, label = { Text("Stok tersedia") }, placeholder = { Text("Kosong = tanpa batas stok") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = dailySalesLimit, onValueChange = { dailySalesLimit = it.filter(Char::isDigit) }, label = { Text("Batas penjualan harian") }, placeholder = { Text("Kosong = tanpa batas harian") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+
                 Text("Waktu siap", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     prepOptions.forEach { value -> FilterChip(selected = prepTime == value, onClick = { prepTime = value }, label = { Text("$value mnt") }) }
@@ -196,7 +202,7 @@ fun MenuItemEditorZipContent(
                 }
                 Button(
                     onClick = {
-                        onSave(MenuItemRequest(nama = nama.trim(), harga = harga.toLongOrNull() ?: 0, deskripsi = deskripsi.trim().ifBlank { null }, kategori = kategori.trim(), prepTimeMinutes = prepTime.toIntOrNull() ?: 15, foto = foto.trim().ifBlank { null }, isAvailable = existing?.isAvailable))
+                        onSave(MenuItemRequest(nama = nama.trim(), harga = harga.toLongOrNull() ?: 0, deskripsi = deskripsi.trim().ifBlank { null }, kategori = kategori.trim(), prepTimeMinutes = prepTime.toIntOrNull() ?: 15, foto = foto.trim().ifBlank { null }, isAvailable = existing?.isAvailable, stockQuantity = stockQuantity.toIntOrNull(), dailySalesLimit = dailySalesLimit.toIntOrNull()))
                     },
                     enabled = !isSaving && nama.isNotBlank() && (harga.toLongOrNull() ?: 0) > 0,
                     modifier = Modifier.fillMaxWidth().height(52.dp)

@@ -466,6 +466,7 @@ interface TEMBUSApiService {
 
     @POST("api/v1/orders/food")
     suspend fun createFoodOrder(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: CreateFoodOrderRequest
     ): Response<FoodOrderCreateResponse>
 

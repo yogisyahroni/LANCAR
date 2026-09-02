@@ -92,6 +92,9 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		if !item.IsAvailable {
 			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item tidak tersedia: %s", item.Name))
 		}
+		if err := validateFoodInventory(item, requested.Quantity, time.Now()); err != nil {
+			return nil, domain.NewUserFacingError(err.Error())
+		}
 		variants := variantMap[requested.MenuID]
 		selectedByVariant := make(map[string][]string)
 		optionByID := make(map[string]domain.MenuItemVariantOption)
@@ -222,6 +225,20 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		return nil, fmt.Errorf("save food quote: %w", err)
 	}
 	return quote, nil
+}
+
+func validateFoodInventory(item domain.FoodMenuItemInfo, quantity int, now time.Time) error {
+	if item.StockQuantity != nil && *item.StockQuantity < quantity {
+		return fmt.Errorf("stok %s tidak mencukupi", item.Name)
+	}
+	salesCount := item.DailySalesCount
+	if item.SalesResetAt != nil && !item.SalesResetAt.After(now) {
+		salesCount = 0
+	}
+	if item.DailySalesLimit != nil && salesCount+quantity > *item.DailySalesLimit {
+		return fmt.Errorf("batas penjualan harian %s sudah tercapai", item.Name)
+	}
+	return nil
 }
 
 func (s *orderServiceImpl) requireFoodQuote(ctx context.Context, req domain.CreateFoodOrderRequest) (*domain.PricingEstimateResponse, error) {

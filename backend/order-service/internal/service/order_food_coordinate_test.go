@@ -2,6 +2,7 @@ package service
 
 import (
 	"testing"
+	"time"
 
 	"tembus/order-service/internal/domain"
 )
@@ -75,5 +76,23 @@ func TestFoodQuoteInputFingerprintTracksPricingInputsOnly(t *testing.T) {
 	changedDestination.DropoffLat = -6.21
 	if foodQuoteInputFingerprint(base) == foodQuoteInputFingerprint(changedDestination) {
 		t.Fatal("destination changes must invalidate a price quote")
+	}
+}
+
+func TestValidateFoodInventory(t *testing.T) {
+	stock := 2
+	limit := 5
+	item := domain.FoodMenuItemInfo{Name: "Nasi Goreng", StockQuantity: &stock, DailySalesLimit: &limit, DailySalesCount: 3}
+	if err := validateFoodInventory(item, 2, time.Now()); err != nil {
+		t.Fatalf("expected available inventory, got %v", err)
+	}
+	if err := validateFoodInventory(item, 3, time.Now()); err == nil {
+		t.Fatal("expected stock limit error")
+	}
+	reset := time.Now().Add(-time.Minute)
+	item.SalesResetAt = &reset
+	stock = 5
+	if err := validateFoodInventory(item, 5, time.Now()); err != nil {
+		t.Fatalf("expired daily limit should reset, got %v", err)
 	}
 }

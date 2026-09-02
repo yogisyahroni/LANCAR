@@ -468,6 +468,7 @@ func (s *orderServiceImpl) RejectByMerchant(ctx context.Context, orderID string,
 }
 
 func (s *orderServiceImpl) triggerRefundOnCancel(ctx context.Context, orderID string, reason string, originalStatus domain.OrderStatus, chargeFeeTo string) {
+	s.releaseFoodInventoryIfUnpicked(ctx, orderID, originalStatus)
 	if s.refundSvc == nil {
 		return
 	}
@@ -491,6 +492,20 @@ func (s *orderServiceImpl) triggerRefundOnCancel(ctx context.Context, orderID st
 		if errPush := s.pushSvc.NotifyCustomerOrderCancelled(ctx, orderID, reason); errPush != nil {
 			log.Printf("[OrderService] triggerRefundOnCancel: gagal push notif customer order %s: %v", orderID, errPush)
 		}
+	}
+}
+
+func (s *orderServiceImpl) releaseFoodInventoryIfUnpicked(ctx context.Context, orderID string, previousStatus domain.OrderStatus) {
+	if s.foodRepo == nil || previousStatus == domain.StatusPickedUp || previousStatus == domain.StatusDelivering ||
+		previousStatus == domain.StatusDelivered || previousStatus == domain.StatusFailedDelivery || previousStatus == domain.StatusReturnToSender {
+		return
+	}
+	repo, ok := s.foodRepo.(domain.FoodInventoryRepository)
+	if !ok {
+		return
+	}
+	if err := repo.ReleaseFoodInventory(ctx, orderID); err != nil {
+		log.Printf("[OrderService] release food inventory failed for order %s: %v", orderID, err)
 	}
 }
 

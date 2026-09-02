@@ -512,6 +512,31 @@ func (h *MerchantHandler) SetMenuItemAvailability(w http.ResponseWriter, r *http
 	h.respondJSON(w, http.StatusOK, item)
 }
 
+// UpdateMenuInventory replaces stock quantity and daily sales limit for one
+// merchant-owned menu item. Null values disable the corresponding guard.
+func (h *MerchantHandler) UpdateMenuInventory(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	itemID := r.PathValue("id")
+	if itemID == "" {
+		h.respondError(w, http.StatusBadRequest, "id wajib diisi")
+		return
+	}
+	var req domain.UpdateMenuInventoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	item, err := h.svc.UpdateMenuInventory(r.Context(), userID, itemID, req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, item)
+}
+
 // GetMenuItemVariants godoc
 // @Summary Ambil varian menu item
 // @Description FB-108: grup varian + opsi (Ukuran, Level Pedas, Tambahan...).

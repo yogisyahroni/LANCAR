@@ -82,6 +82,7 @@ type MerchantService interface {
 	UpdateMenuItem(ctx context.Context, userID string, itemID string, req UpdateMenuItemRequest) (*MenuItem, error)
 	DeleteMenuItem(ctx context.Context, userID string, itemID string) error
 	SetMenuItemAvailability(ctx context.Context, userID string, itemID string, available bool) (*MenuItem, error)
+	UpdateMenuInventory(ctx context.Context, userID string, itemID string, req UpdateMenuInventoryRequest) (*MenuItem, error)
 	ListMenuItems(ctx context.Context, userID string, page, pageSize int) ([]*MenuItem, int, error)
 	// GetMenuItemVariants (FB-108): grup varian + opsi menu item milik user.
 	GetMenuItemVariants(ctx context.Context, userID string, itemID string) ([]*MenuItemVariant, error)

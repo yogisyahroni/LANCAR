@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.Response
+import java.util.UUID
 import javax.inject.Inject
 
 // FOOD-BIKE-055/056/057/075: state browse + cart + checkout food delivery.
@@ -63,6 +64,7 @@ class FoodViewModel @Inject constructor(
 
     private val _foodQuote = MutableStateFlow<FoodQuoteResponse?>(null)
     val foodQuote: StateFlow<FoodQuoteResponse?> = _foodQuote.asStateFlow()
+    private var foodCreateIdempotencyKey: String? = null
 
     // ── FB-078: Voucher redeem ──
     private val _voucherState = MutableStateFlow<VoucherState>(VoucherState.Idle)
@@ -179,6 +181,7 @@ class FoodViewModel @Inject constructor(
 
     fun clearFoodQuote() {
         _foodQuote.value = null
+        foodCreateIdempotencyKey = null
     }
 
     fun loadMerchants(lat: Double, lng: Double, search: String = "") {
@@ -323,6 +326,8 @@ class FoodViewModel @Inject constructor(
             _loading.value = true
             _error.value = null
             try {
+                val idempotencyKey = foodCreateIdempotencyKey
+                    ?: UUID.randomUUID().toString().also { foodCreateIdempotencyKey = it }
                 val request = CreateFoodOrderRequest(
                     merchantId = merchantId,
                     items = items.map {
@@ -347,9 +352,10 @@ class FoodViewModel @Inject constructor(
                     isScheduled = isScheduled,
                     scheduledAt = if (isScheduled) scheduledAt?.ifBlank { null } else null
                 )
-                val res: Response<FoodOrderCreateResponse> = apiService.createFoodOrder(request)
+                val res: Response<FoodOrderCreateResponse> = apiService.createFoodOrder(idempotencyKey, request)
                 if (res.isSuccessful && res.body() != null) {
                     _checkoutResult.value = res.body()
+                    foodCreateIdempotencyKey = null
                     onResult(Result.success(res.body()!!))
                 } else {
                     onResult(Result.failure(Exception("Gagal membuat order food (${res.code()})")))
