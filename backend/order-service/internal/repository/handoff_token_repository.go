@@ -2,12 +2,67 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"tembus/order-service/internal/domain"
 	"time"
 )
+
+// consumeHandoffTokenForTransition is deliberately used by the canonical
+// order transition transaction. It makes proof verification and picked_up /
+// delivered state atomic: a failed state transition rolls the token back.
+func (r *postgresRepo) consumeHandoffTokenForTransition(ctx context.Context, tx *sql.Tx, token, orderID, actorID string, stage domain.HandoffStage, now time.Time) error {
+	var storedOrderID, storedActorID, storedStage, storedStatus string
+	var consumedAt sql.NullTime
+	var attempts, maxAttempts int
+	var expiresAt time.Time
+	err := tx.QueryRowContext(ctx, `
+		SELECT order_id::text, actor_id::text, stage, status, attempts, max_attempts, expires_at, consumed_at
+		  FROM handoff_tokens
+		 WHERE token_hash = $1
+		 FOR UPDATE`, hashHandoffTokenForTransition(token)).Scan(
+		&storedOrderID, &storedActorID, &storedStage, &storedStatus, &attempts, &maxAttempts, &expiresAt, &consumedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.ErrHandoffTokenInvalid
+	}
+	if err != nil {
+		return fmt.Errorf("load handoff token for transition: %w", err)
+	}
+	if consumedAt.Valid || storedStatus == "consumed" {
+		return domain.ErrHandoffTokenConsumed
+	}
+	if !now.Before(expiresAt) {
+		return domain.ErrHandoffTokenExpired
+	}
+	if attempts >= maxAttempts {
+		return domain.ErrHandoffTokenAttemptsLimit
+	}
+	if storedOrderID != orderID {
+		return domain.ErrHandoffOrderMismatch
+	}
+	if storedActorID != actorID {
+		return domain.ErrHandoffActorMismatch
+	}
+	if storedStage != string(stage) {
+		return domain.ErrHandoffStageMismatch
+	}
+	_, err = tx.ExecContext(ctx, `
+		UPDATE handoff_tokens
+		   SET status = 'consumed', attempts = attempts + 1, consumed_at = $1, updated_at = $1
+		 WHERE token_hash = $2 AND status = 'active'`, now, hashHandoffTokenForTransition(token))
+	if err != nil {
+		return fmt.Errorf("consume handoff token for transition: %w", err)
+	}
+	return nil
+}
+
+func hashHandoffTokenForTransition(token string) string {
+	digest := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(digest[:])
+}
 
 func (r *postgresRepo) CreateHandoffToken(ctx context.Context, token *domain.HandoffToken) error {
 	_, err := r.db.ExecContext(ctx, `

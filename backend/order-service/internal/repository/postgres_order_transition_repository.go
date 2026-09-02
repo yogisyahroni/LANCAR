@@ -121,6 +121,15 @@ func (r *postgresRepo) TransitionOrder(ctx context.Context, request domain.Order
 	if request.TargetStatus == domain.StatusCancelled && request.Reason == "" {
 		request.Reason = "Order cancelled by " + string(request.Actor)
 	}
+	if request.Proof != nil && request.Proof.HandoffToken != "" {
+		stage := domain.HandoffStageDelivery
+		if request.Proof.ScanType == "pickup" {
+			stage = domain.HandoffStagePickup
+		}
+		if err := r.consumeHandoffTokenForTransition(ctx, tx, request.Proof.HandoffToken, order.ID, request.ActorID, stage, time.Now().UTC()); err != nil {
+			return domain.OrderTransitionResult{}, fmt.Errorf("handoff verification failed: %w", err)
+		}
+	}
 
 	if request.TargetStatus == domain.StatusDelivered {
 		if err := validateDeliveredProof(ctx, tx, order.ID, request); err != nil {

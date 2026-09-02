@@ -40,12 +40,17 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		if s.handoffSvc == nil {
 			return errors.New("handoff verification is not available")
 		}
-		stage := domain.HandoffStageDelivery
-		if scan.ScanType == "pickup" {
-			stage = domain.HandoffStagePickup
-		}
-		if err := s.handoffSvc.Consume(ctx, scan.HandoffToken, order.ID, scannedBy, stage); err != nil {
-			return fmt.Errorf("handoff verification failed: %w", err)
+		// PostgreSQL's transition boundary consumes the token in the same
+		// transaction as the picked_up/delivered state and proof. The legacy
+		// path keeps the old standalone consume for lightweight test repos.
+		if _, atomic := s.orderRepo.(domain.OrderTransitionRepository); !atomic {
+			stage := domain.HandoffStageDelivery
+			if scan.ScanType == "pickup" {
+				stage = domain.HandoffStagePickup
+			}
+			if err := s.handoffSvc.Consume(ctx, scan.HandoffToken, order.ID, scannedBy, stage); err != nil {
+				return fmt.Errorf("handoff verification failed: %w", err)
+			}
 		}
 	}
 

@@ -591,8 +591,8 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `android-app-merchant/app/src/main/java/com/tembus/merchant/ui/screens/home/StitchOrdersDashboardScreen.kt`
 - `android-app/app/src/main/java/com/tembus/courier/ui/screens/scan/ScanScreen.kt`
 
-- [ ] One-time PIN/QR binds order/merchant/courier or pickup customer/state/expiry.
-- [ ] Verify + picked_up atomic.
+- [x] One-time PIN/QR binds order/merchant/courier or pickup customer/state/expiry.
+- [x] Verify + picked_up atomic.
 - [ ] Replay/wrong actor rejected.
 
 ## FOOD-2026-005 — Server-authoritative ETA/readiness [P0]
