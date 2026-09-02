@@ -464,6 +464,10 @@ export function AggregatorWizard() {
             origin_code: values.origin_code,
             destination_code: values.destination_code,
             weight_kg: values.weight_kg,
+            item_value_idr: values.item_value,
+            category: values.category || undefined,
+            insurance: false,
+            cod: values.payment_type === "COD",
           } as any,
         });
         

@@ -142,11 +142,24 @@ func (h *LogisticsHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
 	if weightKG <= 0 {
 		weightKG = 1.0
 	}
+	lengthCM, _ := strconv.ParseFloat(r.URL.Query().Get("length_cm"), 64)
+	widthCM, _ := strconv.ParseFloat(r.URL.Query().Get("width_cm"), 64)
+	heightCM, _ := strconv.ParseFloat(r.URL.Query().Get("height_cm"), 64)
+	itemValueIDR, _ := strconv.ParseInt(r.URL.Query().Get("item_value_idr"), 10, 64)
+	insurance, _ := strconv.ParseBool(r.URL.Query().Get("insurance"))
+	cod, _ := strconv.ParseBool(r.URL.Query().Get("cod"))
 
 	req := domain.TariffRequest{
 		OriginCode:      origin,
 		DestinationCode: destination,
 		WeightKG:        weightKG,
+		LengthCM:        lengthCM,
+		WidthCM:         widthCM,
+		HeightCM:        heightCM,
+		ItemValueIDR:    itemValueIDR,
+		Category:        r.URL.Query().Get("category"),
+		Insurance:       insurance,
+		COD:             cod,
 		ServiceType:     "",
 	}
 

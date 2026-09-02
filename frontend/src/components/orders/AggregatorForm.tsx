@@ -344,6 +344,9 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
             origin_code: originCode,
             destination_code: destCode,
             weight_kg: weight,
+            length_cm: lengthCm || undefined,
+            width_cm: widthCm || undefined,
+            height_cm: heightCm || undefined,
           } as any,
         });
         const quoteResponse = res.data?.data || {};
@@ -387,7 +390,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [originCode, destCode, weight, selectedProviderId]);
+  }, [originCode, destCode, weight, lengthCm, widthCm, heightCm, selectedProviderId]);
 
   const selectTariff = (index: number) => {
     setSelectedIndex(index);
