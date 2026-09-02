@@ -9,8 +9,10 @@ RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /app
 
+# Preserve the committed dependency graph. Running `go mod tidy` before source
+# is copied makes Go see no packages and can prune dependencies needed later.
 COPY go.mod go.sum ./
-RUN go mod tidy && go mod download && go mod verify
+RUN go mod download && go mod verify
 
 COPY . .
 
