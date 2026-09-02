@@ -1,5 +1,7 @@
 -- +goose Up
--- +goose StatementBegin
+-- PKG-2026-004: arrival is a server-recorded custody prerequisite.  Pickup
+-- evidence may only be submitted after the courier has transitioned the
+-- assigned on-demand order to pickup_arrived.
 INSERT INTO status_transition_policies (
   workflow_role,
   from_status,
@@ -28,11 +30,11 @@ ON CONFLICT (workflow_role, from_status, to_status) DO UPDATE SET
   display_order = EXCLUDED.display_order,
   version = status_transition_policies.version + 1,
   updated_at = NOW();
--- +goose StatementEnd
 
--- package_scans is an evidence ledger. Corrections must be represented by a
+-- package_scans is an evidence ledger.  Corrections must be represented by a
 -- new event/attempt; mutating an existing scan would destroy custody history.
--- Retention cleanup may still delete expired rows according to the policy.
+-- Retention cleanup may still delete expired rows according to the existing
+-- data-retention policy.
 -- +goose StatementBegin
 CREATE OR REPLACE FUNCTION prevent_package_scan_update()
 RETURNS TRIGGER AS $$
@@ -49,7 +51,6 @@ FOR EACH ROW
 EXECUTE FUNCTION prevent_package_scan_update();
 
 -- +goose Down
--- +goose StatementBegin
 DROP TRIGGER IF EXISTS trg_prevent_package_scan_update ON package_scans;
 DROP FUNCTION IF EXISTS prevent_package_scan_update;
 
@@ -57,4 +58,3 @@ DELETE FROM status_transition_policies
 WHERE workflow_role = 'on_demand'
   AND from_status = 'accepted'
   AND to_status = 'pickup_arrived';
--- +goose StatementEnd
