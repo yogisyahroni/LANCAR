@@ -10,9 +10,11 @@ RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /app
 
-# Copy dependency files first (better layer caching)
+# Copy the committed module graph first for caching. Do not run `go mod tidy`
+# before source exists: tidy would see no packages and can prune dependencies
+# that are required by the source copied in the next layer.
 COPY go.mod go.sum ./
-RUN go mod tidy && go mod download && go mod verify
+RUN go mod download && go mod verify
 
 # Copy source
 COPY . .
