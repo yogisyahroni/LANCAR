@@ -189,7 +189,7 @@ export function OrderDetailContent({
             onClick={handleReportIssue}
             className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
           >
-            <AlertTriangle className="h-4 w-4" /> Laporkan Masalah
+            <AlertTriangle className="h-4 w-4" /> {order.service_category === 'on_demand' ? 'Bantuan & Laporkan Masalah' : 'Laporkan Masalah'}
           </button>
         </div>
       </div>
@@ -896,6 +896,7 @@ export function OrderDetailContent({
         isOpen={isDisputeModalOpen}
         onClose={() => setIsDisputeModalOpen(false)}
         orderId={id as string}
+        isOnDemand={order.service_category === 'on_demand'}
         onSuccess={() => {
           addNotification({ title: 'Terkirim', message: 'Laporan Anda telah kami terima dan akan segera diproses.', type: 'success' });
         }}

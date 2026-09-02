@@ -610,6 +610,7 @@ class OrderViewModel @Inject constructor(
     suspend fun createSafetyEvent(
         orderId: String?,
         eventType: String,
+        reasonCode: String? = null,
         severity: String,
         latitude: Double?,
         longitude: Double?,
@@ -625,6 +626,7 @@ class OrderViewModel @Inject constructor(
                 apiService.createSafetyEventWithPhoto(
                     orderId = orderId?.toRequestBody(textType),
                     eventType = eventType.toRequestBody(textType),
+                    reasonCode = reasonCode?.takeIf { it.isNotBlank() }?.toRequestBody(textType),
                     severity = severity.toRequestBody(textType),
                     latitude = latitude?.toString()?.toRequestBody(textType),
                     longitude = longitude?.toString()?.toRequestBody(textType),
@@ -637,6 +639,7 @@ class OrderViewModel @Inject constructor(
                     CourierSafetyEventRequest(
                         orderId = orderId,
                         eventType = eventType,
+                        reasonCode = reasonCode,
                         severity = severity,
                         latitude = latitude,
                         longitude = longitude,

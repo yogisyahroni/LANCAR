@@ -120,7 +120,7 @@ internal fun OnDemandTaskActions(
     onChatClick: () -> Unit,
     onCallClick: () -> Unit,
     onSosClick: () -> Unit,
-    onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit,
+    onReportIssue: (eventType: String, reasonCode: String?, severity: String, message: String, photoFile: File?) -> Unit,
     onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit,
     onRetrySync: () -> Unit = {},
     onUseServerVersion: () -> Unit = {}
@@ -165,15 +165,13 @@ internal fun OnDemandTaskActions(
                         onStartDelivery = onStartDelivery,
                         onChatClick = onChatClick,
                         onReportFailedDelivery = {
-                            onReportIssue("failed_delivery", "high",
-                                "Penerima tidak dapat ditemui. Membutuhkan tindak lanjut operasional.", null)
+                            showIssueDialog = true
                         }
                     )
                 },
                 onSecondaryClick = if (flowState.secondaryAction != null) {
                     {
-                        onReportIssue("failed_delivery", "high",
-                            "Penerima tidak dapat ditemui. Membutuhkan tindak lanjut operasional.", null)
+                        showIssueDialog = true
                     }
                 } else null
             )
@@ -244,9 +242,9 @@ internal fun OnDemandTaskActions(
             order = order,
             pickupDone = flowState.pickupDone,
             onDismiss = { showIssueDialog = false },
-            onSubmit = { eventType, severity, message, photoFile ->
+            onSubmit = { eventType, reasonCode, severity, message, photoFile ->
                 showIssueDialog = false
-                onReportIssue(eventType, severity, message, photoFile)
+                onReportIssue(eventType, reasonCode, severity, message, photoFile)
             }
         )
     }

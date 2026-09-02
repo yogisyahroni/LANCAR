@@ -318,7 +318,7 @@ fun OrderDetailScreen(
                         ) {
                             Icon(Icons.Default.ReportProblem, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                             Spacer(Modifier.width(8.dp))
-                            Text("Laporkan Masalah / Barang Hilang", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            Text("Bantuan / Laporkan Masalah / Ajukan Klaim", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

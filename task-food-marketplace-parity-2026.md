@@ -483,14 +483,15 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/ondemand_delivery_recovery_service.go`
 
 **Checklist**
-- [ ] POD may require photo/signature/PIN based on service/risk policy.
-- [ ] Failed delivery records structured reason + evidence.
-- [ ] Recovery options are policy driven: `retry`, `contact receiver`, `return_to_sender`, `cancel`, `support_review`.
-- [ ] `return_to_sender` only appears when applicable; do not force every failed delivery into return.
-- [ ] Recipient mismatch follows safe handoff rule.
-- [ ] Settlement does not finalize without required proof/state invariants.
-- [ ] Customer CTA is `Bantuan/Laporkan Masalah/Ajukan Klaim`, not generic marketplace dispute.
-- [ ] Internal lost/damaged claim links to LANCAR evidence and operational incident, not external carrier workflow.
+- [x] POD may require photo/signature/PIN based on service/risk policy.
+- [x] Failed delivery records structured reason + evidence.
+- [x] Recovery options are policy driven: `retry`, `contact receiver`, `return_to_sender`, `cancel`, `support_review`.
+- [x] `return_to_sender` only appears when applicable; do not force every failed delivery into return.
+- [x] Recipient mismatch follows safe handoff rule.
+- [x] Settlement does not finalize without required proof/state invariants.
+- [x] Customer CTA is `Bantuan/Laporkan Masalah/Ajukan Klaim`, not generic marketplace dispute.
+- [x] Internal lost/damaged claim links to LANCAR evidence and operational incident, not external carrier workflow.
+- [ ] Authenticated staging courier → customer recovery/POD flow and deployed migration verification completed.
 
 ---
 

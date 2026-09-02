@@ -379,9 +379,9 @@ internal fun MainScreenModalScreens(deps: MainScreenDeps) {
                     }
                 }
             },
-            onReportIssue = { eventType, severity, message, photoFile ->
+            onReportIssue = { eventType, reasonCode, severity, message, photoFile ->
                 scope.launch {
-                    sendSafetyEvent(order, eventType, severity, message, photoFile)
+                    sendSafetyEvent(order, eventType, reasonCode, severity, message, photoFile)
                 }
             },
             onCancelPickup = { reasonCode, reasonNote, photoFile ->

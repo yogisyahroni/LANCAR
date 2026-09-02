@@ -482,6 +482,8 @@ data class CourierSafetyEventRequest(
     val orderId: String? = null,
     @SerialName("event_type")
     val eventType: String,
+    @SerialName("reason_code")
+    val reasonCode: String? = null,
     @SerialName("severity")
     val severity: String = "medium",
     @SerialName("latitude")

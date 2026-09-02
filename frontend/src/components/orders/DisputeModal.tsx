@@ -9,10 +9,11 @@ interface DisputeModalProps {
   isOpen: boolean;
   onClose: () => void;
   orderId: string;
+  isOnDemand?: boolean;
   onSuccess: () => void;
 }
 
-export function DisputeModal({ isOpen, onClose, orderId, onSuccess }: DisputeModalProps) {
+export function DisputeModal({ isOpen, onClose, orderId, isOnDemand = false, onSuccess }: DisputeModalProps) {
   const [category, setCategory] = useState<string>('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -105,8 +106,12 @@ export function DisputeModal({ isOpen, onClose, orderId, onSuccess }: DisputeMod
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Laporkan Masalah</h2>
-              <p className="text-sm text-muted-foreground">Kirimkan detail kendala pada pesanan ini.</p>
+              <h2 className="text-lg font-bold text-white">{isOnDemand ? 'Bantuan & Ajukan Klaim' : 'Laporkan Masalah'}</h2>
+              <p className="text-sm text-muted-foreground">
+                {isOnDemand
+                  ? 'Kirim kronologi dan bukti agar tim operasional LANCAR dapat menindaklanjuti pesanan ini.'
+                  : 'Kirimkan detail kendala pada pesanan ini.'}
+              </p>
             </div>
           </div>
 
@@ -213,7 +218,7 @@ export function DisputeModal({ isOpen, onClose, orderId, onSuccess }: DisputeMod
                 className="flex items-center gap-2 rounded-xl bg-red-500 hover:bg-red-600 px-6 py-2 text-sm font-medium text-white transition shadow-lg disabled:opacity-50"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Kirim Laporan
+                {isOnDemand ? 'Ajukan Klaim ke LANCAR' : 'Kirim Laporan'}
               </button>
             </div>
           </form>

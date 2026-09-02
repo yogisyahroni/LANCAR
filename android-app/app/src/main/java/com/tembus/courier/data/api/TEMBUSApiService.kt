@@ -212,6 +212,7 @@ interface TEMBUSApiService {
     suspend fun createSafetyEventWithPhoto(
         @Part("order_id") orderId: RequestBody?,
         @Part("event_type") eventType: RequestBody,
+        @Part("reason_code") reasonCode: RequestBody?,
         @Part("severity") severity: RequestBody,
         @Part("latitude") latitude: RequestBody?,
         @Part("longitude") longitude: RequestBody?,

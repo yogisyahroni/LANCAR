@@ -313,8 +313,8 @@ internal fun MainScreenRuntime(
     val foregroundLocationPermissionLauncher = actions.foregroundLocationPermissionLauncher
     val backgroundLocationPermissionLauncher = actions.backgroundLocationPermissionLauncher
 
-    suspend fun sendSafetyEvent(order: Order?, eventType: String, severity: String, message: String, photoFile: File? = null) {
-        actions.sendSafetyEvent(snackbarHostState, orderViewModel, order, eventType, severity, message, photoFile)
+    suspend fun sendSafetyEvent(order: Order?, eventType: String, reasonCode: String?, severity: String, message: String, photoFile: File? = null) {
+        actions.sendSafetyEvent(snackbarHostState, orderViewModel, order, eventType, reasonCode, severity, message, photoFile)
     }
 
     suspend fun performDutyToggle(online: Boolean) {
@@ -401,7 +401,7 @@ internal fun MainScreenRuntime(
         openServiceFaceVerify = { id, st -> openServiceFaceVerify(id, st) },
         closeRoute = { closeRoute() },
         backToOrderOrHome = { backToOrderOrHome() },
-        sendSafetyEvent = { o, et, sv, msg, f -> sendSafetyEvent(o, et, sv, msg, f) },
+        sendSafetyEvent = { o, et, rc, sv, msg, f -> sendSafetyEvent(o, et, rc, sv, msg, f) },
         performDutyToggle = { performDutyToggle(it) },
         requestDutyToggle = { requestDutyToggle(it) }
     )
