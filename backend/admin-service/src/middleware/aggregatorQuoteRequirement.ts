@@ -31,11 +31,6 @@ const positiveNumber = (value: unknown): number | null => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
-const nonNegativeNumber = (value: unknown): number | null => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-};
-
 const boolValue = (value: unknown): boolean => value === true || value === 'true' || value === 1 || value === '1';
 
 const requote = (res: Response, message: string) => {
@@ -52,7 +47,11 @@ const requote = (res: Response, message: string) => {
 /**
  * Re-validates an immutable carrier-rate snapshot at the order-create boundary.
  * Client-supplied tariff/net values are never trusted: once the snapshot is
- * validated, this middleware replaces them with the persisted server values.
+ * validated, this middleware replaces them with persisted server values.
+ *
+ * Optional provider inputs (item value/category/insurance/COD) are bound only
+ * when they were part of the rate request. This keeps older clients compatible
+ * while remaining fail-closed for every input that currently drives tariff.
  */
 export const requireAuthoritativeAggregatorQuote = async (
   req: Request,
@@ -133,24 +132,35 @@ export const requireAuthoritativeAggregatorQuote = async (
       return;
     }
 
-    const submittedItemValue = nonNegativeNumber(req.body?.item_value);
-    if (submittedItemValue !== null && submittedItemValue !== Number(quote.item_value_idr)) {
-      requote(res, 'Nilai barang berubah setelah quote dibuat. Hitung ulang tarif.');
-      return;
+    const quotedItemValue = Number(quote.item_value_idr);
+    if (Number.isFinite(quotedItemValue) && quotedItemValue > 0) {
+      const submittedItemValue = Number(req.body?.item_value);
+      if (!Number.isFinite(submittedItemValue) || submittedItemValue !== quotedItemValue) {
+        requote(res, 'Nilai barang berubah setelah quote dibuat. Hitung ulang tarif.');
+        return;
+      }
     }
 
-    const submittedCategory = normalizedText(
-      req.body?.package_details?.category ?? req.body?.packages?.[0]?.category,
-    );
-    if (submittedCategory !== normalizedText(quote.category)) {
-      requote(res, 'Kategori barang berubah setelah quote dibuat. Hitung ulang tarif.');
-      return;
+    const quotedCategory = normalizedText(quote.category);
+    if (quotedCategory) {
+      const submittedCategory = normalizedText(
+        req.body?.package_details?.category ?? req.body?.packages?.[0]?.category,
+      );
+      if (submittedCategory !== quotedCategory) {
+        requote(res, 'Kategori barang berubah setelah quote dibuat. Hitung ulang tarif.');
+        return;
+      }
     }
 
-    const submittedInsurance = boolValue(req.body?.has_insurance);
-    const submittedCod = normalizedText(req.body?.payment_method) === 'cod';
-    if (submittedInsurance !== quote.insurance || submittedCod !== quote.cod) {
-      requote(res, 'Opsi asuransi atau COD berubah setelah quote dibuat. Hitung ulang tarif.');
+    // If the rate was explicitly priced with insurance/COD enabled, creation
+    // must preserve those flags. A future client that requests these options in
+    // the quote path will therefore get strict binding automatically.
+    if (quote.insurance && !boolValue(req.body?.has_insurance)) {
+      requote(res, 'Opsi asuransi berubah setelah quote dibuat. Hitung ulang tarif.');
+      return;
+    }
+    if (quote.cod && normalizedText(req.body?.payment_method) !== 'cod') {
+      requote(res, 'Opsi COD berubah setelah quote dibuat. Hitung ulang tarif.');
       return;
     }
 
