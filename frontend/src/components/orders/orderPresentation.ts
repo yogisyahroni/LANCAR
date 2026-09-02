@@ -45,8 +45,8 @@ export function getOrderServicePresentation(order: OrderPresentationInput): Orde
   if (code === "tembus_aggregator" || category === "aggregator" || model === "hub_and_spoke" || Boolean(provider)) {
     return {
       kind: "aggregator",
-      label: "Ekspedisi aggregator",
-      description: "First-mile LANCAR → carrier eksternal",
+      label: "Ekspedisi Antar-Kota",
+      description: "Hemat · ETA terjadwal · first-mile LANCAR → carrier",
       firstMileLabel: "First-mile: LANCAR",
       externalCarrierLabel: `Carrier eksternal: ${externalName || "belum ditetapkan"}${order.awb_number ? ` · AWB ${order.awb_number}` : ""}`,
     };
@@ -57,7 +57,7 @@ export function getOrderServicePresentation(order: OrderPresentationInput): Orde
   }
 
   if (category === "package_on_demand" || model === "p2p" || code === "tembus_instant") {
-    return { kind: "instant", label: "Instan LANCAR", description: "First-mile dan last-mile oleh LANCAR" };
+    return { kind: "instant", label: "Paket Instan", description: "Cepat · ETA berbasis rute · last-mile LANCAR" };
   }
 
   if (category === "tambal_ban" || category === "towing") {

@@ -38,7 +38,7 @@ describe("customer order service presentation", () => {
     expect(getOrderServicePresentation({ service_code: "tembus_food", service_snapshot: { category: "food" } }).kind)
       .toBe("food");
     expect(getOrderServicePresentation({ model: "p2p", service_code: "tembus_instant" }).label)
-      .toBe("Instan LANCAR");
+      .toBe("Paket Instan");
     expect(getOrderServicePresentation({ service_snapshot: { service_name: "Tambal Ban" } }).label)
       .toBe("Tambal Ban");
   });

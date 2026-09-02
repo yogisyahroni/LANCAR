@@ -314,8 +314,8 @@ export default function ResiPage() {
             className="w-full bg-zinc-900/90 border border-white/10 pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all select-none appearance-none cursor-pointer shadow-sm"
           >
             <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Jenis Layanan</option>
-            <option value="p2p" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Instan LANCAR</option>
-            <option value="hub_and_spoke" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Ekspedisi aggregator</option>
+            <option value="p2p" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Paket Instan</option>
+            <option value="hub_and_spoke" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Ekspedisi Antar-Kota</option>
           </select>
         </div>
       </div>

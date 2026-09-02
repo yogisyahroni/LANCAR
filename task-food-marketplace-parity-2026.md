@@ -532,10 +532,11 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `frontend/src/app/(portal)/orders/page.tsx`
 
 **Checklist**
-- [ ] Distinguish `Paket Instan` from `Ekspedisi Antar-Kota` by icon/subtitle/ETA/price expectation.
-- [ ] Progressive disclosure.
-- [ ] Final review: route, package summary, ETA, total, receiver, cancellation policy.
-- [ ] History badges are service-aware.
+- [x] Distinguish `Paket Instan` from `Ekspedisi Antar-Kota` by icon/subtitle/ETA/price expectation.
+- [x] Progressive disclosure.
+- [x] Final review: route, package summary, ETA, total, receiver, cancellation policy.
+- [x] History badges are service-aware.
+- [ ] Authenticated staging visual/interaction verification completed on Android and web.
 
 ---
 

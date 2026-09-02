@@ -202,21 +202,24 @@ fun OrderCardItem(
             ) {
                 Text("No. Resi ${order.orderNumber}", fontSize = 12.sp, color = OnSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (isFood) {
-                        // FB-084: badge tipe order food
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = PrimaryLight.copy(alpha = 0.25f)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.padding(end = 6.dp)
-                        ) {
-                            Text(
-                                text = "FOOD",
-                                color = Primary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
+                    val serviceLabel = when {
+                        isFood -> "FOOD"
+                        order.serviceCategory.equals("on_demand", ignoreCase = true) || order.serviceSubType == "p2p" -> "PAKET INSTAN"
+                        order.serviceCategory.equals("regular", ignoreCase = true) -> "EKSPEDISI ANTAR-KOTA"
+                        else -> order.serviceSubType?.replace('_', ' ')?.uppercase(Locale("id", "ID")) ?: "LAYANAN"
+                    }
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = if (isFood) PrimaryLight.copy(alpha = 0.25f) else Color(0xFFE8EAF6)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.padding(end = 6.dp)
+                    ) {
+                        Text(
+                            text = serviceLabel,
+                            color = if (isFood) Primary else Color(0xFF3949AB),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
                     }
                     Card(
                         colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.1f)),
