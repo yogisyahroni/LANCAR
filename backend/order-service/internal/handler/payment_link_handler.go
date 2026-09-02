@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 )
 
 type PaymentLinkHandler struct {
@@ -21,14 +22,17 @@ func NewPaymentLinkHandler(svc domain.PaymentLinkService, configRepo domain.Conf
 	return &PaymentLinkHandler{svc: svc, configRepo: configRepo}
 }
 
-func writeRequoteRequired(w http.ResponseWriter, err error) {
+func writeRequoteRequired(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusConflict)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":          false,
 		"code":             "REQUOTE_REQUIRED",
-		"error":            err.Error(),
+		"message":          "Quote perlu dihitung ulang sebelum order dapat dibuat.",
 		"requires_requote": true,
+		"correlation_id":   middleware.GetCorrelationID(r.Context()),
+		"action":           "Tinjau harga terbaru lalu lanjutkan kembali.",
+		"retryable":        false,
 	})
 }
 
@@ -61,7 +65,7 @@ func (h *PaymentLinkHandler) CreateLink(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			var requoteErr *domain.RequoteRequiredError
 			if errors.As(err, &requoteErr) {
-				writeRequoteRequired(w, err)
+				writeRequoteRequired(w, r)
 				return
 			}
 			http.Error(w, err.Error(), http.StatusBadGateway)
@@ -74,7 +78,7 @@ func (h *PaymentLinkHandler) CreateLink(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		var requoteErr *domain.RequoteRequiredError
 		if errors.As(err, &requoteErr) {
-			writeRequoteRequired(w, err)
+			writeRequoteRequired(w, r)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
