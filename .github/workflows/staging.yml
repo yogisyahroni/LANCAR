@@ -618,21 +618,20 @@ jobs:
   regression-api:
     name: API Regression (k6)
     needs: [deploy]
-    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true'
+    # Always execute the external gate after the deploy job. Missing staging
+    # configuration must fail the gate explicitly, never silently skip it.
+    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Check staging API availability
-        id: check_api
+      - name: Require API regression credentials
         run: |
           if [ -z "${{ secrets.TEST_USER_EMAIL }}" ] || [ -z "${{ secrets.TEST_USER_PASSWORD }}" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "TEST_USER_EMAIL and TEST_USER_PASSWORD are required for API Regression (k6)." >&2
+            exit 1
           fi
       - name: Run k6 API regression
-        if: steps.check_api.outputs.skip == 'false'
         uses: grafana/k6-action@v0.3.1
         with:
           filename: scripts/ci/k6/smoke-test.js
@@ -648,33 +647,33 @@ jobs:
     needs: [deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true'
+    # Always execute the external gate after the deploy job. Missing staging
+    # configuration must fail the gate explicitly, never silently skip it.
+    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success'
     steps:
       - uses: actions/checkout@v4
-      - name: Check if STAGING_URL is configured
-        id: check_url
+      - name: Require browser validation configuration
         run: |
           if [ -z "${{ vars.STAGING_URL }}" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "STAGING_URL is required for E2E Browser Validation." >&2
+            exit 1
+          fi
+          if [ -z "${{ secrets.TEST_USER_EMAIL }}" ] || [ -z "${{ secrets.TEST_USER_PASSWORD }}" ]; then
+            echo "TEST_USER_EMAIL and TEST_USER_PASSWORD are required for E2E Browser Validation." >&2
+            exit 1
           fi
       - uses: actions/setup-node@v4
-        if: steps.check_url.outputs.skip == 'false'
         with:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
-        if: steps.check_url.outputs.skip == 'false'
         working-directory: ./frontend
         run: npm ci
       - name: Install Playwright Chromium
-        if: steps.check_url.outputs.skip == 'false'
         working-directory: ./frontend
         run: npx playwright install --with-deps chromium
       - name: Run E2E against Staging URL
-        if: steps.check_url.outputs.skip == 'false'
         working-directory: ./frontend
         run: npx playwright test --project=chromium
         env:
@@ -682,7 +681,7 @@ jobs:
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
       - name: Upload Playwright Report
-        if: always() && steps.check_url.outputs.skip == 'false'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
@@ -706,12 +705,12 @@ jobs:
           if [ "${{ needs.deploy.result }}" != "success" ]; then
             STATUS="🚨 *FAILED*"
             MESSAGE="⚠️ Deploy ke Staging gagal. SHA: \`${{ github.sha }}\`"
+          elif [ "${{ needs.e2e-browser-validation.result }}" != "success" ] || [ "${{ needs.regression-api.result }}" != "success" ]; then
+            STATUS="🚨 *VALIDATION FAILED*"
+            MESSAGE="External E2E/API validation gagal atau konfigurasinya belum tersedia. SHA: \`${{ github.sha }}\`"
           elif [ "${{ needs.deploy.outputs.deployed }}" != "true" ]; then
             STATUS="🟡 *VALIDATION PENDING*"
             MESSAGE="Repository verification lulus, tetapi staging belum dideploy karena environment deployment belum tersedia. SHA: \`${{ github.sha }}\`"
-          elif [ "${{ needs.e2e-browser-validation.result }}" != "success" ] || [ "${{ needs.regression-api.result }}" != "success" ]; then
-            STATUS="🚨 *VALIDATION FAILED*"
-            MESSAGE="Staging berhasil dideploy tetapi external E2E/API validation gagal. SHA: \`${{ github.sha }}\`"
           else
             STATUS="✅ *SUCCESS*"
             MESSAGE="🚀 Update terbaru telah di-deploy dan divalidasi di *Staging*. SHA: \`${{ github.sha }}\`"
