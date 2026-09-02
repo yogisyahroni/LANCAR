@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { clientLog } from './clientLogger';
 import { customerSocketUrl } from './runtimeConfig';
+import { shouldAcceptRealtimeEvent } from './realtimeEventGuard';
 
 const SOCKET_URL = customerSocketUrl;
 
@@ -9,6 +10,8 @@ const SOCKET_URL = customerSocketUrl;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 let socket: Socket | null = null;
+const seenOrderEventVersions = new Map<string, number>();
+const orderUpdateListeners = new Set<(orderId: string) => void>();
 
 export const getSocket = (userId?: string, role: string = 'customer') => {
   if (socket && userId) {
@@ -43,6 +46,15 @@ export const getSocket = (userId?: string, role: string = 'customer') => {
     socket.on('connect_error', (error) => {
       clientLog.error('WebSocket connection error', { error });
     });
+
+    socket.on('order_tracking_updated', (payload: unknown) => {
+      if (!payload || typeof payload !== 'object') return;
+      const event = payload as { order_id?: string; orderId?: string; event_version?: string | number; eventVersion?: string | number };
+      if (!shouldAcceptRealtimeEvent(seenOrderEventVersions, event)) return;
+      const orderId = event.order_id ?? event.orderId;
+      if (!orderId) return;
+      orderUpdateListeners.forEach((listener) => listener(orderId));
+    });
   }
   return socket;
 };
@@ -61,9 +73,19 @@ export const leaveOrderRoom = (orderId?: string) => {
   }
 };
 
+/**
+ * Subscribe to an order change signal. The callback must fetch the
+ * authoritative order snapshot; the socket payload is never a state patch.
+ */
+export const onOrderTrackingUpdated = (listener: (orderId: string) => void) => {
+  orderUpdateListeners.add(listener);
+  return () => orderUpdateListeners.delete(listener);
+};
+
 export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
     socket = null;
   }
+  seenOrderEventVersions.clear();
 };

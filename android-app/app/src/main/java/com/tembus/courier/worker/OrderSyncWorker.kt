@@ -4,7 +4,14 @@ import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.tembus.courier.data.repository.LocationRepository
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.data.session.AuthSessionManager
@@ -79,5 +86,26 @@ class OrderSyncWorker @AssistedInject constructor(
                 Result.retry()
             }
         )
+    }
+
+    companion object {
+        private const val UNIQUE_WORK = "courier-order-sync"
+
+        fun enqueue(context: Context, reason: String) {
+            val request = OneTimeWorkRequestBuilder<OrderSyncWorker>()
+                .setInputData(workDataOf("reason" to reason))
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build()
+                )
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+                UNIQUE_WORK,
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
+        }
     }
 }

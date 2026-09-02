@@ -14,6 +14,10 @@ func (s *orderServiceImpl) publishOrderEvent(ctx context.Context, orderID string
 		Message:   message,
 		CreatedAt: time.Now(),
 	}
+	if order, err := s.orderRepo.GetByID(ctx, orderID); err == nil && order != nil {
+		event.StateVersion = order.StateVersion
+	}
+	event.EventVersion = event.CreatedAt.UnixNano()
 	_ = s.eventRepo.SaveEvent(ctx, event)
 	_ = s.eventBus.Publish(ctx, "order.updates", event)
 }

@@ -13,7 +13,19 @@ import (
 
 // Auto-generated split of orderServiceImpl methods (god-file refactor).
 func (s *orderServiceImpl) ListEvents(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {
-	return s.eventRepo.ListEventsByUserID(ctx, userID, since)
+	events, err := s.eventRepo.ListEventsByUserID(ctx, userID, since)
+	if err != nil {
+		return nil, err
+	}
+	for i := range events {
+		if events[i].EventVersion == 0 && !events[i].CreatedAt.IsZero() {
+			events[i].EventVersion = events[i].CreatedAt.UnixNano()
+		}
+		if events[i].StateVersion < 1 {
+			events[i].StateVersion = 1
+		}
+	}
+	return events, nil
 }
 
 func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, scan *domain.PackageScan) error {

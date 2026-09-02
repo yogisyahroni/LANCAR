@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
@@ -223,22 +224,26 @@ func (h *WSHandler) listenToEvents() {
 }
 
 func (h *WSHandler) broadcastToRoomFromEvent(topic, payload string) {
-	var event struct {
-		OrderID string `json:"order_id"`
-		UserID  string `json:"user_id"`
+	normalized, event, ok := normalizeRealtimeEvent(topic, []byte(payload), time.Now().UTC())
+	if !ok {
+		return
 	}
-	_ = json.Unmarshal([]byte(payload), &event)
 
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+	sent := make(map[*client]bool)
 
 	// Broadcast to order room if present
 	if event.OrderID != "" {
 		room := "order:" + event.OrderID
 		if clients, ok := h.rooms[room]; ok {
 			for c := range clients {
+				if sent[c] {
+					continue
+				}
 				select {
-				case c.send <- []byte(payload):
+				case c.send <- normalized:
+					sent[c] = true
 				default:
 					// Drop slow clients
 				}
@@ -251,11 +256,55 @@ func (h *WSHandler) broadcastToRoomFromEvent(topic, payload string) {
 		room := "user:" + event.UserID
 		if clients, ok := h.rooms[room]; ok {
 			for c := range clients {
+				if sent[c] {
+					continue
+				}
 				select {
-				case c.send <- []byte(payload):
+				case c.send <- normalized:
+					sent[c] = true
 				default:
 				}
 			}
 		}
 	}
+}
+
+type realtimeEventIndex struct {
+	OrderID string
+	UserID  string
+}
+
+// normalizeRealtimeEvent creates the wire contract shared by polling and
+// realtime consumers. Older producers may omit event_version; the server then
+// derives it from created_at so clients can still reject stale duplicates.
+func normalizeRealtimeEvent(topic string, payload []byte, now time.Time) ([]byte, realtimeEventIndex, bool) {
+	var event map[string]any
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return nil, realtimeEventIndex{}, false
+	}
+	orderID, _ := event["order_id"].(string)
+	userID, _ := event["user_id"].(string)
+	if orderID == "" && userID == "" {
+		return nil, realtimeEventIndex{}, false
+	}
+	if _, exists := event["event_type"]; !exists {
+		event["event_type"] = topic
+	}
+	if _, exists := event["event_version"]; !exists {
+		version := now.UnixNano()
+		if rawCreated, ok := event["created_at"].(string); ok {
+			if created, err := time.Parse(time.RFC3339Nano, rawCreated); err == nil {
+				version = created.UnixNano()
+			}
+		}
+		event["event_version"] = strconv.FormatInt(version, 10)
+	}
+	if _, exists := event["created_at"]; !exists {
+		event["created_at"] = now.Format(time.RFC3339Nano)
+	}
+	encoded, err := json.Marshal(event)
+	if err != nil {
+		return nil, realtimeEventIndex{}, false
+	}
+	return encoded, realtimeEventIndex{OrderID: orderID, UserID: userID}, true
 }

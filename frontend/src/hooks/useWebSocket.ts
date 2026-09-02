@@ -1,21 +1,25 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { shouldAcceptRealtimeEvent } from '@/lib/realtimeEventGuard';
 
 interface WebSocketHookOptions {
   onMessage?: (data: any) => void;
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (error: Event) => void;
+  /** Fetch authoritative state after every connection, including reconnects. */
+  onResync?: () => void;
   autoConnect?: boolean;
 }
 
 export function useWebSocket(url: string | null, options: WebSocketHookOptions = {}) {
-  const { onMessage, onOpen, onClose, onError, autoConnect = true } = options;
+  const { onMessage, onOpen, onClose, onError, onResync, autoConnect = true } = options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Event | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const seenVersionsRef = useRef(new Map<string, number>());
 
   const connect = useCallback(() => {
     if (!url) return;
@@ -31,11 +35,15 @@ export function useWebSocket(url: string | null, options: WebSocketHookOptions =
         setIsConnected(true);
         setError(null);
         if (onOpen) onOpen();
+        if (onResync) onResync();
       };
 
       ws.onmessage = (event) => {
         try {
           const parsed = JSON.parse(event.data);
+          if (parsed && typeof parsed === 'object' && !shouldAcceptRealtimeEvent(seenVersionsRef.current, parsed)) {
+            return;
+          }
           if (onMessage) onMessage(parsed);
         } catch (err) {
           if (onMessage) onMessage(event.data);

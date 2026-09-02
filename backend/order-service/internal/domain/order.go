@@ -428,6 +428,11 @@ type OrderEvent struct {
 	Status    OrderStatus `json:"status"`
 	Message   string      `json:"message,omitempty"`
 	CreatedAt time.Time   `json:"created_at"`
+	// EventVersion is a monotonic client cursor derived from the server event
+	// timestamp. StateVersion, when available, is the authoritative order CAS
+	// version; clients must resync the snapshot before applying state changes.
+	EventVersion int64 `json:"event_version,omitempty"`
+	StateVersion int64 `json:"state_version,omitempty"`
 }
 
 type MeetingPointService interface {
