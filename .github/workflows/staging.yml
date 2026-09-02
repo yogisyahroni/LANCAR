@@ -527,13 +527,15 @@ jobs:
     needs: [docker-build-push]
     if: github.ref == 'refs/heads/staging'
     environment: staging
+    outputs:
+      deployed: ${{ steps.deploy_ssh.outputs.deployed || 'false' }}
     steps:
       - uses: actions/checkout@v4
       - name: Check required secrets
         id: check_secrets
         run: |
           if [ -z "${{ secrets.STAGING_SSH_HOST }}" ]; then
-            echo "⚠️ STAGING_SSH_HOST belum di-set. Deploy di-skip."
+            echo "⚠️ STAGING_SSH_HOST belum di-set. Deploy di-skip; release validation tetap pending."
             echo "has_ssh=false" >> $GITHUB_OUTPUT
           else
             echo "has_ssh=true" >> $GITHUB_OUTPUT
@@ -546,6 +548,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p ${{ secrets.STAGING_SSH_PORT || '22' }} ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
       - name: Deploy via SSH
+        id: deploy_ssh
         if: steps.check_secrets.outputs.has_ssh == 'true'
         env:
           REPO_LOWER: ${{ github.repository }}
@@ -597,11 +600,25 @@ jobs:
           curl -sf http://localhost:8080/health
           docker image prune -f --filter "until=24h" || true
           EOF
+          echo "deployed=true" >> "$GITHUB_OUTPUT"
+
+  release-validation-pending:
+    name: Release Validation Pending
+    needs: [deploy]
+    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record pending external validation
+        run: |
+          echo "### Release validation pending" >> "$GITHUB_STEP_SUMMARY"
+          echo "The commit passed repository verification and container publication, but no staging SSH deployment occurred." >> "$GITHUB_STEP_SUMMARY"
+          echo "External staging E2E/API validation is intentionally deferred until staging deployment is configured." >> "$GITHUB_STEP_SUMMARY"
 
   regression-api:
     name: API Regression (k6)
     needs: [deploy]
-    if: github.ref == 'refs/heads/staging'
+    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -631,7 +648,7 @@ jobs:
     needs: [deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    if: github.ref == 'refs/heads/staging'
+    if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true'
     steps:
       - uses: actions/checkout@v4
       - name: Check if STAGING_URL is configured
@@ -674,7 +691,7 @@ jobs:
 
   notify:
     name: Notification
-    needs: [deploy, e2e-browser-validation, regression-api]
+    needs: [deploy, release-validation-pending, e2e-browser-validation, regression-api]
     runs-on: ubuntu-latest
     if: always() && github.ref == 'refs/heads/staging'
     steps:
@@ -686,12 +703,18 @@ jobs:
           if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
             exit 0
           fi
-          if [ "${{ needs.deploy.result }}" == "success" ]; then
-            STATUS="✅ *SUCCESS*"
-            MESSAGE="🚀 Update terbaru telah di-deploy ke *Staging*. SHA: \`${{ github.sha }}\`"
-          else
+          if [ "${{ needs.deploy.result }}" != "success" ]; then
             STATUS="🚨 *FAILED*"
-            MESSAGE="⚠️ Deploy ke Staging gagal atau tertunda. SHA: \`${{ github.sha }}\`"
+            MESSAGE="⚠️ Deploy ke Staging gagal. SHA: \`${{ github.sha }}\`"
+          elif [ "${{ needs.deploy.outputs.deployed }}" != "true" ]; then
+            STATUS="🟡 *VALIDATION PENDING*"
+            MESSAGE="Repository verification lulus, tetapi staging belum dideploy karena environment deployment belum tersedia. SHA: \`${{ github.sha }}\`"
+          elif [ "${{ needs.e2e-browser-validation.result }}" != "success" ] || [ "${{ needs.regression-api.result }}" != "success" ]; then
+            STATUS="🚨 *VALIDATION FAILED*"
+            MESSAGE="Staging berhasil dideploy tetapi external E2E/API validation gagal. SHA: \`${{ github.sha }}\`"
+          else
+            STATUS="✅ *SUCCESS*"
+            MESSAGE="🚀 Update terbaru telah di-deploy dan divalidasi di *Staging*. SHA: \`${{ github.sha }}\`"
           fi
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
