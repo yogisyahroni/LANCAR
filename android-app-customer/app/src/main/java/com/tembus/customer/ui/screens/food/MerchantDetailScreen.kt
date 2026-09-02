@@ -194,14 +194,19 @@ fun MerchantDetailScreen(
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    // Brand-gradient placeholder with a food emoji (backend hasn't sent a photo yet).
+                                    // Do not invent a food image when the API has no media asset.
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .background(Brush.linearGradient(listOf(PrimaryLight, Primary.copy(alpha = 0.55f)))),
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(foodEmojiFor(m.id ?: m.name), fontSize = 64.sp)
+                                        Icon(
+                                            imageVector = Icons.Default.Store,
+                                            contentDescription = "Foto merchant belum tersedia",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(48.dp)
+                                        )
                                     }
                                 }
                             }
