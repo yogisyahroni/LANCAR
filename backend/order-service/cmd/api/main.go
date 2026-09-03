@@ -260,7 +260,7 @@ func main() {
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader, configRepo)
 	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
 	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo, ledgerRepo, taxSvc)
-	handoffSvc := service.NewHandoffService(pgRepo)
+	handoffSvc := service.NewHandoffService(pgRepo, pgRepo)
 	if configurable, ok := orderSvc.(interface{ SetHandoffService(domain.HandoffService) }); ok {
 		configurable.SetHandoffService(handoffSvc)
 	}
@@ -349,7 +349,7 @@ func main() {
 	paymentLinkHandler := handler.NewPaymentLinkHandler(paymentLinkSvc, configRepo)
 	carrierHandoffHandler := handler.NewCarrierHandoffHandler(carrierHandoffSvc)
 	// CORE-2026-006: Proof/PIN/QR/signature chain-of-custody handler.
-	handoffSvc := service.NewHandoffService(pgRepo, pgRepo)
+	// handoffSvc already wired above; reuse untuk proofHandler.
 	proofHandler := handler.NewHandoffHandler(handoffSvc)
 	chatHandler := handler.NewChatHandler(chatSvc)
 	sosHandler := handler.NewSosHandler(sosSvc)
@@ -504,6 +504,12 @@ func main() {
 	mux.HandleFunc("/api/v1/food/favorites", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFavoriteMerchants)))
 	mux.HandleFunc("/api/v1/food/favorites/check/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CheckIsFavoriteMerchant)))
 
+	// FOOD-2026-007: item unavailable + substitution flow
+	mux.HandleFunc("/api/v1/food/orders/{order_id}/item-unavailable", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ReportFoodItemUnavailable)))
+	mux.HandleFunc("/api/v1/food/orders/{order_id}/substitution", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ProposeFoodSubstitution)))
+	mux.HandleFunc("/api/v1/food/orders/{order_id}/substitutions", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetPendingSubstitutionProposals)))
+	mux.HandleFunc("/api/v1/food/substitutions/{proposal_id}/decision", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.DecideFoodSubstitution)))
+
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
 	mux.HandleFunc("/api/v1/orders/reorder-info", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.ReorderCheck))))
 	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "order.bulk_create", middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateBulkOrderRequest{})(orderHandler.CreateBulkOrder))))))
@@ -528,8 +534,8 @@ func main() {
 	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))
 	mux.HandleFunc("/api/v1/orders/status", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.status.update", middleware.LimitByIP(rdb)(orderHandler.UpdateStatus)))))
 	mux.HandleFunc("/api/v1/orders/scan", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.proof.scan", orderHandler.ScanPackage))))
-	mux.HandleFunc("/api/v1/orders/handoff/tokens", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.handoff.issue", orderHandler.IssueHandoffToken))))
-	mux.HandleFunc("/api/v1/orders/handoff/tokens/consume", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.handoff.consume", orderHandler.ConsumeHandoffToken))))
+	mux.HandleFunc("/api/v1/orders/handoff/tokens", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.handoff.issue", proofHandler.IssueProofToken))))
+	mux.HandleFunc("/api/v1/orders/handoff/tokens/consume", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "courier.handoff.consume", proofHandler.VerifyProofToken))))
 	mux.HandleFunc("/api/v1/orders/scans", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetPackageScans)))
 	mux.HandleFunc("/api/v1/orders/bags", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CreateConsolidationBag)))
 	mux.HandleFunc("/api/v1/orders/bags/open", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.OpenConsolidationBag)))

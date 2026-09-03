@@ -21,7 +21,16 @@ type FoodOrderItemVariantRequest struct {
 	OptionID  string `json:"option_id" validate:"required"`
 }
 
+// FOOD-2026-010: Customer Pickup/self-pickup — delivery method constants.
+const (
+	DeliveryMethodDelivery = "delivery"
+	DeliveryMethodPickup   = "pickup"
+)
+
 type CreateFoodOrderRequest struct {
+	// FOOD-2026-010: Customer Pickup/self-pickup — "pickup" = self-pickup (tanpa courier).
+	// Default "delivery" untuk backward kompatibel.
+	DeliveryMethod string                 `json:"delivery_method,omitempty" validate:"omitempty,oneof=delivery pickup"`
 	MerchantID     string                 `json:"merchant_id" validate:"required"`
 	Items          []FoodOrderItemRequest `json:"items" validate:"required,min=1,dive"`
 	DropoffAddress string                 `json:"dropoff_address" validate:"required"`
@@ -106,16 +115,16 @@ type FoodOrderItemVariant struct {
 }
 
 type FoodMerchantInfo struct {
-	ID                 string  `json:"id"`
-	Name               string  `json:"name"`
-	Address            string  `json:"address"`
-	IsOpen             bool    `json:"is_open"`
-	VerificationStatus string  `json:"verification_status"`
-	Lat                float64 `json:"lat"`
-	Lng                float64 `json:"lng"`
-	JamBuka            *string `json:"jam_buka,omitempty"`
-	JamTutup           *string `json:"jam_tutup,omitempty"`
-	LastOrderMinutesBeforeClose int `json:"last_order_minutes_before_close"`
+	ID                          string  `json:"id"`
+	Name                        string  `json:"name"`
+	Address                     string  `json:"address"`
+	IsOpen                      bool    `json:"is_open"`
+	VerificationStatus          string  `json:"verification_status"`
+	Lat                         float64 `json:"lat"`
+	Lng                         float64 `json:"lng"`
+	JamBuka                     *string `json:"jam_buka,omitempty"`
+	JamTutup                    *string `json:"jam_tutup,omitempty"`
+	LastOrderMinutesBeforeClose int     `json:"last_order_minutes_before_close"`
 	// FB-107: pause sementara — merchant tidak terima order baru selama
 	// PausedUntil > NOW(). NULL = tidak pause.
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
@@ -194,6 +203,54 @@ type ReorderCheckResult struct {
 	HasChanges   bool               `json:"has_changes"`
 }
 
+// ── FOOD-2026-007: Item unavailable + substitution flow ──────────
+
+// FoodItemUnavailable melaporkan item tidak tersedia di tengah proses.
+type FoodItemUnavailable struct {
+	ID         string    `json:"id"`
+	OrderID    string    `json:"order_id"`
+	MenuItemID string    `json:"menu_item_id"`
+	Quantity   int       `json:"quantity"`
+	Reason     string    `json:"reason"`
+	ReportedBy string    `json:"reported_by_role"`
+	ReportedAt time.Time `json:"reported_at"`
+	Resolved   bool      `json:"resolved"`
+}
+
+// FoodSubstitutionProposal: merchant propose ganti item unavailable.
+type FoodSubstitutionProposal struct {
+	ID                  string     `json:"id"`
+	OrderID             string     `json:"order_id"`
+	OriginalItemID      string     `json:"original_menu_item_id"`
+	OriginalItemName    string     `json:"original_item_name"`
+	OriginalPrice       int64      `json:"original_price_idr"`
+	ReplacementItemID   string     `json:"replacement_menu_item_id"`
+	ReplacementItemName string     `json:"replacement_item_name"`
+	ReplacementPrice    int64      `json:"replacement_price_idr"`
+	PriceDifferenceIDR  int64      `json:"price_difference_idr"`
+	Reason              string     `json:"reason,omitempty"`
+	ProposedBy          string     `json:"proposed_by_role"`
+	ProposedAt          time.Time  `json:"proposed_at"`
+	CustomerDecision    string     `json:"customer_decision"`
+	CustomerDecidedAt   *time.Time `json:"customer_decided_at,omitempty"`
+}
+
+type ReportFoodItemUnavailableRequest struct {
+	MenuItemID string `json:"menu_item_id" validate:"required"`
+	Quantity   int    `json:"quantity" validate:"required,min=1"`
+	Reason     string `json:"reason" validate:"required,min=1,max=200"`
+}
+
+type ProposeFoodSubstitutionRequest struct {
+	OriginalMenuItemID    string `json:"original_menu_item_id" validate:"required"`
+	ReplacementMenuItemID string `json:"replacement_menu_item_id" validate:"required"`
+	Reason                string `json:"reason,omitempty"`
+}
+
+type SubstitutionDecisionRequest struct {
+	Decision string `json:"decision" validate:"required,oneof=approved rejected"`
+}
+
 type FoodRepository interface {
 	GetFoodMerchant(ctx context.Context, merchantID string) (*FoodMerchantInfo, error)
 	GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]FoodMenuItemInfo, error)
@@ -249,7 +306,7 @@ type FoodRepository interface {
 	UpdateFoodBatchCourier(ctx context.Context, batchID, courierID string) error
 	// GetScheduledFoodOrdersDue — FB-123: order status 'scheduled' yang
 	// scheduled_at ≤ NOW() + prep_time_minutes + buffer 5 menit → saatnya
-	// diaktivasi ke pending_merchant atau auto-cancel (merchant tidak valid).
+	// diaktifkan ke pending_merchant atau auto-cancel (merchant tidak valid).
 	GetScheduledFoodOrdersDue(ctx context.Context) ([]ScheduledFoodOrder, error)
 	// CancelScheduledFoodOrder — FB-123: auto-cancel order terjadwal saat
 	// aktivasi gagal (merchant tidak valid / lewat jam tutup). Guard status.
@@ -257,6 +314,13 @@ type FoodRepository interface {
 	// ActivateScheduledFoodOrder — FB-123: transisi scheduled → pending_merchant
 	// saat aktivasi (merchant re-validated OK). Guard status.
 	ActivateScheduledFoodOrder(ctx context.Context, orderID string) error
+	// FOOD-2026-007: item unavailable + substitution
+	ReportFoodItemUnavailable(ctx context.Context, req FoodItemUnavailable) error
+	CreateFoodSubstitutionProposal(ctx context.Context, req FoodSubstitutionProposal) (*FoodSubstitutionProposal, error)
+	GetPendingSubstitutionProposals(ctx context.Context, orderID string) ([]*FoodSubstitutionProposal, error)
+	GetSubstitutionProposalByID(ctx context.Context, proposalID string) (*FoodSubstitutionProposal, error)
+	ResolveFoodSubstitution(ctx context.Context, proposalID string, decision string) error
+	UpdateFoodOrderItemPrice(ctx context.Context, orderID, menuItemID string, newPrice int64) error
 }
 
 type FoodQuoteService interface {

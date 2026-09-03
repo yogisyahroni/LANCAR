@@ -1036,3 +1036,223 @@ func (r *foodRepo) CheckIsFavoriteMerchant(ctx context.Context, customerID, merc
 	}
 	return exists, nil
 }
+
+// ── FOOD-2026-007: Item unavailable + substitution flow ──────────
+
+// ReportFoodItemUnavailable — insert food_item_unavailable.
+// Merchant/system report item tidak tersedia. Order tetap di status
+// preparing/searching sampai substitution resolved oleh customer.
+func (r *foodRepo) ReportFoodItemUnavailable(ctx context.Context, req domain.FoodItemUnavailable) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO food_item_unavailable
+			(id, order_id, menu_item_id, quantity, reason, reported_by_role, reported_at, resolved)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), FALSE)`,
+		uuid.New().String(), req.OrderID, req.MenuItemID, req.Quantity, req.Reason, req.ReportedBy,
+	)
+	return err
+}
+
+// CreateFoodSubstitutionProposal — insert proposal + hitung price_difference.
+// Merchant usulkan pengganti untuk item unavailable. Price diambil snapshot
+// item order (bukan harga menu live).
+func (r *foodRepo) CreateFoodSubstitutionProposal(ctx context.Context, req domain.FoodSubstitutionProposal) (*domain.FoodSubstitutionProposal, error) {
+	proposalID := uuid.New().String()
+	now := time.Now()
+
+	// Snapshot item asli (harga beku saat order).
+	var origName string
+	var origPrice int64
+	err := r.db.QueryRowContext(ctx,
+		`SELECT item_name, item_price FROM food_order_items WHERE order_id = $1 AND menu_item_id = $2`,
+		req.OrderID, req.OriginalItemID,
+	).Scan(&origName, &origPrice)
+	if err != nil {
+		return nil, fmt.Errorf("lookup original item: %w", err)
+	}
+
+	// Harga pengganti dari menu item live.
+	var replName string
+	var replPrice int64
+	err = r.db.QueryRowContext(ctx,
+		`SELECT nama, harga FROM merchant_menu_items WHERE id = $1`,
+		req.ReplacementItemID,
+	).Scan(&replName, &replPrice)
+	if err != nil {
+		return nil, fmt.Errorf("lookup replacement item: %w", err)
+	}
+
+	priceDiff := replPrice - origPrice
+
+	result := &domain.FoodSubstitutionProposal{
+		ID:                  proposalID,
+		OrderID:             req.OrderID,
+		OriginalItemID:      req.OriginalItemID,
+		OriginalItemName:    origName,
+		OriginalPrice:       origPrice,
+		ReplacementItemID:   req.ReplacementItemID,
+		ReplacementItemName: replName,
+		ReplacementPrice:    replPrice,
+		PriceDifferenceIDR:  priceDiff,
+		Reason:              req.Reason,
+		ProposedBy:          req.ProposedBy,
+		ProposedAt:          now,
+		CustomerDecision:    "pending",
+	}
+
+	_, err = r.db.ExecContext(ctx, `
+		INSERT INTO food_substitution_proposals
+			(id, order_id, original_menu_item_id, replacement_menu_item_id,
+			 price_difference_idr, reason, proposed_by_role, proposed_at, customer_decision)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')`,
+		proposalID, req.OrderID, req.OriginalItemID, req.ReplacementItemID,
+		priceDiff, req.Reason, req.ProposedBy, now,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("insert substitution proposal: %w", err)
+	}
+
+	return result, nil
+}
+
+// GetPendingSubstitutionProposals — semua proposal dengan status 'pending'
+// untuk order tertentu (customer butuh lihat apa yang perlu dikonfirmasi).
+func (r *foodRepo) GetPendingSubstitutionProposals(ctx context.Context, orderID string) ([]*domain.FoodSubstitutionProposal, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, order_id, original_menu_item_id, replacement_menu_item_id,
+		       price_difference_idr, reason, proposed_by_role, proposed_at,
+		       customer_decision, customer_decided_at
+		FROM food_substitution_proposals
+		WHERE order_id = $1 AND customer_decision = 'pending'
+		ORDER BY proposed_at ASC`,
+		orderID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query substitution proposals: %w", err)
+	}
+	defer rows.Close()
+
+	var proposals []*domain.FoodSubstitutionProposal
+	for rows.Next() {
+		var p domain.FoodSubstitutionProposal
+		if err := rows.Scan(
+			&p.ID, &p.OrderID, &p.OriginalItemID, &p.ReplacementItemID,
+			&p.PriceDifferenceIDR, &p.Reason, &p.ProposedBy, &p.ProposedAt,
+			&p.CustomerDecision, &p.CustomerDecidedAt,
+		); err != nil {
+			return nil, err
+		}
+		// Join nama + harga di-query terpisah (denorm tidak disimpan untuk audit).
+		_ = r.db.QueryRowContext(ctx, `SELECT nama FROM merchant_menu_items WHERE id = $1`, p.OriginalItemID).Scan(&p.OriginalItemName)
+		_ = r.db.QueryRowContext(ctx, `SELECT nama FROM merchant_menu_items WHERE id = $1`, p.ReplacementItemID).Scan(&p.ReplacementItemName)
+		// Harga asli dari food_order_items snapshot.
+		_ = r.db.QueryRowContext(ctx, `SELECT item_price FROM food_order_items WHERE order_id = $1 AND menu_item_id = $2`, p.OrderID, p.OriginalItemID).Scan(&p.OriginalPrice)
+		_ = r.db.QueryRowContext(ctx, `SELECT harga FROM merchant_menu_items WHERE id = $1`, p.ReplacementItemID).Scan(&p.ReplacementPrice)
+		proposals = append(proposals, &p)
+	}
+	return proposals, rows.Err()
+}
+
+// ResolveFoodSubstitution — update customer decision + timestamps.
+// Hanya boleh saat proposal masih 'pending'.
+func (r *foodRepo) ResolveFoodSubstitution(ctx context.Context, proposalID string, decision string) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE food_substitution_proposals
+		SET customer_decision = $2,
+		    customer_decided_at = NOW(),
+		    resolved = TRUE
+		WHERE id = $1 AND customer_decision = 'pending'`,
+		proposalID, decision,
+	)
+	if err != nil {
+		return fmt.Errorf("resolve substitution: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("substitution proposal %s tidak dalam status pending", proposalID)
+	}
+	return nil
+}
+
+// UpdateFoodOrderItemPrice — update harga item food_order_items + subtotal
+// (dipanggil ketika substitution approved). Harga baru = harga replacement.
+func (r *foodRepo) UpdateFoodOrderItemPrice(ctx context.Context, orderID, menuItemID string, newPrice int64) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE food_order_items
+		SET item_price = $3, subtotal = item_price * quantity
+		WHERE order_id = $1 AND menu_item_id = $2`,
+		orderID, menuItemID, newPrice,
+	)
+	if err != nil {
+		return fmt.Errorf("update food order item price: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("food_order_items tidak ditemukan untuk order %s item %s", orderID, menuItemID)
+	}
+	return nil
+}
+
+// GetSubstitutionProposalByID — fetch full proposal by ID (pending or resolved).
+func (r *foodRepo) GetSubstitutionProposalByID(ctx context.Context, proposalID string) (*domain.FoodSubstitutionProposal, error) {
+	var orderID, origItemID, replItemID, reason, proposedBy, decision string
+	var priceDiff int64
+	var proposedAt time.Time
+	var decidedAt sql.NullTime
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT id, order_id, original_menu_item_id, replacement_menu_item_id,
+		       price_difference_idr, reason, proposed_by_role, proposed_at,
+		       customer_decision, customer_decided_at
+		FROM food_substitution_proposals
+		WHERE id = $1`, proposalID).Scan(
+		&proposalID, &orderID, &origItemID, &replItemID,
+		&priceDiff, &reason, &proposedBy, &proposedAt, &decision, &decidedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("substitution proposal %s tidak ditemukan", proposalID)
+		}
+		return nil, fmt.Errorf("lookup proposal: %w", err)
+	}
+	// Nama + harga via query terpisah (audit trail integritas — harga beku).
+	var origName, replName string
+	var origPrice, replPrice int64
+	err = r.readDB.QueryRowContext(ctx,
+		`SELECT item_name, item_price FROM food_order_items WHERE order_id = $1 AND menu_item_id = $2`,
+		orderID, origItemID,
+	).Scan(&origName, &origPrice)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	err = r.readDB.QueryRowContext(ctx,
+		`SELECT nama, harga FROM merchant_menu_items WHERE id = $1`, replItemID,
+	).Scan(&replName, &replPrice)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	var decidedAtPtr *time.Time
+	if decidedAt.Valid {
+		decidedAtPtr = &decidedAt.Time
+	}
+	return &domain.FoodSubstitutionProposal{
+		ID:                  proposalID,
+		OrderID:             orderID,
+		OriginalItemID:      origItemID,
+		OriginalItemName:    origName,
+		OriginalPrice:       origPrice,
+		ReplacementItemID:   replItemID,
+		ReplacementItemName: replName,
+		ReplacementPrice:    replPrice,
+		PriceDifferenceIDR:  priceDiff,
+		Reason:              reason,
+		ProposedBy:          proposedBy,
+		ProposedAt:          proposedAt,
+		CustomerDecision:    decision,
+		CustomerDecidedAt:   decidedAtPtr,
+	}, nil
+}

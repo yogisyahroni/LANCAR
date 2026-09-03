@@ -327,6 +327,16 @@ type OrderService interface {
 	// food `searching` dari merchant sama + dropoff berdekatan → 1 trip courier.
 	// GATE SLA: timebox ≤ 2 menit; tanpa pasangan → order jalan solo.
 	PairFoodBatches(ctx context.Context) error
+	// FOOD-2026-007: item unavailable + substitution flow
+	// ReportFoodItemUnavailable — merchant laporkan item tidak tersedia
+	// saat sedang mempersiapkan order (status preparing/searching).
+	ReportFoodItemUnavailable(ctx context.Context, merchantID, orderID string, req ReportFoodItemUnavailableRequest) error
+	// ProposeFoodSubstitution — merchant usulkan pengganti item unavailable.
+	ProposeFoodSubstitution(ctx context.Context, merchantID, orderID string, req ProposeFoodSubstitutionRequest) (*FoodSubstitutionProposal, error)
+	// GetPendingSubstitutionProposals — customer lihat proposal pending.
+	GetPendingSubstitutionProposals(ctx context.Context, customerID, orderID string) ([]*FoodSubstitutionProposal, error)
+	// DecideFoodSubstitution — customer approve/reject proposal substitution.
+	DecideFoodSubstitution(ctx context.Context, customerID, proposalID string, req SubstitutionDecisionRequest) error
 	// GetOrdersNeedingRatingReminder mengambil order delivered milik customer yang
 	// belum di-rating, reminder_count < 4, dan sudah 12 jam sejak terakhir diingatkan.
 	GetOrdersNeedingRatingReminder(ctx context.Context, customerID string) ([]*Order, error)
@@ -425,19 +435,19 @@ type OrderEventRepository interface {
 }
 
 type OrderEvent struct {
-	ID            string      `json:"id"`
-	OrderID       string      `json:"order_id"`
-	UserID        string      `json:"user_id"`
-	Status        OrderStatus `json:"status"`
-	Message       string      `json:"message,omitempty"`
-	CreatedAt     time.Time   `json:"created_at"`
+	ID        string      `json:"id"`
+	OrderID   string      `json:"order_id"`
+	UserID    string      `json:"user_id"`
+	Status    OrderStatus `json:"status"`
+	Message   string      `json:"message,omitempty"`
+	CreatedAt time.Time   `json:"created_at"`
 	// Version is a monotonically increasing sequence number per order, set
 	// server-side. Clients use it to discard out-of-order/duplicate events
 	// (CORE-2026-007).
-	Version       uint64      `json:"version"`
+	Version uint64 `json:"version"`
 	// CorrelationID links related events across services for tracing
 	// (CORE-2026-007).
-	CorrelationID string      `json:"correlation_id,omitempty"`
+	CorrelationID string `json:"correlation_id,omitempty"`
 }
 
 type MeetingPointService interface {
@@ -455,14 +465,27 @@ type PackageScan struct {
 	ScannedBy string `json:"scanned_by"`
 	// IdempotencyKey is supplied by the transport layer and is never exposed
 	// as part of the public scan representation.
-	IdempotencyKey string    `json:"-"`
-	ScannedByRole  string    `json:"-"`
-	Latitude       float64   `json:"latitude"`
-	Longitude      float64   `json:"longitude"`
-	WarehouseID    *string   `json:"warehouse_id,omitempty"`
-	PhotoURL       *string   `json:"photo_url,omitempty"`
-	BagNumber      *string   `json:"bag_number,omitempty"`
-	RecordedAt     time.Time `json:"recorded_at"`
+	IdempotencyKey string  `json:"-"`
+	ScannedByRole  string  `json:"-"`
+	Latitude       float64 `json:"latitude"`
+	Longitude      float64 `json:"longitude"`
+	WarehouseID    *string `json:"warehouse_id,omitempty"`
+	PhotoURL       *string `json:"photo_url,omitempty"`
+	BagNumber      *string `json:"bag_number,omitempty"`
+	// HandoffToken binds this scan to a one-time verification token for
+	// cross-courier / cross-app handoff proof (FOOD-2026-010 contactless PoD).
+	HandoffToken string `json:"handoff_token,omitempty"`
+	// ContactlessProof: for pickup/self-pickup, non-signature PoD (photo/pin/qr).
+	ContactlessProof *ProofScanEvidence `json:"contactless_proof,omitempty"`
+	RecordedAt       time.Time          `json:"recorded_at"`
+}
+
+// ProofScanEvidence holds optional proof fields supplied alongside a scan.
+type ProofScanEvidence struct {
+	ScanType  string  `json:"scan_type,omitempty"` // delivery | pickup
+	Signature *string `json:"signature,omitempty"`
+	PhotoURL  *string `json:"photo_url,omitempty"`
+	PIN       *string `json:"pin,omitempty"`
 }
 
 type ConsolidationBag struct {

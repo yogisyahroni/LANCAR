@@ -408,6 +408,27 @@ func (m *mockFoodRepo) CheckIsFavoriteMerchant(ctx context.Context, customerID, 
 	return false, nil
 }
 
+// ── FOOD-2026-007: item unavailable + substitution (mock stubs) ─────
+
+func (m *mockFoodRepo) ReportFoodItemUnavailable(ctx context.Context, req domain.FoodItemUnavailable) error {
+	return nil
+}
+func (m *mockFoodRepo) CreateFoodSubstitutionProposal(ctx context.Context, req domain.FoodSubstitutionProposal) (*domain.FoodSubstitutionProposal, error) {
+	return &req, nil
+}
+func (m *mockFoodRepo) GetPendingSubstitutionProposals(ctx context.Context, orderID string) ([]*domain.FoodSubstitutionProposal, error) {
+	return nil, nil
+}
+func (m *mockFoodRepo) GetSubstitutionProposalByID(ctx context.Context, proposalID string) (*domain.FoodSubstitutionProposal, error) {
+	return nil, nil
+}
+func (m *mockFoodRepo) ResolveFoodSubstitution(ctx context.Context, proposalID, decision string) error {
+	return nil
+}
+func (m *mockFoodRepo) UpdateFoodOrderItemPrice(ctx context.Context, orderID, menuItemID string, newPrice int64) error {
+	return nil
+}
+
 // FB-080: partial refund per item — refund = Σ(snapshot item_price × qty),
 // ongkir TIDAK direfund kecuali IncludeDeliveryFee.
 func TestRefundService_CalculateItemRefund_ItemsOnly(t *testing.T) {
@@ -592,7 +613,7 @@ func TestRefundService_FoodMerchantFault_FullRefund_ChargeFeeToMerchant(t *testi
 
 	// Kesalahan merchant (reject / timeout pending_merchant) → fee charge ke merchant
 	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Merchant reject", domain.RefundOptions{
-		OriginalStatus:        domain.StatusPendingMerchant,
+		OriginalStatus:          domain.StatusPendingMerchant,
 		ChargeCancellationFeeTo: "merchant",
 	})
 	if err != nil {
