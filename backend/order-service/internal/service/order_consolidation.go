@@ -18,11 +18,11 @@ func (s *orderServiceImpl) ListEvents(ctx context.Context, userID string, since 
 		return nil, err
 	}
 	for i := range events {
-		if events[i].EventVersion == 0 && !events[i].CreatedAt.IsZero() {
-			events[i].EventVersion = events[i].CreatedAt.UnixNano()
+		if events[i].Version == 0 && !events[i].CreatedAt.IsZero() {
+			events[i].Version = uint64(events[i].CreatedAt.UnixNano())
 		}
-		if events[i].StateVersion < 1 {
-			events[i].StateVersion = 1
+		if events[i].Version < 1 {
+			events[i].Version = 1
 		}
 	}
 	return events, nil

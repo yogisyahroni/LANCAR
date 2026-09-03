@@ -17,7 +17,17 @@ var (
 	ErrProofTokenExhausted = errors.New("PROOF_TOKEN_EXHAUSTED")
 	ErrProofTokenUsed      = errors.New("PROOF_TOKEN_USED")
 	ErrProofImmutable      = errors.New("PROOF_IMMUTABLE")
-	ErrProofAlreadyExists  = errors.New("PROOF_ALREADY_EXISTS")
+	ErrProofAlreadyExists = errors.New("PROOF_ALREADY_EXISTS")
+
+	// CORE-2026-006 rename compatibility: legacy handoff_token_repository.go
+	// masih panggil domain.ErrHandoffToken*. Alias ke sentinels equivalent.
+	ErrHandoffTokenInvalid      = ErrProofTokenInvalid
+	ErrHandoffTokenExpired      = ErrProofTokenExpired
+	ErrHandoffTokenConsumed     = ErrProofTokenUsed
+	ErrHandoffTokenAttemptsLimit = ErrProofTokenExhausted
+	ErrHandoffOrderMismatch     = ErrProofImmutable
+	ErrHandoffActorMismatch     = ErrProofImmutable
+	ErrHandoffStageMismatch     = ErrProofImmutable
 )
 
 // ProofType is the kind of chain-of-custody evidence.
@@ -63,6 +73,31 @@ const (
 	ProofStageDelivered      ProofStage = "delivered"
 	ProofStageFailedDelivery ProofStage = "failed_delivery"
 )
+
+// CORE-2026-006 rename compatibility: legacy handoff_token_repository.go +
+// order_consolidation.go masih pakai HandoffStage/HandoffToken.
+type HandoffStage = ProofStage
+
+// HandoffToken is legacy alias untuk handoff_tokens PostgreSQL table schema.
+type HandoffToken struct {
+	ID          string
+	OrderID     string
+	ActorID     string
+	Stage       HandoffStage
+	Status      string    // pending | active | consumed | expired | blocked
+	TokenHash   string
+	Attempts    int
+	MaxAttempts int
+	ExpiresAt   time.Time
+	ConsumedAt  *time.Time
+	CreatedAt   time.Time
+}
+
+const (
+	HandoffStageDelivery HandoffStage = ProofStageDelivering
+	HandoffStagePickup   HandoffStage = ProofStagePickup
+)
+
 
 // ProofVerificationToken is the one-time token issued to bind an actor to a
 // proof event. It carries expiry and attempt limits enforced transactionally.
@@ -113,7 +148,16 @@ type VerifyProofTokenRequest struct {
 	Signature  *string
 }
 
-// ProofVerificationRepository persists and atomically verifies tokens.
+// HandoffService is the interface the handler depends on.
+// Placed in domain for cross-package reference (order_service.go handoffSvc field).
+type HandoffService interface {
+	IssueProofToken(ctx context.Context, req IssueProofTokenRequest, actorID, actorRole string) (*ProofVerificationToken, string, error)
+	VerifyProofToken(ctx context.Context, req VerifyProofTokenRequest) (*ProofVerificationResult, error)
+	GetProofRequirements(ctx context.Context, serviceCategory, stage string) ([]ProofRequirement, error)
+	// Consume is the legacy handoff token verification API kept for
+	// order_consolidation.go pickup/delivery scan flow (FOOD-2026-010).
+	Consume(ctx context.Context, token, orderID, actorID string, stage HandoffStage) error
+}
 type ProofVerificationRepository interface {
 	// IssueToken mints a new token bound to order+stage+actor. Returns the
 	// plaintext token (sent once to the client) and the persisted hash record.

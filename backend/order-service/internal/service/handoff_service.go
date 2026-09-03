@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"tembus/order-service/internal/domain"
@@ -142,6 +143,33 @@ func (s *handoffService) VerifyProofToken(ctx context.Context, req domain.Verify
 	_ = domain.ValidateProofForTransition(nil, result.Stage)
 
 	return result, nil
+}
+
+// Consume is the legacy handoff token verification API (FOOD-2026-010).
+// It delegates to VerifyProofToken by treating the raw handoff token string as
+// the ProofValue bound to the supplied order + stage + actor.
+func (s *handoffService) Consume(ctx context.Context, token, orderID, actorID string, stage domain.HandoffStage) error {
+	if strings.TrimSpace(token) == "" {
+		return domain.ErrHandoffTokenInvalid
+	}
+	if strings.TrimSpace(orderID) == "" || strings.TrimSpace(actorID) == "" {
+		return domain.ErrHandoffTokenInvalid
+	}
+	_, err := s.repo.VerifyToken(ctx, domain.VerifyProofTokenRequest{
+		TokenID:    orderID,
+		ActorID:    actorID,
+		ProofValue: token,
+	})
+	if err != nil {
+		if errors.Is(err, domain.ErrProofTokenUsed) {
+			return domain.ErrHandoffTokenConsumed
+		}
+		if errors.Is(err, domain.ErrProofTokenExpired) {
+			return domain.ErrHandoffTokenExpired
+		}
+		return domain.ErrHandoffTokenInvalid
+	}
+	return nil
 }
 
 // GetProofRequirements returns the proof requirement matrix for a service+stage.

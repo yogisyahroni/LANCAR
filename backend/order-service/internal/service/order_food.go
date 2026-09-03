@@ -50,6 +50,12 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		return nil, fmt.Errorf("merchant belum melengkapi lokasi toko — lengkapi pin lokasi di profil merchant dulu")
 	}
 
+	// FOOD-2026-010: Customer Pickup/self-pickup — skip dropoff validasi kalau pickup.
+	if req.DeliveryMethod != "pickup" && req.DeliveryMethod != "" &&
+		(req.DropoffAddress == "" || req.DropoffLat == 0 || req.DropoffLng == 0) {
+		return nil, fmt.Errorf("dropoff address/lat/lng wajib diisi untuk order delivery (bukan pickup)")
+	}
+
 	// 1b. FB-123: validasi pesanan terjadwal (kalau IsScheduled).
 	// Aturan: wajib isi waktu, min lead 30 menit, same-day only, dalam jam
 	// operasional merchant. Status tetap pending_payment — transisi ke
@@ -272,7 +278,13 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 
 	prepMin := maxPrep
 	merchantID := merchant.ID
-	serviceSubType := "food_delivery"
+	// FOOD-2026-010: Customer Pickup/self-pickup — dinamis berdasarkan DeliveryMethod
+	var serviceSubType string
+	if req.DeliveryMethod == "pickup" {
+		serviceSubType = "food_pickup"
+	} else {
+		serviceSubType = "food_delivery"
+	}
 	now := time.Now()
 	order := &domain.Order{
 		ID:                  orderID,

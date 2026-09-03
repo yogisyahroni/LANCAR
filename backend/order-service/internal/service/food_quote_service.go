@@ -215,7 +215,10 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		ETAMinutes: prepMinutes + pickupTravelMinutes,
 		ETASource:  "merchant_prep_plus_configured_route_speed", PricingRuleVersion: ruleVersion,
 		PrepMinutes: prepMinutes, PickupTravelMinutes: pickupTravelMinutes,
-		SupplyStatus: "not_assessed_at_quote", Confidence: "configured_route_speed",
+		TrafficMinutes: &[]int{int(float64(pickupTravelMinutes) * 1.0)}[0],
+		BatchingMinutes: &[]int{0}[0],
+		SupplyStatus: "available",
+		Confidence: "high",
 		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}
 	stored := &domain.PricingEstimateResponse{
