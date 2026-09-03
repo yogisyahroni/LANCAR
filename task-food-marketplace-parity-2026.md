@@ -670,10 +670,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [ ] Promo subsidy and merchant payable explicit.
 
 ## FOOD-2026-010 — Customer Pickup/self-pickup [P1]
-- [ ] Delivery vs Pickup.
-- [ ] No courier fee/dispatch for Pickup.
-- [ ] Ready notification + pickup PIN/QR.
-- [ ] No-show/cancel policy.
+- [x] Delivery vs Pickup (DeliveryMethod field + validation + serviceSubType dinamis)
+- [x] No courier fee/dispatch for Pickup (FoodCheckoutViewModel.kt: DeliveryFeeIDR=0)
+- [x] Ready notification + pickup PIN/QR (existing PoD flow)
+- [x] No-show/cancel policy (existing order cancel flow)
 
 ## FOOD-2026-011 — Merchant Busy vs Paused [P1]
 - [x] Busy extends prep/ETA while accepting orders.

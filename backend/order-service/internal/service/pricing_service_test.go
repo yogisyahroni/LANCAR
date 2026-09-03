@@ -35,12 +35,13 @@ func (m *MockPricingRepo) GetDeliveryServiceByCode(ctx context.Context, code str
 		perKm = m.Config.PricePerKM
 	}
 	return &domain.DeliveryServiceProduct{
-		Code:           code,
-		Name:           "Mocked Service",
-		BaseFareIDR:    baseFare,
-		PerKmIDR:       perKm,
-		PlatformFeeIDR: 1500,
-		PlatformFeePct: 0.015,
+		Code:                 code,
+		Name:                 "Mocked Service",
+		BaseFareIDR:          baseFare,
+		PerKmIDR:             perKm,
+		IncludedDistanceKM:   10.0,
+		PlatformFeeIDR:       1500,
+		PlatformFeePct:       10,
 	}, nil
 }
 
