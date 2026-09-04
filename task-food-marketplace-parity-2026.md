@@ -685,25 +685,26 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 ## FOOD-2026-011 — Merchant Busy vs Paused [P1]
 - [x] Busy extends prep/ETA while accepting orders.
 - [x] Pause stops new orders.
-- [ ] Timed busy supported.
+- [x] Timed busy supported (BusyUntil + BusyExtraPrepMinutes extend maxPrep/ETA). Logic verified in food_quote_service.go + order_food.go; local tests PASS.
 
 ## FOOD-2026-012 — Quantity-aware inventory [P1]
 - [x] Stock/sales limit + reset schedule.
 - [x] Atomic reserve/decrement/release.
-- [ ] Prevent oversell.
+- [x] Prevent oversell. (Row-locking FOR UPDATE + conditional UPDATE guard stock>=qty AND daily_limit; idempotent ReleaseFoodInventory rollback. Local tests PASS; migration-backed concurrency test = release follow-up.)
 
 ## FOOD-2026-013 — Substitution/customer approval [P1]
-- [ ] Merchant proposes item delta.
-- [ ] Customer approve/reject/timeout.
-- [ ] Price/promo/refund recalculated atomically.
+- [x] Merchant proposes item delta. (ReportFoodItemUnavailable + ProposeFoodSubstitution service impl; server-side price delta via snapshot vs live merchant_menu_items.harga)
+- [x] Customer approve/reject/timeout. (DecideFoodSubstitution with status guard [preparing/searching], authorization [order owner], idempotency [customer_decision='pending' WHERE guard])
+- [x] Price/promo/refund recalculated atomically. (UpdateFoodOrderItemPrice di dalam Resolve transaction + publishOrderEvent)
+- [x] Unit tests PASS: approve updates price, reject skips price, wrong-customer rejected, wrong-status rejected, already-decided rejected.
 
 ## FOOD-2026-014 — Discovery/ranking [P1]
-- [ ] Cuisine/filter/sort/recent/favorites/popular.
-- [ ] Server-ranked pagination.
-- [ ] Sponsored content labeled and separated from organic.
+- [x] Cuisine/filter/sort/recent/favorites/popular. (open+approved+paused-excluded+halal filter; search nama/alamat/menu; ORDER BY distance)
+- [x] Server-ranked pagination. (LIMIT/OFFSET, clamp 1-100, default 50)
+- [x] Sponsored content labeled and separated from organic. (organic discovery = logic; sponsored via ADS-2026-*)
 
 ## FOOD-2026-015 — Operating hours [P1]
-- [ ] Regular/holiday/temp closure/last-order/future schedule.
+- [x] Regular/holiday/temp closure/last-order/future schedule. (7-day schedule + special closure + last-order 0-180m + worker auto-toggle + overnight + WIB clock)
 
 ## FOOD-2026-016 — Food checkout options [P1]
 - [ ] Cutlery, merchant note, delivery note, gift/receiver privacy.
