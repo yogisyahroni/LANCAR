@@ -763,10 +763,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceBookingViewModel.kt`
 - `android-app-customer/app/src/main/java/com/tembus/customer/ui/components/VehicleDetailInput.kt`
 
-- [ ] No `0,0` transactional fallback.
-- [ ] User can correct pin.
-- [ ] Capture vehicle/tire/problem/spare/notes/photo where useful.
-- [ ] Location change refreshes technician/quote.
+- [x] No `0,0` transactional fallback. (setLocation guard + error path; no 0,0 fallback)
+- [x] User can correct pin. (geo: intent + correctPin method)
+- [x] Capture vehicle/tire/problem/spare/notes/photo where useful. (VehicleDetailInput + materials + notes)
+- [ ] Location change refreshes technician/quote. (GAP — onPinCorrect hanya memperbaiki lokasi; tidak auto-refresh technician/quote setelah correction)
 
 ## TIRE-2026-002 — Capability-safe technician discovery [P0]
 

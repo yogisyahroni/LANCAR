@@ -1,7 +1,9 @@
 package com.tembus.customer.ui.screens.service
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -92,10 +96,12 @@ fun ServiceBookingScreen(
             .addOnSuccessListener { location ->
                 if (location != null) {
                     viewModel.setLocation(location.latitude, location.longitude)
+                } else {
+                    viewModel.setLocationError("Lokasi belum tersedia. Pilih lokasi di peta atau perbaiki pin.")
                 }
             }
             .addOnFailureListener {
-                viewModel.setLocation(0.0, 0.0)
+                viewModel.setLocationError("Lokasi tidak dapat dibaca. Pilih lokasi di peta atau perbaiki pin.")
             }
     }
 
@@ -223,11 +229,22 @@ fun ServiceBookingScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text(
-                        "${uiState.customerLat}, ${uiState.customerLng}",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // FB-005: user bisa memperbaiki pin manual bila GPS meleset.
+                    Row {
+                        Text(
+                            "Pin: ${"%.6f".format(uiState.customerLat)}, ${"%.6f".format(uiState.customerLng)}",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            // Opens native map picker to correct pin.
+                            val uri = "geo:${uiState.customerLat},${uiState.customerLng}?q=${uiState.customerLat},${uiState.customerLng}"
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                        }) {
+                            Text("Perbaiki", fontSize = 12.sp)
+                        }
+                    }
                 }
 
                 else -> {

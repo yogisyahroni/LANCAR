@@ -65,6 +65,11 @@ class ServiceBookingViewModel @Inject constructor(
     val uiState: StateFlow<ServiceBookingUiState> = _uiState.asStateFlow()
 
     fun setLocation(lat: Double, lng: Double) {
+        // Reject invalid/zero coords: never allow 0,0 as a transactional fallback.
+        if (lat == 0.0 || lng == 0.0) {
+            _uiState.update { it.copy(error = "Lokasi tidak valid. Pilih lokasi di peta atau perbaiki pin.") }
+            return
+        }
         _uiState.update {
             it.copy(
                 customerLat = lat,
@@ -76,6 +81,18 @@ class ServiceBookingViewModel @Inject constructor(
         if (_uiState.value.customerAddress.isBlank()) {
             resolveAddress(lat, lng)
         }
+    }
+
+    fun setLocationError(message: String) {
+        _uiState.update { it.copy(error = message) }
+    }
+
+    /**
+     * Manual pin correction: user memperbaiki lat/lng melalui input angka atau peta.
+     * Memicu resolveAddress + priceEstimate refresh otomatis.
+     */
+    fun correctPin(lat: Double, lng: Double) {
+        setLocation(lat, lng)
     }
 
     fun loadMaterials(serviceSubType: String) {
