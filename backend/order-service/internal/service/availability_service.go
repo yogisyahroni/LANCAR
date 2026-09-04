@@ -61,13 +61,13 @@ func (s *availabilityServiceImpl) FindAvailableCouriers(
 	var available []domain.NearbyCourier
 
 	for _, courier := range allCouriers {
-		// Food delivery defense-in-depth: hanya kurir sepeda, dan jarak order
-		// harus dalam radius pribadi kurir (radius_max_km). Filter ganda dengan
-		// SQL di FindCouriersByCapability supaya satu lapis gagal = masih ketahan.
+		// FOOD-2026-020: capability-safe technician discovery — filter motor/mobil
+		// per service_sub_type via vehicleRestrictionMatrix (vehicle_validation.go).
+		if !isVehicleCapable(courier.VehicleType, serviceSubType) {
+			continue
+		}
+		// Defense-in-depth: radius per-courier untuk food (sepeda).
 		if IsFoodDelivery(serviceSubType) {
-			if courier.VehicleType != "sepeda" {
-				continue
-			}
 			if courier.RadiusMaxKM > 0 && courier.DistanceKM > float64(courier.RadiusMaxKM) {
 				continue
 			}

@@ -107,3 +107,21 @@ func IsTambalBanOrTowing(serviceSubType string) bool {
 func IsFoodDelivery(serviceSubType string) bool {
 	return serviceSubType == "food_delivery"
 }
+
+// isVehicleCapable returns true if the courier's vehicleType is allowed
+// for the given serviceSubType, per vehicleRestrictionMatrix.
+// FOOD-2026-020 (TIRE-2026-002): prevents motor couriers from accepting
+// mobil tambal ban orders and vice versa — capability-safe discovery.
+func isVehicleCapable(vehicleType, serviceSubType string) bool {
+	allowed, ok := vehicleRestrictionMatrix[serviceSubType]
+	if !ok {
+		// Unknown service type: fail closed.
+		return false
+	}
+	for _, v := range allowed {
+		if v == vehicleType {
+			return true
+		}
+	}
+	return false
+}

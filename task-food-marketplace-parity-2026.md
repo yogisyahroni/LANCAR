@@ -777,9 +777,9 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/service/availability_service.go`
 - `backend/order-service/internal/service/matching_service.go`
 
-- [ ] Exact motor/mobil capability filtering.
-- [ ] ETA/distance/rating/service price/availability shown.
-- [ ] Preferred technician revalidated on create.
+- [x] Exact motor/mobil capability filtering. (isVehicleCapable matrix + unit test 10 cases)
+- [x] ETA/distance/rating/service price/availability shown. (NearbyCourier.Rating + CourierServicePrice populated)
+- [ ] Preferred technician revalidated on create. (GAP — belum ada preferred technician assignment)
 
 ## TIRE-2026-003 — Quote + on-site adjustment approval [P0]
 
