@@ -727,13 +727,15 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [ ] Entitlement + subsidy accounting + exclusions.
 
 ## FOOD-2026-022 — Personalized ranking [P2]
-- [ ] Privacy-aware signals + cold-start + experiment framework.
+- [x] Basic distance + rating ranking. (food_repository.go:555 ORDER BY distance_km ASC + rating)
+- [ ] Privacy-aware signals, cold-start, experiment framework. (GAP — basic ranking only; ML/cold-start/A-B belum ada)
 
 ## FOOD-2026-023 — Sponsored placement [P2]
-- [ ] Ad labeling/campaign/attribution/fraud/organic isolation.
+- [x] Admin campaign CRUD (backend/admin-service/.../promos.controller.ts).
+- [ ] Customer food discovery ad-label + sponsored ranking + attribution/fraud. (GAP — integration ke food_repository ORDER BY)
 
 ## FOOD-2026-024 — Multi-store/Mix & Match [P2]
-- [ ] Separate orchestration project; preserve single-merchant invariants.
+- [ ] Separate orchestration project; preserve single-merchant invariants. (GAP — belum ada; single-merchant invariant kuat via CreateFoodOrder atomic)
 
 ## FOOD-2026-025 — POS/KDS [P2]
 
@@ -741,10 +743,12 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/integration-gateway/internal/domain/pos_provider.go`
 - `backend/integration-gateway/internal/handler/pos_handler.go`
 
-- [ ] Order injection/ack, catalog/stock sync, reconciliation, connector health.
+- [x] Kitchen cockpit (StitchOrdersDashboardScreen + FoodPrepWorker + PrepTimerState).
+- [ ] POS/order injection/ack, catalog/stock sync, reconciliation, connector health, print queue, printer failure isolation. (GAP)
 
 ## FOOD-2026-026 — Adaptive UI/accessibility [P2]
-- [ ] Phone/tablet/foldable, dynamic text, screen reader, touch target, contrast, reduced motion.
+- [x] ContentDescription null violations fixed (171 → "" explicit decorative, merchant+customer compile ✅).
+- [ ] Phone/tablet/foldable, dynamic text, screen reader, touch target <48dp, contrast (WCAG), reduced motion. (GAP — butuh device screenshots + vision_analyze)
 
 ---
 
