@@ -653,11 +653,14 @@ fun FoodCheckoutScreen(
                         return@Button
                     }
                     scope.launch {
+                        val safeLat = checkoutLat
+                        val safeLng = checkoutLng
+                        if (safeLat == null || safeLng == null) return@launch
                         viewModel.checkout(
                             merchantId = merchantId,
                             dropoffAddress = address,
-                            dropoffLat = checkoutLat,
-                            dropoffLng = checkoutLng,
+                            dropoffLat = safeLat,
+                            dropoffLng = safeLng,
                             receiverName = receiverName.ifBlank { null },
                             receiverPhone = receiverPhone.ifBlank { null },
                             voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
