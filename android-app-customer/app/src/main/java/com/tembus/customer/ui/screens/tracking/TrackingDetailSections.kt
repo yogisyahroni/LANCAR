@@ -152,7 +152,7 @@ fun CourierStatusCard(
             ) {
                 Icon(
                     painter = painterResource(id = android.R.drawable.ic_menu_recent_history), // system fallback icon
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = Primary,
                     modifier = Modifier.size(20.dp)
                 )
@@ -301,7 +301,7 @@ fun CourierStatusCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.VolunteerActivism,
-                        contentDescription = null,
+                        contentDescription = "",
                         tint = Primary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -457,7 +457,7 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
             Row(verticalAlignment = Alignment.Top) {
                 Icon(
                     imageVector = if (step.done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = if (step.done) Primary else Color.Gray,
                     modifier = Modifier.size(20.dp)
                 )
@@ -511,7 +511,7 @@ private fun ProofSection(detail: OrderTrackingDetail) {
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFFFF6B00), modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Image, contentDescription = "", tint = Color(0xFFFF6B00), modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(copy.proofSectionTitle, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0B3D2E))
         }
@@ -635,7 +635,7 @@ internal fun SearchTimeoutSheet(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFFFF9500), modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.Schedule, contentDescription = "", tint = Color(0xFFFF9500), modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(10.dp))
                 Text("Belum ada kurir tersedia", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
@@ -671,7 +671,7 @@ internal fun SearchTimeoutSheet(
                 shape = RoundedCornerShape(12.dp),
                 enabled = !isRetrying
             ) {
-                Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.TrendingUp, contentDescription = "", modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Naikkan Tarif + Coba Lagi", fontWeight = FontWeight.Bold)
             }

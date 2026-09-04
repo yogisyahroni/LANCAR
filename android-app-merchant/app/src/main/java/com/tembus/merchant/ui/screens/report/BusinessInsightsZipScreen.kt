@@ -85,7 +85,7 @@ fun BusinessInsightsZipScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Filled.Assessment, contentDescription = null, tint = Primary, modifier = Modifier.padding(7.dp))
+                            Icon(Icons.Filled.Assessment, contentDescription = "", tint = Primary, modifier = Modifier.padding(7.dp))
                         }
                         Spacer(Modifier.size(8.dp))
                         Text("Tembus Merchant", fontWeight = FontWeight.Bold)
@@ -178,7 +178,7 @@ private fun RevenueInsightCard(report: SalesReportSummary?) {
             }
             Text(Format.rupiah(report?.gmvIdr ?: 0L), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.TrendingUp, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.TrendingUp, contentDescription = "", tint = Primary, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.size(4.dp))
                 Text("Dihitung dari pesanan delivered", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -243,7 +243,7 @@ private fun OrderCountCard(report: SalesReportSummary?) {
                 Text("${report?.totalOrders ?: 0}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             }
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.Filled.ShoppingBag, contentDescription = null, tint = Primary, modifier = Modifier.padding(12.dp))
+                Icon(Icons.Filled.ShoppingBag, contentDescription = "", tint = Primary, modifier = Modifier.padding(12.dp))
             }
         }
     }
@@ -302,7 +302,7 @@ private fun RatingCard(merchant: Merchant?, onOpen: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(if (merchant?.ratingCount ?: 0 > 0) "%.1f".format(java.util.Locale.US, merchant?.avgRating ?: 0.0) else "-", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.size(8.dp))
-                    Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Star, contentDescription = "", tint = Color(0xFFF59E0B), modifier = Modifier.size(20.dp))
                 }
             }
             Text("(${merchant?.ratingCount ?: 0} ulasan)", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -343,7 +343,7 @@ private fun BestSellerInsightRow(rank: Int, name: String, quantity: Int, revenue
                 Text(Format.rupiah(revenue), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text("$quantity sold", style = MaterialTheme.typography.labelSmall, color = Primary)
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp).size(16.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp).size(16.dp))
         }
     }
 }

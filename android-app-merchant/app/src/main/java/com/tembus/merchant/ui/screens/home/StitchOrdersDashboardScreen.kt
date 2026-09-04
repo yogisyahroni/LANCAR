@@ -262,7 +262,7 @@ private fun StoreStatusCard(
             }
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Storefront, contentDescription = null, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.Storefront, contentDescription = "", modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
                     when {
@@ -373,7 +373,7 @@ private fun MetricCard(modifier: Modifier, label: String, value: String, trend: 
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (trend != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.TrendingUp, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Filled.TrendingUp, contentDescription = "", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(4.dp))
                     Text(trend, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
@@ -443,12 +443,12 @@ private fun StitchOrderCard(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.TextButton(onClick = onOpenChat) {
-                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "", modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Chat")
                 }
                 androidx.compose.material3.TextButton(onClick = onCallCustomer, enabled = !order.customerPhone.isNullOrBlank()) {
-                    Icon(Icons.Filled.Phone, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.Phone, contentDescription = "", modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Telepon")
                 }
@@ -484,7 +484,7 @@ private fun StitchOrderCard(
                     if (isActionLoading) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
                     } else {
-                        Icon(if (order.status == "pending_merchant") Icons.Filled.Check else Icons.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(if (order.status == "pending_merchant") Icons.Filled.Check else Icons.Filled.ArrowForward, contentDescription = "", modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(4.dp))
                     Text(

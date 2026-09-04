@@ -483,7 +483,7 @@ private fun DeliveryGroupContextBanner(
             ) {
                 Icon(
                     imageVector = Icons.Default.ChatBubbleOutline,
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = Primary,
                     modifier = Modifier.size(21.dp)
                 )
@@ -523,7 +523,7 @@ private fun FailedMessageBanner(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFFD97706))
+            Icon(Icons.Default.ErrorOutline, contentDescription = "", tint = Color(0xFFD97706))
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("Pesan belum terkirim", color = Color(0xFF92400E), fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -671,7 +671,7 @@ fun EmptyChatScreen(
     ) {
         Icon(
             imageVector = Icons.Default.ChatBubbleOutline,
-            contentDescription = null,
+            contentDescription = "",
             tint = Color.Gray,
             modifier = Modifier.size(64.dp)
         )

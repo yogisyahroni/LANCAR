@@ -687,7 +687,7 @@ private fun ForegroundNotificationBanner(
                             "promo" -> Icons.Default.LocalOffer
                             else -> Icons.Default.NotificationsActive
                         },
-                        contentDescription = null,
+                        contentDescription = "",
                         tint = when (event.category) {
                             "promo" -> MaterialTheme.colorScheme.tertiary
                             else -> MaterialTheme.colorScheme.primary
@@ -730,7 +730,7 @@ private fun ForegroundNotificationBanner(
                         .clickable { onDismiss() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Close, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 }
             }
         }

@@ -163,7 +163,7 @@ fun FoodHomeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 placeholder = { Text("Cari makanan atau merchant...", fontSize = 14.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 singleLine = true,
                 shape = RoundedCornerShape(TembusRadius.Input)
             )
@@ -213,7 +213,7 @@ fun FoodHomeScreen(
                 merchants.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(48.dp))
+                            Icon(Icons.Default.Store, contentDescription = "", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
                             Text("Belum ada merchant di sekitarmu", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                         }
@@ -358,7 +358,7 @@ private fun FoodMerchantCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     if (merchant.avgRating != null && merchant.avgRating > 0) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = Warning, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Star, contentDescription = "", tint = Warning, modifier = Modifier.size(14.dp))
                         Text(
                             String.format("%.1f", merchant.avgRating),
                             fontSize = 12.sp,

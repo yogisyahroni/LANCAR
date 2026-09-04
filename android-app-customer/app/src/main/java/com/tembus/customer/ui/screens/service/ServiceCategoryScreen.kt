@@ -125,7 +125,7 @@ private fun ServiceCategoryCard(
         ) {
             Icon(
                 icon,
-                contentDescription = null,
+                contentDescription = "",
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.onSurface
             )

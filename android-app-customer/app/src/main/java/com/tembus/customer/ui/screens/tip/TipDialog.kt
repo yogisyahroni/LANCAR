@@ -58,7 +58,7 @@ fun TipDialog(
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
+                        contentDescription = "",
                         tint = Color(0xFF7BC043),
                         modifier = Modifier.size(56.dp)
                     )

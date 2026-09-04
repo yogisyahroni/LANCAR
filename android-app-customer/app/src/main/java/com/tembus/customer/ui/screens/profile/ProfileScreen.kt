@@ -326,7 +326,7 @@ private fun ProfileContent(
             shape = RoundedCornerShape(16.dp),
             enabled = !isUpdating
         ) {
-            Icon(Icons.Default.Refresh, contentDescription = null)
+            Icon(Icons.Default.Refresh, contentDescription = "")
             Spacer(Modifier.width(8.dp))
             Text("Sinkronkan Profil", fontWeight = FontWeight.Bold)
         }
@@ -341,7 +341,7 @@ private fun ProfileContent(
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
         ) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "")
             Spacer(Modifier.width(8.dp))
             Text("Keluar Akun", fontWeight = FontWeight.Bold)
         }
@@ -369,7 +369,7 @@ private fun AvatarBadge(name: String) {
         if (initial == "L") {
             Icon(
                 Icons.Default.Person,
-                contentDescription = null,
+                contentDescription = "",
                 modifier = Modifier.size(52.dp),
                 tint = Primary
             )
@@ -419,7 +419,7 @@ private fun WalletCard(balance: Long, onWithdrawClick: () -> Unit) {
                         .background(Color.White.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = "", tint = Color.White)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -440,7 +440,7 @@ private fun WalletCard(balance: Long, onWithdrawClick: () -> Unit) {
             ) {
                 Icon(
                     Icons.Default.AccountBalanceWallet,
-                    contentDescription = null,
+                    contentDescription = "",
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
@@ -493,7 +493,7 @@ private fun StatusRow(icon: ImageVector, label: String, value: String) {
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.primary)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -525,10 +525,10 @@ private fun MenuRow(
             modifier = Modifier.padding(vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+            Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(16.dp))
             Text(label, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+            Icon(Icons.Default.ChevronRight, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
         }
     }
     if (showDivider) HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -771,7 +771,7 @@ private fun ProfileErrorState(message: String, onRetry: () -> Unit) {
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+            Icon(Icons.Default.Security, contentDescription = "", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
             Spacer(Modifier.height(12.dp))
             Text("Profil belum tersinkron", fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Spacer(Modifier.height(6.dp))

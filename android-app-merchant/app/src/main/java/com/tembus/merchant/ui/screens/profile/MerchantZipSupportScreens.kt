@@ -381,7 +381,7 @@ private fun MerchantReviewSummaryCard(
                 repeat(5) { index ->
                     Icon(
                         if (index < average.toInt()) Icons.Filled.Star else Icons.Filled.StarOutline,
-                        contentDescription = null,
+                        contentDescription = "",
                         tint = Accent,
                         modifier = Modifier.size(22.dp)
                     )
@@ -447,7 +447,7 @@ private fun CustomerReviewCard(
                     repeat(5) { index ->
                         Icon(
                             if (index < review.stars.coerceIn(0, 5)) Icons.Filled.Star else Icons.Filled.StarOutline,
-                            contentDescription = null,
+                            contentDescription = "",
                             tint = if (index < review.stars.coerceIn(0, 5)) Accent else MaterialTheme.colorScheme.outlineVariant,
                             modifier = Modifier.size(16.dp)
                         )
@@ -565,7 +565,7 @@ private fun MerchantZipEmptyState(message: String, onRetry: (() -> Unit)? = null
         Modifier.fillMaxWidth().padding(vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.size(40.dp))
+        Icon(Icons.Filled.Storefront, contentDescription = "", tint = Primary, modifier = Modifier.size(40.dp))
         Spacer(Modifier.height(8.dp))
         Text(message, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
         onRetry?.let {

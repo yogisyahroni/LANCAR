@@ -60,7 +60,7 @@ fun StaffAcceptScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.CheckCircle,
-                            contentDescription = null,
+                            contentDescription = "",
                             modifier = Modifier.size(72.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -87,7 +87,7 @@ fun StaffAcceptScreen(
                     ) {
                         Icon(
                             imageVector = getStaffIcon(),
-                            contentDescription = null,
+                            contentDescription = "",
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )

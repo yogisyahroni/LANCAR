@@ -115,7 +115,7 @@ fun ManageMenuZipScreen(
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Daftar Menu", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Primary)
                                 OutlinedButton(onClick = { csvPicker.launch(arrayOf("text/csv", "text/comma-separated-values", "*/*")) }) {
-                                    Icon(Icons.Filled.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.UploadFile, contentDescription = "", modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.size(6.dp))
                                     Text("Impor CSV")
                                 }
@@ -225,7 +225,7 @@ private fun ManageMenuItemZipCard(
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (item.foto.isNullOrBlank()) {
                     Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(64.dp)) {
-                        Icon(Icons.Filled.RestaurantMenu, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(18.dp))
+                        Icon(Icons.Filled.RestaurantMenu, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(18.dp))
                     }
                 } else {
                     AsyncImage(model = item.foto, contentDescription = item.nama, contentScale = ContentScale.Crop, modifier = Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)))
@@ -244,7 +244,7 @@ private fun ManageMenuItemZipCard(
 @Composable
 private fun EmptyMenuZipState(onAdd: () -> Unit, modifier: Modifier) {
     Column(modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(Icons.Filled.RestaurantMenu, contentDescription = null, tint = Primary, modifier = Modifier.size(56.dp))
+        Icon(Icons.Filled.RestaurantMenu, contentDescription = "", tint = Primary, modifier = Modifier.size(56.dp))
         Spacer(Modifier.size(16.dp))
         Text("Belum ada menu", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text("Tambahkan menu dari katalog backend untuk mulai menerima pesanan.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)

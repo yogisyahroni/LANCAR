@@ -187,7 +187,7 @@ fun OrderDetailScreen(
                             colors = CardDefaults.cardColors(containerColor = Primary)
                         ) {
                             Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = Color.White)
+                                Icon(Icons.Default.Info, contentDescription = "", tint = Color.White)
                                 Spacer(Modifier.width(16.dp))
                                 Column {
                                     Text("Status Saat Ini", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
@@ -253,7 +253,7 @@ fun OrderDetailScreen(
                                         shape = RoundedCornerShape(TembusRadius.Button),
                                         colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
                                     ) {
-                                        Icon(Icons.Default.MyLocation, contentDescription = null)
+                                        Icon(Icons.Default.MyLocation, contentDescription = "")
                                         Spacer(Modifier.width(8.dp))
                                         Text("Lacak Posisi Kurir", fontWeight = FontWeight.Bold)
                                     }
@@ -266,7 +266,7 @@ fun OrderDetailScreen(
                                         shape = RoundedCornerShape(TembusRadius.Button),
                                         border = BorderStroke(1.dp, Primary)
                                     ) {
-                                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = Primary)
+                                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = "", tint = Primary)
                                         Spacer(Modifier.width(8.dp))
                                         Text("Chat Kurir", color = Primary, fontWeight = FontWeight.Bold)
                                     }
@@ -281,7 +281,7 @@ fun OrderDetailScreen(
                                         border = BorderStroke(1.dp, Error),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)
                                     ) {
-                                        Icon(Icons.Default.Close, contentDescription = null)
+                                        Icon(Icons.Default.Close, contentDescription = "")
                                         Spacer(Modifier.width(8.dp))
                                         Text(if (order.status.lowercase() == "no_courier_found") "Batalkan & Ajukan Refund" else "Batalkan Pesanan", fontWeight = FontWeight.Bold)
                                     }
@@ -301,7 +301,7 @@ fun OrderDetailScreen(
                                         border = BorderStroke(1.dp, Primary),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Primary)
                                     ) {
-                                        Icon(Icons.Default.Assignment, contentDescription = null)
+                                        Icon(Icons.Default.Assignment, contentDescription = "")
                                         Spacer(Modifier.width(8.dp))
                                         Text("Lihat Laporan Layanan", fontWeight = FontWeight.Bold)
                                     }
@@ -316,7 +316,7 @@ fun OrderDetailScreen(
                             onClick = { showDisputeDialog = true },
                             modifier = Modifier.fillMaxWidth().height(48.dp).criticalAction("Laporkan masalah pesanan")
                         ) {
-                            Icon(Icons.Default.ReportProblem, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Default.ReportProblem, contentDescription = "", tint = MaterialTheme.colorScheme.error)
                             Spacer(Modifier.width(8.dp))
                             Text("Bantuan / Laporkan Masalah / Ajukan Klaim", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                         }
@@ -443,7 +443,7 @@ private fun CancelReasonDialog(
 fun RoutePoint(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, label: String, value: String) {
     Row(verticalAlignment = Alignment.Top) {
         Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(TembusRadius.Chip)) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.padding(8.dp).size(20.dp))
+            Icon(icon, contentDescription = "", tint = color, modifier = Modifier.padding(8.dp).size(20.dp))
         }
         Spacer(Modifier.width(16.dp))
         Column {

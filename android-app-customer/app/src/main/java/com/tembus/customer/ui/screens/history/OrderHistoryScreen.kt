@@ -285,7 +285,7 @@ fun OrderCardItem(
                     modifier = Modifier.fillMaxWidth().height(42.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Restaurant, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Restaurant, contentDescription = "", modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Pesan Lagi", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
@@ -431,7 +431,7 @@ fun EmptyHistoryState(modifier: Modifier) {
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(64.dp), tint = PrimaryLight)
+        Icon(Icons.Default.History, contentDescription = "", modifier = Modifier.size(64.dp), tint = PrimaryLight)
         Spacer(Modifier.height(16.dp))
         Text("Belum Ada Riwayat", fontWeight = FontWeight.Bold, color = OnSurface)
         Text("Semua order Anda akan muncul di sini", fontSize = 14.sp, color = OnSurfaceVariant)

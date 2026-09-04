@@ -461,7 +461,7 @@ private fun RegisteredSuccessContent(onDone: () -> Unit) {
     ) {
         Icon(
             imageVector = Icons.Filled.CheckCircle,
-            contentDescription = null,
+            contentDescription = "",
             modifier = Modifier.size(72.dp),
             tint = Primary
         )
@@ -538,7 +538,7 @@ private fun DocumentUploadField(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
                             imageVector = Icons.Filled.AddPhotoAlternate,
-                            contentDescription = null,
+                            contentDescription = "",
                             modifier = Modifier.size(32.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )

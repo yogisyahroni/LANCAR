@@ -284,7 +284,7 @@ private fun ServiceGridItemFixed(
             ) {
                 Icon(
                     icon,
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(28.dp)
                 )

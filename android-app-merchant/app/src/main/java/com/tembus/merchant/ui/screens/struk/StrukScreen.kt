@@ -196,7 +196,7 @@ private fun PrinterPickerDialog(onDismiss: () -> Unit, onPick: (BluetoothDevice)
                         ) {
                             Icon(
                                 Icons.Filled.Bluetooth,
-                                contentDescription = null,
+                                contentDescription = "",
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -397,7 +397,7 @@ private fun StrukContent(
                 .fillMaxWidth()
                 .height(52.dp)
         ) {
-            Icon(Icons.Filled.Print, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(Icons.Filled.Print, contentDescription = "", modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("Cetak Struk (PDF / Printer Biasa)", style = MaterialTheme.typography.titleMedium)
         }
@@ -418,7 +418,7 @@ private fun StrukContent(
                     strokeWidth = 2.dp
                 )
             } else {
-                Icon(Icons.Filled.Bluetooth, contentDescription = null, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.Bluetooth, contentDescription = "", modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(

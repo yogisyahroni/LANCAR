@@ -193,7 +193,7 @@ private fun ReferralHeaderCard(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Primary)
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Share, contentDescription = "", modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Bagikan", fontWeight = FontWeight.Bold)
                     }
@@ -246,7 +246,7 @@ private fun ReferralRewardCard(reward: ReferralReward) {
                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = Primary, modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Person, contentDescription = "", tint = Primary, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {

@@ -137,7 +137,7 @@ fun CreatePromoZipScreen(
                     else {
                         Text("Konfirmasi Promo")
                         Spacer(Modifier.size(8.dp))
-                        Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Check, contentDescription = "", modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -231,7 +231,7 @@ private fun PromoMenuSection(
                 value = search,
                 onValueChange = onSearchChange,
                 placeholder = { Text("Cari menu...") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !menuState.isLoading
@@ -321,8 +321,8 @@ private fun PromoAdditionalSettings(
     PromoCardSection {
         Text("Pengaturan Tambahan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(value = startsAt, onValueChange = onStartsAtChange, label = { Text("Mulai (UTC)") }, trailingIcon = { Icon(Icons.Filled.CalendarToday, contentDescription = null) }, modifier = Modifier.weight(1f), singleLine = true)
-            OutlinedTextField(value = endsAt, onValueChange = onEndsAtChange, label = { Text("Berakhir (UTC)") }, trailingIcon = { Icon(Icons.Filled.CalendarToday, contentDescription = null) }, modifier = Modifier.weight(1f), singleLine = true)
+            OutlinedTextField(value = startsAt, onValueChange = onStartsAtChange, label = { Text("Mulai (UTC)") }, trailingIcon = { Icon(Icons.Filled.CalendarToday, contentDescription = "") }, modifier = Modifier.weight(1f), singleLine = true)
+            OutlinedTextField(value = endsAt, onValueChange = onEndsAtChange, label = { Text("Berakhir (UTC)") }, trailingIcon = { Icon(Icons.Filled.CalendarToday, contentDescription = "") }, modifier = Modifier.weight(1f), singleLine = true)
         }
         OutlinedTextField(value = maxDiscount, onValueChange = onMaxDiscountChange, label = { Text("Maks diskon (Rp, opsional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
     }

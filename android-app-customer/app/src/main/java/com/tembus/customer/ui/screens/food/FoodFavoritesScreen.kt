@@ -118,7 +118,7 @@ fun FoodFavoritesScreen(
                 favorites.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(48.dp))
+                            Icon(Icons.Default.FavoriteBorder, contentDescription = "", tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
                             Text("Belum ada merchant favorit", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(4.dp))
@@ -169,7 +169,7 @@ private fun FavoriteMerchantCard(
                     .background(PrimaryLight),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Store, contentDescription = null, tint = Primary, modifier = Modifier.size(26.dp))
+                Icon(Icons.Default.Store, contentDescription = "", tint = Primary, modifier = Modifier.size(26.dp))
             }
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -198,7 +198,7 @@ private fun FavoriteMerchantCard(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (favorite.avgRating != null && favorite.avgRating > 0) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = Warning, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Star, contentDescription = "", tint = Warning, modifier = Modifier.size(14.dp))
                             Text(
                                 String.format("%.1f", favorite.avgRating),
                                 fontSize = 12.sp,

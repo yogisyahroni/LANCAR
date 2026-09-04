@@ -150,14 +150,14 @@ fun MenuItemEditorZipContent(
                             AsyncImage(model = foto, contentDescription = MerchantTextCatalog.translate("Foto menu"), modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null, tint = Color.White)
+                                    Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "", tint = Color.White)
                                     Spacer(Modifier.size(6.dp))
                                     Text("Ganti foto", color = Color.White)
                                 }
                             }
                         } else {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "", modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.size(8.dp))
                                 Text("Tambah foto menu", style = MaterialTheme.typography.titleMedium)
                                 Text("JPG/PNG/WebP maks 2MB — dari galeri", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -189,7 +189,7 @@ fun MenuItemEditorZipContent(
 
                 if (existing != null && onOpenVariants != null) {
                     OutlinedButton(onClick = { onOpenVariants(existing.id) }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Filled.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Tune, contentDescription = "", modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(8.dp))
                         Text("Kelola varian menu")
                     }

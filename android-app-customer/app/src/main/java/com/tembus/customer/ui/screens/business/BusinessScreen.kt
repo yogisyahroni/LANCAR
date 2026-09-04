@@ -114,7 +114,7 @@ fun BusinessScreen(
                             .background(Primary.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Store, contentDescription = null, tint = Primary)
+                        Icon(Icons.Default.Store, contentDescription = "", tint = Primary)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
@@ -149,7 +149,7 @@ fun BusinessScreen(
                             )
                         } else {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Image, contentDescription = null, tint = Color.Gray)
+                                Icon(Icons.Default.Image, contentDescription = "", tint = Color.Gray)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text("Ketuk untuk unggah foto", color = Color.Gray, fontSize = 14.sp)
                             }
@@ -270,7 +270,7 @@ fun BusinessScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Icon(Icons.Default.Link, contentDescription = null, tint = Primary, modifier = Modifier.size(48.dp))
+                            Icon(Icons.Default.Link, contentDescription = "", tint = Primary, modifier = Modifier.size(48.dp))
                             Text("Payment Link Berhasil Dibuat!", fontWeight = FontWeight.Bold, color = Primary, fontSize = 16.sp)
                             
                             Box(
@@ -295,7 +295,7 @@ fun BusinessScreen(
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth().height(48.dp)
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.ContentCopy, contentDescription = "", modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Salin Link & Kembali", fontWeight = FontWeight.Bold)
                             }

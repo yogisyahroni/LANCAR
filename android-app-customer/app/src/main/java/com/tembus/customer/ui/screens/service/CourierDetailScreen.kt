@@ -116,7 +116,7 @@ fun CourierDetailScreen(
                             ) {
                                 Icon(
                                     Icons.Default.TwoWheeler,
-                                    contentDescription = null,
+                                    contentDescription = "",
                                     tint = Color.White,
                                     modifier = Modifier.size(36.dp)
                                 )
@@ -127,7 +127,7 @@ fun CourierDetailScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     Icons.Default.Star,
-                                    contentDescription = null,
+                                    contentDescription = "",
                                     tint = Color(0xFFFFB300),
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -199,7 +199,7 @@ private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             icon,
-            contentDescription = null,
+            contentDescription = "",
             tint = Color(0xFF008EB0),
             modifier = Modifier.size(20.dp)
         )

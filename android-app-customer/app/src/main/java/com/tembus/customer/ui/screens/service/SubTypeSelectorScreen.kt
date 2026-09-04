@@ -132,7 +132,7 @@ private fun SubTypeCard(
         ) {
             Icon(
                 icon,
-                contentDescription = null,
+                contentDescription = "",
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.onSurface
             )

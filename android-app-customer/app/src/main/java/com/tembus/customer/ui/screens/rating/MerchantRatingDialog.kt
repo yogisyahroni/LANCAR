@@ -116,7 +116,7 @@ fun MerchantRatingDialog(
                         // ── State sukses ──
                         Icon(
                             Icons.Default.CheckCircle,
-                            contentDescription = null,
+                            contentDescription = "",
                             tint = Primary,
                             modifier = Modifier.size(56.dp)
                         )
@@ -147,7 +147,7 @@ fun MerchantRatingDialog(
                             .background(PrimaryLight),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Restaurant, contentDescription = null, tint = Primary, modifier = Modifier.size(30.dp))
+                        Icon(Icons.Default.Restaurant, contentDescription = "", tint = Primary, modifier = Modifier.size(30.dp))
                     }
                     Spacer(Modifier.height(12.dp))
                     Text(

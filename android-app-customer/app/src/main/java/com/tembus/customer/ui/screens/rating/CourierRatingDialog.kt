@@ -423,7 +423,7 @@ private fun ColumnScope.RatingFormContent(
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = onDismissError, modifier = Modifier.size(20.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Close, contentDescription = "", tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(14.dp))
                 }
             }
         }

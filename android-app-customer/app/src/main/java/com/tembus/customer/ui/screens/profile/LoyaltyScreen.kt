@@ -108,7 +108,7 @@ private fun LoyaltyContent(info: LoyaltyInfo) {
             ) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                        Icon(Icons.Default.Star, contentDescription = "", tint = Color.White, modifier = Modifier.size(28.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "Member ${info.tier}",
@@ -167,7 +167,7 @@ private fun LoyaltyContent(info: LoyaltyInfo) {
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(22.dp))
+                    Icon(Icons.Default.CheckCircle, contentDescription = "", tint = Color(0xFF16A34A), modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(10.dp))
                     Text("Kamu sudah di tier tertinggi! Nikmati semua benefit.", fontSize = 14.sp, color = Color(0xFF166534), fontWeight = FontWeight.SemiBold)
                 }
@@ -178,7 +178,7 @@ private fun LoyaltyContent(info: LoyaltyInfo) {
         Text("Benefit Keanggotaan", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         info.benefits.forEach { benefit ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.CheckCircle, contentDescription = "", tint = Primary, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(10.dp))
                 Text(benefit, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
             }

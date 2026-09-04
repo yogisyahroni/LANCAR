@@ -116,7 +116,7 @@ fun FoodCartScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         Icons.Default.ShoppingCart,
-                        contentDescription = null,
+                        contentDescription = "",
                         tint = MaterialTheme.colorScheme.outlineVariant,
                         modifier = Modifier.size(52.dp)
                     )

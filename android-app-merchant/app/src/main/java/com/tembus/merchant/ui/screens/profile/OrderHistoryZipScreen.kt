@@ -84,7 +84,7 @@ fun OrderHistoryZipScreen(
                             color = MaterialTheme.colorScheme.primaryContainer,
                             modifier = Modifier.size(32.dp)
                         ) {
-                            Icon(Icons.Filled.RestaurantMenu, contentDescription = null, tint = Primary, modifier = Modifier.padding(7.dp))
+                            Icon(Icons.Filled.RestaurantMenu, contentDescription = "", tint = Primary, modifier = Modifier.padding(7.dp))
                         }
                         Spacer(Modifier.size(8.dp))
                         Text("Tembus", fontWeight = FontWeight.Bold)
@@ -175,7 +175,7 @@ private fun SummaryCard(label: String, value: String, accent: androidx.compose.u
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = accent)
                 Spacer(Modifier.size(4.dp))
-                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
+                Icon(icon, contentDescription = "", tint = accent, modifier = Modifier.size(14.dp))
             }
         }
     }
@@ -237,7 +237,7 @@ private fun HistoryOrderZipCard(order: MerchantOrder, onClick: () -> Unit) {
                 Text(Format.rupiah(order.totalPriceIdr), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (cancelled || rejected) MaterialTheme.colorScheme.onSurfaceVariant else Primary)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Detail", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.ChevronRight, contentDescription = "", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                 }
             }
         }

@@ -75,7 +75,7 @@ fun VariantEditorScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = viewModel::addGroup,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                icon = { Icon(Icons.Filled.Add, contentDescription = "") },
                 text = { Text("Tambah Grup") },
                 containerColor = Accent
             )
@@ -94,7 +94,7 @@ fun VariantEditorScreen(
                 state.saved -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Primary, modifier = Modifier.size(48.dp))
+                            Icon(Icons.Filled.CheckCircle, contentDescription = "", tint = Primary, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(8.dp))
                             Text("Varian berhasil disimpan", fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(4.dp))
@@ -244,7 +244,7 @@ private fun VariantGroupCard(
                 }
             }
             TextButton(onClick = onAddOption) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Add, contentDescription = "", modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("Tambah opsi")
             }

@@ -117,7 +117,7 @@ fun NotificationCenterScreen(
                 },
                 actions = {
                     TextButton(onClick = viewModel::markAllRead) {
-                        Icon(Icons.Default.DoneAll, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.DoneAll, contentDescription = "", tint = Primary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Baca", color = Primary, fontWeight = FontWeight.ExtraBold)
                     }
@@ -217,7 +217,7 @@ private fun NotificationCategoryTabs(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(tab.icon, contentDescription = null, tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    Icon(tab.icon, contentDescription = "", tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(tab.label, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                     if (unread > 0) {
@@ -276,7 +276,7 @@ private fun NotificationRow(
                         .background(accent.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, contentDescription = null, tint = accent)
+                    Icon(icon, contentDescription = "", tint = accent)
                 }
                 Spacer(Modifier.width(13.dp))
                 Column(Modifier.weight(1f)) {
@@ -310,7 +310,7 @@ private fun NotificationRow(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
             }
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = Outline)
@@ -343,7 +343,7 @@ private fun NotificationPill(label: String, color: Color, icon: ImageVector? = n
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (icon != null) {
-                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
+                Icon(icon, contentDescription = "", tint = color, modifier = Modifier.size(13.dp))
                 Spacer(Modifier.width(4.dp))
             }
             Text(label, color = color, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
@@ -383,7 +383,7 @@ private fun NotificationEmptyState(
         ) {
             Icon(
                 Icons.Default.NotificationsOff,
-                contentDescription = null,
+                contentDescription = "",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.size(80.dp)
             )

@@ -79,7 +79,7 @@ fun MerchantLanguageScreen(onBack: () -> Unit) {
                     ) {
                         Text(language.label, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                         if (language.code == currentCode) {
-                            Icon(Icons.Default.Check, contentDescription = null, tint = Primary)
+                            Icon(Icons.Default.Check, contentDescription = "", tint = Primary)
                         }
                     }
                 }

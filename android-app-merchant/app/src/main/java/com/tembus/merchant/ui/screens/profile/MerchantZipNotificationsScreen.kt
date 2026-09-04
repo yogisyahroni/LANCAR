@@ -164,7 +164,7 @@ private fun PreferenceRow(
 ) {
     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Surface(shape = CircleShape, color = tint.copy(alpha = 0.12f), modifier = Modifier.size(40.dp)) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.padding(8.dp))
+            Icon(icon, contentDescription = "", tint = tint, modifier = Modifier.padding(8.dp))
         }
         Spacer(Modifier.size(16.dp))
         Column(Modifier.weight(1f)) {

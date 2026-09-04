@@ -91,7 +91,7 @@ fun TambalBanSearchScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Cari nama teknisi...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "") },
                 trailingIcon = {
                     if (query.isNotBlank()) {
                         IconButton(onClick = { query = ""; viewModel.clear() }) {

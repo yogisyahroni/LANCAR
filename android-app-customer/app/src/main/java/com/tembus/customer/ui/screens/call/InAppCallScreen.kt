@@ -254,7 +254,7 @@ private fun SecureCallBadge() {
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(Icons.Default.Lock, contentDescription = "", modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("Panggilan dalam aplikasi", fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
@@ -299,7 +299,7 @@ private fun CallAvatar(
 private fun PermissionRequiredContent(onRequestPermission: () -> Unit) {
     Icon(
         imageVector = Icons.Default.Mic,
-        contentDescription = null,
+        contentDescription = "",
         tint = Primary,
         modifier = Modifier.size(34.dp)
     )
@@ -408,7 +408,7 @@ private fun CallActionPanel(
             val failed = state == InAppCallState.FAILED
             Icon(
                 imageVector = if (failed) Icons.Default.Shield else Icons.Default.CallEnd,
-                contentDescription = null,
+                contentDescription = "",
                 tint = if (failed) Color(0xFFFF6B00) else Primary,
                 modifier = Modifier.size(34.dp)
             )
@@ -434,7 +434,7 @@ private fun CallActionPanel(
             Spacer(modifier = Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(onClick = onRetry, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Refresh, contentDescription = "", modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Coba Lagi")
                 }
@@ -443,7 +443,7 @@ private fun CallActionPanel(
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Color.White)
                 ) {
-                    Icon(Icons.Default.SupportAgent, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.SupportAgent, contentDescription = "", modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Buka Chat")
                 }

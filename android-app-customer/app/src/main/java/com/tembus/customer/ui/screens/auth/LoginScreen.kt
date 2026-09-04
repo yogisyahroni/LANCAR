@@ -674,7 +674,7 @@ private fun PasswordResetPanel(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.CheckCircle,
-                            contentDescription = null,
+                            contentDescription = "",
                             tint = Secondary,
                             modifier = Modifier.size(22.dp)
                         )
@@ -896,7 +896,7 @@ private fun PrimaryAuthButton(
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null)
+                Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "")
             }
         }
     }
@@ -999,7 +999,7 @@ private fun SecurityFooter() {
     ) {
         Icon(
             imageVector = Icons.Rounded.Lock,
-            contentDescription = null,
+            contentDescription = "",
             tint = Muted,
             modifier = Modifier.size(16.dp)
         )

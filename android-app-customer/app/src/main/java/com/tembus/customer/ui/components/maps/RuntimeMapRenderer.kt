@@ -365,7 +365,7 @@ private fun OpenStreetMapTileRenderer(
                 val top = heightPx / 2f + (tileY - centerTile.y) * tileSizePx
                 AsyncImage(
                     model = tileTemplate.toOsmTileUrl(tileX, tileY, zoom),
-                    contentDescription = null,
+                    contentDescription = "",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(tileSizeDp)

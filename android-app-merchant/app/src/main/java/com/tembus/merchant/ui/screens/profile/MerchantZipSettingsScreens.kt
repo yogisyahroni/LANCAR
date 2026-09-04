@@ -116,7 +116,7 @@ private fun StoreInformationZipContent(merchant: Merchant) {
             Text("Location Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             ZipReadOnlyField("Store Address", merchant.alamat)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Primary)
+                Icon(Icons.Filled.LocationOn, contentDescription = "", tint = Primary)
                 Spacer(Modifier.size(8.dp))
                 val coordinates = if (merchant.lokasiLat != null && merchant.lokasiLng != null) {
                     "${merchant.lokasiLat}, ${merchant.lokasiLng}"
@@ -131,8 +131,8 @@ private fun StoreInformationZipContent(merchant: Merchant) {
             ZipReadOnlyField("Contact Number", merchant.ownerPhone)
             ZipReadOnlyField("Store Email", merchant.ownerEmail)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Icon(Icons.Filled.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Icon(Icons.Filled.Email, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Filled.Phone, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Filled.Email, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         ZipSettingsCard {
@@ -191,7 +191,7 @@ fun PaymentSettingsZipScreen(
                 ) {
                     if (state.isSavingPayment) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     else {
-                        Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Save, contentDescription = "", modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(8.dp))
                         Text("SAVE SETTINGS")
                     }
@@ -364,7 +364,7 @@ private fun BankAccountEditor(
             ) {
                 if (isSaving) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 else {
-                    Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.Save, contentDescription = "", modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
                     Text("SAVE SETTINGS")
                 }
@@ -382,7 +382,7 @@ private fun LinkedBankCard(merchant: Merchant) {
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.size(64.dp)
             ) {
-                Icon(Icons.Filled.AccountBalance, contentDescription = null, modifier = Modifier.padding(16.dp))
+                Icon(Icons.Filled.AccountBalance, contentDescription = "", modifier = Modifier.padding(16.dp))
             }
             Spacer(Modifier.size(24.dp))
             Column {
@@ -476,7 +476,7 @@ private fun ZipSettingsCard(content: @Composable ColumnScope.() -> Unit) {
 private fun ZipInfoBanner(title: String, body: String) {
     ZipSettingsCard {
         Row(verticalAlignment = Alignment.Top) {
-            Icon(Icons.Filled.Lock, contentDescription = null, tint = Primary, modifier = Modifier.padding(top = 4.dp))
+            Icon(Icons.Filled.Lock, contentDescription = "", tint = Primary, modifier = Modifier.padding(top = 4.dp))
             Spacer(Modifier.size(16.dp))
             Column {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -490,7 +490,7 @@ private fun ZipInfoBanner(title: String, body: String) {
 private fun ZipUnavailableSection(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
     ZipSettingsCard {
         Row(verticalAlignment = Alignment.Top) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.size(12.dp))
             Column {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -530,7 +530,7 @@ private fun ZipSettingsEmptyState(message: String, onRetry: (() -> Unit)? = null
         modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Filled.Store, contentDescription = null, tint = Primary, modifier = Modifier.size(40.dp))
+        Icon(Icons.Filled.Store, contentDescription = "", tint = Primary, modifier = Modifier.size(40.dp))
         Spacer(Modifier.height(8.dp))
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
         onRetry?.let {

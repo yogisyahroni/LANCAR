@@ -96,7 +96,7 @@ fun CourierPriceCard(
                         isConditional -> Icons.Default.Schedule
                         else -> Icons.Default.Warning
                     },
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = when {
                         isAvailable -> Color(0xFF4CAF50)
                         isConditional -> Color(0xFFFF9800)
@@ -121,7 +121,7 @@ fun CourierPriceCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Default.Star,
-                            contentDescription = null,
+                            contentDescription = "",
                             tint = Color(0xFFFFC107),
                             modifier = Modifier.size(14.dp)
                         )

@@ -81,7 +81,7 @@ private fun LanguageRow(label: String, selected: Boolean, onClick: () -> Unit) {
         ) {
             Text(label, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
             if (selected) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = Primary)
+                Icon(Icons.Default.Check, contentDescription = "", tint = Primary)
             }
         }
     }

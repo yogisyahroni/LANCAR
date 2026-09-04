@@ -101,7 +101,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     if (pagerState.currentPage < items.size - 1) {
                         Text("Lanjut")
                     } else {
-                        Icon(Icons.Filled.Check, contentDescription = null)
+                        Icon(Icons.Filled.Check, contentDescription = "")
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Selesai")
                     }
@@ -143,7 +143,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = item.icon,
-                            contentDescription = null,
+                            contentDescription = "",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(60.dp)
                         )

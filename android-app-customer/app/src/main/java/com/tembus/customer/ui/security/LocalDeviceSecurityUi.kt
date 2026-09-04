@@ -102,7 +102,7 @@ fun LocalSecuritySettingsPanel(
                 Surface(shape = RoundedCornerShape(14.dp), color = SecureBlue.copy(alpha = 0.12f)) {
                     Icon(
                         imageVector = Icons.Default.Security,
-                        contentDescription = null,
+                        contentDescription = "",
                         tint = SecureBlue,
                         modifier = Modifier.padding(10.dp)
                     )
@@ -137,7 +137,7 @@ fun LocalSecuritySettingsPanel(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = SecureGreen)
+                Icon(Icons.Default.Lock, contentDescription = "", tint = SecureGreen)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(if (settings.pinConfigured) "PIN 6 digit sudah aktif" else "PIN 6 digit belum dibuat")
                     Text(
@@ -156,7 +156,7 @@ fun LocalSecuritySettingsPanel(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = SecureBlue)
+                Icon(Icons.Default.Fingerprint, contentDescription = "", tint = SecureBlue)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(if (settings.biometricSupported) "Biometrik perangkat" else "Biometrik perangkat tidak aktif")
                     Text(
@@ -237,7 +237,7 @@ fun LocalSecurityChallengeDialog(
                 Text(message, color = Color(0xFF5D6B82))
                 if (settings.biometricEnabled && settings.biometricSupported) {
                     OutlinedButton(onClick = { runBiometric() }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Fingerprint, contentDescription = null)
+                        Icon(Icons.Default.Fingerprint, contentDescription = "")
                         Spacer(Modifier.width(8.dp))
                         Text("Gunakan biometrik")
                     }

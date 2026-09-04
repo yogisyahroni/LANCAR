@@ -115,7 +115,7 @@ fun ChatScreen(
                 state.error?.let { error ->
                     TextButton(onClick = { viewModel.clearError() }) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Filled.Warning, contentDescription = "", tint = MaterialTheme.colorScheme.error)
                             Spacer(Modifier.width(4.dp))
                             Text(error, color = MaterialTheme.colorScheme.error)
                         }

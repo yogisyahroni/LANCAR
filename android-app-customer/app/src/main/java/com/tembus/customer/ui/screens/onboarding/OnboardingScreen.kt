@@ -258,7 +258,7 @@ private fun OnboardingActions(
                 Spacer(modifier = Modifier.width(TembusSpacing.Small))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
+                    contentDescription = "",
                     modifier = Modifier.size(18.dp)
                 )
             }

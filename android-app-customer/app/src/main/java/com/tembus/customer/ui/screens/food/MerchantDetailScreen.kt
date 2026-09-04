@@ -218,7 +218,7 @@ fun MerchantDetailScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 if (m.avgRating != null && m.avgRating > 0) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Star, contentDescription = null, tint = Warning, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Default.Star, contentDescription = "", tint = Warning, modifier = Modifier.size(16.dp))
                                         Text(
                                             String.format(Locale.US, "%.1f", m.avgRating),
                                             fontSize = 13.sp,
@@ -279,7 +279,7 @@ fun MerchantDetailScreen(
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Info, contentDescription = null, tint = Primary, modifier = Modifier.size(14.dp))
+                                Icon(Icons.Default.Info, contentDescription = "", tint = Primary, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.size(6.dp))
                                 Text(
                                     "Ramah Kurir Sepeda",

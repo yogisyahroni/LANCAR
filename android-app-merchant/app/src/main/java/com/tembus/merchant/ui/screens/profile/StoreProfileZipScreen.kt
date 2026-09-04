@@ -118,7 +118,7 @@ private fun StoreProfileZipTopBar(onOpenNotifications: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(modifier = Modifier.size(32.dp), shape = CircleShape, color = PrimaryPale) {
-            Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.padding(6.dp))
+            Icon(Icons.Filled.Storefront, contentDescription = "", tint = Primary, modifier = Modifier.padding(6.dp))
         }
         Spacer(Modifier.size(8.dp))
         Text(stringResource(R.string.merchant_store_profile), modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
@@ -234,7 +234,7 @@ private fun StoreIdentityCard(
                 shape = CircleShape,
                 color = PrimaryPale
             ) {
-                Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.padding(26.dp))
+                Icon(Icons.Filled.Storefront, contentDescription = "", tint = Primary, modifier = Modifier.padding(26.dp))
             }
             Spacer(Modifier.size(16.dp))
             Text(
@@ -245,7 +245,7 @@ private fun StoreIdentityCard(
             )
             Spacer(Modifier.size(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFF97316), modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.Star, contentDescription = "", tint = Color(0xFFF97316), modifier = Modifier.size(20.dp))
                 Spacer(Modifier.size(4.dp))
                 Text(
                     if (merchant.ratingCount > 0) "%.1f".format(java.util.Locale.US, merchant.avgRating) else "-",
@@ -287,14 +287,14 @@ private fun StoreProfileOption(icon: androidx.compose.ui.graphics.vector.ImageVe
     ) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = CircleShape, color = PrimaryPale, modifier = Modifier.size(48.dp)) {
-                Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.padding(12.dp))
+                Icon(icon, contentDescription = "", tint = Primary, modifier = Modifier.padding(12.dp))
             }
             Spacer(Modifier.size(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "", tint = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }
@@ -309,7 +309,7 @@ private fun LoadingProfile() {
 @Composable
 private fun RegistrationRequired(onGoToRegistration: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.size(48.dp))
+        Icon(Icons.Filled.Storefront, contentDescription = "", tint = Primary, modifier = Modifier.size(48.dp))
         Spacer(Modifier.size(12.dp))
         Text(stringResource(R.string.merchant_profile_unavailable), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.size(16.dp))
@@ -320,7 +320,7 @@ private fun RegistrationRequired(onGoToRegistration: () -> Unit) {
 @Composable
 private fun ProfileUnavailable(message: String, onRetry: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(Icons.Filled.Storefront, contentDescription = null, tint = Primary, modifier = Modifier.size(48.dp))
+        Icon(Icons.Filled.Storefront, contentDescription = "", tint = Primary, modifier = Modifier.size(48.dp))
         Spacer(Modifier.size(12.dp))
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.size(12.dp))

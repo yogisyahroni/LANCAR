@@ -255,7 +255,7 @@ private fun PaymentMethodChooser(
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "")
                 }
             }
         }
@@ -271,7 +271,7 @@ private fun PaymentMethodChooser(
             ) {
                 Icon(
                     imageVector = Icons.Default.Security,
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = Color(0xFF07884A),
                     modifier = Modifier.size(28.dp)
                 )
@@ -402,7 +402,7 @@ private fun PaymentMethodCard(
             ) {
                 Icon(
                     imageVector = if (isLapay) Icons.Default.AccountBalanceWallet else Icons.Default.Payment,
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = if (isLapay) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                 )
             }

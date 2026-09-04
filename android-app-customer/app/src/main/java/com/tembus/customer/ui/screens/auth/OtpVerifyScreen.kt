@@ -157,14 +157,14 @@ fun OtpVerifyScreen(
                         if (isVerified) {
                             Icon(
                                 imageVector = Icons.Rounded.CheckCircle,
-                                contentDescription = null,
+                                contentDescription = "",
                                 tint = Secondary,
                                 modifier = Modifier.size(38.dp)
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Rounded.Security,
-                                contentDescription = null,
+                                contentDescription = "",
                                 tint = Primary,
                                 modifier = Modifier.size(38.dp)
                             )

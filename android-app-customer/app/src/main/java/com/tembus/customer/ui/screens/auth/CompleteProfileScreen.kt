@@ -124,7 +124,7 @@ fun CompleteProfileScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.AccountCircle,
-                                contentDescription = null,
+                                contentDescription = "",
                                 tint = Primary,
                                 modifier = Modifier.size(34.dp)
                             )
@@ -222,7 +222,7 @@ fun CompleteProfileScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.size(8.dp))
-                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "")
                         }
                     }
                 }
@@ -255,7 +255,7 @@ private fun TrustRow(text: String) {
     ) {
         Icon(
             imageVector = Icons.Rounded.CheckCircle,
-            contentDescription = null,
+            contentDescription = "",
             tint = Color(0xFF047857),
             modifier = Modifier.size(20.dp)
         )

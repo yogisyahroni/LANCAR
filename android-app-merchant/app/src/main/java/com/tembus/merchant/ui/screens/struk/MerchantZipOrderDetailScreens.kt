@@ -195,7 +195,7 @@ private fun OrderStatusCard(title: String, timestamp: String, isNegative: Boolea
             ) {
                 Icon(
                     if (isNegative) Icons.Filled.Cancel else Icons.Filled.CheckCircle,
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = statusColor,
                     modifier = Modifier.padding(8.dp)
                 )
@@ -227,7 +227,7 @@ private fun DetailSectionCard(
 @Composable
 private fun SectionLabel(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = "", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         Spacer(Modifier.size(8.dp))
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

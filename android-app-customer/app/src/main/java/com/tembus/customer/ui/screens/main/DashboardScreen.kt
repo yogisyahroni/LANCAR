@@ -503,7 +503,7 @@ private fun WalletCard() {
                     .background(SoftGreen),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LcGreen)
+                Icon(Icons.Default.AccountBalanceWallet, contentDescription = "", tint = LcGreen)
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -630,7 +630,7 @@ private fun DashboardDataErrorCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Warning, contentDescription = null, tint = Accent)
+            Icon(Icons.Default.Warning, contentDescription = "", tint = Accent)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Data sedang disinkronkan", color = Ink, fontWeight = FontWeight.Black, fontSize = 15.sp)
@@ -668,7 +668,7 @@ private fun NotificationPermissionPromptCard(
                     .background(SoftGreen),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = LcGreen)
+                Icon(Icons.Default.NotificationsActive, contentDescription = "", tint = LcGreen)
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -715,7 +715,7 @@ private fun GlobalBannerCard(banners: List<com.tembus.customer.data.model.Global
                     .background(LcGreen.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = LcGreen)
+                Icon(Icons.Default.NotificationsActive, contentDescription = "", tint = LcGreen)
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -789,7 +789,7 @@ private fun ActiveOrderCard(
                     .background(statusColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(iconVector, contentDescription = null, tint = statusColor)
+                Icon(iconVector, contentDescription = "", tint = statusColor)
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -817,7 +817,7 @@ private fun ActiveOrderCard(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = LcGreen, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = "", tint = LcGreen, modifier = Modifier.size(15.dp))
                             Spacer(Modifier.width(4.dp))
                             Text("Chat", color = LcGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                             if (hasUnreadMessage) {
@@ -917,7 +917,7 @@ private fun IncomingPackageCard(
                     .background(statusColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = statusColor)
+                Icon(Icons.Default.LocalShipping, contentDescription = "", tint = statusColor)
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -946,7 +946,7 @@ private fun IncomingPackageCard(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
+                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = "", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("Chat", color = MaterialTheme.colorScheme.onPrimary, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                     }

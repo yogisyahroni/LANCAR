@@ -170,7 +170,7 @@ internal fun PreselectedPromoCard(
                     .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.LocalOffer, contentDescription = null, tint = Accent)
+                Icon(Icons.Default.LocalOffer, contentDescription = "", tint = Accent)
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -221,7 +221,7 @@ internal fun VoucherCard(
                 ) {
                     Icon(
                         Icons.Default.LocalActivity,
-                        contentDescription = null,
+                        contentDescription = "",
                         tint = if (applied) Success else Accent
                     )
                 }
@@ -535,7 +535,7 @@ internal fun BookingProgressPills(
                         stepNum == 1 -> Icons.Default.LocalShipping
                         else -> Icons.Default.Place
                     },
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = when {
                         active -> Primary
                         done -> LcGreen
@@ -1548,7 +1548,7 @@ internal fun LocationInputSheet(
             ) {
                 Icon(
                     if (selectedMapLocation == null) Icons.Default.Search else Icons.Default.CheckCircle,
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = if (selectedMapLocation == null) Muted else LcGreen,
                     modifier = Modifier.size(24.dp)
                 )

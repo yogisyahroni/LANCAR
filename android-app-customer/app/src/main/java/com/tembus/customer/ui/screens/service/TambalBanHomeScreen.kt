@@ -338,7 +338,7 @@ private fun ServiceCard(
             ) {
                 Icon(
                     if (service.code.contains("mobil")) Icons.Default.DirectionsCar else Icons.Default.TwoWheeler,
-                    contentDescription = null,
+                    contentDescription = "",
                     tint = Color(0xFF008EB0),
                     modifier = Modifier.size(26.dp)
                 )
@@ -380,7 +380,7 @@ fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Icon(
             Icons.Default.Star,
-            contentDescription = null,
+            contentDescription = "",
             tint = Warning,
             modifier = Modifier.size(14.dp)
         )

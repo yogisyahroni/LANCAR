@@ -168,7 +168,7 @@ fun WithdrawDialog(
                 ) {
                     Icon(
                         Icons.Default.AccountBalance,
-                        contentDescription = null,
+                        contentDescription = "",
                         tint = Primary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -301,7 +301,7 @@ private fun SuccessBody(state: WithdrawUiState.Success) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(64.dp))
+        Icon(Icons.Default.CheckCircle, contentDescription = "", tint = Color(0xFF4CAF50), modifier = Modifier.size(64.dp))
         Text("Permintaan Diterima!", fontWeight = FontWeight.Black, fontSize = 18.sp)
         Text(
             state.response.message.ifBlank { "Dana sedang diproses ke rekening Anda." },
@@ -354,7 +354,7 @@ private fun FormBody(
                     },
                     label = { Text("Jumlah Penarikan (Rp)") },
                     placeholder = { Text("Contoh: 100000") },
-                    leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = "") },
                     suffix = {
                         if (parsedAmount > 0L) {
                             Text(
@@ -402,7 +402,7 @@ private fun FormBody(
                     },
                     label = { Text("Nomor Rekening Tujuan") },
                     placeholder = { Text("10–18 digit angka") },
-                    leadingIcon = { Icon(Icons.Default.AccountBalance, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.Default.AccountBalance, contentDescription = "") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Next),
@@ -427,7 +427,7 @@ private fun FormBody(
                     },
                     label = { Text("Nama Pemilik Rekening") },
                     placeholder = { Text("Sesuai nama di buku tabungan") },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = "") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
@@ -468,7 +468,7 @@ private fun FormBody(
                     .padding(12.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Warning, contentDescription = "", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(errorMessage, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp)
             }

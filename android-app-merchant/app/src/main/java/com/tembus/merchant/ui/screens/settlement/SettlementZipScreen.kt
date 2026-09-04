@@ -187,7 +187,7 @@ private fun TaxSummaryCard(tax: com.tembus.merchant.data.model.MerchantTaxSummar
 private fun SettlementRecordCard(record: SettlementRecord) {
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.AccountBalance, contentDescription = null, tint = Primary)
+            Icon(Icons.Filled.AccountBalance, contentDescription = "", tint = Primary)
             Spacer(Modifier.size(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(formatIdr(record.netPayoutIdr), fontWeight = FontWeight.SemiBold)
