@@ -1,0 +1,58 @@
+name: TIRE-2026-003 Migration Gate
+
+on:
+  push:
+    branches:
+      - feat/TIRE-2026-003-evidence-no-pr
+    paths:
+      - '.github/workflows/tire003-migration-gate.yml'
+      - 'database/migrations/202609060900_add_service_adjustments.sql'
+
+permissions:
+  contents: read
+
+jobs:
+  service-adjustment-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgis/postgis:15-3.4
+        env:
+          POSTGRES_USER: tembus_ci
+          POSTGRES_PASSWORD: tembus_ci_ephemeral_db_auth
+          POSTGRES_DB: tembus_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 15
+    env:
+      DB_DSN: host=localhost port=5432 user=tembus_ci password=tembus_ci_ephemeral_db_auth dbname=tembus_ci sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+      - name: Install goose
+        run: go install github.com/pressly/goose/v3/cmd/goose@v3.28.0
+      - name: Migrate clean DB through TIRE-003
+        run: goose -dir database/migrations postgres "$DB_DSN" up-to 202609060900
+      - name: Verify adjustment schema invariants
+        env:
+          PGPASSWORD: tembus_ci_ephemeral_db_auth
+        run: |
+          set -euo pipefail
+          test "$(psql -h localhost -U tembus_ci -d tembus_ci -Atc "SELECT to_regclass('public.service_adjustments') IS NOT NULL")" = "t"
+          test "$(psql -h localhost -U tembus_ci -d tembus_ci -Atc "SELECT count(*) >= 2 FROM pg_indexes WHERE schemaname='public' AND tablename='service_adjustments' AND indexname IN ('uq_service_adjustment_proposal_idempotency','uq_service_adjustment_decision_idempotency')")" = "t"
+          test "$(psql -h localhost -U tembus_ci -d tembus_ci -Atc "SELECT count(*) > 0 FROM pg_constraint WHERE conrelid='public.service_adjustments'::regclass AND pg_get_constraintdef(oid) ILIKE '%approved_by_customer_id%'")" = "t"
+      - name: Roll back TIRE-003 migration
+        run: goose -dir database/migrations postgres "$DB_DSN" down
+      - name: Verify rollback removed adjustment schema
+        env:
+          PGPASSWORD: tembus_ci_ephemeral_db_auth
+        run: |
+          set -euo pipefail
+          test "$(psql -h localhost -U tembus_ci -d tembus_ci -Atc "SELECT to_regclass('public.service_adjustments') IS NULL")" = "t"
