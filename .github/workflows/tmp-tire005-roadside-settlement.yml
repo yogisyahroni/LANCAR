@@ -1,0 +1,66 @@
+name: TIRE005 roadside settlement wiring
+on:
+  push:
+    branches: [staging]
+    paths: ['.github/workflows/tmp-tire005-roadside-settlement.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+      - name: Sync staging
+        run: git pull --ff-only origin staging
+      - name: Wire authoritative settlement
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('backend/order-service/cmd/api/main.go')
+          s = p.read_text()
+
+          def replace_once(old, new):
+              global s
+              if old not in s:
+                  raise SystemExit(f'anchor missing: {old!r}')
+              s = s.replace(old, new, 1)
+
+          replace_once(
+              '\tsettlementRepo := repository.NewSettlementRepository(db)\n\tavailabilityRepo := repository.NewAvailabilityRepository(db)',
+              '\tsettlementRepo := repository.NewSettlementRepository(db)\n\troadsideSettlementSourceRepo := repository.NewRoadsideSettlementSourceRepository(db)\n\tavailabilityRepo := repository.NewAvailabilityRepository(db)'
+          )
+          replace_once(
+              '\tsettlementSvc := service.NewSettlementService(settlementRepo)\n\tavailabilitySvc := service.NewAvailabilityService(availabilityRepo)',
+              '\tsettlementSvc := service.NewSettlementService(settlementRepo)\n\troadsideSettlementSvc := service.NewRoadsideSettlementService(roadsideSettlementSourceRepo, settlementRepo)\n\tavailabilitySvc := service.NewAvailabilityService(availabilityRepo)'
+          )
+          replace_once(
+              '\tserviceAdjustmentHandler := handler.NewServiceAdjustmentHandler(serviceAdjustmentSvc)\n\ttowingClaimRepo := repository.NewTowingDamageClaimRepository(db)',
+              '\tserviceAdjustmentHandler := handler.NewServiceAdjustmentHandler(serviceAdjustmentSvc)\n\troadsideSettlementHandler := handler.NewRoadsideSettlementHandler(roadsideSettlementSvc)\n\ttowingClaimRepo := repository.NewTowingDamageClaimRepository(db)'
+          )
+          replace_once(
+              'mux.HandleFunc("/api/v1/order/settlement", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CalculateSettlement)))',
+              'mux.HandleFunc("/api/v1/order/settlement", middleware.BaseChain(middleware.AuthMiddleware(roadsideSettlementHandler.Calculate)))'
+          )
+          p.write_text(s)
+          PY
+      - name: Go format and tests
+        run: |
+          cd backend/order-service
+          gofmt -w cmd/api/main.go internal/handler/roadside_settlement_handler.go internal/handler/roadside_settlement_handler_test.go
+          go test ./internal/handler ./internal/service
+      - name: Commit and push directly to staging
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/tmp-tire005-roadside-settlement.yml
+          git add backend/order-service/cmd/api/main.go backend/order-service/internal/handler/roadside_settlement_handler.go backend/order-service/internal/handler/roadside_settlement_handler_test.go
+          git commit -m 'fix: gate roadside settlement behind final proof'
+          for attempt in 1 2 3; do
+            git pull --rebase origin staging
+            if git push origin HEAD:staging; then exit 0; fi
+            sleep 2
+          done
+          exit 1
