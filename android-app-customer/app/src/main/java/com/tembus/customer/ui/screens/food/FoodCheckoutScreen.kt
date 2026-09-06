@@ -93,6 +93,8 @@ fun FoodCheckoutScreen(
     var locating by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var submitError by remember { mutableStateOf<String?>(null) }
+    var hasRequestedQuote by remember { mutableStateOf(false) }
+    var destinationNeedsRequote by remember { mutableStateOf(false) }
 
     fun readCurrentDestination() {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -106,6 +108,7 @@ fun FoodCheckoutScreen(
                 if (location == null) {
                     submitError = "Lokasi belum tersedia. Aktifkan GPS lalu coba lagi."
                 } else {
+                    if (hasRequestedQuote) destinationNeedsRequote = true
                     viewModel.setCheckoutLocation(location.latitude, location.longitude)
                     submitError = null
                 }
@@ -135,6 +138,51 @@ fun FoodCheckoutScreen(
 
     val merchantId = cart.firstOrNull()?.menuItem?.merchantId ?: ""
     val formatRupiah = { v: Long -> v.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".") }
+
+    fun scheduledAtIso(): String? = scheduledAtMs?.let {
+        Instant.ofEpochMilli(it)
+            .atZone(ZoneId.systemDefault())
+            .toOffsetDateTime()
+            .withSecond(0).withNano(0)
+            .toString()
+    }
+
+    fun requestFoodQuote(lat: Double, lng: Double) {
+        submitError = null
+        viewModel.quote(
+            merchantId = merchantId,
+            dropoffAddress = address,
+            dropoffLat = lat,
+            dropoffLng = lng,
+            voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
+            isScheduled = !scheduleNow,
+            scheduledAt = scheduledAtIso(),
+            onResult = { result ->
+                result.onFailure { submitError = it.message ?: "Gagal menghitung harga terbaru" }
+            }
+        )
+    }
+
+    // FOOD-2026-001: once the user has requested an authoritative quote, a
+    // newly resolved destination is a material pricing input. Raw text edits
+    // only invalidate the pin/quote; requote runs after a valid saved/pinned/GPS
+    // coordinate exists so we never price against stale coordinates.
+    LaunchedEffect(
+        checkoutLat,
+        checkoutLng,
+        destinationNeedsRequote,
+        address,
+        scheduleNow,
+        scheduledAtMs
+    ) {
+        if (!hasRequestedQuote || !destinationNeedsRequote) return@LaunchedEffect
+        val lat = checkoutLat ?: return@LaunchedEffect
+        val lng = checkoutLng ?: return@LaunchedEffect
+        if (address.isBlank() || merchantId.isBlank()) return@LaunchedEffect
+        if (!scheduleNow && scheduledAtMs == null) return@LaunchedEffect
+        destinationNeedsRequote = false
+        requestFoodQuote(lat, lng)
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -403,6 +451,7 @@ fun FoodCheckoutScreen(
                         Surface(
                             onClick = {
                                 address = saved.address
+                                if (hasRequestedQuote) destinationNeedsRequote = true
                                 viewModel.setCheckoutLocation(saved.lat, saved.lng)
                                 if (saved.contactName != null) receiverName = saved.contactName
                             },
@@ -460,6 +509,7 @@ fun FoodCheckoutScreen(
                 Surface(
                     onClick = {
                         address = result.label
+                        if (hasRequestedQuote) destinationNeedsRequote = true
                         viewModel.selectCheckoutAddress(result)
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -511,24 +561,9 @@ fun FoodCheckoutScreen(
                         submitError = "Titik pengantaran belum dipilih."
                         return@OutlinedButton
                     }
-                    viewModel.quote(
-                        merchantId = merchantId,
-                        dropoffAddress = address,
-                        dropoffLat = lat,
-                        dropoffLng = lng,
-                        voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
-                        isScheduled = !scheduleNow,
-                        scheduledAt = scheduledAtMs?.let {
-                            Instant.ofEpochMilli(it)
-                                .atZone(ZoneId.systemDefault())
-                                .toOffsetDateTime()
-                                .withSecond(0).withNano(0)
-                                .toString()
-                        },
-                        onResult = { result ->
-                            result.onFailure { submitError = it.message ?: "Gagal menghitung harga terbaru" }
-                        }
-                    )
+                    hasRequestedQuote = true
+                    destinationNeedsRequote = false
+                    requestFoodQuote(lat, lng)
                 },
                 enabled = address.isNotBlank() && checkoutLat != null && checkoutLng != null && cart.isNotEmpty() && !loading,
                 modifier = Modifier.fillMaxWidth(),
@@ -667,14 +702,7 @@ fun FoodCheckoutScreen(
                             orderNotes = orderNotes, // FB-121
                             contactless = contactless, // FB-089
                             isScheduled = !scheduleNow, // FB-123
-                            scheduledAt = scheduledAtMs?.let {
-                                // ISO-8601 dengan offset lokal (mis. 2026-08-09T13:30:00+07:00).
-                                Instant.ofEpochMilli(it)
-                                    .atZone(ZoneId.systemDefault())
-                                    .toOffsetDateTime()
-                                    .withSecond(0).withNano(0)
-                                    .toString()
-                            },
+                            scheduledAt = scheduledAtIso(),
                             onResult = { result ->
                                 result.onSuccess { order ->
                                     viewModel.clearCart()
