@@ -382,6 +382,9 @@ func main() {
 	availabilitySvc := service.NewAvailabilityService(availabilityRepo)
 	vehicleValidator := service.NewVehicleValidator(availabilityRepo)
 	serviceReportSvc := service.NewServiceReportService(serviceReportRepo)
+	serviceAdjustmentRepo := repository.NewServiceAdjustmentRepository(db)
+	serviceAdjustmentSvc := service.NewServiceAdjustmentService(serviceAdjustmentRepo)
+	serviceAdjustmentHandler := handler.NewServiceAdjustmentHandler(serviceAdjustmentSvc)
 	towingClaimRepo := repository.NewTowingDamageClaimRepository(db)
 	towingClaimSvc := service.NewTowingDamageClaimService(serviceReportSvc, towingClaimRepo)
 	orderSvc.SetServiceReportService(serviceReportSvc)
@@ -574,6 +577,11 @@ func main() {
 	mux.HandleFunc("/api/v1/courier/radius", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.UpdateRadius)))
 
 	mux.HandleFunc("/api/v1/courier/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTambalBanReport)))
+	// TIRE-2026-003: structured on-site adjustment. Proposal/decision are protected twice:
+	// shared HTTP idempotency plus domain-level idempotency persisted with the adjustment transaction.
+	mux.HandleFunc("/api/v1/courier/service-adjustments", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "service_adjustment.propose", serviceAdjustmentHandler.Propose))))
+	mux.HandleFunc("/api/v1/customer/service-adjustments", middleware.BaseChain(middleware.AuthMiddleware(serviceAdjustmentHandler.ListForOrder)))
+	mux.HandleFunc("/api/v1/customer/service-adjustments/decision", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "service_adjustment.decision", serviceAdjustmentHandler.Decide))))
 	mux.HandleFunc("/api/v1/courier/service-report/towing", middleware.BaseChain(middleware.AuthMiddleware(towingHandler.CreateTowingReport)))
 	mux.HandleFunc("/api/v1/courier/towing/damage-claims", middleware.BaseChain(middleware.AuthMiddleware(towingClaimHandler.SubmitClaim)))
 	mux.HandleFunc("/api/v1/admin/towing/damage-claims/{id}/decision", middleware.BaseChain(middleware.AuthMiddleware(towingClaimHandler.DecideClaim)))
