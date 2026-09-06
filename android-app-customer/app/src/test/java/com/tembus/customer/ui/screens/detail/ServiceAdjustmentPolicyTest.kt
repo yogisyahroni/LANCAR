@@ -28,6 +28,15 @@ class ServiceAdjustmentPolicyTest {
     }
 
     @Test
+    fun `pending status matching is case insensitive`() {
+        val result = pendingServiceAdjustment(
+            listOf(adjustment("pending-uppercase", "PENDING"))
+        )
+
+        assertEquals("pending-uppercase", result?.id)
+    }
+
+    @Test
     fun `decided adjustments do not request consent again`() {
         val result = pendingServiceAdjustment(
             listOf(
