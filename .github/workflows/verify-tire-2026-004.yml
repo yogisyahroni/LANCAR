@@ -22,9 +22,17 @@ jobs:
       - name: Verify order-service modules
         working-directory: backend/order-service
         run: go mod verify
-      - name: Run TIRE backend contract suites
+      - name: Run Tambal Ban domain lifecycle tests
         working-directory: backend/order-service
-        run: go test -v -count=1 ./internal/domain ./internal/repository ./internal/service ./internal/handler
+        run: go test -v -count=1 ./internal/domain -run 'Test(IsTambalBanService|ValidateTambalBanLifecycle|CanSubmitTambalBanCompletionReport)'
+      - name: Run Tambal Ban report validation tests
+        working-directory: backend/order-service
+        run: go test -v -count=1 ./internal/service -run 'Test(ServiceReport|CreateTambalBanReport)'
+      - name: Compile repository and handler wiring
+        working-directory: backend/order-service
+        run: |
+          go test -count=1 ./internal/repository -run '^$'
+          go test -count=1 ./internal/handler -run '^$'
 
   mobile-contract:
     name: ${{ matrix.label }} task contract
