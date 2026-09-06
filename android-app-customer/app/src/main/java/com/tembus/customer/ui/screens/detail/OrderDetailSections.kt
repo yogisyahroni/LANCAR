@@ -34,7 +34,7 @@ fun OrderServiceSpecificSections(order: Order) {
     when (orderDetailSectionKind(order.foodItems.isNotEmpty(), order.serviceSubType, order.serviceCategory)) {
         OrderDetailSectionKind.FOOD -> FoodOrderSection(order.foodItems, order.orderNotes)
         OrderDetailSectionKind.ROADSIDE ->
-            RoadsideOrderSection(order.serviceSubType.orEmpty())
+            RoadsideOrderSection(order.orderId, order.serviceSubType.orEmpty())
         OrderDetailSectionKind.PACKAGE -> PackageOrderSection(order.serviceSubType)
         OrderDetailSectionKind.UNKNOWN -> UnknownOrderSection()
     }
@@ -93,11 +93,15 @@ private fun FoodOrderSection(items: List<FoodOrderItem>, orderNotes: String?) {
 }
 
 @Composable
-private fun RoadsideOrderSection(serviceSubType: String) {
+private fun RoadsideOrderSection(orderId: String, serviceSubType: String) {
     val label = serviceSubType.replace('_', ' ').replaceFirstChar { it.uppercase() }
     OrderSectionCard(title = "Detail Layanan") {
         Text(label, fontWeight = FontWeight.Bold, color = OnSurface)
         Text("Layanan bantuan kendaraan. Status, teknisi, dan bukti layanan mengikuti data server.", fontSize = 13.sp, color = OnSurfaceVariant)
+    }
+    if (orderId.isNotBlank()) {
+        RoadsideAdjustmentSection(orderId = orderId)
+        Spacer(Modifier.height(16.dp))
     }
 }
 
