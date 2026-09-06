@@ -1,0 +1,86 @@
+name: Close TIRE-2026-004 once
+
+on:
+  push:
+    branches:
+      - feat/tire-2026-004-closure
+    paths:
+      - '.github/workflows/tire-2026-004-close-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/tire-2026-004-closure
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Synchronize TIRE-2026-004 master checklist
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('task-food-marketplace-parity-2026.md')
+          text = path.read_text(encoding='utf-8')
+          start_marker = '## TIRE-2026-004 — Arrival→inspection→repair→proof→completion [P0]'
+          end_marker = '## TIRE-2026-005 — Settlement/warranty/claim/rating [P0]'
+
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          section = text[start:end]
+
+          items = [
+              'Server-enforced lifecycle.',
+              'Before/after proof as configured.',
+              'Structured material/duration/report.',
+              'Customer sees human-readable stages.',
+          ]
+
+          for item in items:
+              unchecked = f'- [ ] {item}'
+              checked = f'- [x] {item}'
+              if section.count(unchecked) == 1:
+                  section = section.replace(unchecked, checked, 1)
+              elif section.count(checked) == 1:
+                  pass
+              else:
+                  raise SystemExit(f'Unexpected checklist state for: {item}')
+
+          updated = text[:start] + section + text[end:]
+          path.write_text(updated, encoding='utf-8')
+
+          final_section = updated[start:updated.index(end_marker, start)]
+          for item in items:
+              assert f'- [x] {item}' in final_section
+          print('TIRE-2026-004 master checklist synchronized: 4/4 checked.')
+          PY
+
+      - name: Verify canonical evidence exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f docs/task-evidence/TIRE-2026-004.md
+          grep -Fxq 'task_id: TIRE-2026-004' docs/task-evidence/TIRE-2026-004.md
+          grep -Fxq 'status: COMPLETE' docs/task-evidence/TIRE-2026-004.md
+          grep -Fxq 'reality_2026_003: PASS' docs/task-evidence/TIRE-2026-004.md
+          grep -Fxq 'reality_2026_011: PASS' docs/task-evidence/TIRE-2026-004.md
+
+      - name: Remove one-shot workflow and commit closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tire-2026-004-close-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add task-food-marketplace-parity-2026.md .github/workflows/tire-2026-004-close-once.yml
+          git diff --cached --check
+          git commit -m 'docs(TIRE-2026-004): close lifecycle task'
+          git push origin HEAD:feat/tire-2026-004-closure
