@@ -53,8 +53,34 @@ func validateTambalBanReport(report *domain.TambalBanReport) error {
 	if strings.TrimSpace(report.OrderID) == "" {
 		return fmt.Errorf("%w: order_id wajib diisi", domain.ErrInvalidServiceReport)
 	}
+	if !hasValue(report.TireConditionBefore) {
+		return fmt.Errorf("%w: tire_condition_before wajib diisi", domain.ErrInvalidServiceReport)
+	}
 	if !hasValue(report.TirePhotoBeforeURL) {
 		return fmt.Errorf("%w: tire_photo_before_url wajib diisi", domain.ErrInvalidServiceReport)
+	}
+	if report.ServiceDurationMins == nil || *report.ServiceDurationMins < 1 || *report.ServiceDurationMins > 1440 {
+		return fmt.Errorf("%w: service_duration_minutes harus 1-1440 menit", domain.ErrInvalidServiceReport)
+	}
+	if report.MaterialsUsedItems == nil {
+		return fmt.Errorf("%w: materials_used_items wajib berupa list terstruktur, boleh kosong bila tidak ada material", domain.ErrInvalidServiceReport)
+	}
+	if len(report.MaterialsUsedItems) > 30 {
+		return fmt.Errorf("%w: materials_used_items maksimal 30 item", domain.ErrInvalidServiceReport)
+	}
+	seenMaterials := make(map[string]struct{}, len(report.MaterialsUsedItems))
+	for _, material := range report.MaterialsUsedItems {
+		normalized := strings.TrimSpace(material)
+		if normalized == "" {
+			return fmt.Errorf("%w: materials_used_items tidak boleh berisi item kosong", domain.ErrInvalidServiceReport)
+		}
+		if _, exists := seenMaterials[normalized]; exists {
+			return fmt.Errorf("%w: materials_used_items tidak boleh duplikat", domain.ErrInvalidServiceReport)
+		}
+		seenMaterials[normalized] = struct{}{}
+	}
+	if !hasValue(report.TireConditionAfter) {
+		return fmt.Errorf("%w: tire_condition_after wajib diisi", domain.ErrInvalidServiceReport)
 	}
 	if !hasValue(report.TirePhotoAfterURL) {
 		return fmt.Errorf("%w: tire_photo_after_url wajib diisi", domain.ErrInvalidServiceReport)
