@@ -25,16 +25,35 @@ object OrderActionPolicy {
         return serviceSubType.orEmpty().isNotBlank() || normalized in setOf("pending", "pending_payment", "scheduled")
     }
 
-    fun statusLabel(status: String): String = when (normalize(status)) {
-        "scheduled" -> "Terjadwal"
-        "pending_merchant" -> "Menunggu Merchant"
-        "preparing" -> "Disiapkan"
-        "searching" -> "Mencari Kurir"
-        "accepted" -> "Kurir Menuju Pickup"
-        "picked_up", "delivering" -> "Sedang Diantar"
-        "delivered", "completed" -> "Selesai"
-        "cancelled", "canceled" -> "Dibatalkan"
-        "failed", "payment_failed" -> "Tidak berhasil"
-        else -> "Status sedang diperbarui"
+    fun statusLabel(status: String, serviceSubType: String? = null): String {
+        val subtype = serviceSubType.orEmpty().trim().lowercase()
+        if (subtype.startsWith("tambal_ban")) {
+            return when (normalize(status)) {
+                "searching", "assigned" -> "Mencari Teknisi"
+                "accepted" -> "Teknisi Menuju Lokasi"
+                "pickup_arrived" -> "Teknisi Tiba di Lokasi"
+                "picking_up" -> "Verifikasi & Inspeksi Ban"
+                "picked_up" -> "Ban Sedang Diperbaiki"
+                "delivering" -> "Perbaikan Selesai · Menunggu Bukti Akhir"
+                "delivered", "completed" -> "Layanan Selesai"
+                "cancelled", "canceled" -> "Layanan Dibatalkan"
+                "failed", "failed_delivery" -> "Layanan Perlu Tindak Lanjut"
+                else -> "Status layanan sedang diperbarui"
+            }
+        }
+        return when (normalize(status)) {
+            "scheduled" -> "Terjadwal"
+            "pending_merchant" -> "Menunggu Merchant"
+            "preparing" -> "Disiapkan"
+            "searching" -> "Mencari Kurir"
+            "accepted" -> "Kurir Menuju Pickup"
+            "pickup_arrived" -> "Kurir Tiba di Pickup"
+            "picking_up" -> "Proses Penjemputan"
+            "picked_up", "delivering" -> "Sedang Diantar"
+            "delivered", "completed" -> "Selesai"
+            "cancelled", "canceled" -> "Dibatalkan"
+            "failed", "payment_failed" -> "Tidak berhasil"
+            else -> "Status sedang diperbarui"
+        }
     }
 }

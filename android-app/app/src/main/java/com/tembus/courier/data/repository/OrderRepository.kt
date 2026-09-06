@@ -8,6 +8,8 @@ import com.tembus.courier.data.model.StatusUpdateRequest
 import com.tembus.courier.data.model.ServiceAdjustment
 import com.tembus.courier.data.model.ServiceAdjustmentItem
 import com.tembus.courier.data.model.ServiceAdjustmentProposalRequest
+import com.tembus.courier.domain.canonicalTambalBanStatus
+import com.tembus.courier.domain.isTambalBanOrder
 import com.tembus.courier.domain.CourierProofTypes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -130,9 +132,38 @@ class OrderRepository @Inject constructor(
     }
 
     /**
-     * Update order status locally
+     * Update order status. Tambal Ban is server-first because its on-site
+     * lifecycle is safety/consent sensitive; other flows keep the existing
+     * offline-first behavior.
      */
     suspend fun updateOrderStatus(orderId: String, status: String) = withContext(Dispatchers.IO) {
+        val current = orderDao.getOrderById(orderId)
+        if (current != null && isTambalBanOrder(current)) {
+            val canonicalStatus = canonicalTambalBanStatus(status)
+            val response = apiService.updateStatus(
+                idempotencyKey = statusIdempotencyKey(orderId, canonicalStatus),
+                request = StatusUpdateRequest(
+                    orderId = orderId,
+                    status = canonicalStatus,
+                    notes = current.deliveryNotes,
+                    length = current.length,
+                    width = current.width,
+                    height = current.height,
+                    weight = current.weight
+                )
+            )
+            if (!response.isSuccessful || response.body()?.success != true) {
+                if (response.code() == 409) {
+                    orderDao.markSyncConflict(orderId, conflictMessage(response))
+                }
+                throw IllegalStateException(
+                    response.body()?.message ?: "Tahap layanan belum diterima server. Periksa koneksi lalu coba lagi."
+                )
+            }
+            orderDao.updateStatus(orderId, status)
+            orderDao.markAsSynced(listOf(orderId))
+            return@withContext
+        }
         orderDao.updateStatus(orderId, status)
     }
 
@@ -343,9 +374,10 @@ class OrderRepository @Inject constructor(
 
             // Sync statuses
             for (order in pendingOrders) {
+                val outboundStatus = if (isTambalBanOrder(order)) canonicalTambalBanStatus(order.status) else order.status
                 val request = StatusUpdateRequest(
                     orderId = order.orderId,
-                    status = order.status,
+                    status = outboundStatus,
                     notes = order.deliveryNotes,
                     length = order.length,
                     width = order.width,
@@ -353,7 +385,7 @@ class OrderRepository @Inject constructor(
                     weight = order.weight
                 )
                 val response = apiService.updateStatus(
-                    idempotencyKey = statusIdempotencyKey(order.orderId, order.status),
+                    idempotencyKey = statusIdempotencyKey(order.orderId, outboundStatus),
                     request = request
                 )
                 if (response.isSuccessful && response.body()?.success == true) {

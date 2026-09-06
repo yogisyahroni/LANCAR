@@ -211,7 +211,7 @@ fun OrderDetailScreen(
                                 Spacer(Modifier.width(16.dp))
                                 Column {
                                     Text("Status Saat Ini", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
-                                    Text(statusDisplayText(order.status), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                    Text(statusDisplayText(order.status, order.serviceSubType), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                 }
                             }
                         }
@@ -362,8 +362,8 @@ fun OrderDetailScreen(
 }
 
 // statusDisplayText — label status yang ramah user (FB-123: scheduled → "Terjadwal").
-private fun statusDisplayText(status: String): String {
-    return OrderActionPolicy.statusLabel(status)
+private fun statusDisplayText(status: String, serviceSubType: String?): String {
+    return OrderActionPolicy.statusLabel(status, serviceSubType)
 }
 
 private fun canOpenConversation(status: String): Boolean {

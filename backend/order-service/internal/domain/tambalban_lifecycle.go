@@ -18,12 +18,13 @@ func IsTambalBanService(serviceSubType, serviceCode string) bool {
 // one source of truth.
 //
 // Mobile stage mapping:
-//   accepted       = technician is navigating
-//   pickup_arrived = technician arrived on site
-//   picking_up     = identity/inspection stage
-//   picked_up      = repair in progress (before proof already captured)
-//   delivering     = repair finished, completion proof/report pending
-//   delivered      = proof/report accepted and service completed
+//
+//	accepted       = technician is navigating
+//	pickup_arrived = technician arrived on site
+//	picking_up     = identity/inspection stage
+//	picked_up      = repair in progress (before proof already captured)
+//	delivering     = repair finished, completion proof/report pending
+//	delivered      = proof/report accepted and service completed
 func ValidateTambalBanLifecycle(serviceSubType, serviceCode string, current, target OrderStatus, actor OrderActor) error {
 	if !IsTambalBanService(serviceSubType, serviceCode) {
 		return nil

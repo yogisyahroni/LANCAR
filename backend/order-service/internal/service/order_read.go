@@ -222,6 +222,33 @@ func (s *orderServiceImpl) updateStatusThroughBoundary(ctx context.Context, requ
 		return domain.ErrNotFound
 	}
 
+	if err := domain.ValidateTambalBanLifecycle(
+		before.ServiceSubType,
+		before.ServiceCode,
+		before.Status,
+		request.TargetStatus,
+		request.Actor,
+	); err != nil {
+		return err
+	}
+
+	// Tambal Ban cannot become delivered from a courier action until the
+	// immutable before/after proof and completed service report exist. This is
+	// checked before the status transaction so a missing report never produces
+	// a terminal order that only looks complete in the UI.
+	if domain.IsTambalBanService(before.ServiceSubType, before.ServiceCode) &&
+		request.Actor == domain.OrderActorCourier && request.TargetStatus == domain.StatusDelivered {
+		if s.reportSvc == nil {
+			return fmt.Errorf("tambal ban completion requires service report")
+		}
+		report, reportErr := s.reportSvc.GetTambalBanReport(ctx, request.OrderID)
+		if reportErr != nil || report == nil || report.CompletedAt == nil ||
+			report.TirePhotoBeforeURL == nil || strings.TrimSpace(*report.TirePhotoBeforeURL) == "" ||
+			report.TirePhotoAfterURL == nil || strings.TrimSpace(*report.TirePhotoAfterURL) == "" {
+			return fmt.Errorf("tambal ban completion proof is incomplete")
+		}
+	}
+
 	transitionRepo := s.orderRepo.(domain.OrderTransitionRepository)
 	result, err := transitionRepo.TransitionOrder(ctx, request)
 	if err != nil {

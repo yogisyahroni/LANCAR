@@ -52,7 +52,7 @@ data class TambalBanFlowState(
 )
 
 object TambalBanFlowResolver {
-    private val completedStatuses = setOf("completed", "done", "selesai")
+    private val completedStatuses = setOf("completed", "done", "selesai", "delivered")
     private val failedStatuses = setOf("failed", "gagal")
     private val cancelledStatuses = setOf("cancelled", "canceled")
     private val offerStatuses = setOf("pending_offer", "offer", "offered")
@@ -71,13 +71,13 @@ object TambalBanFlowResolver {
             status in failedStatuses -> TambalBanStage.FAILED
             status in cancelledStatuses -> TambalBanStage.CANCELLED
             status in offerStatuses -> TambalBanStage.PENDING_OFFER
-            status == "arriving" || status == "navigating" -> TambalBanStage.NAVIGATING_TO_LOCATION
-            status == "arrived" && !faceVerified -> TambalBanStage.ARRIVED_AT_LOCATION
-            status == "arrived" && faceVerified && !inspectionDone -> TambalBanStage.VERIFY_IDENTITY
-            status == "verifying" -> TambalBanStage.VERIFY_IDENTITY
+            status == "arriving" || status == "navigating" || status == "accepted" -> TambalBanStage.NAVIGATING_TO_LOCATION
+            status in setOf("arrived", "pickup_arrived") && !faceVerified -> TambalBanStage.ARRIVED_AT_LOCATION
+            status in setOf("arrived", "pickup_arrived") && faceVerified && !inspectionDone -> TambalBanStage.VERIFY_IDENTITY
+            status == "verifying" || status == "picking_up" -> TambalBanStage.VERIFY_IDENTITY
             status == "inspecting" -> TambalBanStage.INSPECT_TIRE
-            status == "in_progress" || status == "working" -> TambalBanStage.SERVICE_IN_PROGRESS
-            status == "service_complete" || status == "completed_service" -> TambalBanStage.SERVICE_COMPLETE
+            status == "in_progress" || status == "working" || status == "picked_up" -> TambalBanStage.SERVICE_IN_PROGRESS
+            status == "service_complete" || status == "completed_service" || status == "delivering" || status == "report_submitted" -> TambalBanStage.SERVICE_COMPLETE
             else -> TambalBanStage.NAVIGATING_TO_LOCATION
         }
 
