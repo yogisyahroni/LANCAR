@@ -34,8 +34,21 @@ func (r *fakeServiceReportRepo) GetTowingReportByOrderID(ctx context.Context, or
 	return r.towingReport, nil
 }
 
-func reportStringPtr(value string) *string {
-	return &value
+func reportStringPtr(value string) *string { return &value }
+func reportIntPtr(value int) *int          { return &value }
+
+func validTambalBanReport(now time.Time) *domain.TambalBanReport {
+	return &domain.TambalBanReport{
+		OrderID:             "order-1",
+		CourierID:           "courier-1",
+		TireConditionBefore: reportStringPtr("bocor"),
+		TirePhotoBeforeURL:  reportStringPtr("/uploads/before.jpg"),
+		ServiceDurationMins: reportIntPtr(25),
+		MaterialsUsedItems:  []string{},
+		TireConditionAfter:  reportStringPtr("repair_completed"),
+		TirePhotoAfterURL:   reportStringPtr("/uploads/after.jpg"),
+		CompletedAt:         &now,
+	}
 }
 
 func TestServiceReportRequiresTambalBanProofs(t *testing.T) {
@@ -43,14 +56,9 @@ func TestServiceReportRequiresTambalBanProofs(t *testing.T) {
 	svc := NewServiceReportService(repo)
 	now := time.Now()
 
-	err := svc.CreateTambalBanReport(context.Background(), &domain.TambalBanReport{
-		OrderID:             "order-1",
-		CourierID:           "courier-1",
-		TirePhotoBeforeURL:  reportStringPtr("/uploads/before.jpg"),
-		TirePhotoAfterURL:   nil,
-		TireConditionBefore: reportStringPtr("bocor"),
-		CompletedAt:         &now,
-	})
+	report := validTambalBanReport(now)
+	report.TirePhotoAfterURL = nil
+	err := svc.CreateTambalBanReport(context.Background(), report)
 	if !errors.Is(err, domain.ErrInvalidServiceReport) {
 		t.Fatalf("expected invalid service report error, got %v", err)
 	}
@@ -58,19 +66,61 @@ func TestServiceReportRequiresTambalBanProofs(t *testing.T) {
 		t.Fatal("repo should not be called when tambal ban after-photo is missing")
 	}
 
-	err = svc.CreateTambalBanReport(context.Background(), &domain.TambalBanReport{
-		OrderID:             "order-1",
-		CourierID:           "courier-1",
-		TirePhotoBeforeURL:  reportStringPtr("/uploads/before.jpg"),
-		TirePhotoAfterURL:   reportStringPtr("/uploads/after.jpg"),
-		TireConditionBefore: reportStringPtr("bocor"),
-		CompletedAt:         &now,
-	})
+	report = validTambalBanReport(now)
+	err = svc.CreateTambalBanReport(context.Background(), report)
 	if err != nil {
 		t.Fatalf("expected valid tambal ban report, got %v", err)
 	}
 	if !repo.tambalCreated {
 		t.Fatal("repo should be called for valid tambal ban report")
+	}
+}
+
+func TestServiceReportRequiresStructuredTambalBanFields(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name   string
+		mutate func(*domain.TambalBanReport)
+	}{
+		{"condition before", func(r *domain.TambalBanReport) { r.TireConditionBefore = nil }},
+		{"duration", func(r *domain.TambalBanReport) { r.ServiceDurationMins = nil }},
+		{"duration lower bound", func(r *domain.TambalBanReport) { r.ServiceDurationMins = reportIntPtr(0) }},
+		{"duration upper bound", func(r *domain.TambalBanReport) { r.ServiceDurationMins = reportIntPtr(1441) }},
+		{"materials list presence", func(r *domain.TambalBanReport) { r.MaterialsUsedItems = nil }},
+		{"condition after", func(r *domain.TambalBanReport) { r.TireConditionAfter = nil }},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeServiceReportRepo{}
+			svc := NewServiceReportService(repo)
+			report := validTambalBanReport(now)
+			tc.mutate(report)
+			err := svc.CreateTambalBanReport(context.Background(), report)
+			if !errors.Is(err, domain.ErrInvalidServiceReport) {
+				t.Fatalf("expected invalid service report error, got %v", err)
+			}
+			if repo.tambalCreated {
+				t.Fatal("repo should not be called for incomplete structured report")
+			}
+		})
+	}
+}
+
+func TestServiceReportRejectsInvalidStructuredMaterials(t *testing.T) {
+	now := time.Now()
+	tests := [][]string{
+		{"patch_kit", "patch_kit"},
+		{"patch_kit", ""},
+	}
+	for _, materials := range tests {
+		repo := &fakeServiceReportRepo{}
+		svc := NewServiceReportService(repo)
+		report := validTambalBanReport(now)
+		report.MaterialsUsedItems = materials
+		if err := svc.CreateTambalBanReport(context.Background(), report); !errors.Is(err, domain.ErrInvalidServiceReport) {
+			t.Fatalf("expected invalid materials %v, got %v", materials, err)
+		}
 	}
 }
 
@@ -152,13 +202,9 @@ func TestCreateTambalBanReportEncodesStructuredMaterialsForLegacyStorage(t *test
 	repo := &fakeServiceReportRepo{}
 	svc := NewServiceReportService(repo)
 	now := time.Now()
-	report := &domain.TambalBanReport{
-		OrderID:            "order-materials",
-		TirePhotoBeforeURL: reportStringPtr("/uploads/before.jpg"),
-		TirePhotoAfterURL:  reportStringPtr("/uploads/after.jpg"),
-		MaterialsUsedItems: []string{"patch_kit", "valve_core"},
-		CompletedAt:        &now,
-	}
+	report := validTambalBanReport(now)
+	report.OrderID = "order-materials"
+	report.MaterialsUsedItems = []string{"patch_kit", "valve_core"}
 
 	if err := svc.CreateTambalBanReport(context.Background(), report); err != nil {
 		t.Fatalf("expected structured materials to be accepted: %v", err)
