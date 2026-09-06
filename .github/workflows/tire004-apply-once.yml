@@ -21,6 +21,18 @@ jobs:
         with:
           go-version-file: backend/order-service/go.mod
           cache-dependency-path: backend/order-service/go.sum
+      - name: Adapt patch marker to current courier imports
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('.github/scripts/tmp_tire004_patch.py')
+          text = p.read_text()
+          old = "import_marker = 'import com.tembus.courier.data.model.*\\n'\nif import_marker not in text:\n    raise SystemExit('courier wildcard model import marker missing')\nif 'import com.tembus.courier.domain.canonicalTambalBanStatus' not in text:\n    text = text.replace(\n        import_marker,\n        import_marker + 'import com.tembus.courier.domain.canonicalTambalBanStatus\\nimport com.tembus.courier.domain.isTambalBanOrder\\n',\n        1,\n    )"
+          new = "import_marker = 'import com.tembus.courier.domain.CourierProofTypes\\n'\nif import_marker not in text:\n    raise SystemExit('courier domain import marker missing')\nif 'import com.tembus.courier.domain.canonicalTambalBanStatus' not in text:\n    text = text.replace(\n        import_marker,\n        'import com.tembus.courier.domain.canonicalTambalBanStatus\\nimport com.tembus.courier.domain.isTambalBanOrder\\n' + import_marker,\n        1,\n    )"
+          if old not in text:
+              raise SystemExit('staged import patch marker not found')
+          p.write_text(text.replace(old, new, 1))
+          PY
       - name: Apply staged patch
         run: python3 .github/scripts/tmp_tire004_patch.py
       - name: Format Go
@@ -43,5 +55,3 @@ jobs:
           fi
           git commit -m 'feat: enforce tambal ban service lifecycle'
           git push origin HEAD:staging
-
-# one-shot trigger 2026-09-06
