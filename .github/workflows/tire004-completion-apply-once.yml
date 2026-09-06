@@ -1,0 +1,62 @@
+name: Apply TIRE-2026-004 completion acknowledgement once
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - '.github/workflows/tire004-completion-apply-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+      - name: Patch completion acknowledgement
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          vm = Path('android-app/app/src/main/java/com/tembus/courier/ui/screens/order/OrderViewModel.kt')
+          text = vm.read_text()
+          old_sig = '''        signatureBitmap: Bitmap? = null,\n        damageReport: Map<String, Any>? = null\n    ) {'''
+          new_sig = '''        signatureBitmap: Bitmap? = null,\n        damageReport: Map<String, Any>? = null,\n        onSuccess: () -> Unit = {}\n    ) {'''
+          if old_sig not in text:
+              raise SystemExit('submitServiceReport signature marker missing')
+          text = text.replace(old_sig, new_sig, 1)
+
+          old_success = '''            result\n                .onSuccess {\n                    orderRepository.updateOrderStatus(orderId, "completed")\n                    proofDraftStore.clearBeforePhotoUrl(orderId, serviceType)\n                    if (serviceType == "towing") {\n                        proofDraftStore.clearProofUrl(orderId, serviceType, "loading_photo")\n                        proofDraftStore.clearProofUrl(orderId, serviceType, "unloading_photo")\n                    }\n                }\n                .onFailure { error ->\n                    _error.update { error.message ?: "Laporan layanan belum berhasil dikirim." }\n                }'''
+          new_success = '''            result\n                .onSuccess {\n                    try {\n                        // Tambal Ban updateOrderStatus is server-first and maps local\n                        // `completed` to canonical `delivered`. Do not clear proof\n                        // drafts or report success to UI until the server accepts it.\n                        orderRepository.updateOrderStatus(orderId, "completed")\n                        proofDraftStore.clearBeforePhotoUrl(orderId, serviceType)\n                        if (serviceType == "towing") {\n                            proofDraftStore.clearProofUrl(orderId, serviceType, "loading_photo")\n                            proofDraftStore.clearProofUrl(orderId, serviceType, "unloading_photo")\n                        }\n                        onSuccess()\n                    } catch (error: Exception) {\n                        _error.update {\n                            error.message\n                                ?: "Laporan tersimpan, tetapi status selesai belum dikonfirmasi server. Coba lagi."\n                        }\n                    }\n                }\n                .onFailure { error ->\n                    _error.update { error.message ?: "Laporan layanan belum berhasil dikirim." }\n                }'''
+          if old_success not in text:
+              raise SystemExit('submitServiceReport success marker missing')
+          vm.write_text(text.replace(old_success, new_success, 1))
+
+          modal = Path('android-app/app/src/main/java/com/tembus/courier/ui/screens/MainScreenModalScreens.kt')
+          text = modal.read_text()
+          old_modal = '''            onComplete = { notes, completionPhoto, signatureBitmap, damageReport ->\n                scope.launch {\n                    orderViewModel.submitServiceReport(\n                        orderId = orderId,\n                        serviceType = serviceType,\n                        notes = notes,\n                        completionPhoto = completionPhoto,\n                        signatureBitmap = signatureBitmap,\n                        damageReport = damageReport\n                    )\n                }\n                routeState = CourierRouteReducer.home()\n            }'''
+          new_modal = '''            onComplete = { notes, completionPhoto, signatureBitmap, damageReport ->\n                orderViewModel.submitServiceReport(\n                    orderId = orderId,\n                    serviceType = serviceType,\n                    notes = notes,\n                    completionPhoto = completionPhoto,\n                    signatureBitmap = signatureBitmap,\n                    damageReport = damageReport,\n                    onSuccess = {\n                        routeState = CourierRouteReducer.home()\n                        scope.launch {\n                            snackbarHostState.showSnackbar("Laporan layanan dan status selesai telah dikonfirmasi server.")\n                        }\n                    }\n                )\n            }'''
+          if old_modal not in text:
+              raise SystemExit('completion modal marker missing')
+          modal.write_text(text.replace(old_modal, new_modal, 1))
+          PY
+      - name: Remove one-shot workflow
+        run: rm -f .github/workflows/tire004-completion-apply-once.yml
+      - name: Commit directly to staging
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'fix: wait for roadside completion acknowledgement'
+          git push origin HEAD:staging
+
+# trigger
