@@ -462,7 +462,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Show GPS staleness.
 - [x] Mask contact by lifecycle/privacy policy.
 - [x] Public tracking token scoped/expiring/revocable.
-- [ ] Offline reconnect uses snapshot.
+- [x] Offline reconnect uses snapshot. (VERIFIED 2026-09-06: Android tracking reconciles authoritative order/tracking REST snapshots on polling, refresh, and realtime events.)
 
 ---
 
@@ -556,7 +556,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Atomic address+coordinate destination.
 - [x] Saved/manual/pinned change coordinates.
 - [x] Discovery GPS not silently reused as checkout destination.
-- [ ] Address change requotes.
+- [x] Address change requotes. (IMPLEMENTED 2026-09-06: saved/geocoded/GPS destination changes invalidate the old Food quote and automatically request a fresh server-authoritative quote after a prior quote intent.)
 
 ## FOOD-2026-002 — Authoritative Food Quote [P0]
 
@@ -569,7 +569,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 **Recommended new file only if shared quote cannot express Food cleanly**
 - `backend/order-service/internal/service/food_quote_service.go`
 
-- [ ] Validate merchant/item/variant/stock/voucher/radius/tax/fee/schedule.
+- [x] Validate merchant/item/variant/stock/voucher/radius/tax/fee/schedule. (VERIFIED 2026-09-06 in `food_quote_service.go`: server validates merchant state, item ownership/availability/inventory, variants, voucher, delivery radius, tax/fees, and schedule before persisting the quote.)
 - [x] Return itemized total + ETA + expiry.
 - [x] Create consumes quote/requote diff.
 
@@ -662,7 +662,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 
 - [x] Least privilege location.
 - [x] Manual/saved address works without location permission.
-- [ ] No unjustified boot background tracking.
+- [x] No unjustified boot background tracking. (VERIFIED 2026-09-06: `BootReceiver` only schedules authenticated session resync; it does not start location tracking.)
 
 ## FOOD-2026-009 — Food finance invariants [P0]
 
@@ -766,7 +766,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] No `0,0` transactional fallback. (setLocation guard + error path; no 0,0 fallback)
 - [x] User can correct pin. (geo: intent + correctPin method)
 - [x] Capture vehicle/tire/problem/spare/notes/photo where useful. (VehicleDetailInput + materials + notes)
-- [ ] Location change refreshes technician/quote. (GAP — onPinCorrect hanya memperbaiki lokasi; tidak auto-refresh technician/quote setelah correction)
+- [x] Location change refreshes technician/quote. (IMPLEMENTED 2026-09-06: corrected pickup invalidates the old quote, refreshes nearby eligible technicians, and requests a fresh server-authoritative quote; stale preferred selection is invalidated.)
 
 ## TIRE-2026-002 — Capability-safe technician discovery [P0]
 
@@ -779,7 +779,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 
 - [x] Exact motor/mobil capability filtering. (isVehicleCapable matrix + unit test 10 cases)
 - [x] ETA/distance/rating/service price/availability shown. (NearbyCourier.Rating + CourierServicePrice populated)
-- [ ] Preferred technician revalidated on create. (GAP — belum ada preferred technician assignment)
+- [x] Preferred technician revalidated on create. (IMPLEMENTED 2026-09-06: Android refreshes candidate eligibility; admin-service revalidates approval, online/fresh location, capability/vehicle, zone/radius and workload before pricing/order persistence; dispatch-time guard remains as race protection.)
 
 ## TIRE-2026-003 — Quote + on-site adjustment approval [P0]
 
@@ -847,7 +847,7 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Origin from validated pickup address/provider location mapping.
 - [x] Destination resolved to canonical/provider-compatible location code.
 - [x] Provider/service list comes from backend capability registry.
-- [ ] Provider circuit-open/unavailable not selectable.
+- [x] Provider circuit-open/unavailable not selectable. (VERIFIED 2026-09-06: Integration Gateway registry exposes runtime availability, handlers reject unavailable providers, and Aggregator Web disables unavailable provider options.)
 - [x] No production mock city/provider fallback.
 
 ---
