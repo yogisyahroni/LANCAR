@@ -35,17 +35,17 @@ func (r *serviceAdjustmentRepo) Propose(ctx context.Context, req *domain.Propose
 		return nil, fmt.Errorf("lock service adjustment proposal: %w", err)
 	}
 
-	var customerID, category, serviceCode, serviceSubType, quoteID, pricingSnapshot string
+	var customerID, category, serviceCode, serviceSubType, quoteID, pricingSnapshot, orderStatus string
 	var originalTotal int64
 	err = tx.QueryRowContext(ctx, `
 		SELECT o.customer_id::text,
 		       COALESCE(o.service_category, ''), COALESCE(o.service_code, ''), COALESCE(o.service_sub_type, ''),
-		       COALESCE(o.quote_id::text, ''), COALESCE(o.pricing_snapshot::text, '{}'), o.total_price_idr
+		       COALESCE(o.quote_id::text, ''), COALESCE(o.pricing_snapshot::text, '{}'), o.status, o.total_price_idr
 		FROM orders o
 		JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1 AND ol.courier_id = $2
 		WHERE o.id = $1
 		FOR UPDATE OF o`, req.OrderID, courierID).
-		Scan(&customerID, &category, &serviceCode, &serviceSubType, &quoteID, &pricingSnapshot, &originalTotal)
+		Scan(&customerID, &category, &serviceCode, &serviceSubType, &quoteID, &pricingSnapshot, &orderStatus, &originalTotal)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrServiceAdjustmentForbidden
@@ -63,6 +63,11 @@ func (r *serviceAdjustmentRepo) Propose(ctx context.Context, req *domain.Propose
 	}
 	if category != "tambal_ban" && category != "towing" {
 		return nil, fmt.Errorf("%w: adjustment hanya untuk roadside service", domain.ErrInvalidServiceAdjustment)
+	}
+	switch strings.ToLower(strings.TrimSpace(orderStatus)) {
+	case "arrived", "verifying", "in_progress", "service_complete":
+	default:
+		return nil, fmt.Errorf("%w: adjustment hanya dapat diajukan saat teknisi sudah di lokasi", domain.ErrServiceAdjustmentConflict)
 	}
 	if strings.TrimSpace(quoteID) == "" || strings.TrimSpace(pricingSnapshot) == "" || strings.TrimSpace(pricingSnapshot) == "{}" || !json.Valid([]byte(pricingSnapshot)) {
 		return nil, domain.ErrServiceAdjustmentMissingQuote
