@@ -17,6 +17,30 @@ fun String.withRequestReference(response: Response<*>): String {
     return this
 }
 
+/**
+ * Appends a short recovery hint for known server error codes.
+ * Keep this helper aligned with the customer client because OrderViewModel
+ * parses canonical error codes before the richer TembusError surface is used.
+ */
+fun String.withRecoverableNextAction(code: String?): String {
+    val action = when (code) {
+        "REQUOTE_REQUIRED", "CARRIER_RATE_EXPIRED" -> "Muat ulang tarif terbaru sebelum melanjutkan."
+        "OUT_OF_SERVICE_AREA" -> "Periksa kembali lokasi layanan atau hubungi dukungan."
+        "NO_COURIER" -> "Muat ulang pekerjaan atau coba lagi beberapa saat."
+        "PROVIDER_UNAVAILABLE" -> "Coba lagi setelah provider kembali tersedia."
+        "ITEM_UNAVAILABLE" -> "Muat ulang detail order sebelum melanjutkan."
+        "INVALID_TRANSITION" -> "Muat ulang status terbaru sebelum mencoba lagi."
+        "PAYMENT_PENDING" -> "Tunggu konfirmasi pembayaran sebelum melanjutkan."
+        "PROOF_REQUIRED" -> "Lengkapi bukti yang diwajibkan lalu kirim ulang."
+        "HANDOFF_INVALID" -> "Minta atau pindai ulang bukti serah-terima yang valid."
+        "SCHEDULE_INVALID" -> "Muat ulang jadwal layanan yang tersedia."
+        "CAPABILITY_MISMATCH" -> "Pastikan akun memiliki kapabilitas layanan yang dibutuhkan."
+        "CARRIER_EVENT_UNKNOWN" -> "Muat ulang pekerjaan sebelum mengulangi aksi."
+        else -> null
+    } ?: return this
+    return if (contains(action, ignoreCase = true)) this else "$this $action"
+}
+
 /** Canonical error code -> recovery definition. */
 data class RecoveryAction(
     val message: String,
