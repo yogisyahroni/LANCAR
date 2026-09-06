@@ -49,15 +49,28 @@ jobs:
       - name: Go format
         run: |
           cd backend/order-service
-          gofmt -w cmd/api/main.go internal/handler/roadside_settlement_handler.go internal/handler/roadside_settlement_handler_test.go
-      - name: Run Go tests with diagnostics
+          gofmt -w cmd/api/main.go internal/handler/roadside_settlement_handler.go internal/handler/roadside_settlement_handler_test.go internal/service/roadside_settlement_service.go internal/service/roadside_settlement_service_test.go
+      - name: Run targeted TIRE005 verification
         id: tire_tests
         continue-on-error: true
         shell: bash
         run: |
           cd backend/order-service
           set +e
-          go test ./internal/handler ./internal/service 2>&1 | tee "$RUNNER_TEMP/tire005-go-test.log"
+          {
+            echo '== roadside settlement handler =='
+            go test internal/handler/roadside_settlement_handler.go internal/handler/roadside_settlement_handler_test.go
+            handler_status=$?
+            echo '== roadside settlement service =='
+            go test internal/service/roadside_settlement_service.go internal/service/roadside_settlement_service_test.go
+            service_status=$?
+            echo '== runtime wiring compile =='
+            go test ./cmd/api -run '^$'
+            wiring_status=$?
+            if [ "$handler_status" -ne 0 ] || [ "$service_status" -ne 0 ] || [ "$wiring_status" -ne 0 ]; then
+              exit 1
+            fi
+          } 2>&1 | tee "$RUNNER_TEMP/tire005-go-test.log"
           status=${PIPESTATUS[0]}
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
@@ -69,7 +82,7 @@ jobs:
           path: ${{ runner.temp }}/tire005-go-test.log
           if-no-files-found: error
           retention-days: 1
-      - name: Stop on Go test failure
+      - name: Stop on TIRE005 verification failure
         if: steps.tire_tests.outcome != 'success'
         run: exit 1
       - name: Commit and push directly to staging
@@ -77,7 +90,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/tmp-tire005-roadside-settlement.yml
-          git add backend/order-service/cmd/api/main.go backend/order-service/internal/handler/roadside_settlement_handler.go backend/order-service/internal/handler/roadside_settlement_handler_test.go
+          git add backend/order-service/cmd/api/main.go backend/order-service/internal/handler/roadside_settlement_handler.go backend/order-service/internal/handler/roadside_settlement_handler_test.go backend/order-service/internal/service/roadside_settlement_service.go backend/order-service/internal/service/roadside_settlement_service_test.go
           git commit -m 'fix: gate roadside settlement behind final proof'
           for attempt in 1 2 3; do
             git pull --rebase origin staging
