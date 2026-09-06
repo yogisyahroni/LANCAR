@@ -1,0 +1,41 @@
+name: One-time roadside CI patch
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - '.github/workflows/fix-roadside-ci-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+      - name: Fix repository call contract
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceBookingViewModel.kt')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('\nprivate const val ROADSIDE_REFRESH_RADIUS_KM = 20.0\n', '\n')
+          old = '''                val availability = orderRepository.getNearbyCouriers(\n                    serviceSubType = serviceSubType,\n                    lat = lat,\n                    lng = lng,\n                    radiusKm = ROADSIDE_REFRESH_RADIUS_KM\n                )'''
+          new = '''                val availability = orderRepository.getNearbyCouriers(\n                    serviceSubType = serviceSubType,\n                    lat = lat,\n                    lng = lng\n                )'''
+          if old not in text:
+              raise SystemExit('Expected roadside availability call not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/service/ServiceBookingViewModel.kt
+          git diff --cached --check
+          git commit -m 'fix: use existing nearby courier repository contract'
+          git push origin HEAD:staging
