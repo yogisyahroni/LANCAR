@@ -17,7 +17,7 @@ class ServiceRouteContractTest {
 
     @Test
     fun rootNavGraphRegistersServiceTrackingDestination() {
-        val source = File(
+        val source = customerSource(
             "app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt"
         ).readText()
 
@@ -29,10 +29,10 @@ class ServiceRouteContractTest {
 
     @Test
     fun dashboardReopensActiveRoadsideOrderWithDedicatedTrackingRoute() {
-        val dashboardSource = File(
+        val dashboardSource = customerSource(
             "app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt"
         ).readText()
-        val navSource = File(
+        val navSource = customerSource(
             "app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt"
         ).readText()
 
@@ -41,5 +41,22 @@ class ServiceRouteContractTest {
         assertTrue(dashboardSource.contains("onRoadsideTrackingClick(order.orderId, serviceSubType)"))
         assertTrue(navSource.contains("onRoadsideTrackingClick = { orderId, serviceSubType ->"))
         assertTrue(navSource.contains("Screen.ServiceTracking.createRoute(orderId, serviceSubType)"))
+    }
+
+    private fun customerSource(relativePath: String): File {
+        val userDir = File(System.getProperty("user.dir"))
+        val candidates = listOf(
+            File(relativePath),
+            File(userDir, relativePath),
+            File(userDir, "../$relativePath"),
+            File(userDir, "../../android-app-customer/$relativePath"),
+            File(userDir, "android-app-customer/$relativePath")
+        ).map { it.canonicalFile }
+
+        return candidates.firstOrNull(File::isFile)
+            ?: error(
+                "Unable to resolve customer source '$relativePath' from user.dir=${userDir.canonicalPath}. " +
+                    "Checked: ${candidates.joinToString { it.path }}"
+            )
     }
 }
