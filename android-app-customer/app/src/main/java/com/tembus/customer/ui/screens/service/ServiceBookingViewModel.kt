@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-private const val ROADSIDE_REFRESH_RADIUS_KM = 20.0
 
 data class ServiceBookingUiState(
     val isLoading: Boolean = false,
@@ -262,8 +261,7 @@ class ServiceBookingViewModel @Inject constructor(
                 val availability = orderRepository.getNearbyCouriers(
                     serviceSubType = serviceSubType,
                     lat = lat,
-                    lng = lng,
-                    radiusKm = ROADSIDE_REFRESH_RADIUS_KM
+                    lng = lng
                 )
                 availability.onSuccess { response ->
                     val preferredAvailable = isPreferredRoadsideCourierAvailable(normalizedCourierId, response.couriers)
