@@ -376,15 +376,18 @@ func main() {
 
 	// Tambal Ban & Towing Services
 	settlementRepo := repository.NewSettlementRepository(db)
+	roadsideSettlementSourceRepo := repository.NewRoadsideSettlementSourceRepository(db)
 	availabilityRepo := repository.NewAvailabilityRepository(db)
 	serviceReportRepo := repository.NewServiceReportRepository(db)
 	settlementSvc := service.NewSettlementService(settlementRepo)
+	roadsideSettlementSvc := service.NewRoadsideSettlementService(roadsideSettlementSourceRepo, settlementRepo)
 	availabilitySvc := service.NewAvailabilityService(availabilityRepo)
 	vehicleValidator := service.NewVehicleValidator(availabilityRepo)
 	serviceReportSvc := service.NewServiceReportService(serviceReportRepo)
 	serviceAdjustmentRepo := repository.NewServiceAdjustmentRepository(db)
 	serviceAdjustmentSvc := service.NewServiceAdjustmentService(serviceAdjustmentRepo)
 	serviceAdjustmentHandler := handler.NewServiceAdjustmentHandler(serviceAdjustmentSvc)
+	roadsideSettlementHandler := handler.NewRoadsideSettlementHandler(roadsideSettlementSvc)
 	towingClaimRepo := repository.NewTowingDamageClaimRepository(db)
 	towingClaimSvc := service.NewTowingDamageClaimService(serviceReportSvc, towingClaimRepo)
 	orderSvc.SetServiceReportService(serviceReportSvc)
@@ -562,7 +565,7 @@ func main() {
 	mux.HandleFunc("/api/v1/customer/tambal-ban/home", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetTambalBanHome)))
 	mux.HandleFunc("/api/v1/customer/couriers/", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetCourierDetail)))
 	mux.HandleFunc("/api/v1/customer/tambal-ban/search", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.SearchTambalBanCouriers)))
-	mux.HandleFunc("/api/v1/order/settlement", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CalculateSettlement)))
+	mux.HandleFunc("/api/v1/order/settlement", middleware.BaseChain(middleware.AuthMiddleware(roadsideSettlementHandler.Calculate)))
 	mux.HandleFunc("/api/v1/courier/availability-state", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {
 			tambalBanHandler.UpdateAvailabilityState(w, r)

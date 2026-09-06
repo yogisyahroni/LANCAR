@@ -85,22 +85,22 @@ func (s *roadsideSettlementService) Calculate(ctx context.Context, orderID, acto
 	}
 
 	return &domain.SettlementResult{
-		GrossTotal:              source.GrossTotalIDR,
-		MDRAmount:               mdrAmount,
-		TaxAmount:               taxAmount,
-		InsuranceFee:            source.InsuranceFeeIDR,
-		OperationalPool:         operationalPool,
-		CommissionBasis:         string(config.CommissionBasis),
-		PerKMRevenue:            source.DistanceFeeIDR,
-		BaseFareRevenue:         source.BaseFareIDR,
-		PlatformCommissionPct:   config.PlatformCommissionPct,
-		PlatformCommissionAmt:   platformCommission,
-		CourierServiceFee:       0, // no separate immutable fee exists in the canonical order snapshot
-		CourierBaseFee:          courierBaseFee,
-		CourierTollReimburse:    0,
-		CourierPerKMEarning:     courierDistanceEarning,
-		EstimatedNetEarnings:    operationalPool - platformCommission,
-		SettlementModel:         string(config.CommissionBasis),
-		AppliesToService:        []string{serviceCode},
+		GrossTotal:            source.GrossTotalIDR,
+		MDRAmount:             mdrAmount,
+		TaxAmount:             taxAmount,
+		InsuranceFee:          source.InsuranceFeeIDR,
+		OperationalPool:       operationalPool,
+		CommissionBasis:       string(config.CommissionBasis),
+		PerKMRevenue:          source.DistanceFeeIDR,
+		BaseFareRevenue:       source.BaseFareIDR,
+		PlatformCommissionPct: config.PlatformCommissionPct,
+		PlatformCommissionAmt: platformCommission,
+		CourierServiceFee:     0, // no separate immutable fee exists in the canonical order snapshot
+		CourierBaseFee:        courierBaseFee,
+		CourierTollReimburse:  0,
+		CourierPerKMEarning:   courierDistanceEarning,
+		EstimatedNetEarnings:  operationalPool - platformCommission,
+		SettlementModel:       string(config.CommissionBasis),
+		AppliesToService:      []string{serviceCode},
 	}, nil
 }
