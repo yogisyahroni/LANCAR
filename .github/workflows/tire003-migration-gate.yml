@@ -46,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(psql -h localhost -U tembus_ci -d tembus_ci -Atc "SELECT to_regclass('public.service_adjustments') IS NOT NULL")" = "t"
-          test "$(psql -h localhost -U tembus_ci -d tembus_ci -Atc "SELECT count(*) >= 2 FROM pg_indexes WHERE schemaname='public' AND tablename='service_adjustments' AND indexname IN ('uq_service_adjustment_proposal_idempotency','uq_service_adjustment_decision_idempotency')")" = "t"
+          test "$(psql -h localhost -U tembus_ci -d tembus_ci -Atc "SELECT count(*) >= 2 FROM pg_indexes WHERE schemaname='public' AND tablename='service_adjustments' AND indexname IN ('uq_service_adjustment_proposal_intent','uq_service_adjustment_decision_intent')")" = "t"
           test "$(psql -h localhost -U tembus_ci -d tembus_ci -Atc "SELECT count(*) > 0 FROM pg_constraint WHERE conrelid='public.service_adjustments'::regclass AND pg_get_constraintdef(oid) ILIKE '%approved_by_customer_id%'")" = "t"
       - name: Roll back TIRE-003 migration
         run: goose -dir database/migrations postgres "$DB_DSN" down
