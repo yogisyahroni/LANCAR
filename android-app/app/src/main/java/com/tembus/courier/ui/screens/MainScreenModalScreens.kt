@@ -531,17 +531,20 @@ internal fun MainScreenModalScreens(deps: MainScreenDeps) {
             serviceType = serviceType,
             onBackClick = { routeState = CourierRouteReducer.home() },
             onComplete = { notes, completionPhoto, signatureBitmap, damageReport ->
-                scope.launch {
-                    orderViewModel.submitServiceReport(
-                        orderId = orderId,
-                        serviceType = serviceType,
-                        notes = notes,
-                        completionPhoto = completionPhoto,
-                        signatureBitmap = signatureBitmap,
-                        damageReport = damageReport
-                    )
-                }
-                routeState = CourierRouteReducer.home()
+                orderViewModel.submitServiceReport(
+                    orderId = orderId,
+                    serviceType = serviceType,
+                    notes = notes,
+                    completionPhoto = completionPhoto,
+                    signatureBitmap = signatureBitmap,
+                    damageReport = damageReport,
+                    onSuccess = {
+                        routeState = CourierRouteReducer.home()
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Laporan layanan dan status selesai telah dikonfirmasi server.")
+                        }
+                    }
+                )
             }
         )
         return

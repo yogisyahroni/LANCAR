@@ -800,7 +800,8 @@ class OrderViewModel @Inject constructor(
         notes: String,
         completionPhoto: Bitmap? = null,
         signatureBitmap: Bitmap? = null,
-        damageReport: Map<String, Any>? = null
+        damageReport: Map<String, Any>? = null,
+        onSuccess: () -> Unit = {}
     ) {
         viewModelScope.launch {
             val reportRequest = mutableMapOf<String, Any>(
@@ -874,11 +875,22 @@ class OrderViewModel @Inject constructor(
             }
             result
                 .onSuccess {
-                    orderRepository.updateOrderStatus(orderId, "completed")
-                    proofDraftStore.clearBeforePhotoUrl(orderId, serviceType)
-                    if (serviceType == "towing") {
-                        proofDraftStore.clearProofUrl(orderId, serviceType, "loading_photo")
-                        proofDraftStore.clearProofUrl(orderId, serviceType, "unloading_photo")
+                    try {
+                        // Tambal Ban updateOrderStatus is server-first and maps local
+                        // `completed` to canonical `delivered`. Do not clear proof
+                        // drafts or report success to UI until the server accepts it.
+                        orderRepository.updateOrderStatus(orderId, "completed")
+                        proofDraftStore.clearBeforePhotoUrl(orderId, serviceType)
+                        if (serviceType == "towing") {
+                            proofDraftStore.clearProofUrl(orderId, serviceType, "loading_photo")
+                            proofDraftStore.clearProofUrl(orderId, serviceType, "unloading_photo")
+                        }
+                        onSuccess()
+                    } catch (error: Exception) {
+                        _error.update {
+                            error.message
+                                ?: "Laporan tersimpan, tetapi status selesai belum dikonfirmasi server. Coba lagi."
+                        }
                     }
                 }
                 .onFailure { error ->
