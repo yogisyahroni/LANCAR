@@ -1,0 +1,41 @@
+name: TIRE-2026-003 Targeted Gate
+
+on:
+  push:
+    branches:
+      - feat/TIRE-2026-003-evidence-no-pr
+    paths:
+      - '.github/workflows/tire003-targeted-gate.yml'
+      - 'backend/order-service/internal/domain/service_adjustment.go'
+      - 'backend/order-service/internal/repository/service_adjustment_repository.go'
+      - 'backend/order-service/internal/repository/service_adjustment_repository_test.go'
+      - 'backend/order-service/internal/service/service_adjustment_service.go'
+      - 'backend/order-service/internal/service/service_adjustment_service_test.go'
+      - 'backend/order-service/internal/handler/service_adjustment_handler.go'
+      - 'backend/order-service/cmd/api/main.go'
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-order-service:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache-dependency-path: backend/order-service/go.sum
+      - name: Verify module
+        working-directory: backend/order-service
+        run: go mod verify
+      - name: TIRE-003 repository transaction and replay tests
+        working-directory: backend/order-service
+        run: go test ./internal/repository -run 'ServiceAdjustment' -count=1 -v
+      - name: TIRE-003 service validation tests
+        working-directory: backend/order-service
+        run: go test ./internal/service -run 'ServiceAdjustment' -count=1 -v
+      - name: Runtime wiring compile gate
+        working-directory: backend/order-service
+        run: go test ./cmd/api -run '^$' -count=1
