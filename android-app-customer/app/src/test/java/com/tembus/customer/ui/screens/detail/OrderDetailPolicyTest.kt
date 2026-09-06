@@ -34,4 +34,16 @@ class OrderDetailPolicyTest {
         assertEquals("Tidak berhasil", OrderActionPolicy.statusLabel("payment_failed"))
         assertEquals("Status sedang diperbarui", OrderActionPolicy.statusLabel("future_state"))
     }
+
+    @Test
+    fun tambalBanStatusLabelsDescribeHumanReadableRepairStages() {
+        val service = "tambal_ban_motor"
+        assertEquals("Teknisi Menuju Lokasi", OrderActionPolicy.statusLabel("accepted", service))
+        assertEquals("Teknisi Tiba di Lokasi", OrderActionPolicy.statusLabel("pickup_arrived", service))
+        assertEquals("Verifikasi & Inspeksi Ban", OrderActionPolicy.statusLabel("picking_up", service))
+        assertEquals("Ban Sedang Diperbaiki", OrderActionPolicy.statusLabel("picked_up", service))
+        assertEquals("Perbaikan Selesai · Menunggu Bukti Akhir", OrderActionPolicy.statusLabel("delivering", service))
+        assertEquals("Layanan Selesai", OrderActionPolicy.statusLabel("delivered", service))
+        assertEquals("Status layanan sedang diperbarui", OrderActionPolicy.statusLabel("future_state", service))
+    }
 }
