@@ -240,6 +240,7 @@ type AvailabilityRepository interface {
 type ServiceReportRepository interface {
 	CreateTambalBanReport(ctx context.Context, report *TambalBanReport) error
 	GetTambalBanReportByOrderID(ctx context.Context, orderID string) (*TambalBanReport, error)
+	GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*TambalBanReport, error)
 	CreateTowingReport(ctx context.Context, report *TowingReport) error
 	GetTowingReportByOrderID(ctx context.Context, orderID string) (*TowingReport, error)
 }
@@ -317,6 +318,7 @@ type VehicleValidator interface {
 type ServiceReportService interface {
 	CreateTambalBanReport(ctx context.Context, report *TambalBanReport) error
 	GetTambalBanReport(ctx context.Context, orderID string) (*TambalBanReport, error)
+	GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*TambalBanReport, error)
 	CreateTowingReport(ctx context.Context, report *TowingReport) error
 	GetTowingReport(ctx context.Context, orderID string) (*TowingReport, error)
 }

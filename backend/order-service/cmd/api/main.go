@@ -576,6 +576,7 @@ func main() {
 	// FOOD-BIKE-029: driver set radius jangkauan food delivery (dropdown 1-20 km)
 	mux.HandleFunc("/api/v1/courier/radius", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.UpdateRadius)))
 
+	mux.HandleFunc("/api/v1/customer/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetCustomerTambalBanReport)))
 	mux.HandleFunc("/api/v1/courier/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTambalBanReport)))
 	// TIRE-2026-003: structured on-site adjustment. Proposal/decision are protected twice:
 	// shared HTTP idempotency plus domain-level idempotency persisted with the adjustment transaction.

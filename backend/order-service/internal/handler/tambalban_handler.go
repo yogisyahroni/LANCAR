@@ -301,6 +301,38 @@ func (h *TambalBanHandler) SearchTambalBanCouriers(w http.ResponseWriter, r *htt
 }
 
 // ============================================================
+// GET /api/v1/customer/service-report/tambal-ban?order_id=
+// Read-only final report. Ownership is verified in the repository join.
+// ============================================================
+func (h *TambalBanHandler) GetCustomerTambalBanReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if middleware.GetRoleFromContext(r.Context()) != "customer" {
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Hanya customer dapat melihat laporan layanan", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	customerID := strings.TrimSpace(middleware.GetUserIDFromContext(r.Context()))
+	orderID := strings.TrimSpace(r.URL.Query().Get("order_id"))
+	if customerID == "" || orderID == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "order_id wajib", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	report, err := h.reportSvc.GetTambalBanReportForCustomer(r.Context(), orderID, customerID)
+	if err != nil {
+		if errors.Is(err, domain.ErrForbidden) {
+			middleware.WriteError(w, http.StatusNotFound, "ERR_SERVICE_REPORT_NOT_FOUND", "Laporan layanan belum tersedia untuk pesanan ini", middleware.GetCorrelationID(r.Context()))
+			return
+		}
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Gagal memuat laporan layanan", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(report)
+}
+
+// ============================================================
 // POST /api/v1/courier/service-report/tambal-ban
 // Create tambal ban service report
 // ============================================================

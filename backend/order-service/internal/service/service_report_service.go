@@ -35,6 +35,15 @@ func (s *serviceReportServiceImpl) GetTambalBanReport(ctx context.Context, order
 	return s.repo.GetTambalBanReportByOrderID(ctx, orderID)
 }
 
+func (s *serviceReportServiceImpl) GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*domain.TambalBanReport, error) {
+	orderID = strings.TrimSpace(orderID)
+	customerID = strings.TrimSpace(customerID)
+	if orderID == "" || customerID == "" {
+		return nil, domain.ErrForbidden
+	}
+	return s.repo.GetTambalBanReportForCustomer(ctx, orderID, customerID)
+}
+
 func (s *serviceReportServiceImpl) CreateTowingReport(ctx context.Context, report *domain.TowingReport) error {
 	if err := validateTowingReport(report); err != nil {
 		return err

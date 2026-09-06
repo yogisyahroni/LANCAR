@@ -24,6 +24,13 @@ func (r *fakeServiceReportRepo) GetTambalBanReportByOrderID(ctx context.Context,
 	return nil, nil
 }
 
+func (r *fakeServiceReportRepo) GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*domain.TambalBanReport, error) {
+	if customerID == "customer-owner" {
+		return &domain.TambalBanReport{OrderID: orderID}, nil
+	}
+	return nil, domain.ErrForbidden
+}
+
 func (r *fakeServiceReportRepo) CreateTowingReport(ctx context.Context, report *domain.TowingReport) error {
 	r.towingCreated = true
 	r.towingReport = report

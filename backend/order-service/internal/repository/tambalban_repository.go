@@ -507,6 +507,38 @@ func (r *serviceReportRepo) GetTambalBanReportByOrderID(ctx context.Context, ord
 	return report, nil
 }
 
+func (r *serviceReportRepo) GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*domain.TambalBanReport, error) {
+	query := `
+		SELECT t.id, t.order_id, t.courier_id, t.tire_condition_before, t.tire_photo_before_url,
+		       t.service_duration_minutes, t.materials_used, t.notes,
+		       t.tire_condition_after, t.tire_photo_after_url, t.completed_at, t.created_at
+		FROM tambal_ban_reports t
+		JOIN orders o ON o.id = t.order_id AND o.customer_id = $2
+		WHERE t.order_id = $1 AND t.completed_at IS NOT NULL`
+
+	report := &domain.TambalBanReport{}
+	err := r.db.QueryRowContext(ctx, query, orderID, customerID).Scan(
+		&report.ID, &report.OrderID, &report.CourierID,
+		&report.TireConditionBefore, &report.TirePhotoBeforeURL,
+		&report.ServiceDurationMins, &report.MaterialsUsed, &report.Notes,
+		&report.TireConditionAfter, &report.TirePhotoAfterURL,
+		&report.CompletedAt, &report.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrForbidden
+		}
+		return nil, err
+	}
+	if report.MaterialsUsed != nil {
+		var items []string
+		if json.Unmarshal([]byte(*report.MaterialsUsed), &items) == nil {
+			report.MaterialsUsedItems = items
+		}
+	}
+	return report, nil
+}
+
 func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *domain.TowingReport) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
