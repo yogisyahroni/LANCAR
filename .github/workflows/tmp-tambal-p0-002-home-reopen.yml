@@ -1,0 +1,47 @@
+name: TAMBAL-P0-002 home reopen
+
+on:
+  push:
+    branches:
+      - fix/TAMBAL-P0-002-service-tracking-route
+    paths:
+      - .github/workflows/tmp-tambal-p0-002-home-reopen.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/TAMBAL-P0-002-service-tracking-route
+          fetch-depth: 0
+
+      - name: Apply Home roadside reopen patch
+        run: python3 .github/scripts/tmp_tambal_p0_002_home_reopen.py
+
+      - name: Verify acceptance contract statically
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'val activeOrders by viewModel.activeOrders.collectAsState()' android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt
+          grep -F 'ActiveRoadsideOrdersSection(' android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt
+          grep -F 'onRoadsideTrackingClick(order.orderId, serviceSubType)' android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt
+          grep -F 'Screen.ServiceTracking.createRoute(orderId, serviceSubType)' android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt
+          ! grep -F 'onRoadsideTrackingClick = { orderId -> navController.navigate(Screen.Tracking.createRoute(orderId))' android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt
+
+      - name: Commit Home recovery and clean temporary patch files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/scripts/tmp_tambal_p0_002_home_reopen.py
+          git rm .github/workflows/tmp-tambal-p0-002-home-reopen.yml
+          git add android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt
+          git add android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt
+          git add android-app-customer/app/src/test/java/com/tembus/customer/ui/screens/service/ServiceRouteContractTest.kt
+          git commit -m 'fix(customer): reopen active roadside service from home'
+          git push origin HEAD:fix/TAMBAL-P0-002-service-tracking-route
