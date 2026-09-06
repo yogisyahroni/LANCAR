@@ -18,6 +18,18 @@ jobs:
         run: python3 .github/repair-order-service.py
       - name: Namespace websocket helper
         run: sed -i 's/firstNonEmpty(/realtimeFirstNonEmpty(/g' backend/order-service/internal/handler/websocket_handler.go
+      - name: Reject unaddressable realtime payloads
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('backend/order-service/internal/handler/websocket_handler.go')
+          s = p.read_text()
+          old = '''\tuserID := realtimeFirstNonEmpty(\n\t\tstringField(event, "user_id"),\n\t\tstringField(event, "userId"),\n\t)\n\tif orderID != "" {'''
+          new = '''\tuserID := realtimeFirstNonEmpty(\n\t\tstringField(event, "user_id"),\n\t\tstringField(event, "userId"),\n\t)\n\tif orderID == "" && userID == "" {\n\t\treturn nil, realtimeEventIndex{}, false\n\t}\n\tif orderID != "" {'''
+          if old not in s:
+              raise SystemExit('realtime addressability anchor missing')
+          p.write_text(s.replace(old, new, 1))
+          PY
       - name: Go format
         run: |
           cd backend/order-service
