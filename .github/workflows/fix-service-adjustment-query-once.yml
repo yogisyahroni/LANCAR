@@ -1,0 +1,54 @@
+name: Fix service adjustment query once
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - '.github/workflows/fix-service-adjustment-query-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+      - name: Qualify joined service adjustment columns
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('backend/order-service/internal/repository/service_adjustment_repository.go')
+          s = p.read_text()
+          old = 'strings.ReplaceAll(serviceAdjustmentColumns, "id,", "sa.id,")'
+          new = 'qualifiedServiceAdjustmentColumns("sa")'
+          if old not in s:
+              raise SystemExit('joined column expression anchor not found')
+          s = s.replace(old, new, 1)
+          anchor = '''func (r *serviceAdjustmentRepo) getForDecisionTx(ctx context.Context, tx *sql.Tx, adjustmentID, customerID string) (*domain.ServiceAdjustment, int64, string, string, error) {'''
+          helper = '''func qualifiedServiceAdjustmentColumns(alias string) string {
+              columns := strings.Split(serviceAdjustmentColumns, ",")
+              for i, column := range columns {
+                  columns[i] = alias + "." + strings.TrimSpace(column)
+              }
+              return strings.Join(columns, ", ")
+          }
+
+          '''
+          if anchor not in s:
+              raise SystemExit('decision query anchor not found')
+          s = s.replace(anchor, helper + anchor, 1)
+          p.write_text(s)
+      - name: Format, self-remove, and push
+        run: |
+          cd backend/order-service && gofmt -w internal/repository/service_adjustment_repository.go
+          cd ../..
+          git rm .github/workflows/fix-service-adjustment-query-once.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add backend/order-service/internal/repository/service_adjustment_repository.go
+          git commit -m "fix: qualify service adjustment decision query"
+          git push origin staging
