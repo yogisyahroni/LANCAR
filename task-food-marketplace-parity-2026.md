@@ -794,10 +794,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/handler/service_adjustment_handler.go`
 - `database/migrations/<timestamp>_add_service_adjustments.sql`
 
-- [ ] Initial quote snapshot.
-- [ ] Extra material/work becomes structured adjustment.
-- [ ] Customer explicitly approves price delta.
-- [ ] Approval + money + audit is atomic/idempotent.
+- [x] Initial quote snapshot. (`service_adjustments.initial_quote_id` + `initial_pricing_snapshot`)
+- [x] Extra material/work becomes structured adjustment. (server-validated structured items/delta)
+- [x] Customer explicitly approves price delta. (`RoadsideAdjustmentSection` consent + approve/reject API)
+- [x] Approval + money + audit is atomic/idempotent. (transaction + rollback + replay tests)
 
 ## TIRE-2026-004 — Arrival→inspection→repair→proof→completion [P0]
 
