@@ -244,6 +244,9 @@ fun RootNavGraph(
                     onFoodClick = { navController.navigate(Screen.FoodHome.route) },
                     onIncomingClick = { navController.navigate(Screen.History.route) },
                     onTrackingClick = { orderId -> navController.navigate(Screen.Tracking.createRoute(orderId)) },
+                    onRoadsideTrackingClick = { orderId, serviceSubType ->
+                        navController.navigate(Screen.ServiceTracking.createRoute(orderId, serviceSubType))
+                    },
                     onChatClick = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
                     onHistoryClick = { navController.navigate(Screen.History.route) },
                     onBusinessClick = { navController.navigate(Screen.Business.route) },

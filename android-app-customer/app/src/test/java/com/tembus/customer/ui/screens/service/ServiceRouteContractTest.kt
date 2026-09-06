@@ -26,4 +26,20 @@ class ServiceRouteContractTest {
         assertTrue(source.contains("navArgument(\"serviceSubType\")"))
         assertTrue(source.contains("ServiceTrackingScreen("))
     }
+
+    @Test
+    fun dashboardReopensActiveRoadsideOrderWithDedicatedTrackingRoute() {
+        val dashboardSource = File(
+            "app/src/main/java/com/tembus/customer/ui/screens/main/DashboardScreen.kt"
+        ).readText()
+        val navSource = File(
+            "app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt"
+        ).readText()
+
+        assertTrue(dashboardSource.contains("viewModel.activeOrders.collectAsState()"))
+        assertTrue(dashboardSource.contains("ActiveRoadsideOrdersSection("))
+        assertTrue(dashboardSource.contains("onRoadsideTrackingClick(order.orderId, serviceSubType)"))
+        assertTrue(navSource.contains("onRoadsideTrackingClick = { orderId, serviceSubType ->"))
+        assertTrue(navSource.contains("Screen.ServiceTracking.createRoute(orderId, serviceSubType)"))
+    }
 }

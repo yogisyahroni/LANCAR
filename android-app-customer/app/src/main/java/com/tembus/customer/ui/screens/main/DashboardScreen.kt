@@ -143,6 +143,7 @@ fun DashboardScreen(
     onNotificationsClick: () -> Unit = {},
     onBookingClick: (String?) -> Unit = {},
     onTrackingClick: (String) -> Unit = {},
+    onRoadsideTrackingClick: (String, String) -> Unit = { _, _ -> },
     onChatClick: (String) -> Unit = {},
     onHistoryClick: () -> Unit = {},
     onBusinessClick: () -> Unit = {},
@@ -155,6 +156,8 @@ fun DashboardScreen(
 
     val customerName by viewModel.customerName.collectAsState()
     val incomingPackages by viewModel.incomingPackages.collectAsState()
+    val activeOrders by viewModel.activeOrders.collectAsState()
+    val activeRoadsideOrders = activeOrders.filter { it.hasCanonicalRoadsideSubtype() }
     val dataError by viewModel.dataError.collectAsState()
     val notificationUnreadCount by viewModel.notificationUnreadCount.collectAsState()
     val notificationUnreadByCategory by viewModel.notificationUnreadByCategory.collectAsState()
@@ -253,6 +256,18 @@ fun DashboardScreen(
                         )
                     }
 
+                    if (activeRoadsideOrders.isNotEmpty()) {
+                        item {
+                            ActiveRoadsideOrdersSection(
+                                orders = activeRoadsideOrders,
+                                onTrackingClick = { order ->
+                                    val serviceSubType = requireNotNull(order.serviceSubType)
+                                    onRoadsideTrackingClick(order.orderId, serviceSubType)
+                                }
+                            )
+                        }
+                    }
+
                 // A4: global banner (pengumuman in-app platform-wide dari super_admin).
                 if (banners.isNotEmpty()) {
                     item {
@@ -295,6 +310,94 @@ fun DashboardScreen(
         }
     }
 }
+}
+
+
+private val canonicalRoadsideSubTypes = setOf(
+    "tambal_ban_motor",
+    "tambal_ban_mobil",
+    "towing_motor",
+    "towing_mobil"
+)
+
+private fun Order.hasCanonicalRoadsideSubtype(): Boolean =
+    serviceSubType in canonicalRoadsideSubTypes &&
+        serviceCategory in setOf("tambal_ban", "towing")
+
+@Composable
+private fun ActiveRoadsideOrdersSection(
+    orders: List<Order>,
+    onTrackingClick: (Order) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        DashboardSectionHeader(
+            title = "Layanan aktif",
+            subtitle = "Lanjut pantau petugas roadside kamu"
+        )
+        orders.forEach { order ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onTrackingClick(order) },
+                shape = RoundedCornerShape(TembusRadius.Card),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val isTowing = order.serviceCategory == "towing"
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(TembusRadius.Card))
+                            .background(if (isTowing) SoftBlue else SoftOrange),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isTowing) Icons.Default.DirectionsCar else Icons.Default.Build,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = if (isTowing) "Towing aktif" else "Tambal ban aktif",
+                            fontWeight = FontWeight.Bold,
+                            color = Ink
+                        )
+                        Text(
+                            text = humanOrderStatus(order.status.lowercase()),
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        val eta = order.etaMinutes
+                        if (eta != null && eta > 0) {
+                            Text(
+                                text = "ETA $eta menit",
+                                color = Muted,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    TextButton(onClick = { onTrackingClick(order) }) {
+                        Text("Pantau")
+                    }
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
