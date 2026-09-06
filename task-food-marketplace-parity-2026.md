@@ -806,10 +806,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `backend/order-service/internal/domain/tambalban.go`
 - `backend/order-service/internal/handler/tambalban_handler.go`
 
-- [ ] Server-enforced lifecycle.
-- [ ] Before/after proof as configured.
-- [ ] Structured material/duration/report.
-- [ ] Customer sees human-readable stages.
+- [x] Server-enforced lifecycle.
+- [x] Before/after proof as configured.
+- [x] Structured material/duration/report.
+- [x] Customer sees human-readable stages.
 
 ## TIRE-2026-005 — Settlement/warranty/claim/rating [P0]
 - [ ] Settlement after proof invariant.
