@@ -22,21 +22,23 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('android-app/app/src/main/java/com/tembus/courier/data/repository/OrderRepository.kt')
           text = path.read_text()
 
           old_call = 'idempotencyKey = idempotencyKey("service-adjustment", orderId),'
           new_call = 'idempotencyKey = serviceAdjustmentIdempotencyKey(orderId, reason, items),'
-          if text.count(old_call) != 1:
-              raise SystemExit(f'expected one service-adjustment idempotency call, found {text.count(old_call)}')
-          text = text.replace(old_call, new_call)
+          if old_call in text:
+              text = text.replace(old_call, new_call, 1)
+          elif new_call not in text:
+              raise SystemExit('service-adjustment idempotency call not found')
 
-          anchor = '''    private fun idempotencyKey(scope: String, discriminator: String): String {
-              return "courier-$scope-$discriminator-${UUID.randomUUID()}"
-          }
-          '''
-          helper = '''    private fun serviceAdjustmentIdempotencyKey(
+          if 'private fun serviceAdjustmentIdempotencyKey(' not in text:
+              match = re.search(r'(?m)^\s*private fun idempotencyKey\(scope: String, discriminator: String\): String \{', text)
+              if not match:
+                  raise SystemExit('generic idempotency helper not found')
+              helper = '''    private fun serviceAdjustmentIdempotencyKey(
               orderId: String,
               reason: String,
               items: List<ServiceAdjustmentItem>
@@ -47,11 +49,11 @@ jobs:
                   append(reason.trim())
                   items.forEach { item ->
                       append('|')
-                      append(item.code)
+                      append(item.code.trim())
                       append(':')
-                      append(item.label)
+                      append(item.label.trim())
                       append(':')
-                      append(item.type)
+                      append(item.type.trim().lowercase())
                       append(':')
                       append(item.quantity)
                       append(':')
@@ -62,9 +64,8 @@ jobs:
           }
 
           '''
-          if text.count(anchor) != 1:
-              raise SystemExit(f'expected one idempotency helper anchor, found {text.count(anchor)}')
-          text = text.replace(anchor, helper + anchor)
+              text = text[:match.start()] + helper + text[match.start():]
+
           path.write_text(text)
           PY
           rm -f .github/workflows/one-time-tire003-idempotency.yml
