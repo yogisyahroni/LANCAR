@@ -495,7 +495,7 @@ class OrderRepository @Inject constructor(
     ): Result<ServiceAdjustment> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.proposeServiceAdjustment(
-                idempotencyKey = idempotencyKey("service-adjustment", orderId),
+                idempotencyKey = serviceAdjustmentIdempotencyKey(orderId, reason, items),
                 request = ServiceAdjustmentProposalRequest(
                     orderId = orderId,
                     reason = reason,
@@ -562,6 +562,31 @@ class OrderRepository @Inject constructor(
             else -> scanType.trim().lowercase().ifBlank { CourierProofTypes.PICKUP_SCAN }
         }
     }
+    private fun serviceAdjustmentIdempotencyKey(
+    orderId: String,
+    reason: String,
+    items: List<ServiceAdjustmentItem>
+): String {
+    val canonical = buildString {
+        append(orderId.trim())
+        append('|')
+        append(reason.trim())
+        items.forEach { item ->
+            append('|')
+            append(item.code.trim())
+            append(':')
+            append(item.label.trim())
+            append(':')
+            append(item.type.trim().lowercase())
+            append(':')
+            append(item.quantity)
+            append(':')
+            append(item.unitPriceIdr)
+        }
+    }
+    return "courier-service-adjustment-${UUID.nameUUIDFromBytes(canonical.toByteArray(Charsets.UTF_8))}"
+}
+
 
     private fun idempotencyKey(scope: String, discriminator: String): String {
         return "courier-$scope-$discriminator-${UUID.randomUUID()}"
