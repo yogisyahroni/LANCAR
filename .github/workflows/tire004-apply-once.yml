@@ -1,0 +1,45 @@
+name: Apply TIRE-2026-004 runtime wiring once
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - '.github/workflows/tire004-apply-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/order-service/go.mod
+          cache-dependency-path: backend/order-service/go.sum
+      - name: Apply staged patch
+        run: python3 .github/scripts/tmp_tire004_patch.py
+      - name: Format Go
+        run: gofmt -w backend/order-service/internal/service/order_read.go backend/order-service/internal/domain/tambalban_lifecycle.go backend/order-service/internal/domain/tambalban_lifecycle_test.go
+      - name: Validate backend lifecycle
+        working-directory: backend/order-service
+        run: |
+          go test ./internal/domain
+          go test ./internal/service
+      - name: Remove one-shot patch assets
+        run: rm -f .github/scripts/tmp_tire004_patch.py .github/workflows/tire004-apply-once.yml
+      - name: Commit directly to staging
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'feat: enforce tambal ban service lifecycle'
+          git push origin HEAD:staging
