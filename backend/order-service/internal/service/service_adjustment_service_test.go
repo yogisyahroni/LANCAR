@@ -54,6 +54,17 @@ func TestServiceAdjustmentProposalRejectsUnstructuredOrUnsafeItems(t *testing.T)
 	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) { t.Fatalf("error = %v, want invalid adjustment", err) }
 }
 
+func TestServiceAdjustmentProposalRejectsDeltaAboveSafetyCap(t *testing.T) {
+	svc := NewServiceAdjustmentService(&fakeServiceAdjustmentRepo{})
+	_, err := svc.Propose(context.Background(), &domain.ProposeServiceAdjustmentRequest{
+		OrderID: "order-1", Reason: "Tambahan material melebihi batas keamanan", IdempotencyKey: "proposal-key-safety-cap",
+		Items: []domain.ServiceAdjustmentItem{{
+			Code: "PREMIUM_MATERIAL", Label: "Material premium", Type: "material", Quantity: 2, UnitPriceIDR: 5_000_001,
+		}},
+	}, "courier-1")
+	if !errors.Is(err, domain.ErrInvalidServiceAdjustment) { t.Fatalf("error = %v, want invalid adjustment", err) }
+}
+
 func TestServiceAdjustmentDecisionRequiresExplicitApproveOrReject(t *testing.T) {
 	svc := NewServiceAdjustmentService(&fakeServiceAdjustmentRepo{})
 	_, err := svc.Decide(context.Background(), &domain.DecideServiceAdjustmentRequest{
