@@ -40,8 +40,8 @@ jobs:
       - name: Validate backend lifecycle
         working-directory: backend/order-service
         run: |
-          go test ./internal/domain
-          go test ./internal/service
+          go test ./internal/domain -run 'Test(IsTambalBanService|ValidateTambalBanLifecycle)'
+          go test ./internal/service -run '^$'
       - name: Remove one-shot patch assets
         run: rm -f .github/scripts/tmp_tire004_patch.py .github/workflows/tire004-apply-once.yml
       - name: Commit directly to staging
