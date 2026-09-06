@@ -1,0 +1,88 @@
+name: Verify TIRE-2026-004
+
+on:
+  push:
+    branches: ["chore/tire-2026-004-closure"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-contract:
+    name: Backend lifecycle and report invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache-dependency-path: backend/order-service/go.sum
+      - name: Verify order-service modules
+        working-directory: backend/order-service
+        run: go mod verify
+      - name: Run TIRE backend contract suites
+        working-directory: backend/order-service
+        run: go test -v -count=1 ./internal/domain ./internal/repository ./internal/service ./internal/handler
+
+  mobile-contract:
+    name: ${{ matrix.label }} task contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Courier
+            working_dir: android-app
+            package_name: com.tembus.courier
+            test_class: com.tembus.courier.domain.TambalBanReportPolicyTest
+          - label: Customer
+            working_dir: android-app-customer
+            package_name: com.tembus.customer
+            test_class: com.tembus.customer.ui.screens.detail.OrderDetailPolicyTest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Create non-production Firebase config for unit compilation
+        shell: bash
+        env:
+          WORKING_DIR: ${{ matrix.working_dir }}
+          PACKAGE_NAME: ${{ matrix.package_name }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          working_dir = os.environ["WORKING_DIR"]
+          package_name = os.environ["PACKAGE_NAME"]
+          target = Path(working_dir) / "app" / "google-services.json"
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_text(json.dumps({
+              "project_info": {
+                  "project_number": "123456789012",
+                  "project_id": "lancar-ci-placeholder",
+                  "storage_bucket": "lancar-ci-placeholder.appspot.com"
+              },
+              "client": [{
+                  "client_info": {
+                      "mobilesdk_app_id": "1:123456789012:android:0000000000000000",
+                      "android_client_info": {"package_name": package_name}
+                  },
+                  "api_key": [{"current_key": "ci-placeholder-not-a-production-key"}]
+              }],
+              "configuration_version": "1"
+          }), encoding="utf-8")
+          PY
+      - name: Grant Gradle wrapper permission
+        working-directory: ${{ matrix.working_dir }}
+        run: chmod +x gradlew
+      - name: Run task-specific unit contract
+        working-directory: ${{ matrix.working_dir }}
+        run: ./gradlew testDebugUnitTest --tests '${{ matrix.test_class }}' --stacktrace
