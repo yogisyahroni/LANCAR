@@ -43,3 +43,5 @@ jobs:
           fi
           git commit -m 'feat: enforce tambal ban service lifecycle'
           git push origin HEAD:staging
+
+# one-shot trigger 2026-09-06
