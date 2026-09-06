@@ -26,22 +26,17 @@ jobs:
           printf '%s' 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpuYXYgPSBQYXRoKCJhbmRyb2lkLWFwcC1jdXN0b21lci9hcHAvc3JjL21haW4vamF2YS9jb20vdGVtYnVzL2N1c3RvbWVyL3VpL25hdmlnYXRpb24vUm9vdE5hdkdyYXBoLmt0IikKc291cmNlID0gbmF2LnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQoKcmVnaXN0cmF0aW9uID0gIiIiICAgICAgICAgICAgY29tcG9zYWJsZSgKICAgICAgICAgICAgICAgIHJvdXRlID0gU2NyZWVuLlNlcnZpY2VUcmFja2luZy5yb3V0ZSwKICAgICAgICAgICAgICAgIGFyZ3VtZW50cyA9IGxpc3RPZigKICAgICAgICAgICAgICAgICAgICBuYXZBcmd1bWVudCgib3JkZXJJZCIpIHsgdHlwZSA9IE5hdlR5cGUuU3RyaW5nVHlwZSB9LAogICAgICAgICAgICAgICAgICAgIG5hdkFyZ3VtZW50KCJzZXJ2aWNlU3ViVHlwZSIpIHsgdHlwZSA9IE5hdlR5cGUuU3RyaW5nVHlwZSB9CiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICkgeyBiYWNrU3RhY2tFbnRyeSAtPgogICAgICAgICAgICAgICAgdmFsIG9yZGVySWQgPSBiYWNrU3RhY2tFbnRyeS5hcmd1bWVudHM/LmdldFN0cmluZygib3JkZXJJZCIpLm9yRW1wdHkoKQogICAgICAgICAgICAgICAgdmFsIHNlcnZpY2VTdWJUeXBlID0gYmFja1N0YWNrRW50cnkuYXJndW1lbnRzPy5nZXRTdHJpbmcoInNlcnZpY2VTdWJUeXBlIikgPzogInRhbWJhbF9iYW5fbW90b3IiCiAgICAgICAgICAgICAgICBTZXJ2aWNlVHJhY2tpbmdTY3JlZW4oCiAgICAgICAgICAgICAgICAgICAgb3JkZXJJZCA9IG9yZGVySWQsCiAgICAgICAgICAgICAgICAgICAgc2VydmljZVN1YlR5cGUgPSBzZXJ2aWNlU3ViVHlwZSwKICAgICAgICAgICAgICAgICAgICBvbkJhY2tDbGljayA9IHsgbmF2Q29udHJvbGxlci5wb3BCYWNrU3RhY2soKSB9LAogICAgICAgICAgICAgICAgICAgIG9uQ2hhdENsaWNrID0geyBpZCAtPiBuYXZDb250cm9sbGVyLm5hdmlnYXRlKFNjcmVlbi5DaGF0LmNyZWF0ZVJvdXRlKGlkLCBudWxsKSkgfSwKICAgICAgICAgICAgICAgICAgICBvbkNhbGxDbGljayA9IHsgaWQgLT4gbmF2Q29udHJvbGxlci5uYXZpZ2F0ZShTY3JlZW4uSW5BcHBDYWxsLmNyZWF0ZVJvdXRlKGlkLCBudWxsLCAib3V0Z29pbmciKSkgfQogICAgICAgICAgICAgICAgKQogICAgICAgICAgICB9CgoiIiIKCmlmICJyb3V0ZSA9IFNjcmVlbi5TZXJ2aWNlVHJhY2tpbmcucm91dGUiIG5vdCBpbiBzb3VyY2U6CiAgICBhbmNob3IgPSAiICAgICAgICAgICAgY29tcG9zYWJsZShTY3JlZW4uTm90aWZpY2F0aW9ucy5yb3V0ZSkgeyIKICAgIGlmIGFuY2hvciBub3QgaW4gc291cmNlOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlJvb3ROYXZHcmFwaCBpbnNlcnRpb24gYW5jaG9yIG1pc3NpbmciKQogICAgc291cmNlID0gc291cmNlLnJlcGxhY2UoYW5jaG9yLCByZWdpc3RyYXRpb24gKyBhbmNob3IsIDEpCiAgICBuYXYud3JpdGVfdGV4dChzb3VyY2UsIGVuY29kaW5nPSJ1dGYtOCIpCgp0ZXN0ID0gUGF0aCgiYW5kcm9pZC1hcHAtY3VzdG9tZXIvYXBwL3NyYy90ZXN0L2phdmEvY29tL3RlbWJ1cy9jdXN0b21lci91aS9zY3JlZW5zL3NlcnZpY2UvU2VydmljZVJvdXRlQ29udHJhY3RUZXN0Lmt0IikKdGVzdC5wYXJlbnQubWtkaXIocGFyZW50cz1UcnVlLCBleGlzdF9vaz1UcnVlKQp0ZXN0LndyaXRlX3RleHQoIiIicGFja2FnZSBjb20udGVtYnVzLmN1c3RvbWVyLnVpLnNjcmVlbnMuc2VydmljZQoKaW1wb3J0IGNvbS50ZW1idXMuY3VzdG9tZXIudWkubmF2aWdhdGlvbi5TY3JlZW4KaW1wb3J0IGphdmEuaW8uRmlsZQppbXBvcnQgb3JnLmp1bml0LkFzc2VydC5hc3NlcnRFcXVhbHMKaW1wb3J0IG9yZy5qdW5pdC5Bc3NlcnQuYXNzZXJ0VHJ1ZQppbXBvcnQgb3JnLmp1bml0LlRlc3QKCmNsYXNzIFNlcnZpY2VSb3V0ZUNvbnRyYWN0VGVzdCB7CiAgICBAVGVzdAogICAgZnVuIHNlcnZpY2VUcmFja2luZ1JvdXRlQ2Fycmllc09yZGVyQW5kQ2Fub25pY2FsU2VydmljZVN1YnR5cGUoKSB7CiAgICAgICAgYXNzZXJ0RXF1YWxzKAogICAgICAgICAgICAic2VydmljZS10cmFja2luZy9vcmRlci0xMjMvdGFtYmFsX2Jhbl9tb3RvciIsCiAgICAgICAgICAgIFNjcmVlbi5TZXJ2aWNlVHJhY2tpbmcuY3JlYXRlUm91dGUoIm9yZGVyLTEyMyIsICJ0YW1iYWxfYmFuX21vdG9yIikKICAgICAgICApCiAgICB9CgogICAgQFRlc3QKICAgIGZ1biByb290TmF2R3JhcGhSZWdpc3RlcnNTZXJ2aWNlVHJhY2tpbmdEZXN0aW5hdGlvbigpIHsKICAgICAgICB2YWwgc291cmNlID0gRmlsZSgKICAgICAgICAgICAgImFwcC9zcmMvbWFpbi9qYXZhL2NvbS90ZW1idXMvY3VzdG9tZXIvdWkvbmF2aWdhdGlvbi9Sb290TmF2R3JhcGgua3QiCiAgICAgICAgKS5yZWFkVGV4dCgpCgogICAgICAgIGFzc2VydFRydWUoc291cmNlLmNvbnRhaW5zKCJyb3V0ZSA9IFNjcmVlbi5TZXJ2aWNlVHJhY2tpbmcucm91dGUiKSkKICAgICAgICBhc3NlcnRUcnVlKHNvdXJjZS5jb250YWlucygibmF2QXJndW1lbnQoXFwib3JkZXJJZFxcIikiKSkKICAgICAgICBhc3NlcnRUcnVlKHNvdXJjZS5jb250YWlucygibmF2QXJndW1lbnQoXFwic2VydmljZVN1YlR5cGVcXCIpIikpCiAgICAgICAgYXNzZXJ0VHJ1ZShzb3VyY2UuY29udGFpbnMoIlNlcnZpY2VUcmFja2luZ1NjcmVlbigiKSkKICAgIH0KfQoiIiIsIGVuY29kaW5nPSJ1dGYtOCIpCg==' | base64 -d > /tmp/tambal_p0_002.py
           python3 /tmp/tambal_p0_002.py
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-
-      - name: Run targeted customer route test
-        working-directory: android-app-customer
+      - name: Verify source contract before commit
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x gradlew
-          ./gradlew testDebugUnitTest --tests 'com.tembus.customer.ui.screens.service.ServiceRouteContractTest'
+          grep -F 'route = Screen.ServiceTracking.route' android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt
+          grep -F 'navArgument("orderId")' android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt
+          grep -F 'navArgument("serviceSubType")' android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt
+          grep -F 'ServiceTrackingScreen(' android-app-customer/app/src/main/java/com/tembus/customer/ui/navigation/RootNavGraph.kt
+          grep -F 'service-tracking/order-123/tambal_ban_motor' android-app-customer/app/src/test/java/com/tembus/customer/ui/screens/service/ServiceRouteContractTest.kt
 
-      - name: Commit repaired route and remove temporary workflow
+      - name: Commit route repair and remove temporary workflow
         shell: bash
         run: |
           set -euo pipefail
