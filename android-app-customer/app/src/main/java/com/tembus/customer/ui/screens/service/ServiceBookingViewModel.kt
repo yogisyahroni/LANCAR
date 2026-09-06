@@ -7,6 +7,7 @@ import com.tembus.customer.data.model.CustomerPriceEstimateRequest
 import com.tembus.customer.data.model.DimensionsPayload
 import com.tembus.customer.data.model.LocationPayload
 import com.tembus.customer.data.model.MapsGeocodeResult
+import com.tembus.customer.data.model.NearbyCourier
 import com.tembus.customer.data.model.PackageDetailsPayload
 import com.tembus.customer.data.model.PriceBreakdown
 import com.tembus.customer.data.model.TambalBanMaterial
@@ -20,6 +21,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val ROADSIDE_REFRESH_RADIUS_KM = 20.0
 
 data class ServiceBookingUiState(
     val isLoading: Boolean = false,
@@ -38,6 +41,8 @@ data class ServiceBookingUiState(
     val isResolvingLocation: Boolean = false,
     val materials: List<TambalBanMaterial> = emptyList(),
     val selectedMaterialCodes: Set<String> = emptySet(),
+    val nearbyCouriers: List<NearbyCourier> = emptyList(),
+    val preferredCourierAvailable: Boolean? = null,
     val requiresPriceConsent: Boolean = false,
     val priceDeltaIdr: Long = 0,
     val priceConsent: Boolean = false
@@ -56,6 +61,17 @@ data class ServicePriceEstimate(
     val totalPrice: Long = 0
 )
 
+internal fun isPreferredRoadsideCourierAvailable(
+    preferredCourierId: String?,
+    couriers: List<NearbyCourier>
+): Boolean? {
+    val preferred = preferredCourierId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    return couriers.any { courier ->
+        courier.courierId == preferred &&
+            courier.status.lowercase() in setOf("available", "conditional")
+    }
+}
+
 @HiltViewModel
 class ServiceBookingViewModel @Inject constructor(
     private val orderRepository: OrderRepository
@@ -64,9 +80,12 @@ class ServiceBookingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ServiceBookingUiState())
     val uiState: StateFlow<ServiceBookingUiState> = _uiState.asStateFlow()
 
+    private var activeServiceSubType: String? = null
+    private var activePreferredCourierId: String? = null
+
     fun setLocation(lat: Double, lng: Double) {
         // Reject invalid/zero coords: never allow 0,0 as a transactional fallback.
-        if (lat == 0.0 || lng == 0.0) {
+        if (lat !in -90.0..90.0 || lng !in -180.0..180.0 || lat == 0.0 || lng == 0.0) {
             _uiState.update { it.copy(error = "Lokasi tidak valid. Pilih lokasi di peta atau perbaiki pin.") }
             return
         }
@@ -75,11 +94,20 @@ class ServiceBookingViewModel @Inject constructor(
                 customerLat = lat,
                 customerLng = lng,
                 priceEstimate = null,
-                rawPriceBreakdown = null
+                rawPriceBreakdown = null,
+                preferredCourierAvailable = null
             )
         }
         if (_uiState.value.customerAddress.isBlank()) {
             resolveAddress(lat, lng)
+        }
+
+        // TIRE-2026-001: once a booking context has produced/asked for a quote,
+        // changing the pickup pin is a transactional input change. Refresh both
+        // technician availability and the server-authoritative quote instead of
+        // leaving the old technician/price attached to a new location.
+        activeServiceSubType?.let { serviceSubType ->
+            fetchEstimate(serviceSubType, lat, lng, activePreferredCourierId)
         }
     }
 
@@ -89,7 +117,7 @@ class ServiceBookingViewModel @Inject constructor(
 
     /**
      * Manual pin correction: user memperbaiki lat/lng melalui input angka atau peta.
-     * Memicu resolveAddress + priceEstimate refresh otomatis.
+     * Memicu resolveAddress + technician availability + price estimate refresh otomatis.
      */
     fun correctPin(lat: Double, lng: Double) {
         setLocation(lat, lng)
@@ -172,6 +200,12 @@ class ServiceBookingViewModel @Inject constructor(
                 error = null
             )
         }
+        val state = _uiState.value
+        activeServiceSubType?.takeIf { it.startsWith("towing") }?.let { serviceSubType ->
+            if (state.customerLat != 0.0 && state.customerLng != 0.0) {
+                fetchEstimate(serviceSubType, state.customerLat, state.customerLng, activePreferredCourierId)
+            }
+        }
     }
 
     fun resolveAddress(lat: Double, lng: Double) {
@@ -198,8 +232,13 @@ class ServiceBookingViewModel @Inject constructor(
     }
 
     fun fetchEstimate(serviceSubType: String, lat: Double, lng: Double, courierId: String? = null) {
+        val normalizedCourierId = courierId?.trim()?.takeIf { it.isNotEmpty() }
+        activeServiceSubType = serviceSubType
+        activePreferredCourierId = normalizedCourierId
+
         val state = _uiState.value
         val isTowing = serviceSubType.startsWith("towing")
+        val isRoadside = serviceSubType.startsWith("tambal_ban") || isTowing
         val dropoffLat = if (isTowing) state.dropoffLat else lat
         val dropoffLng = if (isTowing) state.dropoffLng else lng
         if (isTowing && (dropoffLat == 0.0 || dropoffLng == 0.0 || state.dropoffAddress.isBlank())) {
@@ -208,15 +247,64 @@ class ServiceBookingViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    error = null,
+                    preferredCourierAvailable = if (normalizedCourierId == null) null else it.preferredCourierAvailable
+                )
+            }
+
+            var effectiveCourierId = normalizedCourierId
+            var availabilityWarning: String? = null
+
+            if (isRoadside) {
+                val availability = orderRepository.getNearbyCouriers(
+                    serviceSubType = serviceSubType,
+                    lat = lat,
+                    lng = lng,
+                    radiusKm = ROADSIDE_REFRESH_RADIUS_KM
+                )
+                availability.onSuccess { response ->
+                    val preferredAvailable = isPreferredRoadsideCourierAvailable(normalizedCourierId, response.couriers)
+                    if (preferredAvailable == false) {
+                        effectiveCourierId = null
+                        availabilityWarning = "Teknisi pilihan tidak lagi tersedia di lokasi terbaru. Pilih teknisi lain atau gunakan pencarian otomatis."
+                    }
+                    _uiState.update {
+                        it.copy(
+                            nearbyCouriers = response.couriers,
+                            preferredCourierAvailable = preferredAvailable
+                        )
+                    }
+                }.onFailure { error ->
+                    if (normalizedCourierId != null) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                preferredCourierAvailable = null,
+                                rawPriceBreakdown = null,
+                                priceEstimate = null,
+                                error = error.localizedMessage
+                                    ?: "Ketersediaan teknisi pilihan belum dapat diverifikasi. Coba lagi atau gunakan pencarian otomatis."
+                            )
+                        }
+                        return@launch
+                    }
+                    availabilityWarning = error.localizedMessage ?: "Daftar teknisi terbaru belum dapat dimuat."
+                    _uiState.update { it.copy(nearbyCouriers = emptyList()) }
+                }
+            }
+
+            val latestState = _uiState.value
             val req = CustomerPriceEstimateRequest(
                 pickup = LocationPayload(lat, lng),
                 dropoff = LocationPayload(dropoffLat, dropoffLng),
                 dimensions = if (isTowing) null else DimensionsPayload(0, 0, 0),
                 weightKg = if (isTowing) null else 0.0,
                 serviceCode = serviceSubType,
-                courierId = courierId,
-                materialCodes = state.selectedMaterialCodes.toList()
+                courierId = effectiveCourierId,
+                materialCodes = latestState.selectedMaterialCodes.toList()
             )
             orderRepository.calculateCustomerOrderPrice(req)
                 .onSuccess { breakdown ->
@@ -235,7 +323,8 @@ class ServiceBookingViewModel @Inject constructor(
                                 perKmRate = breakdown.serviceSnapshot?.perKmIdr ?: 0,
                                 // 0-1km = base fare produk (sudah termasuk di basePrice server)
                                 distanceBase = breakdown.serviceSnapshot?.baseFareIdr ?: 0
-                            )
+                            ),
+                            error = availabilityWarning
                         )
                     }
                 }
@@ -268,6 +357,21 @@ class ServiceBookingViewModel @Inject constructor(
             _uiState.update { it.copy(error = "Lokasi belum tersedia. Nyalakan GPS dan coba lagi.") }
             return
         }
+        val normalizedPreferredCourierId = preferredCourierId?.trim()?.takeIf { it.isNotEmpty() }
+        val isRoadside = serviceSubType.startsWith("tambal_ban") || serviceSubType.startsWith("towing")
+        if (isRoadside && normalizedPreferredCourierId != null && state.preferredCourierAvailable != true) {
+            _uiState.update {
+                it.copy(
+                    error = if (state.preferredCourierAvailable == false) {
+                        "Teknisi pilihan tidak lagi tersedia di pickup terbaru. Pilih teknisi lain atau gunakan pencarian otomatis."
+                    } else {
+                        "Ketersediaan teknisi pilihan belum terverifikasi. Perbarui estimasi sebelum membuat pesanan."
+                    }
+                )
+            }
+            return
+        }
+
         val isTowing = serviceSubType.startsWith("towing")
         if (isTowing) {
             val trustError = validateTowingBookingTrust(
@@ -320,7 +424,7 @@ class ServiceBookingViewModel @Inject constructor(
                 ),
                 priceBreakdown = breakdown,
                 serviceCode = serviceSubType,
-                preferredCourierId = preferredCourierId,
+                preferredCourierId = normalizedPreferredCourierId,
                 materialCodes = state.selectedMaterialCodes.toList(),
                 quoteTotalPriceIdr = breakdown.totalPriceIdr,
                 quoteId = breakdown.quoteId,
