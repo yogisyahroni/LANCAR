@@ -8,6 +8,7 @@ import com.tembus.courier.data.repository.ServiceReportProofDraftStore
 import com.tembus.courier.data.repository.ServiceReportProofUploader
 import com.tembus.courier.data.model.distanceKmValue
 import com.tembus.courier.data.model.cleanPayoutIdr
+import com.tembus.courier.data.model.ServiceAdjustmentItem
 import com.tembus.courier.data.model.estimatedNetEarningsIdr
 import com.tembus.courier.domain.TambalBanFlowResolver
 import com.tembus.courier.domain.TambalBanStage
@@ -49,7 +50,10 @@ data class TambalBanFlowUiState(
         // → mekanisme existing: dipilih kurir saat inspeksi, dikirim di report)
         val damageType: String? = null,
         val materialsUsedItems: List<String> = emptyList(),
-        val inspectionBeforePhotoUrl: String? = null
+        val inspectionBeforePhotoUrl: String? = null,
+        val adjustmentSubmitting: Boolean = false,
+        val adjustmentMessage: String? = null,
+        val adjustmentError: String? = null
     )
 
 @HiltViewModel
@@ -244,6 +248,34 @@ class TambalBanFlowViewModel @Inject constructor(
             proofDraftStore.saveBeforePhotoUrl(orderId, "tambal_ban", photoUrl)
             orderRepository.updateOrderStatus(orderId, "in_progress")
             loadOrder(orderId)
+        }
+    }
+
+    fun proposeServiceAdjustment(reason: String, items: List<ServiceAdjustmentItem>) {
+        if (!isValidServiceAdjustmentDraft(reason, items)) {
+            _uiState.update { it.copy(adjustmentError = "Lengkapi alasan dan item adjustment dengan nominal yang valid.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(adjustmentSubmitting = true, adjustmentMessage = null, adjustmentError = null) }
+            orderRepository.proposeServiceAdjustment(orderId, reason.trim(), items)
+                .onSuccess { adjustment ->
+                    _uiState.update {
+                        it.copy(
+                            adjustmentSubmitting = false,
+                            adjustmentMessage = "Adjustment Rp ${adjustment.deltaIdr} terkirim. Menunggu persetujuan customer.",
+                            adjustmentError = null
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            adjustmentSubmitting = false,
+                            adjustmentError = error.localizedMessage ?: "Adjustment gagal dikirim"
+                        )
+                    }
+                }
         }
     }
 

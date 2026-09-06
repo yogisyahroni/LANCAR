@@ -5,6 +5,9 @@ import com.tembus.courier.data.db.OrderDao
 import com.tembus.courier.data.model.CourierActiveRoutePlan
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.StatusUpdateRequest
+import com.tembus.courier.data.model.ServiceAdjustment
+import com.tembus.courier.data.model.ServiceAdjustmentItem
+import com.tembus.courier.data.model.ServiceAdjustmentProposalRequest
 import com.tembus.courier.domain.CourierProofTypes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -451,6 +454,31 @@ class OrderRepository @Inject constructor(
      */
     suspend fun clearAllOrders() = withContext(Dispatchers.IO) {
         orderDao.clearAll()
+    }
+
+    suspend fun proposeServiceAdjustment(
+        orderId: String,
+        reason: String,
+        items: List<ServiceAdjustmentItem>
+    ): Result<ServiceAdjustment> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.proposeServiceAdjustment(
+                idempotencyKey = idempotencyKey("service-adjustment", orderId),
+                request = ServiceAdjustmentProposalRequest(
+                    orderId = orderId,
+                    reason = reason,
+                    items = items
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(IllegalStateException("Penyesuaian harga gagal dikirim (${response.code()} ${response.message()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     /**

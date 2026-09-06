@@ -64,6 +64,8 @@ import com.tembus.courier.data.model.SendMessageRequest
 import com.tembus.courier.data.model.SendMessageResponse
 import com.tembus.courier.data.model.TripShareData
 import com.tembus.courier.data.model.TripShareRequest
+import com.tembus.courier.data.model.ServiceAdjustment
+import com.tembus.courier.data.model.ServiceAdjustmentProposalRequest
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
@@ -525,6 +527,13 @@ interface TEMBUSApiService {
     
     @POST("api/v1/courier/service-report/tambal-ban")
     suspend fun createTambalBanReport(@Body request: Map<String, Any>): Response<Map<String, Any>>
+
+    // TIRE-2026-003: structured on-site material/labor adjustment.
+    @POST("api/v1/courier/service-adjustments")
+    suspend fun proposeServiceAdjustment(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: ServiceAdjustmentProposalRequest
+    ): Response<ServiceAdjustment>
     
     @POST("api/v1/courier/service-report/towing")
     suspend fun createTowingReport(@Body request: Map<String, Any>): Response<Map<String, Any>>

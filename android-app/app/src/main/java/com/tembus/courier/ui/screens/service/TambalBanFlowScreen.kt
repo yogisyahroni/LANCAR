@@ -325,6 +325,16 @@ fun TambalBanFlowScreen(
                             Spacer(Modifier.height(16.dp))
                         }
 
+            if (uiState.stage == TambalBanStage.SERVICE_IN_PROGRESS) {
+                ServiceAdjustmentProposalCard(
+                    isSubmitting = uiState.adjustmentSubmitting,
+                    feedbackMessage = uiState.adjustmentMessage,
+                    feedbackError = uiState.adjustmentError,
+                    onSubmit = viewModel::proposeServiceAdjustment
+                )
+                Spacer(Modifier.height(16.dp))
+            }
+
             // ===== JENIS KERUSAKAN BAN (saat inspeksi — design Stitch) =====
             if (uiState.nextActionType == TambalBanNextActionType.CAPTURE_INSPECTION) {
                 Spacer(Modifier.height(16.dp))

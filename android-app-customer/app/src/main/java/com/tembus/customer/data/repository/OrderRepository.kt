@@ -303,6 +303,46 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun getServiceAdjustments(orderId: String): Result<List<ServiceAdjustment>> {
+        return try {
+            val response = apiService.getServiceAdjustments(orderId)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body.adjustments)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Penyesuaian harga belum dapat dimuat")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun decideServiceAdjustment(
+        adjustmentId: String,
+        decision: String,
+        rejectionReason: String? = null,
+        idempotencyKey: String = UUID.randomUUID().toString()
+    ): Result<ServiceAdjustment> {
+        return try {
+            val response = apiService.decideServiceAdjustment(
+                idempotencyKey = idempotencyKey,
+                request = ServiceAdjustmentDecisionRequest(
+                    adjustmentId = adjustmentId,
+                    decision = decision,
+                    rejectionReason = rejectionReason
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Keputusan penyesuaian harga gagal diproses")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun getOrderDetail(orderId: String): Flow<Result<Order>> = flow {
         try {
             val detailResult = getOrderTrackingDetail(orderId)

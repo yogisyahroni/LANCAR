@@ -47,6 +47,8 @@ fun OrderDetailScreen(
     val state by viewModel.uiState.collectAsState()
     val disputeState by viewModel.disputeState.collectAsState()
     val cancelState by viewModel.cancelState.collectAsState()
+    val serviceAdjustments by viewModel.serviceAdjustments.collectAsState()
+    val adjustmentDecisionState by viewModel.serviceAdjustmentDecisionState.collectAsState()
     val context = LocalContext.current
     var showDisputeDialog by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
@@ -93,6 +95,24 @@ fun OrderDetailScreen(
 
     LaunchedEffect(orderId) {
         viewModel.fetchOrderDetail(orderId)
+        while (true) {
+            kotlinx.coroutines.delay(5_000)
+            viewModel.refreshServiceAdjustments(orderId)
+        }
+    }
+
+    LaunchedEffect(adjustmentDecisionState) {
+        when (val decisionState = adjustmentDecisionState) {
+            is ServiceAdjustmentDecisionState.Success -> {
+                Toast.makeText(context, decisionState.message, Toast.LENGTH_LONG).show()
+                viewModel.resetServiceAdjustmentDecisionState()
+            }
+            is ServiceAdjustmentDecisionState.Error -> {
+                Toast.makeText(context, decisionState.message, Toast.LENGTH_LONG).show()
+                viewModel.resetServiceAdjustmentDecisionState()
+            }
+            else -> Unit
+        }
     }
 
     if (showDisputeDialog) {
@@ -224,6 +244,18 @@ fun OrderDetailScreen(
                         }
 
                         OrderServiceSpecificSections(order)
+
+                        ServiceAdjustmentSection(
+                            adjustments = serviceAdjustments,
+                            isSubmitting = adjustmentDecisionState is ServiceAdjustmentDecisionState.Loading,
+                            onApprove = { adjustmentId ->
+                                viewModel.decideServiceAdjustment(order.orderId, adjustmentId, approve = true)
+                            },
+                            onReject = { adjustmentId, reason ->
+                                viewModel.decideServiceAdjustment(order.orderId, adjustmentId, approve = false, rejectionReason = reason)
+                            }
+                        )
+                        if (serviceAdjustments.isNotEmpty()) Spacer(Modifier.height(16.dp))
 
                         // Info Pembayaran
                         Card(

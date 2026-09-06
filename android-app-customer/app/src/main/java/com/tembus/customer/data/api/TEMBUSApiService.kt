@@ -138,6 +138,18 @@ interface TEMBUSApiService {
         @Path("id") id: String
     ): Response<ApiResponse<Unit>>
 
+    // TIRE-2026-003: on-site price adjustment approval.
+    @GET("api/v1/customer/service-adjustments")
+    suspend fun getServiceAdjustments(
+        @Query("order_id") orderId: String
+    ): Response<ServiceAdjustmentListResponse>
+
+    @POST("api/v1/customer/service-adjustments/decision")
+    suspend fun decideServiceAdjustment(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: ServiceAdjustmentDecisionRequest
+    ): Response<ServiceAdjustment>
+
     /**
      * Submit rating (1-5 bintang) dari customer ke kurir.
      * Hanya bisa dilakukan untuk order berstatus 'delivered' dan belum di-rating.

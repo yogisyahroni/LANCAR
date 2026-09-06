@@ -3,6 +3,7 @@ package com.tembus.customer.ui.screens.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.customer.data.model.Order
+import com.tembus.customer.data.model.ServiceAdjustment
 import com.tembus.customer.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +38,13 @@ sealed class OrderDetailUiState {
     data class Error(val message: String) : OrderDetailUiState()
 }
 
+sealed class ServiceAdjustmentDecisionState {
+    object Idle : ServiceAdjustmentDecisionState()
+    object Loading : ServiceAdjustmentDecisionState()
+    data class Success(val message: String) : ServiceAdjustmentDecisionState()
+    data class Error(val message: String) : ServiceAdjustmentDecisionState()
+}
+
 @HiltViewModel
 class OrderDetailViewModel @Inject constructor(
     private val repository: OrderRepository
@@ -51,12 +59,19 @@ class OrderDetailViewModel @Inject constructor(
     private val _cancelState = MutableStateFlow<CancelOrderState>(CancelOrderState.Idle)
     val cancelState: StateFlow<CancelOrderState> = _cancelState.asStateFlow()
 
+    private val _serviceAdjustments = MutableStateFlow<List<ServiceAdjustment>>(emptyList())
+    val serviceAdjustments: StateFlow<List<ServiceAdjustment>> = _serviceAdjustments.asStateFlow()
+
+    private val _serviceAdjustmentDecisionState = MutableStateFlow<ServiceAdjustmentDecisionState>(ServiceAdjustmentDecisionState.Idle)
+    val serviceAdjustmentDecisionState: StateFlow<ServiceAdjustmentDecisionState> = _serviceAdjustmentDecisionState.asStateFlow()
+
     fun fetchOrderDetail(orderId: String) {
         viewModelScope.launch {
             _uiState.value = OrderDetailUiState.Loading
             repository.getOrderDetail(orderId).collectLatest { result ->
                 result.onSuccess { order ->
                     _uiState.value = OrderDetailUiState.Success(order)
+                    loadServiceAdjustments(orderId)
                 }
                 result.onFailure { error ->
                     _uiState.value = OrderDetailUiState.Error(error.localizedMessage ?: "Order tidak ditemukan")
@@ -123,5 +138,39 @@ class OrderDetailViewModel @Inject constructor(
 
     fun resetCancelState() {
         _cancelState.value = CancelOrderState.Idle
+    }
+
+    fun refreshServiceAdjustments(orderId: String) {
+        viewModelScope.launch { loadServiceAdjustments(orderId) }
+    }
+
+    private suspend fun loadServiceAdjustments(orderId: String) {
+        repository.getServiceAdjustments(orderId)
+            .onSuccess { _serviceAdjustments.value = it }
+    }
+
+    fun decideServiceAdjustment(orderId: String, adjustmentId: String, approve: Boolean, rejectionReason: String? = null) {
+        viewModelScope.launch {
+            _serviceAdjustmentDecisionState.value = ServiceAdjustmentDecisionState.Loading
+            repository.decideServiceAdjustment(
+                adjustmentId = adjustmentId,
+                decision = if (approve) "approve" else "reject",
+                rejectionReason = if (approve) null else rejectionReason
+            ).onSuccess {
+                _serviceAdjustmentDecisionState.value = ServiceAdjustmentDecisionState.Success(
+                    if (approve) "Tambahan biaya disetujui." else "Penyesuaian harga ditolak."
+                )
+                loadServiceAdjustments(orderId)
+                fetchOrderDetail(orderId)
+            }.onFailure { error ->
+                _serviceAdjustmentDecisionState.value = ServiceAdjustmentDecisionState.Error(
+                    error.localizedMessage ?: "Keputusan penyesuaian harga gagal diproses"
+                )
+            }
+        }
+    }
+
+    fun resetServiceAdjustmentDecisionState() {
+        _serviceAdjustmentDecisionState.value = ServiceAdjustmentDecisionState.Idle
     }
 }
