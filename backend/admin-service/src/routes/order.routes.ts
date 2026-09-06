@@ -8,6 +8,7 @@ import {
 } from '../rateLimit';
 import { requireIdempotencyKey } from '../middleware/idempotencyRequirement';
 import { requireAuthoritativeAggregatorQuote } from '../middleware/aggregatorQuoteRequirement';
+import { validatePreferredCourierForCreate } from '../middleware/preferredCourierValidation';
 import { secureUploadSingle } from '../security/uploadSecurity';
 
 // order routes (extracted from routes.ts)
@@ -25,7 +26,7 @@ orderRoutes.post('/api/v1/orders/status', requireMobileOrWebAuth, requireIdempot
 orderRoutes.post('/api/v1/orders/scan', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
 orderRoutes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.pod.upload'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierPod(req, res));
 orderRoutes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));
-orderRoutes.post('/auth/web/orders', verifyWebSession, requireIdempotencyKey('web.order.create'), requireAuthoritativeAggregatorQuote, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
+orderRoutes.post('/auth/web/orders', verifyWebSession, requireIdempotencyKey('web.order.create'), requireAuthoritativeAggregatorQuote, validatePreferredCourierForCreate, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
 orderRoutes.get('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrders(req, res));
 orderRoutes.post('/auth/web/orders/:id/payment/session', verifyWebSession, requireIdempotencyKey('web.payment.init'), (req, res) => controllers.customerOrder.createCustomerOrderPaymentSession(req, res));
 orderRoutes.get('/auth/web/orders/:id/payment/status', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));
@@ -49,7 +50,7 @@ orderRoutes.get('/api/v1/customer/orders/:id/tracking-detail', requireMobileOrWe
 orderRoutes.get('/api/v1/customer/tambal-ban/materials', requireMobileOrWebAuth, (req, res) => controllers.tambalBanMaterials.listTambalBanMaterials(req, res));
 orderRoutes.post('/api/v1/customer/orders/calculate', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrice(req, res));
 orderRoutes.post('/api/v1/customer/orders/calculate-all', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrices(req, res));
-orderRoutes.post('/api/v1/customer/orders', requireMobileOrWebAuth, requireIdempotencyKey('customer.order.create'), requireAuthoritativeAggregatorQuote, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
+orderRoutes.post('/api/v1/customer/orders', requireMobileOrWebAuth, requireIdempotencyKey('customer.order.create'), requireAuthoritativeAggregatorQuote, validatePreferredCourierForCreate, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
 orderRoutes.post('/api/v1/customer/orders/:id/payment', requireMobileOrWebAuth, requireIdempotencyKey('customer.payment.init'), (req, res) => controllers.customerOrder.createCustomerOrderPaymentSession(req, res));
 orderRoutes.get('/api/v1/customer/orders/:id/payment/status', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));
 orderRoutes.post('/api/v1/customer/orders/:id/payment/check', requireMobileOrWebAuth, requireIdempotencyKey('customer.payment.confirm'), (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
