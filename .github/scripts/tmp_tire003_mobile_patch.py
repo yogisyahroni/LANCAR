@@ -1,0 +1,777 @@
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str) -> None:
+    p = Path(path)
+    text = p.read_text()
+    if old not in text:
+        raise SystemExit(f"marker not found in {path}: {old[:120]!r}")
+    p.write_text(text.replace(old, new, 1))
+
+
+# Customer models
+Path('android-app-customer/app/src/main/java/com/tembus/customer/data/model/ServiceAdjustmentModels.kt').write_text('''package com.tembus.customer.data.model
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class ServiceAdjustmentItem(
+    @SerialName("code") val code: String,
+    @SerialName("label") val label: String,
+    @SerialName("type") val type: String,
+    @SerialName("quantity") val quantity: Long,
+    @SerialName("unit_price_idr") val unitPriceIdr: Long,
+    @SerialName("total_idr") val totalIdr: Long
+)
+
+@Serializable
+data class ServiceAdjustment(
+    @SerialName("id") val id: String,
+    @SerialName("order_id") val orderId: String,
+    @SerialName("reason") val reason: String,
+    @SerialName("items") val items: List<ServiceAdjustmentItem> = emptyList(),
+    @SerialName("initial_quote_id") val initialQuoteId: String = "",
+    @SerialName("original_total_idr") val originalTotalIdr: Long = 0,
+    @SerialName("delta_idr") val deltaIdr: Long = 0,
+    @SerialName("proposed_total_idr") val proposedTotalIdr: Long = 0,
+    @SerialName("approved_delta_idr") val approvedDeltaIdr: Long = 0,
+    @SerialName("status") val status: String = "pending",
+    @SerialName("financial_state") val financialState: String = "not_due",
+    @SerialName("rejection_reason") val rejectionReason: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null
+)
+
+@Serializable
+data class ServiceAdjustmentListResponse(
+    @SerialName("adjustments") val adjustments: List<ServiceAdjustment> = emptyList(),
+    @SerialName("count") val count: Int = 0
+)
+
+@Serializable
+data class ServiceAdjustmentDecisionRequest(
+    @SerialName("adjustment_id") val adjustmentId: String,
+    @SerialName("decision") val decision: String,
+    @SerialName("rejection_reason") val rejectionReason: String? = null
+)
+''')
+
+Path('android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/ServiceAdjustmentSection.kt').write_text('''package com.tembus.customer.ui.screens.detail
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.tembus.customer.data.model.ServiceAdjustment
+import com.tembus.customer.ui.theme.TembusRadius
+import java.text.NumberFormat
+import java.util.Locale
+
+internal fun pendingServiceAdjustment(adjustments: List<ServiceAdjustment>): ServiceAdjustment? =
+    adjustments.firstOrNull { it.status.equals("pending", ignoreCase = true) }
+
+private fun idr(value: Long): String = "Rp ${NumberFormat.getNumberInstance(Locale("id", "ID")).format(value)}"
+
+@Composable
+fun ServiceAdjustmentSection(
+    adjustments: List<ServiceAdjustment>,
+    isSubmitting: Boolean,
+    onApprove: (String) -> Unit,
+    onReject: (String, String) -> Unit
+) {
+    val pending = pendingServiceAdjustment(adjustments) ?: return
+    var confirmApproval by remember(pending.id) { mutableStateOf(false) }
+    var rejectDialog by remember(pending.id) { mutableStateOf(false) }
+    var rejectionReason by remember(pending.id) { mutableStateOf("") }
+
+    if (confirmApproval) {
+        AlertDialog(
+            onDismissRequest = { if (!isSubmitting) confirmApproval = false },
+            title = { Text("Setujui tambahan biaya?") },
+            text = {
+                Text("Total pesanan akan berubah dari ${idr(pending.originalTotalIdr)} menjadi ${idr(pending.proposedTotalIdr)}. Persetujuan ini dicatat sebagai persetujuan harga.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isSubmitting,
+                    onClick = {
+                        confirmApproval = false
+                        onApprove(pending.id)
+                    }
+                ) { Text("Setujui", fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(enabled = !isSubmitting, onClick = { confirmApproval = false }) { Text("Batal") }
+            }
+        )
+    }
+
+    if (rejectDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isSubmitting) rejectDialog = false },
+            title = { Text("Tolak penyesuaian harga") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Tambahkan alasan singkat agar teknisi tahu kenapa biaya tambahan belum disetujui.")
+                    OutlinedTextField(
+                        value = rejectionReason,
+                        onValueChange = { rejectionReason = it.take(500) },
+                        label = { Text("Alasan penolakan") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isSubmitting && rejectionReason.trim().length >= 3,
+                    onClick = {
+                        val reason = rejectionReason.trim()
+                        rejectDialog = false
+                        onReject(pending.id, reason)
+                    }
+                ) { Text("Tolak", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(enabled = !isSubmitting, onClick = { rejectDialog = false }) { Text("Batal") }
+            }
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f))
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Persetujuan Biaya Tambahan", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(pending.reason, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider()
+            pending.items.forEach { item ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) {
+                        Text(item.label, fontWeight = FontWeight.Medium)
+                        Text("${item.quantity} × ${idr(item.unitPriceIdr)} · ${if (item.type == "labor") "Jasa" else "Material"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(idr(item.totalIdr), fontWeight = FontWeight.SemiBold)
+                }
+            }
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Harga awal")
+                Text(idr(pending.originalTotalIdr))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Tambahan", fontWeight = FontWeight.Bold)
+                Text("+${idr(pending.deltaIdr)}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Total setelah disetujui", fontWeight = FontWeight.Bold)
+                Text(idr(pending.proposedTotalIdr), fontWeight = FontWeight.Bold)
+            }
+            Text(
+                "Harga pesanan belum berubah sampai Anda menekan Setujui. Backend tetap menjadi sumber harga final.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(2.dp))
+            Button(
+                onClick = { confirmApproval = true },
+                enabled = !isSubmitting,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(if (isSubmitting) "Memproses..." else "Setujui Tambahan Biaya", fontWeight = FontWeight.Bold) }
+            OutlinedButton(
+                onClick = { rejectDialog = true },
+                enabled = !isSubmitting,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Tolak / Minta Penjelasan") }
+        }
+    }
+}
+''')
+
+replace_once(
+    'android-app-customer/app/src/main/java/com/tembus/customer/data/api/TEMBUSApiService.kt',
+    '''    @POST("api/v1/customer/orders/{id}/retry-matching")
+    suspend fun retryCustomerOrderMatching(
+        @Path("id") id: String
+    ): Response<ApiResponse<Unit>>
+''',
+    '''    @POST("api/v1/customer/orders/{id}/retry-matching")
+    suspend fun retryCustomerOrderMatching(
+        @Path("id") id: String
+    ): Response<ApiResponse<Unit>>
+
+    // TIRE-2026-003: on-site price adjustment approval.
+    @GET("api/v1/customer/service-adjustments")
+    suspend fun getServiceAdjustments(
+        @Query("order_id") orderId: String
+    ): Response<ServiceAdjustmentListResponse>
+
+    @POST("api/v1/customer/service-adjustments/decision")
+    suspend fun decideServiceAdjustment(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: ServiceAdjustmentDecisionRequest
+    ): Response<ServiceAdjustment>
+'''
+)
+
+customer_repo_marker = '    fun getOrderDetail(orderId: String): Flow<Result<Order>> = flow {'
+customer_repo_insert = '''    suspend fun getServiceAdjustments(orderId: String): Result<List<ServiceAdjustment>> {
+        return try {
+            val response = apiService.getServiceAdjustments(orderId)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body.adjustments)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Penyesuaian harga belum dapat dimuat")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun decideServiceAdjustment(
+        adjustmentId: String,
+        decision: String,
+        rejectionReason: String? = null,
+        idempotencyKey: String = UUID.randomUUID().toString()
+    ): Result<ServiceAdjustment> {
+        return try {
+            val response = apiService.decideServiceAdjustment(
+                idempotencyKey = idempotencyKey,
+                request = ServiceAdjustmentDecisionRequest(
+                    adjustmentId = adjustmentId,
+                    decision = decision,
+                    rejectionReason = rejectionReason
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Keputusan penyesuaian harga gagal diproses")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+'''
+replace_once(
+    'android-app-customer/app/src/main/java/com/tembus/customer/data/repository/OrderRepository.kt',
+    customer_repo_marker,
+    customer_repo_insert + customer_repo_marker
+)
+
+# Customer detail ViewModel
+p = Path('android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailViewModel.kt')
+text = p.read_text()
+text = text.replace('import com.tembus.customer.data.model.Order\n', 'import com.tembus.customer.data.model.Order\nimport com.tembus.customer.data.model.ServiceAdjustment\n', 1)
+old = '''sealed class OrderDetailUiState {
+    object Idle : OrderDetailUiState()
+    object Loading : OrderDetailUiState()
+    data class Success(val order: Order) : OrderDetailUiState()
+    data class Error(val message: String) : OrderDetailUiState()
+}
+'''
+new = old + '''
+sealed class ServiceAdjustmentDecisionState {
+    object Idle : ServiceAdjustmentDecisionState()
+    object Loading : ServiceAdjustmentDecisionState()
+    data class Success(val message: String) : ServiceAdjustmentDecisionState()
+    data class Error(val message: String) : ServiceAdjustmentDecisionState()
+}
+'''
+if old not in text:
+    raise SystemExit('customer viewmodel state marker missing')
+text = text.replace(old, new, 1)
+marker = '''    private val _cancelState = MutableStateFlow<CancelOrderState>(CancelOrderState.Idle)
+    val cancelState: StateFlow<CancelOrderState> = _cancelState.asStateFlow()
+'''
+replacement = marker + '''
+    private val _serviceAdjustments = MutableStateFlow<List<ServiceAdjustment>>(emptyList())
+    val serviceAdjustments: StateFlow<List<ServiceAdjustment>> = _serviceAdjustments.asStateFlow()
+
+    private val _serviceAdjustmentDecisionState = MutableStateFlow<ServiceAdjustmentDecisionState>(ServiceAdjustmentDecisionState.Idle)
+    val serviceAdjustmentDecisionState: StateFlow<ServiceAdjustmentDecisionState> = _serviceAdjustmentDecisionState.asStateFlow()
+'''
+if marker not in text:
+    raise SystemExit('customer viewmodel flow marker missing')
+text = text.replace(marker, replacement, 1)
+old_success = '''                result.onSuccess { order ->
+                    _uiState.value = OrderDetailUiState.Success(order)
+                }'''
+new_success = '''                result.onSuccess { order ->
+                    _uiState.value = OrderDetailUiState.Success(order)
+                    loadServiceAdjustments(orderId)
+                }'''
+if old_success not in text:
+    raise SystemExit('customer viewmodel success marker missing')
+text = text.replace(old_success, new_success, 1)
+tail = '''    fun resetCancelState() {
+        _cancelState.value = CancelOrderState.Idle
+    }
+}'''
+addition = '''    fun resetCancelState() {
+        _cancelState.value = CancelOrderState.Idle
+    }
+
+    fun refreshServiceAdjustments(orderId: String) {
+        viewModelScope.launch { loadServiceAdjustments(orderId) }
+    }
+
+    private suspend fun loadServiceAdjustments(orderId: String) {
+        repository.getServiceAdjustments(orderId)
+            .onSuccess { _serviceAdjustments.value = it }
+    }
+
+    fun decideServiceAdjustment(orderId: String, adjustmentId: String, approve: Boolean, rejectionReason: String? = null) {
+        viewModelScope.launch {
+            _serviceAdjustmentDecisionState.value = ServiceAdjustmentDecisionState.Loading
+            repository.decideServiceAdjustment(
+                adjustmentId = adjustmentId,
+                decision = if (approve) "approve" else "reject",
+                rejectionReason = if (approve) null else rejectionReason
+            ).onSuccess {
+                _serviceAdjustmentDecisionState.value = ServiceAdjustmentDecisionState.Success(
+                    if (approve) "Tambahan biaya disetujui." else "Penyesuaian harga ditolak."
+                )
+                loadServiceAdjustments(orderId)
+                fetchOrderDetail(orderId)
+            }.onFailure { error ->
+                _serviceAdjustmentDecisionState.value = ServiceAdjustmentDecisionState.Error(
+                    error.localizedMessage ?: "Keputusan penyesuaian harga gagal diproses"
+                )
+            }
+        }
+    }
+
+    fun resetServiceAdjustmentDecisionState() {
+        _serviceAdjustmentDecisionState.value = ServiceAdjustmentDecisionState.Idle
+    }
+}'''
+if tail not in text:
+    raise SystemExit('customer viewmodel tail marker missing')
+p.write_text(text.replace(tail, addition, 1))
+
+# Customer order detail screen
+p = Path('android-app-customer/app/src/main/java/com/tembus/customer/ui/screens/detail/OrderDetailScreen.kt')
+text = p.read_text()
+marker = '    val cancelState by viewModel.cancelState.collectAsState()\n'
+if marker not in text:
+    raise SystemExit('customer screen state marker missing')
+text = text.replace(marker, marker + '    val serviceAdjustments by viewModel.serviceAdjustments.collectAsState()\n    val adjustmentDecisionState by viewModel.serviceAdjustmentDecisionState.collectAsState()\n', 1)
+marker = '''    LaunchedEffect(orderId) {
+        viewModel.fetchOrderDetail(orderId)
+    }'''
+replacement = '''    LaunchedEffect(orderId) {
+        viewModel.fetchOrderDetail(orderId)
+        while (true) {
+            kotlinx.coroutines.delay(5_000)
+            viewModel.refreshServiceAdjustments(orderId)
+        }
+    }
+
+    LaunchedEffect(adjustmentDecisionState) {
+        when (val decisionState = adjustmentDecisionState) {
+            is ServiceAdjustmentDecisionState.Success -> {
+                Toast.makeText(context, decisionState.message, Toast.LENGTH_LONG).show()
+                viewModel.resetServiceAdjustmentDecisionState()
+            }
+            is ServiceAdjustmentDecisionState.Error -> {
+                Toast.makeText(context, decisionState.message, Toast.LENGTH_LONG).show()
+                viewModel.resetServiceAdjustmentDecisionState()
+            }
+            else -> Unit
+        }
+    }'''
+if marker not in text:
+    raise SystemExit('customer screen launched marker missing')
+text = text.replace(marker, replacement, 1)
+marker = '''                        OrderServiceSpecificSections(order)
+
+                        // Info Pembayaran
+'''
+replacement = '''                        OrderServiceSpecificSections(order)
+
+                        ServiceAdjustmentSection(
+                            adjustments = serviceAdjustments,
+                            isSubmitting = adjustmentDecisionState is ServiceAdjustmentDecisionState.Loading,
+                            onApprove = { adjustmentId ->
+                                viewModel.decideServiceAdjustment(order.orderId, adjustmentId, approve = true)
+                            },
+                            onReject = { adjustmentId, reason ->
+                                viewModel.decideServiceAdjustment(order.orderId, adjustmentId, approve = false, rejectionReason = reason)
+                            }
+                        )
+                        if (serviceAdjustments.isNotEmpty()) Spacer(Modifier.height(16.dp))
+
+                        // Info Pembayaran
+'''
+if marker not in text:
+    raise SystemExit('customer screen section marker missing')
+p.write_text(text.replace(marker, replacement, 1))
+
+# Courier models
+Path('android-app/app/src/main/java/com/tembus/courier/data/model/ServiceAdjustmentModels.kt').write_text('''package com.tembus.courier.data.model
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class ServiceAdjustmentItem(
+    @SerialName("code") val code: String,
+    @SerialName("label") val label: String,
+    @SerialName("type") val type: String,
+    @SerialName("quantity") val quantity: Long,
+    @SerialName("unit_price_idr") val unitPriceIdr: Long,
+    @SerialName("total_idr") val totalIdr: Long = quantity * unitPriceIdr
+)
+
+@Serializable
+data class ServiceAdjustmentProposalRequest(
+    @SerialName("order_id") val orderId: String,
+    @SerialName("reason") val reason: String,
+    @SerialName("items") val items: List<ServiceAdjustmentItem>
+)
+
+@Serializable
+data class ServiceAdjustment(
+    @SerialName("id") val id: String,
+    @SerialName("order_id") val orderId: String,
+    @SerialName("reason") val reason: String,
+    @SerialName("items") val items: List<ServiceAdjustmentItem> = emptyList(),
+    @SerialName("original_total_idr") val originalTotalIdr: Long = 0,
+    @SerialName("delta_idr") val deltaIdr: Long = 0,
+    @SerialName("proposed_total_idr") val proposedTotalIdr: Long = 0,
+    @SerialName("status") val status: String = "pending",
+    @SerialName("financial_state") val financialState: String = "not_due"
+)
+''')
+
+Path('android-app/app/src/main/java/com/tembus/courier/ui/screens/service/ServiceAdjustmentProposalCard.kt').write_text('''package com.tembus.courier.ui.screens.service
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import com.tembus.courier.data.model.ServiceAdjustmentItem
+import com.tembus.courier.ui.theme.TembusRadius
+import java.text.NumberFormat
+import java.util.Locale
+
+internal fun serviceAdjustmentDraftTotal(items: List<ServiceAdjustmentItem>): Long =
+    items.fold(0L) { total, item -> total + item.totalIdr }
+
+internal fun isValidServiceAdjustmentDraft(reason: String, items: List<ServiceAdjustmentItem>): Boolean =
+    reason.trim().length in 5..500 && items.isNotEmpty() &&
+        items.all { it.quantity in 1..100 && it.unitPriceIdr > 0 && it.totalIdr > 0 } &&
+        serviceAdjustmentDraftTotal(items) in 1..10_000_000
+
+private fun idr(value: Long): String = "Rp ${NumberFormat.getNumberInstance(Locale("id", "ID")).format(value)}"
+
+@Composable
+fun ServiceAdjustmentProposalCard(
+    isSubmitting: Boolean,
+    feedbackMessage: String?,
+    feedbackError: String?,
+    onSubmit: (String, List<ServiceAdjustmentItem>) -> Unit
+) {
+    var reason by remember { mutableStateOf("") }
+    var itemType by remember { mutableStateOf("material") }
+    var label by remember { mutableStateOf("") }
+    var quantity by remember { mutableStateOf("1") }
+    var unitPrice by remember { mutableStateOf("") }
+    var items by remember { mutableStateOf<List<ServiceAdjustmentItem>>(emptyList()) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(TembusRadius.Card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Penyesuaian Harga di Lokasi", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Gunakan hanya jika hasil inspeksi membutuhkan material atau pekerjaan tambahan. Harga customer belum berubah sampai disetujui.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
+                value = reason,
+                onValueChange = { reason = it.take(500) },
+                label = { Text("Alasan hasil inspeksi") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = itemType == "material", onClick = { itemType = "material" }, label = { Text("Material") })
+                FilterChip(selected = itemType == "labor", onClick = { itemType = "labor" }, label = { Text("Jasa") })
+            }
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it.take(80) },
+                label = { Text("Nama item / pekerjaan") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = { quantity = it.filter(Char::isDigit).take(3) },
+                    label = { Text("Qty") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(0.35f)
+                )
+                OutlinedTextField(
+                    value = unitPrice,
+                    onValueChange = { unitPrice = it.filter(Char::isDigit).take(9) },
+                    label = { Text("Harga/unit") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(0.65f)
+                )
+            }
+            val qty = quantity.toLongOrNull() ?: 0
+            val price = unitPrice.toLongOrNull() ?: 0
+            val canAdd = label.trim().isNotEmpty() && qty in 1..100 && price > 0 && price <= 10_000_000
+            TextButton(
+                enabled = canAdd && items.size < 30,
+                onClick = {
+                    val normalized = label.trim().lowercase()
+                        .replace(Regex("[^a-z0-9]+"), "_")
+                        .trim('_')
+                        .take(32)
+                        .ifBlank { "item" }
+                    items = items + ServiceAdjustmentItem(
+                        code = "${itemType}_${items.size + 1}_$normalized",
+                        label = label.trim(),
+                        type = itemType,
+                        quantity = qty,
+                        unitPriceIdr = price,
+                        totalIdr = qty * price
+                    )
+                    label = ""
+                    quantity = "1"
+                    unitPrice = ""
+                }
+            ) { Text("+ Tambah ke adjustment") }
+
+            if (items.isNotEmpty()) {
+                HorizontalDivider()
+                items.forEachIndexed { index, item ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(Modifier.weight(1f)) {
+                            Text(item.label, fontWeight = FontWeight.Medium)
+                            Text("${item.quantity} × ${idr(item.unitPriceIdr)} · ${if (item.type == "labor") "Jasa" else "Material"}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Column {
+                            Text(idr(item.totalIdr), fontWeight = FontWeight.SemiBold)
+                            TextButton(onClick = { items = items.filterIndexed { i, _ -> i != index } }) { Text("Hapus") }
+                        }
+                    }
+                }
+                HorizontalDivider()
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Total tambahan", fontWeight = FontWeight.Bold)
+                    Text(idr(serviceAdjustmentDraftTotal(items)), fontWeight = FontWeight.Bold)
+                }
+            }
+
+            feedbackMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
+            feedbackError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            Spacer(Modifier.height(2.dp))
+            Button(
+                enabled = !isSubmitting && isValidServiceAdjustmentDraft(reason, items),
+                onClick = { onSubmit(reason.trim(), items) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isSubmitting) "Mengirim..." else "Kirim untuk Persetujuan Customer", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+''')
+
+# Courier API
+p = Path('android-app/app/src/main/java/com/tembus/courier/data/api/TEMBUSApiService.kt')
+text = p.read_text()
+marker = 'import com.tembus.courier.data.model.TripShareRequest\n'
+if marker not in text:
+    raise SystemExit('courier api import marker missing')
+text = text.replace(marker, marker + 'import com.tembus.courier.data.model.ServiceAdjustment\nimport com.tembus.courier.data.model.ServiceAdjustmentProposalRequest\n', 1)
+marker = '''    @POST("api/v1/courier/service-report/tambal-ban")
+    suspend fun createTambalBanReport(@Body request: Map<String, Any>): Response<Map<String, Any>>
+'''
+replacement = marker + '''
+    // TIRE-2026-003: structured on-site material/labor adjustment.
+    @POST("api/v1/courier/service-adjustments")
+    suspend fun proposeServiceAdjustment(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: ServiceAdjustmentProposalRequest
+    ): Response<ServiceAdjustment>
+'''
+if marker not in text:
+    raise SystemExit('courier api endpoint marker missing')
+p.write_text(text.replace(marker, replacement, 1))
+
+# Courier repository
+p = Path('android-app/app/src/main/java/com/tembus/courier/data/repository/OrderRepository.kt')
+text = p.read_text()
+marker = 'import com.tembus.courier.data.model.StatusUpdateRequest\n'
+if marker not in text:
+    raise SystemExit('courier repo import marker missing')
+text = text.replace(marker, marker + 'import com.tembus.courier.data.model.ServiceAdjustment\nimport com.tembus.courier.data.model.ServiceAdjustmentItem\nimport com.tembus.courier.data.model.ServiceAdjustmentProposalRequest\n', 1)
+marker = '''    /**
+     * Submit tambal ban service report to backend
+     */
+    suspend fun createTambalBanReport'''
+method = '''    suspend fun proposeServiceAdjustment(
+        orderId: String,
+        reason: String,
+        items: List<ServiceAdjustmentItem>
+    ): Result<ServiceAdjustment> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.proposeServiceAdjustment(
+                idempotencyKey = idempotencyKey("service-adjustment", orderId),
+                request = ServiceAdjustmentProposalRequest(
+                    orderId = orderId,
+                    reason = reason,
+                    items = items
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(IllegalStateException("Penyesuaian harga gagal dikirim (${response.code()} ${response.message()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+'''
+if marker not in text:
+    raise SystemExit('courier repo report marker missing')
+p.write_text(text.replace(marker, method + marker, 1))
+
+# Courier flow ViewModel
+p = Path('android-app/app/src/main/java/com/tembus/courier/ui/screens/service/TambalBanFlowViewModel.kt')
+text = p.read_text()
+marker = 'import com.tembus.courier.data.model.cleanPayoutIdr\n'
+if marker not in text:
+    raise SystemExit('courier flow import marker missing')
+text = text.replace(marker, marker + 'import com.tembus.courier.data.model.ServiceAdjustmentItem\n', 1)
+marker = '''        val inspectionBeforePhotoUrl: String? = null
+    )
+'''
+replacement = '''        val inspectionBeforePhotoUrl: String? = null,
+        val adjustmentSubmitting: Boolean = false,
+        val adjustmentMessage: String? = null,
+        val adjustmentError: String? = null
+    )
+'''
+if marker not in text:
+    raise SystemExit('courier flow state marker missing')
+text = text.replace(marker, replacement, 1)
+marker = '    private fun utcNowRfc3339(): String {'
+action = '''    fun proposeServiceAdjustment(reason: String, items: List<ServiceAdjustmentItem>) {
+        if (!isValidServiceAdjustmentDraft(reason, items)) {
+            _uiState.update { it.copy(adjustmentError = "Lengkapi alasan dan item adjustment dengan nominal yang valid.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(adjustmentSubmitting = true, adjustmentMessage = null, adjustmentError = null) }
+            orderRepository.proposeServiceAdjustment(orderId, reason.trim(), items)
+                .onSuccess { adjustment ->
+                    _uiState.update {
+                        it.copy(
+                            adjustmentSubmitting = false,
+                            adjustmentMessage = "Adjustment Rp ${adjustment.deltaIdr} terkirim. Menunggu persetujuan customer.",
+                            adjustmentError = null
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            adjustmentSubmitting = false,
+                            adjustmentError = error.localizedMessage ?: "Adjustment gagal dikirim"
+                        )
+                    }
+                }
+        }
+    }
+
+'''
+if marker not in text:
+    raise SystemExit('courier flow tail marker missing')
+p.write_text(text.replace(marker, action + marker, 1))
+
+# Courier flow screen
+p = Path('android-app/app/src/main/java/com/tembus/courier/ui/screens/service/TambalBanFlowScreen.kt')
+text = p.read_text()
+marker = '            // ===== JENIS KERUSAKAN BAN (saat inspeksi — design Stitch) =====\n'
+insertion = '''            if (uiState.stage == TambalBanStage.SERVICE_IN_PROGRESS) {
+                ServiceAdjustmentProposalCard(
+                    isSubmitting = uiState.adjustmentSubmitting,
+                    feedbackMessage = uiState.adjustmentMessage,
+                    feedbackError = uiState.adjustmentError,
+                    onSubmit = viewModel::proposeServiceAdjustment
+                )
+                Spacer(Modifier.height(16.dp))
+            }
+
+'''
+if marker not in text:
+    raise SystemExit('courier screen insertion marker missing')
+p.write_text(text.replace(marker, insertion + marker, 1))
