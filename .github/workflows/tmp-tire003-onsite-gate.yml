@@ -12,6 +12,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: staging
+          fetch-depth: 0
+      - name: Sync latest staging
+        run: git pull --ff-only origin staging
       - name: Patch
         run: |
           python3 - <<'PY'
@@ -24,15 +27,23 @@ jobs:
             ('Scan(&customerID, &category, &serviceCode, &serviceSubType, &quoteID, &pricingSnapshot, &originalTotal)','Scan(&customerID, &category, &serviceCode, &serviceSubType, &quoteID, &pricingSnapshot, &orderStatus, &originalTotal)'),
             ('\tif category != "tambal_ban" && category != "towing" {\n\t\treturn nil, fmt.Errorf("%w: adjustment hanya untuk roadside service", domain.ErrInvalidServiceAdjustment)\n\t}\n','\tif category != "tambal_ban" && category != "towing" {\n\t\treturn nil, fmt.Errorf("%w: adjustment hanya untuk roadside service", domain.ErrInvalidServiceAdjustment)\n\t}\n\tswitch strings.ToLower(strings.TrimSpace(orderStatus)) {\n\tcase "arrived", "verifying", "in_progress", "service_complete":\n\tdefault:\n\t\treturn nil, fmt.Errorf("%w: adjustment hanya dapat diajukan saat teknisi sudah di lokasi", domain.ErrServiceAdjustmentConflict)\n\t}\n')]
           for old,new in pairs:
-              if old not in s: raise SystemExit('anchor missing')
+              if old not in s:
+                  raise SystemExit('anchor missing')
               s=s.replace(old,new,1)
           p.write_text(s)
           PY
-      - name: Commit
+      - name: Commit and push safely
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/tmp-tire003-onsite-gate.yml
           git add backend/order-service/internal/repository/service_adjustment_repository.go
           git commit -m 'fix: restrict roadside adjustments to on-site phases'
-          git push origin HEAD:staging
+          for attempt in 1 2 3; do
+            git pull --rebase origin staging
+            if git push origin HEAD:staging; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
