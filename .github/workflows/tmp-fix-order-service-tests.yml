@@ -16,6 +16,8 @@ jobs:
         run: git pull --ff-only origin staging
       - name: Patch websocket contract and handoff verification
         run: python3 .github/repair-order-service.py
+      - name: Namespace websocket helper
+        run: sed -i 's/firstNonEmpty(/realtimeFirstNonEmpty(/g' backend/order-service/internal/handler/websocket_handler.go
       - name: Go format
         run: |
           cd backend/order-service
