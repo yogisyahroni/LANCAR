@@ -1,0 +1,101 @@
+name: One-shot wire customer tambal report
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-shot-wire-customer-tambal-report.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+      - name: Wire ownership-safe customer report read
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Domain interfaces
+          p = Path('backend/order-service/internal/domain/tambalban.go')
+          s = p.read_text()
+          old = '''type ServiceReportRepository interface {\n\tCreateTambalBanReport(ctx context.Context, report *TambalBanReport) error\n\tGetTambalBanReportByOrderID(ctx context.Context, orderID string) (*TambalBanReport, error)\n\tCreateTowingReport(ctx context.Context, report *TowingReport) error\n'''
+          new = '''type ServiceReportRepository interface {\n\tCreateTambalBanReport(ctx context.Context, report *TambalBanReport) error\n\tGetTambalBanReportByOrderID(ctx context.Context, orderID string) (*TambalBanReport, error)\n\tGetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*TambalBanReport, error)\n\tCreateTowingReport(ctx context.Context, report *TowingReport) error\n'''
+          if 'GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string)' not in s:
+              assert old in s, 'repository interface marker missing'
+              s = s.replace(old, new, 1)
+          old = '''type ServiceReportService interface {\n\tCreateTambalBanReport(ctx context.Context, report *TambalBanReport) error\n\tGetTambalBanReport(ctx context.Context, orderID string) (*TambalBanReport, error)\n\tCreateTowingReport(ctx context.Context, report *TowingReport) error\n'''
+          new = '''type ServiceReportService interface {\n\tCreateTambalBanReport(ctx context.Context, report *TambalBanReport) error\n\tGetTambalBanReport(ctx context.Context, orderID string) (*TambalBanReport, error)\n\tGetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*TambalBanReport, error)\n\tCreateTowingReport(ctx context.Context, report *TowingReport) error\n'''
+          if s.count('GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string)') < 2:
+              assert old in s, 'service interface marker missing'
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          # Service delegation + input guard
+          p = Path('backend/order-service/internal/service/service_report_service.go')
+          s = p.read_text()
+          marker = '''func (s *serviceReportServiceImpl) GetTambalBanReport(ctx context.Context, orderID string) (*domain.TambalBanReport, error) {\n\treturn s.repo.GetTambalBanReportByOrderID(ctx, orderID)\n}\n'''
+          if 'func (s *serviceReportServiceImpl) GetTambalBanReportForCustomer' not in s:
+              assert marker in s, 'service method marker missing'
+              s = s.replace(marker, marker + '''\nfunc (s *serviceReportServiceImpl) GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*domain.TambalBanReport, error) {\n\torderID = strings.TrimSpace(orderID)\n\tcustomerID = strings.TrimSpace(customerID)\n\tif orderID == "" || customerID == "" {\n\t\treturn nil, domain.ErrForbidden\n\t}\n\treturn s.repo.GetTambalBanReportForCustomer(ctx, orderID, customerID)\n}\n''', 1)
+          p.write_text(s)
+
+          # Ownership-safe repository read
+          p = Path('backend/order-service/internal/repository/tambalban_repository.go')
+          s = p.read_text()
+          marker = '''func (r *serviceReportRepo) CreateTowingReport(ctx context.Context, report *domain.TowingReport) error {'''
+          if 'func (r *serviceReportRepo) GetTambalBanReportForCustomer' not in s:
+              assert marker in s, 'repository insertion marker missing'
+              method = '''func (r *serviceReportRepo) GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*domain.TambalBanReport, error) {\n\tquery := `\n\t\tSELECT t.id, t.order_id, t.courier_id, t.tire_condition_before, t.tire_photo_before_url,\n\t\t       t.service_duration_minutes, t.materials_used, t.notes,\n\t\t       t.tire_condition_after, t.tire_photo_after_url, t.completed_at, t.created_at\n\t\tFROM tambal_ban_reports t\n\t\tJOIN orders o ON o.id = t.order_id AND o.customer_id = $2\n\t\tWHERE t.order_id = $1 AND t.completed_at IS NOT NULL`\n\n\treport := &domain.TambalBanReport{}\n\terr := r.db.QueryRowContext(ctx, query, orderID, customerID).Scan(\n\t\t&report.ID, &report.OrderID, &report.CourierID,\n\t\t&report.TireConditionBefore, &report.TirePhotoBeforeURL,\n\t\t&report.ServiceDurationMins, &report.MaterialsUsed, &report.Notes,\n\t\t&report.TireConditionAfter, &report.TirePhotoAfterURL,\n\t\t&report.CompletedAt, &report.CreatedAt,\n\t)\n\tif err != nil {\n\t\tif errors.Is(err, sql.ErrNoRows) {\n\t\t\treturn nil, domain.ErrForbidden\n\t\t}\n\t\treturn nil, err\n\t}\n\tif report.MaterialsUsed != nil {\n\t\tvar items []string\n\t\tif json.Unmarshal([]byte(*report.MaterialsUsed), &items) == nil {\n\t\t\treport.MaterialsUsedItems = items\n\t\t}\n\t}\n\treturn report, nil\n}\n\n'''
+              s = s.replace(marker, method + marker, 1)
+          p.write_text(s)
+
+          # Handler
+          p = Path('backend/order-service/internal/handler/tambalban_handler.go')
+          s = p.read_text()
+          marker = '''// ============================================================\n// POST /api/v1/courier/service-report/tambal-ban\n'''
+          if 'func (h *TambalBanHandler) GetCustomerTambalBanReport' not in s:
+              assert marker in s, 'handler insertion marker missing'
+              method = '''// ============================================================\n// GET /api/v1/customer/service-report/tambal-ban?order_id=\n// Read-only final report. Ownership is verified in the repository join.\n// ============================================================\nfunc (h *TambalBanHandler) GetCustomerTambalBanReport(w http.ResponseWriter, r *http.Request) {\n\tif r.Method != http.MethodGet {\n\t\tmiddleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))\n\t\treturn\n\t}\n\tif middleware.GetRoleFromContext(r.Context()) != "customer" {\n\t\tmiddleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Hanya customer dapat melihat laporan layanan", middleware.GetCorrelationID(r.Context()))\n\t\treturn\n\t}\n\tcustomerID := strings.TrimSpace(middleware.GetUserIDFromContext(r.Context()))\n\torderID := strings.TrimSpace(r.URL.Query().Get("order_id"))\n\tif customerID == "" || orderID == "" {\n\t\tmiddleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "order_id wajib", middleware.GetCorrelationID(r.Context()))\n\t\treturn\n\t}\n\treport, err := h.reportSvc.GetTambalBanReportForCustomer(r.Context(), orderID, customerID)\n\tif err != nil {\n\t\tif errors.Is(err, domain.ErrForbidden) {\n\t\t\tmiddleware.WriteError(w, http.StatusNotFound, "ERR_SERVICE_REPORT_NOT_FOUND", "Laporan layanan belum tersedia untuk pesanan ini", middleware.GetCorrelationID(r.Context()))\n\t\t\treturn\n\t\t}\n\t\tmiddleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Gagal memuat laporan layanan", middleware.GetCorrelationID(r.Context()))\n\t\treturn\n\t}\n\tw.Header().Set("Content-Type", "application/json")\n\t_ = json.NewEncoder(w).Encode(report)\n}\n\n'''
+              s = s.replace(marker, method + marker, 1)
+          p.write_text(s)
+
+          # Main route wiring
+          p = Path('backend/order-service/cmd/api/main.go')
+          s = p.read_text()
+          route = '\tmux.HandleFunc("/api/v1/customer/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetCustomerTambalBanReport)))\n'
+          marker = '\tmux.HandleFunc("/api/v1/courier/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTambalBanReport)))\n'
+          if route not in s:
+              assert marker in s, 'main route marker missing'
+              s = s.replace(marker, route + marker, 1)
+          p.write_text(s)
+
+          # Existing test fake must satisfy the extended interface.
+          p = Path('backend/order-service/internal/service/service_report_service_test.go')
+          s = p.read_text()
+          marker = '''func (r *fakeServiceReportRepo) GetTambalBanReportByOrderID(ctx context.Context, orderID string) (*domain.TambalBanReport, error) {\n\treturn nil, nil\n}\n'''
+          if 'func (r *fakeServiceReportRepo) GetTambalBanReportForCustomer' not in s:
+              assert marker in s, 'fake repo marker missing'
+              s = s.replace(marker, marker + '''\nfunc (r *fakeServiceReportRepo) GetTambalBanReportForCustomer(ctx context.Context, orderID, customerID string) (*domain.TambalBanReport, error) {\n\tif customerID == "customer-owner" {\n\t\treturn &domain.TambalBanReport{OrderID: orderID}, nil\n\t}\n\treturn nil, domain.ErrForbidden\n}\n''', 1)
+          p.write_text(s)
+          PY
+      - name: Commit patch and remove one-shot workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/one-shot-wire-customer-tambal-report.yml
+          git add backend/order-service/internal/domain/tambalban.go \
+                  backend/order-service/internal/service/service_report_service.go \
+                  backend/order-service/internal/repository/tambalban_repository.go \
+                  backend/order-service/internal/handler/tambalban_handler.go \
+                  backend/order-service/internal/service/service_report_service_test.go \
+                  backend/order-service/cmd/api/main.go
+          git commit -m 'feat: expose customer tambal ban final report'
+          git push origin HEAD:staging
