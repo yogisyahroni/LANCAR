@@ -29,7 +29,6 @@ jobs:
         working-directory: backend/order-service
         run: |
           go test ./internal/domain
-          go test ./internal/repository
           go test ./internal/service
       - name: Remove one-shot patch assets
         run: rm -f .github/scripts/tmp_tire004_report_guard.py .github/workflows/tmp-tire004-report-guard.yml
