@@ -533,6 +533,24 @@ fun RootNavGraph(
                 )
             }
 
+            composable(
+                route = Screen.ServiceTracking.route,
+                arguments = listOf(
+                    navArgument("orderId") { type = NavType.StringType },
+                    navArgument("serviceSubType") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+                val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: "tambal_ban_motor"
+                ServiceTrackingScreen(
+                    orderId = orderId,
+                    serviceSubType = serviceSubType,
+                    onBackClick = { navController.popBackStack() },
+                    onChatClick = { id -> navController.navigate(Screen.Chat.createRoute(id, null)) },
+                    onCallClick = { id -> navController.navigate(Screen.InAppCall.createRoute(id, null, "outgoing")) }
+                )
+            }
+
             composable(Screen.Notifications.route) {
                 NotificationCenterScreen(
                     onBackClick = { navController.popBackStack() },
