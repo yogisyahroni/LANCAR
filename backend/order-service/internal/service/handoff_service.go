@@ -79,39 +79,27 @@ func (s *handoffService) IssueProofToken(ctx context.Context, req domain.IssuePr
 		// No requirements for this stage — token issuance allowed but optional.
 	}
 
-	// Resolve token format.
-	format := req.TokenFormat
-	if format == "" {
-		format = domain.TokenFormatNumeric6
+	// Resolve defaults on the request itself so the repository persists exactly
+	// the same contract the caller receives.
+	if req.TokenFormat == "" {
+		req.TokenFormat = domain.TokenFormatNumeric6
 	}
-
-	// Resolve expiry.
-	expiresAt := req.ExpiresAt
-	if expiresAt.IsZero() {
-		expiresAt = domain.DefaultTokenExpiry()
+	if req.ExpiresAt.IsZero() {
+		req.ExpiresAt = domain.DefaultTokenExpiry()
 	}
-
-	// Resolve max attempts.
-	maxAttempts := req.MaxAttempts
-	if maxAttempts == 0 {
-		maxAttempts = domain.DefaultMaxAttempts
+	if req.MaxAttempts == 0 {
+		req.MaxAttempts = domain.DefaultMaxAttempts
 	}
-
-	if maxAttempts < 1 {
+	if req.MaxAttempts < 1 {
 		return nil, "", fmt.Errorf("max_attempts must be >= 1")
 	}
 
-	plaintext, err := domain.GenerateTokenValue(format)
-	if err != nil {
-		return nil, "", fmt.Errorf("generate token value: %w", err)
-	}
-
-	hash, salt := domain.HashToken(plaintext, "")
-	_ = hash + salt // hash/salt are persisted inside IssueToken by the repository
-
-	t, _, err := s.repo.IssueToken(ctx, req, actorID, actorRole, string(category))
+	t, plaintext, err := s.repo.IssueToken(ctx, req, actorID, actorRole, string(category))
 	if err != nil {
 		return nil, "", fmt.Errorf("issue token: %w", err)
+	}
+	if t == nil || strings.TrimSpace(plaintext) == "" {
+		return nil, "", domain.ErrProofTokenInvalid
 	}
 	t.TokenHash = ""
 	t.TokenSalt = ""

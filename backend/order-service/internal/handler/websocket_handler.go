@@ -3,13 +3,17 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -43,12 +47,12 @@ type WSHandler struct {
 
 func NewWSHandler(eb domain.EventBus) *WSHandler {
 	h := &WSHandler{
-		eventBus:     eb,
-		clients:      make(map[*client]bool),
-		rooms:        make(map[string]map[*client]bool),
-		register:     make(chan *client),
-		unregister:   make(chan *client),
-		lastVersion:  make(map[string]uint64),
+		eventBus:    eb,
+		clients:     make(map[*client]bool),
+		rooms:       make(map[string]map[*client]bool),
+		register:    make(chan *client),
+		unregister:  make(chan *client),
+		lastVersion: make(map[string]uint64),
 	}
 	go h.run()
 	go h.listenToEvents()
@@ -258,24 +262,133 @@ func (h *WSHandler) listenToEvents() {
 	}
 }
 
+type realtimeEventIndex struct {
+	OrderID string
+	UserID  string
+}
+
+func normalizeRealtimeEvent(eventType string, payload []byte, now time.Time) ([]byte, realtimeEventIndex, bool) {
+	var event map[string]interface{}
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return nil, realtimeEventIndex{}, false
+	}
+
+	eventID := stringField(event, "event_id")
+	if eventID == "" {
+		eventID = uuid.NewString()
+		event["event_id"] = eventID
+	}
+
+	version := stringField(event, "event_version")
+	if version == "" {
+		version = stringField(event, "version")
+	}
+	if version == "" {
+		version = strconv.FormatInt(now.UTC().UnixNano(), 10)
+	}
+	event["event_version"] = version
+
+	if stringField(event, "event_type") == "" {
+		event["event_type"] = eventType
+	}
+	if stringField(event, "created_at") == "" {
+		event["created_at"] = now.UTC().Format(time.RFC3339Nano)
+	}
+
+	orderID := realtimeFirstNonEmpty(
+		stringField(event, "order_id"),
+		stringField(event, "orderId"),
+		stringField(event, "reference_id"),
+		stringField(event, "referenceId"),
+	)
+	userID := realtimeFirstNonEmpty(
+		stringField(event, "user_id"),
+		stringField(event, "userId"),
+	)
+	if orderID == "" && userID == "" {
+		return nil, realtimeEventIndex{}, false
+	}
+	if orderID != "" {
+		event["order_id"] = orderID
+	}
+	if userID != "" {
+		event["user_id"] = userID
+	}
+
+	normalized, err := json.Marshal(event)
+	if err != nil {
+		return nil, realtimeEventIndex{}, false
+	}
+	return normalized, realtimeEventIndex{OrderID: orderID, UserID: userID}, true
+}
+
+func stringField(payload map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		value, ok := payload[key]
+		if !ok || value == nil {
+			continue
+		}
+		switch typed := value.(type) {
+		case string:
+			if typed != "" {
+				return typed
+			}
+		case json.Number:
+			return typed.String()
+		case float64:
+			return strconv.FormatFloat(typed, 'f', -1, 64)
+		default:
+			rendered := strings.TrimSpace(fmt.Sprint(typed))
+			if rendered != "" {
+				return rendered
+			}
+		}
+	}
+	return ""
+}
+
+func realtimeFirstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 // versionedEvent is the on-the-wire shape parsed from the event bus payload to
 // perform per-order deduplication (CORE-2026-007).
 type versionedEvent struct {
-	OrderID    string `json:"order_id"`
-	UserID     string `json:"user_id"`
-	Version    uint64 `json:"version"`
+	OrderID string `json:"order_id"`
+	UserID  string `json:"user_id"`
+	Version uint64 `json:"version"`
 }
 
 func (h *WSHandler) broadcastToRoomFromEvent(topic, payload string) {
+	normalized, index, ok := normalizeRealtimeEvent(topic, []byte(payload), time.Now().UTC())
+	if !ok {
+		return
+	}
+
 	var event versionedEvent
-	_ = json.Unmarshal([]byte(payload), &event)
+	_ = json.Unmarshal(normalized, &event)
+	event.OrderID = realtimeFirstNonEmpty(event.OrderID, index.OrderID)
+	event.UserID = realtimeFirstNonEmpty(event.UserID, index.UserID)
+	if event.Version == 0 {
+		var contract struct {
+			EventVersion string `json:"event_version"`
+		}
+		if json.Unmarshal(normalized, &contract) == nil {
+			if version, err := strconv.ParseUint(contract.EventVersion, 10, 64); err == nil {
+				event.Version = version
+			}
+		}
+	}
 
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	// CORE-2026-007: skip duplicate / older events. Only forward an event to a
-	// room if its version is strictly greater than the last version seen for
-	// that (user, order). This makes event ordering authoritative server-side.
+	// CORE-2026-007: skip duplicate / older events using the canonical version.
 	if event.OrderID != "" {
 		h.lastVersionMu.Lock()
 		key := h.versionKey("", event.OrderID)
@@ -288,11 +401,10 @@ func (h *WSHandler) broadcastToRoomFromEvent(topic, payload string) {
 			h.lastVersion[key] = event.Version
 		}
 		h.lastVersionMu.Unlock()
+		h.broadcastToRoom("order:"+event.OrderID, string(normalized))
 	}
-
-	h.broadcastToRoom("order:"+event.OrderID, payload)
 	if event.UserID != "" {
-		h.broadcastToRoom("user:"+event.UserID, payload)
+		h.broadcastToRoom("user:"+event.UserID, string(normalized))
 	}
 }
 

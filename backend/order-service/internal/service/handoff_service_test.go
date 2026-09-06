@@ -9,6 +9,18 @@ import (
 	"tembus/order-service/internal/domain"
 )
 
+type handoffOrderRepoStub struct {
+	domain.OrderRepository
+	err error
+}
+
+func (s handoffOrderRepoStub) GetByID(_ context.Context, id string) (*domain.Order, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &domain.Order{ID: id, ServiceCategory: "food_delivery"}, nil
+}
+
 // handoffRepoStub implements domain.ProofVerificationRepository for tests.
 type handoffRepoStub struct {
 	token        *domain.HandoffToken
@@ -44,13 +56,16 @@ func (r *handoffRepoStub) VerifyToken(_ context.Context, req domain.VerifyProofT
 	if r.verifyErr != nil {
 		return nil, r.verifyErr
 	}
-	if r.token == nil {
+	if r.consumeErr != nil {
+		return nil, r.consumeErr
+	}
+	if r.token == nil || req.TokenID != r.token.OrderID || req.ActorID != r.token.ActorID || req.ProofValue != r.token.TokenHash {
 		return nil, domain.ErrProofTokenInvalid
 	}
 	return &domain.ProofVerificationResult{
 		TokenID:  r.token.ID,
 		OrderID:  r.token.OrderID,
-		Consumed: false,
+		Consumed: true,
 		Stage:    string(r.token.Stage),
 	}, nil
 }
@@ -84,7 +99,7 @@ func (r *handoffRepoStub) ConsumeHandoffToken(_ context.Context, hash, orderID, 
 
 func TestHandoffServiceIssueAndConsumeIsOneTime(t *testing.T) {
 	repo := &handoffRepoStub{}
-	svc := &handoffService{repo: repo}
+	svc := &handoffService{repo: repo, orderRepo: handoffOrderRepoStub{}}
 	orderID := "11111111-1111-4111-8111-111111111111"
 	actorID := "22222222-2222-4222-8222-222222222222"
 	_, code, err := svc.IssueProofToken(context.Background(), domain.IssueProofTokenRequest{
@@ -107,7 +122,7 @@ func TestHandoffServiceIssueAndConsumeIsOneTime(t *testing.T) {
 
 func TestHandoffServiceRejectsWrongActorOrderAndStage(t *testing.T) {
 	repo := &handoffRepoStub{}
-	svc := &handoffService{repo: repo}
+	svc := &handoffService{repo: repo, orderRepo: handoffOrderRepoStub{}}
 	orderID := "11111111-1111-4111-8111-111111111111"
 	actorID := "22222222-2222-4222-8222-222222222222"
 	_, code, err := svc.IssueProofToken(context.Background(), domain.IssueProofTokenRequest{
