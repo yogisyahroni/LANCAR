@@ -14,12 +14,12 @@ jobs:
           fetch-depth: 0
       - name: Sync staging
         run: git pull --ff-only origin staging
-      - name: Patch websocket contract and handoff fixture
+      - name: Patch websocket contract and handoff verification
         run: python3 .github/repair-order-service.py
       - name: Go format
         run: |
           cd backend/order-service
-          gofmt -w internal/handler/websocket_handler.go internal/service/handoff_service_test.go
+          gofmt -w internal/handler/websocket_handler.go internal/service/handoff_service.go internal/service/handoff_service_test.go
       - name: Run order-service package tests
         id: tests
         continue-on-error: true
@@ -60,8 +60,8 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/tmp-fix-order-service-tests.yml .github/repair-order-service.py
-          git add backend/order-service/internal/handler/websocket_handler.go backend/order-service/internal/service/handoff_service_test.go
-          git commit -m 'fix: restore realtime contract and handoff test fixture'
+          git add backend/order-service/internal/handler/websocket_handler.go backend/order-service/internal/service/handoff_service.go backend/order-service/internal/service/handoff_service_test.go
+          git commit -m 'fix: restore realtime and handoff verification contracts'
           for attempt in 1 2 3; do
             git pull --rebase origin staging
             if git push origin HEAD:staging; then exit 0; fi
