@@ -69,3 +69,11 @@ func ValidateTambalBanLifecycle(serviceSubType, serviceCode string, current, tar
 		Reason:  "tambal ban lifecycle must follow arrival -> inspection -> repair -> proof -> completion",
 	}
 }
+
+// CanSubmitTambalBanCompletionReport gates the first immutable completion
+// report to the final-proof stage. Idempotent replays are handled by the
+// repository before this state check so a successful retry remains safe after
+// the order has advanced to delivered.
+func CanSubmitTambalBanCompletionReport(status OrderStatus) bool {
+	return status == StatusDelivering
+}

@@ -429,6 +429,22 @@ func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *d
 		return fmt.Errorf("lock tambal ban report: %w", err)
 	}
 
+	var orderStatus string
+	if err := tx.QueryRowContext(ctx, `
+		SELECT o.status
+		FROM orders o
+		JOIN order_legs ol
+		  ON ol.order_id = o.id
+		 AND ol.leg_number = 1
+		 AND ol.courier_id = $2
+		WHERE o.id = $1
+		FOR UPDATE OF o`, report.OrderID, report.CourierID).Scan(&orderStatus); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: courier is not the assigned tambal ban technician", domain.ErrInvalidServiceReport)
+		}
+		return fmt.Errorf("verify tambal ban report assignment: %w", err)
+	}
+
 	existing := tx.QueryRowContext(ctx, `
 		SELECT id, created_at
 		FROM tambal_ban_reports
@@ -439,6 +455,10 @@ func (r *serviceReportRepo) CreateTambalBanReport(ctx context.Context, report *d
 		return tx.Commit()
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("check tambal ban report idempotency: %w", err)
+	}
+
+	if !domain.CanSubmitTambalBanCompletionReport(domain.OrderStatus(orderStatus)) {
+		return fmt.Errorf("%w: tambal ban completion report requires final-proof stage", domain.ErrInvalidServiceReport)
 	}
 
 	query := `
