@@ -109,6 +109,8 @@ class TambalBanFlowViewModel @Inject constructor(
                                                                                                         pickupLatitude = order.pickupLatitude,
                                                                                                         pickupLongitude = order.pickupLongitude,
                                                                                                         inspectionBeforePhotoUrl = proofDraftStore.getBeforePhotoUrl(orderId, "tambal_ban"),
+                                                damageType = proofDraftStore.getTireDamageType(orderId) ?: it.damageType,
+                                                materialsUsedItems = proofDraftStore.getMaterialsUsed(orderId),
                                                 earnings = EarningsData(
                                                             serviceFee = serviceFee,
                                                             baseFee = baseFare,
@@ -218,11 +220,15 @@ class TambalBanFlowViewModel @Inject constructor(
     }
 
     fun setDamageType(damageType: String) {
-        _uiState.update { it.copy(damageType = damageType) }
+        val normalized = damageType.trim()
+        _uiState.update { it.copy(damageType = normalized) }
+        if (orderId.isNotBlank()) proofDraftStore.saveTireDamageType(orderId, normalized)
     }
 
     fun setMaterialsUsed(materials: List<String>) {
-        _uiState.update { it.copy(materialsUsedItems = materials.distinct()) }
+        val normalized = materials.map(String::trim).filter(String::isNotBlank).distinct()
+        _uiState.update { it.copy(materialsUsedItems = normalized) }
+        if (orderId.isNotBlank()) proofDraftStore.saveMaterialsUsed(orderId, normalized)
     }
 
     fun captureInspection(beforePhoto: Bitmap) {
@@ -247,6 +253,9 @@ class TambalBanFlowViewModel @Inject constructor(
             val photoUrl = uploadResult.getOrNull().orEmpty()
             proofDraftStore.saveBeforePhotoUrl(orderId, "tambal_ban", photoUrl)
             orderRepository.updateOrderStatus(orderId, "in_progress")
+            if (proofDraftStore.getServiceStartedAtMillis(orderId, "tambal_ban") == null) {
+                proofDraftStore.saveServiceStartedAtMillis(orderId, "tambal_ban", System.currentTimeMillis())
+            }
             loadOrder(orderId)
         }
     }

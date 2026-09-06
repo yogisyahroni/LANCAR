@@ -87,6 +87,13 @@ fun TambalBanFlowScreen(
     var inspectionPhoto by remember(orderId) { mutableStateOf<Bitmap?>(null) }
     var pendingCriticalAction by remember { mutableStateOf<TambalBanNextActionType?>(null) }
 
+    LaunchedEffect(uiState.damageType) {
+        uiState.damageType?.let { selectedDamage = it }
+    }
+    LaunchedEffect(uiState.materialsUsedItems) {
+        selectedMaterials = uiState.materialsUsedItems.toSet()
+    }
+
     // Auto-navigate when completed without needing extra tap
     LaunchedEffect(uiState.isCompleted) {
         if (uiState.isCompleted) {

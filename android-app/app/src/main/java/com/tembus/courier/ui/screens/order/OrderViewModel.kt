@@ -824,8 +824,24 @@ class OrderViewModel @Inject constructor(
             }
             when (serviceType) {
                 "tambal_ban" -> {
+                    val damageType = proofDraftStore.getTireDamageType(orderId)
+                    if (damageType.isNullOrBlank()) {
+                        _error.update { "Jenis kondisi/kerusakan ban dari inspeksi awal belum tersimpan. Kembali ke tahap inspeksi." }
+                        return@launch
+                    }
+                    val durationMinutes = com.tembus.courier.domain.calculateTambalBanDurationMinutes(
+                        proofDraftStore.getServiceStartedAtMillis(orderId, serviceType),
+                        System.currentTimeMillis()
+                    )
+                    if (durationMinutes == null) {
+                        _error.update { "Durasi pengerjaan belum valid. Mulai layanan dari tahap inspeksi atau hubungi dukungan jika pekerjaan melebihi 24 jam." }
+                        return@launch
+                    }
                     reportRequest["tire_photo_before_url"] = beforePhotoUrl
-                    reportRequest["tire_condition_before"] = "Foto inspeksi awal diambil di aplikasi kurir."
+                    reportRequest["tire_condition_before"] = damageType
+                    reportRequest["service_duration_minutes"] = durationMinutes
+                    reportRequest["materials_used_items"] = proofDraftStore.getMaterialsUsed(orderId)
+                    reportRequest["tire_condition_after"] = "repair_completed_verified_by_after_photo"
                 }
                 "towing" -> {
                     reportRequest["vehicle_photo_before_url"] = beforePhotoUrl
@@ -881,7 +897,9 @@ class OrderViewModel @Inject constructor(
                         // drafts or report success to UI until the server accepts it.
                         orderRepository.updateOrderStatus(orderId, "completed")
                         proofDraftStore.clearBeforePhotoUrl(orderId, serviceType)
-                        if (serviceType == "towing") {
+                        if (serviceType == "tambal_ban") {
+                            proofDraftStore.clearTambalBanStructuredDraft(orderId)
+                        } else if (serviceType == "towing") {
                             proofDraftStore.clearProofUrl(orderId, serviceType, "loading_photo")
                             proofDraftStore.clearProofUrl(orderId, serviceType, "unloading_photo")
                         }
