@@ -1,0 +1,53 @@
+name: Wire roadside aftercare once
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - .github/workflows/wire-roadside-aftercare-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/order-service/go.mod
+      - name: Wire constructor and routes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('backend/order-service/cmd/api/main.go')
+          s = p.read_text()
+          ctor = '''\tserviceAdjustmentRepo := repository.NewServiceAdjustmentRepository(db)\n\tserviceAdjustmentSvc := service.NewServiceAdjustmentService(serviceAdjustmentRepo)\n\tserviceAdjustmentHandler := handler.NewServiceAdjustmentHandler(serviceAdjustmentSvc)\n'''
+          replacement = ctor + '''\troadsideAftercareRepo := repository.NewRoadsideAftercareRepository(db)\n\troadsideAftercareSvc := service.NewRoadsideAftercareService(roadsideAftercareRepo)\n\troadsideAftercareHandler := handler.NewRoadsideAftercareHandler(roadsideAftercareSvc)\n'''
+          if s.count(ctor) != 1:
+              raise SystemExit(f'constructor anchor count={s.count(ctor)}')
+          s = s.replace(ctor, replacement, 1)
+          route = '''\tmux.HandleFunc("/api/v1/customer/service-adjustments/decision", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "service_adjustment.decision", serviceAdjustmentHandler.Decide))))\n'''
+          route_replacement = route + '''\t// TIRE-2026-005: claim/warranty and technician-quality rating are bound to immutable final report evidence.\n\tmux.HandleFunc("/api/v1/customer/roadside/claims", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "roadside_claim.submit", roadsideAftercareHandler.SubmitClaim))))\n\tmux.HandleFunc("/api/v1/customer/roadside/ratings", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "roadside_rating.submit", roadsideAftercareHandler.SubmitRating))))\n'''
+          if s.count(route) != 1:
+              raise SystemExit(f'route anchor count={s.count(route)}')
+          s = s.replace(route, route_replacement, 1)
+          p.write_text(s)
+          PY
+          gofmt -w backend/order-service/cmd/api/main.go backend/order-service/internal/domain/roadside_aftercare.go backend/order-service/internal/service/roadside_aftercare_service.go backend/order-service/internal/service/roadside_aftercare_service_test.go backend/order-service/internal/repository/roadside_aftercare_repository.go backend/order-service/internal/handler/roadside_aftercare_handler.go
+      - name: Test order service
+        working-directory: backend/order-service
+        run: go test ./...
+      - name: Commit wiring and remove workflow
+        run: |
+          rm .github/workflows/wire-roadside-aftercare-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: wire roadside aftercare endpoints"
+          git push origin staging
