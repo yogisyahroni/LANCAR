@@ -9,6 +9,7 @@ on:
       - 'backend/order-service/internal/domain/service_adjustment.go'
       - 'backend/order-service/internal/repository/service_adjustment_repository.go'
       - 'backend/order-service/internal/repository/service_adjustment_repository_test.go'
+      - 'backend/order-service/internal/repository/service_adjustment_repository_auth_test.go'
       - 'backend/order-service/internal/service/service_adjustment_service.go'
       - 'backend/order-service/internal/service/service_adjustment_service_test.go'
       - 'backend/order-service/internal/handler/service_adjustment_handler.go'
@@ -30,7 +31,7 @@ jobs:
       - name: Verify module
         working-directory: backend/order-service
         run: go mod verify
-      - name: TIRE-003 repository transaction and replay tests
+      - name: TIRE-003 repository transaction replay and ownership tests
         working-directory: backend/order-service
         run: go test ./internal/repository -run 'ServiceAdjustment' -count=1 -v
       - name: TIRE-003 service validation tests
