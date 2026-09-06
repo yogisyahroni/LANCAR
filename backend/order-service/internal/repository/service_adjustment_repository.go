@@ -104,14 +104,14 @@ func (r *serviceAdjustmentRepo) Propose(ctx context.Context, req *domain.Propose
 	}
 
 	payload, _ := json.Marshal(map[string]any{
-		"adjustment_id": adjustment.ID,
-		"order_id": adjustment.OrderID,
-		"initial_quote_id": adjustment.InitialQuoteID,
+		"adjustment_id":      adjustment.ID,
+		"order_id":           adjustment.OrderID,
+		"initial_quote_id":   adjustment.InitialQuoteID,
 		"original_total_idr": adjustment.OriginalTotalIDR,
-		"delta_idr": adjustment.DeltaIDR,
+		"delta_idr":          adjustment.DeltaIDR,
 		"proposed_total_idr": adjustment.ProposedTotalIDR,
-		"items": adjustment.Items,
-		"correlation_id": req.CorrelationID,
+		"items":              adjustment.Items,
+		"correlation_id":     req.CorrelationID,
 	})
 	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (actor_id, action, target_id, payload) VALUES ($1, 'service_adjustment.proposed', $2, $3::jsonb)`, courierID, adjustment.ID, payload); err != nil {
 		return nil, fmt.Errorf("audit service adjustment proposal: %w", err)
@@ -210,14 +210,14 @@ func (r *serviceAdjustmentRepo) Decide(ctx context.Context, req *domain.DecideSe
 		action = "service_adjustment.approved"
 	}
 	payload, _ := json.Marshal(map[string]any{
-		"adjustment_id": adjustment.ID,
-		"order_id": adjustment.OrderID,
-		"decision": req.Decision,
+		"adjustment_id":      adjustment.ID,
+		"order_id":           adjustment.OrderID,
+		"decision":           req.Decision,
 		"approved_delta_idr": adjustment.ApprovedDeltaIDR,
 		"proposed_total_idr": adjustment.ProposedTotalIDR,
-		"financial_state": adjustment.FinancialState,
-		"rejection_reason": req.RejectionReason,
-		"correlation_id": req.CorrelationID,
+		"financial_state":    adjustment.FinancialState,
+		"rejection_reason":   req.RejectionReason,
+		"correlation_id":     req.CorrelationID,
 	})
 	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (actor_id, action, target_id, payload) VALUES ($1, $2, $3, $4::jsonb)`, customerID, action, adjustment.ID, payload); err != nil {
 		return nil, fmt.Errorf("audit service adjustment decision: %w", err)
@@ -234,11 +234,19 @@ func (r *serviceAdjustmentRepo) getProposalByIdempotencyTx(ctx context.Context, 
 	return adjustment, requestHash, err
 }
 
+func qualifiedServiceAdjustmentColumns(alias string) string {
+	columns := strings.Split(serviceAdjustmentColumns, ",")
+	for i, column := range columns {
+		columns[i] = alias + "." + strings.TrimSpace(column)
+	}
+	return strings.Join(columns, ", ")
+}
+
 func (r *serviceAdjustmentRepo) getForDecisionTx(ctx context.Context, tx *sql.Tx, adjustmentID, customerID string) (*domain.ServiceAdjustment, int64, string, string, error) {
 	var currentTotal int64
 	var key, requestHash sql.NullString
 	adjustment, err := scanServiceAdjustmentWithExtra(tx.QueryRowContext(ctx, `
-		SELECT `+strings.ReplaceAll(serviceAdjustmentColumns, "id,", "sa.id,")+`, o.total_price_idr,
+		SELECT `+qualifiedServiceAdjustmentColumns("sa")+`, o.total_price_idr,
 		       sa.decision_idempotency_key, sa.decision_request_hash
 		FROM service_adjustments sa
 		JOIN orders o ON o.id = sa.order_id AND o.customer_id = $2
@@ -280,10 +288,22 @@ func scanServiceAdjustmentWithExtra(scanner serviceAdjustmentScanner, extra ...a
 	item.ServiceCode = serviceCode.String
 	item.ServiceSubType = serviceSubType.String
 	item.CorrelationID = correlation.String
-	if approvedBy.Valid { item.ApprovedByCustomerID = &approvedBy.String }
-	if approvedAt.Valid { t := approvedAt.Time; item.ApprovedAt = &t }
-	if rejectedBy.Valid { item.RejectedByCustomerID = &rejectedBy.String }
-	if rejectedAt.Valid { t := rejectedAt.Time; item.RejectedAt = &t }
-	if rejectionReason.Valid { item.RejectionReason = &rejectionReason.String }
+	if approvedBy.Valid {
+		item.ApprovedByCustomerID = &approvedBy.String
+	}
+	if approvedAt.Valid {
+		t := approvedAt.Time
+		item.ApprovedAt = &t
+	}
+	if rejectedBy.Valid {
+		item.RejectedByCustomerID = &rejectedBy.String
+	}
+	if rejectedAt.Valid {
+		t := rejectedAt.Time
+		item.RejectedAt = &t
+	}
+	if rejectionReason.Valid {
+		item.RejectionReason = &rejectionReason.String
+	}
 	return item, nil
 }
