@@ -1,0 +1,111 @@
+name: Temporary TIRE-2026-004 report guard
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - .github/workflows/tmp-tire004-report-guard.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/order-service/go.mod
+          cache-dependency-path: backend/order-service/go.sum
+
+      - name: Patch assigned-technician and final-proof guards
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lifecycle = Path('backend/order-service/internal/domain/tambalban_lifecycle.go')
+          text = lifecycle.read_text()
+          helper = '''
+
+// CanSubmitTambalBanCompletionReport gates the first immutable completion
+// report to the final-proof stage. Idempotent replays are handled by the
+// repository before this state check so a successful retry remains safe after
+// the order has advanced to delivered.
+func CanSubmitTambalBanCompletionReport(status OrderStatus) bool {
+\treturn status == StatusDelivering
+}
+'''
+          if 'func CanSubmitTambalBanCompletionReport(' not in text:
+              lifecycle.write_text(text.rstrip() + helper)
+
+          repo = Path('backend/order-service/internal/repository/tambalban_repository.go')
+          text = repo.read_text()
+          if 'verify tambal ban report assignment' not in text:
+              marker = '''\tif _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "tambal_ban_report:"+report.OrderID); err != nil {
+\t\treturn fmt.Errorf("lock tambal ban report: %w", err)
+\t}
+
+'''
+              assignment = '''\tvar orderStatus string
+\tif err := tx.QueryRowContext(ctx, `
+\t\tSELECT o.status
+\t\tFROM orders o
+\t\tJOIN order_legs ol
+\t\t  ON ol.order_id = o.id
+\t\t AND ol.leg_number = 1
+\t\t AND ol.courier_id = $2
+\t\tWHERE o.id = $1
+\t\tFOR UPDATE OF o`, report.OrderID, report.CourierID).Scan(&orderStatus); err != nil {
+\t\tif errors.Is(err, sql.ErrNoRows) {
+\t\t\treturn fmt.Errorf("%w: courier is not the assigned tambal ban technician", domain.ErrInvalidServiceReport)
+\t\t}
+\t\treturn fmt.Errorf("verify tambal ban report assignment: %w", err)
+\t}
+
+'''
+              if marker not in text:
+                  raise SystemExit('assignment insertion marker not found')
+              text = text.replace(marker, marker + assignment, 1)
+
+              idem = '''\tif err := existing.Scan(&report.ID, &report.CreatedAt); err == nil {
+\t\treturn tx.Commit()
+\t} else if !errors.Is(err, sql.ErrNoRows) {
+\t\treturn fmt.Errorf("check tambal ban report idempotency: %w", err)
+\t}
+
+'''
+              status_gate = '''\tif !domain.CanSubmitTambalBanCompletionReport(domain.OrderStatus(orderStatus)) {
+\t\treturn fmt.Errorf("%w: tambal ban completion report requires final-proof stage", domain.ErrInvalidServiceReport)
+\t}
+
+'''
+              if idem not in text:
+                  raise SystemExit('status gate insertion marker not found')
+              text = text.replace(idem, idem + status_gate, 1)
+              repo.write_text(text)
+          PY
+
+          gofmt -w \
+            backend/order-service/internal/domain/tambalban_lifecycle.go \
+            backend/order-service/internal/repository/tambalban_repository.go
+
+      - name: Test order-service scope
+        working-directory: backend/order-service
+        run: go test ./internal/domain ./internal/repository ./internal/service
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/tmp-tire004-report-guard.yml
+          git add backend/order-service/internal/domain/tambalban_lifecycle.go backend/order-service/internal/repository/tambalban_repository.go
+          git commit -m "fix: bind tambal ban report to assigned technician"
+          git pull --rebase origin staging
+          git push origin HEAD:staging
