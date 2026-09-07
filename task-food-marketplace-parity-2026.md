@@ -5425,11 +5425,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## COURIER-2026-005 — Offer lifecycle, acceptance and fairness [P0/P1]
 
 **Checklist**
-- [ ] Offer has id/expiry/service/route/earning/proof/capability requirements.
-- [ ] Accept race atomic and idempotent.
-- [ ] Expired offer cannot create ghost assignment.
-- [ ] Offer strategy/rule version logged.
-- [ ] Acceptance/cancellation performance signals do not create unexplained permanent lockout; policy documented.
+- [x] Offer has id/expiry/service/route/earning/proof/capability requirements.
+- [x] Accept race atomic and idempotent.
+- [x] Expired offer cannot create ghost assignment.
+- [x] Offer strategy/rule version logged.
+- [x] Acceptance/cancellation performance signals do not create unexplained permanent lockout; policy documented.
 
 ---
 
