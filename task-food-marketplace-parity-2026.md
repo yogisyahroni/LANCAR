@@ -5469,10 +5469,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - safety/support incidents after review
 
 **Checklist**
-- [ ] Metric definition/window visible to courier where used for enforcement.
-- [ ] One anomalous rating does not automatically cause opaque punishment.
-- [ ] Quality score versioned and appealable for material decisions.
-- [ ] Service-specific metrics separated where needed.
+- [x] Metric definition/window visible to courier where used for enforcement.
+- [x] One anomalous rating does not automatically cause opaque punishment.
+- [x] Quality score versioned and appealable for material decisions.
+- [x] Service-specific metrics separated where needed.
 
 ---
 
