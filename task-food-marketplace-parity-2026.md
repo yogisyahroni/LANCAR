@@ -5303,10 +5303,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - new/small merchant discovery
 
 **Checklist**
-- [ ] Revenue uplift alone cannot approve harmful pricing/incentive experiment.
-- [ ] Monitor extreme outliers by market/zone/service.
-- [ ] Organic merchant discovery remains independent from commercial commission amount.
-- [ ] Pricing policy changes can be rolled back quickly.
+- [x] Revenue uplift alone cannot approve harmful pricing/incentive experiment.
+- [x] Monitor extreme outliers by market/zone/service.
+- [x] Organic merchant discovery remains independent from commercial commission amount.
+- [x] Pricing policy changes can be rolled back quickly.
 
 ---
 

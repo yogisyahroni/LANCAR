@@ -9,9 +9,12 @@ const (
 	FoodRankingQualityFirst  = "quality_first"
 )
 
-// RankFoodMerchants applies aggregate merchant signals only. Rating confidence
-// is shrunk toward a neutral cold-start prior, preventing one new review from
-// outranking established merchants. The caller owns the returned slice.
+// RankFoodMerchants applies aggregate discovery signals only. Rating
+// confidence is shrunk toward a neutral cold-start prior, preventing one new
+// review from outranking established merchants. Commercial commission is
+// intentionally not a FoodMerchantInfo field and can never influence this
+// organic score; sponsored placement remains a separately labelled signal.
+// The caller owns the returned slice.
 func RankFoodMerchants(input []FoodMerchantInfo, variant string) []FoodMerchantInfo {
 	result := append([]FoodMerchantInfo(nil), input...)
 	if variant != FoodRankingQualityFirst {

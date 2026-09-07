@@ -234,6 +234,15 @@ func evaluateDynamicPricing(ctx context.Context, redisRepo domain.RedisRepositor
 	if err != nil {
 		return dynamicPricingPolicy{}, dynamicPricingDecision{}, err
 	}
+	// ECON-2026-008: emergency rollback disables both zone surge and peak
+	// pricing. The policy/version remains in the decision for audit; quote
+	// validation will requote an affected quote normally.
+	if configRepo != nil && strings.EqualFold(configRepo.GetStringConfig(ctx, "marketplace_pricing_kill_switch", "false"), "true") {
+		decision.Multiplier = 1
+		decision.PeakApplied = false
+		decision.TriggerContext["rollback_kill_switch"] = "true"
+		decision.TriggerContext["rollback_mode"] = "base_multiplier"
+	}
 	return policy, decision, nil
 }
 

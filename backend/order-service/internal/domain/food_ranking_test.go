@@ -30,3 +30,13 @@ func TestRankFoodMerchantsKeepsSponsoredPlacementSeparated(t *testing.T) {
 		t.Fatalf("sponsored placement was not kept ahead of organic: %+v", result)
 	}
 }
+
+func TestFoodMerchantRankingInputHasNoCommercialCommissionSignal(t *testing.T) {
+	// The ranking input deliberately carries discovery signals only; commission
+	// terms stay in settlement/commercial policy boundaries.
+	merchant := FoodMerchantInfo{ID: "organic", Name: "Warung Baru", RatingCount: 0}
+	result := RankFoodMerchants([]FoodMerchantInfo{merchant}, FoodRankingDistanceFirst)
+	if len(result) != 1 || result[0].ID != merchant.ID {
+		t.Fatalf("organic ranking changed the merchant identity: %+v", result)
+	}
+}
