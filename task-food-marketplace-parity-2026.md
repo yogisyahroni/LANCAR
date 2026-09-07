@@ -5227,10 +5227,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## ECON-2026-002 — Real-time supply/demand marketplace metrics [P1]
 
 **Checklist**
-- [ ] Supply defined from truly available/capable couriers, not all registered accounts.
-- [ ] Demand defined by service/zone/time window with event freshness.
-- [ ] Metrics include match time, acceptance, no-supply, idle time and ETA.
-- [ ] Delayed data has staleness indicator and cannot drive extreme pricing silently.
+- [x] Supply defined from truly available/capable couriers, not all registered accounts.
+- [x] Demand defined by service/zone/time window with event freshness.
+- [x] Metrics include match time, acceptance, no-supply, idle time and ETA.
+- [x] Delayed data has staleness indicator and cannot drive extreme pricing silently.
 
 ---
 
