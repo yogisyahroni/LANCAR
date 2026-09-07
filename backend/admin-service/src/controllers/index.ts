@@ -9,6 +9,7 @@ export * from './resiTemplates.controller';
 
 // Orders
 export * from './orders.controller';
+export * from './exceptionQueues.controller';
 
 // Couriers
 export * from './couriers.controller';

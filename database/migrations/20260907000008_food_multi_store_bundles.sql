@@ -1,3 +1,4 @@
+-- +goose Up
 -- FOOD-2026-024: multi-store orchestration without merging child order invariants.
 CREATE TABLE IF NOT EXISTS food_multi_store_bundles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

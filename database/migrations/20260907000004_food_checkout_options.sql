@@ -7,6 +7,7 @@ ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS gift_mode BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS receiver_privacy VARCHAR(16) NOT NULL DEFAULT 'standard';
 
+-- +goose StatementBegin
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_cutlery_check') THEN
@@ -18,6 +19,7 @@ BEGIN
             CHECK (receiver_privacy IN ('standard', 'contactless', 'doorstep'));
     END IF;
 END $$;
+-- +goose StatementEnd
 
 CREATE INDEX IF NOT EXISTS idx_orders_receiver_privacy
     ON orders (receiver_privacy)

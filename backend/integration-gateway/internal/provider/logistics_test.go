@@ -62,6 +62,31 @@ func TestJNEProvider_CheckTariff(t *testing.T) {
 	}
 }
 
+func TestJNEProvider_CheckTariffKeepsMissingETAUnavailable(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"price": [{"service_display":"REG","service_code":"REG1","price":"15000"}]
+		}`))
+	}))
+	defer ts.Close()
+
+	t.Setenv("JNE_BASE_URL", ts.URL)
+	t.Setenv("JNE_API_KEY", "test_key")
+	t.Setenv("JNE_USERNAME", "test_user")
+
+	resp, err := NewJNEProvider().CheckTariff(context.Background(), domain.TariffRequest{
+		OriginCode: "CGK10000", DestinationCode: "BDO10000", WeightKG: 1,
+	})
+	if err != nil {
+		t.Fatalf("expected quote with unavailable ETA, got %v", err)
+	}
+	if len(resp.Services) != 1 || resp.Services[0].EstimatedDays != "" {
+		t.Fatalf("missing ETA must remain unavailable, got %#v", resp.Services)
+	}
+}
+
 func TestJNTProvider_CheckTariffPreservesNativeServiceCodeAndName(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/jts-id-open-api/api/tariff/query" {

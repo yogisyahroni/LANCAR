@@ -295,11 +295,21 @@ func TestPostgresAssignCourierAuditsCanonicalTransition(t *testing.T) {
 	}()
 
 	repo := NewPostgresRepository(db, db, nil)
-	if err := repo.AssignCourier(ctx, orderID, courierID); err != nil {
-		t.Fatalf("assign courier: %v", err)
+	assignmentErrors := make(chan error, 2)
+	var assignmentWG sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		assignmentWG.Add(1)
+		go func() {
+			defer assignmentWG.Done()
+			assignmentErrors <- repo.AssignCourier(ctx, orderID, courierID)
+		}()
 	}
-	if err := repo.AssignCourier(ctx, orderID, courierID); err != nil {
-		t.Fatalf("idempotent assign courier: %v", err)
+	assignmentWG.Wait()
+	close(assignmentErrors)
+	for assignmentErr := range assignmentErrors {
+		if assignmentErr != nil {
+			t.Fatalf("concurrent courier assignment: %v", assignmentErr)
+		}
 	}
 	var status string
 	if err := db.QueryRowContext(ctx, `SELECT status FROM orders WHERE id = $1`, orderID).Scan(&status); err != nil {

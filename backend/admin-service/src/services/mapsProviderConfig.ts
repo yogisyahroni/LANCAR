@@ -3,6 +3,11 @@ import crypto from 'crypto';
 import { db, readDb } from '../db';
 import { redis } from '../redis';
 import {
+  LOCATION_NORMALIZATION_VERSION,
+  MapsLocationMapping,
+  normalizeLocation,
+} from './mapsLocationNormalization';
+import {
   getActiveTomTomMapsServerCredential,
   hasTomTomMapsServerCredential,
   resetMapsRuntimeCredentialCacheForTests,
@@ -113,6 +118,10 @@ export type MapsGeocodeResult = {
   city?: string;
   district?: string;
   postal_code?: string;
+  provider_location_codes?: Record<string, string>;
+  provider_location_mapping_ids?: Record<string, string>;
+  location_mapping_version?: string;
+  location_mapping_count?: number;
 };
 
 const firstAddressText = (...values: unknown[]): string | undefined => {
@@ -526,6 +535,85 @@ const geocodeCacheTtlSeconds = () => {
 const geocodeCacheKey = (kind: 'geocode' | 'reverse_geocode', provider: string, scope: MapProviderScope, value: string) => {
   const raw = [kind, provider, scope, value.toLowerCase().trim()].join(':');
   return `maps:${kind}:${crypto.createHash('sha1').update(raw).digest('hex')}`;
+};
+
+const locationMappingCacheKey = `maps:provider_location_mappings:${LOCATION_NORMALIZATION_VERSION}`;
+
+type ServerLocationMappings = {
+  mappings: MapsLocationMapping[];
+  version: string;
+};
+
+const parseLocationMappings = (value: string | null): ServerLocationMappings | null => {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || !Array.isArray(parsed.mappings) || typeof parsed.version !== 'string') return null;
+    return parsed as ServerLocationMappings;
+  } catch {
+    return null;
+  }
+};
+
+const getServerLocationMappings = async (): Promise<ServerLocationMappings> => {
+  const cached = parseLocationMappings(await safeRedisGet(locationMappingCacheKey));
+  if (cached) return cached;
+
+  try {
+    const result = await readDb.query(
+      `SELECT id AS mapping_id,
+              provider_code AS logistics_provider_code,
+              provider_area_code AS provider_location_code,
+              city_name AS canonical_city,
+              district_name AS canonical_district,
+              postal_code AS canonical_postal_code
+         FROM provider_area_mappings
+        WHERE provider_area_code IS NOT NULL
+          AND BTRIM(provider_area_code) <> ''
+        ORDER BY provider_code ASC, city_name ASC, district_name ASC, postal_code ASC`,
+    );
+    const mappings = result.rows.filter((row: any) => (
+      row?.mapping_id && row?.logistics_provider_code && row?.provider_location_code && row?.canonical_city
+    )) as MapsLocationMapping[];
+    const snapshot = { mappings, version: LOCATION_NORMALIZATION_VERSION };
+    await safeRedisSet(locationMappingCacheKey, JSON.stringify(snapshot), geocodeCacheTtlSeconds());
+    return snapshot;
+  } catch {
+    // A missing/unavailable mapping table must degrade without inventing a
+    // provider code. The authenticated logistics location endpoint will still
+    // expose the operational error to callers that require a mapping.
+    return { mappings: [], version: 'unconfigured' };
+  }
+};
+
+const applyServerLocationMappingWithSnapshot = (
+  result: MapsGeocodeResult,
+  snapshot: ServerLocationMappings,
+): MapsGeocodeResult => {
+  const normalized = normalizeLocation({
+    label: result.label,
+    city: result.city,
+    district: result.district,
+    postal_code: result.postal_code,
+    provider_place_id: result.provider,
+  }, snapshot.mappings, snapshot.version);
+  return {
+    ...result,
+    display_label: normalized.display_label,
+    provider_location_codes: normalized.provider_location_codes,
+    provider_location_mapping_ids: normalized.provider_location_mapping_ids,
+    location_mapping_version: normalized.location_mapping_version,
+    location_mapping_count: normalized.location_mapping_count,
+  };
+};
+
+const applyServerLocationMapping = async (result: MapsGeocodeResult): Promise<MapsGeocodeResult> => (
+  applyServerLocationMappingWithSnapshot(result, await getServerLocationMappings())
+);
+
+const applyServerLocationMappings = async (results: MapsGeocodeResult[]): Promise<MapsGeocodeResult[]> => {
+  const snapshot = await getServerLocationMappings();
+  return results.map((result) => applyServerLocationMappingWithSnapshot(result, snapshot));
 };
 
 const assertAllowlistedTomTomSearchUrl = (endpoint: string): string => {
@@ -1995,6 +2083,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
   const cacheKey = geocodeCacheKey('geocode', cacheProviderKey, scope, normalizedQuery);
   const cachedResults = await getCachedGeocodeResults(cacheKey);
   if (cachedResults) {
+    const normalizedCachedResults = await applyServerLocationMappings(cachedResults);
     recordMapsProviderObservation({
       operation: 'geocode',
       scope,
@@ -2005,9 +2094,9 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       status: 'cache_hit',
       latency_ms: Date.now() - startedAt,
       cache_hit: true,
-      result_count: cachedResults.length,
+      result_count: normalizedCachedResults.length,
     });
-    return cachedResults;
+    return normalizedCachedResults;
   }
 
   try {
@@ -2034,6 +2123,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
     } else {
       results = await fetchOpenStreetMapGeocode(normalizedQuery);
     }
+    const normalizedResults = await applyServerLocationMappings(results);
     recordMapsProviderObservation({
       operation: 'geocode',
       scope,
@@ -2044,14 +2134,15 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       status: 'success',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,
-      result_count: results.length,
+      result_count: normalizedResults.length,
     });
-    await setCachedGeocodeResults(cacheKey, results);
-    return results;
+    await setCachedGeocodeResults(cacheKey, normalizedResults);
+    return normalizedResults;
   } catch (error) {
     if (canUseOpenStreetMapFallback(providerConfig)) {
       try {
         const fallbackResults = await fetchOpenStreetMapGeocode(normalizedQuery);
+        const normalizedFallbackResults = await applyServerLocationMappings(fallbackResults);
         recordMapsProviderObservation({
           operation: 'geocode',
           scope,
@@ -2064,10 +2155,10 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
           cache_hit: false,
           fallback_reason: 'tomtom_geocode_provider_failed',
           error_message: error,
-          result_count: fallbackResults.length,
+          result_count: normalizedFallbackResults.length,
         });
-        await setCachedGeocodeResults(cacheKey, fallbackResults);
-        return fallbackResults;
+        await setCachedGeocodeResults(cacheKey, normalizedFallbackResults);
+        return normalizedFallbackResults;
       } catch (fallbackError) {
         recordMapsProviderObservation({
           operation: 'geocode',
@@ -2134,6 +2225,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
   const cacheKey = geocodeCacheKey('reverse_geocode', cacheProviderKey, scope, normalizedPoint);
   const cachedResult = await getCachedReverseGeocodeResult(cacheKey);
   if (cachedResult) {
+    const normalizedCachedResult = await applyServerLocationMapping(cachedResult);
     recordMapsProviderObservation({
       operation: 'reverse_geocode',
       scope,
@@ -2146,7 +2238,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       cache_hit: true,
       result_count: 1,
     });
-    return cachedResult;
+    return normalizedCachedResult;
   }
 
   try {
@@ -2174,6 +2266,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       result = await fetchOpenStreetMapReverseGeocode(point);
       if (!result) return null;
     }
+    const normalizedResult = result ? await applyServerLocationMapping(result) : null;
     recordMapsProviderObservation({
       operation: 'reverse_geocode',
       scope,
@@ -2184,15 +2277,16 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       status: 'success',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,
-      result_count: 1,
+      result_count: normalizedResult ? 1 : 0,
     });
-    await setCachedReverseGeocodeResult(cacheKey, result);
-    return result;
+    if (normalizedResult) await setCachedReverseGeocodeResult(cacheKey, normalizedResult);
+    return normalizedResult;
   } catch (error) {
     if (canUseOpenStreetMapFallback(providerConfig)) {
       try {
         const fallbackResult = await fetchOpenStreetMapReverseGeocode(point);
         if (fallbackResult) {
+          const normalizedFallbackResult = await applyServerLocationMapping(fallbackResult);
           recordMapsProviderObservation({
             operation: 'reverse_geocode',
             scope,
@@ -2207,8 +2301,8 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
             error_message: error,
             result_count: 1,
           });
-          await setCachedReverseGeocodeResult(cacheKey, fallbackResult);
-          return fallbackResult;
+          await setCachedReverseGeocodeResult(cacheKey, normalizedFallbackResult);
+          return normalizedFallbackResult;
         }
       } catch (fallbackError) {
         recordMapsProviderObservation({

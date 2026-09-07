@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import java.util.UUID
+import com.tembus.customer.ui.policy.PackageOrderFlowPolicy
 
 enum class CustomerPaymentMethod(val apiValue: String, val title: String, val description: String) {
     LAPAY(
@@ -218,6 +219,8 @@ class PaymentViewModel @Inject constructor(
     }
 
     private fun isPaidOrBypassed(status: String, orderStatus: String): Boolean {
-        return status == "paid" || (orderStatus.isNotBlank() && orderStatus != "pending_payment" && orderStatus != "payment_failed")
+        return PackageOrderFlowPolicy.paymentOutcome(status, orderStatus) == PackageOrderFlowPolicy.PaymentOutcome.PAID ||
+            (orderStatus.isNotBlank() && orderStatus != "pending_payment" && orderStatus != "payment_failed" &&
+                orderStatus.lowercase() !in setOf("cancelled", "canceled", "failed"))
     }
 }

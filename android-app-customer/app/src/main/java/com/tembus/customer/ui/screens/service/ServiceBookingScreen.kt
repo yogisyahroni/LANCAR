@@ -190,7 +190,7 @@ fun ServiceBookingScreen(
 
             // Location section (GPS)
             Text(
-                if (isTowing) "Lokasi jemput kendaraan" else "Lokasi layanan",
+                if (isTowing) "Lokasi jemput kendaraan" else "2. Lokasi layanan",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )

@@ -1,3 +1,4 @@
+-- +goose Up
 -- FOOD-2026-020: server-authoritative shared cart and optional split allocation.
 -- Payment remains owned by payment-service; this table only records the
 -- immutable allocation requested for each participant.

@@ -119,7 +119,19 @@ func (p *JNEProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 	var services []domain.TariffServiceOption
 	for _, item := range jneResp.Price {
 		priceVal, _ := strconv.ParseFloat(item.Price, 64)
-		etd := fmt.Sprintf("%s-%s hari", item.EtdFrom, item.EtdThru)
+		// Provider ETA is optional. Never turn an omitted ETA into a plausible
+		// looking value such as "- hari"; the caller must be able to distinguish
+		// unavailable ETA from an actual estimate.
+		etd := ""
+		from, thru := strings.TrimSpace(item.EtdFrom), strings.TrimSpace(item.EtdThru)
+		switch {
+		case from != "" && thru != "":
+			etd = fmt.Sprintf("%s-%s hari", from, thru)
+		case from != "":
+			etd = fmt.Sprintf("%s hari", from)
+		case thru != "":
+			etd = fmt.Sprintf("%s hari", thru)
+		}
 		services = append(services, domain.TariffServiceOption{
 			ServiceCode:   item.ServiceCode,
 			ServiceName:   item.ServiceDisplay,

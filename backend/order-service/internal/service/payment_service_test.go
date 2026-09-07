@@ -12,8 +12,11 @@ import (
 )
 
 type mockPaymentRepo struct {
-	payments map[string]*domain.Payment
-	updated  bool
+	payments      map[string]*domain.Payment
+	updated       bool
+	auditInserted bool
+	auditUpdates  int
+	applyCount    int
 }
 
 func (m *mockPaymentRepo) Create(ctx context.Context, p *domain.Payment) error {
@@ -40,6 +43,7 @@ func (m *mockPaymentRepo) GetByPaymentNumber(ctx context.Context, paymentNumber 
 	return nil, domain.ErrNotFound
 }
 func (m *mockPaymentRepo) ApplyVerifiedPayment(ctx context.Context, notice domain.VerifiedPaymentUpdate) (*domain.Payment, error) {
+	m.applyCount++
 	p, ok := m.payments[notice.PaymentID]
 	if !ok {
 		return nil, domain.ErrNotFound
@@ -57,6 +61,21 @@ func (m *mockPaymentRepo) ApplyVerifiedPayment(ctx context.Context, notice domai
 	m.updated = true
 	return p, nil
 }
+
+func (m *mockPaymentRepo) InsertWebhookAuditEvent(context.Context, string, string, string, string, []byte, string, string, string, *string) (string, bool, error) {
+	if m.auditInserted {
+		return "", true, nil
+	}
+	m.auditInserted = true
+	return "audit-1", false, nil
+}
+
+func (m *mockPaymentRepo) UpdateWebhookAuditEvent(_ context.Context, id, _ string, _ *string) error {
+	if id != "" {
+		m.auditUpdates++
+	}
+	return nil
+}
 func (m *mockPaymentRepo) UpdateStatus(ctx context.Context, id string, status domain.PaymentStatus, paidAt *time.Time, providerRef *string, webhookPayload []byte) error {
 	if p, ok := m.payments[id]; ok {
 		p.Status = status
@@ -67,7 +86,8 @@ func (m *mockPaymentRepo) UpdateStatus(ctx context.Context, id string, status do
 }
 
 type mockOrderRepo struct {
-	order *domain.Order
+	order             *domain.Order
+	statusUpdateCalls int
 }
 
 func (m *mockOrderRepo) Create(ctx context.Context, order *domain.Order) error { return nil }
@@ -93,6 +113,7 @@ func (m *mockOrderRepo) UpdateLegsStatus(ctx context.Context, orderID string, st
 	return nil
 }
 func (m *mockOrderRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
+	m.statusUpdateCalls++
 	if m.order != nil && m.order.ID == id {
 		m.order.Status = status
 	}
@@ -310,5 +331,37 @@ func TestPaymentService_HandleWebhook_Settlement(t *testing.T) {
 
 	if mor.order.Status != domain.StatusPendingAssignment {
 		t.Errorf("expected order status pending_assignment, got %s", mor.order.Status)
+	}
+}
+
+func TestPaymentService_DuplicateWebhookDoesNotRepeatOrderLifecycle(t *testing.T) {
+	orderID := uuid.NewString()
+	mpr := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
+	mor := &mockOrderRepo{order: &domain.Order{ID: orderID, Status: domain.StatusPendingPayment, TotalPriceIDR: 100000}}
+	svc := service.NewPaymentService(mpr, mor, &mockPaymentGateway{}, &mockConfigRepo{}, &mockTaxService{})
+	p, err := svc.CreatePayment(context.Background(), orderID)
+	if err != nil {
+		t.Fatalf("create payment: %v", err)
+	}
+	payloadMap := map[string]interface{}{
+		"order_id": p.PaymentNumber, "transaction_id": "MOCK-REF",
+		"gross_amount": "100000.00", "status_code": "200", "transaction_status": "settlement",
+	}
+	payload, _ := json.Marshal(payloadMap)
+
+	if err := svc.HandleWebhook(context.Background(), payload, "mock-sig"); err != nil {
+		t.Fatalf("first webhook: %v", err)
+	}
+	if err := svc.HandleWebhook(context.Background(), payload, "mock-sig"); err != nil {
+		t.Fatalf("duplicate webhook: %v", err)
+	}
+	if mpr.applyCount != 2 {
+		t.Fatalf("verified payment writer should be safe on replay, calls=%d", mpr.applyCount)
+	}
+	if mor.statusUpdateCalls != 1 || mor.order.Status != domain.StatusPendingAssignment {
+		t.Fatalf("duplicate webhook repeated order lifecycle: updates=%d status=%s", mor.statusUpdateCalls, mor.order.Status)
+	}
+	if !mpr.auditInserted || mpr.auditUpdates != 1 {
+		t.Fatalf("expected one newly processed audit event, inserted=%v updates=%d", mpr.auditInserted, mpr.auditUpdates)
 	}
 }

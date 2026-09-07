@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
+import OrderExceptions from './pages/OrderExceptions'
 import Couriers from './pages/Couriers'
 import CourierApplications from './pages/CourierApplications'
 import Merchants from './pages/Merchants'
@@ -106,6 +107,14 @@ function App() {
                 <Orders />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/orders/exceptions"
+            element={
+              <ProtectedRoute>
+                <OrderExceptions />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/business-api-requests" 

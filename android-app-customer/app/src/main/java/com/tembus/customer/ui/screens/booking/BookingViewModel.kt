@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import java.util.UUID
+import com.tembus.customer.ui.policy.PackageOrderFlowPolicy
 
 data class BookingState(
     val pickupPoint: BookingAddressPoint? = null,
@@ -617,6 +618,7 @@ class BookingViewModel @Inject constructor(
     }
     fun confirmBooking() {
         val state = _bookingState.value
+        if (!PackageOrderFlowPolicy.shouldSubmitCreate(state.isLoading)) return
         if (state.pickupLocation == null || state.destinationLocation == null) {
             _bookingState.value = state.copy(error = "Lengkapi rute penjemputan dan tujuan.")
             return
@@ -635,6 +637,11 @@ class BookingViewModel @Inject constructor(
         val priceBreakdown = state.priceBreakdowns[state.selectedServiceCode]
         if (priceBreakdown == null) {
             _bookingState.value = state.copy(error = "Pilih layanan dan hitung harga terlebih dahulu.")
+            return
+        }
+        if (PackageOrderFlowPolicy.quoteExpired(priceBreakdown.expiresAt)) {
+            _bookingState.value = state.copy(error = "Harga paket sudah kedaluwarsa. Menghitung ulang harga terbaru…")
+            calculateRoute()
             return
         }
         if (state.recipientName.isBlank() || state.recipientPhone.isBlank()) {

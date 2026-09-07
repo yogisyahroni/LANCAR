@@ -130,6 +130,31 @@ func TestCarrierAcceptanceEventDoesNotBlockNonAggregatorLifecycle(t *testing.T) 
 	}
 }
 
+func TestCarrierEventReplayIsStoredOnceAndDoesNotRepeatLifecycleSideEffects(t *testing.T) {
+	eventRepo := &carrierEventRepositoryStub{}
+	orderRepo := &carrierEventOrderRepositoryStub{order: &domain.Order{ID: "order-replay", Status: domain.StatusPending}}
+	orderEvents := &carrierEventOrderEventsStub{}
+	svc := NewCarrierEventService(eventRepo, orderRepo, orderEvents)
+	event := &domain.CarrierEvent{
+		Provider: "jnt", EventID: "jnt-event-replay-1", AWBNumber: "JNT-REPLAY-1",
+		CanonicalStatus: "IN_TRANSIT", RawStatus: "SCANNED", RawCode: "S03",
+		RawDescription: "Shipment scanned", ReceivedAt: time.Now(),
+	}
+
+	if err := svc.Process(context.Background(), event); err != nil {
+		t.Fatalf("first carrier event: %v", err)
+	}
+	if err := svc.Process(context.Background(), event); err != nil {
+		t.Fatalf("replayed carrier event: %v", err)
+	}
+	if orderRepo.updatedState != domain.StatusDelivering {
+		t.Fatalf("first event should advance lifecycle, got %s", orderRepo.updatedState)
+	}
+	if len(orderEvents.saved) != 1 {
+		t.Fatalf("replayed event must not repeat lifecycle side effects, saved=%d", len(orderEvents.saved))
+	}
+}
+
 type carrierFinanceRecorder struct {
 	claims []*domain.LogisticsExceptionClaim
 }

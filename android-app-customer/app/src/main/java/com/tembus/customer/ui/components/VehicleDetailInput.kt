@@ -73,7 +73,7 @@ fun VehicleDetailInput(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                "Detail Kendaraan",
+                if (isTambalBan) "1. Kendaraan & masalah" else "Detail Kendaraan",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface

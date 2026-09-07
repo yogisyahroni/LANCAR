@@ -54,6 +54,7 @@ jest.mock('./controllers', () => ({
   getSystemHealth: jest.fn((req, res) => res.status(200).json([])),
   // New controller functions
   getAllOrders: jest.fn((req, res) => res.status(200).json([])),
+  listOrderExceptions: jest.fn((req, res) => res.status(200).json({ data: [], total: 0 })),
   getOrderStats: jest.fn((req, res) => res.status(200).json({})),
   getOrderById: jest.fn((req, res) => res.status(200).json({})),
   reassignOrder: jest.fn((req, res) => res.status(200).json({ status: 'reassigned' })),
@@ -191,6 +192,19 @@ describe('Admin Service Routes', () => {
       .set(gatewayHeaders({ role: 'ops_admin' }));
     expect(authenticated.status).toBe(200);
     expect(controllers.getAllOrders).toHaveBeenCalledTimes(1);
+  });
+
+  it('protects the operational exception queue behind admin authentication', async () => {
+    (controllers.listOrderExceptions as jest.Mock).mockClear();
+
+    const unauthenticated = await request(app).get('/admin/orders/exceptions');
+    expect(unauthenticated.status).toBe(401);
+    expect(controllers.listOrderExceptions).not.toHaveBeenCalled();
+
+    const authenticated = await request(app).get('/admin/orders/exceptions')
+      .set(gatewayHeaders({ role: 'ops_admin' }));
+    expect(authenticated.status).toBe(200);
+    expect(controllers.listOrderExceptions).toHaveBeenCalledTimes(1);
   });
 
   it('rejects forged internal admin headers without gateway signature', async () => {

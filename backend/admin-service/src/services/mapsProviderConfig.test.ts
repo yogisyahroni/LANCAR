@@ -269,6 +269,47 @@ describe('mapsProviderConfig', () => {
     expect((await getMapsProviderOpsSnapshot()).fallback.total).toBeGreaterThan(0);
   });
 
+  it('applies and caches only server-controlled provider location mappings', async () => {
+    readDb.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('provider_area_mappings')) {
+        return {
+          rows: [{
+            mapping_id: 'jne-jakarta-12910',
+            logistics_provider_code: 'JNE',
+            provider_location_code: 'JKT01',
+            canonical_city: 'Jakarta Selatan',
+            canonical_district: 'Setiabudi',
+            canonical_postal_code: '12910',
+          }],
+        };
+      }
+      return { rows: [{ value: baseConfig }] };
+    });
+    axios.get.mockResolvedValue({
+      data: [{
+        display_name: 'Jl. Sudirman No. 10, Jakarta Selatan',
+        lat: '-6.2088',
+        lon: '106.8456',
+        address: { city: 'Jakarta Selatan', city_district: 'Setiabudi', postcode: '12910' },
+      }],
+    });
+
+    const results = await geocodeAddress('Jl Sudirman Jakarta', 'web_customer');
+
+    expect(results[0]).toEqual(expect.objectContaining({
+      provider_location_codes: { JNE: 'JKT01' },
+      provider_location_mapping_ids: { JNE: 'jne-jakarta-12910' },
+      location_mapping_version: '2026-09-01',
+      location_mapping_count: 1,
+    }));
+    expect(redis.set).toHaveBeenCalledWith(
+      'maps:provider_location_mappings:2026-09-01',
+      expect.stringContaining('jne-jakarta-12910'),
+      'EX',
+      3600,
+    );
+  });
+
   it('caches reverse geocode provider results for repeated public lookups', async () => {
     axios.get.mockResolvedValue({
       data: {

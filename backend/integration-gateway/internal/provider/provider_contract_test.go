@@ -56,6 +56,44 @@ func TestProviderContractIsReusableForAdditionalProvider(t *testing.T) {
 	}
 }
 
+func TestRegisteredProvidersPassCapabilityDeclarationValidation(t *testing.T) {
+	webhooks := NewWebhookAdapterRegistry()
+	jneWebhook, ok := webhooks.Get("jne")
+	if !ok {
+		t.Fatal("JNE webhook adapter is not registered")
+	}
+	jntWebhook, ok := webhooks.Get("jnt")
+	if !ok {
+		t.Fatal("J&T webhook adapter is not registered")
+	}
+
+	registry := NewLogisticsProviderRegistry()
+	capabilities := []domain.LogisticsCapability{
+		domain.CapabilityTariff,
+		domain.CapabilityShipment,
+		domain.CapabilityTracking,
+		domain.CapabilityWebhook,
+	}
+	registry.Register(domain.ProviderRegistration{
+		Descriptor: domain.ProviderDescriptor{Code: "jne", Name: "JNE Express", Capabilities: capabilities},
+		Tariff:     NewJNEProvider(), Shipment: NewJNEProvider(), Tracking: NewJNEProvider(), Webhook: jneWebhook,
+	})
+	registry.Register(domain.ProviderRegistration{
+		Descriptor: domain.ProviderDescriptor{Code: "jnt", Name: "J&T Express", Capabilities: capabilities},
+		Tariff:     NewJNTProvider(), Shipment: NewJNTProvider(), Tracking: NewJNTProvider(), Webhook: jntWebhook,
+	})
+
+	if err := registry.Validate(); err != nil {
+		t.Fatalf("registered provider capabilities must be fully wired: %v", err)
+	}
+	for _, code := range []string{"jne", "jnt"} {
+		registration, ok := registry.Get(code)
+		if !ok || len(registration.Descriptor.Capabilities) != len(capabilities) {
+			t.Fatalf("expected complete registration for %s, got %#v (ok=%v)", code, registration, ok)
+		}
+	}
+}
+
 func TestProviderContractScenariosHaveFixtures(t *testing.T) {
 	providers := []string{"jne", "jnt"}
 	scenarios := []string{"rate", "create", "tracking", "errors", "timeout", "duplicate_event", "unknown_status"}

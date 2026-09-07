@@ -115,11 +115,10 @@ fun ServiceProgressBar(
 
 object TambalBanProgressSteps {
     val steps = listOf(
-        "Perjalanan",
+        "Menuju Anda",
         "Tiba",
-        "Verifikasi",
         "Inspeksi",
-        "Kerja",
+        "Pengerjaan",
         "Selesai"
     )
 }

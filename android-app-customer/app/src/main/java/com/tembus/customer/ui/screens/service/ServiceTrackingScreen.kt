@@ -47,7 +47,7 @@ fun ServiceTrackingScreen(
     val uiState by viewModel.uiState.collectAsState()
     
     androidx.compose.runtime.LaunchedEffect(orderId) {
-        viewModel.startTracking(orderId)
+        viewModel.startTracking(orderId, serviceSubType)
     }
     
     val isTambalBan = serviceSubType.startsWith("tambal_ban")
@@ -75,7 +75,7 @@ fun ServiceTrackingScreen(
             isRefreshing = isRefreshing,
             onRefresh = {
                 isRefreshing = true
-                viewModel.startTracking(orderId)
+                viewModel.startTracking(orderId, serviceSubType)
             },
             modifier = Modifier.fillMaxSize()
         ) {

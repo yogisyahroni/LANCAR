@@ -154,23 +154,23 @@ func (r *postgresRepo) TransitionOrder(ctx context.Context, request domain.Order
 			   SET status = $1,
 			       dispatch_expiry = NULL,
 			       updated_at = $2,
-			       food_eta_actual_ready_at = CASE WHEN $1 = 'searching' AND service_sub_type = 'food_delivery' THEN COALESCE(food_eta_actual_ready_at, $2) ELSE food_eta_actual_ready_at END,
-			       picked_up_at = CASE WHEN $1 = 'picked_up' AND service_sub_type = 'food_delivery' THEN COALESCE(picked_up_at, $2) ELSE picked_up_at END,
-			       delivered_at = CASE WHEN $1 = 'delivered' AND service_sub_type = 'food_delivery' THEN COALESCE(delivered_at, $2) ELSE delivered_at END
+			       food_eta_actual_ready_at = CASE WHEN $4 = 'searching' AND service_sub_type = 'food_delivery' THEN COALESCE(food_eta_actual_ready_at, $2) ELSE food_eta_actual_ready_at END,
+			       picked_up_at = CASE WHEN $4 = 'picked_up' AND service_sub_type = 'food_delivery' THEN COALESCE(picked_up_at, $2) ELSE picked_up_at END,
+			       delivered_at = CASE WHEN $4 = 'delivered' AND service_sub_type = 'food_delivery' THEN COALESCE(delivered_at, $2) ELSE delivered_at END
 			 WHERE id = $3
 			RETURNING state_version`
-		statusUpdateArgs = []any{request.TargetStatus, time.Now().UTC(), order.ID}
+		statusUpdateArgs = []any{request.TargetStatus, time.Now().UTC(), order.ID, string(request.TargetStatus)}
 	default:
 		statusUpdateQuery = `
 			UPDATE orders
 			   SET status = $1,
 			       updated_at = $2,
-			       food_eta_actual_ready_at = CASE WHEN $1 = 'searching' AND service_sub_type = 'food_delivery' THEN COALESCE(food_eta_actual_ready_at, $2) ELSE food_eta_actual_ready_at END,
-			       picked_up_at = CASE WHEN $1 = 'picked_up' AND service_sub_type = 'food_delivery' THEN COALESCE(picked_up_at, $2) ELSE picked_up_at END,
-			       delivered_at = CASE WHEN $1 = 'delivered' AND service_sub_type = 'food_delivery' THEN COALESCE(delivered_at, $2) ELSE delivered_at END
+			       food_eta_actual_ready_at = CASE WHEN $4 = 'searching' AND service_sub_type = 'food_delivery' THEN COALESCE(food_eta_actual_ready_at, $2) ELSE food_eta_actual_ready_at END,
+			       picked_up_at = CASE WHEN $4 = 'picked_up' AND service_sub_type = 'food_delivery' THEN COALESCE(picked_up_at, $2) ELSE picked_up_at END,
+			       delivered_at = CASE WHEN $4 = 'delivered' AND service_sub_type = 'food_delivery' THEN COALESCE(delivered_at, $2) ELSE delivered_at END
 			 WHERE id = $3
 			RETURNING state_version`
-		statusUpdateArgs = []any{request.TargetStatus, time.Now().UTC(), order.ID}
+		statusUpdateArgs = []any{request.TargetStatus, time.Now().UTC(), order.ID, string(request.TargetStatus)}
 	}
 	err = tx.QueryRowContext(ctx, statusUpdateQuery, statusUpdateArgs...).Scan(&stateVersion)
 	if err != nil {

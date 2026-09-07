@@ -201,6 +201,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       items: [
         { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
         { icon: Package, label: "Orders", path: "/orders" },
+        { icon: AlertTriangle, label: "Exception Queue", path: "/orders/exceptions" },
         { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },
         { icon: AlertTriangle, label: "Disputes", path: "/disputes" },
       ]

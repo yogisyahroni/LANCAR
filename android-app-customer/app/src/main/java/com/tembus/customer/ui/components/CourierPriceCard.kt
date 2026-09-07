@@ -137,7 +137,24 @@ fun CourierPriceCard(
                 Spacer(Modifier.height(4.dp))
                 
                 Text(
-                    "%.1f km".format(courier.distanceKm),
+                    "ETA ${courier.etaMinutes.coerceAtLeast(0)} menit",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    capabilityLabel(courier),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    "Jarak %.1f km".format(courier.distanceKm),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -187,6 +204,15 @@ fun CourierPriceCard(
                 }
             }
         }
+    }
+}
+
+private fun capabilityLabel(courier: NearbyCourier): String {
+    val vehicle = courier.vehicleTypeCar?.takeIf { it.isNotBlank() } ?: courier.vehicleType
+    return when {
+        vehicle.isNotBlank() -> "Kapabilitas: $vehicle"
+        courier.serviceSubType.isNotBlank() -> "Kapabilitas: ${courier.serviceSubType.replace('_', ' ')}"
+        else -> "Kapabilitas sesuai permintaan"
     }
 }
 

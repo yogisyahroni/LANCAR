@@ -1,3 +1,4 @@
+-- +goose Up
 -- FOOD-2026-021: entitlement and free-delivery subsidy accounting.
 CREATE TABLE IF NOT EXISTS food_membership_plans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

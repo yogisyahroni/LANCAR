@@ -29,7 +29,7 @@ class ServiceTrackingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ServiceTrackingUiState())
     val uiState: StateFlow<ServiceTrackingUiState> = _uiState.asStateFlow()
 
-    fun startTracking(orderId: String) {
+    fun startTracking(orderId: String, serviceSubType: String = "") {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             
@@ -39,9 +39,17 @@ class ServiceTrackingViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                currentStepIndex = calculateStepIndex(order.status),
+                                currentStepIndex = if (serviceSubType.startsWith("tambal_ban")) {
+                                    tambalBanStepIndex(order.status)
+                                } else {
+                                    calculateStepIndex(order.status)
+                                },
                                 courierName = order.courierName,
-                                statusText = getStatusText(order.status),
+                                statusText = if (serviceSubType.startsWith("tambal_ban")) {
+                                    tambalBanStatusText(order.status)
+                                } else {
+                                    getStatusText(order.status)
+                                },
                                 etaMinutes = order.etaMinutes
                             )
                         }

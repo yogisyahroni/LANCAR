@@ -4,6 +4,7 @@ export type MapsLocationMapping = {
   provider_location_code: string;
   canonical_city: string;
   canonical_district?: string | null;
+  canonical_postal_code?: string | null;
   aliases?: string[];
   enabled?: boolean;
 };
@@ -27,6 +28,7 @@ export type NormalizedLocationFields = {
   country_code: string | null;
   provider_place_id: string | null;
   provider_location_codes: Record<string, string>;
+  provider_location_mapping_ids: Record<string, string>;
   location_mapping_version: string;
   location_mapping_count: number;
 };
@@ -59,7 +61,11 @@ const mappingMatches = (mapping: MapsLocationMapping, input: NormalizedLocationI
   if (!city || !cityCandidates.includes(city)) return false;
 
   const configuredDistrict = comparable(mapping.canonical_district);
-  return !configuredDistrict || configuredDistrict === district;
+  if (configuredDistrict && configuredDistrict !== district) return false;
+
+  const configuredPostalCode = comparable(mapping.canonical_postal_code);
+  const postalCode = comparable(input.postal_code);
+  return !configuredPostalCode || !postalCode || configuredPostalCode === postalCode;
 };
 
 export const normalizeLocation = (
@@ -68,6 +74,7 @@ export const normalizeLocation = (
   mappingVersion = 'unconfigured'
 ): NormalizedLocationFields => {
   const providerLocationCodes: Record<string, string> = {};
+  const providerLocationMappingIds: Record<string, string> = {};
   let mappingCount = 0;
 
   for (const mapping of mappings) {
@@ -75,6 +82,7 @@ export const normalizeLocation = (
     const provider = mapping.logistics_provider_code.trim().toUpperCase();
     if (!providerLocationCodes[provider]) {
       providerLocationCodes[provider] = mapping.provider_location_code.trim();
+      providerLocationMappingIds[provider] = mapping.mapping_id.trim();
       mappingCount += 1;
     }
   }
@@ -88,6 +96,7 @@ export const normalizeLocation = (
     country_code: clean(input.country_code)?.toUpperCase() || null,
     provider_place_id: clean(input.provider_place_id),
     provider_location_codes: providerLocationCodes,
+    provider_location_mapping_ids: providerLocationMappingIds,
     location_mapping_version: mappingVersion,
     location_mapping_count: mappingCount,
   };

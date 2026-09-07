@@ -116,6 +116,10 @@ export function AddressPicker({
     city?: string;
     district?: string;
     postal_code?: string;
+    provider_location_codes?: Record<string, string>;
+    provider_location_mapping_ids?: Record<string, string>;
+    location_mapping_version?: string;
+    location_mapping_count?: number;
   } | null> => {
     try {
       const res = await api.get("/maps/reverse-geocode", {
@@ -182,6 +186,10 @@ export function AddressPicker({
           city?: string;
           district?: string;
           postal_code?: string;
+          provider_location_codes?: Record<string, string>;
+          provider_location_mapping_ids?: Record<string, string>;
+          location_mapping_version?: string;
+          location_mapping_count?: number;
         }>;
         const providerSuggestions = data.flatMap((item, index): AddressSuggestion[] => {
           const [label, ...rest] = item.label.split(",");
@@ -198,6 +206,10 @@ export function AddressPicker({
             city: item.city,
             district: item.district,
             postal_code: item.postal_code,
+            provider_location_codes: item.provider_location_codes,
+            provider_location_mapping_ids: item.provider_location_mapping_ids,
+            location_mapping_version: item.location_mapping_version,
+            location_mapping_count: item.location_mapping_count,
           }];
         });
 
@@ -235,6 +247,10 @@ export function AddressPicker({
       city: suggestion.city,
       district: suggestion.district,
       postal_code: suggestion.postal_code,
+      provider_location_codes: suggestion.provider_location_codes,
+      provider_location_mapping_ids: suggestion.provider_location_mapping_ids,
+      location_mapping_version: suggestion.location_mapping_version,
+      location_mapping_count: suggestion.location_mapping_count,
       receiver: { name: suggestion.recipient_name, phone: suggestion.phone },
       lat: location.lat,
       lng: location.lng,
@@ -297,6 +313,10 @@ export function AddressPicker({
             city: geocoded?.city,
             district: geocoded?.district,
             postal_code: geocoded?.postal_code,
+            provider_location_codes: geocoded?.provider_location_codes,
+            provider_location_mapping_ids: geocoded?.provider_location_mapping_ids,
+            location_mapping_version: geocoded?.location_mapping_version,
+            location_mapping_count: geocoded?.location_mapping_count,
             lat: nextLocation.lat,
             lng: nextLocation.lng,
             source: "gps",

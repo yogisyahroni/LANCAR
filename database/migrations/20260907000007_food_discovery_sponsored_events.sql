@@ -1,3 +1,4 @@
+-- +goose Up
 -- FOOD-2026-023: sponsored discovery attribution and dedupe/fraud guards.
 CREATE TABLE IF NOT EXISTS food_discovery_ad_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

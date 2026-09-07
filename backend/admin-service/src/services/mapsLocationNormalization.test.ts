@@ -53,6 +53,7 @@ describe('mapsLocationNormalization', () => {
     );
 
     expect(result.provider_location_codes).toEqual({ JNE: 'BDO' });
+    expect(result.provider_location_mapping_ids).toEqual({ JNE: 'jne-bandung' });
     expect(result.location_mapping_version).toBe('locations-v3');
     expect(result.location_mapping_count).toBe(1);
   });
@@ -71,6 +72,7 @@ describe('mapsLocationNormalization', () => {
     );
 
     expect(result.provider_location_codes).toEqual({});
+    expect(result.provider_location_mapping_ids).toEqual({});
     expect(result.location_mapping_count).toBe(0);
   });
 });
