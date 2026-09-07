@@ -5128,11 +5128,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - Admin maps/zones pages
 
 **Checklist**
-- [ ] Polygon/multipolygon zones versioned and market scoped.
-- [ ] Service/capability/provider availability can reference zones.
-- [ ] Boundary behavior tested deterministically.
-- [ ] Zone publish has preview/diff/approval/rollback for high-impact changes.
-- [ ] Active order is not invalidated blindly when zone config changes.
+  - [x] Polygon/multipolygon zones versioned and market scoped.
+  - [x] Service/capability/provider availability can reference zones.
+  - [x] Boundary behavior tested deterministically.
+  - [x] Zone publish has preview/diff/approval/rollback for high-impact changes.
+  - [x] Active order is not invalidated blindly when zone config changes.
 
 ---
 
