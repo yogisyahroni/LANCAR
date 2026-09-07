@@ -250,6 +250,53 @@ func TestHandleFoodOrderDelivered_UsesFrozenCommercialTerms(t *testing.T) {
 	}
 }
 
+type mockSettlementCancelFeeRepo struct {
+	fees    []*domain.MerchantCancellationFee
+	markErr error
+}
+
+func (m *mockSettlementCancelFeeRepo) Create(context.Context, *domain.MerchantCancellationFee) error {
+	return nil
+}
+
+func (m *mockSettlementCancelFeeRepo) GetOutstandingByMerchant(context.Context, string) ([]*domain.MerchantCancellationFee, error) {
+	return m.fees, nil
+}
+
+func (m *mockSettlementCancelFeeRepo) MarkDeducted(context.Context, uuid.UUID, uuid.UUID) error {
+	return m.markErr
+}
+
+func TestHandleFoodOrderDelivered_DoesNotDeductUnclaimedCancellationFee(t *testing.T) {
+	feeRepo := &mockSettlementCancelFeeRepo{
+		fees: []*domain.MerchantCancellationFee{{
+			ID: uuid.New(), MerchantID: "merchant-1", OrderID: "cancelled-order", AmountIDR: 5000,
+			Status: domain.CancellationFeePending,
+		}},
+		// Models a concurrent settlement that claimed the fee first.
+		markErr: errors.New("cancellation fee is no longer PENDING"),
+	}
+	repo := &mockSettlementRepo{foodData: foodSettlementData()}
+	svc := service.NewMerchantSettlementService(
+		repo, &mockSettlementConfigRepo{}, &mockSettlementNotifSvc{}, nil, nil, feeRepo,
+	)
+
+	if err := svc.HandleFoodOrderDelivered(context.Background(), "order-food-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one settlement, got %d", len(repo.created))
+	}
+	settlement := repo.created[0]
+	// The failed conditional claim must leave the full payout untouched.
+	if settlement.NetPayoutIDR != 24000 {
+		t.Fatalf("unclaimed cancellation fee changed payout: got %d, want 24000", settlement.NetPayoutIDR)
+	}
+	if settlement.Metadata["cancellation_fee_deducted_idr"] != int64(0) {
+		t.Fatalf("unclaimed cancellation fee was reported as deducted: %#v", settlement.Metadata)
+	}
+}
+
 func TestHandleFoodOrderDelivered_PaymentLinkLookupError(t *testing.T) {
 	repo := &mockSettlementRepo{plErr: errors.New("db down")}
 	svc := newSettlementTestSvc(repo)

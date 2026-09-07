@@ -2,8 +2,18 @@ package worker
 
 import (
 	"context"
+	"tembus/order-service/internal/domain"
 	"testing"
 )
+
+type surgeGuardrailConfigStub struct{ domain.ConfigRepository }
+
+func (surgeGuardrailConfigStub) GetFloatConfig(_ context.Context, key string, fallback float64) float64 {
+	if key == "surge_max_multiplier" {
+		return 1.4
+	}
+	return fallback
+}
 
 func TestCalculateSurgeMultiplierRequiresFreshMarketplaceDemand(t *testing.T) {
 	worker := &SurgeWorker{}
@@ -30,6 +40,20 @@ func TestCalculateSurgeMultiplierUsesFreshSupplyDemandRatio(t *testing.T) {
 	}
 	if got := worker.calculateSurgeMultiplier(context.Background(), fresh); got != 1.25 {
 		t.Fatalf("fresh demand/supply ratio multiplier = %.2f, want 1.25", got)
+	}
+}
+
+func TestCalculateSurgeMultiplierEnforcesConfiguredCapUnderPeakLoad(t *testing.T) {
+	worker := &SurgeWorker{configRepo: surgeGuardrailConfigStub{}}
+	peak := ZoneSurgeInput{
+		WeatherMultiplier: 1.4,
+		PricingMultiplier: 1.35,
+		ActiveOrders:      10000,
+		AvailableCouriers: 0,
+		DataFresh:         true,
+	}
+	if got := worker.calculateSurgeMultiplier(context.Background(), peak); got != 1.4 {
+		t.Fatalf("peak surge exceeded configured protected cap: got %.2f, want 1.40", got)
 	}
 }
 

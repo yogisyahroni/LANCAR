@@ -234,6 +234,9 @@ func TestRefundService_FoodAccepted_WithholdServiceFee(t *testing.T) {
 	if rec.PlatformFeeReversalIDR != 0 {
 		t.Errorf("expected platform fee reversal 0 (fee ditahan), got %d", rec.PlatformFeeReversalIDR)
 	}
+	if int64(rec.AmountIDR)+rec.CancellationFeeIDR != int64(paymentRepo.payments["pay-1"].AmountIDR) {
+		t.Errorf("cancellation economics do not reconcile: refund=%d fee=%d payment=%d", rec.AmountIDR, rec.CancellationFeeIDR, paymentRepo.payments["pay-1"].AmountIDR)
+	}
 }
 
 // FB-081: merchant reject / auto-cancel timeout → original_status=pending_merchant

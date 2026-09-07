@@ -750,15 +750,20 @@ func (s *merchantSettlementService) deductOutstandingCancellationFees(ctx contex
 			break // payout habis — sisa fee carry forward
 		}
 		if f.AmountIDR <= *netPayout {
-			*netPayout -= f.AmountIDR
-			totalDeducted += f.AmountIDR
+			// Claim the fee before changing the payout. GetOutstandingByMerchant
+			// is intentionally a read model and may race with another settlement;
+			// MarkDeducted's conditional PENDING transition is the ownership gate.
+			// A failed claim must not still reduce this settlement's payout.
 			if err := s.cancelFeeRepo.MarkDeducted(ctx, f.ID, settlementID); err != nil {
 				slog.WarnContext(ctx, "merchant_settlement: gagal mark fee deducted (fee dipotong tp status tetap PENDING)",
 					"fee_id", f.ID, "error", err)
+				continue
 			}
+			*netPayout -= f.AmountIDR
+			totalDeducted += f.AmountIDR
 			slog.InfoContext(ctx, "merchant_settlement: cancellation fee deducted",
-				"fee_id", f.ID, "order_id", f.OrderID, "settlement_id", settlementID,
-				"amount_idr", f.AmountIDR)
+					"fee_id", f.ID, "order_id", f.OrderID, "settlement_id", settlementID,
+					"amount_idr", f.AmountIDR)
 		}
 		// fee > payout → tidak cukup, carry forward (tidak dipotong sebagian)
 	}

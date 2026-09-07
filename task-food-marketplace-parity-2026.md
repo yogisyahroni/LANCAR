@@ -5353,12 +5353,12 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## ECON-2026-012 — Pricing/incentive concurrency/E2E gate [P0]
 
 **Mandatory scenarios**
-- [ ] Quote under policy version A remains auditable after version B publish.
-- [ ] Concurrent incentive completion cannot double pay.
-- [ ] Demand signal stale → bounded fallback.
-- [ ] Surge cap enforced under peak load.
-- [ ] Cancellation fee and compensation reconcile.
-- [ ] Merchant commission change does not alter historical settlement.
+- [x] Quote under policy version A remains auditable after version B publish.
+- [x] Concurrent incentive completion cannot double pay.
+- [x] Demand signal stale → bounded fallback.
+- [x] Surge cap enforced under peak load.
+- [x] Cancellation fee and compensation reconcile.
+- [x] Merchant commission change does not alter historical settlement.
 
 ---
 
