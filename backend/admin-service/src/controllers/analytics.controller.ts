@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { securityLog } from '../security/logRedaction';
 import { readDb } from '../db';
 import { db } from '../db';
+import { coarsenLocationRow } from '../services/geoPrivacy';
 
 const parseCount = (value: unknown): number => {
   const parsed = Number(value);
@@ -303,8 +304,8 @@ export const getHeatData = async (req: Request, res: Response) => {
         SELECT
           cp.id AS courier_profile_id,
           cp.user_id AS account_id,
-          ST_Y(cp.current_location::geometry) AS lat,
-          ST_X(cp.current_location::geometry) AS lng,
+          ST_Y(ST_SnapToGrid(cp.current_location::geometry, 0.001)) AS lat,
+          ST_X(ST_SnapToGrid(cp.current_location::geometry, 0.001)) AS lng,
           cp.is_online,
           cp.last_location_at,
           CASE
@@ -338,7 +339,7 @@ export const getHeatData = async (req: Request, res: Response) => {
       FROM ranked_courier_points
       WHERE account_rank = 1
     `);
-    res.json(result.rows);
+    res.json(result.rows.map((row) => coarsenLocationRow(row)));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

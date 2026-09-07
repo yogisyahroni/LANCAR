@@ -15,6 +15,7 @@ import { redis } from '../../redis';
 
 import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../../services/onDemandRealtime';
 import { buildOnDemandTrackingSnapshot, evaluateLocationQuality, writeLocationSafetyEvent } from '../../services/onDemandTracking';
+import { configuredGeoMarket } from '../../services/geoPrivacy';
 
 import { evaluateOnDemandRealtimeAlerts } from '../../services/realtimeObservability';
 import { buildMapsRouteEtaSnapshot, RouteEtaSnapshot } from '../../services/mapsProviderConfig';
@@ -137,6 +138,7 @@ export const syncCourierTracking = async (req: Request, res: Response): Promise<
     let rejectedCount = 0;
     let duplicateCount = 0;
     let latestPayload: Record<string, any> | null = null;
+    const marketCode = configuredGeoMarket();
 
     for (const item of locations) {
       const latitude = Number(item.latitude);
@@ -241,10 +243,10 @@ export const syncCourierTracking = async (req: Request, res: Response): Promise<
 
       await client.query(
         `INSERT INTO courier_locations (
-           courier_id, order_id, location, accuracy_m, heading_deg, speed_kmh, is_spoofed, recorded_at, client_location_id, device_id
+           courier_id, order_id, location, accuracy_m, heading_deg, speed_kmh, is_spoofed, recorded_at, client_location_id, device_id, market_code, purpose, retention_class
          )
          VALUES (
-           $1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5, $6, $7, $8, $9, $10, $11
+           $1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5, $6, $7, $8, $9, $10, $11, $12, 'active_delivery', $13
          )`,
         [
           courierProfile.id,
@@ -258,6 +260,8 @@ export const syncCourierTracking = async (req: Request, res: Response): Promise<
           recordedAt,
           clientLocationId,
           deviceId,
+          marketCode,
+          quality.is_spoofed ? 'forensic' : 'operational',
         ]
       );
 
@@ -886,4 +890,3 @@ export const getCustomerDashboardStats = async (req: Request, res: Response): Pr
     res.status(500).json({ success: false, data: null, message: error.message });
   }
 };
-

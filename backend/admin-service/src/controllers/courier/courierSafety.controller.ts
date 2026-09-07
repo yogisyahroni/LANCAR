@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { securityLog } from '../../security/logRedaction';
+import { coarsenLocationRow } from '../../services/geoPrivacy';
 import { getActorId } from '../../utils/authUtils';
 
 import { db } from '../../db';
@@ -328,13 +329,13 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
          o.status,
          o.pickup_address,
          o.dropoff_address AS drop_address,
-         ST_Y(o.pickup_location::geometry)::float8 AS pickup_latitude,
-         ST_X(o.pickup_location::geometry)::float8 AS pickup_longitude,
-         ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
-         ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
+         ST_Y(ST_SnapToGrid(o.pickup_location::geometry, 0.001))::float8 AS pickup_latitude,
+         ST_X(ST_SnapToGrid(o.pickup_location::geometry, 0.001))::float8 AS pickup_longitude,
+         ST_Y(ST_SnapToGrid(o.dropoff_location::geometry, 0.001))::float8 AS drop_latitude,
+         ST_X(ST_SnapToGrid(o.dropoff_location::geometry, 0.001))::float8 AS drop_longitude,
          u.full_name AS courier_name,
-         ST_Y(cp.current_location::geometry)::float8 AS courier_latitude,
-         ST_X(cp.current_location::geometry)::float8 AS courier_longitude,
+         ST_Y(ST_SnapToGrid(cp.current_location::geometry, 0.001))::float8 AS courier_latitude,
+         ST_X(ST_SnapToGrid(cp.current_location::geometry, 0.001))::float8 AS courier_longitude,
          cp.last_location_at,
          o.route_duration_seconds,
          o.route_provider,
@@ -368,7 +369,7 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
-        ...row,
+        ...coarsenLocationRow(row),
         route_snapshot: undefined,
         eta_minutes: etaMinutes,
         eta: etaMinutes == null ? null : `${etaMinutes} menit`,

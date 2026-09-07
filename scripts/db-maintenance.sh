@@ -26,7 +26,6 @@ POSTGRES_USER="${POSTGRES_USER:-postgres}"
 POSTGRES_DB="${POSTGRES_DB:-tembus}"
 DRY_RUN="${DRY_RUN:-false}"
 MONTHS_AHEAD="${MONTHS_AHEAD:-3}"       # Partisi berapa bulan ke depan
-RETAIN_LOCATION_MONTHS="${RETAIN_LOCATION_MONTHS:-2}"  # Simpan partisi GPS berapa bulan
 
 # ─────────────────────────────────────────────────────────────
 # Fungsi helper
@@ -71,14 +70,16 @@ log ""
 log "--- Membuat partisi courier_locations untuk ${MONTHS_AHEAD} bulan ke depan ---"
 psql_exec "SELECT partition_name, partition_range, status FROM tembus_create_monthly_partitions(${MONTHS_AHEAD});"
 
-# 4. Hapus partisi GPS lama (DROP TABLE = instan, tanpa bloat)
+# 4. Hapus raw courier location sesuai policy market/purpose/class.
+#    Jangan memakai DROP partisi generik di sini: retention class forensic
+#    dapat membutuhkan masa simpan lebih panjang daripada operational.
 log ""
 if [ "${DRY_RUN}" = "true" ]; then
-    log "--- DRY RUN: Preview partisi yang AKAN dihapus (simpan ${RETAIN_LOCATION_MONTHS} bulan) ---"
-    psql_exec "SELECT partition_name, action FROM tembus_drop_old_location_partitions(retain_months := ${RETAIN_LOCATION_MONTHS}, dry_run := TRUE);"
+    log "--- DRY RUN: Preview raw courier locations sesuai policy ---"
+    psql_exec "SELECT market_code, purpose, retention_class, rows_deleted, retention_days FROM tembus_cleanup_courier_locations(dry_run := TRUE);"
 else
-    log "--- Menghapus partisi courier_locations lebih dari ${RETAIN_LOCATION_MONTHS} bulan lalu ---"
-    psql_exec "SELECT partition_name, action FROM tembus_drop_old_location_partitions(retain_months := ${RETAIN_LOCATION_MONTHS}, dry_run := FALSE);"
+    log "--- Menghapus raw courier locations sesuai policy ---"
+    psql_exec "SELECT market_code, purpose, retention_class, rows_deleted, retention_days FROM tembus_cleanup_courier_locations(dry_run := FALSE);"
 fi
 
 # 5. Hapus data kedaluwarsa dari tabel non-partisi

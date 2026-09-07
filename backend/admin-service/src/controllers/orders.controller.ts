@@ -3,6 +3,7 @@ import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
 import { securityLog } from '../security/logRedaction';
 import { withCanonicalOrderContract } from '../services/orderContract';
+import { recordExactLocationAccess } from '../services/geoPrivacy';
 
 const STUCK_REASON_SQL = `
   CASE
@@ -485,6 +486,13 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       res.status(404).json({ error: 'Order not found' });
       return;
     }
+
+    recordExactLocationAccess({
+      actorId: req.user?.id,
+      actorRole: req.user?.role,
+      orderId: id,
+      surface: 'admin_order_detail.gps_trail',
+    });
 
     const eventsRes = await readDb.query(`
       SELECT id, order_id, user_id, event_type, description, metadata, created_at 
