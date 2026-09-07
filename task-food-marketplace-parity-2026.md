@@ -5479,11 +5479,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## COURIER-2026-009 — Suspension, restriction and appeal [P0/P1]
 
 **Checklist**
-- [ ] Enforcement can target account, market or capability with reason/effective period.
-- [ ] Active job safe completion/reassignment policy before immediate suspension where possible.
-- [ ] Courier sees actionable reason category unless disclosure would compromise investigation/security.
-- [ ] Appeal/review timeline audited.
-- [ ] Reinstatement restores only approved capabilities.
+- [x] Enforcement can target account, market or capability with reason/effective period.
+- [x] Active job safe completion/reassignment policy before immediate suspension where possible.
+- [x] Courier sees actionable reason category unless disclosure would compromise investigation/security.
+- [x] Appeal/review timeline audited.
+- [x] Reinstatement restores only approved capabilities.
 
 ---
 
