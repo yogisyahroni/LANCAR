@@ -290,16 +290,21 @@ func (r *merchantSettlementRepository) GetFoodOrderForSettlement(ctx context.Con
 		SELECT o.id,
 		       COALESCE(o.merchant_id::text, ''),
 		       COALESCE(o.platform_fee_idr, 0),
-		       COALESCE(SUM(f.subtotal), 0)
+		       COALESCE(SUM(f.subtotal), 0),
+		       COALESCE((o.settlement_snapshot->'merchant_commercial_terms'->>'commission_idr')::BIGINT, 0),
+		       COALESCE(o.settlement_snapshot->'merchant_commercial_terms', '{}'::jsonb),
+		       (o.settlement_snapshot ? 'merchant_commercial_terms')
 		FROM orders o
 		LEFT JOIN food_order_items f ON f.order_id = o.id
 		WHERE o.id = $1
 		  AND o.service_sub_type = 'food_delivery'
 		  AND o.merchant_id IS NOT NULL
-		GROUP BY o.id, o.merchant_id, o.platform_fee_idr`, orderID)
+		GROUP BY o.id, o.merchant_id, o.platform_fee_idr, o.settlement_snapshot`, orderID)
 
 	var d domain.FoodOrderSettlementData
-	err := row.Scan(&d.OrderID, &d.MerchantID, &d.PlatformFeeIDR, &d.GrossItemIDR)
+	var termsRaw []byte
+	err := row.Scan(&d.OrderID, &d.MerchantID, &d.PlatformFeeIDR, &d.GrossItemIDR,
+		&d.MerchantCommissionIDR, &termsRaw, &d.CommercialTermsApplied)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -308,6 +313,9 @@ func (r *merchantSettlementRepository) GetFoodOrderForSettlement(ctx context.Con
 	}
 	if d.MerchantID == "" {
 		return nil, nil
+	}
+	if len(termsRaw) > 0 {
+		_ = json.Unmarshal(termsRaw, &d.CommercialTerms)
 	}
 	return &d, nil
 }

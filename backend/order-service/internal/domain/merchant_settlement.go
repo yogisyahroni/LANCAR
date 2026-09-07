@@ -179,6 +179,12 @@ type FoodOrderSettlementData struct {
 	MerchantID     string
 	PlatformFeeIDR int64
 	GrossItemIDR   int64
+	// MerchantCommissionIDR and CommercialTerms are read from the order's
+	// immutable commercial snapshot. PlatformFeeIDR is retained as the
+	// backward-compatible fallback for orders created before ECON-2026-006.
+	MerchantCommissionIDR  int64
+	CommercialTerms        map[string]any
+	CommercialTermsApplied bool
 }
 
 // FoodOrderItemForPromo — baris item order food untuk kalkulasi promo (FB-101).

@@ -278,6 +278,13 @@ func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context
 	if data.GrossItemIDR < 0 || data.PlatformFeeIDR < 0 {
 		return fmt.Errorf("HandleFoodOrderDelivered: invalid negative amount (gross: %d, fee: %d) — blocked", data.GrossItemIDR, data.PlatformFeeIDR)
 	}
+	merchantCommissionIDR := data.PlatformFeeIDR
+	if data.CommercialTermsApplied {
+		merchantCommissionIDR = data.MerchantCommissionIDR
+	}
+	if merchantCommissionIDR < 0 {
+		return fmt.Errorf("HandleFoodOrderDelivered: invalid negative merchant commission (%d) — blocked", merchantCommissionIDR)
+	}
 	disbursementFeeIDR := int64(s.configRepo.GetIntConfig(ctx, "merchant_disbursement_fee_idr", 4000))
 
 	// 4b. FB-101: potongan promo merchant (dibiayai merchant) mengurangi
@@ -289,9 +296,9 @@ func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context
 			"merchant_id", data.MerchantID, "order_id", data.OrderID, "error", promoErr)
 	}
 
-	netPayoutIDR := data.GrossItemIDR - data.PlatformFeeIDR - disbursementFeeIDR - promoDiscountIDR
+	netPayoutIDR := data.GrossItemIDR - merchantCommissionIDR - disbursementFeeIDR - promoDiscountIDR
 	if netPayoutIDR < 0 {
-		return fmt.Errorf("HandleFoodOrderDelivered: invalid net payout (gross: %d, fee: %d, disburse_fee: %d, promo: %d) — payout cannot be negative", data.GrossItemIDR, data.PlatformFeeIDR, disbursementFeeIDR, promoDiscountIDR)
+		return fmt.Errorf("HandleFoodOrderDelivered: invalid net payout (gross: %d, commission: %d, disburse_fee: %d, promo: %d) — payout cannot be negative", data.GrossItemIDR, merchantCommissionIDR, disbursementFeeIDR, promoDiscountIDR)
 	}
 
 	// 5. Buat settlement HOLDING
@@ -314,7 +321,7 @@ func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context
 		MerchantID:               data.MerchantID,
 		OrderID:                  data.OrderID,
 		GrossItemPriceIDR:        data.GrossItemIDR,
-		MerchantFeeIDR:           data.PlatformFeeIDR,
+		MerchantFeeIDR:           merchantCommissionIDR,
 		DisbursementFeeIDR:       disbursementFeeIDR,
 		MerchantPromoDiscountIDR: promoDiscountIDR,
 		NetPayoutIDR:             netPayoutIDR,
@@ -330,6 +337,10 @@ func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context
 			"holding_days":                  holdingDays,
 			"cancellation_fee_deducted_idr": deductedFees,
 			"merchant_promo_discount_idr":   promoDiscountIDR,
+			"merchant_commission_idr":       merchantCommissionIDR,
+			"commercial_terms":              data.CommercialTerms,
+			"commercial_terms_applied":      data.CommercialTermsApplied,
+			"ads_spend_idr":                 0,
 		},
 	}
 	if err := s.repo.Create(ctx, settlement); err != nil {
@@ -351,7 +362,7 @@ func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context
 		entries := []domain.LedgerEntry{
 			{AccountName: "1101 - Cash / Bank", DebitIDR: data.GrossItemIDR, CreditIDR: 0},
 			{AccountName: "2102 - Merchant Compensation Payable", DebitIDR: 0, CreditIDR: netPayoutIDR},
-			{AccountName: "4102 - Platform Admin Fee", DebitIDR: 0, CreditIDR: data.PlatformFeeIDR},
+			{AccountName: "4102 - Platform Admin Fee", DebitIDR: 0, CreditIDR: merchantCommissionIDR},
 			{AccountName: "4102 - Platform Admin Fee", DebitIDR: 0, CreditIDR: disbursementFeeIDR},
 		}
 		if _, err := s.ledgerRepo.CreateJournalReturningID(ctx, journal, entries); err != nil {

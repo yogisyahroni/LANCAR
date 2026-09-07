@@ -5274,11 +5274,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## ECON-2026-006 — Merchant commission and commercial contract policy [P1]
 
 **Checklist**
-- [ ] Commission/fee contract versioned by merchant/market/service/effective date.
-- [ ] Food order settlement stores applied commercial terms.
-- [ ] Ads spend remains separate from commission.
-- [ ] Manual commercial override requires approved contract/reference and audit.
-- [ ] Historical orders never reprice when merchant contract changes later.
+- [x] Commission/fee contract versioned by merchant/market/service/effective date.
+- [x] Food order settlement stores applied commercial terms.
+- [x] Ads spend remains separate from commission.
+- [x] Manual commercial override requires approved contract/reference and audit.
+- [x] Historical orders never reprice when merchant contract changes later.
 
 ---
 

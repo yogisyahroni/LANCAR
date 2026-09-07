@@ -99,6 +99,19 @@ func foodSettlementData() *domain.FoodOrderSettlementData {
 	}
 }
 
+func foodContractSettlementData() *domain.FoodOrderSettlementData {
+	return &domain.FoodOrderSettlementData{
+		OrderID: "order-food-contract", MerchantID: "merchant-1",
+		GrossItemIDR: 100000, MerchantCommissionIDR: 7500,
+		CommercialTermsApplied: true,
+		CommercialTerms: map[string]any{
+			"contract_version":   "merchant-1-food-v2",
+			"commission_percent": 7.5,
+			"ads_spend_idr":      0,
+		},
+	}
+}
+
 // ─────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────
@@ -214,6 +227,26 @@ func TestHandleFoodOrderDelivered_DuplicateRetryCreatesOneSettlement(t *testing.
 	}
 	if repo.created[0].IdempotencyKey != "settle-order-order-food-1" {
 		t.Fatalf("wrong idempotency key: %s", repo.created[0].IdempotencyKey)
+	}
+}
+
+func TestHandleFoodOrderDelivered_UsesFrozenCommercialTerms(t *testing.T) {
+	repo := &mockSettlementRepo{foodData: foodContractSettlementData()}
+	svc := newSettlementTestSvc(repo)
+
+	if err := svc.HandleFoodOrderDelivered(context.Background(), "order-food-contract"); err != nil {
+		t.Fatalf("food settlement failed: %v", err)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one settlement, got %d", len(repo.created))
+	}
+	settlement := repo.created[0]
+	// 100000 - frozen 7.5% commission - 4000 disbursement.
+	if settlement.MerchantFeeIDR != 7500 || settlement.NetPayoutIDR != 88500 {
+		t.Fatalf("settlement did not use frozen commercial terms: fee=%d net=%d", settlement.MerchantFeeIDR, settlement.NetPayoutIDR)
+	}
+	if settlement.Metadata["commercial_terms_applied"] != true {
+		t.Fatalf("commercial terms audit flag missing: %#v", settlement.Metadata)
 	}
 }
 
