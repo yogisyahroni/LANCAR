@@ -5237,11 +5237,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## ECON-2026-003 — Bounded dynamic/peak pricing policy [P1]
 
 **Checklist**
-- [ ] Dynamic adjustment has configured floor/ceiling, zone, service, time and market scope.
-- [ ] Rule version and trigger context logged per quote.
-- [ ] Customer sees material price before confirmation; requote required if changed.
-- [ ] Emergency/Towing/Tambal pricing policy reviewed for fairness/consumer protection per market.
-- [ ] Ordinary experiment cannot exceed protected caps.
+- [x] Dynamic adjustment has configured floor/ceiling, zone, service, time and market scope.
+- [x] Rule version and trigger context logged per quote.
+- [x] Customer sees material price before confirmation; requote required if changed.
+- [x] Emergency/Towing/Tambal pricing policy reviewed for fairness/consumer protection per market.
+- [x] Ordinary experiment cannot exceed protected caps.
 
 ---
 
