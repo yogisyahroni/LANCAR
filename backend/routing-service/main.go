@@ -243,9 +243,11 @@ func validateProductionSecrets() {
 }
 
 type routeModelRequest struct {
-	Pickup  routing.Coordinate `json:"pickup"`
-	Dropoff routing.Coordinate `json:"dropoff"`
-	UserID  string             `json:"user_id"`
+	Pickup          routing.Coordinate `json:"pickup"`
+	Dropoff         routing.Coordinate `json:"dropoff"`
+	PickupLocation  *routing.Location  `json:"pickup_location,omitempty"`
+	DropoffLocation *routing.Location  `json:"dropoff_location,omitempty"`
+	UserID          string             `json:"user_id"`
 }
 
 type routeModelResponse struct {
@@ -290,9 +292,11 @@ func routeModelHandler(engine *routing.RoutingEngine) http.HandlerFunc {
 		}
 
 		model, err := engine.SelectModel(r.Context(), routing.OrderRequest{
-			Pickup:  payload.Pickup,
-			Dropoff: payload.Dropoff,
-			UserID:  payload.UserID,
+			Pickup:          payload.Pickup,
+			Dropoff:         payload.Dropoff,
+			PickupLocation:  payload.PickupLocation,
+			DropoffLocation: payload.DropoffLocation,
+			UserID:          payload.UserID,
 		})
 		if err != nil {
 			writeJSON(w, http.StatusUnprocessableEntity, routeModelResponse{

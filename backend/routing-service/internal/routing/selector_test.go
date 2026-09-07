@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"tembus-backend/internal/domain"
 	"tembus-backend/internal/featureflags"
 )
 
@@ -166,6 +167,73 @@ func TestSelectModel3PL(t *testing.T) {
 	})
 	if err != nil || model != Model3PL_JNE {
 		t.Errorf("Expected JNE for out of zone fallback, got %v, err %v", model, err)
+	}
+}
+
+func TestSelectModelRejectsTransactionalZeroCoordinate(t *testing.T) {
+	engine := NewRoutingEngineWithZoneResolver(&mockFlagReader{}, &fakeZoneResolver{})
+	_, err := engine.SelectModel(context.Background(), OrderRequest{
+		Pickup:  Coordinate{Lat: 0, Lng: 0},
+		Dropoff: Coordinate{Lat: -6.2, Lng: 106.8},
+	})
+	if err == nil {
+		t.Fatal("expected transactional pickup coordinate 0,0 to be rejected")
+	}
+}
+
+func TestSelectModelUsesCanonicalLocationSnapshot(t *testing.T) {
+	flags := map[string]*featureflags.FeatureFlag{
+		"model_p2p": {IsEnabled: true, Config: map[string]interface{}{"active_zones": []interface{}{"JAK-SEL"}}},
+	}
+	pickup := Location{
+		DisplayAddress: "Jl. Sudirman No. 10",
+		NormalizedAddress: domain.NormalizedAddress{
+			AddressLine: "Jl. Sudirman No. 10",
+			City:        "Jakarta Selatan",
+			CountryCode: "ID",
+		},
+		Coordinate:        Coordinate{Lat: -6.2, Lng: 106.8},
+		Source:            "server_geocode",
+		Timezone:          "Asia/Jakarta",
+		Market:            "ID-JK",
+		AddressVersion:    "location-v3",
+		CoordinateVersion: "location-v3",
+	}
+	dropoff := pickup
+	dropoff.DisplayAddress = "Jl. Gatot Subroto No. 1"
+	dropoff.Coordinate = Coordinate{Lat: -6.21, Lng: 106.81}
+	reader := &mockFlagReader{flags: flags}
+	resolver := &fakeZoneResolver{zones: map[Coordinate]string{
+		pickup.Coordinate:  "JAK-SEL",
+		dropoff.Coordinate: "JAK-SEL",
+	}}
+
+	model, err := NewRoutingEngineWithZoneResolver(reader, resolver).SelectModel(context.Background(), OrderRequest{
+		PickupLocation:  &pickup,
+		DropoffLocation: &dropoff,
+	})
+	if err != nil || model != ModelP2P {
+		t.Fatalf("canonical location routing = %v, err %v", model, err)
+	}
+}
+
+func TestSelectModelRejectsCoordinateLocationMismatch(t *testing.T) {
+	location := Location{
+		DisplayAddress:    "Jl. Sudirman No. 10",
+		NormalizedAddress: domain.NormalizedAddress{AddressLine: "Jl. Sudirman No. 10", City: "Jakarta Selatan", CountryCode: "ID"},
+		Coordinate:        Coordinate{Lat: -6.2, Lng: 106.8},
+		Source:            "server_geocode",
+		Timezone:          "Asia/Jakarta",
+		Market:            "ID-JK",
+		AddressVersion:    "location-v3",
+		CoordinateVersion: "location-v3",
+	}
+	_, err := NewRoutingEngineWithZoneResolver(&mockFlagReader{}, &fakeZoneResolver{}).SelectModel(context.Background(), OrderRequest{
+		Pickup:         Coordinate{Lat: -6.3, Lng: 106.9},
+		PickupLocation: &location,
+	})
+	if err == nil {
+		t.Fatal("expected legacy coordinate and canonical location mismatch to be rejected")
 	}
 }
 

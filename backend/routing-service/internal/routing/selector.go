@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"math"
 
+	"tembus-backend/internal/domain"
 	"tembus-backend/internal/featureflags"
 
 	"go.opentelemetry.io/otel"
@@ -24,15 +25,15 @@ const (
 
 var routingTracer = otel.Tracer("tembus/routing-service")
 
-type Coordinate struct {
-	Lat float64
-	Lng float64
-}
+type Coordinate = domain.Coordinate
+type Location = domain.Location
 
 type OrderRequest struct {
-	Pickup  Coordinate
-	Dropoff Coordinate
-	UserID  string
+	Pickup          Coordinate
+	Dropoff         Coordinate
+	PickupLocation  *Location
+	DropoffLocation *Location
+	UserID          string
 }
 
 // ModelUnavailableError represents a structured error when a model is not available.
@@ -82,6 +83,29 @@ func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (Mode
 		attribute.String("route.distance_bucket", distanceBucket(req.Pickup, req.Dropoff)),
 		attribute.Bool("route.cache_hit", false),
 	)
+
+	if req.PickupLocation != nil {
+		if err := req.PickupLocation.ValidateTransactional(); err != nil {
+			setRoutingSpanError(span, "pickup location validation failed")
+			return "", fmt.Errorf("pickup location invalid: %w", err)
+		}
+		if !isUnsetCoordinate(req.Pickup) && !req.Pickup.Equal(req.PickupLocation.Coordinate) {
+			setRoutingSpanError(span, "pickup location mismatch")
+			return "", fmt.Errorf("pickup coordinate does not match canonical pickup location")
+		}
+		req.Pickup = req.PickupLocation.Coordinate
+	}
+	if req.DropoffLocation != nil {
+		if err := req.DropoffLocation.ValidateTransactional(); err != nil {
+			setRoutingSpanError(span, "dropoff location validation failed")
+			return "", fmt.Errorf("dropoff location invalid: %w", err)
+		}
+		if !isUnsetCoordinate(req.Dropoff) && !req.Dropoff.Equal(req.DropoffLocation.Coordinate) {
+			setRoutingSpanError(span, "dropoff location mismatch")
+			return "", fmt.Errorf("dropoff coordinate does not match canonical dropoff location")
+		}
+		req.Dropoff = req.DropoffLocation.Coordinate
+	}
 
 	if err := validateCoordinate(req.Pickup); err != nil {
 		setRoutingSpanError(span, "routing coordinate validation failed")
@@ -181,13 +205,11 @@ func distanceBucket(pickup Coordinate, dropoff Coordinate) string {
 }
 
 func validateCoordinate(coord Coordinate) error {
-	if coord.Lat < -90 || coord.Lat > 90 {
-		return fmt.Errorf("latitude %.6f outside range -90..90", coord.Lat)
-	}
-	if coord.Lng < -180 || coord.Lng > 180 {
-		return fmt.Errorf("longitude %.6f outside range -180..180", coord.Lng)
-	}
-	return nil
+	return coord.ValidateTransactional()
+}
+
+func isUnsetCoordinate(coord Coordinate) bool {
+	return coord.Lat == 0 && coord.Lng == 0
 }
 
 func zoneActive(flag *featureflags.FeatureFlag, zone string) bool {

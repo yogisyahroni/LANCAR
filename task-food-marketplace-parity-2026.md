@@ -5076,10 +5076,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `docs/contracts/geo-location-2026.md`
 
 **Checklist**
-- [ ] Location separates display address, normalized address components, lat/lng, accuracy/source, place/provider ids, timezone and market.
-- [ ] `0,0` is invalid transactional location.
-- [ ] Coordinates and text address version together; changing one invalidates dependent quote/route where needed.
-- [ ] Provider-native ids are metadata, not canonical primary business key.
+- [x] Location separates display address, normalized address components, lat/lng, accuracy/source, place/provider ids, timezone and market. (Implemented 2026-09-07: provider-neutral routing location contract and normalized address model.)
+- [x] `0,0` is invalid transactional location. (Implemented and tested in routing domain and model selection.)
+- [x] Coordinates and text address version together; changing one invalidates dependent quote/route where needed. (Implemented 2026-09-07: matching address/coordinate versions and content-derived location revision.)
+- [x] Provider-native ids are metadata, not canonical primary business key. (Implemented 2026-09-07: provider IDs/codes are optional metadata and revision identity is provider-neutral.)
 
 ---
 
