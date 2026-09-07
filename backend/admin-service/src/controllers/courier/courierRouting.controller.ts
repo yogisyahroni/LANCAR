@@ -17,6 +17,12 @@ import { evaluateOnDemandRealtimeAlerts } from '../../services/realtimeObservabi
 import { buildMapsRouteEtaSnapshot } from '../../services/mapsProviderConfig';
 
 import { isFeatureFlagEnabled } from '../../services/featureFlags';
+import {
+  COURIER_GROWTH_POLICY_VERSION,
+  COURIER_GROWTH_SAFETY_POLICY_VERSION,
+  COURIER_INCENTIVE_SAFETY_NOTICE,
+  getCourierEducationModules,
+} from '../../services/courierGrowthPolicy';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
 
 import {
@@ -351,10 +357,15 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
       [Number(row.avg_rating || 5), Number(row.completion_rate_pct || 100), Number(row.deliveries_30d || 0)]
     );
 
-    const campaignRes = await db.query(
+    const [campaignRes, educationModules] = await Promise.all([
+      db.query(
       `SELECT c.id, c.code, c.title, c.description, c.target_deliveries,
               c.reward_idr, c.ends_at, c.market_code, c.zone_id, c.service_code,
               c.cohort_code, c.policy_version, c.budget_idr,
+              COALESCE(NULLIF(c.metadata->>'mechanic', ''), 'delivery_count') AS incentive_mechanic,
+              COALESCE(NULLIF(c.metadata->>'safety_policy_version', ''), $2) AS safety_policy_version,
+              TRUE AS safe_for_driving,
+              $3 AS safety_notice,
               COALESCE(p.completed_deliveries, 0)::int AS progress_deliveries,
               COALESCE(p.status, 'in_progress') AS progress_status,
               CASE WHEN c.target_deliveries > 0
@@ -366,10 +377,15 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
        WHERE c.is_active = TRUE
          AND c.starts_at <= NOW()
          AND c.ends_at >= NOW()
+         AND LOWER(COALESCE(c.metadata->>'mechanic', 'delivery_count')) IN ('delivery_count', 'completion_quality')
+         AND LOWER(COALESCE(c.metadata->>'requires_speeding', 'false')) NOT IN ('true', '1', 'yes')
+         AND LOWER(COALESCE(c.metadata->>'unsafe_driving', 'false')) NOT IN ('true', '1', 'yes')
        ORDER BY c.reward_idr DESC
        LIMIT 5`,
-      [req.user.id]
-    );
+      [req.user.id, COURIER_GROWTH_SAFETY_POLICY_VERSION, COURIER_INCENTIVE_SAFETY_NOTICE]
+      ),
+      getCourierEducationModules(),
+    ]);
     const incentives = campaignRes.rows;
 
     res.json({
@@ -386,6 +402,9 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
         rating_count: Number(row.rating_count || 0),
         tier: tierRes.rows[0] || { tier_code: 'starter', tier_name: 'Starter', benefit_summary: 'Akses pekerjaan on-demand reguler.' },
         incentives,
+        operational_modules: educationModules,
+        growth_policy_version: COURIER_GROWTH_POLICY_VERSION,
+        job_state_mutation_allowed: false,
       },
       message: 'Courier performance loaded',
     });

@@ -261,7 +261,19 @@ data class CourierHotspot(
     @SerialName("longitude")
     val longitude: Double? = null,
     @SerialName("intensity")
-    val intensity: String = "low"
+    val intensity: String = "low",
+    @SerialName("demand_score")
+    val demandScore: Int = 0,
+    @SerialName("recent_orders")
+    val recentOrders: Int = 0,
+    @SerialName("refreshed_at")
+    val refreshedAt: String? = null,
+    @SerialName("demand_estimate")
+    val demandEstimate: Boolean = true,
+    @SerialName("demand_source")
+    val demandSource: String = "server_demand_rollup",
+    @SerialName("freshness")
+    val freshness: String = "unknown"
 )
 
 @Serializable
@@ -547,7 +559,39 @@ data class CourierIncentive(
     @SerialName("reward_idr")
     val rewardIdr: Int = 0,
     @SerialName("ends_at")
-    val endsAt: String? = null
+    val endsAt: String? = null,
+    @SerialName("progress_status")
+    val progressStatus: String = "in_progress",
+    @SerialName("incentive_mechanic")
+    val incentiveMechanic: String = "delivery_count",
+    @SerialName("safety_policy_version")
+    val safetyPolicyVersion: String = "courier-growth-safety-2026-v1",
+    @SerialName("safe_for_driving")
+    val safeForDriving: Boolean = true,
+    @SerialName("safety_notice")
+    val safetyNotice: String = "Utamakan keselamatan saat menyelesaikan target."
+)
+
+@Serializable
+data class CourierEducationModule(
+    @SerialName("code")
+    val code: String = "",
+    @SerialName("title")
+    val title: String = "",
+    @SerialName("summary")
+    val summary: String = "",
+    @SerialName("module_type")
+    val moduleType: String = "education",
+    @SerialName("priority")
+    val priority: Int = 0,
+    @SerialName("source")
+    val source: String = "courier_growth_config",
+    @SerialName("policy_version")
+    val policyVersion: String = "courier-growth-2026-v1",
+    @SerialName("action")
+    val action: String = "read_only",
+    @SerialName("can_mutate_job_state")
+    val canMutateJobState: Boolean = false
 )
 
 @Serializable
@@ -573,7 +617,13 @@ data class CourierPerformanceSummary(
     @SerialName("tier")
     val tier: CourierTier = CourierTier(),
     @SerialName("incentives")
-    val incentives: List<CourierIncentive> = emptyList()
+    val incentives: List<CourierIncentive> = emptyList(),
+    @SerialName("operational_modules")
+    val operationalModules: List<CourierEducationModule> = emptyList(),
+    @SerialName("growth_policy_version")
+    val growthPolicyVersion: String = "courier-growth-2026-v1",
+    @SerialName("job_state_mutation_allowed")
+    val jobStateMutationAllowed: Boolean = false
 )
 
 @Serializable

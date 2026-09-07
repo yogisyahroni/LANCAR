@@ -99,6 +99,12 @@ export const getMobileCourierHotspots = async (_req: Request, res: Response) => 
          chr.demand_score,
          chr.recent_orders,
          chr.refreshed_at,
+         TRUE AS demand_estimate,
+         'server_demand_rollup' AS demand_source,
+         CASE
+           WHEN chr.refreshed_at >= NOW() - INTERVAL '15 minutes' THEN 'fresh'
+           ELSE 'stale'
+         END AS freshness,
          CASE
            WHEN chr.demand_score >= 70 THEN 'high'
            WHEN chr.demand_score >= 30 THEN 'medium'

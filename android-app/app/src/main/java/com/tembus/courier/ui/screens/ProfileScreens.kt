@@ -667,8 +667,38 @@ internal fun ProfileContent(
                                     trackColor = PrimaryLight
                                 )
                                 Text(
+                                    when (incentive.progressStatus.lowercase()) {
+                                        "earned" -> "Siap dicairkan"
+                                        "budget_exhausted" -> "Kuota campaign habis"
+                                        "disqualified" -> "Tidak memenuhi syarat"
+                                        else -> "Sedang berjalan"
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (incentive.progressStatus == "earned") Success else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
                                     "${incentive.progressDeliveries}/${incentive.targetDeliveries} selesai • Bonus ${incentive.rewardIdr.toRupiahCompact()}",
                                     style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    incentive.safetyNotice,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    if (summary.operationalModules.isNotEmpty()) {
+                        HorizontalDivider()
+                        Text("Materi operasional", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        summary.operationalModules.take(3).forEach { module ->
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(module.title, fontWeight = FontWeight.Bold)
+                                Text(module.summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "Materi informasi • tidak mengubah status pekerjaan",
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }

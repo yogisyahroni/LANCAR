@@ -382,8 +382,13 @@ internal fun HotspotRow(hotspot: CourierHotspot) {
         Column(modifier = Modifier.weight(1f)) {
             Text(hotspot.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${hotspot.pendingOrders} pickup menunggu • ${hotspot.intensity.replaceFirstChar { it.uppercase() }}",
+                "${if (hotspot.demandEstimate) "Estimasi" else "Aktual"} • ${hotspot.pendingOrders} pickup menunggu • ${hotspot.intensity.replaceFirstChar { it.uppercase() }}",
                 style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Sumber: ${hotspot.demandSource.replace('_', ' ')} • ${hotspot.freshness.replace('_', ' ')}",
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

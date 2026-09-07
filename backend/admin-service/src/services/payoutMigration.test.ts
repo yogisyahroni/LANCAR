@@ -93,4 +93,13 @@ describe('courier payout migrations', () => {
     expect(sql).toContain("'tax'");
     expect(sql).toContain("'fee'");
   });
+
+  it('enforces safe incentive mechanics for courier growth', () => {
+    const sql = migration('20260908000006_courier_growth_safety_education.sql');
+
+    expect(sql).toContain('guard_courier_incentive_safety');
+    expect(sql).toContain('courier incentive cannot reward unsafe driving');
+    expect(sql).toContain("mechanic NOT IN ('delivery_count', 'completion_quality')");
+    expect(sql).toContain('safety_policy_version');
+  });
 });
