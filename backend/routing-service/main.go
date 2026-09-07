@@ -380,9 +380,13 @@ func main() {
 	// Initialize route selector dependencies with database-backed zone resolution.
 	flagReader := featureflags.NewFlagReader(db, readDB, rdb)
 	defer flagReader.Close()
-	routingEngine := routing.NewRoutingEngineWithZoneResolver(flagReader, routing.NewPostgresZoneResolver(readDB))
+	marketCode := strings.TrimSpace(os.Getenv("MARKET_CODE"))
+	if marketCode == "" {
+		marketCode = routing.DefaultMarketCode
+	}
+	routingEngine := routing.NewRoutingEngineWithZoneResolver(flagReader, routing.NewPostgresZoneResolverForMarket(readDB, marketCode))
 
-	logJSON("info", "routing service initialized", map[string]interface{}{"feature_flags": "dual-db"})
+	logJSON("info", "routing service initialized", map[string]interface{}{"feature_flags": "dual-db", "market_code": marketCode})
 
 	// Start minimal HTTP server for health checks
 	mux := http.NewServeMux()

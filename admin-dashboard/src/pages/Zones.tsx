@@ -88,6 +88,7 @@ export default function Zones() {
   const [isDrawing, setIsDrawing] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [mapTheme, setMapTheme] = useState<'dark' | 'light'>('dark')
+  const [zonePreview, setZonePreview] = useState<any>(null)
   
   const { data: zones, isLoading } = useQuery({
     queryKey: ['zones'],
@@ -97,6 +98,11 @@ export default function Zones() {
     }
   });
   const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('web_admin');
+  const { data: zoneRevisions } = useQuery({
+    queryKey: ['zone-revisions', selectedZone?.id],
+    queryFn: async () => (await api.get(`/admin/zones/${selectedZone.id}/revisions`)).data,
+    enabled: Boolean(selectedZone?.id),
+  });
   const shouldRenderTomTomMap = isTomTomRuntimeReady(mapsRuntimeConfig);
   const tileUrl = shouldRenderTomTomMap
     ? tomTomRasterTileUrl(mapsRuntimeConfig?.tomtom_maps?.browser_api_key || '', mapTheme === 'dark' ? 'night' : 'main')
@@ -118,12 +124,48 @@ export default function Zones() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string, data: any }) => api.patch(`/admin/zones/${id}`, data),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['zones'] });
-      toast.success('Zone updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['zone-revisions', selectedZone?.id] });
+      toast.success('Zone draft created. Preview and approve it before publishing.');
+      setSelectedZone((current: any) => ({ ...current, polygon: response.data?.revision?.polygon || current?.polygon }));
       setIsModalOpen(false);
     },
     onError: (err: any) => toast.error(`Failed to update zone: ${err.message}`)
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: (id: string) => api.get(`/admin/zones/${id}/revisions/preview`),
+    onSuccess: (response) => setZonePreview(response.data),
+    onError: (err: any) => toast.error(`Unable to preview zone draft: ${err.message}`),
+  });
+  const approveMutation = useMutation({
+    mutationFn: ({ id, revisionId }: { id: string, revisionId: string }) => api.post(`/admin/zones/${id}/revisions/${revisionId}/approve`),
+    onSuccess: () => {
+      toast.success('Zone draft approved. Publish it when ready.');
+      setZonePreview((current: any) => current ? { ...current, draft: { ...current.draft, status: 'approved' } } : current);
+      queryClient.invalidateQueries({ queryKey: ['zone-revisions', selectedZone?.id] });
+    },
+    onError: (err: any) => toast.error(`Unable to approve zone draft: ${err.message}`),
+  });
+  const publishMutation = useMutation({
+    mutationFn: ({ id, revisionId }: { id: string, revisionId: string }) => api.post(`/admin/zones/${id}/revisions/${revisionId}/publish`),
+    onSuccess: () => {
+      toast.success('Zone revision published. Existing orders remain assigned to their captured zone.');
+      setZonePreview(null);
+      queryClient.invalidateQueries({ queryKey: ['zones'] });
+      queryClient.invalidateQueries({ queryKey: ['zone-revisions', selectedZone?.id] });
+    },
+    onError: (err: any) => toast.error(`Unable to publish zone revision: ${err.message}`),
+  });
+  const rollbackMutation = useMutation({
+    mutationFn: ({ id, revisionId }: { id: string, revisionId: string }) => api.post(`/admin/zones/${id}/revisions/rollback`, { revision_id: revisionId }),
+    onSuccess: () => {
+      toast.success('Zone rolled back. Existing orders remain assigned to their captured zone.');
+      queryClient.invalidateQueries({ queryKey: ['zones'] });
+      queryClient.invalidateQueries({ queryKey: ['zone-revisions', selectedZone?.id] });
+    },
+    onError: (err: any) => toast.error(`Unable to rollback zone: ${err.message}`),
   });
 
   const deleteMutation = useMutation({
@@ -131,7 +173,7 @@ export default function Zones() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zones'] });
       setSelectedZone(null);
-      toast.success('Zone deleted successfully');
+      toast.success('Zone deactivated. Existing order assignments were preserved.');
     },
     onError: (err: any) => toast.error(`Failed to delete zone: ${err.message}`)
   });
@@ -341,11 +383,18 @@ export default function Zones() {
                         >
                            Edit Parameters
                         </button>
+                        <button
+                          onClick={() => previewMutation.mutate(selectedZone.id)}
+                          disabled={previewMutation.isPending}
+                          className="px-6 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                          {previewMutation.isPending ? 'Loading Diff' : 'Preview Draft'}
+                        </button>
                         <button 
                           onClick={() => setIsDeleteConfirmOpen(true)}
                           className="px-6 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98]"
                         >
-                           Delete Zone
+                           Deactivate Zone
                         </button>
                       </>
                     )}
@@ -377,7 +426,49 @@ export default function Zones() {
         isSaving={createMutation.isPending || updateMutation.isPending}
       />
 
-      {/* Premium Custom Delete Confirmation Modal */}
+      {zonePreview && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-2xl bg-zinc-900 border border-amber-500/20 rounded-[40px] overflow-hidden shadow-2xl">
+            <div className="p-10 space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-black text-zinc-100 uppercase italic">Zone Revision Preview</h3>
+                  <p className="text-xs text-zinc-500 mt-2">Revision {zonePreview.draft?.revision_number} · {zonePreview.diff?.active_orders_count || 0} active order assignments preserved</p>
+                </div>
+                <button onClick={() => setZonePreview(null)} className="p-2 text-zinc-500 hover:text-white"><X size={20} /></button>
+              </div>
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-5 text-xs text-zinc-300 space-y-2">
+                <p className="font-black uppercase tracking-widest text-amber-300">Changed fields</p>
+                <p>{(zonePreview.diff?.changed_fields || []).join(', ') || 'No field changes detected'}</p>
+                <p className="text-zinc-500">Draft changes do not affect routing until approved and published.</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {zonePreview.draft?.status === 'draft' && (
+                  <button onClick={() => approveMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={approveMutation.isPending} className="px-5 py-3 rounded-xl bg-amber-500 text-zinc-950 font-black text-[10px] uppercase tracking-widest">Approve</button>
+                )}
+                {zonePreview.draft?.status === 'approved' && (
+                  <button onClick={() => publishMutation.mutate({ id: selectedZone.id, revisionId: zonePreview.draft.id })} disabled={publishMutation.isPending} className="px-5 py-3 rounded-xl bg-emerald-500 text-zinc-950 font-black text-[10px] uppercase tracking-widest">Publish</button>
+                )}
+                <select
+                  aria-label="Rollback target revision"
+                  defaultValue=""
+                  onChange={(event) => event.target.value && rollbackMutation.mutate({ id: selectedZone.id, revisionId: event.target.value })}
+                  disabled={rollbackMutation.isPending}
+                  className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-[10px] font-black uppercase tracking-widest"
+                >
+                  <option value="">Rollback to published revision…</option>
+                  {(zoneRevisions || []).filter((revision: any) => revision.status === 'published' && revision.id !== zonePreview.draft?.id).map((revision: any) => (
+                    <option key={revision.id} value={revision.id}>Revision {revision.revision_number}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[10px] text-zinc-500">Approval requires a different authenticated actor from the draft maker and TOTP. Publishing never detaches active orders.</p>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Premium Custom Deactivation Confirmation Modal */}
       {isDeleteConfirmOpen && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md">
           <motion.div 
@@ -393,9 +484,9 @@ export default function Zones() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xl font-black text-zinc-100 uppercase italic tracking-tight">Delete Zone?</h3>
+                <h3 className="text-xl font-black text-zinc-100 uppercase italic tracking-tight">Deactivate Zone?</h3>
                 <p className="text-sm text-zinc-400 font-medium leading-relaxed">
-                  Are you absolutely sure you want to delete <span className="text-red-400 font-bold">"{selectedZone?.name}"</span>? This action is permanent and will cascade to all related records.
+                  Deactivate <span className="text-red-400 font-bold">"{selectedZone?.name}"</span>? Existing orders keep their captured zone assignment and historical revisions remain available for rollback.
                 </p>
               </div>
 
@@ -418,7 +509,7 @@ export default function Zones() {
                   className="flex-1 py-4 rounded-2xl bg-red-500 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-all hover:bg-red-600 active:scale-[0.98]"
                 >
                   {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : null}
-                  Delete Now
+                  Deactivate Now
                 </button>
               </div>
             </div>
@@ -489,6 +580,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
   const [formData, setFormData] = useState<any>({
     name: '',
     code: '',
+    market_code: 'ID-JK',
     max_couriers: 10,
     is_active: true
   });
@@ -531,18 +623,11 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
         const pts = ring.map((pt: any) => `${pt[0]} ${pt[1]}`).join(', ');
         wkt = `POLYGON((${pts}))`;
       } else if (geojson.type === 'MultiPolygon') {
-        const polys = geojson.coordinates;
-        let largestPoly = polys[0];
-        let maxLen = 0;
-        polys.forEach((poly: any) => {
-          if (poly[0].length > maxLen) {
-            maxLen = poly[0].length;
-            largestPoly = poly;
-          }
+        const polygons = geojson.coordinates.map((polygon: any[]) => {
+          const rings = polygon.map((ring: any[]) => `(${ring.map((pt: any) => `${pt[0]} ${pt[1]}`).join(', ')})`);
+          return `(${rings.join(', ')})`;
         });
-        const ring = largestPoly[0];
-        const pts = ring.map((pt: any) => `${pt[0]} ${pt[1]}`).join(', ');
-        wkt = `POLYGON((${pts}))`;
+        wkt = `MULTIPOLYGON(${polygons.join(', ')})`;
       }
 
       if (!wkt) {
@@ -569,6 +654,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
       setFormData({
         name: zone.name,
         code: zone.code,
+        market_code: zone.market_code || 'ID-JK',
         max_couriers: zone.max_couriers,
         is_active: zone.is_active
       });
@@ -576,6 +662,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
       setFormData({
         name: '',
         code: '',
+        market_code: 'ID-JK',
         max_couriers: 10,
         is_active: true
       });
@@ -638,6 +725,15 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
                 onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                 disabled={!!zone?.id}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Market Code</label>
+              <input
+                value={formData.market_code}
+                onChange={e => setFormData({ ...formData, market_code: e.target.value.toUpperCase() })}
+                placeholder="ID-JK"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
             <div className="grid grid-cols-2 gap-6">

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -12,16 +13,38 @@ import (
 
 var ErrZoneNotFound = errors.New("active zone not found for coordinate")
 
+const (
+	DefaultMarketCode = "ID-JK"
+	zoneLookupQuery   = `
+		SELECT code
+		FROM zones
+		WHERE is_active = TRUE
+		  AND market_code = $3
+		  AND ST_Covers(polygon, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography)
+		ORDER BY updated_at DESC
+		LIMIT 1
+	`
+)
+
 type ZoneResolver interface {
 	ResolveZoneCode(ctx context.Context, coord Coordinate) (string, error)
 }
 
 type PostgresZoneResolver struct {
-	db *sql.DB
+	db         *sql.DB
+	marketCode string
 }
 
 func NewPostgresZoneResolver(db *sql.DB) *PostgresZoneResolver {
-	return &PostgresZoneResolver{db: db}
+	return NewPostgresZoneResolverForMarket(db, DefaultMarketCode)
+}
+
+func NewPostgresZoneResolverForMarket(db *sql.DB, marketCode string) *PostgresZoneResolver {
+	marketCode = strings.TrimSpace(marketCode)
+	if marketCode == "" {
+		marketCode = DefaultMarketCode
+	}
+	return &PostgresZoneResolver{db: db, marketCode: marketCode}
 }
 
 func (r *PostgresZoneResolver) ResolveZoneCode(ctx context.Context, coord Coordinate) (string, error) {
@@ -36,15 +59,7 @@ func (r *PostgresZoneResolver) ResolveZoneCode(ctx context.Context, coord Coordi
 	}
 
 	var zoneCode string
-	query := `
-		SELECT code
-		FROM zones
-		WHERE is_active = TRUE
-		  AND ST_Covers(polygon, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography)
-		ORDER BY updated_at DESC
-		LIMIT 1
-	`
-	err := r.db.QueryRowContext(ctx, query, coord.Lng, coord.Lat).Scan(&zoneCode)
+	err := r.db.QueryRowContext(ctx, zoneLookupQuery, coord.Lng, coord.Lat, r.marketCode).Scan(&zoneCode)
 	if errors.Is(err, sql.ErrNoRows) {
 		span.SetAttributes(attribute.Bool("zone.resolved", false))
 		span.SetStatus(codes.Error, "zone not found")

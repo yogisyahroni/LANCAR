@@ -6,7 +6,7 @@ import { securityLog } from '../security/logRedaction';
 export const getZones = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await readDb.query(`
-      SELECT z.id, z.name, z.code, z.is_active, z.max_couriers, ST_AsText(z.polygon) as polygon,
+      SELECT z.id, z.name, z.code, z.market_code, z.geometry_version, z.is_active, z.max_couriers, ST_AsText(z.polygon) as polygon,
              (SELECT COUNT(*) FROM meeting_points mp WHERE mp.zone_id = z.id) as meeting_points_count,
              (SELECT COUNT(DISTINCT order_id) FROM order_legs WHERE zone_id = z.id AND status NOT IN ('delivered', 'failed', 'cancelled')) as active_orders_count
       FROM zones z
@@ -22,7 +22,7 @@ export const getZones = async (req: Request, res: Response): Promise<void> => {
 export const getZoneById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const result = await readDb.query('SELECT id, name, code, is_active, max_couriers, ST_AsText(polygon) as polygon FROM zones WHERE id = $1', [id]);
+    const result = await readDb.query('SELECT id, name, code, market_code, geometry_version, is_active, max_couriers, ST_AsText(polygon) as polygon FROM zones WHERE id = $1', [id]);
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'Zone not found' });
       return;
@@ -34,7 +34,7 @@ export const getZoneById = async (req: Request, res: Response): Promise<void> =>
 };
 
 export const createZone = async (req: Request, res: Response) => {
-  const { name, code, polygon, max_couriers, reason } = req.body;
+  const { name, code, polygon, max_couriers, market_code = 'ID-JK', reason } = req.body;
   if (!polygon || typeof polygon !== 'string' || polygon.trim() === '') {
     return res.status(400).json({ error: 'Perimeter boundary (polygon) is required. Please fetch or draw a valid boundary.' });
   }
@@ -42,9 +42,18 @@ export const createZone = async (req: Request, res: Response) => {
   try {
     await client.query('BEGIN');
     const result = await client.query(
-      `INSERT INTO zones (name, code, polygon, max_couriers)
-       VALUES ($1, $2, ST_GeogFromText($3), $4) RETURNING id, name, code, ST_AsText(polygon) as polygon, max_couriers`,
-      [name, code, polygon, max_couriers]
+      `INSERT INTO zones (name, code, market_code, polygon, max_couriers)
+       VALUES ($1, $2, $3, ST_GeogFromText($4), $5)
+       RETURNING id, name, code, market_code, geometry_version, ST_AsText(polygon) as polygon, max_couriers, is_active`,
+      [name, code, market_code, polygon, max_couriers]
+    );
+
+    await client.query(
+      `INSERT INTO zone_revisions
+         (zone_id, revision_number, market_code, name, code, polygon, is_active, max_couriers, status, change_reason, created_by, approved_by, approved_at, published_at)
+       SELECT id, geometry_version, market_code, name, code, polygon, is_active, max_couriers, 'published', $1, $2, $2, NOW(), NOW()
+       FROM zones WHERE id = $3`,
+      [reason || `Created zone: ${name}`, getActorId(req), result.rows[0].id]
     );
 
     const changedBy = getActorId(req);
@@ -66,39 +75,256 @@ export const createZone = async (req: Request, res: Response) => {
 
 export const updateZone = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { name, is_active, max_couriers, polygon, reason } = req.body;
+  const { name, is_active, max_couriers, polygon, market_code, reason } = req.body;
   const client = await db.connect();
   try {
     await client.query('BEGIN');
 
-    let query = 'UPDATE zones SET name = COALESCE($1, name), is_active = COALESCE($2, is_active), max_couriers = COALESCE($3, max_couriers), updated_at = NOW()';
-    const values: any[] = [name, is_active, max_couriers];
-
-    if (polygon) {
-      query += ', polygon = ST_GeogFromText($4)';
-      values.push(polygon);
-    }
-
-    query += ' WHERE id = $' + (values.length + 1) + ' RETURNING id, name, code, ST_AsText(polygon) as polygon, is_active, max_couriers';
-    values.push(id);
-
-    const result = await client.query(query, values);
-    if (result.rows.length === 0) {
+    const currentResult = await client.query(
+      `SELECT id, name, code, market_code, geometry_version, polygon, is_active, max_couriers
+         FROM zones WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
+    if (currentResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Zone not found' });
     }
+
+    const current = currentResult.rows[0];
+    const versionResult = await client.query(
+      'SELECT COALESCE(MAX(revision_number), $2)::int + 1 AS next_revision FROM zone_revisions WHERE zone_id = $1',
+      [id, current.geometry_version]
+    );
+    const revisionResult = await client.query(
+      `INSERT INTO zone_revisions
+         (zone_id, revision_number, market_code, name, code, polygon, is_active, max_couriers, status, change_reason, created_by)
+       VALUES ($1, $2, $3, COALESCE($4, $5), $6, COALESCE(ST_GeogFromText($7), $8), COALESCE($9, $10), COALESCE($11, $12), 'draft', $13, $14)
+       RETURNING id, zone_id, revision_number, market_code, name, code, ST_AsText(polygon) AS polygon, is_active, max_couriers, status, created_at`,
+      [
+        id,
+        versionResult.rows[0].next_revision,
+        market_code || current.market_code,
+        name,
+        current.name,
+        current.code,
+        polygon || null,
+        current.polygon,
+        is_active,
+        current.is_active,
+        max_couriers,
+        current.max_couriers,
+        reason || `Draft update for zone: ${current.name}`,
+        getActorId(req),
+      ]
+    );
 
     const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [`zone:${result.rows[0].code}`, result.rows[0].is_active, changedBy, reason || `Updated zone: ${name}`, JSON.stringify(result.rows[0]), 'logistics']
+      [`zone:${current.code}`, current.is_active, changedBy, reason || `Draft update for zone: ${current.name}`, JSON.stringify(revisionResult.rows[0]), 'logistics']
     );
 
     await client.query('COMMIT');
-    res.json(result.rows[0]);
+    res.status(202).json({ status: 'draft', revision: revisionResult.rows[0], requires_approval: true });
   } catch (error: any) {
     await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const getZoneRevisions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await readDb.query(
+      `SELECT id, zone_id, revision_number, market_code, name, code, is_active, max_couriers, status,
+              change_reason, created_by, approved_by, approved_at, published_at, rollback_of, created_at,
+              ST_AsText(polygon) AS polygon
+         FROM zone_revisions WHERE zone_id = $1 ORDER BY revision_number DESC`,
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (error: any) {
+    securityLog.error('Error fetching zone revisions:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const previewZoneRevision = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  try {
+    const [currentResult, draftResult, activeOrdersResult] = await Promise.all([
+      readDb.query(
+        `SELECT id, name, code, market_code, geometry_version, is_active, max_couriers, ST_AsText(polygon) AS polygon
+           FROM zones WHERE id = $1`,
+        [id]
+      ),
+      readDb.query(
+        `SELECT id, zone_id, revision_number, market_code, name, code, is_active, max_couriers, status,
+                ST_AsText(polygon) AS polygon, change_reason, created_by, created_at
+           FROM zone_revisions
+          WHERE zone_id = $1 AND status IN ('draft', 'approved')
+          ORDER BY revision_number DESC LIMIT 1`,
+        [id]
+      ),
+      readDb.query(
+        `SELECT COUNT(*)::int AS active_orders_count
+           FROM order_legs
+          WHERE zone_id = $1 AND status NOT IN ('delivered', 'failed', 'cancelled')`,
+        [id]
+      ),
+    ]);
+    if (currentResult.rows.length === 0) {
+      res.status(404).json({ error: 'Zone not found' });
+      return;
+    }
+    const draft = draftResult.rows[0];
+    if (!draft) {
+      res.status(404).json({ error: 'No draft revision found' });
+      return;
+    }
+    const current = currentResult.rows[0];
+    const changedFields = ['name', 'code', 'market_code', 'is_active', 'max_couriers', 'polygon']
+      .filter((field) => String(current[field] ?? '') !== String(draft[field] ?? ''));
+    res.json({
+      zone_id: id,
+      current,
+      draft,
+      diff: { changed_fields: changedFields, active_orders_count: activeOrdersResult.rows[0]?.active_orders_count || 0 },
+      approval: { required: true, status: draft.status, maker_id: draft.created_by },
+    });
+  } catch (error: any) {
+    securityLog.error('Error previewing zone revision:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const approveZoneRevision = async (req: Request, res: Response): Promise<void> => {
+  const { id, revisionId } = req.params;
+  const actorId = getActorId(req);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const draftResult = await client.query(
+      `SELECT id, zone_id, code, is_active, created_by
+         FROM zone_revisions WHERE id = $1 AND zone_id = $2 AND status = 'draft' FOR UPDATE`,
+      [revisionId, id]
+    );
+    if (draftResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ error: 'Draft revision not found' });
+      return;
+    }
+    if (draftResult.rows[0].created_by && String(draftResult.rows[0].created_by) === actorId) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ error: 'Maker and approver must be different actors' });
+      return;
+    }
+    const result = await client.query(
+      `UPDATE zone_revisions
+          SET status = 'approved', approved_by = $1, approved_at = NOW()
+        WHERE id = $2 AND status = 'draft'
+      RETURNING id, zone_id, revision_number, status, approved_by, approved_at`,
+      [actorId, revisionId]
+    );
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`zone:${draftResult.rows[0].code}`, draftResult.rows[0].is_active, actorId, 'Zone revision approved', JSON.stringify(result.rows[0]), 'logistics']
+    );
+    await client.query('COMMIT');
+    res.json({ status: 'approved', revision: result.rows[0] });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    securityLog.error('Error approving zone revision:', error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const publishZoneRevision = async (req: Request, res: Response): Promise<void> => {
+  const { id, revisionId } = req.params;
+  const actorId = getActorId(req);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const revisionResult = await client.query(
+      `SELECT id, zone_id, revision_number, market_code, name, code, polygon, is_active, max_couriers, status
+         FROM zone_revisions WHERE id = $1 AND zone_id = $2 AND status = 'approved' FOR UPDATE`,
+      [revisionId, id]
+    );
+    if (revisionResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ error: 'Approved revision not found' });
+      return;
+    }
+    const revision = revisionResult.rows[0];
+    const result = await client.query(
+      `UPDATE zones
+          SET name = $1, code = $2, market_code = $3, polygon = $4, is_active = $5,
+              max_couriers = $6, geometry_version = $7, updated_at = NOW()
+        WHERE id = $8
+      RETURNING id, name, code, market_code, geometry_version, is_active, max_couriers, ST_AsText(polygon) AS polygon`,
+      [revision.name, revision.code, revision.market_code, revision.polygon, revision.is_active, revision.max_couriers, revision.revision_number, id]
+    );
+    await client.query(
+      `UPDATE zone_revisions SET status = 'published', published_at = NOW(), approved_by = COALESCE(approved_by, $1) WHERE id = $2`,
+      [actorId, revisionId]
+    );
+    await client.query('COMMIT');
+    res.json({ status: 'published', zone: result.rows[0], revision: revisionId, active_orders_preserved: true });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    securityLog.error('Error publishing zone revision:', error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const rollbackZoneRevision = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const targetRevisionId = String(req.body?.revision_id || '');
+  if (!targetRevisionId) {
+    res.status(400).json({ error: 'revision_id is required' });
+    return;
+  }
+  const actorId = getActorId(req);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const targetResult = await client.query(
+      `SELECT id, zone_id, market_code, name, code, polygon, is_active, max_couriers
+         FROM zone_revisions WHERE id = $1 AND zone_id = $2 AND status = 'published'`,
+      [targetRevisionId, id]
+    );
+    if (targetResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ error: 'Published target revision not found' });
+      return;
+    }
+    const target = targetResult.rows[0];
+    const versionResult = await client.query('SELECT COALESCE(MAX(revision_number), 0)::int + 1 AS next_revision FROM zone_revisions WHERE zone_id = $1', [id]);
+    const nextRevision = versionResult.rows[0].next_revision;
+    const revisionResult = await client.query(
+      `INSERT INTO zone_revisions
+         (zone_id, revision_number, market_code, name, code, polygon, is_active, max_couriers, status, change_reason, created_by, approved_by, approved_at, published_at, rollback_of)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'published', $9, $10, $10, NOW(), NOW(), $11)
+       RETURNING id, revision_number, status, rollback_of`,
+      [id, nextRevision, target.market_code, target.name, target.code, target.polygon, target.is_active, target.max_couriers, `Rollback to revision ${targetRevisionId}`, actorId, targetRevisionId]
+    );
+    const zoneResult = await client.query(
+      `UPDATE zones SET market_code = $1, name = $2, code = $3, polygon = $4, is_active = $5, max_couriers = $6, geometry_version = $7, updated_at = NOW()
+        WHERE id = $8 RETURNING id, name, code, market_code, geometry_version, is_active, max_couriers, ST_AsText(polygon) AS polygon`,
+      [target.market_code, target.name, target.code, target.polygon, target.is_active, target.max_couriers, nextRevision, id]
+    );
+    await client.query('COMMIT');
+    res.json({ status: 'rolled_back', zone: zoneResult.rows[0], revision: revisionResult.rows[0], active_orders_preserved: true });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    securityLog.error('Error rolling back zone revision:', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();
@@ -119,22 +345,29 @@ export const deleteZone = async (req: Request, res: Response) => {
     }
     const zone = checkRes.rows[0];
 
-    await client.query('UPDATE order_legs SET zone_id = NULL, pickup_meeting_point_id = NULL, dropoff_meeting_point_id = NULL WHERE zone_id = $1', [id]);
-    await client.query('DELETE FROM courier_zones WHERE zone_id = $1', [id]);
-    await client.query('DELETE FROM weather_logs WHERE zone_id = $1', [id]);
-    await client.query('DELETE FROM dynamic_pricing_logs WHERE zone_id = $1', [id]);
-    await client.query('DELETE FROM meeting_points WHERE zone_id = $1', [id]);
-    await client.query('DELETE FROM zones WHERE id = $1', [id]);
+    const deactivateResult = await client.query(
+      `UPDATE zones SET is_active = FALSE, geometry_version = geometry_version + 1, updated_at = NOW()
+        WHERE id = $1
+      RETURNING id, name, code, market_code, geometry_version, is_active, max_couriers, polygon`,
+      [id]
+    );
+    await client.query(
+      `INSERT INTO zone_revisions
+         (zone_id, revision_number, market_code, name, code, polygon, is_active, max_couriers, status, change_reason, created_by, approved_by, approved_at, published_at)
+       SELECT id, geometry_version, market_code, name, code, polygon, is_active, max_couriers, 'published', $1, $2, $2, NOW(), NOW()
+       FROM zones WHERE id = $3`,
+      [reason || `Deactivated zone: ${zone.name}`, getActorId(req), id]
+    );
 
     const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
        VALUES ($1, $2, $3, $4, $5)`,
-      [`zone:${zone.code}`, false, changedBy, reason || `Deleted zone: ${zone.name}`, 'logistics']
+      [`zone:${zone.code}`, false, changedBy, reason || `Deactivated zone: ${zone.name}`, 'logistics']
     );
 
     await client.query('COMMIT');
-    res.json({ message: 'Zone deleted successfully' });
+    res.json({ message: 'Zone deactivated successfully', zone: deactivateResult.rows[0], active_orders_preserved: true });
   } catch (error: any) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: error.message });
