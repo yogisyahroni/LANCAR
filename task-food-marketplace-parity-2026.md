@@ -5320,10 +5320,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `admin-dashboard/src/pages/economics/UnitEconomics.tsx`
 
 **Checklist**
-- [ ] Draft/preview/simulate/approve/publish/rollback.
-- [ ] Admin sees example quotes and affected market/zone/service before publish.
-- [ ] Protected floor/ceiling cannot be bypassed by ordinary role.
-- [ ] Policy change audit includes business reason.
+- [x] Draft/preview/simulate/approve/publish/rollback.
+- [x] Admin sees example quotes and affected market/zone/service before publish.
+- [x] Protected floor/ceiling cannot be bypassed by ordinary role.
+- [x] Policy change audit includes business reason.
 
 ---
 

@@ -39,6 +39,7 @@ export * from './disputes.controller';
 // Analytics (Dashboard Stats, KPIs, SLA Charts, Reports)
 export * from './analytics.controller';
 export * from './marketplaceFairness.controller';
+export * from './economicPolicy.controller';
 
 // Notifications (Templates)
 export * from './notifications.controller';

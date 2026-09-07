@@ -18,6 +18,7 @@ import MerchantPerformance from './pages/MerchantPerformance' // FOOD-BIKE-051
 import DriverWalletHold from './pages/DriverWalletHold' // FOOD-BIKE-054
 import CourierPublicRegistration from './pages/CourierPublicRegistration'
 import PricingConfig from './pages/PricingConfig'
+import EconomicsControlPlane from './pages/EconomicsControlPlane'
 import SettlementConfig from './pages/SettlementConfig'
 import Disputes from './pages/Disputes'
 import Customers from './pages/Customers'
@@ -223,6 +224,14 @@ function App() {
                 <PricingConfig />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/economics"
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'finance_admin', 'finance']}>
+                <EconomicsControlPlane />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/disputes" 

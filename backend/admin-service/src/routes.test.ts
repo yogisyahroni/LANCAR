@@ -126,6 +126,14 @@ jest.mock('./controllers', () => ({
   getAnalyticsScanAccuracy: jest.fn((req, res) => res.status(200).json({})),
   getMarketplaceFairnessMetrics: jest.fn((req, res) => res.status(200).json({ success: true, dimensions: [] })),
   evaluateMarketplaceFairness: jest.fn((req, res) => res.status(200).json({ success: true, data: { approved: true } })),
+  listEconomicPolicyRevisions: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  getEconomicPolicyRevision: jest.fn((req, res) => res.status(200).json({ success: true, data: { id: req.params.id } })),
+  previewEconomicPolicyRevision: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  createEconomicPolicyRevision: jest.fn((req, res) => res.status(201).json({ success: true, data: { status: 'draft' } })),
+  simulateEconomicPolicyRevision: jest.fn((req, res) => res.status(200).json({ success: true, simulation: true, data: {} })),
+  approveEconomicPolicyRevision: jest.fn((req, res) => res.status(200).json({ success: true, data: { status: 'approved' } })),
+  publishEconomicPolicyRevision: jest.fn((req, res) => res.status(200).json({ success: true, data: { status: 'published' } })),
+  rollbackEconomicPolicyRevision: jest.fn((req, res) => res.status(200).json({ success: true, data: { status: 'rolled_back' } })),
   getAnalyticsRetention: jest.fn((req, res) => res.status(200).json({})),
   getHeatData: jest.fn((req, res) => res.status(200).json([])),
   exportAnalytics: jest.fn((req, res) => res.status(200).send('csv,data')),
@@ -414,6 +422,44 @@ describe('Admin Service Routes', () => {
 
     expect(res.status).toBe(200);
     expect(controllers.updateCourierPayoutRequestStatus).toHaveBeenCalled();
+  });
+
+  it('protects economics control-plane workflow and keeps publish super-admin-only', async () => {
+    const revisionPath = '/admin/economics/policies/11111111-1111-4111-8111-111111111111';
+
+    const unauthenticated = await request(app).get('/admin/economics/policies');
+    expect(unauthenticated.status).toBe(401);
+    expect(controllers.listEconomicPolicyRevisions).not.toHaveBeenCalled();
+
+    const financeDraft = await request(app).post('/admin/economics/policies')
+      .set(gatewayHeaders({ role: 'finance', totpVerified: true }))
+      .send({});
+    expect(financeDraft.status).toBe(403);
+    expect(controllers.createEconomicPolicyRevision).not.toHaveBeenCalled();
+
+    const noTotp = await request(app).post('/admin/economics/policies')
+      .set(gatewayHeaders({ role: 'finance_admin', totpVerified: false }))
+      .send({});
+    expect(noTotp.status).toBe(403);
+    expect(controllers.createEconomicPolicyRevision).not.toHaveBeenCalled();
+
+    const draft = await request(app).post('/admin/economics/policies')
+      .set(gatewayHeaders({ role: 'finance_admin', totpVerified: true }))
+      .send({});
+    expect(draft.status).toBe(201);
+    expect(controllers.createEconomicPolicyRevision).toHaveBeenCalled();
+
+    const financePublish = await request(app).post(`${revisionPath}/publish`)
+      .set(gatewayHeaders({ role: 'finance_admin', totpVerified: true }))
+      .send({});
+    expect(financePublish.status).toBe(403);
+    expect(controllers.publishEconomicPolicyRevision).not.toHaveBeenCalled();
+
+    const publish = await request(app).post(`${revisionPath}/publish`)
+      .set(gatewayHeaders({ role: 'super_admin', totpVerified: true }))
+      .send({});
+    expect(publish.status).toBe(200);
+    expect(controllers.publishEconomicPolicyRevision).toHaveBeenCalled();
   });
 
   it('exposes public tracking by resi (cek resi publik)', async () => {
