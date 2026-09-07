@@ -872,8 +872,12 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
 
     // Lock baris order milik customer ini
     const { rows: orderRows } = await client.query(
-      `SELECT id, status, order_number, service_sub_type, merchant_id FROM orders
-       WHERE id = $1 AND customer_id = $2
+      `SELECT o.id, o.status, o.order_number, o.service_sub_type, o.merchant_id,
+              o.courier_id, o.total_price_idr, o.platform_fee_idr, o.pricing_snapshot,
+              COALESCE((SELECT p.amount_idr FROM payments p WHERE p.order_id = o.id
+                        ORDER BY p.created_at DESC LIMIT 1), o.total_price_idr) AS paid_amount_idr
+         FROM orders o
+        WHERE o.id = $1 AND o.customer_id = $2
        FOR UPDATE`,
       [orderId, customerId]
     );
@@ -928,17 +932,33 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
 
     await client.query('COMMIT');
 
-    // Trigger refund process in order-service
+    // Trigger refund process in order-service and wait for its immutable
+    // calculation so the customer receives the actual fee breakdown in this
+    // response. The order is already committed, so a slow gateway cannot
+    // roll back the cancellation itself.
     const orderServiceClientUrl = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
-    fetch(`${orderServiceClientUrl}/api/v1/internal/refunds/process`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_id: orderId, reason, original_status: originalStatus }),
-    }).then(res => {
-      if (!res.ok) console.warn(`[OrderService] Refund trigger returned status ${res.status} for ${orderId}`);
-    }).catch(err => {
+    let refundRecord: any = null;
+    let refundTriggerStatus = 'not_applicable';
+    try {
+      const refundResponse = await fetch(`${orderServiceClientUrl}/api/v1/internal/refunds/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || 'dev-internal-key-super-secret',
+        },
+        body: JSON.stringify({ order_id: orderId, reason, original_status: originalStatus }),
+      });
+      refundTriggerStatus = refundResponse.ok ? 'processed' : 'failed';
+      if (refundResponse.ok) {
+        const refundPayload = await refundResponse.json().catch(() => ({}));
+        refundRecord = refundPayload?.data || null;
+      } else {
+        securityLog.warn(`[OrderService] Refund trigger returned status ${refundResponse.status} for ${orderId}`);
+      }
+    } catch (err: any) {
+      refundTriggerStatus = 'unreachable';
       securityLog.error(`[OrderService] Failed to reach order-service for refund:`, err.message);
-    });
+    }
 
     // Advance queue untuk order lain yang sedang menunggu kurir
     const dispatchClient = await db.connect();
@@ -951,7 +971,39 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
       dispatchClient.release();
     }
 
-    res.json({ success: true, message: `Pesanan ${order.order_number} berhasil dibatalkan.` });
+    const paidAmountIDR = Number(order.paid_amount_idr || order.total_price_idr || 0);
+    const refundAmountIDR = refundRecord ? Number(refundRecord.amount_idr || 0) : null;
+    const cancellationFeeIDR = refundRecord
+      ? Number(refundRecord.cancellation_fee_idr || Math.max(0, paidAmountIDR - Number(refundAmountIDR || 0)))
+      : 0;
+    const isFoodOrder = order.service_sub_type === 'food_delivery' || order.merchant_id != null;
+    const defaultPolicyVersion = isFoodOrder ? 'food-cancellation-ID-JK-v1' : 'parcel-cancellation-global-v1';
+    const feeBreakdown = refundRecord?.cancellation_fee_breakdown || {
+      payment_amount_idr: paidAmountIDR,
+      refund_amount_idr: refundAmountIDR,
+      service_fee_idr: cancellationFeeIDR,
+      fee_reason: 'Tidak ada biaya pembatalan yang dikenakan.',
+      original_status: originalStatus,
+      courier_assigned: Boolean(order.courier_id),
+      market: (() => {
+        try { return JSON.parse(order.pricing_snapshot || '{}')?.market || 'ID-JK'; } catch { return 'ID-JK'; }
+      })(),
+    };
+
+    res.json({
+      success: true,
+      message: `Pesanan ${order.order_number} berhasil dibatalkan.`,
+      cancellation: {
+        policy_version: refundRecord?.cancellation_policy_version || defaultPolicyVersion,
+        charged: cancellationFeeIDR > 0,
+        cancellation_fee_idr: cancellationFeeIDR,
+        refund_amount_idr: refundAmountIDR,
+        refund_status: refundRecord?.status || refundTriggerStatus,
+        reason: refundRecord?.reason || reason,
+        fee_reason: feeBreakdown.fee_reason,
+        breakdown: feeBreakdown,
+      },
+    });
   } catch (error: any) {
     await client.query('ROLLBACK').catch(() => undefined);
     securityLog.error('[cancelCustomerOrder] error:', error);

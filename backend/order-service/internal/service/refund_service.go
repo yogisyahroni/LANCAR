@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -70,46 +71,13 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 	if statusAtCancel == "" || statusAtCancel == domain.StatusCancelled {
 		statusAtCancel = order.Status
 	}
-	isFood := order.ServiceSubType == "food_delivery" || order.MerchantID != nil
 	courierAssigned := order.CourierID != nil && *order.CourierID != ""
 
-	// Kebijakan refund per status (FB-079):
-	// - FOOD free: pending_payment / pending_merchant / preparing / ready_for_pickup
-	//   / pending / pending_assignment / no_courier_found / searching tanpa driver → 100%
-	// - FOOD kena biaya layanan (platform fee ditahan sbg cancellation fee):
-	//   searching+dengan driver / accepted / picking_up → refund = total − platform_fee
-	// - FOOD picked_up ke atas: 0% (harusnya ditolak di handler → dispute)
-	// - PARCEL: existing policy (100% / 80% / 0%)
-	refundRatio := 0.0
-	withholdServiceFee := false
-	if isFood {
-		switch statusAtCancel {
-		case domain.StatusPendingPayment, domain.StatusPendingMerchant, domain.StatusPreparing,
-			domain.StatusReadyForPickup, domain.StatusPending, domain.StatusPendingAssignment,
-			domain.StatusNoCourierFound,
-			domain.StatusScheduled: // FB-123: terjadwal belum dikerjakan siapa pun → 100%
-			refundRatio = 1.0
-		case domain.StatusSearching:
-			refundRatio = 1.0
-			withholdServiceFee = courierAssigned
-		case domain.StatusAccepted, domain.StatusPickingUp:
-			refundRatio = 1.0
-			withholdServiceFee = true
-		default:
-			// picked_up ke atas → 0%
-			refundRatio = 0.0
-		}
-	} else {
-		switch statusAtCancel {
-		case domain.StatusPendingPayment, domain.StatusPending, domain.StatusPendingAssignment, domain.StatusSearching, domain.StatusNoCourierFound, domain.StatusCancelled:
-			refundRatio = 1.0
-		case domain.StatusAccepted, domain.StatusPickingUp:
-			refundRatio = 0.8
-		default:
-			// Picked up or later -> 0% refund
-			refundRatio = 0.0
-		}
-	}
+	// ECON-2026-007: one versioned decision is the source of truth for
+	// eligibility, state/time proxy, and operational cost incurred.
+	decision := cancellationDecision(order, statusAtCancel, courierAssigned)
+	refundRatio := decision.RefundRatio
+	withholdServiceFee := decision.WithholdServiceFee
 
 	if refundRatio == 0.0 {
 		log.Printf("No refund applicable for order %s at status %s", orderID, statusAtCancel)
@@ -152,6 +120,9 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		refundAmount -= int(order.PlatformFeeIDR)
 		platformFeeReversal = 0
 	}
+	if refundAmount < 0 {
+		refundAmount = 0
+	}
 	if opts.ChargeCancellationFeeTo == "merchant" {
 		// FB-082: kesalahan merchant (reject/timeout) — customer refund 100%,
 		// fee TIDAK direversal (platform tidak rugi): menjadi piutang merchant
@@ -168,6 +139,19 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 	actualRatio := float64(refundAmount) / float64(payment.AmountIDR)
 	refundPercentage := int(actualRatio*100 + 0.5)
 	taxReversal := int64(float64(order.PPNIDR) * actualRatio)
+	cancellationFeeIDR := int64(payment.AmountIDR - refundAmount)
+	if cancellationFeeIDR < 0 {
+		cancellationFeeIDR = 0
+	}
+	feeBreakdown, _ := json.Marshal(map[string]any{
+		"payment_amount_idr": payment.AmountIDR,
+		"refund_amount_idr":  refundAmount,
+		"service_fee_idr":    cancellationFeeIDR,
+		"fee_reason":         decision.FeeReason,
+		"original_status":    statusAtCancel,
+		"courier_assigned":   courierAssigned,
+		"market":             cancellationMarket(order.PricingSnapshot),
+	})
 
 	now := time.Now()
 	refundID := uuid.New()
@@ -222,11 +206,14 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 			IdempotencyKey: fmt.Sprintf("REFUND-JRN-%s", refundID.String()),
 			Reason:         cancelReason,
 			Metadata: map[string]any{
-				"refund_id":                  refundID.String(),
-				"refund_percentage":          refundPercentage,
-				"tax_reversal_idr":           taxReversal,
-				"fee_reversal_idr":           platformFeeReversal,
-				"charge_cancellation_fee_to": opts.ChargeCancellationFeeTo,
+				"refund_id":                   refundID.String(),
+				"refund_percentage":           refundPercentage,
+				"tax_reversal_idr":            taxReversal,
+				"fee_reversal_idr":            platformFeeReversal,
+				"charge_cancellation_fee_to":  opts.ChargeCancellationFeeTo,
+				"cancellation_policy_version": decision.PolicyVersion,
+				"cancellation_fee_idr":        cancellationFeeIDR,
+				"cancellation_fee_breakdown":  json.RawMessage(feeBreakdown),
 			},
 			CreatedBy: "system",
 			ActorRole: "system",
@@ -242,19 +229,22 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 	}
 
 	record := &domain.RefundRecord{
-		ID:                     refundID,
-		OrderID:                orderID,
-		UserID:                 &order.CustomerID,
-		PaymentID:              &payment.ID,
-		AmountIDR:              refundAmount,
-		Reason:                 cancelReason,
-		Status:                 domain.RefundStatusPending,
-		RefundPercentage:       refundPercentage,
-		TaxReversalIDR:         taxReversal,
-		PlatformFeeReversalIDR: platformFeeReversal,
-		LedgerJournalID:        journalIDPtr,
-		CreatedAt:              now,
-		UpdatedAt:              now,
+		ID:                        refundID,
+		OrderID:                   orderID,
+		UserID:                    &order.CustomerID,
+		PaymentID:                 &payment.ID,
+		AmountIDR:                 refundAmount,
+		Reason:                    cancelReason,
+		Status:                    domain.RefundStatusPending,
+		RefundPercentage:          refundPercentage,
+		TaxReversalIDR:            taxReversal,
+		PlatformFeeReversalIDR:    platformFeeReversal,
+		CancellationPolicyVersion: decision.PolicyVersion,
+		CancellationFeeIDR:        cancellationFeeIDR,
+		CancellationFeeBreakdown:  feeBreakdown,
+		LedgerJournalID:           journalIDPtr,
+		CreatedAt:                 now,
+		UpdatedAt:                 now,
 	}
 
 	err = s.refundRepo.CreateRefund(ctx, record)

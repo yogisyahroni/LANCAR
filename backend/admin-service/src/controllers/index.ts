@@ -92,6 +92,7 @@ export * as productCatalog from './productCatalog.controller';
 export * as costIntelligence from './costIntelligence.controller';
 export * as merchantSettlement from './merchantSettlement.controller';
 export * from './merchantCommissionContracts.controller';
+export * from './customerFeeCredits.controller';
 
 // Broadcast Center
 export * as broadcast from './broadcast.controller';

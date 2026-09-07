@@ -5285,10 +5285,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## ECON-2026-007 — Customer fee transparency and cancellation economics [P0/P1]
 
 **Checklist**
-- [ ] Quote shows material fees before pay.
-- [ ] Cancellation fee eligibility based on state/time/cost incurred and market policy.
-- [ ] Customer receives reason/breakdown for charged cancellation fee.
-- [ ] Fee waiver/compensation uses audited policy/credit, not silent total overwrite.
+- [x] Quote shows material fees before pay.
+- [x] Cancellation fee eligibility based on state/time/cost incurred and market policy.
+- [x] Customer receives reason/breakdown for charged cancellation fee.
+- [x] Fee waiver/compensation uses audited policy/credit, not silent total overwrite.
 
 ---
 

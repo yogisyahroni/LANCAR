@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -22,14 +23,23 @@ func NewPostgresRefundRepo(db *sqlx.DB, readDb *sqlx.DB) *PostgresRefundRepo {
 }
 
 func (r *PostgresRefundRepo) CreateRefund(ctx context.Context, record *domain.RefundRecord) error {
+	breakdown := record.CancellationFeeBreakdown
+	if len(breakdown) == 0 {
+		breakdown = json.RawMessage(`{}`)
+	}
 	query := `
 		INSERT INTO refunds (
-			id, order_id, user_id, payment_id, amount_idr, reason, status, refund_percentage, tax_reversal_idr, platform_fee_reversal_idr, ledger_journal_id, created_at, updated_at
+			id, order_id, user_id, payment_id, amount_idr, reason, status, refund_percentage, tax_reversal_idr, platform_fee_reversal_idr, cancellation_policy_version, cancellation_fee_idr, cancellation_fee_breakdown, ledger_journal_id, created_at, updated_at
 		) VALUES (
-			:id, :order_id, :user_id, :payment_id, :amount_idr, :reason, :status, :refund_percentage, :tax_reversal_idr, :platform_fee_reversal_idr, :ledger_journal_id, :created_at, :updated_at
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
 		)
 	`
-	_, err := r.db.NamedExecContext(ctx, query, record)
+	_, err := r.db.ExecContext(ctx, query,
+		record.ID, record.OrderID, record.UserID, record.PaymentID, record.AmountIDR,
+		record.Reason, record.Status, record.RefundPercentage, record.TaxReversalIDR,
+		record.PlatformFeeReversalIDR, record.CancellationPolicyVersion, record.CancellationFeeIDR,
+		breakdown, record.LedgerJournalID, record.CreatedAt, record.UpdatedAt,
+	)
 	return err
 }
 
@@ -47,7 +57,8 @@ func (r *PostgresRefundRepo) UpdateRefundStatus(ctx context.Context, id uuid.UUI
 // (UAT F8-AN-070: SELECT * gagal "missing destination name payment_id" —
 // tabel punya payment_id/user_id/processed_at yang tidak ada di struct.)
 const refundColumns = `id, order_id, amount_idr, reason, status, refund_percentage,
-	tax_reversal_idr, platform_fee_reversal_idr, ledger_journal_id, gateway_ref,
+	tax_reversal_idr, platform_fee_reversal_idr, cancellation_policy_version,
+	cancellation_fee_idr, cancellation_fee_breakdown, ledger_journal_id, gateway_ref,
 	failure_reason, created_at, updated_at`
 
 func (r *PostgresRefundRepo) GetRefundsByOrder(ctx context.Context, orderID uuid.UUID) ([]domain.RefundRecord, error) {

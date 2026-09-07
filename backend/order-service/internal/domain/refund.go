@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,21 +17,24 @@ const (
 )
 
 type RefundRecord struct {
-	ID                     uuid.UUID    `json:"id" db:"id"`
-	OrderID                uuid.UUID    `json:"order_id" db:"order_id"`
-	UserID                 *string      `json:"user_id,omitempty" db:"user_id"`
-	PaymentID              *string      `json:"payment_id,omitempty" db:"payment_id"`
-	AmountIDR              int          `json:"amount_idr" db:"amount_idr"`
-	Reason                 string       `json:"reason" db:"reason"`
-	Status                 RefundStatus `json:"status" db:"status"`
-	RefundPercentage       int          `json:"refund_percentage" db:"refund_percentage"`
-	TaxReversalIDR         int64        `json:"tax_reversal_idr" db:"tax_reversal_idr"`
-	PlatformFeeReversalIDR int64        `json:"platform_fee_reversal_idr" db:"platform_fee_reversal_idr"`
-	LedgerJournalID        *uuid.UUID   `json:"ledger_journal_id,omitempty" db:"ledger_journal_id"`
-	GatewayRef             *string      `json:"gateway_ref,omitempty" db:"gateway_ref"`
-	FailureReason          *string      `json:"failure_reason,omitempty" db:"failure_reason"`
-	CreatedAt              time.Time    `json:"created_at" db:"created_at"`
-	UpdatedAt              time.Time    `json:"updated_at" db:"updated_at"`
+	ID                        uuid.UUID       `json:"id" db:"id"`
+	OrderID                   uuid.UUID       `json:"order_id" db:"order_id"`
+	UserID                    *string         `json:"user_id,omitempty" db:"user_id"`
+	PaymentID                 *string         `json:"payment_id,omitempty" db:"payment_id"`
+	AmountIDR                 int             `json:"amount_idr" db:"amount_idr"`
+	Reason                    string          `json:"reason" db:"reason"`
+	Status                    RefundStatus    `json:"status" db:"status"`
+	RefundPercentage          int             `json:"refund_percentage" db:"refund_percentage"`
+	TaxReversalIDR            int64           `json:"tax_reversal_idr" db:"tax_reversal_idr"`
+	PlatformFeeReversalIDR    int64           `json:"platform_fee_reversal_idr" db:"platform_fee_reversal_idr"`
+	CancellationPolicyVersion string          `json:"cancellation_policy_version,omitempty" db:"cancellation_policy_version"`
+	CancellationFeeIDR        int64           `json:"cancellation_fee_idr" db:"cancellation_fee_idr"`
+	CancellationFeeBreakdown  json.RawMessage `json:"cancellation_fee_breakdown,omitempty" db:"cancellation_fee_breakdown"`
+	LedgerJournalID           *uuid.UUID      `json:"ledger_journal_id,omitempty" db:"ledger_journal_id"`
+	GatewayRef                *string         `json:"gateway_ref,omitempty" db:"gateway_ref"`
+	FailureReason             *string         `json:"failure_reason,omitempty" db:"failure_reason"`
+	CreatedAt                 time.Time       `json:"created_at" db:"created_at"`
+	UpdatedAt                 time.Time       `json:"updated_at" db:"updated_at"`
 }
 
 type RefundRepository interface {
@@ -59,7 +63,7 @@ type RefundGateway interface {
 //   - "none": refund 100% + fee direversal penuh ke customer (platform rugi,
 //     dipakai kalau blm ada mekanisme piutang).
 type RefundOptions struct {
-	OriginalStatus        OrderStatus
+	OriginalStatus          OrderStatus
 	ChargeCancellationFeeTo string
 }
 
