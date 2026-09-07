@@ -80,4 +80,17 @@ describe('courier payout migrations', () => {
     expect(sql).toContain('webhook_missing');
     expect(sql).toContain('payout_reconciliation_run');
   });
+
+  it('enforces immutable settled earning facts and explicit wallet statement buckets', () => {
+    const sql = migration('20260908000005_courier_earning_wallet_statement.sql');
+
+    expect(sql).toContain('courier_earning_settled_at TIMESTAMPTZ');
+    expect(sql).toContain('zz_guard_courier_earning_settlement');
+    expect(sql).toContain('compensating adjustment ledger entry');
+    expect(sql).toContain('courier_ledger_is_withdrawable');
+    expect(sql).toContain("NEW.settlement_status := 'held'");
+    expect(sql).toContain('courier_ledger_statement_category');
+    expect(sql).toContain("'tax'");
+    expect(sql).toContain("'fee'");
+  });
 });

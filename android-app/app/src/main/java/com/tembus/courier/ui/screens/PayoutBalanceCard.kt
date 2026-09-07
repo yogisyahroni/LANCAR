@@ -273,6 +273,10 @@ internal fun PayoutBalanceCard(
                         HeroBalanceChip("Pending", summary?.pendingBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
                         HeroBalanceChip("Total", summary?.totalBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        HeroBalanceChip("Held", summary?.heldBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
+                        HeroBalanceChip("Withdrawn", summary?.withdrawnBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
+                    }
                 }
             }
 

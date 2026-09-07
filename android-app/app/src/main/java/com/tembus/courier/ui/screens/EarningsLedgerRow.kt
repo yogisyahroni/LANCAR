@@ -181,7 +181,10 @@ internal fun EarningsLedgerRow(transaction: CourierEarningsTransaction) {
         Column(modifier = Modifier.weight(1f)) {
             Text(orderLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                transaction.description ?: transaction.settlementStatus.replace("_", " "),
+                listOfNotNull(
+                    transaction.statementCategory.replace("_", " ").replaceFirstChar { it.uppercase() },
+                    transaction.description ?: transaction.settlementStatus.replace("_", " ")
+                ).joinToString(" • "),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -196,7 +199,7 @@ internal fun EarningsLedgerRow(transaction: CourierEarningsTransaction) {
                 color = color
             )
             Text(
-                transaction.settlementStatus.replace("_", " "),
+                (transaction.walletState.ifBlank { transaction.settlementStatus }).replace("_", " "),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1

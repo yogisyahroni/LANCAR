@@ -296,7 +296,24 @@ internal fun WalletContent(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         MiniProfileStat("Tersedia", earningsLedger.summary.availableBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
                         MiniProfileStat("Pending", earningsLedger.summary.pendingBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Held", earningsLedger.summary.heldBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        MiniProfileStat("Withdrawn", earningsLedger.summary.withdrawnBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
                         MiniProfileStat("Total", earningsLedger.summary.totalBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+
+                    Text("Statement", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        MiniProfileStat("Order", earningsLedger.summary.orderEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Insentif", earningsLedger.summary.incentiveEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Adjustment", earningsLedger.summary.adjustmentIdr.toRupiahCompact(), Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        MiniProfileStat("Pajak", earningsLedger.summary.taxIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Biaya", earningsLedger.summary.feeIdr.toRupiahCompact(), Modifier.weight(1f))
+                        Spacer(modifier = Modifier.weight(1f))
                     }
 
                     PayoutAccountPanel(earningsLedger)

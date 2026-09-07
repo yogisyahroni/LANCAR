@@ -584,6 +584,20 @@ data class CourierEarningsLedgerSummary(
     val availableBalanceIdr: Int = 0,
     @SerialName("pending_balance_idr")
     val pendingBalanceIdr: Int = 0,
+    @SerialName("held_balance_idr")
+    val heldBalanceIdr: Int = 0,
+    @SerialName("withdrawn_balance_idr")
+    val withdrawnBalanceIdr: Int = 0,
+    @SerialName("order_earnings_idr")
+    val orderEarningsIdr: Int = 0,
+    @SerialName("incentive_earnings_idr")
+    val incentiveEarningsIdr: Int = 0,
+    @SerialName("adjustment_idr")
+    val adjustmentIdr: Int = 0,
+    @SerialName("tax_idr")
+    val taxIdr: Int = 0,
+    @SerialName("fee_idr")
+    val feeIdr: Int = 0,
     @SerialName("payout_account")
     val payoutAccount: CourierPayoutAccount? = null
 )
@@ -612,6 +626,10 @@ data class CourierPayoutBalanceSummary(
     val availableBalanceIdr: Int = 0,
     @SerialName("pending_balance_idr")
     val pendingBalanceIdr: Int = 0,
+    @SerialName("held_balance_idr")
+    val heldBalanceIdr: Int = 0,
+    @SerialName("withdrawn_balance_idr")
+    val withdrawnBalanceIdr: Int = 0,
     @SerialName("requested_today_idr")
     val requestedTodayIdr: Int = 0,
     @SerialName("active_request_count")
@@ -718,12 +736,20 @@ data class CourierEarningsTransaction(
     val orderNumber: String? = null,
     @SerialName("source")
     val source: String = "delivery",
+    @SerialName("transaction_type")
+    val transactionType: String = "earning_credit",
     @SerialName("direction")
     val direction: String = "credit",
     @SerialName("amount_idr")
     val amountIdr: Int = 0,
     @SerialName("settlement_status")
     val settlementStatus: String = "pending",
+    @SerialName("statement_category")
+    val statementCategory: String = "other",
+    @SerialName("withdrawable")
+    val withdrawable: Boolean = true,
+    @SerialName("wallet_state")
+    val walletState: String = "pending",
     @SerialName("description")
     val description: String? = null,
     @SerialName("created_at")

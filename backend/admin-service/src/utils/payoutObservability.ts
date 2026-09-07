@@ -163,14 +163,16 @@ export const evaluatePayoutAlerts = async (client: Queryable) => {
       client.query(
         `SELECT courier_id,
                 COALESCE(SUM(CASE
-                  WHEN direction = 'credit' AND settlement_status = 'available' THEN amount_idr
+                  WHEN direction = 'credit' AND settlement_status = 'available'
+                    AND courier_ledger_is_withdrawable(metadata) THEN amount_idr
                   WHEN direction = 'debit' AND settlement_status IN ('requested', 'processing', 'paid') THEN -amount_idr
                   ELSE 0
                 END), 0)::int AS available_balance_idr
          FROM courier_earnings_ledger
          GROUP BY courier_id
          HAVING COALESCE(SUM(CASE
-           WHEN direction = 'credit' AND settlement_status = 'available' THEN amount_idr
+           WHEN direction = 'credit' AND settlement_status = 'available'
+             AND courier_ledger_is_withdrawable(metadata) THEN amount_idr
            WHEN direction = 'debit' AND settlement_status IN ('requested', 'processing', 'paid') THEN -amount_idr
            ELSE 0
          END), 0) < 0

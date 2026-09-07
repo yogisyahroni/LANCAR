@@ -55,6 +55,23 @@ export const getMobileCourierEarningsLedger = async (req: Request, res: Response
          cel.direction,
          cel.amount_idr,
          cel.settlement_status,
+         courier_ledger_statement_category(
+           cel.source,
+           cel.direction,
+           COALESCE(cel.transaction_type, 'earning_credit'),
+           cel.metadata
+         ) AS statement_category,
+         courier_ledger_is_withdrawable(cel.metadata) AS withdrawable,
+         CASE
+           WHEN cel.direction = 'credit'
+             AND NOT courier_ledger_is_withdrawable(cel.metadata)
+             AND cel.settlement_status <> 'cancelled' THEN 'held'
+           WHEN cel.settlement_status = 'pending' THEN 'pending'
+           WHEN cel.direction = 'debit' AND cel.settlement_status IN ('requested', 'processing') THEN 'pending'
+           WHEN cel.direction = 'debit' AND cel.settlement_status = 'paid' THEN 'withdrawn'
+           ELSE cel.settlement_status
+         END AS wallet_state,
+         CASE WHEN cel.source = 'delivery' THEN COALESCE(cel.metadata->'earning_components', '{}'::jsonb) ELSE NULL END AS earning_breakdown,
          cel.description,
          cel.created_at
        FROM courier_earnings_ledger cel
@@ -69,17 +86,45 @@ export const getMobileCourierEarningsLedger = async (req: Request, res: Response
       `SELECT
          COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END), 0)::int AS total_balance_idr,
          COALESCE(SUM(CASE
-           WHEN settlement_status = 'available' AND direction = 'credit' THEN amount_idr
+           WHEN settlement_status = 'available' AND direction = 'credit'
+             AND courier_ledger_is_withdrawable(metadata)
+             AND NOT EXISTS (
+               SELECT 1 FROM disputes d
+               WHERE d.order_id = courier_earnings_ledger.order_id
+                 AND d.status IN ('open', 'investigating', 'pending')
+             ) THEN amount_idr
            WHEN settlement_status IN ('requested', 'processing', 'paid') AND direction = 'debit' THEN -amount_idr
            ELSE 0
          END), 0)::int AS available_balance_idr,
          COALESCE(SUM(CASE
-           WHEN settlement_status = 'pending' AND direction = 'credit' THEN amount_idr
+           WHEN settlement_status = 'pending' AND direction = 'credit'
+             AND courier_ledger_is_withdrawable(metadata) THEN amount_idr
            WHEN settlement_status IN ('requested', 'processing') AND direction = 'debit' THEN amount_idr
            ELSE 0
-         END), 0)::int AS pending_balance_idr
+         END), 0)::int AS pending_balance_idr,
+         COALESCE(SUM(CASE
+           WHEN direction = 'credit'
+             AND settlement_status <> 'cancelled'
+             AND (settlement_status = 'held' OR NOT courier_ledger_is_withdrawable(metadata))
+           THEN amount_idr ELSE 0 END), 0)::int AS held_balance_idr,
+         COALESCE((SELECT SUM(pr.amount_idr)::int FROM courier_payout_requests pr
+           WHERE pr.courier_id = courier_earnings_ledger.courier_id AND pr.status = 'paid'), 0)::int AS withdrawn_balance_idr,
+         COALESCE(SUM(CASE WHEN courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'order'
+           THEN CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END ELSE 0 END), 0)::int AS order_earnings_idr,
+         COALESCE(SUM(CASE WHEN courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'incentive'
+           THEN CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END ELSE 0 END), 0)::int AS incentive_earnings_idr,
+         COALESCE(SUM(CASE WHEN courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'adjustment'
+           THEN CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END ELSE 0 END), 0)::int AS adjustment_idr,
+         COALESCE(SUM(CASE WHEN courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'tax'
+           THEN CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END ELSE 0 END), 0)::int AS tax_idr,
+         (COALESCE(SUM(CASE WHEN courier_ledger_statement_category(source, direction, COALESCE(transaction_type, 'earning_credit'), metadata) = 'fee'
+           THEN CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END ELSE 0 END), 0)
+           - COALESCE((SELECT SUM(pr.fee_idr)::int FROM courier_payout_requests pr
+             WHERE pr.courier_id = courier_earnings_ledger.courier_id
+               AND pr.status NOT IN ('failed', 'rejected', 'blocked', 'cancelled')), 0))::int AS fee_idr
        FROM courier_earnings_ledger
-       WHERE courier_id = $1`,
+       WHERE courier_id = $1
+       GROUP BY courier_id`,
       [req.user.id]
     );
     const payoutAccount = await db.query(
@@ -131,6 +176,13 @@ export const getMobileCourierEarningsLedger = async (req: Request, res: Response
       total_balance_idr: 0,
       available_balance_idr: 0,
       pending_balance_idr: 0,
+      held_balance_idr: 0,
+      withdrawn_balance_idr: 0,
+      order_earnings_idr: 0,
+      incentive_earnings_idr: 0,
+      adjustment_idr: 0,
+      tax_idr: 0,
+      fee_idr: 0,
     };
 
     res.json({
@@ -168,6 +220,7 @@ export const getMobileCourierPayoutSummary = async (req: Request, res: Response)
              CASE
                WHEN cel.direction = 'credit'
                  AND cel.settlement_status = 'available'
+                 AND courier_ledger_is_withdrawable(cel.metadata)
                  AND NOT EXISTS (
                    SELECT 1 FROM disputes d
                    WHERE d.order_id = cel.order_id
@@ -181,12 +234,21 @@ export const getMobileCourierPayoutSummary = async (req: Request, res: Response)
              END
            ), 0)::int AS available_balance_idr,
            COALESCE(SUM(CASE
-             WHEN settlement_status = 'pending' AND direction = 'credit' THEN amount_idr
+             WHEN settlement_status = 'pending' AND direction = 'credit'
+               AND courier_ledger_is_withdrawable(cel.metadata) THEN amount_idr
              WHEN settlement_status IN ('requested', 'processing') AND direction = 'debit' THEN amount_idr
              ELSE 0
-           END), 0)::int AS pending_balance_idr
+           END), 0)::int AS pending_balance_idr,
+           COALESCE(SUM(CASE
+             WHEN cel.direction = 'credit'
+               AND cel.settlement_status <> 'cancelled'
+               AND (cel.settlement_status = 'held' OR NOT courier_ledger_is_withdrawable(cel.metadata))
+             THEN cel.amount_idr ELSE 0 END), 0)::int AS held_balance_idr,
+           COALESCE((SELECT SUM(pr.amount_idr)::int FROM courier_payout_requests pr
+             WHERE pr.courier_id = cel.courier_id AND pr.status = 'paid'), 0)::int AS withdrawn_balance_idr
          FROM courier_earnings_ledger cel
-         WHERE cel.courier_id = $1`,
+         WHERE cel.courier_id = $1
+         GROUP BY cel.courier_id`,
         [req.user.id]
       ),
       db.query(
@@ -259,6 +321,8 @@ export const getMobileCourierPayoutSummary = async (req: Request, res: Response)
           total_balance_idr: Number(balanceRow.total_balance_idr || 0),
           available_balance_idr: availableBalance,
           pending_balance_idr: Number(balanceRow.pending_balance_idr || 0),
+          held_balance_idr: Number(balanceRow.held_balance_idr || 0),
+          withdrawn_balance_idr: Number(balanceRow.withdrawn_balance_idr || 0),
           requested_today_idr: requestedToday,
           active_request_count: activeRequestCount,
         },
