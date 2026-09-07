@@ -5,9 +5,16 @@ import { db, readDb } from '../db';
 import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../security/uploadSecurity';
 import { createNotification } from '../notifications';
+import {
+  COURIER_ONBOARDING_POLICY_VERSION,
+  CourierOnboardingState,
+  buildCourierOnboardingChecklist,
+  canTransitionCourierOnboarding,
+  evaluateCourierActivation,
+  isCourierChecklistPassed,
+} from '../services/courierOnboardingPolicy';
 
-const requiredOnDemandDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account', 'face_enrollment'];
-const forbiddenVehicleCategories = ['trail', 'sport', 'touring'];
+const supportedCourierDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account', 'face_enrollment', 'selfie'];
 const allowedApplicationChannels = ['on_demand', 'regular'];
 const channelLabels: Record<string, string> = {
   on_demand: 'On-Demand',
@@ -25,57 +32,20 @@ const normalizeApplicationChannel = (value: any, fallback = 'on_demand') => {
   return allowedApplicationChannels.includes(channel) ? channel : fallback;
 };
 
-const buildOnboardingChecklist = (body: any, applicationChannel = 'on_demand') => {
-  const registrationYear = new Date().getFullYear();
-  const vehicleYear = Number(body.vehicle_year || 0);
-  const vehicleCc = Number(body.vehicle_cc || 0);
-  const vehicleCategory = String(body.vehicle_category || '').trim().toLowerCase();
-  const engineType = String(body.engine_type || '').trim().toLowerCase();
-  const documents = body.documents || {};
-
-  const documentChecks = requiredOnDemandDocuments.reduce((acc, docType) => ({
-    ...acc,
-    [docType]: Boolean(documents[docType])
-  }), {} as Record<string, boolean>);
-
-  const vehicleAge = vehicleYear > 0 ? registrationYear - vehicleYear : null;
-  return {
-    documents: documentChecks,
-    originals_required: {
-      ktp: true,
-      sim: true,
-      stnk: true,
-      skpd: true,
-      skck_original_or_legalized: true
-    },
-    rules: {
-      vehicle_age_max_8_years: vehicleAge !== null && vehicleAge <= 8,
-      vehicle_cc_max_250: vehicleCc > 0 && vehicleCc <= 250,
-      four_stroke_engine: engineType === '4_tak' || engineType === '4tak' || engineType === '4 stroke',
-      not_trail_sport_touring: !forbiddenVehicleCategories.includes(vehicleCategory),
-      skpd_tax_active: Boolean(body.skpd_tax_active),
-      sim_active: Boolean(body.sim_active)
-    },
-    summary: {
-      application_channel: applicationChannel,
-      registration_year: registrationYear,
-      vehicle_age_years: vehicleAge,
-      vehicle_cc: vehicleCc,
-      vehicle_category: vehicleCategory,
-      engine_type: engineType
-    }
-  };
-};
-
-const requiredCourierDocuments = requiredOnDemandDocuments;
-
-const checklistPassed = (checklist: any) => {
-  const docs = checklist.documents || {};
-  const rules = checklist.rules || {};
-  const requiredDocsPassed = requiredCourierDocuments.every((key) => Boolean(docs[key]));
-  const ruleValues = Object.values(rules);
-  return requiredDocsPassed && ruleValues.length > 0 && ruleValues.every(Boolean);
-};
+const buildOnboardingChecklist = (body: any, applicationChannel = 'on_demand') => buildCourierOnboardingChecklist({
+  marketCode: body.market_code,
+  applicationChannel,
+  serviceCategories: body.service_categories || body.service_codes,
+  vehicleCategory: body.vehicle_category,
+  vehicleType: body.vehicle_type,
+  vehiclePlate: body.vehicle_plate,
+  vehicleYear: body.vehicle_year,
+  vehicleCc: body.vehicle_cc,
+  engineType: body.engine_type,
+  simActive: body.sim_active,
+  skpdTaxActive: body.skpd_tax_active,
+  documents: body.documents || {},
+});
 
 const pseudoChecksum = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 
@@ -321,7 +291,7 @@ const validateRegistrationToken = async (client: any, token: string) => {
 export const uploadCourierOnDemandDocument = async (req: Request, res: Response): Promise<void> => {
   try {
     const docType = String(req.body?.doc_type || '').trim();
-    if (!requiredOnDemandDocuments.includes(docType)) {
+    if (!supportedCourierDocuments.includes(docType)) {
       res.status(400).json({ error: 'Invalid courier document type' });
       return;
     }
@@ -385,6 +355,8 @@ const submitCourierApplication = async (
     bank_code,
     bank_account_number,
     bank_account_name,
+    market_code,
+    service_categories,
     documents = {}
   } = req.body || {};
 
@@ -401,11 +373,17 @@ const submitCourierApplication = async (
 
     // SECURITY FIX: Prevent Account Takeover for existing active couriers
     const existingCourierRes = await client.query(
-      `SELECT status FROM couriers WHERE phone_number = $1`,
+      `SELECT role, status FROM users WHERE phone_number = $1`,
       [normalizePhone(phone_number)]
     );
     if (existingCourierRes.rows.length > 0) {
-      const existingStatus = existingCourierRes.rows[0].status;
+      const existingAccount = existingCourierRes.rows[0];
+      if (existingAccount.role !== 'courier') {
+        await client.query('ROLLBACK');
+        res.status(409).json({ error: 'Nomor HP sudah digunakan akun lain.' });
+        return;
+      }
+      const existingStatus = existingAccount.status;
       if (existingStatus === 'active' || existingStatus === 'suspended') {
         await client.query('ROLLBACK');
         res.status(409).json({ error: 'Nomor HP ini sudah terdaftar pada akun kurir yang aktif. Silakan gunakan fitur Lupa Password jika Anda tidak bisa login.' });
@@ -425,26 +403,9 @@ const submitCourierApplication = async (
       registrationLinkId = validation.link.id;
     }
 
-    const checklist = buildOnboardingChecklist(req.body, applicationChannel);
-
-    const courierUserRes = await client.query(
-      `INSERT INTO couriers (phone_number, email, full_name, role, status, pin_hash)
+    const userRes = await client.query(
+      `INSERT INTO users (phone_number, email, full_name, role, status, pin_hash)
        VALUES ($1, NULLIF($2, ''), $3, 'courier', 'pending_verification', $4)
-       ON CONFLICT (phone_number) DO UPDATE SET
-         email = COALESCE(NULLIF(EXCLUDED.email, ''), couriers.email),
-         full_name = EXCLUDED.full_name,
-         status = CASE WHEN couriers.status = 'active' THEN couriers.status ELSE 'pending_verification' END,
-         pin_hash = EXCLUDED.pin_hash,
-         updated_at = NOW()
-       RETURNING id`,
-      [normalizePhone(phone_number), email || null, String(full_name).trim(), String(password)]
-    );
-
-    const userId = courierUserRes.rows[0].id;
-
-    await client.query(
-      `INSERT INTO users (id, phone_number, email, full_name, role, status, pin_hash)
-       VALUES ($1, $2, NULLIF($3, ''), $4, 'courier', 'pending_verification', $5)
        ON CONFLICT (phone_number) DO UPDATE SET
          email = COALESCE(NULLIF(EXCLUDED.email, ''), users.email),
          full_name = EXCLUDED.full_name,
@@ -453,14 +414,26 @@ const submitCourierApplication = async (
          pin_hash = EXCLUDED.pin_hash,
          updated_at = NOW()
        RETURNING id`,
-      [userId, normalizePhone(phone_number), email || null, String(full_name).trim(), String(password)]
+      [normalizePhone(phone_number), email || null, String(full_name).trim(), String(password)]
     );
+    const userId = userRes.rows[0].id;
+    const normalizedServiceCategories = Array.from(new Set(
+      (Array.isArray(service_categories) ? service_categories : service_categories ? [service_categories] : [])
+        .map((value: unknown) => String(value).trim().toLowerCase())
+        .filter(Boolean)
+    ));
+    const checklistInput = {
+      ...req.body,
+      market_code: market_code || 'id',
+      service_categories: normalizedServiceCategories,
+    };
+    const checklist = buildOnboardingChecklist(checklistInput, applicationChannel);
     const profileRes = await client.query(
       `INSERT INTO courier_profiles (
         user_id, nik, vehicle_type, vehicle_plate, vehicle_cc, vehicle_brand, vehicle_model, vehicle_year,
         vehicle_category, engine_type, sim_active, skpd_tax_active, bank_code, bank_account_number, bank_account_name, application_channel,
-        onboarding_checklist, verification_status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'pending')
+        market_code, service_categories, onboarding_policy_version, onboarding_checklist, verification_status, onboarding_status, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'pending', 'SUBMITTED', 'offline')
        ON CONFLICT (user_id) DO UPDATE SET
         nik = EXCLUDED.nik,
         vehicle_type = EXCLUDED.vehicle_type,
@@ -477,8 +450,24 @@ const submitCourierApplication = async (
         bank_account_number = EXCLUDED.bank_account_number,
         bank_account_name = EXCLUDED.bank_account_name,
         application_channel = EXCLUDED.application_channel,
+        market_code = EXCLUDED.market_code,
+        service_categories = EXCLUDED.service_categories,
+        onboarding_policy_version = EXCLUDED.onboarding_policy_version,
         onboarding_checklist = EXCLUDED.onboarding_checklist,
         verification_status = 'pending',
+        onboarding_status = CASE
+          WHEN courier_profiles.onboarding_status IN ('ACTIVE', 'SUSPENDED', 'DEACTIVATED')
+            THEN courier_profiles.onboarding_status
+          ELSE 'SUBMITTED'
+        END,
+        is_verified = CASE
+          WHEN courier_profiles.onboarding_status IN ('ACTIVE', 'SUSPENDED') THEN courier_profiles.is_verified
+          ELSE FALSE
+        END,
+        status = CASE
+          WHEN courier_profiles.onboarding_status IN ('ACTIVE', 'SUSPENDED') THEN courier_profiles.status
+          ELSE 'offline'
+        END,
         rejection_reason = NULL,
         updated_at = NOW()
        RETURNING id`,
@@ -499,6 +488,9 @@ const submitCourierApplication = async (
         bank_account_number || null,
         bank_account_name || null,
         applicationChannel,
+        String(market_code || 'id').trim().toLowerCase(),
+        normalizedServiceCategories.length > 0 ? normalizedServiceCategories : [applicationChannel],
+        COURIER_ONBOARDING_POLICY_VERSION,
         JSON.stringify(checklist)
       ]
     );
@@ -506,10 +498,10 @@ const submitCourierApplication = async (
     const courierId = profileRes.rows[0].id;
     await client.query(
       'DELETE FROM courier_documents WHERE courier_id = $1 AND doc_type = ANY($2::text[])',
-      [courierId, requiredOnDemandDocuments]
+      [courierId, supportedCourierDocuments]
     );
 
-    for (const docType of requiredOnDemandDocuments) {
+    for (const docType of supportedCourierDocuments) {
       const fileUrl = documents[docType];
       if (!fileUrl) continue;
       await client.query(
@@ -568,8 +560,8 @@ const submitCourierApplication = async (
       data: {
         courier_id: courierId,
         application_channel: applicationChannel,
-        status: 'pending',
-        checklist_passed: checklistPassed(checklist)
+        onboarding_status: 'SUBMITTED',
+        checklist_passed: isCourierChecklistPassed(checklist)
       },
       message: `Pendaftaran kurir ${channelLabels[applicationChannel]} berhasil dikirim untuk review admin`
     });
@@ -620,6 +612,10 @@ const getCourierApplications = async (req: Request, res: Response, requestedChan
         cp.bank_account_number,
         cp.bank_account_name,
         cp.application_channel,
+        cp.market_code,
+        cp.onboarding_status,
+        cp.home_zone_id,
+        cp.current_zone_id,
         cp.onboarding_checklist,
         cp.verification_status,
         cp.rejection_reason,
@@ -700,6 +696,10 @@ export const getAllCouriers = async (req: Request, res: Response) => {
         cp.vehicle_cc,
         cp.relay_score as avg_rating,
         cp.verification_status,
+        cp.onboarding_status,
+        cp.market_code,
+        cp.home_zone_id,
+        cp.current_zone_id,
         cp.application_channel,
         cp.tier,
         cp.is_online,
@@ -712,11 +712,16 @@ export const getAllCouriers = async (req: Request, res: Response) => {
         u.email, 
         u.phone_number,
         cp.vehicle_plate as plate_number,
-        CASE 
-          WHEN cp.verification_status = 'pending' THEN 'Pending'
-          WHEN u.status = 'suspended' THEN 'Suspended'
-          WHEN u.status = 'active' THEN 'Active'
-          ELSE 'Inactive'
+        CASE
+          WHEN cp.onboarding_status = 'DRAFT' THEN 'Draft'
+          WHEN cp.onboarding_status = 'SUBMITTED' THEN 'Submitted'
+          WHEN cp.onboarding_status = 'VERIFYING' THEN 'Verifying'
+          WHEN cp.onboarding_status = 'ACTIVE' THEN 'Active'
+          WHEN cp.onboarding_status = 'REJECTED' THEN 'Rejected'
+          WHEN cp.onboarding_status = 'NEEDS_UPDATE' THEN 'Needs Update'
+          WHEN cp.onboarding_status = 'SUSPENDED' THEN 'Suspended'
+          WHEN cp.onboarding_status = 'DEACTIVATED' THEN 'Deactivated'
+          ELSE 'Draft'
         END as status
       FROM courier_profiles cp
       JOIN users u ON cp.user_id = u.id
@@ -731,11 +736,11 @@ export const getAllCouriers = async (req: Request, res: Response) => {
 
     if (status) {
       if (status === 'Pending') {
-        query += ` AND cp.verification_status = 'pending'`;
+        query += ` AND cp.onboarding_status IN ('DRAFT', 'SUBMITTED', 'VERIFYING', 'NEEDS_UPDATE')`;
       } else if (status === 'Active') {
-        query += ` AND u.status = 'active' AND cp.verification_status != 'pending'`;
+        query += ` AND cp.onboarding_status = 'ACTIVE'`;
       } else if (status === 'Suspended') {
-        query += ` AND u.status = 'suspended'`;
+        query += ` AND cp.onboarding_status = 'SUSPENDED'`;
       }
     }
 
@@ -771,8 +776,8 @@ export const getCourierStats = async (req: Request, res: Response) => {
       SELECT 
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE u.status = 'active') as active,
-        COUNT(*) FILTER (WHERE cp.verification_status = 'pending') as pending,
-        COUNT(*) FILTER (WHERE u.status = 'suspended') as suspended,
+        COUNT(*) FILTER (WHERE cp.onboarding_status IN ('DRAFT', 'SUBMITTED', 'VERIFYING', 'NEEDS_UPDATE')) as pending,
+        COUNT(*) FILTER (WHERE cp.onboarding_status = 'SUSPENDED') as suspended,
         COUNT(*) FILTER (WHERE cp.application_channel = 'on_demand') as on_demand,
         COUNT(*) FILTER (WHERE cp.application_channel = 'regular') as regular
       FROM courier_profiles cp
@@ -800,11 +805,16 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
         u.profile_photo_locked_at,
         cp.application_channel,
         cp.vehicle_plate as plate_number,
-        CASE 
-          WHEN cp.verification_status = 'pending' THEN 'Pending'
-          WHEN u.status = 'suspended' THEN 'Suspended'
-          WHEN u.status = 'active' THEN 'Active'
-          ELSE 'Inactive'
+        CASE
+          WHEN cp.onboarding_status = 'DRAFT' THEN 'Draft'
+          WHEN cp.onboarding_status = 'SUBMITTED' THEN 'Submitted'
+          WHEN cp.onboarding_status = 'VERIFYING' THEN 'Verifying'
+          WHEN cp.onboarding_status = 'ACTIVE' THEN 'Active'
+          WHEN cp.onboarding_status = 'REJECTED' THEN 'Rejected'
+          WHEN cp.onboarding_status = 'NEEDS_UPDATE' THEN 'Needs Update'
+          WHEN cp.onboarding_status = 'SUSPENDED' THEN 'Suspended'
+          WHEN cp.onboarding_status = 'DEACTIVATED' THEN 'Deactivated'
+          ELSE 'Draft'
         END as status
       FROM courier_profiles cp
       JOIN users u ON cp.user_id = u.id
@@ -859,100 +869,176 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
   }
 };
 
+const courierStatusAliases: Record<string, CourierOnboardingState> = {
+  draft: 'DRAFT',
+  submitted: 'SUBMITTED',
+  pending: 'SUBMITTED',
+  verifying: 'VERIFYING',
+  active: 'ACTIVE',
+  approved: 'ACTIVE',
+  rejected: 'REJECTED',
+  needs_update: 'NEEDS_UPDATE',
+  'needs-update': 'NEEDS_UPDATE',
+  suspended: 'SUSPENDED',
+  deactivated: 'DEACTIVATED',
+};
+
+const userStatusForCourierState = (state: CourierOnboardingState): string => {
+  if (state === 'ACTIVE') return 'active';
+  if (state === 'SUSPENDED') return 'suspended';
+  if (state === 'REJECTED' || state === 'DEACTIVATED') return 'inactive';
+  return 'pending_verification';
+};
+
+const verificationStatusForCourierState = (state: CourierOnboardingState): string => {
+  if (state === 'ACTIVE') return 'approved';
+  if (state === 'SUSPENDED') return 'suspended';
+  if (state === 'REJECTED' || state === 'DEACTIVATED') return 'rejected';
+  return 'pending';
+};
+
 export const updateCourierStatus = async (req: Request, res: Response): Promise<void> => {
   const id = String(req.params.id);
-  const { status } = req.body;
+  const requestedStatus = String(req.body?.status || '').trim().toLowerCase();
+  const targetState = courierStatusAliases[requestedStatus];
 
-  if (!['Active', 'Suspended', 'Pending', 'Rejected'].includes(status)) {
-    res.status(400).json({ error: 'Invalid status' });
+  if (!targetState) {
+    res.status(400).json({
+      error: 'Invalid status',
+      allowed_statuses: Object.keys(courierStatusAliases),
+    });
     return;
   }
 
+  const actorId = getActorId(req);
   const client = await db.connect();
   try {
     await client.query('BEGIN');
 
-       await client.query(
-      `UPDATE users u
-       SET status = CASE 
-         WHEN $1 = 'Active' THEN 'active'
-         WHEN $1 = 'Suspended' THEN 'suspended'
-         WHEN $1 = 'Rejected' THEN 'inactive'
-         ELSE u.status
-       END,
-       updated_at = NOW()
+    const profileRes = await client.query(
+      `SELECT cp.id, cp.user_id, cp.onboarding_status, cp.verification_status,
+              cp.onboarding_checklist, cp.is_verified,
+              EXISTS (
+                SELECT 1 FROM courier_vehicles cv
+                WHERE cv.courier_profile_id = cp.id
+              ) AS has_vehicle,
+              u.status AS user_status
        FROM courier_profiles cp
-       WHERE cp.user_id = u.id AND cp.id = $2`,
-      [status, id]
-    );
-
-    // (legacy `couriers` table removed — update courier_profiles langsung)
-    await client.query(
-      `UPDATE courier_profiles cp
-       SET verification_status = CASE
-         WHEN $1 = 'Active' THEN 'approved'
-         WHEN $1 = 'Suspended' THEN 'suspended'
-         WHEN $1 = 'Rejected' THEN 'rejected'
-         ELSE cp.verification_status
-       END,
-       updated_at = NOW()
-       WHERE cp.id = $2`,
-      [status, id]
-    );
-
-    if (status === 'Active') {
-      await client.query(
-        'UPDATE courier_profiles SET verification_status = $1, reviewed_at = NOW(), reviewed_by = $3, updated_at = NOW() WHERE id = $2',
-        ['approved', id, getActorId(req)]
-      );
-      await upsertCourierVehicleAndCapabilities(client, id, {
-        approveEligible: true,
-        approvedBy: getActorId(req)
-      });
-    } else if (status === 'Rejected') {
-      await client.query(
-        'UPDATE courier_profiles SET verification_status = $1, rejection_reason = $3, reviewed_at = NOW(), reviewed_by = $4, updated_at = NOW() WHERE id = $2',
-        ['rejected', id, req.body.reason || 'Tidak memenuhi persyaratan onboarding', getActorId(req)]
-      );
-    } else if (status === 'Pending') {
-      await client.query(
-        'UPDATE courier_profiles SET verification_status = $1, reviewed_at = NULL, reviewed_by = NULL, updated_at = NOW() WHERE id = $2',
-        ['pending', id]
-      );
-    }
-
-    const result = await client.query(`
-      SELECT 
-        cp.*,
-        CASE 
-          WHEN cp.verification_status = 'pending' THEN 'Pending'
-          WHEN u.status = 'suspended' THEN 'Suspended'
-          WHEN u.status = 'active' THEN 'Active'
-          ELSE 'Inactive'
-        END as status
-      FROM courier_profiles cp 
-      JOIN users u ON cp.user_id = u.id 
-      WHERE cp.id = $1`,
+       JOIN users u ON u.id = cp.user_id
+       WHERE cp.id = $1
+       FOR UPDATE OF cp, u`,
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (profileRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       res.status(404).json({ error: 'Courier not found' });
       return;
     }
 
-    const changedBy = getActorId(req);
+    const profile = profileRes.rows[0];
+    const currentState = String(profile.onboarding_status || 'DRAFT').toUpperCase() as CourierOnboardingState;
+    if (!canTransitionCourierOnboarding(currentState, targetState)) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        error: `Invalid courier onboarding transition ${currentState} -> ${targetState}`,
+        code: 'ERR_INVALID_COURIER_ONBOARDING_TRANSITION',
+        data: { current_state: currentState, requested_state: targetState },
+      });
+      return;
+    }
+
+    if (targetState === 'ACTIVE') {
+      const readiness = evaluateCourierActivation({
+        checklist: profile.onboarding_checklist,
+        hasVehicle: Boolean(profile.has_vehicle),
+      });
+      if (!readiness.ready) {
+        await client.query('ROLLBACK');
+        res.status(409).json({
+          error: 'Courier onboarding belum siap diaktifkan',
+          code: 'ERR_COURIER_ONBOARDING_NOT_READY',
+          data: {
+            onboarding_status: currentState,
+            missing_requirements: readiness.missing,
+            remediation: readiness.remediation,
+          },
+        });
+        return;
+      }
+    }
+
+    await client.query(`SELECT set_config('app.actor_id', $1, TRUE), set_config('app.actor_reason', $2, TRUE)`, [
+      actorId,
+      String(req.body?.reason || `Admin transition to ${targetState}`),
+    ]);
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
+      `UPDATE users
+       SET status = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [userStatusForCourierState(targetState), profile.user_id]
+    );
+
+    await client.query(
+      `UPDATE courier_profiles
+       SET onboarding_status = $1,
+           verification_status = $2,
+           is_verified = $3,
+           status = $4,
+           rejection_reason = CASE
+             WHEN $1 IN ('REJECTED', 'NEEDS_UPDATE') THEN COALESCE(NULLIF($5, ''), rejection_reason, 'Perlu perbaikan onboarding')
+             WHEN $1 = 'ACTIVE' THEN NULL
+             ELSE rejection_reason
+           END,
+           reviewed_at = CASE WHEN $1 IN ('ACTIVE', 'REJECTED', 'NEEDS_UPDATE', 'SUSPENDED', 'DEACTIVATED') THEN NOW() ELSE reviewed_at END,
+           reviewed_by = CASE WHEN $1 IN ('ACTIVE', 'REJECTED', 'NEEDS_UPDATE', 'SUSPENDED', 'DEACTIVATED') THEN $6 ELSE reviewed_by END,
+           updated_at = NOW()
+       WHERE id = $7`,
+      [
+        targetState,
+        verificationStatusForCourierState(targetState),
+        targetState === 'ACTIVE',
+        targetState === 'ACTIVE' ? 'active' : targetState === 'SUSPENDED' ? 'suspended' : 'offline',
+        String(req.body?.reason || ''),
+        actorId,
+        id,
+      ]
+    );
+
+    if (targetState === 'ACTIVE') {
+      await upsertCourierVehicleAndCapabilities(client, id, {
+        approveEligible: true,
+        approvedBy: actorId,
+      });
+    }
+
+    const result = await client.query(
+      `SELECT cp.*, u.status AS user_status
+       FROM courier_profiles cp
+       JOIN users u ON cp.user_id = u.id
+       WHERE cp.id = $1`,
+      [id]
+    );
+
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category)
        VALUES ($1, $2, $3, $4, $5)`,
-      [`courier:${id}`, status === 'Active', changedBy, `Status updated to ${status}`, 'security']
+      [`courier:${id}`, targetState === 'ACTIVE', actorId, `Onboarding state updated to ${targetState}`, 'security']
     );
 
     await client.query('COMMIT');
-    res.json(result.rows[0]);
+    res.json({
+      ...result.rows[0],
+      status: result.rows[0].onboarding_status,
+      onboarding_status: result.rows[0].onboarding_status,
+      operational_status: result.rows[0].status,
+    });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: error.message });
+    res.status(error?.code === '23514' ? 409 : 500).json({
+      error: error?.code === '23514' ? 'Courier onboarding state rejected by policy' : error.message,
+      code: error?.code === '23514' ? 'ERR_COURIER_ONBOARDING_POLICY' : 'ERR_INTERNAL',
+    });
   } finally {
     client.release();
   }
@@ -1027,12 +1113,14 @@ export const getMobileCourierCapabilities = async (req: Request, res: Response):
     const checklist = profile.onboarding_checklist || {};
     const docs = checklist.documents || {};
     const rules = checklist.rules || {};
-    const requiredDocsPassed = requiredCourierDocuments.every((key) => Boolean(docs[key]));
-    const rulesPassed = Object.values(rules).length > 0 && Object.values(rules).every(Boolean);
+    const requiredDocuments = Array.isArray(checklist.required_documents) ? checklist.required_documents : [];
+    const requiredRules = Array.isArray(checklist.required_rules) ? checklist.required_rules : [];
+    const requiredDocsPassed = requiredDocuments.length > 0 && requiredDocuments.every((key: string) => Boolean(docs[key]));
+    const rulesPassed = requiredRules.length > 0 && requiredRules.every((key: string) => rules[key] === true);
     const onboardingSteps = [
       { key: 'identity_documents', title: 'Dokumen identitas', status: requiredDocsPassed ? 'complete' : 'incomplete' },
       { key: 'vehicle_rules', title: 'Kelayakan kendaraan', status: rulesPassed ? 'complete' : 'incomplete' },
-      { key: 'admin_review', title: 'Review admin', status: profile.verification_status === 'approved' ? 'complete' : profile.verification_status },
+      { key: 'admin_review', title: 'Review admin', status: profile.onboarding_status === 'ACTIVE' ? 'complete' : profile.onboarding_status || profile.verification_status },
       { key: 'training', title: 'Training operasional', status: trainingRes.rows.length > 0 ? 'complete' : 'pending' }
     ];
 
@@ -1042,7 +1130,11 @@ export const getMobileCourierCapabilities = async (req: Request, res: Response):
         profile: {
           id: profile.id,
           application_channel: profile.application_channel,
-          verification_status: profile.verification_status
+          verification_status: profile.verification_status,
+          onboarding_status: profile.onboarding_status,
+          market_code: profile.market_code,
+          home_zone_id: profile.home_zone_id,
+          current_zone_id: profile.current_zone_id
         },
         vehicle: vehicleRes.rows[0] || null,
         vehicles: vehicleRes.rows,

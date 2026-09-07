@@ -41,6 +41,7 @@ type CourierRepository interface {
 	CreateProfile(ctx context.Context, profile *CourierProfile) error
 	GetProfileByUserID(ctx context.Context, userID string) (*CourierProfile, error)
 	UpdateProfile(ctx context.Context, profile *CourierProfile) error
+	ActivateProfile(ctx context.Context, userID string) error
 	AddDocument(ctx context.Context, doc *CourierDocument) error
 	GetDocuments(ctx context.Context, courierID string) ([]*CourierDocument, error)
 	VerifyDocument(ctx context.Context, docID string) error

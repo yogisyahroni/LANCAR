@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -1063,18 +1064,10 @@ func (s *AuthService) ListCouriers(ctx context.Context, limit, offset int) ([]*d
 }
 
 func (s *AuthService) VerifyCourier(ctx context.Context, userID string) error {
-	profile, err := s.courierRepo.GetProfileByUserID(ctx, userID)
-	if err != nil {
-		return errors.New("courier profile not found")
-	}
-
-	profile.Status = domain.CourierStatusActive
-	profile.IsVerified = true
-	now := time.Now()
-	profile.VerifiedAt = &now
-
-	err = s.courierRepo.UpdateProfile(ctx, profile)
-	if err != nil {
+	if err := s.courierRepo.ActivateProfile(ctx, userID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("courier profile not found")
+		}
 		return err
 	}
 

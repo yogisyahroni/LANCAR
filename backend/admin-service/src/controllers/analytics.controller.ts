@@ -16,6 +16,7 @@ const percentageGrowth = (current: number, previous: number): number | null => {
 
 const liveCourierPredicate = `
   verification_status = 'approved'
+  AND onboarding_status = 'ACTIVE'
   AND is_online = TRUE
   AND current_location IS NOT NULL
   AND last_location_at >= NOW() - INTERVAL '10 minutes'
@@ -23,6 +24,7 @@ const liveCourierPredicate = `
 
 const liveCourierPredicateForAlias = (alias: string): string => `
   ${alias}.verification_status = 'approved'
+  AND ${alias}.onboarding_status = 'ACTIVE'
   AND ${alias}.is_online = TRUE
   AND ${alias}.current_location IS NOT NULL
   AND ${alias}.last_location_at >= NOW() - INTERVAL '10 minutes'
@@ -140,7 +142,7 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
     `);
 
     const courierRes = await readDb.query(`
-      SELECT COUNT(DISTINCT user_id) as total FROM courier_profiles WHERE verification_status = 'approved'
+      SELECT COUNT(DISTINCT user_id) as total FROM courier_profiles WHERE verification_status = 'approved' AND onboarding_status = 'ACTIVE'
     `);
 
     const avgDeliveryRes = await readDb.query(`
@@ -325,7 +327,7 @@ export const getHeatData = async (req: Request, res: Response) => {
               cp.id DESC
           ) AS account_rank
         FROM courier_profiles cp
-        WHERE cp.verification_status = 'approved' AND cp.current_location IS NOT NULL
+        WHERE cp.verification_status = 'approved' AND cp.onboarding_status = 'ACTIVE' AND cp.current_location IS NOT NULL
       )
       SELECT
         courier_profile_id,

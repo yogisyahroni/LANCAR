@@ -301,6 +301,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
        WHERE cp.user_id = $1
          AND cp.application_channel = 'on_demand'
          AND cp.verification_status = 'approved'
+         AND cp.onboarding_status = 'ACTIVE'
          AND cp.is_online = TRUE
          AND cp.current_zone_id = $2
          AND COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)
@@ -355,6 +356,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
        JOIN courier_profiles cp ON cp.id = cv.courier_profile_id
        WHERE cv.id = $1
          AND cp.user_id = $2
+         AND cp.onboarding_status = 'ACTIVE'
          AND cv.verification_status = 'approved'
        LIMIT 1`,
       [selectedVehicleId, req.user.id]

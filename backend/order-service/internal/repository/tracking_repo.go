@@ -122,7 +122,7 @@ func (r *PostgresTrackingRepo) GetIdleCouriers(ctx context.Context, thresholdMin
 	query := `
 		SELECT id 
 		FROM courier_profiles 
-		WHERE status = 'online' 
+		WHERE is_online = TRUE
 		  AND last_active_at < NOW() - INTERVAL '1 minute' * $1
 	`
 	var ids []uuid.UUID
@@ -131,7 +131,7 @@ func (r *PostgresTrackingRepo) GetIdleCouriers(ctx context.Context, thresholdMin
 }
 
 func (r *PostgresTrackingRepo) SetCourierOffline(ctx context.Context, courierID uuid.UUID) error {
-	query := `UPDATE courier_profiles SET status = 'offline' WHERE id = $1`
+	query := `UPDATE courier_profiles SET is_online = FALSE, updated_at = NOW() WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, courierID)
 	return err
 }

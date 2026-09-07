@@ -29,7 +29,7 @@ export const listCourierRetention = async (req: Request, res: Response): Promise
          ORDER BY courier_profile_id, created_at DESC
        )
        SELECT cp.id AS courier_profile_id, cp.user_id, u.full_name, u.email, u.phone,
-              u.status AS user_status, cp.verification_status,
+              u.status AS user_status, cp.verification_status, cp.onboarding_status,
               COALESCE(os.completed_orders, 0)::int AS completed_orders,
               COALESCE(os.cancelled_orders, 0)::int AS cancelled_orders,
               os.last_order_at, COALESCE(lt.training_count, 0)::int AS training_count,
@@ -42,6 +42,7 @@ export const listCourierRetention = async (req: Request, res: Response): Promise
        LEFT JOIN latest_training lt ON lt.courier_profile_id = cp.id
        LEFT JOIN latest_retraining lr ON lr.courier_profile_id = cp.id
        WHERE cp.verification_status = 'approved'
+         AND cp.onboarding_status = 'ACTIVE'
        ORDER BY (os.last_order_at IS NULL) DESC, os.last_order_at ASC NULLS FIRST,
                 COALESCE(os.cancelled_orders, 0) DESC, u.full_name ASC
        LIMIT 500`,
@@ -75,7 +76,7 @@ export const createCourierRetraining = async (req: Request, res: Response): Prom
          (courier_profile_id, reason, scheduled_at, notes, created_by, updated_by)
        SELECT id, $2, $3, $4, $5, $5
        FROM courier_profiles
-       WHERE id = $1 AND verification_status = 'approved'
+       WHERE id = $1 AND verification_status = 'approved' AND onboarding_status = 'ACTIVE'
        RETURNING *`,
       [courierProfileId, reason, scheduledAt, notes, getActorId(req)]
     );

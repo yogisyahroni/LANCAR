@@ -17,6 +17,8 @@ type CourierProfile struct {
 	VehiclePlate     string        `json:"vehicle_plate" db:"vehicle_plate"`
 	CurrentZoneID    *string       `json:"current_zone_id" db:"current_zone_id"`
 	Status           CourierStatus `json:"status" db:"status"`
+	OnboardingStatus string        `json:"onboarding_status" db:"onboarding_status"`
+	VerificationStatus string      `json:"verification_status" db:"verification_status"`
 	RelayScore       float64       `json:"relay_score" db:"relay_score"`
 	IsVerified       bool          `json:"is_verified" db:"is_verified"`
 	LivenessVerified bool          `json:"liveness_verified" db:"liveness_verified"`

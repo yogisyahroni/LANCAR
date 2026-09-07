@@ -171,7 +171,8 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
         AND dsp.is_enabled = TRUE
         AND dsp.service_category IN ('on_demand', 'food_delivery', 'tambal_ban', 'towing')
        JOIN courier_profiles cp ON cp.application_channel = 'on_demand'
-        AND cp.verification_status = 'approved'
+       AND cp.verification_status = 'approved'
+        AND cp.onboarding_status = 'ACTIVE'
         AND cp.is_online = TRUE
         AND cp.current_zone_id IS NOT NULL
         AND cp.current_location IS NOT NULL
@@ -492,6 +493,7 @@ export const dispatchToPreferredCourier = async (
       AND dsp.is_enabled = TRUE
      JOIN courier_profiles cp ON cp.user_id = $2
       AND cp.verification_status = 'approved'
+      AND cp.onboarding_status = 'ACTIVE'
       AND cp.is_online = TRUE
       AND cp.current_location IS NOT NULL
       AND cp.last_location_at >= NOW() - INTERVAL '10 minutes'

@@ -182,7 +182,7 @@ func (r *PostgresSosRepo) GetNearbyCouriersForSOS(ctx context.Context, lat, lng 
 				ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
 			) AS distance_meters
 		FROM courier_profiles cp
-		WHERE cp.status = 'online'
+		WHERE cp.is_online = TRUE
 		  AND cp.current_location IS NOT NULL
 		  AND ST_DWithin(
 				cp.current_location::geography,

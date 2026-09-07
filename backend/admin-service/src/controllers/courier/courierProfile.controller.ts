@@ -51,10 +51,19 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
          u.photo_url,
          cp.vehicle_type,
          cp.application_channel,
+         cp.market_code,
+         cp.onboarding_status,
+         cp.verification_status,
+         cp.home_zone_id,
          cp.is_online,
          z.id AS current_zone_id,
          z.name AS current_zone_name,
          z.code AS current_zone_code,
+         COALESCE((
+           SELECT jsonb_agg(cz.zone_id ORDER BY cz.is_primary DESC, cz.assigned_at ASC)
+           FROM courier_zones cz
+           WHERE cz.courier_id = cp.id AND cz.removed_at IS NULL
+         ), '[]'::jsonb) AS operating_zone_ids,
          cp.max_weight_capacity_kg,
          cp.max_packages_capacity,
          COUNT(ol.id)::int AS total_deliveries,
@@ -66,7 +75,9 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
        LEFT JOIN zones z ON z.id = cp.current_zone_id
        LEFT JOIN order_legs ol ON ol.courier_id = u.id AND ol.status = 'delivered'
        WHERE u.id = $1 AND u.role = 'courier'
-       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.application_channel, cp.is_online, z.id, z.name, z.code, cp.max_weight_capacity_kg, cp.max_packages_capacity`,
+       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.application_channel,
+                cp.market_code, cp.onboarding_status, cp.verification_status, cp.home_zone_id,
+                cp.is_online, z.id, z.name, z.code, cp.max_weight_capacity_kg, cp.max_packages_capacity`,
       [req.user.id]
     );
 
@@ -89,6 +100,11 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
         phone: courier.phone_number,
         vehicle_type: courier.vehicle_type,
         application_channel: courier.application_channel || 'on_demand',
+        market_code: courier.market_code || 'id',
+        onboarding_status: courier.onboarding_status || 'DRAFT',
+        verification_status: courier.verification_status || 'pending',
+        home_zone_id: courier.home_zone_id,
+        operating_zone_ids: courier.operating_zone_ids || [],
         status: courier.is_online ? 'online' : 'offline',
         profile_photo_url: courier.photo_url,
         total_deliveries: courier.total_deliveries,
@@ -180,5 +196,3 @@ export const updateMobileCourierCapacity = async (req: Request, res: Response) =
     });
   }
 };
-
-

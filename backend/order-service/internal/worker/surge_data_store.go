@@ -220,6 +220,7 @@ const zoneSurgeInputsQuery = `
 			LEFT JOIN courier_availability_state cas ON cas.courier_id = cp.id
 			WHERE cp.is_online = TRUE
 			  AND cp.is_verified = TRUE
+			  AND cp.onboarding_status = 'ACTIVE'
 			  AND (cas.current_state IS NULL OR cas.current_state = 'idle')
 			  AND (
 					sd.service_code = ANY(COALESCE(cp.service_categories, ARRAY[]::text[]))

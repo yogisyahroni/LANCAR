@@ -54,11 +54,11 @@ const runSeed = async () => {
       await client.query(`
         INSERT INTO courier_profiles (
           id, user_id, vehicle_type, tier, is_online, 
-          current_location, status, vehicle_plate, relay_score,
+          current_location, status, onboarding_status, verification_status, market_code, onboarding_checklist, vehicle_plate, relay_score,
           acceptance_rate_pct, completion_rate_pct, ontime_rate_pct,
           is_verified, verified_at
         )
-        VALUES ($1, $2, $3, $4, true, ST_GeomFromText($5, 4326), 'approved', $6, $7, $8, $9, $10, true, NOW())
+        VALUES ($1, $2, $3, $4, true, ST_GeomFromText($5, 4326), 'active', 'ACTIVE', 'approved', 'id', '{"passed": true, "legacy_backfill": true}'::jsonb, $6, $7, $8, $9, $10, true, NOW())
       `, [
         uuidv4(), id, 
         randomElement(['matic', 'bebek', 'sport']), 

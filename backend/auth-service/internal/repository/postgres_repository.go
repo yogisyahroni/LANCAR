@@ -378,11 +378,11 @@ func (r *postgresRepo) CreateProfile(ctx context.Context, p *domain.CourierProfi
 }
 
 func (r *postgresRepo) GetProfileByUserID(ctx context.Context, userID string) (*domain.CourierProfile, error) {
-	query := `SELECT id, user_id, vehicle_type, vehicle_plate, current_zone_id, status, relay_score, is_verified, verified_at, created_at, updated_at 
+	query := `SELECT id, user_id, vehicle_type, vehicle_plate, current_zone_id, status, onboarding_status, verification_status, relay_score, is_verified, verified_at, created_at, updated_at
 			  FROM courier_profiles WHERE user_id = $1`
 	p := &domain.CourierProfile{}
 	err := r.readDB.QueryRowContext(ctx, query, userID).Scan(
-		&p.ID, &p.UserID, &p.VehicleType, &p.VehiclePlate, &p.CurrentZoneID, &p.Status, &p.RelayScore, &p.IsVerified, &p.VerifiedAt, &p.CreatedAt, &p.UpdatedAt,
+		&p.ID, &p.UserID, &p.VehicleType, &p.VehiclePlate, &p.CurrentZoneID, &p.Status, &p.OnboardingStatus, &p.VerificationStatus, &p.RelayScore, &p.IsVerified, &p.VerifiedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -391,9 +391,52 @@ func (r *postgresRepo) GetProfileByUserID(ctx context.Context, userID string) (*
 }
 
 func (r *postgresRepo) UpdateProfile(ctx context.Context, p *domain.CourierProfile) error {
-	query := `UPDATE courier_profiles SET vehicle_type = $1, vehicle_plate = $2, current_zone_id = $3, status = $4, is_verified = $5, verified_at = $6, updated_at = $7 WHERE id = $8`
-	_, err := r.db.ExecContext(ctx, query, p.VehicleType, p.VehiclePlate, p.CurrentZoneID, p.Status, p.IsVerified, p.VerifiedAt, time.Now(), p.ID)
+	query := `UPDATE courier_profiles SET vehicle_type = $1, vehicle_plate = $2, current_zone_id = $3, status = $4, onboarding_status = $5, verification_status = $6, is_verified = $7, verified_at = $8, updated_at = $9 WHERE id = $10`
+	_, err := r.db.ExecContext(ctx, query, p.VehicleType, p.VehiclePlate, p.CurrentZoneID, p.Status, p.OnboardingStatus, p.VerificationStatus, p.IsVerified, p.VerifiedAt, time.Now(), p.ID)
 	return err
+}
+
+func (r *postgresRepo) ActivateProfile(ctx context.Context, userID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var profileID, onboardingStatus string
+	var checklistPassed, hasVehicle bool
+	err = tx.QueryRowContext(ctx, `
+		SELECT cp.id, cp.onboarding_status,
+		       COALESCE((cp.onboarding_checklist->>'passed')::boolean, FALSE),
+		       EXISTS (SELECT 1 FROM courier_vehicles cv WHERE cv.courier_profile_id = cp.id)
+		FROM courier_profiles cp
+		WHERE cp.user_id = $1
+		FOR UPDATE`, userID).Scan(&profileID, &onboardingStatus, &checklistPassed, &hasVehicle)
+	if err != nil {
+		return err
+	}
+	if !checklistPassed || !hasVehicle {
+		return errors.New("courier onboarding is not ready for activation")
+	}
+	if onboardingStatus == "DRAFT" || onboardingStatus == "REJECTED" || onboardingStatus == "NEEDS_UPDATE" || onboardingStatus == "DEACTIVATED" {
+		return errors.New("courier onboarding state cannot be activated")
+	}
+	if onboardingStatus == "SUBMITTED" {
+		if _, err = tx.ExecContext(ctx, `UPDATE courier_profiles SET onboarding_status = 'VERIFYING', updated_at = NOW() WHERE id = $1`, profileID); err != nil {
+			return err
+		}
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE courier_profiles
+		SET status = 'active', onboarding_status = 'ACTIVE', verification_status = 'approved',
+		    is_verified = TRUE, verified_at = NOW(), updated_at = NOW()
+		WHERE id = $1`, profileID); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1`, userID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *postgresRepo) AddDocument(ctx context.Context, d *domain.CourierDocument) error {
@@ -427,7 +470,7 @@ func (r *postgresRepo) VerifyDocument(ctx context.Context, docID string) error {
 }
 
 func (r *postgresRepo) ListProfiles(ctx context.Context, limit, offset int) ([]*domain.CourierProfile, error) {
-	query := `SELECT id, user_id, vehicle_type, vehicle_plate, current_zone_id, status, relay_score, is_verified, verified_at, created_at, updated_at 
+	query := `SELECT id, user_id, vehicle_type, vehicle_plate, current_zone_id, status, onboarding_status, verification_status, relay_score, is_verified, verified_at, created_at, updated_at
 			  FROM courier_profiles ORDER BY created_at DESC LIMIT $1 OFFSET $2`
 	rows, err := r.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
@@ -439,7 +482,7 @@ func (r *postgresRepo) ListProfiles(ctx context.Context, limit, offset int) ([]*
 	for rows.Next() {
 		p := &domain.CourierProfile{}
 		if err := rows.Scan(
-			&p.ID, &p.UserID, &p.VehicleType, &p.VehiclePlate, &p.CurrentZoneID, &p.Status, &p.RelayScore, &p.IsVerified, &p.VerifiedAt, &p.CreatedAt, &p.UpdatedAt,
+			&p.ID, &p.UserID, &p.VehicleType, &p.VehiclePlate, &p.CurrentZoneID, &p.Status, &p.OnboardingStatus, &p.VerificationStatus, &p.RelayScore, &p.IsVerified, &p.VerifiedAt, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -449,15 +492,40 @@ func (r *postgresRepo) ListProfiles(ctx context.Context, limit, offset int) ([]*
 }
 
 func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domain.CourierStatus) error {
-	query := `UPDATE courier_profiles SET status = $1, updated_at = $2 WHERE id = $3`
+	query := `UPDATE courier_profiles
+		SET status = $1,
+		    onboarding_status = CASE WHEN $1 = 'suspended' THEN 'SUSPENDED' ELSE onboarding_status END,
+		    verification_status = CASE WHEN $1 = 'suspended' THEN 'suspended' ELSE verification_status END,
+		    updated_at = $2
+		WHERE id = $3`
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
 	return err
 }
 
 func (r *postgresRepo) SetZone(ctx context.Context, id string, zoneID string) error {
-	query := `UPDATE courier_profiles SET current_zone_id = $1, updated_at = $2 WHERE id = $3`
-	_, err := r.db.ExecContext(ctx, query, zoneID, time.Now(), id)
-	return err
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE courier_profiles
+		SET current_zone_id = $1,
+		    home_zone_id = COALESCE(home_zone_id, $1),
+		    updated_at = $2
+		WHERE id = $3`, zoneID, time.Now(), id); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO courier_zones (courier_id, zone_id, is_primary)
+		VALUES ($1, $2, NOT EXISTS (
+			SELECT 1 FROM courier_zones WHERE courier_id = $1 AND is_primary = TRUE AND removed_at IS NULL
+		))
+		ON CONFLICT (courier_id, zone_id) DO UPDATE SET removed_at = NULL`, id, zoneID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *postgresRepo) UpdateLivenessStatus(ctx context.Context, id string, status bool) error {

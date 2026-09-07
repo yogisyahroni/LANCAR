@@ -5376,9 +5376,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 `DRAFT → SUBMITTED → VERIFYING → ACTIVE` with `REJECTED`, `NEEDS_UPDATE`, `SUSPENDED`, `DEACTIVATED` as applicable.
 
 **Checklist**
-- [ ] Profile separates identity, contact, market, home/operating zones, capabilities, vehicle and verification status.
-- [ ] Activation is server authoritative.
-- [ ] Required onboarding differs by market/service capability.
+- [x] Profile separates identity, contact, market, home/operating zones, capabilities, vehicle and verification status.
+- [x] Activation is server authoritative.
+- [x] Required onboarding differs by market/service capability.
 
 ---
 
