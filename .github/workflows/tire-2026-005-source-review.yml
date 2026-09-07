@@ -14,14 +14,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Archive source for review
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/order-service/go.mod
+          cache: false
+      - name: Package offline verification toolchain
+        working-directory: backend/order-service
         run: |
-          git archive --format=tar HEAD | gzip -9 > /tmp/lancar-source.tar.gz
-          sha256sum /tmp/lancar-source.tar.gz > /tmp/lancar-source.sha256
+          go mod download
+          mkdir -p /tmp/tire005-tools
+          tar -czf /tmp/tire005-tools/go-sdk.tar.gz -C /opt/hostedtoolcache/go "$(go version | awk '{print $3}' | sed 's/^go//')"/x64
+          tar -czf /tmp/tire005-tools/go-modules.tar.gz -C "$(go env GOPATH)" pkg/mod
+          go version > /tmp/tire005-tools/version.txt
+          sha256sum /tmp/tire005-tools/*.tar.gz > /tmp/tire005-tools/SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: tire-2026-005-source
-          path: |
-            /tmp/lancar-source.tar.gz
-            /tmp/lancar-source.sha256
+          name: tire-2026-005-offline-tools
+          path: /tmp/tire005-tools/
           retention-days: 1
