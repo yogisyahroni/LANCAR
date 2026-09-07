@@ -5184,12 +5184,12 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## GEO-2026-009 — Geo contract/load/chaos gate [P0]
 
 **Mandatory scenarios**
-- [ ] Primary map provider timeout → safe fallback/unavailable state.
-- [ ] Same address normalized consistently across Food/Paket/Towing.
-- [ ] Zone boundary tests.
-- [ ] Stale/low-accuracy GPS displayed correctly.
-- [ ] Provider change does not change canonical client contract.
-- [ ] Load test covers search/geocode/quote/tracking route demand.
+- [x] Primary map provider timeout → safe fallback/unavailable state.
+- [x] Same address normalized consistently across Food/Paket/Towing.
+- [x] Zone boundary tests.
+- [x] Stale/low-accuracy GPS displayed correctly.
+- [x] Provider change does not change canonical client contract.
+- [x] Load test covers search/geocode/quote/tracking route demand.
 
 ---
 
