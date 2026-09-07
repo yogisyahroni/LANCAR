@@ -18,6 +18,14 @@ type TomTomProvider struct {
 	httpClient *http.Client
 }
 
+func (p *TomTomProvider) Name() string {
+	return "tomtom"
+}
+
+func (p *TomTomProvider) Capabilities() []domain.MapsCapability {
+	return []domain.MapsCapability{domain.MapsCapabilityRouting, domain.MapsCapabilityTraffic}
+}
+
 type tomTomRouteResponse struct {
 	Routes []struct {
 		Summary struct {

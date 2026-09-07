@@ -30,6 +30,7 @@ type DistanceMatrixResponse struct {
 	DurationMin float64 `json:"duration_min"`
 	OriginAddr  string  `json:"origin_addr"`
 	DestAddr    string  `json:"dest_addr"`
+	Provider    string  `json:"provider"`
 }
 
 func (h *MapsHandler) GetDistanceMatrix(w http.ResponseWriter, r *http.Request) {
@@ -39,12 +40,15 @@ func (h *MapsHandler) GetDistanceMatrix(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	distanceKM, durationMin, originAddr, destAddr, err := h.provider.GetDistanceMatrix(
-		r.Context(),
-		req.OriginLat, req.OriginLng,
-		req.DestLat, req.DestLng,
-		req.UseTraffic,
-	)
+	var result domain.DistanceMatrixResult
+	var err error
+	if metadataProvider, ok := h.provider.(domain.MapsProviderWithMetadata); ok {
+		result, err = metadataProvider.GetDistanceMatrixWithMetadata(r.Context(), req.OriginLat, req.OriginLng, req.DestLat, req.DestLng, req.UseTraffic)
+	} else {
+		result.DistanceKM, result.DurationMin, result.OriginAddr, result.DestAddr, err = h.provider.GetDistanceMatrix(
+			r.Context(), req.OriginLat, req.OriginLng, req.DestLat, req.DestLng, req.UseTraffic,
+		)
+	}
 
 	if err != nil {
 		log.Printf("[integration-gateway] GetDistanceMatrix Error: %v", err)
@@ -53,10 +57,11 @@ func (h *MapsHandler) GetDistanceMatrix(w http.ResponseWriter, r *http.Request) 
 	}
 
 	resp := DistanceMatrixResponse{
-		DistanceKM:  distanceKM,
-		DurationMin: durationMin,
-		OriginAddr:  originAddr,
-		DestAddr:    destAddr,
+		DistanceKM:  result.DistanceKM,
+		DurationMin: result.DurationMin,
+		OriginAddr:  result.OriginAddr,
+		DestAddr:    result.DestAddr,
+		Provider:    result.Provider,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -86,4 +91,16 @@ func (h *MapsHandler) OptimizeWaypoints(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *MapsHandler) ProviderDiagnostics(w http.ResponseWriter, r *http.Request) {
+	provider, ok := h.provider.(interface {
+		Diagnostics() []domain.MapsProviderHealth
+	})
+	if !ok {
+		http.Error(w, "maps provider diagnostics unavailable", http.StatusNotImplemented)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"providers": provider.Diagnostics()})
 }

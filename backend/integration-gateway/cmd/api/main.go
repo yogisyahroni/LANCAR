@@ -100,6 +100,7 @@ func main() {
 
 	mux.Handle("/api/internal/maps/distance-matrix", authMiddleware(http.HandlerFunc(mapsHandler.GetDistanceMatrix)))
 	mux.Handle("/api/internal/maps/optimize-waypoints", authMiddleware(http.HandlerFunc(mapsHandler.OptimizeWaypoints)))
+	mux.Handle("/api/internal/maps/providers", authMiddleware(http.HandlerFunc(mapsHandler.ProviderDiagnostics)))
 
 	mux.Handle("/api/internal/logistics/create-order", authMiddleware(http.HandlerFunc(logisticsHandler.CreateOrder)))
 	mux.Handle("/api/internal/logistics/tariff", authMiddleware(http.HandlerFunc(logisticsHandler.CheckTariff)))

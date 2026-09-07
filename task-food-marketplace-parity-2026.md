@@ -5091,11 +5091,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - existing TomTom/maps provider code
 
 **Checklist**
-- [ ] Capability-based providers for geocode/reverse/routing/traffic/map tiles where applicable.
-- [ ] Provider health/latency/quota/circuit state visible.
-- [ ] Failover preserves semantic contract and provider attribution/licensing requirements.
-- [ ] Secret API keys remain server-side unless provider requires client public key with restrictions.
-- [ ] Provider outage never fabricates route/ETA.
+- [x] Capability-based providers for geocode/reverse/routing/traffic/map tiles where applicable. (Implemented 2026-09-07: provider adapter declarations and capability-safe routing/traffic selection.)
+- [x] Provider health/latency/quota/circuit state visible. (Implemented 2026-09-07: authenticated maps provider diagnostics exposes capabilities, latency, failure/circuit state, and quota status.)
+- [x] Failover preserves semantic contract and provider attribution/licensing requirements. (Implemented and tested: failed providers are skipped/followed by declared-capability providers; response includes the actual provider and no synthetic result.)
+- [x] Secret API keys remain server-side unless provider requires client public key with restrictions. (Verified: TomTom server key is loaded and sent only by integration-gateway; public maps configuration remains separate.)
+- [x] Provider outage never fabricates route/ETA. (Implemented and tested: all-provider failure returns an error and zero-value result is never treated as success.)
 
 ---
 

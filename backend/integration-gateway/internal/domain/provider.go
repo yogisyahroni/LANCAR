@@ -2,6 +2,18 @@ package domain
 
 import "context"
 
+// MapsCapability describes one independently selectable maps capability. A
+// provider must not be treated as supporting capabilities it does not declare.
+type MapsCapability string
+
+const (
+	MapsCapabilityGeocode        MapsCapability = "geocode"
+	MapsCapabilityReverseGeocode MapsCapability = "reverse_geocode"
+	MapsCapabilityRouting        MapsCapability = "routing"
+	MapsCapabilityTraffic        MapsCapability = "traffic"
+	MapsCapabilityMapTiles       MapsCapability = "map_tiles"
+)
+
 // OTPProvider defines the interface for an external OTP provider (e.g. Zenziva, Twilio)
 type OTPProvider interface {
 	SendWA(ctx context.Context, to, message string) error
@@ -46,6 +58,40 @@ type MapsProvider interface {
 	OptimizeWaypoints(ctx context.Context, origin Waypoint, waypoints []Waypoint, dest Waypoint, useTraffic bool) (*OptimizedRouteResult, error)
 }
 
+// MapsProviderAdapter is the provider registration boundary. Name and
+// Capabilities are used for attribution and capability-safe failover.
+type MapsProviderAdapter interface {
+	MapsProvider
+	Name() string
+	Capabilities() []MapsCapability
+}
+
+type MapsProviderHealth struct {
+	Provider            string           `json:"provider"`
+	State               string           `json:"state"`
+	Capabilities        []MapsCapability `json:"capabilities"`
+	ConsecutiveFailures int              `json:"consecutive_failures"`
+	LastLatencyMS       int64            `json:"last_latency_ms,omitempty"`
+	LastError           string           `json:"last_error,omitempty"`
+	QuotaStatus         string           `json:"quota_status"`
+}
+
+type DistanceMatrixResult struct {
+	DistanceKM  float64 `json:"distance_km"`
+	DurationMin float64 `json:"duration_min"`
+	OriginAddr  string  `json:"origin_addr"`
+	DestAddr    string  `json:"dest_addr"`
+	Provider    string  `json:"provider"`
+}
+
+// MapsProviderWithMetadata lets the transport preserve the provider that
+// actually answered a request while keeping MapsProvider backwards compatible.
+type MapsProviderWithMetadata interface {
+	MapsProvider
+	GetDistanceMatrixWithMetadata(ctx context.Context, originLat, originLng, destLat, destLng float64, useTraffic bool) (DistanceMatrixResult, error)
+	OptimizeWaypointsWithMetadata(ctx context.Context, origin Waypoint, waypoints []Waypoint, dest Waypoint, useTraffic bool) (*OptimizedRouteResult, error)
+}
+
 type Waypoint struct {
 	Lat float64 `json:"lat"`
 	Lng float64 `json:"lng"`
@@ -55,6 +101,7 @@ type OptimizedRouteResult struct {
 	DistanceKM       float64 `json:"distance_km"`
 	DurationMin      float64 `json:"duration_min"`
 	OptimizedIndices []int   `json:"optimized_indices"`
+	Provider         string  `json:"provider,omitempty"`
 }
 
 // Logistics3PLProvider is kept as a compatibility composition for existing

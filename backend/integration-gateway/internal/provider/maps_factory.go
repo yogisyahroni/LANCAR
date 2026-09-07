@@ -14,7 +14,15 @@ func NewMapsProvider(providerName string) (domain.MapsProvider, error) {
 
 	switch strings.ToLower(providerName) {
 	case "tomtom":
-		return NewTomTomProvider()
+		tomtom, err := NewTomTomProvider()
+		if err != nil {
+			return nil, err
+		}
+		registry := NewMapsProviderRegistry()
+		if err := registry.Register(tomtom); err != nil {
+			return nil, err
+		}
+		return registry, nil
 	// case "googlemaps":
 	// 	return NewGoogleMapsProvider()
 	default:
