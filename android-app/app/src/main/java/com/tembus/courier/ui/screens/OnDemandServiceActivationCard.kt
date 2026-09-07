@@ -219,12 +219,14 @@ internal fun OnDemandServiceActivationCard(
                     } else {
                         serviceItems.forEach { service ->
                             val capability = capabilityByCode[service.code]
-                            val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+                            val enabledByCapability = capability?.let(::capabilityIsAvailable) ?: true
                             val enabled = enabledByCapability && service.code !in disabledServiceCodes
                             OnDemandServiceToggleRow(
                                 service = service,
                                 enabled = enabled,
                                 lockedByAdmin = !enabledByCapability,
+                                availabilityReason = capability?.let(::capabilityAvailabilityReason),
+                                remediationPath = capability?.let(::capabilityRemediation),
                                 onEnabledChange = { checked ->
                                     if (enabledByCapability) onServiceEnabledChange(service, checked)
                                 }

@@ -294,6 +294,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
         AND csc.service_code = $3
         AND csc.application_channel = 'on_demand'
         AND csc.status = 'enabled'
+        AND courier_capability_is_eligible(cp.id, csc.service_code, cp.market_code)
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code
         AND dsp.is_enabled = TRUE
         AND dsp.service_category IN ('on_demand', 'food_delivery', 'tambal_ban', 'towing')

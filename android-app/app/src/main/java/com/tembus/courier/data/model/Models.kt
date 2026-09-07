@@ -782,6 +782,24 @@ data class CourierServiceCapability(
     val status: String = "pending_review",
     @SerialName("eligibility_reason")
     val eligibilityReason: String? = null,
+    @SerialName("certification_type")
+    val certificationType: String? = null,
+    @SerialName("certified_at")
+    val certifiedAt: String? = null,
+    @SerialName("effective_from")
+    val effectiveFrom: String? = null,
+    @SerialName("expires_at")
+    val expiresAt: String? = null,
+    @SerialName("market_scope")
+    val marketScope: List<String> = emptyList(),
+    @SerialName("effective_status")
+    val effectiveStatus: String? = null,
+    @SerialName("availability_reason")
+    val availabilityReason: String? = null,
+    @SerialName("remediation_path")
+    val remediationPath: String? = null,
+    @SerialName("is_eligible")
+    val isEligible: Boolean? = null,
 
     @SerialName("batching_allowed")
     val batchingAllowed: Boolean = false,

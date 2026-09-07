@@ -201,7 +201,7 @@ internal fun OnDemandHomeHubEnterprise(
     }
     val activeServiceItems = serviceItems.filter { service ->
         val capability = capabilityByCode[service.code]
-        val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+        val enabledByCapability = capability?.let(::capabilityIsAvailable) ?: true
         enabledByCapability && service.code !in disabledServiceCodes
     }
     val hotspotTotal = hotspots.sumOf { it.pendingOrders }
@@ -563,13 +563,15 @@ internal fun OnDemandHomeHubEnterprise(
                 } else {
                     serviceItems.forEach { service ->
                         val capability = capabilityByCode[service.code]
-                        val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+                        val enabledByCapability = capability?.let(::capabilityIsAvailable) ?: true
                         val enabled = enabledByCapability && service.code !in disabledServiceCodes
                         ServiceCoverageToggleRow(
                             service = service,
                             vehicleGroup = vehicleGroup,
                             enabled = enabled,
                             lockedByAdmin = !enabledByCapability,
+                            availabilityReason = capability?.let(::capabilityAvailabilityReason),
+                            remediationPath = capability?.let(::capabilityRemediation),
                             onEnabledChange = { checked ->
                                 if (!enabledByCapability) return@ServiceCoverageToggleRow
                                 val nextCodes = if (checked) {

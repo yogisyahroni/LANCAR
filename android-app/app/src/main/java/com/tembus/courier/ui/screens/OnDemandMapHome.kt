@@ -364,7 +364,7 @@ internal fun OnDemandMapHome(
     }
     val activeServiceItems = serviceItems.filter { service ->
         val capability = capabilityByCode[service.code]
-        val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+        val enabledByCapability = capability?.let(::capabilityIsAvailable) ?: true
         enabledByCapability && service.code !in disabledServiceCodes
     }
 

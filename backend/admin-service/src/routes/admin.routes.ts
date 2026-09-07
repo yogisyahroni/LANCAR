@@ -108,7 +108,7 @@ adminRoutes.patch('/admin/couriers/:id/documents/:documentId', requireRole(['sup
 adminRoutes.patch('/admin/couriers/:id/vehicles/:vehicleId', requireRole(['super_admin', 'ops_security', 'ops_admin']), requireTotp, (req, res) => controllers.updateCourierVehicle(req, res));
 adminRoutes.get('/admin/couriers/:id', (req, res) => controllers.getCourierById(req, res));
 adminRoutes.patch('/admin/couriers/:id/status', (req, res) => controllers.updateCourierStatus(req, res));
-adminRoutes.patch('/admin/couriers/:id/service-capabilities', (req, res) => controllers.updateCourierServiceCapabilities(req, res));
+adminRoutes.patch('/admin/couriers/:id/service-capabilities', requireRole(['super_admin', 'ops_security', 'ops_admin']), requireTotp, (req, res) => controllers.updateCourierServiceCapabilities(req, res));
 adminRoutes.patch('/admin/couriers/:id/profile-photo', ...secureUploadSingle('photo', 'profileImage'), (req, res) => controllers.updateCourierProfilePhoto(req, res));
 adminRoutes.get('/admin/couriers/:id/history', (req, res) => controllers.getCourierHistory(req, res));
 adminRoutes.get('/admin/couriers/export', (req, res) => controllers.exportCouriers(req, res));

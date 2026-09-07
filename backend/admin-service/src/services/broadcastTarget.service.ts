@@ -126,6 +126,7 @@ const buildPredicate = (
          WHERE ccp.user_id = u.id
            AND courier_profile_documents_eligible(ccp.id)
            AND csc.status = 'enabled'
+           AND courier_capability_is_eligible(ccp.id, csc.service_code, ccp.market_code)
            AND csc.service_code = ANY(?::text[])
        )`,
     );

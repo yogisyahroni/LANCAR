@@ -424,6 +424,7 @@ describe('courier v2 P2 contracts', () => {
     expect(candidateQuery).toContain("cp.last_location_at >= NOW() - INTERVAL '10 minutes'");
     expect(candidateQuery).toContain('JOIN courier_service_capabilities csc');
     expect(candidateQuery).toContain("csc.status = 'enabled'");
+    expect(candidateQuery).toContain('courier_capability_is_eligible');
     expect(candidateQuery).toContain('JOIN courier_vehicles cv');
     expect(candidateQuery).toContain("cv.verification_status = 'approved'");
     expect(candidateQuery).toContain("p.status = 'paid'");

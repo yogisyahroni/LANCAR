@@ -111,6 +111,9 @@ const scanLogBlocks = (file, content) => {
     const block = content.slice(match.index ?? 0, (match.index ?? 0) + 1600);
     for (const keyMatch of block.matchAll(structuredKeyPattern)) {
       const key = keyMatch[1];
+      // Route registries can be lexically close to a log call, but a path key
+      // is not a structured log field and must not be treated as PII.
+      if (key.includes('/')) continue;
       if (isForbiddenKey(key)) {
         addFailure(file, `unsafe structured log key near ${match[1]}: "${key}"`);
       }

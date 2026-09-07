@@ -166,6 +166,8 @@ internal fun ServiceCoverageToggleRow(
     vehicleGroup: String,
     enabled: Boolean,
     lockedByAdmin: Boolean = false,
+    availabilityReason: String? = null,
+    remediationPath: String? = null,
     onEnabledChange: (Boolean) -> Unit
 ) {
     Surface(
@@ -207,6 +209,24 @@ internal fun ServiceCoverageToggleRow(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (lockedByAdmin) {
+                    Text(
+                        availabilityReason ?: "Capability belum tersedia",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    remediationPath?.let { remediation ->
+                        Text(
+                            "Solusi: $remediation",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
             Text(
                 text = if (enabled) "Aktif" else "Off",
@@ -272,7 +292,7 @@ internal fun resolveMaxActiveOnDemandJobs(
     val enabledCapabilityCodes = capabilityProfile?.serviceCapabilities
         ?.filter { capability ->
             capability.serviceCategory == "on_demand" &&
-                capability.status.equals("enabled", ignoreCase = true)
+            capabilityIsAvailable(capability)
         }
         ?.map { it.serviceCode }
         ?.toSet()
@@ -280,7 +300,7 @@ internal fun resolveMaxActiveOnDemandJobs(
     val capabilityMaxActive = capabilityProfile?.serviceCapabilities
         ?.filter { capability ->
             capability.serviceCategory == "on_demand" &&
-                capability.status.equals("enabled", ignoreCase = true)
+                capabilityIsAvailable(capability)
         }
         ?.maxOfOrNull { it.maxActiveOrdersOnDemand.coerceAtLeast(1) }
         ?: 1
@@ -468,8 +488,9 @@ private fun OfferServiceFacts(
     val serviceName = order.serviceName?.trim()?.takeIf { it.isNotBlank() }
         ?: order.serviceCode?.trim()?.takeIf { it.isNotBlank() }?.humanizeOfferToken()
         ?: "Nama layanan tidak dikirim server"
+    val capabilityAvailable = capability?.let(::capabilityIsAvailable) == true
     val capabilityText = when {
-        capability?.status.equals("enabled", ignoreCase = true) -> "Kemampuan aktif"
+        capabilityAvailable -> "Kemampuan aktif"
         capability != null -> "Status kemampuan: ${capability.status.humanizeOfferToken()}"
         order.serviceCode.isNullOrBlank() -> "Kemampuan belum dipetakan"
         else -> "Kemampuan diverifikasi saat menerima"
@@ -491,7 +512,14 @@ private fun OfferServiceFacts(
                     Text(mode.label(), color = foreground, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelLarge)
                     Text(serviceName, color = muted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Text(capabilityText, color = if (capability?.status.equals("enabled", ignoreCase = true)) Success else muted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                Text(capabilityText, color = if (capabilityAvailable) Success else muted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
+
+            if (capability != null && !capabilityAvailable) {
+                Text(capabilityAvailabilityReason(capability), color = if (dark) Color(0xFFFFB4AB) else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                capabilityRemediation(capability)?.let { remediation ->
+                    Text("Solusi: $remediation", color = muted, style = MaterialTheme.typography.labelSmall)
+                }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -533,7 +561,7 @@ internal fun OnDemandOfferQueueDialog(
         "Kapasitas aktif $activeJobCount/$maxActiveJobs pekerjaan."
     }
     val activeCapabilityText = activeCapabilities
-        .filter { it.status.equals("enabled", ignoreCase = true) }
+        .filter(::capabilityIsAvailable)
         .map { it.serviceName.trim() }
         .filter(String::isNotBlank)
         .distinct()

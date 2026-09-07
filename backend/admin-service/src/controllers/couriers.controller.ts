@@ -80,6 +80,20 @@ const readDocumentUpload = (value: unknown) => {
   };
 };
 
+const normalizeCapabilityEvidenceKey = (value: unknown) => {
+  const normalized = String(value || '').trim().replace(/\\/g, '/');
+  if (!normalized || /^https?:\/\//i.test(normalized) || normalized.includes('..')) return null;
+  return normalized.replace(/^\/uploads\//, '').replace(/^uploads\//, '') || null;
+};
+
+const normalizeCapabilityDate = (value: unknown, field: string) => {
+  if (value === undefined) return '__KEEP__';
+  if (value === null || String(value).trim() === '') return '';
+  const normalized = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) throw new Error(`${field} must use YYYY-MM-DD format or null`);
+  return normalized;
+};
+
 const vehicleProductType = (profile: any) => {
   const value = String(profile.vehicle_category || profile.vehicle_type || '').toLowerCase();
   if (value === 'towing_truck' || value === 'flatbed' || value === 'towing_derek') return 'towing_truck';
@@ -706,6 +720,15 @@ const getCourierApplications = async (req: Request, res: Response, requestedChan
                 'service_category', dsp.service_category,
                 'service_family', dsp.service_family,
                 'status', csc.status,
+                'certification_type', csc.certification_type,
+                'certified_at', csc.certified_at,
+                'effective_from', csc.effective_from,
+                'expires_at', csc.expires_at,
+                'market_scope', csc.market_scope,
+                'effective_status', cce.effective_status,
+                'availability_reason', cce.availability_reason,
+                'remediation_path', cce.remediation_path,
+                'is_eligible', cce.is_eligible,
                 'max_weight_kg', csc.max_weight_kg,
                 'eligibility_reason', csc.eligibility_reason,
                 'updated_at', csc.updated_at
@@ -713,6 +736,7 @@ const getCourierApplications = async (req: Request, res: Response, requestedChan
               ORDER BY dsp.display_order ASC, dsp.name ASC
             )
             FROM courier_service_capabilities csc
+            JOIN courier_capability_eligibility cce ON cce.id = csc.id
             JOIN delivery_service_products dsp ON dsp.code = csc.service_code
             WHERE csc.courier_profile_id = cp.id
           ),
@@ -895,9 +919,11 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
       [id]
     );
     const capabilitiesRes = await readDb.query(
-      `SELECT csc.*, dsp.name AS service_name, dsp.service_category, dsp.service_family, dsp.route_model,
+      `SELECT csc.*, cce.effective_status, cce.availability_reason, cce.remediation_path, cce.is_eligible,
+              dsp.name AS service_name, dsp.service_category, dsp.service_family, dsp.route_model,
               dsp.batching_allowed
        FROM courier_service_capabilities csc
+       JOIN courier_capability_eligibility cce ON cce.id = csc.id
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code
        WHERE csc.courier_profile_id = $1
        ORDER BY dsp.display_order ASC, dsp.name ASC`,
@@ -1424,6 +1450,8 @@ export const getMobileCourierCapabilities = async (req: Request, res: Response):
     const capabilitiesRes = await readDb.query(
       `SELECT csc.id, csc.service_code, dsp.name AS service_name, dsp.description, dsp.service_category,
               dsp.service_family, dsp.route_model, csc.status, csc.eligibility_reason,
+              csc.certification_type, csc.certified_at, csc.effective_from, csc.expires_at, csc.market_scope,
+              cce.effective_status, cce.availability_reason, cce.remediation_path, cce.is_eligible,
               dsp.batching_allowed,
               dsp.max_packages_per_order,
               dsp.max_active_orders_regular,
@@ -1445,6 +1473,7 @@ export const getMobileCourierCapabilities = async (req: Request, res: Response):
               dsp.pod_label,
               csc.max_weight_kg::float8 AS max_weight_kg, csc.approved_at
        FROM courier_service_capabilities csc
+       JOIN courier_capability_eligibility cce ON cce.id = csc.id
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code
        WHERE csc.courier_profile_id = $1
        ORDER BY dsp.display_order ASC, dsp.name ASC`,
@@ -1561,14 +1590,22 @@ export const requestMobileCourierCapabilityUpgrade = async (req: Request, res: R
     const result = await db.query(
       `INSERT INTO courier_service_capabilities (
          courier_profile_id, vehicle_id, service_code, application_channel, status,
-         eligibility_reason, updated_at
-       ) VALUES ($1, $2, $3, 'on_demand', 'pending_review', $4, NOW())
+         certification_type, evidence_storage_key, eligibility_reason, updated_at
+       ) VALUES ($1, $2, $3, 'on_demand', 'pending_review', 'service_equipment_proof', $4, $5, NOW())
        ON CONFLICT (courier_profile_id, service_code) DO UPDATE SET
          status = CASE WHEN courier_service_capabilities.status = 'enabled' THEN 'enabled' ELSE 'pending_review' END,
+         certification_type = EXCLUDED.certification_type,
+         evidence_storage_key = COALESCE(EXCLUDED.evidence_storage_key, courier_service_capabilities.evidence_storage_key),
          eligibility_reason = EXCLUDED.eligibility_reason,
          updated_at = NOW()
        RETURNING id, service_code, status`,
-      [profileRes.rows[0].id, vehicleId, serviceCode, `Requested upgrade with proof: ${proofImageUrl}`]
+      [
+        profileRes.rows[0].id,
+        vehicleId,
+        serviceCode,
+        normalizeCapabilityEvidenceKey(proofImageUrl),
+        'Capability upgrade requested with certification evidence.',
+      ]
     );
 
     res.json({ success: true, data: result.rows[0], message: 'Capability upgrade requested successfully' });
@@ -1581,6 +1618,49 @@ export const requestMobileCourierCapabilityUpgrade = async (req: Request, res: R
 export const updateCourierServiceCapabilities = async (req: Request, res: Response): Promise<void> => {
   const id = String(req.params.id);
   const capabilities = Array.isArray(req.body?.capabilities) ? req.body.capabilities : [];
+  const allowedStatuses = ['pending_review', 'enabled', 'disabled', 'rejected', 'paused', 'suspended'];
+  const updates = capabilities.map((capability: any) => {
+    const serviceCode = String(capability.service_code || capability.serviceCode || '').trim();
+    const status = String(capability.status || '').trim().toLowerCase();
+    const reason = String(capability.eligibility_reason || capability.reason || capability.suspension_reason || '').trim();
+    const evidenceStorageKey = normalizeCapabilityEvidenceKey(capability.evidence_storage_key || capability.evidenceStorageKey);
+    const checksum = String(capability.evidence_checksum_sha256 || capability.evidenceChecksumSha256 || '').trim().toLowerCase();
+    const marketScope = Object.prototype.hasOwnProperty.call(capability, 'market_scope')
+      ? capability.market_scope
+      : capability.marketScope;
+    return {
+      capability,
+      serviceCode,
+      status,
+      reason,
+      evidenceStorageKey,
+      checksum,
+      marketScope,
+    };
+  });
+
+  const invalidUpdate = updates.find((update: {
+    serviceCode: string;
+    status: string;
+    reason: string;
+    checksum: string;
+    marketScope: unknown;
+  }) => {
+    if (!update.serviceCode || !allowedStatuses.includes(update.status)) return true;
+    if ((update.status === 'paused' || update.status === 'suspended') && !update.reason) return true;
+    if (update.checksum && !/^[a-f0-9]{64}$/.test(update.checksum)) return true;
+    if (update.marketScope !== undefined && (!Array.isArray(update.marketScope) || update.marketScope.some((item: unknown) => typeof item !== 'string' || !String(item).trim()))) return true;
+    return false;
+  });
+  if (invalidUpdate) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid capability certification update',
+      allowed_statuses: allowedStatuses,
+      required_fields: 'service_code, status, and suspension_reason for paused/suspended states',
+    });
+    return;
+  }
 
   const client = await db.connect();
   try {
@@ -1590,34 +1670,70 @@ export const updateCourierServiceCapabilities = async (req: Request, res: Respon
       approvedBy: getActorId(req)
     });
 
-    for (const capability of capabilities) {
-      const serviceCode = String(capability.service_code || capability.serviceCode || '').trim();
-      const status = String(capability.status || '').trim();
-      if (!serviceCode || !['pending_review', 'enabled', 'disabled', 'rejected'].includes(status)) continue;
+    for (const update of updates) {
+      const { capability, serviceCode, status, reason, evidenceStorageKey, checksum, marketScope } = update;
+      let effectiveFrom: string;
+      let expiresAt: string;
+      try {
+        effectiveFrom = normalizeCapabilityDate(
+          Object.prototype.hasOwnProperty.call(capability, 'effective_from') ? capability.effective_from : capability.effectiveFrom,
+          'effective_from',
+        );
+        expiresAt = normalizeCapabilityDate(
+          Object.prototype.hasOwnProperty.call(capability, 'expires_at') ? capability.expires_at : capability.expiresAt,
+          'expires_at',
+        );
+      } catch (error: any) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, error: error.message });
+        return;
+      }
+      const certificationType = String(capability.certification_type || capability.certificationType || '').trim();
+      const normalizedMarketScope = marketScope === undefined
+        ? null
+        : marketScope.map((item: string) => item.trim().toLowerCase());
       await client.query(
         `UPDATE courier_service_capabilities
          SET status = $1,
              eligibility_reason = COALESCE(NULLIF($2, ''), eligibility_reason),
              max_weight_kg = COALESCE($3, max_weight_kg),
-             approved_by = CASE WHEN $1 = 'enabled' THEN $4 ELSE approved_by END,
+             certification_type = COALESCE(NULLIF($4, ''), certification_type),
+             evidence_storage_key = COALESCE(NULLIF($5, ''), evidence_storage_key),
+             evidence_checksum_sha256 = COALESCE(NULLIF($6, ''), evidence_checksum_sha256),
+             effective_from = CASE WHEN $7 = '__KEEP__' THEN effective_from WHEN $7 = '' THEN NULL ELSE $7::date END,
+             expires_at = CASE WHEN $8 = '__KEEP__' THEN expires_at WHEN $8 = '' THEN NULL ELSE $8::date END,
+             market_scope = COALESCE($9::text[], market_scope),
+             certified_at = CASE WHEN $1 = 'enabled' THEN COALESCE(certified_at, NOW()) ELSE certified_at END,
+             approved_by = CASE WHEN $1 = 'enabled' THEN $10 ELSE approved_by END,
              approved_at = CASE WHEN $1 = 'enabled' THEN NOW() ELSE approved_at END,
+             suspension_reason = CASE WHEN $1 IN ('paused', 'suspended') THEN NULLIF($2, '') ELSE NULL END,
+             paused_at = CASE WHEN $1 IN ('paused', 'suspended') THEN COALESCE(paused_at, NOW()) ELSE NULL END,
+             paused_by = CASE WHEN $1 IN ('paused', 'suspended') THEN $10 ELSE NULL END,
              updated_at = NOW()
-         WHERE courier_profile_id = $5 AND service_code = $6`,
+         WHERE courier_profile_id = $11 AND service_code = $12`,
         [
           status,
-          capability.eligibility_reason || capability.reason || null,
+          reason,
           capability.max_weight_kg ?? null,
+          certificationType,
+          evidenceStorageKey || '',
+          checksum,
+          effectiveFrom,
+          expiresAt,
+          normalizedMarketScope,
           getActorId(req),
           id,
-          serviceCode
+          serviceCode,
         ]
       );
     }
 
     await client.query('COMMIT');
     const result = await readDb.query(
-      `SELECT csc.*, dsp.name AS service_name, dsp.service_category, dsp.service_family
+      `SELECT csc.*, cce.effective_status, cce.availability_reason, cce.remediation_path, cce.is_eligible,
+              dsp.name AS service_name, dsp.service_category, dsp.service_family
        FROM courier_service_capabilities csc
+       JOIN courier_capability_eligibility cce ON cce.id = csc.id
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code
        WHERE csc.courier_profile_id = $1
        ORDER BY dsp.display_order ASC, dsp.name ASC`,

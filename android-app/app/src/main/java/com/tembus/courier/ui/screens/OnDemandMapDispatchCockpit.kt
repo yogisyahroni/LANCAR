@@ -356,7 +356,7 @@ internal fun OnDemandMapDispatchCockpit(
             ) {
                 val activeServiceNames = serviceItems
                     .filter { service ->
-                        val capabilityEnabled = capabilityByCode[service.code]?.status.equals("enabled", ignoreCase = true)
+                        val capabilityEnabled = capabilityByCode[service.code]?.let(::capabilityIsAvailable) == true
                         capabilityEnabled && service.code !in disabledServiceCodes
                     }
                     .map { it.name }
@@ -407,12 +407,14 @@ internal fun OnDemandMapDispatchCockpit(
                         } else {
                             serviceItems.forEach { service ->
                                 val capability = capabilityByCode[service.code]
-                                val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+                                val enabledByCapability = capability?.let(::capabilityIsAvailable) ?: true
                                 val enabled = enabledByCapability && service.code !in disabledServiceCodes
                                 OnDemandServiceToggleRow(
                                     service = service,
                                     enabled = enabled,
                                     lockedByAdmin = !enabledByCapability,
+                                    availabilityReason = capability?.let(::capabilityAvailabilityReason),
+                                    remediationPath = capability?.let(::capabilityRemediation),
                                     onEnabledChange = { checked ->
                                         if (enabledByCapability) onServiceEnabledChange(service, checked)
                                     }

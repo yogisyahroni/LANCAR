@@ -404,9 +404,7 @@ internal fun ProfileContent(
         }
 
         capabilityProfile?.let { capability ->
-            val enabledCapabilities = capability.serviceCapabilities.filter { item ->
-                item.status.equals("enabled", ignoreCase = true)
-            }
+            val capabilityItems = capability.serviceCapabilities
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -449,7 +447,9 @@ internal fun ProfileContent(
                         }
                     }
 
-                    enabledCapabilities.take(5).forEach { item ->
+                    capabilityItems.take(5).forEach { item ->
+                        val available = capabilityIsAvailable(item)
+                        val displayStatus = capabilityStatusForDisplay(item)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -460,9 +460,9 @@ internal fun ProfileContent(
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Icon(
-                                    if (item.status == "enabled") Icons.Default.CheckCircle else Icons.Default.PendingActions,
+                                    if (available) Icons.Default.CheckCircle else Icons.Default.PendingActions,
                                     contentDescription = null,
-                                    tint = if (item.status == "enabled") Success else Warning,
+                                    tint = if (available) Success else Warning,
                                     modifier = Modifier.padding(2.dp).size(20.dp)
                                 )
                             }
@@ -473,11 +473,29 @@ internal fun ProfileContent(
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                if (!available) {
+                                    Text(
+                                        capabilityAvailabilityReason(item),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    capabilityRemediation(item)?.let { remediation ->
+                                        Text(
+                                            "Solusi: $remediation",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
                             }
-                            CapabilityStatusPill(item.status)
+                            CapabilityStatusPill(displayStatus)
                         }
                     }
-                    if (enabledCapabilities.isEmpty()) {
+                    if (capabilityItems.isEmpty()) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             color = Warning.copy(alpha = 0.12f),

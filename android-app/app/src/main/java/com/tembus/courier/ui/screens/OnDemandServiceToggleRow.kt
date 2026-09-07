@@ -165,6 +165,8 @@ internal fun OnDemandServiceToggleRow(
     service: CourierServiceProduct,
     enabled: Boolean,
     lockedByAdmin: Boolean,
+    availabilityReason: String? = null,
+    remediationPath: String? = null,
     onEnabledChange: (Boolean) -> Unit
 ) {
     Surface(
@@ -192,6 +194,24 @@ internal fun OnDemandServiceToggleRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (lockedByAdmin) {
+                    Text(
+                        availabilityReason ?: "Capability belum tersedia",
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.9f),
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    remediationPath?.let { remediation ->
+                        Text(
+                            "Solusi: $remediation",
+                            color = Color.White.copy(alpha = 0.62f),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
             Switch(
                 checked = enabled,
