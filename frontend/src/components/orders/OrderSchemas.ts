@@ -12,9 +12,11 @@ export const addressPointSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   address: z.string().min(1),
+  provider_place_id: z.string().nullable().optional(),
   city: z.string().optional(),
   district: z.string().optional(),
   postal_code: z.string().optional(),
+  country_code: z.string().optional(),
   provider_location_codes: z.record(z.string(), z.string()).optional(),
   provider_location_mapping_ids: z.record(z.string(), z.string()).optional(),
   location_mapping_version: z.string().optional(),
@@ -172,6 +174,8 @@ export interface AddressSuggestion {
   city?: string;
   district?: string;
   postal_code?: string;
+  country_code?: string;
+  provider_place_id?: string | null;
   provider_location_codes?: Record<string, string>;
   provider_location_mapping_ids?: Record<string, string>;
   location_mapping_version?: string;

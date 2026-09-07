@@ -116,6 +116,9 @@ export function AddressPicker({
     city?: string;
     district?: string;
     postal_code?: string;
+    country_code?: string;
+    address_line?: string;
+    provider_place_id?: string | null;
     provider_location_codes?: Record<string, string>;
     provider_location_mapping_ids?: Record<string, string>;
     location_mapping_version?: string;
@@ -178,14 +181,17 @@ export function AddressPicker({
           }
         });
 
-        const data = (response.data?.results || []) as Array<{
+          const data = (response.data?.results || []) as Array<{
           label: string;
+          address_line?: string;
           latitude: number;
           longitude: number;
           provider: string;
+          provider_place_id?: string | null;
           city?: string;
           district?: string;
           postal_code?: string;
+          country_code?: string;
           provider_location_codes?: Record<string, string>;
           provider_location_mapping_ids?: Record<string, string>;
           location_mapping_version?: string;
@@ -199,13 +205,15 @@ export function AddressPicker({
           return [{
             id: `${item.provider}-${index}-${item.latitude}-${item.longitude}`,
             label: label.trim(),
-            detail: rest.join(",").trim(),
+            detail: (item.address_line || rest.join(",")).trim(),
             lat: location.lat,
             lng: location.lng,
             source: normalizedProvider.includes("tomtom") ? "tomtom" as const : "osm" as const,
             city: item.city,
             district: item.district,
             postal_code: item.postal_code,
+            country_code: item.country_code,
+            provider_place_id: item.provider_place_id,
             provider_location_codes: item.provider_location_codes,
             provider_location_mapping_ids: item.provider_location_mapping_ids,
             location_mapping_version: item.location_mapping_version,
@@ -247,6 +255,8 @@ export function AddressPicker({
       city: suggestion.city,
       district: suggestion.district,
       postal_code: suggestion.postal_code,
+      country_code: suggestion.country_code,
+      provider_place_id: suggestion.provider_place_id,
       provider_location_codes: suggestion.provider_location_codes,
       provider_location_mapping_ids: suggestion.provider_location_mapping_ids,
       location_mapping_version: suggestion.location_mapping_version,

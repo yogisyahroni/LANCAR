@@ -111,13 +111,16 @@ export type RouteSnapshotOptions = {
 export type MapsGeocodeResult = {
   label: string;
   display_label?: string;
+  address_line?: string;
   latitude: number;
   longitude: number;
   provider: string;
+  provider_place_id?: string | null;
   confidence?: number | null;
   city?: string;
   district?: string;
   postal_code?: string;
+  country_code?: string;
   provider_location_codes?: Record<string, string>;
   provider_location_mapping_ids?: Record<string, string>;
   location_mapping_version?: string;
@@ -130,9 +133,11 @@ const firstAddressText = (...values: unknown[]): string | undefined => {
 };
 
 const normalizedAddressParts = (address: Record<string, unknown> | undefined) => ({
+  address_line: firstAddressText(address?.freeformAddress, address?.address_line, address?.road, address?.street),
   city: firstAddressText(address?.city, address?.town, address?.village, address?.municipality),
   district: firstAddressText(address?.city_district, address?.district, address?.municipalitySubdivision, address?.suburb, address?.county),
   postal_code: firstAddressText(address?.postcode, address?.postalCode),
+  country_code: firstAddressText(address?.countryCode, address?.country_code),
 });
 
 const mapsGeocodeResult = (value: Omit<MapsGeocodeResult, 'display_label'>): MapsGeocodeResult => ({
@@ -592,10 +597,12 @@ const applyServerLocationMappingWithSnapshot = (
 ): MapsGeocodeResult => {
   const normalized = normalizeLocation({
     label: result.label,
+    address_line: result.address_line,
     city: result.city,
     district: result.district,
     postal_code: result.postal_code,
-    provider_place_id: result.provider,
+    country_code: result.country_code,
+    provider_place_id: result.provider_place_id,
   }, snapshot.mappings, snapshot.version);
   return {
     ...result,
@@ -2015,10 +2022,11 @@ const fetchOpenStreetMapGeocode = async (normalizedQuery: string): Promise<MapsG
     timeout: 2500,
   });
   return (response.data || []).map((item: any) => mapsGeocodeResult({
-    label: item.display_name,
-    latitude: Number(item.lat),
-    longitude: Number(item.lon),
-    provider: 'openstreetmap_nominatim',
+        label: item.display_name,
+        latitude: Number(item.lat),
+        longitude: Number(item.lon),
+        provider: 'openstreetmap_nominatim',
+        provider_place_id: item.place_id ? String(item.place_id) : null,
     confidence: item.importance ? Number(item.importance) : null,
     ...normalizedAddressParts(item.address),
   })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
@@ -2043,10 +2051,11 @@ const fetchOpenStreetMapReverseGeocode = async (point: MapPoint): Promise<MapsGe
   });
   if (!response.data?.display_name) return null;
   return mapsGeocodeResult({
-    label: response.data.display_name,
-    latitude: point.latitude,
-    longitude: point.longitude,
-    provider: 'openstreetmap_reverse_nominatim',
+        label: response.data.display_name,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        provider: 'openstreetmap_reverse_nominatim',
+        provider_place_id: response.data.place_id ? String(response.data.place_id) : null,
     confidence: response.data.importance ? Number(response.data.importance) : null,
     ...normalizedAddressParts(response.data.address),
   });
@@ -2117,6 +2126,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
         latitude: Number(item.position?.lat),
         longitude: Number(item.position?.lon),
         provider: 'tomtom_search',
+        provider_place_id: item.id ? String(item.id) : null,
         confidence: typeof item.score === 'number' ? item.score : null,
         ...normalizedAddressParts(item.address),
       })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
@@ -2259,6 +2269,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
         latitude: point.latitude,
         longitude: point.longitude,
         provider: 'tomtom_reverse_geocoding',
+        provider_place_id: item.id ? String(item.id) : null,
         confidence: null,
         ...normalizedAddressParts(item.address),
       });

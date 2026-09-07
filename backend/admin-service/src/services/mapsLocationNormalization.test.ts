@@ -1,7 +1,21 @@
 import { normalizeLocation } from './mapsLocationNormalization';
 
 describe('mapsLocationNormalization', () => {
-  it('keeps display text separate from canonical address components', () => {
+	it('preserves address line and canonical country code for market parsing', () => {
+		const result = normalizeLocation({
+			label: 'Jl. Sudirman No. 10, Jakarta Selatan, Indonesia',
+			address_line: 'Jl. Sudirman No. 10',
+			city: 'Jakarta Selatan',
+			district: 'Setiabudi',
+			postal_code: '12910',
+			country_code: 'id',
+		});
+
+		expect(result.address_line).toBe('Jl. Sudirman No. 10');
+		expect(result.country_code).toBe('ID');
+	});
+
+	it('keeps display text separate from canonical address components', () => {
     const result = normalizeLocation({
       label: 'Jl. Sudirman No. 10, Jakarta Selatan, Indonesia',
       address_line: 'Jl. Sudirman No. 10',

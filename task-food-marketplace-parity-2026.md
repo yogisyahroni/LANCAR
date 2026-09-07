@@ -5102,11 +5102,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## GEO-2026-003 — Geocode, reverse geocode and address normalization [P0]
 
 **Checklist**
-- [ ] Manual text search returns candidate list; user confirms ambiguous result.
-- [ ] Reverse geocode preserves pin coordinates even when address label changes.
-- [ ] Market address parser supports local hierarchy/postal conventions.
-- [ ] Provider response cached with TTL/licensing constraints.
-- [ ] Address confidence/source exposed where operationally useful.
+- [x] Manual text search returns candidate list; user confirms ambiguous result. (Verified 2026-09-07: authenticated geocode returns up to eight candidates and AddressPicker requires selecting a candidate before applying the address/pin.)
+- [x] Reverse geocode preserves pin coordinates even when address label changes. (Verified: reverse provider adapters always return the requested latitude/longitude while normalizing the label/components.)
+- [x] Market address parser supports local hierarchy/postal conventions. (Implemented/verified 2026-09-07: server normalizes address line, city, district, postal code, country code, and server-controlled logistics mappings.)
+- [x] Provider response cached with TTL/licensing constraints. (Verified: provider/scope/version-aware Redis cache uses bounded 60–86400 second TTL and attribution is retained.)
+- [x] Address confidence/source exposed where operationally useful. (Verified: response includes provider and confidence; provider observations record source, result count, latency, cache/fallback status.)
 
 ---
 
