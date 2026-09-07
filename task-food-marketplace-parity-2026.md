@@ -5248,11 +5248,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## ECON-2026-004 — Courier earnings model [P0/P1]
 
 **Checklist**
-- [ ] Offer shows estimated earning/components before accept where product policy requires.
-- [ ] Actual earning adjustment is policy driven and auditable.
-- [ ] Cancellation/waiting/toll/return/extra service compensation explicit.
-- [ ] Earnings do not depend on client-computed amount.
-- [ ] Multi-service capability can have different earning rule without code fork.
+- [x] Offer shows estimated earning/components before accept where product policy requires.
+- [x] Actual earning adjustment is policy driven and auditable.
+- [x] Cancellation/waiting/toll/return/extra service compensation explicit.
+- [x] Earnings do not depend on client-computed amount.
+- [x] Multi-service capability can have different earning rule without code fork.
 
 ---
 

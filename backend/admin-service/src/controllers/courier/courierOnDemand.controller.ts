@@ -38,6 +38,7 @@ import {
   expireStaleOnDemandOffers,
   routeContractFromOrder,
 } from './_shared';
+import { earningComponentsFromSnapshot } from '../../services/courierEarningsPolicy';
 
 export const dispatchNextOnDemandCourier = async (client: any, orderId: string): Promise<CreatedDispatchOffer | null> => {
   const activeOffer = await client.query(
@@ -106,6 +107,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::text AS fee,
           COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::int AS courier_payout_estimate_idr,
           COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
+          o.settlement_snapshot,
           o.route_snapshot,
           o.route_provider,
           o.route_profile,
@@ -246,6 +248,8 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
     vehicle_type: routeContract.vehicle_type,
     service_code: routeContract.service_code,
     courier_payout_estimate_idr: Number(nextCourier.courier_payout_estimate_idr || 0),
+    courier_earning_policy: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).policy,
+    courier_earning_components: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).components,
     customer_price_idr: Number(nextCourier.customer_price_idr || 0),
     assignment_policy: {
       active_count: Number(nextCourier.active_count || 0),
@@ -370,6 +374,8 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
     route_snapshot_version: routeContract.snapshot_version,
     route_version: routeContract.route_version,
     courier_payout_estimate_idr: Number(nextCourier.courier_payout_estimate_idr || 0),
+    courier_earning_policy: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).policy,
+    courier_earning_components: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).components,
   };
 };
 
@@ -422,6 +428,7 @@ export const dispatchToPreferredCourier = async (
        COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::text AS fee,
        COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::int AS courier_payout_estimate_idr,
        COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
+       o.settlement_snapshot,
        COALESCE(u.full_name, 'Customer') AS customer_name,
        COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS') AS service_name,
        o.merchant_id,
@@ -614,6 +621,8 @@ export const dispatchToPreferredCourier = async (
     route_snapshot_version: nextCourier.route_snapshot_version,
     route_version: nextCourier.route_version,
     courier_payout_estimate_idr: Number(nextCourier.courier_payout_estimate_idr || 0),
+    courier_earning_policy: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).policy,
+    courier_earning_components: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).components,
   };
 };
 
@@ -652,5 +661,3 @@ export const advanceOnDemandDispatchQueue = async (client: any, limit = 25): Pro
 
   return createdOffers;
 };
-
-

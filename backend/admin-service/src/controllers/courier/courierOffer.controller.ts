@@ -15,6 +15,7 @@ import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../../services/
 
 import { evaluateOnDemandRealtimeAlerts } from '../../services/realtimeObservability';
 import { buildMapsRouteEtaSnapshot } from '../../services/mapsProviderConfig';
+import { earningComponentsFromSnapshot } from '../../services/courierEarningsPolicy';
 
 import { isFeatureFlagEnabled } from '../../services/featureFlags';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
@@ -45,6 +46,14 @@ import {
 export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
   for (const offer of offers) {
     try {
+      const earningComponents = offer.courier_earning_components || earningComponentsFromSnapshot(
+        { courier_earning_policy: offer.courier_earning_policy },
+        Number(offer.courier_payout_estimate_idr || offer.fee || 0),
+      ).components;
+      const earningPolicy = offer.courier_earning_policy || earningComponentsFromSnapshot(
+        null,
+        Number(offer.courier_payout_estimate_idr || offer.fee || 0),
+      ).policy;
       emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.OFFER_CREATED, {
         order_id: offer.order_id,
         courier_user_id: offer.courier_id,
@@ -71,6 +80,8 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
           route_snapshot_version: offer.route_snapshot_version || null,
           route_version: offer.route_version || '',
           courier_payout_estimate_idr: offer.courier_payout_estimate_idr || Number(offer.fee || 0) || 0,
+          courier_earning_policy: earningPolicy,
+          courier_earning_components: earningComponents,
           expires_at: offer.expires_at,
           offer_ttl_seconds: ON_DEMAND_OFFER_TTL_SECONDS,
         },
@@ -104,6 +115,8 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
           route_snapshot_version: String(offer.route_snapshot_version || ''),
           route_version: offer.route_version || '',
           courier_payout_estimate_idr: String(offer.courier_payout_estimate_idr || Number(offer.fee || 0) || 0),
+          courier_earning_policy: JSON.stringify(earningPolicy),
+          courier_earning_components: JSON.stringify(earningComponents),
           model: 'p2p',
           workflow_role: 'on_demand',
           offer_expires_at: new Date(offer.expires_at).getTime().toString(),
@@ -593,5 +606,3 @@ export const rejectMobileCourierOffer = async (req: Request, res: Response) => {
     client.release();
   }
 };
-
-

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { securityLog } from '../../security/logRedaction';
 
 import { db } from '../../db';
+import { earningComponentsFromSnapshot } from '../../services/courierEarningsPolicy';
 import { createNotification } from '../../notifications';
 
 import crypto from 'crypto';
@@ -435,6 +436,10 @@ export const mobileOrderSelect = `
 
 export const normalizeMobileOrder = (order: any) => {
   const routeContract = routeContractFromOrder(order);
+  const earningSnapshot = earningComponentsFromSnapshot(
+    order.settlement_snapshot,
+    Number(order.courier_payout_estimate_idr || order.fee || 0),
+  );
   const isMaintenance = ['tambal_ban', 'towing'].includes(String(order.service_category || '')) ||
     String(order.service_code || '').startsWith('tambal_ban') ||
     String(order.service_code || '').startsWith('towing');
@@ -475,6 +480,8 @@ export const normalizeMobileOrder = (order: any) => {
     dropoff_lng: order.drop_longitude == null ? null : Number(order.drop_longitude),
     distance: isMaintenance && order.distance ? String(order.distance) : (routeContract.distance_km > 0 ? String(routeContract.distance_km) : order.distance),
     pricing_breakdown: livePricingBreakdown,
+    courier_earning_policy: earningSnapshot.policy,
+    courier_earning_components: earningSnapshot.components,
     proof_requirements: proofRequirements,
     route_snapshot: routeContract.snapshot,
     route_provider: routeContract.provider,
@@ -709,6 +716,8 @@ export type CreatedDispatchOffer = {
   route_snapshot_version?: number | null;
   route_version?: string | null;
   courier_payout_estimate_idr?: number | null;
+  courier_earning_policy?: Record<string, unknown> | null;
+  courier_earning_components?: Record<string, number> | null;
 };
 
 export const expireStaleOnDemandOffers = async (client: any): Promise<CreatedDispatchOffer[]> => {
@@ -794,18 +803,27 @@ export const creditCourierDeliveryEarning = async (client: any, orderId: string,
        'delivery',
        'credit',
        COALESCE(
-         NULLIF(ol.assigned_fee_idr, 0),
-         NULLIF(o.courier_payout_estimate_idr, 0),
-         GREATEST(o.total_price_idr - o.platform_commission_idr, 0),
-         0
+         NULLIF(ol.courier_earning_components->>'estimated_total_idr', '')::int,
+         GREATEST(
+           COALESCE(NULLIF(ol.assigned_fee_idr, 0), NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)
+           + COALESCE(ol.idle_compensation_idr, 0)
+           + COALESCE(ol.toll_reimbursement_idr, 0)
+           + COALESCE(ol.return_compensation_idr, 0)
+           + COALESCE(ol.extra_service_compensation_idr, 0)
+           + COALESCE(ol.cancellation_compensation_idr, 0)
+           - COALESCE(ol.penalty_idr, 0),
+           0
+         )
        )::int,
        'available',
        'earning_credit',
-       'Pendapatan pengiriman on-demand',
+       'Pendapatan pengiriman on-demand sesuai policy snapshot',
        jsonb_build_object(
          'source', 'on_demand_pod_verified',
          'order_number', o.order_number,
          'service_code', o.service_code,
+         'policy_snapshot', COALESCE(o.settlement_snapshot->'courier_earning_policy', '{}'::jsonb),
+         'earning_components', COALESCE(ol.courier_earning_components, '{}'::jsonb),
          'credited_at', NOW()
        )
      FROM orders o
@@ -813,10 +831,8 @@ export const creditCourierDeliveryEarning = async (client: any, orderId: string,
      WHERE o.id = $1
        AND ol.courier_id = $2
        AND COALESCE(
-         NULLIF(ol.assigned_fee_idr, 0),
-         NULLIF(o.courier_payout_estimate_idr, 0),
-         GREATEST(o.total_price_idr - o.platform_commission_idr, 0),
-         0
+         NULLIF(ol.courier_earning_components->>'estimated_total_idr', '')::int,
+         GREATEST(COALESCE(NULLIF(ol.assigned_fee_idr, 0), NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0), 0)
        ) > 0
        AND NOT EXISTS (
          SELECT 1

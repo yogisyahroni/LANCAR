@@ -337,6 +337,10 @@ describe('on-demand realtime lifecycle contract', () => {
         route_distance_meters: 2400,
         eta_minutes: 15,
         courier_payout_estimate_idr: 12000,
+        courier_earning_components: expect.objectContaining({
+          base_earning_idr: 12000,
+          estimated_total_idr: 12000,
+        }),
       }),
     }));
     expect(emit).toHaveBeenCalledWith(ON_DEMAND_REALTIME_EVENTS.OFFER_CREATED, expect.objectContaining({
@@ -572,6 +576,10 @@ describe('on-demand realtime lifecycle contract', () => {
       route_snapshot_hash: 'route-hash-1',
       route_distance_meters: 2400,
       courier_payout_estimate_idr: 12000,
+      courier_earning_components: expect.objectContaining({
+        base_earning_idr: 12000,
+        estimated_total_idr: 12000,
+      }),
     }));
     const insertDispatchCall = client.query.mock.calls.find(([sql]: [string]) => sql.includes('INSERT INTO courier_offer_dispatches'));
     expect(JSON.parse(insertDispatchCall?.[1]?.[10])).toEqual(expect.objectContaining({

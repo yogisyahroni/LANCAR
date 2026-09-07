@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
 import { db } from '../db';
+import {
+  buildCourierEarningPolicy,
+  initialCourierEarningComponents,
+} from '../services/courierEarningsPolicy';
 
 const numericFields = [
   'max_distance_km',
@@ -232,6 +236,7 @@ export const calculateServiceSettlement = (
     payoutAfterPlatformCut
   );
   const platformCommission = Math.max(0, operationalPool - courierPayout);
+  const courierEarningPolicy = buildCourierEarningPolicy(service);
 
   return {
     mdr_idr: mdr,
@@ -248,7 +253,9 @@ export const calculateServiceSettlement = (
       courier_min_payout_idr: service.courier_min_payout_idr,
       mdr_percent: service.mdr_percent,
       ppn_percent: service.ppn_percent,
-      show_customer_price_to_courier: service.show_customer_price_to_courier
+      show_customer_price_to_courier: service.show_customer_price_to_courier,
+      courier_earning_policy: courierEarningPolicy,
+      courier_earning_components: initialCourierEarningComponents(courierPayout),
     }
   };
 };
