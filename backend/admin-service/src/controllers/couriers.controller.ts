@@ -7,11 +7,14 @@ import { saveSecureUploadBuffer } from '../security/uploadSecurity';
 import { createNotification } from '../notifications';
 import {
   COURIER_ONBOARDING_POLICY_VERSION,
+  COURIER_DOCUMENT_STATUSES,
+  COURIER_DOCUMENT_VERIFICATION_SOURCES,
   CourierOnboardingState,
   buildCourierOnboardingChecklist,
   canTransitionCourierOnboarding,
   evaluateCourierActivation,
   isCourierChecklistPassed,
+  validateCourierVehicleProfile,
 } from '../services/courierOnboardingPolicy';
 
 const supportedCourierDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account', 'face_enrollment', 'selfie'];
@@ -48,6 +51,34 @@ const buildOnboardingChecklist = (body: any, applicationChannel = 'on_demand') =
 });
 
 const pseudoChecksum = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
+
+const normalizeStorageKey = (fileUrl: string) => {
+  const normalized = String(fileUrl || '').trim().replace(/\\/g, '/');
+  return normalized.replace(/^\/uploads\//, '').replace(/^uploads\//, '') || null;
+};
+
+const readDocumentUpload = (value: unknown) => {
+  if (typeof value === 'string') {
+    return {
+      fileUrl: value.trim(),
+      storageKey: normalizeStorageKey(value),
+      originalFileName: null,
+      mimeType: null,
+      checksumSha256: null,
+    };
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const document = value as Record<string, unknown>;
+  const fileUrl = String(document.file_url || document.fileUrl || document.url || '').trim();
+  if (!fileUrl) return null;
+  return {
+    fileUrl,
+    storageKey: String(document.storage_key || document.storageKey || normalizeStorageKey(fileUrl) || '').trim() || null,
+    originalFileName: document.original_file_name || document.originalFileName || null,
+    mimeType: document.mime_type || document.mimeType || null,
+    checksumSha256: document.checksum_sha256 || document.checksumSha256 || null,
+  };
+};
 
 const vehicleProductType = (profile: any) => {
   const value = String(profile.vehicle_category || profile.vehicle_type || '').toLowerCase();
@@ -310,6 +341,10 @@ export const uploadCourierOnDemandDocument = async (req: Request, res: Response)
       data: {
         doc_type: docType,
         file_url: savedUpload.fileUrl,
+        storage_key: savedUpload.storageKey,
+        storage_access_class: 'restricted',
+        document_status: 'pending_review',
+        verification_source: 'self_declared',
         original_file_name: req.file.originalname,
         mime_type: req.file.detectedMimeType,
         file_size_bytes: req.file.size,
@@ -502,16 +537,28 @@ const submitCourierApplication = async (
     );
 
     for (const docType of supportedCourierDocuments) {
-      const fileUrl = documents[docType];
-      if (!fileUrl) continue;
+      const uploadedDocument = readDocumentUpload(documents[docType]);
+      if (!uploadedDocument) continue;
       await client.query(
-      `INSERT INTO courier_documents (courier_id, doc_type, file_url)
-         VALUES ($1, $2, $3)`,
-        [courierId, docType, String(fileUrl)]
+      `INSERT INTO courier_documents (
+           courier_id, doc_type, file_url, document_status, verification_source,
+           storage_key, storage_access_class, original_file_name, mime_type,
+           checksum_sha256, retention_until
+         )
+         VALUES ($1, $2, $3, 'pending_review', 'self_declared', $4, 'restricted', $5, $6, $7, CURRENT_DATE + 1825)`,
+        [
+          courierId,
+          docType,
+          uploadedDocument.fileUrl,
+          uploadedDocument.storageKey,
+          uploadedDocument.originalFileName,
+          uploadedDocument.mimeType,
+          uploadedDocument.checksumSha256,
+        ]
       );
     }
 
-    const faceEnrollmentUrl = documents.face_enrollment ? String(documents.face_enrollment) : null;
+    const faceEnrollmentUrl = readDocumentUpload(documents.face_enrollment)?.fileUrl || null;
     if (faceEnrollmentUrl) {
       await client.query(
         `INSERT INTO courier_face_enrollments (
@@ -624,22 +671,28 @@ const getCourierApplications = async (req: Request, res: Response, requestedChan
         u.full_name,
         u.email,
         u.phone_number,
-        (SELECT COUNT(*)::int FROM courier_documents cd WHERE cd.courier_id = cp.id) AS document_count,
+        (SELECT COUNT(*)::int FROM courier_documents cd WHERE cd.courier_id = cp.id AND cd.deleted_at IS NULL) AS document_count,
         COALESCE(
           (
             SELECT jsonb_agg(
               jsonb_build_object(
                 'id', cd.id,
                 'doc_type', cd.doc_type,
-                'file_url', cd.file_url,
+                'document_status', cd.document_status,
+                'verification_source', cd.verification_source,
+                'issued_at', cd.issued_at,
+                'expires_at', cd.expires_at,
                 'is_verified', cd.is_verified,
                 'rejection_note', cd.rejection_note,
+                'storage_access_class', cd.storage_access_class,
+                'retention_until', cd.retention_until,
+                'has_file', (cd.file_url IS NOT NULL AND cd.file_url <> ''),
                 'created_at', cd.created_at
               )
               ORDER BY cd.created_at DESC
             )
             FROM courier_documents cd
-            WHERE cd.courier_id = cp.id
+            WHERE cd.courier_id = cp.id AND cd.deleted_at IS NULL
           ),
           '[]'::jsonb
         ) AS documents,
@@ -826,7 +879,17 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const docsRes = await readDb.query('SELECT * FROM courier_documents WHERE courier_id = $1', [id]);
+    const docsRes = await readDb.query(
+      `SELECT id, courier_id, doc_type, document_status, verification_source,
+              document_number, issued_at, expires_at, is_verified, verified_at,
+              rejection_note, revoked_at, revocation_reason, storage_access_class,
+              mime_type, checksum_sha256, retention_until, created_at, updated_at,
+              (file_url IS NOT NULL AND file_url <> '') AS has_file
+       FROM courier_documents
+       WHERE courier_id = $1 AND deleted_at IS NULL
+       ORDER BY created_at DESC`,
+      [id]
+    );
     const vehicleRes = await readDb.query(
       `SELECT * FROM courier_vehicles WHERE courier_profile_id = $1 ORDER BY is_primary DESC, created_at DESC`,
       [id]
@@ -866,6 +929,287 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+const documentStatusForUpdate = (value: unknown) => String(value || '').trim().toLowerCase();
+
+export const getCourierDocument = async (req: Request, res: Response): Promise<void> => {
+  const actorId = getActorId(req);
+  const courierProfileId = String(req.params.id);
+  const documentId = String(req.params.documentId);
+
+  try {
+    const result = await readDb.query(
+      `SELECT cd.id, cd.courier_id, cd.doc_type, cd.file_url, cd.storage_key,
+              cd.storage_provider, cd.storage_access_class, cd.document_status,
+              cd.verification_source, cd.document_number, cd.issued_at, cd.expires_at,
+              cd.is_verified, cd.verified_at, cd.verified_by, cd.rejection_note,
+              cd.revoked_at, cd.revocation_reason, cd.mime_type, cd.checksum_sha256,
+              cd.retention_until, cd.created_at, cd.updated_at
+       FROM courier_documents cd
+       WHERE cd.id = $1 AND cd.courier_id = $2 AND cd.deleted_at IS NULL`,
+      [documentId, courierProfileId]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, error: 'Courier document not found' });
+      return;
+    }
+
+    await db.query(
+      `INSERT INTO courier_document_access_log (
+         courier_document_id, courier_profile_id, actor_id, action, purpose
+       ) VALUES ($1, $2, $3, 'view', $4)`,
+      [documentId, courierProfileId, actorId, 'courier_document_review']
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error: any) {
+    securityLog.error('Failed to retrieve courier document', { error, courierProfileId, documentId, actorId });
+    res.status(500).json({ success: false, error: 'Failed to retrieve courier document' });
+  }
+};
+
+export const updateCourierDocumentVerification = async (req: Request, res: Response): Promise<void> => {
+  const actorId = getActorId(req);
+  const courierProfileId = String(req.params.id);
+  const documentId = String(req.params.documentId);
+  const requestedStatus = documentStatusForUpdate(req.body?.document_status || req.body?.status);
+  const requestedSource = String(req.body?.verification_source || '').trim().toLowerCase();
+  const allowedStatuses = COURIER_DOCUMENT_STATUSES.filter((status) =>
+    status !== 'expired' && status !== 'retention_expired'
+  );
+
+  if (!(allowedStatuses as readonly string[]).includes(requestedStatus)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid document status',
+      allowed_statuses: allowedStatuses,
+    });
+    return;
+  }
+  if (requestedSource && !(COURIER_DOCUMENT_VERIFICATION_SOURCES as readonly string[]).includes(requestedSource)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid document verification source',
+      allowed_sources: COURIER_DOCUMENT_VERIFICATION_SOURCES,
+    });
+    return;
+  }
+
+  const hasExpiry = Object.prototype.hasOwnProperty.call(req.body || {}, 'expires_at');
+  const expiresAt = hasExpiry && req.body.expires_at
+    ? String(req.body.expires_at).trim()
+    : hasExpiry ? null : undefined;
+  if (expiresAt !== undefined && expiresAt !== null && !/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) {
+    res.status(400).json({ success: false, error: 'expires_at must use YYYY-MM-DD format or null' });
+    return;
+  }
+  const hasIssuedAt = Object.prototype.hasOwnProperty.call(req.body || {}, 'issued_at');
+  const issuedAt = hasIssuedAt && req.body.issued_at
+    ? String(req.body.issued_at).trim()
+    : hasIssuedAt ? null : undefined;
+  if (issuedAt !== undefined && issuedAt !== null && !/^\d{4}-\d{2}-\d{2}$/.test(issuedAt)) {
+    res.status(400).json({ success: false, error: 'issued_at must use YYYY-MM-DD format or null' });
+    return;
+  }
+  if (requestedStatus === 'revoked' && !String(req.body?.revocation_reason || '').trim()) {
+    res.status(400).json({ success: false, error: 'revocation_reason is required when revoking a document' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT set_config('app.actor_id', $1, TRUE), set_config('app.actor_reason', $2, TRUE)`,
+      [actorId, `Courier document ${requestedStatus}`]
+    );
+    const existing = await client.query(
+      `SELECT id, document_status, verification_source, expires_at
+       FROM courier_documents
+       WHERE id = $1 AND courier_id = $2 AND deleted_at IS NULL
+       FOR UPDATE`,
+      [documentId, courierProfileId]
+    );
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, error: 'Courier document not found' });
+      return;
+    }
+
+    const current = existing.rows[0];
+    const effectiveExpiry = expiresAt === undefined ? current.expires_at : expiresAt;
+    if (requestedStatus === 'verified' && effectiveExpiry && new Date(`${effectiveExpiry}T00:00:00Z`).getTime() < Date.now()) {
+      await client.query('ROLLBACK');
+      res.status(400).json({ success: false, error: 'An expired document cannot be verified' });
+      return;
+    }
+
+    const updated = await client.query(
+      `UPDATE courier_documents
+       SET document_status = $1,
+           verification_source = COALESCE(NULLIF($2, ''), verification_source),
+           document_number = COALESCE(NULLIF($3, ''), document_number),
+           issued_at = CASE WHEN $4::text = '' THEN issued_at ELSE $4::date END,
+           expires_at = CASE WHEN $5::text = '__KEEP__' THEN expires_at WHEN $5::text = '' THEN NULL ELSE $5::date END,
+           is_verified = ($1 = 'verified'),
+           verified_at = CASE WHEN $1 = 'verified' THEN NOW() ELSE NULL END,
+           verified_by = CASE WHEN $1 = 'verified' THEN $6 ELSE NULL END,
+           rejection_note = CASE WHEN $1 = 'rejected' THEN NULLIF($7, '') ELSE NULL END,
+           revoked_at = CASE WHEN $1 = 'revoked' THEN NOW() ELSE NULL END,
+           revocation_reason = CASE WHEN $1 = 'revoked' THEN NULLIF($8, '') ELSE NULL END,
+           updated_at = NOW()
+       WHERE id = $9 AND courier_id = $10 AND deleted_at IS NULL
+       RETURNING id, courier_id, doc_type, document_status, verification_source,
+                 document_number, issued_at, expires_at, is_verified, verified_at,
+                 verified_by, rejection_note, revoked_at, revocation_reason,
+                 retention_until, updated_at`,
+      [
+        requestedStatus,
+        requestedSource || current.verification_source || 'manual_review',
+        req.body?.document_number ? String(req.body.document_number).trim() : '',
+        issuedAt === undefined ? '' : (issuedAt || ''),
+        expiresAt === undefined ? '__KEEP__' : (expiresAt || ''),
+        actorId,
+        String(req.body?.rejection_note || '').trim(),
+        String(req.body?.revocation_reason || '').trim(),
+        documentId,
+        courierProfileId,
+      ]
+    );
+
+    const action = requestedStatus === 'verified'
+      ? 'verify'
+      : requestedStatus === 'rejected' ? 'reject' : requestedStatus === 'revoked' ? 'revoke' : 'view';
+    await client.query(
+      `INSERT INTO courier_document_access_log (
+         courier_document_id, courier_profile_id, actor_id, action, purpose
+       ) VALUES ($1, $2, $3, $4, $5)`,
+      [documentId, courierProfileId, actorId, action, 'courier_document_review']
+    );
+    await client.query('COMMIT');
+
+    res.json({ success: true, data: updated.rows[0] });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    const isConstraintError = error?.code === '23514';
+    res.status(isConstraintError ? 409 : 500).json({
+      success: false,
+      error: isConstraintError ? 'Document status rejected by compliance policy' : 'Failed to update courier document',
+      code: isConstraintError ? 'ERR_COURIER_DOCUMENT_POLICY' : 'ERR_INTERNAL',
+    });
+  } finally {
+    client.release();
+  }
+};
+
+export const updateCourierVehicle = async (req: Request, res: Response): Promise<void> => {
+  const actorId = getActorId(req);
+  const courierProfileId = String(req.params.id);
+  const vehicleId = String(req.params.vehicleId);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query(
+      `SELECT cv.id, cv.plate_number, cv.vehicle_type, cv.vehicle_category, cv.brand, cv.model,
+              production_year, engine_cc, max_weight_kg, verification_status
+              , cp.vehicle_type AS legacy_vehicle_type
+       FROM courier_vehicles cv
+       JOIN courier_profiles cp ON cp.id = cv.courier_profile_id
+       WHERE cv.id = $1 AND cv.courier_profile_id = $2
+       FOR UPDATE`,
+      [vehicleId, courierProfileId]
+    );
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, error: 'Courier vehicle not found' });
+      return;
+    }
+
+    const current = existing.rows[0];
+    const validation = validateCourierVehicleProfile({
+      plateNumber: req.body?.plate_number ?? current.plate_number,
+      vehicleType: req.body?.vehicle_type ?? current.vehicle_type,
+      vehicleCategory: req.body?.vehicle_category ?? current.vehicle_category,
+      brand: req.body?.brand ?? current.brand,
+      model: req.body?.model ?? current.model,
+      productionYear: req.body?.production_year ?? current.production_year,
+      engineCc: req.body?.engine_cc ?? current.engine_cc,
+      maxWeightKg: req.body?.max_weight_kg ?? current.max_weight_kg,
+    });
+    if (!validation.valid) {
+      await client.query('ROLLBACK');
+      res.status(400).json({ success: false, error: 'Invalid structured vehicle profile', fields: validation.errors });
+      return;
+    }
+
+    const requestedStatus = String(req.body?.verification_status ?? current.verification_status).trim().toLowerCase();
+    if (!['pending', 'approved', 'rejected', 'suspended'].includes(requestedStatus)) {
+      await client.query('ROLLBACK');
+      res.status(400).json({ success: false, error: 'Invalid vehicle verification status' });
+      return;
+    }
+
+    const normalized = validation.normalized;
+    const legacyVehicleTypes = new Set(['bebek', 'matic', 'sport', 'sepeda']);
+    const legacyVehicleType = legacyVehicleTypes.has(normalized.vehicleType)
+      ? normalized.vehicleType
+      : current.legacy_vehicle_type;
+    const updated = await client.query(
+      `UPDATE courier_vehicles
+       SET plate_number = $1, vehicle_type = $2, vehicle_category = $3,
+           brand = $4, model = $5, production_year = $6, engine_cc = $7,
+           max_weight_kg = $8, verification_status = $9,
+           approved_by = CASE WHEN $9 = 'approved' THEN $10 ELSE approved_by END,
+           approved_at = CASE WHEN $9 = 'approved' THEN NOW() ELSE approved_at END,
+           notes = COALESCE(NULLIF($11, ''), notes), updated_at = NOW()
+       WHERE id = $12 AND courier_profile_id = $13
+       RETURNING *`,
+      [
+        normalized.plateNumber,
+        normalized.vehicleType || current.vehicle_type,
+        normalized.vehicleCategory || null,
+        normalized.brand,
+        normalized.model,
+        normalized.productionYear,
+        normalized.engineCc,
+        normalized.maxWeightKg,
+        requestedStatus,
+        actorId,
+        String(req.body?.notes || '').trim(),
+        vehicleId,
+        courierProfileId,
+      ]
+    );
+    await client.query(
+      `UPDATE courier_profiles
+       SET vehicle_type = $1, vehicle_plate = $2, vehicle_cc = $3,
+           vehicle_brand = $4, vehicle_model = $5, vehicle_year = $6,
+           vehicle_category = $7, updated_at = NOW()
+       WHERE id = $8`,
+      [
+        legacyVehicleType || null,
+        normalized.plateNumber,
+        normalized.engineCc,
+        normalized.brand,
+        normalized.model,
+        normalized.productionYear,
+        normalized.vehicleCategory || null,
+        courierProfileId,
+      ]
+    );
+    await client.query('COMMIT');
+    res.json({ success: true, data: updated.rows[0] });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(error?.code === '23505' ? 409 : 500).json({
+      success: false,
+      error: error?.code === '23505' ? 'Vehicle plate already belongs to this courier' : 'Failed to update courier vehicle',
+      code: error?.code === '23505' ? 'ERR_COURIER_VEHICLE_DUPLICATE' : 'ERR_INTERNAL',
+    });
+  } finally {
+    client.release();
   }
 };
 
@@ -922,6 +1266,7 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
                 SELECT 1 FROM courier_vehicles cv
                 WHERE cv.courier_profile_id = cp.id
               ) AS has_vehicle,
+              courier_profile_documents_eligible(cp.id) AS has_verified_documents,
               u.status AS user_status
        FROM courier_profiles cp
        JOIN users u ON u.id = cp.user_id
@@ -952,6 +1297,9 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
       const readiness = evaluateCourierActivation({
         checklist: profile.onboarding_checklist,
         hasVehicle: Boolean(profile.has_vehicle),
+        hasVerifiedDocuments: profile.has_verified_documents === undefined
+          ? undefined
+          : Boolean(profile.has_verified_documents),
       });
       if (!readiness.ready) {
         await client.query('ROLLBACK');

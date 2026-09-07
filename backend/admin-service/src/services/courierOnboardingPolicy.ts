@@ -11,6 +11,29 @@ export const COURIER_ONBOARDING_STATES = [
   'DEACTIVATED',
 ] as const;
 
+export const COURIER_DOCUMENT_STATUSES = [
+  'pending_review',
+  'verified',
+  'rejected',
+  'expired',
+  'revoked',
+  'retention_expired',
+] as const;
+
+export type CourierDocumentStatus = typeof COURIER_DOCUMENT_STATUSES[number];
+
+export const COURIER_DOCUMENT_VERIFICATION_SOURCES = [
+  'manual_review',
+  'self_declared',
+  'dukcapil',
+  'samsat',
+  'polri',
+  'face_liveness',
+  'other',
+] as const;
+
+export type CourierDocumentVerificationSource = typeof COURIER_DOCUMENT_VERIFICATION_SOURCES[number];
+
 export type CourierOnboardingState = typeof COURIER_ONBOARDING_STATES[number];
 
 export const COURIER_ONBOARDING_TRANSITIONS: Record<CourierOnboardingState, readonly CourierOnboardingState[]> = {
@@ -173,6 +196,7 @@ export const isCourierChecklistPassed = (checklist: any): boolean => {
 export type CourierActivationInput = {
   checklist: unknown;
   hasVehicle: boolean;
+  hasVerifiedDocuments?: boolean;
   hasHomeOrOperatingZone?: boolean;
 };
 
@@ -180,6 +204,7 @@ export const evaluateCourierActivation = (input: CourierActivationInput) => {
   const missing: string[] = [];
   if (!isCourierChecklistPassed(input.checklist)) missing.push('onboarding_checklist');
   if (!input.hasVehicle) missing.push('primary_vehicle');
+  if (input.hasVerifiedDocuments === false) missing.push('verified_documents');
   return {
     ready: missing.length === 0,
     missing,
@@ -193,3 +218,90 @@ export const canTransitionCourierOnboarding = (
   from: CourierOnboardingState,
   to: CourierOnboardingState
 ): boolean => COURIER_ONBOARDING_TRANSITIONS[from]?.includes(to) === true;
+
+export type CourierDocumentEligibilityInput = {
+  documentStatus?: unknown;
+  expiresAt?: unknown;
+  revokedAt?: unknown;
+  deletedAt?: unknown;
+};
+
+const parseDateOnly = (value: unknown): Date | null => {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return null;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
+export const resolveCourierDocumentStatus = (
+  input: CourierDocumentEligibilityInput,
+  now = new Date(),
+): CourierDocumentStatus => {
+  const requested = normalizedString(input.documentStatus);
+  if (input.deletedAt) return 'retention_expired';
+  if (requested === 'revoked') return 'revoked';
+  const expiresAt = parseDateOnly(input.expiresAt);
+  const today = parseDateOnly(now);
+  if (requested === 'verified' && expiresAt && today && expiresAt < today) return 'expired';
+  if ((COURIER_DOCUMENT_STATUSES as readonly string[]).includes(requested)) {
+    return requested as CourierDocumentStatus;
+  }
+  return 'pending_review';
+};
+
+export const isCourierDocumentEligible = (
+  input: CourierDocumentEligibilityInput,
+  now = new Date(),
+): boolean => {
+  if (resolveCourierDocumentStatus(input, now) !== 'verified') return false;
+  if (input.expiresAt && !parseDateOnly(input.expiresAt)) return false;
+  const expiresAt = parseDateOnly(input.expiresAt);
+  const today = parseDateOnly(now);
+  return !expiresAt || !today || expiresAt >= today;
+};
+
+export type CourierVehicleProfileInput = {
+  plateNumber?: unknown;
+  vehicleType?: unknown;
+  vehicleCategory?: unknown;
+  brand?: unknown;
+  model?: unknown;
+  productionYear?: unknown;
+  engineCc?: unknown;
+  maxWeightKg?: unknown;
+};
+
+export const validateCourierVehicleProfile = (input: CourierVehicleProfileInput, now = new Date()) => {
+  const plateNumber = normalizedString(input.plateNumber).toUpperCase();
+  const vehicleType = normalizedString(input.vehicleType);
+  const vehicleCategory = normalizedString(input.vehicleCategory);
+  const productionYear = Number(input.productionYear || 0);
+  const engineCc = Number(input.engineCc || 0);
+  const maxWeightKg = Number(input.maxWeightKg || 0);
+  const currentYear = now.getFullYear();
+  const errors: string[] = [];
+
+  if (!plateNumber) errors.push('plate_number');
+  if (!vehicleType && !vehicleCategory) errors.push('vehicle_type');
+  if (!Number.isFinite(productionYear) || (productionYear && (productionYear < 1950 || productionYear > currentYear + 1))) {
+    errors.push('production_year');
+  }
+  if (!Number.isFinite(engineCc) || engineCc < 0) errors.push('engine_cc');
+  if (!Number.isFinite(maxWeightKg) || maxWeightKg <= 0) errors.push('max_weight_kg');
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    normalized: {
+      plateNumber,
+      vehicleType,
+      vehicleCategory,
+      brand: normalizedString(input.brand) || null,
+      model: normalizedString(input.model) || null,
+      productionYear: productionYear || null,
+      engineCc: engineCc || null,
+      maxWeightKg,
+    },
+  };
+};

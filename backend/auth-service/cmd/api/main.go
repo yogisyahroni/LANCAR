@@ -456,6 +456,20 @@ func main() {
 	if storageDriver != "s3" {
 		uploadFileServer := http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadPath)))
 		mux.HandleFunc("/uploads/", middleware.AuthChain(func(w http.ResponseWriter, r *http.Request) {
+			storageKey := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/uploads/"), "/")
+			if strings.HasPrefix(storageKey, "courier-documents/") {
+				userID := middleware.GetUserIDFromContext(r.Context())
+				allowed, accessErr := repo.CanAccessPrivateCourierDocument(r.Context(), userID, storageKey)
+				if accessErr != nil {
+					log.Printf("[auth-service] private courier document access check failed: %v", accessErr)
+					http.Error(w, "private document unavailable", http.StatusNotFound)
+					return
+				}
+				if !allowed {
+					http.Error(w, "private document unavailable", http.StatusNotFound)
+					return
+				}
+			}
 			w.Header().Set("Cache-Control", "private, no-store")
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			uploadFileServer.ServeHTTP(w, r)

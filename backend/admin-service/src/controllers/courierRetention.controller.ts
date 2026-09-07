@@ -43,6 +43,7 @@ export const listCourierRetention = async (req: Request, res: Response): Promise
        LEFT JOIN latest_retraining lr ON lr.courier_profile_id = cp.id
        WHERE cp.verification_status = 'approved'
          AND cp.onboarding_status = 'ACTIVE'
+         AND courier_profile_documents_eligible(cp.id)
        ORDER BY (os.last_order_at IS NULL) DESC, os.last_order_at ASC NULLS FIRST,
                 COALESCE(os.cancelled_orders, 0) DESC, u.full_name ASC
        LIMIT 500`,
@@ -77,6 +78,7 @@ export const createCourierRetraining = async (req: Request, res: Response): Prom
        SELECT id, $2, $3, $4, $5, $5
        FROM courier_profiles
        WHERE id = $1 AND verification_status = 'approved' AND onboarding_status = 'ACTIVE'
+         AND courier_profile_documents_eligible(id)
        RETURNING *`,
       [courierProfileId, reason, scheduledAt, notes, getActorId(req)]
     );

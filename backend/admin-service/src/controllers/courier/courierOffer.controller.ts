@@ -302,6 +302,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
          AND cp.application_channel = 'on_demand'
          AND cp.verification_status = 'approved'
          AND cp.onboarding_status = 'ACTIVE'
+         AND courier_profile_documents_eligible(cp.id)
          AND cp.is_online = TRUE
          AND cp.current_zone_id = $2
          AND COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)
@@ -357,6 +358,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
        WHERE cv.id = $1
          AND cp.user_id = $2
          AND cp.onboarding_status = 'ACTIVE'
+         AND courier_profile_documents_eligible(cp.id)
          AND cv.verification_status = 'approved'
        LIMIT 1`,
       [selectedVehicleId, req.user.id]

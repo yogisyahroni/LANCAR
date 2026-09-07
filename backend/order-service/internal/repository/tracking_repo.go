@@ -123,6 +123,8 @@ func (r *PostgresTrackingRepo) GetIdleCouriers(ctx context.Context, thresholdMin
 		SELECT id 
 		FROM courier_profiles 
 		WHERE is_online = TRUE
+		  AND onboarding_status = 'ACTIVE'
+		  AND courier_profile_documents_eligible(id)
 		  AND last_active_at < NOW() - INTERVAL '1 minute' * $1
 	`
 	var ids []uuid.UUID

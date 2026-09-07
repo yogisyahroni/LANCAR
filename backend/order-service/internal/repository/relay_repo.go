@@ -131,6 +131,8 @@ func (r *relayRepository) GetCourierDispatchScoreStats(ctx context.Context, cour
 		JOIN users u ON cp.user_id = u.id
 		WHERE (cp.id = $1 OR cp.user_id = $1)
 		  AND cp.is_online = TRUE
+		  AND cp.onboarding_status = 'ACTIVE'
+		  AND courier_profile_documents_eligible(cp.id)
 		  AND cp.current_location IS NOT NULL
 		  AND cp.relay_score IS NOT NULL
 		  AND cp.acceptance_rate_pct IS NOT NULL

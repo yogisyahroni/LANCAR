@@ -21,9 +21,9 @@ import (
 var deviceIDRegex = regexp.MustCompile(`^[A-Za-z0-9_\-:]{8,256}$`)
 
 type AuthHandler struct {
-	abuse *middleware.AuthAbuseProtector
+	abuse        *middleware.AuthAbuseProtector
 	agreementSvc *service.AgreementService
-	svc   interface {
+	svc          interface {
 		RequestOTP(ctx context.Context, phoneNumber string) error
 		RequestCustomerPasswordReset(ctx context.Context, email string) error
 		ConfirmCustomerPasswordReset(ctx context.Context, email, code, newPassword string) error
@@ -196,9 +196,9 @@ func (h *AuthHandler) ConfirmCustomerPasswordReset(w http.ResponseWriter, r *htt
 
 func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		FullName    string          `json:"full_name"`
-		Email       string          `json:"email"`
-		PhoneNumber string          `json:"phone_number"`
+		FullName      string          `json:"full_name"`
+		Email         string          `json:"email"`
+		PhoneNumber   string          `json:"phone_number"`
 		Password      string          `json:"password"`
 		DeviceID      string          `json:"device_id"`
 		DeviceInfo    json.RawMessage `json:"device_info"`
@@ -628,6 +628,14 @@ func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Reque
 	docType := r.FormValue("doc_type")
 	if docType == "" {
 		http.Error(w, "doc_type is required", http.StatusBadRequest)
+		return
+	}
+	allowedDocumentTypes := map[string]struct{}{
+		"ktp": {}, "sim": {}, "stnk": {}, "skpd": {}, "selfie": {},
+		"skck": {}, "vehicle_photo": {}, "bank_account": {}, "face_enrollment": {},
+	}
+	if _, ok := allowedDocumentTypes[docType]; !ok {
+		http.Error(w, "unsupported courier document type", http.StatusBadRequest)
 		return
 	}
 

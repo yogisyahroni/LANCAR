@@ -135,6 +135,7 @@ const preferredCourierEligibilityQuery = `
        AND (csc.vehicle_id IS NULL OR cv.id = csc.vehicle_id)
       WHERE csc.courier_profile_id = cp.id
         AND cp.onboarding_status = 'ACTIVE'
+        AND courier_profile_documents_eligible(cp.id)
         AND csc.service_code = ts.code
         AND csc.application_channel = 'on_demand'
         AND csc.status = 'enabled'

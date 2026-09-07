@@ -180,6 +180,7 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		WHERE 
 		    cp.verification_status = 'approved'
 		    AND cp.onboarding_status = 'ACTIVE'
+		    AND courier_profile_documents_eligible(cp.id)
 		    AND cp.is_online = TRUE
 		    AND ($4 = ANY(cp.service_categories) OR cp.allows_tambal_ban = TRUE OR cp.allows_towing = TRUE)
 		    AND (
@@ -267,6 +268,7 @@ func (r *availabilityRepo) GetCourierByID(ctx context.Context, courierID, servic
 		WHERE cp.id = $1
 		  AND cp.verification_status = 'approved'
 		  AND cp.onboarding_status = 'ACTIVE'
+		  AND courier_profile_documents_eligible(cp.id)
 		  AND ($4 = ANY(cp.service_categories) OR cp.allows_tambal_ban = TRUE OR cp.allows_towing = TRUE)`
 
 	c := &domain.NearbyCourier{}

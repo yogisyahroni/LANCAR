@@ -69,7 +69,9 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
 
   try {
     const courierRes = await db.query(
-      `SELECT cp.id, cp.user_id, u.photo_url, u.profile_photo_locked_at
+      `SELECT cp.id, cp.user_id, cp.onboarding_status,
+              courier_profile_documents_eligible(cp.id) AS documents_eligible,
+              u.photo_url, u.profile_photo_locked_at
        FROM courier_profiles cp
        JOIN users u ON u.id = cp.user_id
        WHERE cp.user_id = $1 AND u.role = 'courier' AND u.status = 'active'
@@ -84,6 +86,16 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
         data: null,
         message: 'Courier not found',
         code: 'ERR_NOT_FOUND',
+      });
+      return;
+    }
+
+    if (online && (courier.onboarding_status !== 'ACTIVE' || courier.documents_eligible !== true)) {
+      res.status(403).json({
+        success: false,
+        data: { status: 'offline' },
+        message: 'Profil dan dokumen kurir belum memenuhi syarat untuk mulai On Duty.',
+        code: 'ERR_COURIER_DOCUMENTS_NOT_ELIGIBLE',
       });
       return;
     }

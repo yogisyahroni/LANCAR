@@ -90,7 +90,14 @@ const buildPredicate = (
 
   if (targetType === 'online' || filter?.online_now === true) {
     clauses.push(
-      'EXISTS (SELECT 1 FROM courier_profiles cp WHERE cp.user_id = u.id AND cp.is_online = TRUE)',
+      `EXISTS (
+         SELECT 1
+         FROM courier_profiles cp
+         WHERE cp.user_id = u.id
+           AND cp.is_online = TRUE
+           AND cp.onboarding_status = 'ACTIVE'
+           AND courier_profile_documents_eligible(cp.id)
+       )`,
     );
   }
 
@@ -117,6 +124,7 @@ const buildPredicate = (
          FROM courier_service_capabilities csc
          JOIN courier_profiles ccp ON ccp.id = csc.courier_profile_id
          WHERE ccp.user_id = u.id
+           AND courier_profile_documents_eligible(ccp.id)
            AND csc.status = 'enabled'
            AND csc.service_code = ANY(?::text[])
        )`,

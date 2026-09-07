@@ -15,6 +15,7 @@ import { startWeatherWorker } from './workers/weather-worker';
 import { startPayoutDispatcherWorker } from './workers/payout-dispatcher-worker';
 import { startEventOutboxWorker } from './workers/event-outbox-worker';
 import { startBroadcastSchedulerWorker } from './workers/broadcast-scheduler-worker';
+import { startCourierDocumentComplianceWorker } from './workers/courier-document-compliance-worker';
 import { initFirebase } from './notifications';
 import { requestContext } from './middleware/requestContext';
 import { genericErrorHandler, sanitizeErrorResponses } from './middleware/errorMapper';
@@ -125,6 +126,7 @@ server.listen(port, async () => {
     startPayoutDispatcherWorker();
     startEventOutboxWorker();
     startBroadcastSchedulerWorker();
+    startCourierDocumentComplianceWorker();
   } catch (error) {
     console.error(JSON.stringify({
       level: 'fatal',

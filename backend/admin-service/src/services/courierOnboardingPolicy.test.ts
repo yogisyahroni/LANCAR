@@ -2,7 +2,10 @@ import {
   buildCourierOnboardingChecklist,
   canTransitionCourierOnboarding,
   evaluateCourierActivation,
+  isCourierDocumentEligible,
+  resolveCourierDocumentStatus,
   resolveCourierOnboardingRequirements,
+  validateCourierVehicleProfile,
 } from './courierOnboardingPolicy';
 
 describe('courier onboarding policy', () => {
@@ -77,5 +80,34 @@ describe('courier onboarding policy', () => {
     expect(canTransitionCourierOnboarding('DRAFT', 'ACTIVE')).toBe(false);
     expect(canTransitionCourierOnboarding('ACTIVE', 'REJECTED')).toBe(false);
   });
-});
 
+  it('removes expired and revoked documents from server-side eligibility', () => {
+    const now = new Date('2026-09-08T10:00:00.000Z');
+
+    expect(isCourierDocumentEligible({ documentStatus: 'verified', expiresAt: '2026-09-30' }, now)).toBe(true);
+    expect(resolveCourierDocumentStatus({ documentStatus: 'verified', expiresAt: '2026-09-01' }, now)).toBe('expired');
+    expect(isCourierDocumentEligible({ documentStatus: 'verified', expiresAt: '2026-09-01' }, now)).toBe(false);
+    expect(resolveCourierDocumentStatus({ documentStatus: 'revoked' }, now)).toBe('revoked');
+    expect(isCourierDocumentEligible({ documentStatus: 'revoked' }, now)).toBe(false);
+  });
+
+  it('normalizes structured vehicle attributes before activation', () => {
+    const result = validateCourierVehicleProfile({
+      plateNumber: ' b 1234 xyz ',
+      vehicleType: 'motor',
+      brand: 'Honda',
+      model: 'Vario',
+      productionYear: 2024,
+      engineCc: 150,
+      maxWeightKg: 20,
+    }, new Date('2026-09-08T10:00:00.000Z'));
+
+    expect(result.valid).toBe(true);
+    expect(result.normalized).toEqual(expect.objectContaining({
+      plateNumber: 'B 1234 XYZ',
+      vehicleType: 'motor',
+      maxWeightKg: 20,
+    }));
+    expect(validateCourierVehicleProfile({ vehicleType: 'motor', maxWeightKg: 0 }).valid).toBe(false);
+  });
+});

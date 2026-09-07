@@ -404,18 +404,19 @@ func (r *postgresRepo) ActivateProfile(ctx context.Context, userID string) error
 	defer func() { _ = tx.Rollback() }()
 
 	var profileID, onboardingStatus string
-	var checklistPassed, hasVehicle bool
+	var checklistPassed, hasVehicle, hasVerifiedDocuments bool
 	err = tx.QueryRowContext(ctx, `
 		SELECT cp.id, cp.onboarding_status,
 		       COALESCE((cp.onboarding_checklist->>'passed')::boolean, FALSE),
-		       EXISTS (SELECT 1 FROM courier_vehicles cv WHERE cv.courier_profile_id = cp.id)
+		       EXISTS (SELECT 1 FROM courier_vehicles cv WHERE cv.courier_profile_id = cp.id),
+		       courier_profile_documents_eligible(cp.id)
 		FROM courier_profiles cp
 		WHERE cp.user_id = $1
-		FOR UPDATE`, userID).Scan(&profileID, &onboardingStatus, &checklistPassed, &hasVehicle)
+		FOR UPDATE`, userID).Scan(&profileID, &onboardingStatus, &checklistPassed, &hasVehicle, &hasVerifiedDocuments)
 	if err != nil {
 		return err
 	}
-	if !checklistPassed || !hasVehicle {
+	if !checklistPassed || !hasVehicle || !hasVerifiedDocuments {
 		return errors.New("courier onboarding is not ready for activation")
 	}
 	if onboardingStatus == "DRAFT" || onboardingStatus == "REJECTED" || onboardingStatus == "NEEDS_UPDATE" || onboardingStatus == "DEACTIVATED" {
@@ -440,12 +441,19 @@ func (r *postgresRepo) ActivateProfile(ctx context.Context, userID string) error
 }
 
 func (r *postgresRepo) AddDocument(ctx context.Context, d *domain.CourierDocument) error {
-	query := `INSERT INTO courier_documents (courier_id, doc_type, file_url, created_at) VALUES ($1, $2, $3, $4) RETURNING id`
+	query := `INSERT INTO courier_documents (
+		courier_id, doc_type, file_url, document_status, verification_source, created_at
+	) VALUES ($1, $2, $3, 'pending_review', 'self_declared', $4) RETURNING id`
 	return r.db.QueryRowContext(ctx, query, d.CourierID, d.DocumentType, d.DocumentURL, time.Now()).Scan(&d.ID)
 }
 
 func (r *postgresRepo) GetDocuments(ctx context.Context, courierID string) ([]*domain.CourierDocument, error) {
-	query := `SELECT id, courier_id, doc_type, file_url, is_verified, created_at FROM courier_documents WHERE courier_id = $1`
+	query := `SELECT id, courier_id, doc_type, file_url, document_status,
+		verification_source, document_number, issued_at, expires_at, revoked_at,
+		is_verified, created_at
+		FROM courier_documents
+		WHERE courier_id = $1 AND deleted_at IS NULL
+		ORDER BY created_at DESC`
 	rows, err := r.readDB.QueryContext(ctx, query, courierID)
 	if err != nil {
 		return nil, err
@@ -455,7 +463,11 @@ func (r *postgresRepo) GetDocuments(ctx context.Context, courierID string) ([]*d
 	var docs []*domain.CourierDocument
 	for rows.Next() {
 		d := &domain.CourierDocument{}
-		if err := rows.Scan(&d.ID, &d.CourierID, &d.DocumentType, &d.DocumentURL, &d.IsVerified, &d.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&d.ID, &d.CourierID, &d.DocumentType, &d.DocumentURL, &d.DocumentStatus,
+			&d.VerificationSource, &d.DocumentNumber, &d.IssuedAt, &d.ExpiresAt,
+			&d.RevokedAt, &d.IsVerified, &d.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		docs = append(docs, d)
@@ -464,9 +476,35 @@ func (r *postgresRepo) GetDocuments(ctx context.Context, courierID string) ([]*d
 }
 
 func (r *postgresRepo) VerifyDocument(ctx context.Context, docID string) error {
-	query := `UPDATE courier_documents SET is_verified = true WHERE id = $1`
+	query := `UPDATE courier_documents
+		SET document_status = 'verified', is_verified = true, verified_at = NOW(), updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL`
 	_, err := r.db.ExecContext(ctx, query, docID)
 	return err
+}
+
+// CanAccessPrivateCourierDocument enforces owner-or-compliance-admin access
+// before the private upload handler serves a courier document.
+func (r *postgresRepo) CanAccessPrivateCourierDocument(ctx context.Context, userID, storageKey string) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM courier_documents cd
+			JOIN courier_profiles cp ON cp.id = cd.courier_id
+			WHERE cd.storage_key = $1
+			  AND cd.deleted_at IS NULL
+			  AND (
+				cp.user_id = $2
+				OR EXISTS (
+					SELECT 1 FROM users actor
+					WHERE actor.id = $2
+					  AND actor.role IN ('super_admin', 'ops_security', 'ops_admin')
+				)
+			  )
+		)`
+	var allowed bool
+	err := r.readDB.QueryRowContext(ctx, query, storageKey, userID).Scan(&allowed)
+	return allowed, err
 }
 
 func (r *postgresRepo) ListProfiles(ctx context.Context, limit, offset int) ([]*domain.CourierProfile, error) {

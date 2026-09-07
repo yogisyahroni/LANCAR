@@ -183,6 +183,8 @@ func (r *PostgresSosRepo) GetNearbyCouriersForSOS(ctx context.Context, lat, lng 
 			) AS distance_meters
 		FROM courier_profiles cp
 		WHERE cp.is_online = TRUE
+		  AND cp.onboarding_status = 'ACTIVE'
+		  AND courier_profile_documents_eligible(cp.id)
 		  AND cp.current_location IS NOT NULL
 		  AND ST_DWithin(
 				cp.current_location::geography,

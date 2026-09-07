@@ -815,7 +815,7 @@ func (s *AuthService) Register(ctx context.Context, userID string, fullName, ema
 	if defaultPickupAddress != "" {
 		user.DefaultPickupAddress = &defaultPickupAddress
 	}
-	
+
 	awbSenderName = strings.TrimSpace(awbSenderName)
 	if awbSenderName != "" {
 		if user.AWBSenderName == nil || *user.AWBSenderName != awbSenderName {
@@ -844,7 +844,7 @@ func (s *AuthService) CheckSenderName(ctx context.Context, senderName string) er
 	if len(senderName) < 3 || len(senderName) > 50 {
 		return errors.New("nama pengirim awb harus 3-50 karakter")
 	}
-	
+
 	// Check alphanumeric + space only
 	isAlphaNumericSpace := true
 	for _, char := range senderName {
@@ -1045,7 +1045,7 @@ func (s *AuthService) UploadCourierDocument(ctx context.Context, userID string, 
 		ActorID:  userID,
 		Action:   "upload_document",
 		TargetID: profile.ID,
-		Payload:  fmt.Sprintf(`{"doc_type": "%s", "url": "%s"}`, docType, url),
+		Payload:  fmt.Sprintf(`{"doc_type": "%s", "verification_status": "pending_review"}`, docType),
 	})
 
 	return url, nil
