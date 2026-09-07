@@ -5343,10 +5343,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 `customer paid → tax/provider fee/promo subsidy → merchant payable → courier payable → carrier payable → Ads/other charges → platform contribution`
 
 **Checklist**
-- [ ] Unit economics computed from ledger truth, not analytics guess.
-- [ ] Contribution metrics by market/service/order cohort have consistent definition.
-- [ ] Negative-margin/outlier orders trace back to exact policy/version/components.
-- [ ] Finance and Product use same financial definitions.
+- [x] Unit economics computed from ledger truth, not analytics guess.
+- [x] Contribution metrics by market/service/order cohort have consistent definition.
+- [x] Negative-margin/outlier orders trace back to exact policy/version/components.
+- [x] Finance and Product use same financial definitions.
 
 ---
 
