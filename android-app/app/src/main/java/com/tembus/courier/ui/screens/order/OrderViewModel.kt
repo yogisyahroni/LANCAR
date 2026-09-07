@@ -613,6 +613,7 @@ class OrderViewModel @Inject constructor(
         orderId: String?,
         eventType: String,
         reasonCode: String? = null,
+        reportedParty: String? = null,
         severity: String,
         latitude: Double?,
         longitude: Double?,
@@ -634,6 +635,10 @@ class OrderViewModel @Inject constructor(
                     longitude = longitude?.toString()?.toRequestBody(textType),
                     accuracy = accuracy?.toString()?.toRequestBody(textType),
                     message = message?.takeIf { it.isNotBlank() }?.toRequestBody(textType),
+                    reportedParty = reportedParty?.takeIf { it.isNotBlank() }?.toRequestBody(textType),
+                    serviceCode = null,
+                    conversationId = null,
+                    disputeId = null,
                     photo = photoPart
                 )
             } else {
@@ -642,6 +647,7 @@ class OrderViewModel @Inject constructor(
                         orderId = orderId,
                         eventType = eventType,
                         reasonCode = reasonCode,
+                        reportedParty = reportedParty,
                         severity = severity,
                         latitude = latitude,
                         longitude = longitude,

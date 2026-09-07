@@ -27,6 +27,7 @@ import com.tembus.courier.data.model.CourierActiveRoutePlan
 import com.tembus.courier.data.model.CourierRoutePreview
 import com.tembus.courier.data.model.CourierSafetyEventData
 import com.tembus.courier.data.model.CourierSafetyEventRequest
+import com.tembus.courier.data.model.CourierSupportContext
 import com.tembus.courier.data.model.CourierServiceProduct
 import com.tembus.courier.data.model.CourierTrainingCompleteRequest
 import com.tembus.courier.data.model.CourierTrainingCompletion
@@ -230,6 +231,11 @@ interface TEMBUSApiService {
         @Body request: CourierSafetyEventRequest
     ): Response<ApiResponse<CourierSafetyEventData>>
 
+    @GET("api/v1/courier/orders/{orderId}/support")
+    suspend fun getCourierSupportContext(
+        @Path("orderId") orderId: String
+    ): Response<ApiResponse<CourierSupportContext>>
+
     @Multipart
     @POST("api/v1/courier/safety-events/photo")
     suspend fun createSafetyEventWithPhoto(
@@ -241,6 +247,10 @@ interface TEMBUSApiService {
         @Part("longitude") longitude: RequestBody?,
         @Part("accuracy") accuracy: RequestBody?,
         @Part("message") message: RequestBody?,
+        @Part("reported_party") reportedParty: RequestBody?,
+        @Part("service_code") serviceCode: RequestBody?,
+        @Part("conversation_id") conversationId: RequestBody?,
+        @Part("dispute_id") disputeId: RequestBody?,
         @Part photo: MultipartBody.Part
     ): Response<ApiResponse<CourierSafetyEventData>>
 

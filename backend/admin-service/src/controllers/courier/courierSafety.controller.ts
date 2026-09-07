@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { securityLog } from '../../security/logRedaction';
-import { coarsenLocationRow } from '../../services/geoPrivacy';
+import { coarsenLocationRow, recordExactLocationAccess } from '../../services/geoPrivacy';
 import { getActorId } from '../../utils/authUtils';
 
 import { db } from '../../db';
@@ -25,6 +25,14 @@ import {
 
 import { isFeatureFlagEnabled } from '../../services/featureFlags';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
+import {
+  buildCourierSupportReferences,
+  CourierSupportPolicyError,
+  courierSupportActionDescriptors,
+  normalizeCourierSupportIssue,
+  routeCourierSupportIssue,
+  supportReferencesForRole,
+} from '../../services/courierSupportPolicy';
 
 import {
   AuthProtectionError,
@@ -79,6 +87,9 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
       order_status: string | null;
       service_category: string;
       failed_delivery_policy: string;
+      leg_status: string | null;
+      service_code: string | null;
+      conversation_id: string | null;
     } | null = null;
     if (orderId) {
       const ownership = await db.query(
@@ -91,10 +102,14 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
            ) AS service_category,
            COALESCE(dsp.failed_delivery_policy,
              CASE WHEN COALESCE(dsp.service_category, '') = 'regular' THEN 'reschedule_then_return' ELSE 'must_deliver' END
-           ) AS failed_delivery_policy
+           ) AS failed_delivery_policy,
+           ol.status AS leg_status,
+           o.service_code,
+           oc.id AS conversation_id
          FROM order_legs ol
          JOIN orders o ON o.id = ol.order_id
          LEFT JOIN delivery_service_products dsp ON dsp.code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)
+         LEFT JOIN order_conversations oc ON oc.order_id = o.id
          WHERE ol.order_id = $1
            AND ol.courier_id = $2
          ORDER BY ol.leg_number ASC
@@ -109,6 +124,31 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
       orderContext = ownership.rows[0];
     }
 
+    let supportIssue;
+    try {
+      const normalizedOrderStatus = String(orderContext?.leg_status || orderContext?.order_status || '').toLowerCase();
+      const hasActiveJob = Boolean(orderId && orderContext && ![
+        'delivered', 'completed', 'cancelled', 'failed', 'returned', 'rejected',
+      ].includes(normalizedOrderStatus));
+      supportIssue = normalizeCourierSupportIssue({
+        eventType,
+        reasonCode,
+        severity,
+        orderId,
+        serviceCode: req.body?.service_code || req.body?.serviceCode || orderContext?.service_code,
+        reportedParty: req.body?.reported_party || req.body?.reportedParty,
+        hasActiveJob,
+        conversationId: req.body?.conversation_id || req.body?.conversationId || orderContext?.conversation_id,
+        disputeId: req.body?.dispute_id || req.body?.disputeId,
+      });
+    } catch (error) {
+      if (error instanceof CourierSupportPolicyError) {
+        res.status(400).json({ success: false, data: null, message: error.message, code: error.code });
+        return;
+      }
+      throw error;
+    }
+
     let recoveryDecision: ReturnType<typeof evaluateOnDemandDeliveryRecovery> | null = null;
     if (eventType === 'failed_delivery') {
       if (!orderContext || orderContext.service_category !== 'on_demand') {
@@ -120,7 +160,7 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
         });
         return;
       }
-      if (['delivered', 'completed', 'cancelled', 'returned'].includes(String(orderContext.order_status || '').toLowerCase())) {
+      if (['delivered', 'completed', 'cancelled', 'returned'].includes(String(orderContext.leg_status || orderContext.order_status || '').toLowerCase())) {
         res.status(409).json({
           success: false,
           data: null,
@@ -137,7 +177,7 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
           reasonCode,
           hasEvidence: Boolean(req.file),
           custodyTransferred: ['picked_up', 'in_transit', 'delivered', 'completed'].includes(
-            String(orderContext.order_status || '').toLowerCase(),
+            String(orderContext.leg_status || orderContext.order_status || '').toLowerCase(),
           ),
         });
       } catch (error) {
@@ -181,6 +221,24 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
           photo_url: uploadedPhoto?.fileUrl || null,
           photo_checksum_sha256: req.file?.checksumSha256 || null,
           photo_mime_type: req.file?.detectedMimeType || null,
+          support: {
+            routing: supportIssue.routing,
+            issue: {
+              issue_code: supportIssue.issueCode,
+              reported_party: supportIssue.reportedParty,
+              service_code: supportIssue.serviceCode,
+            },
+            references: buildCourierSupportReferences({
+              orderId,
+              serviceCode: supportIssue.serviceCode,
+              conversationId: supportIssue.conversationId,
+              disputeId: supportIssue.disputeId,
+              photoUrl: uploadedPhoto?.fileUrl || null,
+              photoChecksum: req.file?.checksumSha256 || null,
+              latitude,
+              longitude,
+            }),
+          },
           failure: failureMetadata,
         }),
       ]
@@ -229,9 +287,10 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
         event_type: eventType,
         severity,
         courier_id: req.user.id,
-        latitude,
-        longitude,
-        photo_url: uploadedPhoto?.fileUrl || null,
+        queue_code: supportIssue.routing.queueCode,
+        queue_kind: supportIssue.routing.queueKind,
+        active_job_help: supportIssue.routing.activeJobHelp,
+        location_captured: Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude)),
       },
     });
 
@@ -241,6 +300,22 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
         id: result.rows[0].id,
         status: result.rows[0].status,
         created_at: result.rows[0].created_at,
+        routing: supportIssue.routing,
+        issue: {
+          issue_code: supportIssue.issueCode,
+          reported_party: supportIssue.reportedParty,
+          service_code: supportIssue.serviceCode,
+        },
+        references: buildCourierSupportReferences({
+          orderId,
+          serviceCode: supportIssue.serviceCode,
+          conversationId: supportIssue.conversationId,
+          disputeId: supportIssue.disputeId,
+          photoUrl: uploadedPhoto?.fileUrl || null,
+          photoChecksum: req.file?.checksumSha256 || null,
+          latitude,
+          longitude,
+        }),
         ...(recoveryDecision ? {
           incident_id: result.rows[0].id,
           failure: failureMetadata,
@@ -388,21 +463,207 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
 
 
 
-export const listAdminCourierSafetyEvents = async (_req: Request, res: Response) => {
+export const getMobileCourierSupportContext = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
   try {
     const result = await db.query(
-      `SELECT se.*, u.full_name AS courier_name, o.order_number
+      `SELECT o.id AS order_id,
+              o.order_number,
+              o.status AS order_status,
+              o.service_code,
+              oc.id AS conversation_id
+       FROM orders o
+       JOIN order_legs ol ON ol.order_id = o.id AND ol.courier_id = $2
+       LEFT JOIN order_conversations oc ON oc.order_id = o.id
+       WHERE o.id = $1
+         AND LOWER(COALESCE(ol.status, o.status)) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'returned', 'rejected')
+       ORDER BY ol.leg_number ASC
+       LIMIT 1`,
+      [String(req.params.orderId || ''), req.user.id],
+    );
+    const order = result.rows[0];
+    if (!order) {
+      res.status(404).json({ success: false, data: null, message: 'Active job tidak ditemukan untuk kurir ini.', code: 'ERR_ORDER_NOT_FOUND' });
+      return;
+    }
+
+    const routing = routeCourierSupportIssue({
+      eventType: 'support_request',
+      severity: 'high',
+      orderId: order.order_id,
+      serviceCode: order.service_code,
+      hasActiveJob: true,
+    });
+    res.json({
+      success: true,
+      data: {
+        order_id: order.order_id,
+        order_number: order.order_number,
+        order_status: order.order_status,
+        queue: routing,
+        issue_schema: {
+          reported_party: ['merchant', 'customer', 'location', 'service', 'other'],
+          issue_code: [
+            'merchant_unavailable', 'merchant_refused', 'recipient_unavailable',
+            'address_not_found', 'route_issue', 'package_issue', 'service_unavailable',
+            'operational_assist', 'failed_delivery', 'return_required', 'road_incident',
+            'prohibited_goods', 'general_support',
+          ],
+          message_required: true,
+          evidence_supported: true,
+        },
+        references: {
+          order_id: order.order_id,
+          service_code: order.service_code || null,
+          conversation_id: order.conversation_id || null,
+          location_capture: 'last_known_location_on_submit',
+        },
+        supported_actions: courierSupportActionDescriptors({ orderId: order.order_id, role: 'courier', actions: routing.supportedActions }),
+      },
+      message: 'Support context active job loaded',
+    });
+  } catch (error) {
+    securityLog.error('Get mobile courier support context error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const listAdminCourierSafetyEvents = async (req: Request, res: Response) => {
+  try {
+    const result = await db.query(
+      `SELECT se.id,
+              se.order_id,
+              se.courier_id,
+              se.event_type,
+              se.severity,
+              se.status,
+              se.latitude,
+              se.longitude,
+              se.accuracy_m,
+              se.message,
+              se.metadata,
+              se.created_at,
+              se.acknowledged_at,
+              se.resolved_at,
+              u.full_name AS courier_name,
+              o.order_number,
+              o.status AS order_status,
+              o.service_code,
+              (SELECT ol.status
+               FROM order_legs ol
+               WHERE ol.order_id = se.order_id
+                 AND ol.courier_id = se.courier_id
+               ORDER BY ol.leg_number ASC
+               LIMIT 1) AS leg_status,
+              oc.id AS conversation_id
        FROM courier_safety_events se
        JOIN users u ON u.id = se.courier_id
        LEFT JOIN orders o ON o.id = se.order_id
+       LEFT JOIN order_conversations oc ON oc.order_id = se.order_id
+       WHERE ($1::text IS NULL OR se.metadata->'support'->'routing'->>'queueCode' = $1 OR se.metadata->'support'->'routing'->>'queue_code' = $1)
        ORDER BY se.created_at DESC
-       LIMIT 100`
+       LIMIT 100`,
+      [req.query.queue_code ? String(req.query.queue_code) : null],
     );
 
-    res.json({ success: true, data: result.rows, events: result.rows });
+    const role = req.user?.role;
+    const events = result.rows.map((row: any) => {
+      const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+      const support = metadata.support || {};
+      const routing = support.routing || routeCourierSupportIssue({
+        eventType: row.event_type,
+        severity: row.severity,
+        orderId: row.order_id,
+        serviceCode: row.service_code,
+        hasActiveJob: !['delivered', 'completed', 'failed', 'cancelled', 'returned', 'rejected'].includes(String(row.leg_status || row.order_status || '').toLowerCase()),
+      });
+      const references = supportReferencesForRole(
+        { support: { ...support, references: support.references || { orderId: row.order_id, serviceCode: row.service_code, conversationId: row.conversation_id, locationCaptured: row.latitude != null && row.longitude != null, evidence: [] } } },
+        role,
+        { latitude: row.latitude, longitude: row.longitude, accuracy: row.accuracy_m },
+      );
+      if (row.order_id && ['super_admin', 'ops_security'].includes(String(role || '').toLowerCase())) {
+        recordExactLocationAccess({ actorId: getActorId(req), actorRole: role, orderId: row.order_id, surface: 'courier_support_queue' });
+      }
+      return {
+        id: row.id,
+        order_id: row.order_id,
+        order_number: row.order_number,
+        courier_id: row.courier_id,
+        courier_name: row.courier_name,
+        event_type: row.event_type,
+        severity: row.severity,
+        status: row.status,
+        message: row.message,
+        created_at: row.created_at,
+        acknowledged_at: row.acknowledged_at,
+        resolved_at: row.resolved_at,
+        routing,
+        issue: support.issue || { issue_code: row.event_type, reported_party: 'other', service_code: row.service_code || null },
+        references,
+        supported_actions: courierSupportActionDescriptors({ orderId: row.order_id, disputeId: references.dispute_id, eventId: row.id, role, actions: routing.supportedActions || [] }),
+      };
+    });
+
+    res.json({ success: true, data: events, events, queues: ['safety_emergency', 'safety_review', 'active_job_operations', 'general_operations'] });
   } catch (error) {
     securityLog.error('List admin courier safety events error:', error);
     res.status(500).json({ success: false, data: [], events: [], message: 'Internal Server Error' });
+  }
+};
+
+export const listAdminCourierSupportQueue = listAdminCourierSafetyEvents;
+
+export const updateAdminCourierSafetyEvent = async (req: Request, res: Response) => {
+  const eventId = String(req.params.id || '').trim();
+  const status = String(req.body?.status || '').trim().toLowerCase();
+  const note = req.body?.note ? sanitizeSafetyMessage(req.body.note) : null;
+  if (!eventId || !['acknowledged', 'resolved', 'dismissed'].includes(status)) {
+    res.status(400).json({ success: false, message: 'status harus acknowledged, resolved, atau dismissed.', code: 'ERR_INVALID_SAFETY_STATUS' });
+    return;
+  }
+
+  try {
+    const actorId = getActorId(req);
+    const result = await db.query(
+      `UPDATE courier_safety_events
+       SET status = $2::varchar,
+           acknowledged_at = CASE
+             WHEN $2 IN ('acknowledged', 'resolved', 'dismissed') AND acknowledged_at IS NULL THEN NOW()
+             ELSE acknowledged_at
+           END,
+           resolved_at = CASE
+             WHEN $2 IN ('resolved', 'dismissed') THEN COALESCE(resolved_at, NOW())
+             ELSE resolved_at
+           END,
+           metadata = jsonb_set(
+             COALESCE(metadata, '{}'::jsonb),
+             '{support,last_action}',
+             $3::jsonb,
+             true
+           )
+       WHERE id = $1
+       RETURNING id, status, acknowledged_at, resolved_at` ,
+      [eventId, status, JSON.stringify({ status, note, actor_id: actorId, acted_at: new Date().toISOString() })],
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Safety event tidak ditemukan.', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+       VALUES ($1, $2, $3, $4)`,
+      [actorId, `courier.safety_event.${status}`, eventId, JSON.stringify({ note })],
+    );
+    res.json({ success: true, data: result.rows[0], message: 'Status safety event diperbarui.' });
+  } catch (error) {
+    securityLog.error('Update admin courier safety event error:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
 

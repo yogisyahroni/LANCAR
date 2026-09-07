@@ -120,7 +120,7 @@ internal fun OnDemandTaskActions(
     onChatClick: () -> Unit,
     onCallClick: () -> Unit,
     onSosClick: () -> Unit,
-    onReportIssue: (eventType: String, reasonCode: String?, severity: String, message: String, photoFile: File?) -> Unit,
+    onReportIssue: (eventType: String, reasonCode: String?, reportedParty: String, severity: String, message: String, photoFile: File?) -> Unit,
     onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit,
     onRetrySync: () -> Unit = {},
     onUseServerVersion: () -> Unit = {}
@@ -242,9 +242,9 @@ internal fun OnDemandTaskActions(
             order = order,
             pickupDone = flowState.pickupDone,
             onDismiss = { showIssueDialog = false },
-            onSubmit = { eventType, reasonCode, severity, message, photoFile ->
+            onSubmit = { eventType, reasonCode, reportedParty, severity, message, photoFile ->
                 showIssueDialog = false
-                onReportIssue(eventType, reasonCode, severity, message, photoFile)
+                onReportIssue(eventType, reasonCode, reportedParty, severity, message, photoFile)
             }
         )
     }

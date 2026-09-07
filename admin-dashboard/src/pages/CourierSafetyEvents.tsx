@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertOctagon, Clock, MapPin, Package, ShieldAlert, UserRound, MapPinned, Check } from 'lucide-react'
+import { AlertOctagon, Ban, Check, CircleCheck, Clock, MapPin, MapPinned, MessageSquare, Package, RefreshCw, ShieldAlert, UserRound } from 'lucide-react'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
@@ -20,6 +21,15 @@ const eventLabels: Record<string, string> = {
   support_request: 'Bantuan Operasional',
 }
 
+const queueLabels: Record<string, string> = {
+  safety_emergency: 'Safety emergency',
+  safety_review: 'Safety review',
+  active_job_operations: 'Active-job operations',
+  general_operations: 'General operations',
+}
+
+const idempotencyKey = (scope: string) => `courier-support-${scope}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
 const formatDate = (value?: string) => {
   if (!value) return '-'
   return new Intl.DateTimeFormat('id-ID', {
@@ -32,13 +42,78 @@ const formatDate = (value?: string) => {
 
 export default function CourierSafetyEvents() {
   const queryClient = useQueryClient()
+  const [queueFilter, setQueueFilter] = useState('all')
   const { data, isLoading } = useQuery({
-    queryKey: ['courier-safety-events'],
+    queryKey: ['courier-support-queue', queueFilter],
     queryFn: async () => {
-      const res = await api.get('/admin/courier-safety-events')
+      const res = await api.get('/admin/courier-support/queue', {
+        params: queueFilter === 'all' ? undefined : { queue_code: queueFilter },
+      })
       return res.data.data || []
     },
     refetchInterval: 30_000,
+  })
+
+  const supportStatusMutation = useMutation({
+    mutationFn: ({ eventId, status }: { eventId: string; status: 'acknowledged' | 'resolved' | 'dismissed' }) =>
+      api.patch(`/admin/courier-safety-events/${eventId}`, { status }, {
+        headers: { 'X-Idempotency-Key': idempotencyKey(`status-${eventId}`) },
+      }),
+    onSuccess: () => {
+      toast.success('Status support diperbarui')
+      queryClient.invalidateQueries({ queryKey: ['courier-support-queue'] })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.message || 'Status support gagal diperbarui'),
+  })
+
+  const supportActionMutation = useMutation({
+    mutationFn: async ({ event, action }: { event: any; action: any }) => {
+      if (!action?.available) throw new Error(`Action ${action?.action || 'support'} belum memiliki referensi lengkap`)
+      if (action.action === 'reassign') {
+        return api.post(action.endpoint, {
+          courier_id: 'pending',
+          reason: `Courier support: ${event.issue?.issue_code || event.event_type}`,
+        }, { headers: { 'X-Idempotency-Key': idempotencyKey(`reassign-${event.id}`) } })
+      }
+      if (action.action === 'cancel') {
+        const totpCode = window.prompt('Masukkan kode TOTP untuk membatalkan order:')?.trim()
+        if (!totpCode) throw new Error('TOTP wajib untuk cancel order')
+        return api.post(action.endpoint, {
+          reason: `Courier support: ${event.issue?.issue_code || event.event_type}`,
+          refund_mode: 'none',
+          restock: true,
+        }, {
+          headers: {
+            'X-Idempotency-Key': idempotencyKey(`cancel-${event.id}`),
+            'x-totp-code': totpCode,
+          },
+        })
+      }
+      if (action.action === 'compensation') {
+        const note = window.prompt('Catatan kompensasi customer:')?.trim()
+        if (!note) throw new Error('Catatan kompensasi wajib diisi')
+        const totpCode = window.prompt('Masukkan kode TOTP untuk kompensasi:')?.trim()
+        if (!totpCode) throw new Error('TOTP wajib untuk kompensasi')
+        return api.patch(action.endpoint, {
+          status: 'resolved',
+          resolution: 'customer',
+          resolution_note: note,
+          include_delivery_fee: true,
+        }, {
+          headers: {
+            'X-Idempotency-Key': idempotencyKey(`compensation-${event.id}`),
+            'x-totp-code': totpCode,
+          },
+        })
+      }
+      throw new Error('Action support tidak dikenali')
+    },
+    onSuccess: () => {
+      toast.success('Action support diteruskan ke domain API')
+      queryClient.invalidateQueries({ queryKey: ['courier-support-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
+    },
+    onError: (error: any) => toast.error(error.response?.data?.message || error.response?.data?.error || error.message || 'Action support gagal'),
   })
 
   const { data: gpsRiskData, isLoading: isGpsRiskLoading } = useQuery({
@@ -82,6 +157,24 @@ export default function CourierSafetyEvents() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2" aria-label="Support queue filter">
+        {['all', 'safety_emergency', 'safety_review', 'active_job_operations', 'general_operations'].map((queue) => (
+          <button
+            key={queue}
+            type="button"
+            onClick={() => setQueueFilter(queue)}
+            className={cn(
+              'rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-colors',
+              queueFilter === queue
+                ? 'border-primary/50 bg-primary/15 text-primary-light'
+                : 'border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/10',
+            )}
+          >
+            {queue === 'all' ? 'Semua queue' : queueLabels[queue]}
+          </button>
+        ))}
+      </div>
+
       <div className="rounded-3xl border border-white/10 bg-zinc-900/60">
         {isLoading ? (
           <div className="flex h-56 items-center justify-center text-zinc-500">Memuat safety events...</div>
@@ -106,6 +199,14 @@ export default function CourierSafetyEvents() {
                       </span>
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{event.message || 'Tidak ada catatan tambahan.'}</p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest">
+                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-primary-light">
+                        {queueLabels[event.routing?.queueCode] || event.routing?.queueCode || 'Queue belum dipetakan'}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-zinc-500">
+                        target: {event.issue?.reported_party || 'other'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -120,7 +221,11 @@ export default function CourierSafetyEvents() {
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-primary-light" />
-                    <span>{event.latitude && event.longitude ? `${Number(event.latitude).toFixed(5)}, ${Number(event.longitude).toFixed(5)}` : 'Lokasi tidak dikirim'}</span>
+                    <span>{event.references?.location ? `${Number(event.references.location.latitude).toFixed(3)}, ${Number(event.references.location.longitude).toFixed(3)}` : event.references?.location_captured ? 'Lokasi tersedia sesuai role' : 'Lokasi tidak dikirim'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-primary-light" />
+                    <span>{event.references?.conversation_id ? 'Chat terhubung' : 'Tidak ada chat'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary-light" />
@@ -128,10 +233,46 @@ export default function CourierSafetyEvents() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-bold uppercase tracking-widest text-zinc-300">
                     {event.status}
                   </span>
+                  {event.status === 'open' && event.supported_actions?.some((action: any) => ['safety_escalation', 'safety_review'].includes(action.action)) && (
+                    <button
+                      type="button"
+                      onClick={() => supportStatusMutation.mutate({ eventId: event.id, status: 'acknowledged' })}
+                      disabled={supportStatusMutation.isPending}
+                      className="inline-flex items-center gap-1 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-orange-200 hover:bg-orange-500/20 disabled:opacity-50"
+                    >
+                      <ShieldAlert className="h-3 w-3" /> Acknowledge
+                    </button>
+                  )}
+                  {event.status !== 'resolved' && event.status !== 'dismissed' && event.supported_actions?.some((action: any) => action.action === 'safety_escalation') && (
+                    <button
+                      type="button"
+                      onClick={() => supportStatusMutation.mutate({ eventId: event.id, status: 'resolved' })}
+                      disabled={supportStatusMutation.isPending}
+                      className="inline-flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
+                    >
+                      <CircleCheck className="h-3 w-3" /> Resolve
+                    </button>
+                  )}
+                  {(event.supported_actions || []).filter((action: any) => action.available && ['reassign', 'cancel', 'compensation'].includes(action.action)).map((action: any) => (
+                    <button
+                      key={action.action}
+                      type="button"
+                      onClick={() => {
+                        if (action.action === 'cancel' && !window.confirm('Batalkan order melalui domain API?')) return
+                        if (action.action === 'reassign' && !window.confirm('Kirim order kembali ke matching melalui domain API?')) return
+                        supportActionMutation.mutate({ event, action })
+                      }}
+                      disabled={supportActionMutation.isPending}
+                      className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+                    >
+                      {action.action === 'reassign' ? <RefreshCw className="h-3 w-3" /> : action.action === 'cancel' ? <Ban className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                      {action.action}
+                    </button>
+                  ))}
                 </div>
               </div>
             ))}

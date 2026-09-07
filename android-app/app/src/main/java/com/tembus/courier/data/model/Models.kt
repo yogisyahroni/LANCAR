@@ -505,7 +505,41 @@ data class CourierSafetyEventRequest(
     @SerialName("accuracy")
     val accuracy: Float? = null,
     @SerialName("message")
-    val message: String? = null
+    val message: String? = null,
+    @SerialName("reported_party")
+    val reportedParty: String? = null,
+    @SerialName("service_code")
+    val serviceCode: String? = null,
+    @SerialName("conversation_id")
+    val conversationId: String? = null,
+    @SerialName("dispute_id")
+    val disputeId: String? = null
+)
+
+@Serializable
+data class CourierSupportRouting(
+    @SerialName("queueCode") val queueCode: String,
+    @SerialName("queueKind") val queueKind: String,
+    @SerialName("priority") val priority: String,
+    @SerialName("activeJobHelp") val activeJobHelp: Boolean,
+    @SerialName("supportedActions") val supportedActions: List<String> = emptyList()
+)
+
+@Serializable
+data class CourierSupportContext(
+    @SerialName("order_id") val orderId: String,
+    @SerialName("order_number") val orderNumber: String? = null,
+    @SerialName("order_status") val orderStatus: String? = null,
+    @SerialName("queue") val queue: CourierSupportRouting,
+    @SerialName("references") val references: CourierSupportReferences
+)
+
+@Serializable
+data class CourierSupportReferences(
+    @SerialName("order_id") val orderId: String? = null,
+    @SerialName("service_code") val serviceCode: String? = null,
+    @SerialName("conversation_id") val conversationId: String? = null,
+    @SerialName("location_capture") val locationCapture: String? = null
 )
 
 @Serializable

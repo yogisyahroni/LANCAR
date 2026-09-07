@@ -111,6 +111,7 @@ class MainScreenActionState(
         order: Order?,
         eventType: String,
         reasonCode: String?,
+        reportedParty: String?,
         severity: String,
         message: String,
         photoFile: File? = null
@@ -120,6 +121,7 @@ class MainScreenActionState(
             orderId = order?.orderId,
             eventType = eventType,
             reasonCode = reasonCode,
+            reportedParty = reportedParty,
             severity = severity,
             latitude = location?.latitude,
             longitude = location?.longitude,

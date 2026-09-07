@@ -24,6 +24,8 @@ const BROADCAST_ROLES = ['super_admin', 'admin', 'ops_admin'];
 
 adminRoutes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
 adminRoutes.get('/admin/courier-safety-events', (req, res) => controllers.listAdminCourierSafetyEvents(req, res));
+adminRoutes.patch('/admin/courier-safety-events/:id', requireRole(['super_admin', 'ops_security', 'ops_admin']), requireIdempotencyKey('admin.courier_safety_event.update'), (req, res) => controllers.updateAdminCourierSafetyEvent(req, res));
+adminRoutes.get('/admin/courier-support/queue', requireRole(['super_admin', 'ops_security', 'ops_admin', 'cs_agent']), (req, res) => controllers.listAdminCourierSupportQueue(req, res));
 adminRoutes.get('/admin/gps-risk-alerts', (req, res) => controllers.listAdminGpsRiskAlerts(req, res));
 adminRoutes.patch('/admin/gps-risk-alerts/:id', (req, res) => controllers.updateAdminGpsRiskAlert(req, res));
 adminRoutes.get('/admin/merchant-staff', requireRole(['super_admin']), (req, res) => controllers.listAdminMerchantStaff(req, res));

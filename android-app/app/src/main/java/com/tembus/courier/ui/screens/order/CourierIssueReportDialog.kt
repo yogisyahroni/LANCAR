@@ -107,7 +107,7 @@ internal fun CourierIssueReportDialog(
     order: Order,
     pickupDone: Boolean,
     onDismiss: () -> Unit,
-    onSubmit: (eventType: String, reasonCode: String, severity: String, message: String, photoFile: File) -> Unit
+    onSubmit: (eventType: String, reasonCode: String, reportedParty: String, severity: String, message: String, photoFile: File) -> Unit
 ) {
     val context = LocalContext.current
     val isOnDemand = order.normalizedWorkflowRole() == "on_demand"
@@ -142,6 +142,12 @@ internal fun CourierIssueReportDialog(
         if (bitmap != null) proofBitmap = bitmap
     }
     val selectedReason = reasons.firstOrNull { it.code == selectedCode } ?: reasons.first()
+    val reportedParty = when {
+        !pickupDone && selectedReason.code == "package_issue" -> "merchant"
+        selectedReason.code == "recipient_unavailable" -> "customer"
+        selectedReason.code == "address_not_found" || selectedReason.code == "route_issue" -> "location"
+        else -> "service"
+    }
     val noteMissing = submitAttempted && note.trim().length < 8
     val photoMissing = submitAttempted && proofBitmap == null
 
@@ -159,6 +165,11 @@ internal fun CourierIssueReportDialog(
                     "Laporan dikirim ke operasional dengan order, lokasi terakhir, akurasi GPS, dan timestamp server.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Target laporan: ${reportedParty.replaceFirstChar { it.uppercase() }}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
                 )
                 reasons.forEach { reason ->
                     FilterChip(
@@ -211,6 +222,7 @@ internal fun CourierIssueReportDialog(
                         onSubmit(
                             "failed_delivery",
                             selectedReason.code,
+                            reportedParty,
                             selectedReason.severity,
                             "${selectedReason.title}: $trimmed",
                             saveIssuePhoto(context, order.orderId, selectedReason.code, bitmap)

@@ -31,6 +31,9 @@ courierRoutes.post('/api/v1/courier/capabilities/request', requireMobileOrWebAut
 courierRoutes.post('/api/v1/courier/training/complete', requireMobileOrWebAuth, (req, res) => controllers.completeMobileCourierTraining(req, res));
 courierRoutes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));
 courierRoutes.get('/api/v1/courier/offers', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOffers(req, res));
+// Active-job support context resolves the operational/safety queue before a
+// courier submits a structured issue, and exposes only role-safe references.
+courierRoutes.get('/api/v1/courier/orders/:orderId/support', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierSupportContext(req, res));
 courierRoutes.post('/api/v1/courier/offers/:id/accept', requireMobileOrWebAuth, courierOfferRateLimiter, requireIdempotencyKey('courier.offer.accept'), (req, res) => controllers.acceptMobileCourierOffer(req, res));
 courierRoutes.post('/api/v1/courier/offers/:id/reject', requireMobileOrWebAuth, courierOfferRateLimiter, requireIdempotencyKey('courier.offer.reject'), (req, res) => controllers.rejectMobileCourierOffer(req, res));
 courierRoutes.patch('/api/v1/courier/duty', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierDuty(req, res));

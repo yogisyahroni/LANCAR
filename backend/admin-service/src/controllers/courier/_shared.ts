@@ -689,6 +689,10 @@ export const MOBILE_COURIER_SAFETY_EVENT_TYPES = new Set([
   'return_required',
   'failed_delivery',
   'route_issue',
+  'road_incident',
+  'prohibited_goods',
+  'report_sender',
+  'report_recipient',
 ]);
 
 export const MOBILE_COURIER_SAFETY_SEVERITIES = new Set(['low', 'medium', 'high', 'critical']);
