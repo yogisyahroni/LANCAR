@@ -1048,4 +1048,73 @@ describe('mapsProviderConfig', () => {
       status: 'success',
     }));
   });
+
+  it('handles concurrent search/geocode/quote/tracking route demand without contract drift', async () => {
+    const cachedGeocode = JSON.stringify([{
+      label: 'Cached Jakarta address',
+      latitude: -6.2,
+      longitude: 106.8,
+      provider: 'openstreetmap_nominatim',
+      city: 'Jakarta',
+      country_code: 'ID',
+    }]);
+    const cachedReverseGeocode = JSON.stringify({
+      label: 'Cached Jakarta reverse address',
+      latitude: -6.2,
+      longitude: 106.8,
+      provider: 'openstreetmap_reverse_nominatim',
+      city: 'Jakarta',
+      country_code: 'ID',
+    });
+    const cachedRoute = JSON.stringify({
+      generated_at: '2026-09-07T00:00:00.000Z',
+      eta: '12 menit',
+      eta_minutes: 12,
+      distance_km: 4.2,
+      distance_meters: 4200,
+      duration_seconds: 720,
+      route_polyline: 'cached-polyline',
+      provider: 'openstreetmap_osrm',
+      source: 'cache',
+      requested_provider: 'openstreetmap',
+      active_provider: 'openstreetmap',
+      scope: 'tracking',
+      route_profile: 'motorcycle',
+      vehicle_type: 'motorcycle',
+      service_code: 'food_delivery',
+      traffic_aware: false,
+      confidence: 'medium',
+    });
+    redis.get.mockImplementation(async (key: string) => {
+      if (key.startsWith('maps:geocode:')) return cachedGeocode;
+      if (key.startsWith('maps:reverse_geocode:')) return cachedReverseGeocode;
+      if (key.startsWith('route:on-demand:')) return cachedRoute;
+      if (key.startsWith('maps:provider_location_mappings:')) return JSON.stringify({ mappings: [], version: 'load-test' });
+      return null;
+    });
+    readDb.query.mockResolvedValue({ rows: [{ value: baseConfig }] });
+
+    const requests = Array.from({ length: 25 }, (_, index) => [
+      geocodeAddress(`Jl Sudirman ${index}`, 'web_customer'),
+      reverseGeocodePoint({ latitude: -6.2, longitude: 106.8 + (index / 10000) }, 'web_customer'),
+      buildMapsRouteEtaSnapshot(
+        { latitude: -6.2, longitude: 106.8 },
+        { latitude: -6.21, longitude: 106.81 },
+        'customer_mobile',
+        { serviceCode: 'food_delivery', vehicleType: 'motorcycle' },
+      ),
+      buildMapsRouteEtaSnapshot(
+        { latitude: -6.2, longitude: 106.8 },
+        { latitude: -6.21, longitude: 106.81 },
+        'tracking',
+        { serviceCode: 'parcel', vehicleType: 'motorcycle' },
+      ),
+    ]).flat();
+
+    const results = await Promise.all(requests);
+    expect(results).toHaveLength(100);
+    expect(results.filter((result) => Array.isArray(result))).toHaveLength(25);
+    expect(results.filter((result) => result && typeof result === 'object' && 'eta_minutes' in result)).toHaveLength(50);
+    expect((await getMapsProviderOpsSnapshot()).counters['request.with_id'] || 0).toBe(50);
+  });
 });
