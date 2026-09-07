@@ -41,3 +41,15 @@ d8da6b33d829d0aa6e3ae63b23096835e65ef3fb:admin-dashboard/src/pages/CourierPerfor
 98c4884611855e86947cd475b2162729d7803606:.agent/skills/documentation-generation-doc-generate/SKILL.md:curl-auth-header:536
 da3252f173395edc88f25060835d59f2b7cb9037:admin-dashboard/src/pages/Settings.tsx:generic-api-key:***
 d8da6b33d829d0aa6e3ae63b23096835e65ef3fb:admin-dashboard/src/pages/CourierPerformance.tsx:generic-api-key:***
+
+# Historical false positives: non-secret tax config identifiers and deterministic
+# idempotency keys used only by unit tests. Keep runtime credential findings strict.
+d77d30eaed58220a01c7c2b7261be2f8eba354dc:backend/order-service/internal/repository/roadside_settlement_tax_snapshot.go:generic-api-key:35
+d77d30eaed58220a01c7c2b7261be2f8eba354dc:backend/order-service/internal/repository/roadside_settlement_tax_snapshot.go:generic-api-key:37
+01b318775cd7e6e72e110bb8550cacb534f284d7:backend/order-service/internal/service/service_adjustment_service_test.go:generic-api-key:36
+01b318775cd7e6e72e110bb8550cacb534f284d7:backend/order-service/internal/service/service_adjustment_service_test.go:generic-api-key:51
+01b318775cd7e6e72e110bb8550cacb534f284d7:backend/order-service/internal/service/service_adjustment_service_test.go:generic-api-key:60
+01b318775cd7e6e72e110bb8550cacb534f284d7:backend/order-service/internal/service/service_adjustment_service_test.go:generic-api-key:68
+9b91226a473d1c7484162bd158e8f6b2078517a8:backend/order-service/internal/middleware/idempotency_test.go:generic-api-key:87
+9b91226a473d1c7484162bd158e8f6b2078517a8:backend/order-service/internal/middleware/idempotency_test.go:generic-api-key:104
+9b91226a473d1c7484162bd158e8f6b2078517a8:backend/order-service/internal/middleware/idempotency_test.go:generic-api-key:121

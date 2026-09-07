@@ -156,6 +156,13 @@ func RequestLoggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			"ip":             realIP(r),
 			"user_agent":     r.UserAgent(),
 		})
+		telemetry := transactionTelemetryFields(r, rw.statusCode)
+		telemetry["correlation_id"] = correlationID
+		telemetry["request_id"] = GetRequestID(r.Context())
+		telemetry["method"] = r.Method
+		telemetry["status"] = rw.statusCode
+		telemetry["duration_ms"] = duration.Milliseconds()
+		LogJSON("info", "transaction telemetry", telemetry)
 	}
 }
 
