@@ -5385,11 +5385,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## COURIER-2026-002 — Identity, document and vehicle verification [P0]
 
 **Checklist**
-- [ ] Document type/expiry/verification source/status modeled.
-- [ ] Vehicle make/model/type/plate/capacity attributes structured.
-- [ ] Expired/revoked document changes eligibility through policy, not client toggle.
-- [ ] Sensitive documents use compliance storage/access/retention controls.
-- [ ] Reverification reminders use Communication platform.
+- [x] Document type/expiry/verification source/status modeled.
+- [x] Vehicle make/model/type/plate/capacity attributes structured.
+- [x] Expired/revoked document changes eligibility through policy, not client toggle.
+- [x] Sensitive documents use compliance storage/access/retention controls.
+- [x] Reverification reminders use Communication platform.
 
 ---
 
