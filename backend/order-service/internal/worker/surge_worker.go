@@ -2,6 +2,8 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/redis/go-redis/v9"
 	"log"
 	"math"
@@ -63,39 +65,75 @@ func (w *SurgeWorker) calculateAndSetSurge(ctx context.Context) {
 	}
 
 	globalMultiplier := 1.0
+	zoneMultipliers := make(map[string]float64, len(inputs))
+	zoneCodes := make(map[string]string, len(inputs))
 	for _, input := range inputs {
 		multiplier := w.calculateSurgeMultiplier(ctx, input)
 		if multiplier > globalMultiplier {
 			globalMultiplier = multiplier
 		}
+		if multiplier > zoneMultipliers[input.ZoneID] {
+			zoneMultipliers[input.ZoneID] = multiplier
+			zoneCodes[input.ZoneID] = input.ZoneCode
+		}
 
+		if err := w.persistMetricsSnapshot(ctx, input, multiplier); err != nil {
+			log.Printf("[SurgeWorker] Failed to persist marketplace metrics for zone %s/service %s: %v", input.ZoneCode, input.ServiceCode, err)
+		}
+
+		log.Printf(
+			"[SurgeWorker] Zone %s service %s multiplier %.2f weather %.2f pricing %.2f demand_window %d active %d available %d acceptance %.1f%% match %.0fs no_supply %d idle %.1fmin eta %.1fmin fresh=%t age=%ds",
+			input.ZoneCode,
+			input.ServiceCode,
+			multiplier,
+			input.WeatherMultiplier,
+			input.PricingMultiplier,
+			input.DemandOrders,
+			input.ActiveOrders,
+			input.AvailableCouriers,
+			input.AcceptanceRatePct,
+			input.AverageMatchTimeSecs,
+			input.NoSupplyOrders,
+			input.AverageIdleTimeMinutes,
+			input.AverageETAMinutes,
+			input.DataFresh,
+			input.EventAgeSeconds,
+		)
+	}
+	for zoneID, multiplier := range zoneMultipliers {
 		ttl := 10 * time.Minute
-		zoneIDKey := "surge_multiplier:" + input.ZoneID
+		zoneIDKey := "surge_multiplier:" + zoneID
 		if err := w.redisClient.Set(ctx, zoneIDKey, multiplier, ttl).Err(); err != nil {
 			log.Printf("[SurgeWorker] Failed to update %s: %v", zoneIDKey, err)
 			continue
 		}
-		if input.ZoneCode != "" {
-			zoneCodeKey := "surge_multiplier:" + input.ZoneCode
+		if zoneCodes[zoneID] != "" {
+			zoneCodeKey := "surge_multiplier:" + zoneCodes[zoneID]
 			if err := w.redisClient.Set(ctx, zoneCodeKey, multiplier, ttl).Err(); err != nil {
 				log.Printf("[SurgeWorker] Failed to update %s: %v", zoneCodeKey, err)
 			}
 		}
-
-		log.Printf(
-			"[SurgeWorker] Zone %s multiplier %.2f from weather %.2f, pricing %.2f, demand %d, couriers %d",
-			input.ZoneCode,
-			multiplier,
-			input.WeatherMultiplier,
-			input.PricingMultiplier,
-			input.ActiveOrders,
-			input.AvailableCouriers,
-		)
 	}
 
 	if err := w.redisClient.Set(ctx, "surge_multiplier:global", globalMultiplier, 10*time.Minute).Err(); err != nil {
 		log.Printf("[SurgeWorker] Failed to update global surge multiplier: %v", err)
 	}
+}
+
+func (w *SurgeWorker) persistMetricsSnapshot(ctx context.Context, input ZoneSurgeInput, multiplier float64) error {
+	// Keep provider/config pricing separate from the derived surge value so
+	// dashboards can explain which source contributed to the final multiplier.
+	input.SurgeMultiplier = multiplier
+	data, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	serviceCode := input.ServiceCode
+	if serviceCode == "" {
+		serviceCode = "unknown"
+	}
+	key := fmt.Sprintf("marketplace_metrics:%s:%s", input.ZoneID, serviceCode)
+	return w.redisClient.Set(ctx, key, data, 10*time.Minute).Err()
 }
 
 func (w *SurgeWorker) calculateSurgeMultiplier(ctx context.Context, input ZoneSurgeInput) float64 {
@@ -114,6 +152,14 @@ func (w *SurgeWorker) calculateSurgeMultiplier(ctx context.Context, input ZoneSu
 		multiplier = 1
 	}
 
+	// Stale event data is visible in the metrics snapshot but can never add a
+	// demand-based price step. Existing weather/provider multipliers remain
+	// bounded by the configured ceiling and are not silently attributed to
+	// stale marketplace demand.
+	if !input.DataFresh {
+		return boundedMultiplier(multiplier, maxMultiplier)
+	}
+
 	if input.AvailableCouriers == 0 {
 		if input.ActiveOrders > 0 {
 			multiplier += step
@@ -122,6 +168,13 @@ func (w *SurgeWorker) calculateSurgeMultiplier(ctx context.Context, input ZoneSu
 		multiplier += step
 	}
 
+	return boundedMultiplier(multiplier, maxMultiplier)
+}
+
+func boundedMultiplier(multiplier, maxMultiplier float64) float64 {
+	if maxMultiplier < 1 {
+		maxMultiplier = 1
+	}
 	if multiplier > maxMultiplier {
 		return maxMultiplier
 	}
