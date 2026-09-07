@@ -5451,10 +5451,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## COURIER-2026-007 — Incentives and supply education [P1]
 
 **Checklist**
-- [ ] Incentive progress/readiness shown clearly.
-- [ ] Dynamic educational/operational modules may use App Experience but cannot alter job state.
-- [ ] Zone demand insight labeled estimate and freshness/source indicated.
-- [ ] Gamification does not encourage unsafe driving.
+- [x] Incentive progress/readiness shown clearly.
+- [x] Dynamic educational/operational modules may use App Experience but cannot alter job state.
+- [x] Zone demand insight labeled estimate and freshness/source indicated.
+- [x] Gamification does not encourage unsafe driving.
 
 ---
 
