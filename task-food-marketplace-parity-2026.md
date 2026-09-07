@@ -5440,11 +5440,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `ECON-*`
 
 **Checklist**
-- [ ] Per-job earning breakdown immutable after settlement except compensating adjustment.
-- [ ] Wallet available/pending/held/withdrawn states explicit.
-- [ ] Payout/disbursement idempotent.
-- [ ] Statement shows order/incentive/adjustment/tax/fee separately.
-- [ ] Courier cannot withdraw promotional/non-withdrawable balance accidentally.
+- [x] Per-job earning breakdown immutable after settlement except compensating adjustment.
+- [x] Wallet available/pending/held/withdrawn states explicit.
+- [x] Payout/disbursement idempotent.
+- [x] Statement shows order/incentive/adjustment/tax/fee separately.
+- [x] Courier cannot withdraw promotional/non-withdrawable balance accidentally.
 
 ---
 
