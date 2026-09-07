@@ -25,6 +25,7 @@ func TestCreateFoodOrderPreservesContactlessFlag(t *testing.T) {
 		Items:      []domain.FoodOrderItemRequest{{MenuID: "item-1", Quantity: 1, Variants: []domain.FoodOrderItemVariantRequest{{VariantID: "v-1", OptionID: "v-1"}}}},
 		DropoffLat: -6.21, DropoffLng: 106.81, DropoffAddress: "Jl Dropoff Test, Jakarta",
 		DropoffCity: "Jakarta", DropoffZipCode: "12345", ReceiverName: "Test", ReceiverPhone: "62811", Contactless: true,
+		Cutlery: "no", DeliveryNote: "Taruh di meja satpam", GiftMode: true, ReceiverPrivacy: "contactless",
 		QuoteID: "quote-test-1",
 	}
 	fp := req
@@ -41,7 +42,7 @@ func TestCreateFoodOrderPreservesContactlessFlag(t *testing.T) {
 			ServiceCategory: "food", EstimateID: "quote-test-1", QuoteID: "quote-test-1",
 			InputFingerprint: req.QuoteInputFingerprint, ExpiresAt: time.Now().Add(5 * time.Minute),
 			DistanceFeeIDR: 5000, BasePriceIDR: 25000, DynamicPriceIDR: 25000, PlatformFeeIDR: 2500, TotalPriceIDR: 32500, DiscountIDR: 0, TaxIDR: 0,
-			PriceComponents: map[string]int64{"food_subtotal_idr":25000, "delivery_fee_idr":5000, "platform_fee_idr":2500, "total_price_idr":32500},
+			PriceComponents: map[string]int64{"food_subtotal_idr": 25000, "delivery_fee_idr": 5000, "platform_fee_idr": 2500, "total_price_idr": 32500},
 		},
 	}
 	repo := &clOrderRepo{}
@@ -54,8 +55,12 @@ func TestCreateFoodOrderPreservesContactlessFlag(t *testing.T) {
 	if order == nil || !order.Contactless {
 		t.Errorf("Order.Contactless must be true, got=%v", order != nil && order.Contactless)
 	}
+	if order == nil || order.Cutlery != "no" || order.DeliveryNote != "Taruh di meja satpam" || !order.GiftMode || order.ReceiverPrivacy != "contactless" {
+		t.Errorf("checkout options not preserved: order=%+v", order)
+	}
 	req2 := req
 	req2.Contactless = false
+	req2.ReceiverPrivacy = "standard"
 	fp2 := req2
 	fp2.QuoteID = ""
 	fp2.QuoteInputFingerprint = ""

@@ -269,6 +269,17 @@ func main() {
 	// Food delivery (FOOD-BIKE-073): inject food repository untuk CreateFoodOrder
 	foodRepo := repository.NewFoodRepository(db, readDB, configRepo)
 	orderSvc.SetFoodRepository(foodRepo)
+	foodGroupRepo := repository.NewFoodGroupRepository(db)
+	foodGroupSvc := service.NewFoodGroupService(foodGroupRepo, foodRepo)
+	foodMembershipRepo := repository.NewFoodMembershipRepository(db)
+	foodMembershipSvc := service.NewFoodMembershipService(foodMembershipRepo)
+	foodSponsoredRepo := repository.NewFoodSponsoredRepository(db)
+	foodSponsoredSvc := service.NewFoodSponsoredService(foodSponsoredRepo)
+	foodBundleRepo := repository.NewFoodBundleRepository(db)
+	foodBundleSvc := service.NewFoodBundleService(foodBundleRepo, pgRepo, foodRepo)
+	if configurable, ok := orderSvc.(interface{ SetFoodMembershipRepository(domain.FoodMembershipRepository) }); ok {
+		configurable.SetFoodMembershipRepository(foodMembershipRepo)
+	}
 	// FB-082: piutang cancellation fee merchant (dipotong dari settlement berikutnya)
 	merchantCancelFeeRepo := repository.NewMerchantCancellationFeeRepository(db, readDB)
 	// FB-080: refund partial per item butuh foodRepo (snapshot food_order_items)
@@ -334,6 +345,10 @@ func main() {
 	if foodQuoteSvc, ok := orderSvc.(domain.FoodQuoteService); ok {
 		orderHandler.SetFoodQuoteService(foodQuoteSvc)
 	}
+	orderHandler.SetFoodGroupService(foodGroupSvc)
+	orderHandler.SetFoodMembershipService(foodMembershipSvc)
+	orderHandler.SetFoodSponsoredService(foodSponsoredSvc)
+	orderHandler.SetFoodBundleService(foodBundleSvc)
 	adminHandler := handler.NewAdminHandler(meetingPointSvc, pricingSvc)
 	wsHandler := handler.NewWSHandler(eb)
 	paymentHandler := handler.NewPaymentHandler(paymentSvc)
@@ -505,6 +520,30 @@ func main() {
 	// Food delivery — browse merchant (FOOD-BIKE-055/056)
 	mux.HandleFunc("/api/v1/food/merchants", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFoodMerchants)))
 	mux.HandleFunc("/api/v1/food/merchants/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetFoodMerchantDetail)))
+
+	// FOOD-2026-020: server-authoritative shared cart / optional split.
+	mux.HandleFunc("/api/v1/food/groups", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CreateFoodGroup)))
+	mux.HandleFunc("/api/v1/food/groups/{group_id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetFoodGroup)))
+	mux.HandleFunc("/api/v1/food/groups/{group_id}/members", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.JoinFoodGroup)))
+	mux.HandleFunc("/api/v1/food/groups/{group_id}/members/me", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.LeaveFoodGroup)))
+	mux.HandleFunc("/api/v1/food/groups/{group_id}/cart", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AddFoodGroupCartItem)))
+	mux.HandleFunc("/api/v1/food/groups/{group_id}/cart/{item_id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.RemoveFoodGroupCartItem)))
+	mux.HandleFunc("/api/v1/food/groups/{group_id}/close", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CloseFoodGroup)))
+
+	// FOOD-2026-021: entitlement and free-delivery membership.
+	mux.HandleFunc("/api/v1/food/membership/plans", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFoodMembershipPlans)))
+	mux.HandleFunc("/api/v1/food/membership", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet { orderHandler.GetFoodMembership(w, r); return }
+		if r.Method == http.MethodPost { orderHandler.SubscribeFoodMembership(w, r); return }
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+	})))
+	mux.HandleFunc("/api/v1/food/merchants/{merchant_id}/sponsored-event", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.RecordFoodSponsoredEvent)))
+
+	// FOOD-2026-024: bundle of independent per-merchant food orders.
+	mux.HandleFunc("/api/v1/food/bundles", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CreateFoodBundle)))
+	mux.HandleFunc("/api/v1/food/bundles/{bundle_id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetFoodBundle)))
+	mux.HandleFunc("/api/v1/food/bundles/{bundle_id}/orders/{order_id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AttachFoodBundleOrder)))
+	mux.HandleFunc("/api/v1/food/bundles/{bundle_id}/finalize", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.FinalizeFoodBundle)))
 
 	// FOOD-BIKE-070: Favorite Merchants (C3) — POST add, DELETE remove, GET list, GET check
 	mux.HandleFunc("/api/v1/food/favorites/{id}", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {

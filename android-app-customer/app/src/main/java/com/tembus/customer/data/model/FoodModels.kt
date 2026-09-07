@@ -24,6 +24,9 @@ data class FoodMerchant(
     // ADR 003 (2026-08-10): status halal merchant — halal_certified | non_halal | unknown.
     // Dipakai badge di kartu toko + filter chip (Semua/Halal/Non-Halal).
     @SerialName("halal_status") val halalStatus: String = "unknown",
+    @SerialName("is_sponsored") val isSponsored: Boolean = false,
+    @SerialName("ad_label") val adLabel: String? = null,
+    @SerialName("sponsored_campaign_id") val sponsoredCampaignId: String? = null,
     @SerialName("menu_items") val menuItems: List<FoodMenuItem> = emptyList(),
     // FOOD-IMG (2026-08-27): merchant cover/hero image (food photo). Backend optional;
     // UI falls back to a branded gradient placeholder when null.
@@ -112,6 +115,12 @@ data class CreateFoodOrderRequest(
     // FB-089: instruksi antar tanpa kontak fisik. Disimpan sebagai field
     // terstruktur; catatan bebas tetap berada di order_notes.
     @SerialName("contactless") val contactless: Boolean = false,
+    @SerialName("cutlery") val cutlery: String = "default",
+    @SerialName("delivery_note") val deliveryNote: String? = null,
+    @SerialName("gift_mode") val giftMode: Boolean = false,
+    @SerialName("receiver_privacy") val receiverPrivacy: String = "standard",
+    // FOOD-2026-020: optional server-managed shared cart identifier.
+    @SerialName("group_order_id") val groupOrderId: String? = null,
     @SerialName("quote_id") val quoteId: String? = null,
     @SerialName("quote_input_fingerprint") val quoteInputFingerprint: String? = null
 )
@@ -130,6 +139,102 @@ data class FoodOrderItemRequest(
 data class FoodOrderItemVariantRequest(
     @SerialName("variant_id") val variantId: String,
     @SerialName("option_id") val optionId: String
+)
+
+@Serializable
+data class FoodGroupOrder(
+    @SerialName("id") val id: String,
+    @SerialName("merchant_id") val merchantId: String,
+    @SerialName("creator_id") val creatorId: String,
+    @SerialName("status") val status: String,
+    @SerialName("deadline") val deadline: String,
+    @SerialName("split") val split: Boolean = false,
+    @SerialName("members") val members: List<FoodGroupMember> = emptyList(),
+    @SerialName("cart") val cart: List<FoodGroupCartItem> = emptyList(),
+    @SerialName("allocations") val allocations: List<FoodGroupAllocation> = emptyList()
+)
+
+@Serializable
+data class FoodGroupMember(
+    @SerialName("user_id") val userId: String,
+    @SerialName("role") val role: String,
+    @SerialName("status") val status: String
+)
+
+@Serializable
+data class FoodGroupCartItem(
+    @SerialName("id") val id: String,
+    @SerialName("group_id") val groupId: String? = null,
+    @SerialName("member_id") val memberId: String,
+    @SerialName("menu_item_id") val menuItemId: String,
+    @SerialName("quantity") val quantity: Int,
+    @SerialName("notes") val notes: String? = null
+)
+
+@Serializable
+data class FoodGroupAllocation(
+    @SerialName("user_id") val userId: String,
+    @SerialName("amount_idr") val amountIdr: Long,
+    @SerialName("payment_state") val paymentState: String
+)
+
+@Serializable
+data class CreateFoodGroupRequest(
+    @SerialName("merchant_id") val merchantId: String,
+    @SerialName("deadline") val deadline: String,
+    @SerialName("split") val split: Boolean = false
+)
+
+@Serializable
+data class AddFoodGroupCartItemRequest(
+    @SerialName("menu_item_id") val menuItemId: String,
+    @SerialName("quantity") val quantity: Int,
+    @SerialName("notes") val notes: String? = null
+)
+
+@Serializable
+data class FoodMembershipPlan(
+    @SerialName("id") val id: String,
+    @SerialName("name") val name: String,
+    @SerialName("monthly_fee_idr") val monthlyFeeIdr: Long,
+    @SerialName("free_delivery_cap_idr") val freeDeliveryCapIdr: Long,
+    @SerialName("minimum_subtotal_idr") val minimumSubtotalIdr: Long,
+    @SerialName("active") val active: Boolean = true
+)
+
+@Serializable
+data class FoodMembershipEntitlement(
+    @SerialName("id") val id: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("plan_id") val planId: String,
+    @SerialName("status") val status: String,
+    @SerialName("current_period_start") val currentPeriodStart: String,
+    @SerialName("current_period_end") val currentPeriodEnd: String,
+    @SerialName("free_delivery_used_idr") val freeDeliveryUsedIdr: Long = 0,
+    @SerialName("free_delivery_remaining_idr") val freeDeliveryRemainingIdr: Long = 0
+)
+
+@Serializable
+data class CreateFoodMultiStoreBundleRequest(
+    @SerialName("merchant_ids") val merchantIds: List<String>
+)
+
+@Serializable
+data class FoodMultiStoreBundle(
+    @SerialName("id") val id: String,
+    @SerialName("customer_id") val customerId: String,
+    @SerialName("status") val status: String,
+    @SerialName("merchant_ids") val merchantIds: List<String> = emptyList(),
+    @SerialName("order_ids") val orderIds: List<String> = emptyList(),
+    @SerialName("settlement") val settlement: FoodBundleSettlement? = null
+)
+
+@Serializable
+data class FoodBundleSettlement(
+    @SerialName("bundle_id") val bundleId: String,
+    @SerialName("gross_total_idr") val grossTotalIdr: Long,
+    @SerialName("child_order_count") val childOrderCount: Int,
+    @SerialName("status") val status: String
 )
 
 @Serializable

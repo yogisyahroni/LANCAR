@@ -88,7 +88,7 @@ fun StrukScreen(
             val struk = state.struk ?: return@launch
             if (printingThermal) return@launch
             printingThermal = true
-            val err = EscPos.print(device, struk)
+            val err = EscPos.printWithRetry(device, struk)
             printingThermal = false
             snackbarHostState.showSnackbar(
                 if (err == null) "Struk terkirim ke ${device.name}"

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -324,7 +325,7 @@ private fun NotificationRow(
                 }
                 Text(formatNotificationDate(notification.createdAt), color = OnSurfaceVariant, fontSize = 11.sp)
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = onArchive, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = onArchive, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
                     Icon(Icons.Default.DeleteOutline, contentDescription = CustomerTextCatalog.translate("Arsipkan"), tint = OnSurfaceVariant, modifier = Modifier.size(18.dp))
                 }
             }

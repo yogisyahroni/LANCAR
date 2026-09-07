@@ -52,6 +52,22 @@ type CreateFoodOrderRequest struct {
 	// FB-089: antar tanpa kontak fisik (foto lokasi dropoff, POD tetap wajib).
 	Contactless bool `json:"contactless,omitempty"`
 
+	// FOOD-2026-016: cutlery preference — "yes", "no", "default".
+	// "no" = merchant tidak masukkan percuturan; dilabel di order.
+	Cutlery string `json:"cutlery,omitempty" validate:"omitempty,oneof=yes no default"`
+
+	// FOOD-2026-016: catatan khusus untuk kurir (bawa ke lantai, tetangi pintu, dll).
+	DeliveryNote string `json:"delivery_note,omitempty"`
+
+	// FOOD-2026-016: gift mode — sembunyikan ringkasan harga & slip dari penerima.
+	GiftMode bool `json:"gift_mode,omitempty"`
+
+	// FOOD-2026-016: privacy — "standard", "contactless", "doorstep".
+	// Bagaimana kurir menyerahkan pesanan (untuk kontak minim).
+	ReceiverPrivacy string `json:"receiver_privacy,omitempty" validate:"omitempty,oneof=standard contactless doorstep"`
+	// FOOD-2026-020: checkout from a server-managed shared cart.
+	GroupOrderID string `json:"group_order_id,omitempty"`
+
 	// FB-078: kode voucher diskon (opsional). Divalidasi + dihitung server-side.
 	VoucherCode           string `json:"voucher_code,omitempty"`
 	QuoteID               string `json:"quote_id,omitempty"`
@@ -68,19 +84,20 @@ type FoodQuoteItem struct {
 }
 
 type FoodQuoteResponse struct {
-	QuoteID          string          `json:"quote_id"`
-	InputFingerprint string          `json:"input_fingerprint"`
-	MerchantID       string          `json:"merchant_id"`
-	Items            []FoodQuoteItem `json:"items"`
-	SubtotalIDR      int64           `json:"subtotal_idr"`
-	DeliveryFeeIDR   int64           `json:"delivery_fee_idr"`
-	PlatformFeeIDR   int64           `json:"platform_fee_idr"`
-	TaxIDR           int64           `json:"tax_idr"`
-	DiscountIDR      int64           `json:"discount_idr"`
-	TotalPriceIDR    int64           `json:"total_price_idr"`
-	DistanceKM       float64         `json:"distance_km"`
-	ETAMinutes       int             `json:"eta_minutes"`
-	ETASource        string          `json:"eta_source"`
+	QuoteID              string          `json:"quote_id"`
+	InputFingerprint     string          `json:"input_fingerprint"`
+	MerchantID           string          `json:"merchant_id"`
+	Items                []FoodQuoteItem `json:"items"`
+	SubtotalIDR          int64           `json:"subtotal_idr"`
+	DeliveryFeeIDR       int64           `json:"delivery_fee_idr"`
+	PlatformFeeIDR       int64           `json:"platform_fee_idr"`
+	TaxIDR               int64           `json:"tax_idr"`
+	DiscountIDR          int64           `json:"discount_idr"`
+	MembershipSubsidyIDR int64           `json:"membership_subsidy_idr,omitempty"`
+	TotalPriceIDR        int64           `json:"total_price_idr"`
+	DistanceKM           float64         `json:"distance_km"`
+	ETAMinutes           int             `json:"eta_minutes"`
+	ETASource            string          `json:"eta_source"`
 	// ETA components are explicit so unavailable provider signals are not
 	// silently folded into a fabricated client-side number.
 	PrepMinutes         int       `json:"prep_minutes"`
@@ -134,9 +151,12 @@ type FoodMerchantInfo struct {
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
 	MinOrderIDR int64 `json:"min_order_idr"`
 	// FOOD-BIKE-055: metrik browse merchant
-	DistanceKM  *float64 `json:"distance_km,omitempty"`
-	AvgRating   *float64 `json:"avg_rating,omitempty"`
-	RatingCount int      `json:"rating_count"`
+	DistanceKM          *float64 `json:"distance_km,omitempty"`
+	AvgRating           *float64 `json:"avg_rating,omitempty"`
+	RatingCount         int      `json:"rating_count"`
+	IsSponsored         bool     `json:"is_sponsored"`
+	AdLabel             string   `json:"ad_label,omitempty"`
+	SponsoredCampaignID string   `json:"sponsored_campaign_id,omitempty"`
 	// ADR 003 (2026-08-10): status halal merchant untuk label + filter
 	// customer — halal_certified | non_halal | unknown.
 	HalalStatus string             `json:"halal_status"`

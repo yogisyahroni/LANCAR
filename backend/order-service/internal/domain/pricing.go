@@ -42,6 +42,13 @@ type PricingEstimateResponse struct {
 	ServiceCategory        string           `json:"service_category"`
 	Currency               string           `json:"currency"`
 	ETASource              string           `json:"eta_source"`
+	ETAMinutes             int              `json:"eta_minutes,omitempty"`
+	PrepMinutes            int              `json:"prep_minutes,omitempty"`
+	PickupTravelMinutes    int              `json:"pickup_travel_minutes,omitempty"`
+	TrafficMinutes         *int             `json:"traffic_minutes,omitempty"`
+	BatchingMinutes        *int             `json:"batching_minutes,omitempty"`
+	SupplyStatus           string           `json:"supply_status,omitempty"`
+	Confidence             string           `json:"confidence,omitempty"`
 	PricingRuleVersion     string           `json:"pricing_rule_version"`
 	PriceComponents        map[string]int64 `json:"price_components"`
 	PickupAddress          string           `json:"pickup_address"`
@@ -61,6 +68,7 @@ type PricingEstimateResponse struct {
 	InsuranceFeeIDR        int64            `json:"insurance_fee_idr"`
 	DiscountIDR            int64            `json:"discount_idr"`
 	PromoSubsidyIDR        int64            `json:"promo_subsidy_idr"`
+	MembershipSubsidyIDR   int64            `json:"membership_subsidy_idr,omitempty"`
 	PromoCode              string           `json:"promo_code,omitempty"`
 	PromoSponsor           string           `json:"promo_sponsor,omitempty"`
 	MDREstimateIDR         int64            `json:"mdr_estimate_idr"`
@@ -93,6 +101,7 @@ type PricingEstimateResponse struct {
 	FoodDropoffZipCode string                 `json:"food_dropoff_zip_code,omitempty"`
 	FoodVoucherCode    string                 `json:"food_voucher_code,omitempty"`
 	FoodScheduledAt    *time.Time             `json:"food_scheduled_at,omitempty"`
+	FoodMembershipID   string                 `json:"food_membership_id,omitempty"`
 }
 
 func (q PricingEstimateResponse) QuoteIDOrEstimateID() string {

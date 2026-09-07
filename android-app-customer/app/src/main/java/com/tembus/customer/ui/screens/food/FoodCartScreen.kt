@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -203,11 +204,11 @@ private fun CartItemRow(
                 .clip(RoundedCornerShape(999.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
+            IconButton(onClick = onDecrement, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
                 Icon(Icons.Default.Remove, contentDescription = CustomerTextCatalog.translate("Kurangi"), tint = Primary, modifier = Modifier.size(16.dp))
             }
             Text(item.quantity.toString(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
-            IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
+            IconButton(onClick = onIncrement, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
                 Icon(Icons.Default.Add, contentDescription = CustomerTextCatalog.translate("Tambah"), tint = Accent, modifier = Modifier.size(16.dp))
             }
         }

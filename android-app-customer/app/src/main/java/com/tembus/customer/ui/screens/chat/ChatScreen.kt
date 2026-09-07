@@ -379,7 +379,7 @@ fun ChatScreen(
                             IconButton(
                                 onClick = { /* TODO: open attachment picker */ },
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                                     .padding(end = 4.dp)
                             ) {
                                 Icon(
@@ -537,7 +537,7 @@ private fun FailedMessageBanner(
             TextButton(onClick = onRetry) {
                 Text("Coba", color = Primary, fontWeight = FontWeight.Bold)
             }
-            IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+            IconButton(onClick = onDismiss, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
                 Icon(Icons.Default.Close, contentDescription = CustomerTextCatalog.translate("Tutup"), tint = Color(0xFF92400E), modifier = Modifier.size(18.dp))
             }
         }

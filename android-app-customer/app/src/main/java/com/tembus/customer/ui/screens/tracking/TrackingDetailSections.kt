@@ -244,7 +244,7 @@ fun CourierStatusCard(
                 Row {
                     FilledIconButton(
                         onClick = onCallClick,
-                        modifier = Modifier.size(42.dp).criticalAction("Telepon kurir"),
+                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).criticalAction("Telepon kurir"),
                         shape = CircleShape,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = Color(0xFFF2F2F7)
@@ -261,7 +261,7 @@ fun CourierStatusCard(
                     Box {
                         FilledIconButton(
                             onClick = onChatClick,
-                            modifier = Modifier.size(42.dp).criticalAction("Chat kurir"),
+                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).criticalAction("Chat kurir"),
                             shape = CircleShape,
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = Primary

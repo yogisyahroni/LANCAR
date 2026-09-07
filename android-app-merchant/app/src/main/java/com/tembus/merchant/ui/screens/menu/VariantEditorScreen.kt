@@ -179,7 +179,7 @@ private fun VariantGroupCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = onRemoveGroup, modifier = Modifier.size(28.dp)) {
+                IconButton(onClick = onRemoveGroup, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
                     Icon(
                         Icons.Filled.Delete,
                         contentDescription = MerchantTextCatalog.translate("Hapus grup"),

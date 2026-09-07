@@ -35,6 +35,7 @@ class FoodViewModel @Inject constructor(
     private val apiService: TEMBUSApiService,
     private val cartStore: CartStore
 ) : ViewModel() {
+	private val discoverySessionId = UUID.randomUUID().toString()
 
     // ── Browse state ──
     private val _merchants = MutableStateFlow<List<FoodMerchant>>(emptyList())
@@ -207,6 +208,17 @@ class FoodViewModel @Inject constructor(
         }
     }
 
+    fun recordSponsoredEvent(merchantId: String, campaignId: String, eventType: String) {
+        viewModelScope.launch {
+            runCatching {
+                apiService.recordFoodSponsoredEvent(
+                    merchantId,
+                    mapOf("campaign_id" to campaignId, "event_type" to eventType, "session_id" to discoverySessionId)
+                )
+            }
+        }
+    }
+
     /** ADR 003: set filter halal lalu reload daftar merchant. */
     fun setHalalFilter(filter: String) {
         if (_halalFilter.value == filter) return
@@ -313,6 +325,13 @@ class FoodViewModel @Inject constructor(
         voucherCode: String? = null,
         orderNotes: String? = null, // FB-121: catatan level order
         contactless: Boolean = false, // FB-089: antar tanpa kontak fisik
+        cutlery: String = "default",
+        deliveryNote: String? = null,
+        giftMode: Boolean = false,
+        receiverPrivacy: String = "standard",
+        // FOOD-2026-020: existing checkout remains single payer unless a
+        // server-created group is explicitly selected by the caller.
+        groupOrderId: String? = null,
         // FB-123: pesanan terjadwal — isScheduled + scheduledAt (ISO-8601).
         isScheduled: Boolean = false,
         scheduledAt: String? = null,
@@ -348,6 +367,11 @@ class FoodViewModel @Inject constructor(
                     voucherCode = voucherCode?.ifBlank { null },
                     orderNotes = orderNotes?.ifBlank { null },
                     contactless = contactless,
+                    cutlery = cutlery,
+                    deliveryNote = deliveryNote?.ifBlank { null },
+                    giftMode = giftMode,
+                    receiverPrivacy = receiverPrivacy,
+                    groupOrderId = groupOrderId?.ifBlank { null },
                     quoteId = _foodQuote.value?.quoteId,
                     quoteInputFingerprint = _foodQuote.value?.inputFingerprint,
                     // FB-123: kalau jadwalkan, kirim flag + waktu ISO-8601.

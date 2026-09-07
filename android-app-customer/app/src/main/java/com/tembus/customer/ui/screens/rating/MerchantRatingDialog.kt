@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -102,7 +103,7 @@ fun MerchantRatingDialog(
                         onClick = onDismiss,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .size(32.dp)
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(Icons.Default.Close, contentDescription = CustomerTextCatalog.translate("Tutup"), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     }
@@ -176,7 +177,7 @@ fun MerchantRatingDialog(
                                 contentDescription = CustomerTextCatalog.translate("$starIndex bintang"),
                                 tint = if (starIndex <= selectedRating.toInt()) Color(0xFFF59E0B) else Color(0xFFCBD5E1),
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                                     .clip(CircleShape)
                                     .clickable { selectedRating = starIndex.toFloat() }
                                     .padding(4.dp)

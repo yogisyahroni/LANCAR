@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -133,7 +134,7 @@ fun CourierRatingDialog(
                         onClick = onDismiss,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .size(32.dp)
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(
                             Icons.Default.Close,
@@ -350,7 +351,7 @@ private fun ColumnScope.RatingFormContent(
                 contentDescription = CustomerTextCatalog.translate("$i bintang"),
                 tint = if (isFilled) Color(0xFFFFBB00) else MaterialTheme.colorScheme.outline,
                 modifier = Modifier
-                    .size(44.dp)
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     .scale(starScale)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -422,7 +423,7 @@ private fun ColumnScope.RatingFormContent(
                     fontSize = 12.sp,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = onDismissError, modifier = Modifier.size(20.dp)) {
+                IconButton(onClick = onDismissError, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "", tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(14.dp))
                 }
             }

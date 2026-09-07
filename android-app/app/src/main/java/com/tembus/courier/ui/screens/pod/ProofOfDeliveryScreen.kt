@@ -164,7 +164,7 @@ fun ProofOfDeliveryScreen(
                     )
                 }
                 uiState.capturedImageUri != null -> {
-                    if (!isPickupProof && !uiState.isSignatureCaptured) {
+                    if (CourierProofTypes.requiresSignatureForDelivery(order.contactless, normalizedProofMode) && !uiState.isSignatureCaptured) {
                         SignatureCaptureContent(
                             onSignatureCaptured = { bitmap ->
                                 viewModel.combinePhotoAndSignature(context, bitmap)

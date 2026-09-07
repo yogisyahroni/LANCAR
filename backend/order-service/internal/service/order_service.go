@@ -27,6 +27,7 @@ type orderServiceImpl struct {
 	ledgerRepo       domain.FinanceLedgerRepository
 	taxSvc           domain.TaxService
 	foodRepo         domain.FoodRepository
+	membershipRepo   domain.FoodMembershipRepository
 	settlementSvc    domain.MerchantSettlementService
 	pointsSvc        domain.DriverPointsService
 	penaltySvc       domain.DriverPenaltyService
@@ -90,6 +91,10 @@ func (s *orderServiceImpl) SetServiceReportService(reportSvc domain.ServiceRepor
 // Dipanggil dari wiring setelah service di-construct.
 func (s *orderServiceImpl) SetFoodRepository(fr domain.FoodRepository) {
 	s.foodRepo = fr
+}
+
+func (s *orderServiceImpl) SetFoodMembershipRepository(mr domain.FoodMembershipRepository) {
+	s.membershipRepo = mr
 }
 
 // SetAvailabilityRepository injects the operational capability and state

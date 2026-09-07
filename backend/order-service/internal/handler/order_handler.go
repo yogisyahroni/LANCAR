@@ -9,11 +9,15 @@ import (
 )
 
 type OrderHandler struct {
-	pricingSvc      domain.PricingService
-	orderSvc        domain.OrderService
-	foodQuoteSvc    domain.FoodQuoteService
-	meetingPointSvc domain.MeetingPointService
-	handoffSvc      domain.HandoffService
+	pricingSvc        domain.PricingService
+	orderSvc          domain.OrderService
+	foodQuoteSvc      domain.FoodQuoteService
+	foodGroupSvc      domain.FoodGroupService
+	foodMembershipSvc domain.FoodMembershipService
+	foodSponsoredSvc  domain.FoodSponsoredService
+	foodBundleSvc     domain.FoodBundleService
+	meetingPointSvc   domain.MeetingPointService
+	handoffSvc        domain.HandoffService
 }
 
 func NewOrderHandler(p domain.PricingService, o domain.OrderService, m domain.MeetingPointService) *OrderHandler {
@@ -30,6 +34,22 @@ func (h *OrderHandler) SetHandoffService(svc domain.HandoffService) {
 
 func (h *OrderHandler) SetFoodQuoteService(svc domain.FoodQuoteService) {
 	h.foodQuoteSvc = svc
+}
+
+func (h *OrderHandler) SetFoodGroupService(svc domain.FoodGroupService) {
+	h.foodGroupSvc = svc
+}
+
+func (h *OrderHandler) SetFoodMembershipService(svc domain.FoodMembershipService) {
+	h.foodMembershipSvc = svc
+}
+
+func (h *OrderHandler) SetFoodSponsoredService(svc domain.FoodSponsoredService) {
+	h.foodSponsoredSvc = svc
+}
+
+func (h *OrderHandler) SetFoodBundleService(svc domain.FoodBundleService) {
+	h.foodBundleSvc = svc
 }
 
 // userSafeError maps internal errors to safe user-facing messages and

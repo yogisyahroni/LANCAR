@@ -476,6 +476,21 @@ interface TEMBUSApiService {
         @Path("id") id: String
     ): Response<FoodMerchantDetailResponse>
 
+    @POST("api/v1/food/merchants/{merchantId}/sponsored-event")
+    suspend fun recordFoodSponsoredEvent(
+        @Path("merchantId") merchantId: String,
+        @Body request: Map<String, String>
+    ): Response<Map<String, Boolean>>
+
+    @POST("api/v1/food/bundles")
+    suspend fun createFoodBundle(@Body request: CreateFoodMultiStoreBundleRequest): Response<FoodMultiStoreBundle>
+
+    @GET("api/v1/food/bundles/{bundleId}")
+    suspend fun getFoodBundle(@Path("bundleId") bundleId: String): Response<FoodMultiStoreBundle>
+
+    @POST("api/v1/food/bundles/{bundleId}/orders/{orderId}")
+    suspend fun attachFoodBundleOrder(@Path("bundleId") bundleId: String, @Path("orderId") orderId: String): Response<Map<String, Boolean>>
+
     @POST("api/v1/orders/food")
     suspend fun createFoodOrder(
         @Header("X-Idempotency-Key") idempotencyKey: String,
@@ -486,6 +501,32 @@ interface TEMBUSApiService {
     suspend fun quoteFoodOrder(
         @Body request: CreateFoodOrderRequest
     ): Response<FoodQuoteResponse>
+
+    // FOOD-2026-020: shared cart and optional server allocation.
+    @POST("api/v1/food/groups")
+    suspend fun createFoodGroup(@Body request: CreateFoodGroupRequest): Response<FoodGroupOrder>
+
+    @GET("api/v1/food/groups/{groupId}")
+    suspend fun getFoodGroup(@Path("groupId") groupId: String): Response<FoodGroupOrder>
+
+    @POST("api/v1/food/groups/{groupId}/members")
+    suspend fun joinFoodGroup(@Path("groupId") groupId: String): Response<Map<String, Boolean>>
+
+    @POST("api/v1/food/groups/{groupId}/cart")
+    suspend fun addFoodGroupCartItem(@Path("groupId") groupId: String, @Body request: AddFoodGroupCartItemRequest): Response<FoodGroupCartItem>
+
+    // FOOD-2026-021: membership is pending until payment-service confirms it.
+    @GET("api/v1/food/membership/plans")
+    suspend fun listFoodMembershipPlans(): Response<Map<String, List<FoodMembershipPlan>>>
+
+    @GET("api/v1/food/membership")
+    suspend fun getFoodMembership(): Response<FoodMembershipEntitlement>
+
+    @POST("api/v1/food/membership")
+    suspend fun subscribeFoodMembership(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: Map<String, String>
+    ): Response<FoodMembershipEntitlement>
 
     // FB-084 REORDER: validasi ulang item order food lama (harga + availability)
     @GET("api/v1/orders/reorder-info")

@@ -161,6 +161,18 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if distanceKM > product.IncludedDistanceKM {
 		deliveryFee += int64(math.Ceil(distanceKM-product.IncludedDistanceKM)) * product.PerKmIDR
 	}
+	membershipSubsidy := int64(0)
+	membershipID := ""
+	if s.membershipRepo != nil {
+		entitlement, plan, benefitErr := s.membershipRepo.GetActiveFoodMembership(ctx, userID)
+		if benefitErr != nil {
+			return nil, fmt.Errorf("get food membership entitlement: %w", benefitErr)
+		}
+		membership := domain.CalculateFoodMembershipBenefit(entitlement, plan, subtotal, deliveryFee, req.DeliveryMethod)
+		membershipSubsidy = membership.SubsidyIDR
+		membershipID = membership.EntitlementID
+		deliveryFee -= membershipSubsidy
+	}
 	platformPct := product.PlatformFeePct
 	if platformPct <= 0 {
 		platformPct = 10
@@ -210,28 +222,36 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	quote := &domain.FoodQuoteResponse{
 		QuoteID: uuid.New().String(), InputFingerprint: foodQuoteInputFingerprint(req),
 		MerchantID: req.MerchantID, Items: quoteItems, SubtotalIDR: subtotal,
-		DeliveryFeeIDR: deliveryFee, PlatformFeeIDR: platformFee, TaxIDR: taxIDR, DiscountIDR: discount,
+		DeliveryFeeIDR: deliveryFee, PlatformFeeIDR: platformFee, TaxIDR: taxIDR, DiscountIDR: discount, MembershipSubsidyIDR: membershipSubsidy,
 		TotalPriceIDR: total, DistanceKM: distanceKM,
 		ETAMinutes: prepMinutes + pickupTravelMinutes,
 		ETASource:  "merchant_prep_plus_configured_route_speed", PricingRuleVersion: ruleVersion,
 		PrepMinutes: prepMinutes, PickupTravelMinutes: pickupTravelMinutes,
-		TrafficMinutes: &[]int{int(float64(pickupTravelMinutes) * 1.0)}[0],
-		BatchingMinutes: &[]int{0}[0],
-		SupplyStatus: "available",
-		Confidence: "high",
-		ExpiresAt: time.Now().Add(10 * time.Minute),
+		// Traffic, batching, and live courier supply are not available from a
+		// provider-backed signal in this quote path. Keep them unknown instead
+		// of converting configured route speed into fake traffic/supply data.
+		TrafficMinutes:  nil,
+		BatchingMinutes: nil,
+		SupplyStatus:    "unknown",
+		Confidence:      "medium",
+		ExpiresAt:       time.Now().Add(10 * time.Minute),
 	}
 	stored := &domain.PricingEstimateResponse{
 		EstimateID: quote.QuoteID, QuoteID: quote.QuoteID, InputFingerprint: quote.InputFingerprint,
 		ServiceCategory: "food", Currency: "IDR", TotalPriceIDR: total, ExpiresAt: quote.ExpiresAt,
+		ETAMinutes: quote.ETAMinutes, PrepMinutes: quote.PrepMinutes,
+		PickupTravelMinutes: quote.PickupTravelMinutes, TrafficMinutes: quote.TrafficMinutes,
+		BatchingMinutes: quote.BatchingMinutes, SupplyStatus: quote.SupplyStatus,
+		Confidence:   quote.Confidence,
 		BasePriceIDR: subtotal, DistanceKM: distanceKM, DistanceFeeIDR: deliveryFee,
 		PlatformFeeIDR: platformFee, PlatformFeePct: platformPct, TaxIDR: taxIDR, DiscountIDR: discount,
 		ETASource: quote.ETASource, PricingRuleVersion: ruleVersion,
 		FoodMerchantID: req.MerchantID, FoodItems: req.Items, FoodDropoffAddress: req.DropoffAddress,
 		FoodDropoffCity: req.DropoffCity, FoodDropoffZipCode: req.DropoffZipCode,
 		FoodVoucherCode: req.VoucherCode, FoodScheduledAt: req.ScheduledAt,
+		FoodMembershipID: membershipID,
 		PriceComponents: map[string]int64{
-			"food_subtotal_idr": subtotal, "delivery_fee_idr": deliveryFee,
+			"food_subtotal_idr": subtotal, "delivery_fee_idr": deliveryFee, "membership_subsidy_idr": membershipSubsidy,
 			"platform_fee_idr": platformFee, "tax_idr": taxIDR, "discount_idr": discount, "total_price_idr": total,
 		},
 	}

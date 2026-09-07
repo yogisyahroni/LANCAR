@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -130,6 +131,10 @@ fun FoodCheckoutScreen(
     var receiverPhone by remember { mutableStateOf("") }
     var orderNotes by remember { mutableStateOf("") } // FB-121: catatan level order
     var contactless by remember { mutableStateOf(false) } // FB-089
+    var cutlery by remember { mutableStateOf("default") } // FOOD-2026-016
+    var deliveryNote by remember { mutableStateOf("") }
+    var giftMode by remember { mutableStateOf(false) }
+    var receiverPrivacy by remember { mutableStateOf("standard") }
     var voucherInput by remember { mutableStateOf("") }
     val voucherState by viewModel.voucherState.collectAsState()
     // FB-123: pesanan terjadwal — toggle Pesan Sekarang / Jadwalkan.
@@ -625,6 +630,45 @@ fun FoodCheckoutScreen(
             )
 
             Spacer(Modifier.height(10.dp))
+            Text("Alat makan", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("default" to "Standar", "yes" to "Tambah", "no" to "Tanpa").forEach { (value, label) ->
+                    FilterChip(
+                        selected = cutlery == value,
+                        onClick = { cutlery = value },
+                        label = { Text(label, fontSize = 12.sp) }
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = deliveryNote,
+                onValueChange = { deliveryNote = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Catatan untuk kurir (lantai, patokan, dll.)", fontSize = 14.sp) },
+                minLines = 2,
+                shape = RoundedCornerShape(TembusRadius.Input)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text("Privasi penerima", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("standard" to "Standar", "doorstep" to "Taruh di pintu", "contactless" to "Tanpa kontak").forEach { (value, label) ->
+                    FilterChip(
+                        selected = receiverPrivacy == value,
+                        onClick = {
+                            receiverPrivacy = value
+                            contactless = value == "contactless"
+                        },
+                        label = { Text(label, fontSize = 12.sp) }
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = giftMode, onCheckedChange = { giftMode = it })
+                Text("Jadikan sebagai hadiah (sembunyikan ringkasan harga dari penerima)", fontSize = 12.sp)
+            }
+
+            Spacer(Modifier.height(10.dp))
             // FB-089: pilihan terstruktur untuk drop-off tanpa kontak.
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -638,7 +682,10 @@ fun FoodCheckoutScreen(
                 ) {
                     Checkbox(
                         checked = contactless,
-                        onCheckedChange = { contactless = it }
+                        onCheckedChange = {
+                            contactless = it
+                            receiverPrivacy = if (it) "contactless" else "standard"
+                        }
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -701,6 +748,10 @@ fun FoodCheckoutScreen(
                             voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
                             orderNotes = orderNotes, // FB-121
                             contactless = contactless, // FB-089
+                            cutlery = cutlery,
+                            deliveryNote = deliveryNote,
+                            giftMode = giftMode,
+                            receiverPrivacy = receiverPrivacy,
                             isScheduled = !scheduleNow, // FB-123
                             scheduledAt = scheduledAtIso(),
                             onResult = { result ->

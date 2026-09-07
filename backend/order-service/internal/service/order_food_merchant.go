@@ -12,7 +12,15 @@ func (s *orderServiceImpl) ListFoodMerchants(ctx context.Context, lat, lng float
 	if s.foodRepo == nil {
 		return nil, fmt.Errorf("food repository not wired")
 	}
-	return s.foodRepo.ListFoodMerchants(ctx, lat, lng, search, halal, 50)
+	merchants, err := s.foodRepo.ListFoodMerchants(ctx, lat, lng, search, halal, 50)
+	if err != nil {
+		return nil, err
+	}
+	variant := domain.FoodRankingDistanceFirst
+	if s.configRepo != nil {
+		variant = s.configRepo.GetStringConfig(ctx, "food_discovery_ranking_variant", variant)
+	}
+	return domain.RankFoodMerchants(merchants, variant), nil
 }
 
 func (s *orderServiceImpl) GetFoodMerchantDetail(ctx context.Context, merchantID string) (*domain.FoodMerchantInfo, error) {

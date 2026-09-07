@@ -284,5 +284,13 @@ object CourierProofTypes {
 
     fun isDeliveryProof(value: String): Boolean = normalize(value) in setOf(DELIVERY_POD_PHOTO, DELIVERY_SIGNATURE, DELIVERY_OTP)
 
+    /**
+     * Contactless delivery is intentionally photo-only: the courier must
+     * prove the drop-off location, but must not request a physical receiver
+     * signature. The backend still requires the delivery photo.
+     */
+    fun requiresSignatureForDelivery(contactless: Boolean, proofMode: String): Boolean =
+        !contactless && isDeliveryProof(proofMode)
+
     fun isOtpProof(value: String): Boolean = normalize(value) in setOf(PICKUP_OTP, DELIVERY_OTP)
 }

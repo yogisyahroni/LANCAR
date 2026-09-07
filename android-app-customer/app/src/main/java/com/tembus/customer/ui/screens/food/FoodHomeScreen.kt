@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -58,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -226,12 +228,22 @@ fun FoodHomeScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(merchants, key = { it.id }) { merchant ->
+                            if (merchant.isSponsored && !merchant.sponsoredCampaignId.isNullOrBlank()) {
+                                LaunchedEffect(merchant.id, merchant.sponsoredCampaignId) {
+                                    viewModel.recordSponsoredEvent(merchant.id, merchant.sponsoredCampaignId!!, "impression")
+                                }
+                            }
                             // Check if this merchant is in favorites
                             val favorites = viewModel.favoriteMerchants.collectAsState().value
                             val isFav = favorites.any { it.merchantId == merchant.id }
                             FoodMerchantCard(
                                 merchant = merchant,
-                                onClick = { onMerchantClick(merchant.id) },
+                                onClick = {
+                                    if (merchant.isSponsored && !merchant.sponsoredCampaignId.isNullOrBlank()) {
+                                        viewModel.recordSponsoredEvent(merchant.id, merchant.sponsoredCampaignId!!, "click")
+                                    }
+                                    onMerchantClick(merchant.id)
+                                },
                                 isFavorite = isFav,
                                 onFavoriteClick = {
                                     if (isFav) {
@@ -263,7 +275,7 @@ private fun FoodMerchantCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(TembusRadius.Card))
-            .clickable(onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(TembusRadius.Card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -311,7 +323,7 @@ private fun FoodMerchantCard(
                         onClick = onFavoriteClick,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .size(32.dp)
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -343,6 +355,9 @@ private fun FoodMerchantCard(
                         merchant.isHalalCertified -> HalalBadge(text = "Halal", container = Success)
                         merchant.isNonHalal -> HalalBadge(text = "Non-Halal", container = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+                if (merchant.isSponsored) {
+                    Text(merchant.adLabel ?: "Sponsored", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Primary)
                 }
                 Text(
                     merchant.address,

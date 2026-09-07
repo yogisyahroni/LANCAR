@@ -194,6 +194,15 @@ func (r *foodRepo) CreateFoodOrderWithItems(ctx context.Context, order *domain.O
 	if err := r.insertOrder(ctx, tx, order); err != nil {
 		return fmt.Errorf("insert order: %w", err)
 	}
+	if order.ServiceSubType == "food_delivery" && order.FoodETAPredictedAt != nil {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE orders
+			   SET food_eta_predicted_at = $1,
+			       updated_at = NOW()
+			 WHERE id = $2`, order.FoodETAPredictedAt, order.ID); err != nil {
+			return fmt.Errorf("persist food ETA prediction: %w", err)
+		}
+	}
 	for _, menuItemID := range menuItemIDs {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO food_inventory_reservations (order_id, menu_item_id, quantity, previous_is_available)
@@ -543,15 +552,26 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 				m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
 				COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
 				m.jam_buka::text, m.jam_tutup::text, m.halal_status,
+				COALESCE(sponsored.id::text, ''), (sponsored.id IS NOT NULL),
 				ROUND(CAST(ST_Distance(m.lokasi, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 AS NUMERIC), 2)::float AS distance_km,
 				COALESCE(AVG(r.stars), 0)::float AS avg_rating,
 				COUNT(r.id) AS rating_count
 			FROM merchants m
+			LEFT JOIN LATERAL (
+				SELECT p.id
+				FROM promo_campaigns p
+				WHERE p.status = 'active' AND p.starts_at <= NOW() AND p.ends_at > NOW()
+				  AND 'food_delivery' = ANY(p.service_codes)
+				  AND p.audience_rules->>'placement' = 'food_discovery'
+				  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = m.id::text)
+				ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC
+				LIMIT 1
+			) sponsored ON TRUE
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
 			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
 			  AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
 			  `+halalClause+`
-			GROUP BY m.id
+			GROUP BY m.id, sponsored.id
 			ORDER BY distance_km ASC
 			LIMIT $3`,
 			lng, lat, limit,
@@ -562,10 +582,21 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 				m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
 				COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
 				m.jam_buka::text, m.jam_tutup::text, m.halal_status,
+				COALESCE(sponsored.id::text, ''), (sponsored.id IS NOT NULL),
 				ROUND(CAST(ST_Distance(m.lokasi, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 AS NUMERIC), 2)::float AS distance_km,
 				COALESCE(AVG(r.stars), 0)::float AS avg_rating,
 				COUNT(r.id) AS rating_count
 			FROM merchants m
+			LEFT JOIN LATERAL (
+				SELECT p.id
+				FROM promo_campaigns p
+				WHERE p.status = 'active' AND p.starts_at <= NOW() AND p.ends_at > NOW()
+				  AND 'food_delivery' = ANY(p.service_codes)
+				  AND p.audience_rules->>'placement' = 'food_discovery'
+				  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = m.id::text)
+				ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC
+				LIMIT 1
+			) sponsored ON TRUE
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
 			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
 			AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
@@ -578,7 +609,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 					  WHERE mi.merchant_id = m.id AND mi.nama ILIKE '%' || $3 || '%'
 				  )
 			  )
-			GROUP BY m.id
+			GROUP BY m.id, sponsored.id
 			ORDER BY distance_km ASC
 			LIMIT $4`,
 			lng, lat, search, limit,
@@ -595,9 +626,11 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 	for rows.Next() {
 		var m domain.FoodMerchantInfo
 		var jamBuka, jamTutup, halalStatus sql.NullString
+		var sponsoredCampaignID string
+		var isSponsored bool
 		if err := rows.Scan(
 			&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
-			&m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus, &m.DistanceKM, &m.AvgRating, &m.RatingCount,
+			&m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus, &sponsoredCampaignID, &isSponsored, &m.DistanceKM, &m.AvgRating, &m.RatingCount,
 		); err != nil {
 			return nil, err
 		}
@@ -609,6 +642,11 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 		}
 		if halalStatus.Valid {
 			m.HalalStatus = halalStatus.String
+		}
+		m.IsSponsored = isSponsored
+		m.SponsoredCampaignID = sponsoredCampaignID
+		if isSponsored {
+			m.AdLabel = "Sponsored"
 		}
 		out = append(out, m)
 	}

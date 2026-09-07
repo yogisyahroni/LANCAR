@@ -16,6 +16,7 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 /**
  * FB-096 — cetak struk ke printer thermal 58mm/80mm via Bluetooth (ESC/POS).
@@ -102,6 +103,24 @@ object EscPos {
                 }
             }
         }
+    }
+
+    /** Retry only the isolated print side effect; order state is never changed. */
+    suspend fun printWithRetry(device: BluetoothDevice, struk: StrukData): String? {
+        var job = PrintJob(id = struk.orderId)
+        var lastError: String? = null
+        while (job.attempts < PrintQueuePolicy.MAX_ATTEMPTS) {
+            job = PrintQueuePolicy.start(job)
+            lastError = print(device, struk)
+            if (lastError == null) {
+                PrintQueuePolicy.success(job)
+                return null
+            }
+            job = PrintQueuePolicy.failure(job, lastError!!)
+            if (job.state == PrintJobState.FAILED) break
+            delay(PrintQueuePolicy.retryDelayMs(job.attempts))
+        }
+        return lastError ?: "Gagal mencetak struk"
     }
 
     // ─── Builder byte ESC/POS ───────────────────────────────────────────

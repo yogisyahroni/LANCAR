@@ -3,6 +3,8 @@ package com.tembus.customer.ui.screens.profile
 import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -37,8 +39,10 @@ fun LoyaltyScreen(
     val info by viewModel.loyaltyInfo.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val membership by viewModel.membership.collectAsState()
+    val membershipPlans by viewModel.membershipPlans.collectAsState()
 
-    LaunchedEffect(Unit) { viewModel.loadLoyaltyInfo() }
+    LaunchedEffect(Unit) { viewModel.loadLoyaltyInfo(); viewModel.loadFoodMembership() }
 
     Scaffold(
         containerColor = Color(0xFFF7F8FA),
@@ -75,7 +79,7 @@ fun LoyaltyScreen(
                     }
                 }
                 else -> {
-                    info?.let { LoyaltyContent(it) }
+                    info?.let { LoyaltyContent(it, membership, membershipPlans, viewModel::subscribeFoodMembership) }
                 }
             }
         }
@@ -83,7 +87,12 @@ fun LoyaltyScreen(
 }
 
 @Composable
-private fun LoyaltyContent(info: LoyaltyInfo) {
+private fun LoyaltyContent(
+    info: LoyaltyInfo,
+    membership: com.tembus.customer.data.model.FoodMembershipEntitlement?,
+    membershipPlans: List<com.tembus.customer.data.model.FoodMembershipPlan>,
+    onSubscribe: (String) -> Unit
+) {
     val tierColor = when (info.tier) {
         "Gold" -> Color(0xFFD4AF37)
         "Silver" -> Color(0xFF9CA3AF)
@@ -94,7 +103,7 @@ private fun LoyaltyContent(info: LoyaltyInfo) {
     )
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Tier Card
@@ -189,6 +198,27 @@ private fun LoyaltyContent(info: LoyaltyInfo) {
             "Tier dihitung dari jumlah order selesai dalam 30 hari terakhir.",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Food Member", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Primary)
+                when {
+                    membership?.status == "active" -> Text("Aktif • sisa subsidi ongkir Rp ${membership.freeDeliveryRemainingIdr}", color = Color(0xFF166534))
+                    membership?.status == "pending_payment" -> Text("Menunggu konfirmasi pembayaran membership", color = Color(0xFF92400E))
+                    membershipPlans.isEmpty() -> Text("Paket membership belum tersedia", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else -> {
+                        val plan = membershipPlans.first()
+                        Text("${plan.name} • Rp ${plan.monthlyFeeIdr}/bulan", fontWeight = FontWeight.SemiBold)
+                        Text("Gratis ongkir sampai Rp ${plan.freeDeliveryCapIdr} per periode, minimum order Rp ${plan.minimumSubtotalIdr}.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Button(onClick = { onSubscribe(plan.id) }, modifier = Modifier.fillMaxWidth()) { Text("Daftar Food Member") }
+                    }
+                }
+            }
+        }
     }
 }
 

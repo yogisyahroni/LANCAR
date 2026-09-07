@@ -33,6 +33,13 @@ class CourierRouteReducerTest {
     }
 
     @Test
+    fun `contactless delivery uses photo POD without receiver signature`() {
+        assertFalse(CourierProofTypes.requiresSignatureForDelivery(true, CourierProofTypes.DELIVERY_POD_PHOTO))
+        assertTrue(CourierProofTypes.requiresSignatureForDelivery(false, CourierProofTypes.DELIVERY_POD_PHOTO))
+        assertFalse(CourierProofTypes.requiresSignatureForDelivery(true, CourierProofTypes.PICKUP_PHOTO))
+    }
+
+    @Test
     fun `child route with order returns to order detail`() {
         val state = CourierRouteReducer.chat("TMB-004")
 

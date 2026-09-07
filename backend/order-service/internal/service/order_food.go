@@ -220,6 +220,18 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		extra := int64(math.Ceil(distanceKM - svc.IncludedDistanceKM))
 		deliveryFee += extra * svc.PerKmIDR
 	}
+	membershipSubsidy := int64(0)
+	membershipID := ""
+	if s.membershipRepo != nil {
+		entitlement, plan, benefitErr := s.membershipRepo.GetActiveFoodMembership(ctx, userID)
+		if benefitErr != nil {
+			return nil, fmt.Errorf("get food membership entitlement: %w", benefitErr)
+		}
+		benefit := domain.CalculateFoodMembershipBenefit(entitlement, plan, subtotal, deliveryFee, req.DeliveryMethod)
+		membershipSubsidy = benefit.SubsidyIDR
+		membershipID = benefit.EntitlementID
+		deliveryFee -= membershipSubsidy
+	}
 
 	// 6. Biaya layanan (platform fee) — default 10% kalau config 0
 	platformFeePct := svc.PlatformFeePct
@@ -286,56 +298,82 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		serviceSubType = "food_delivery"
 	}
 	now := time.Now()
+	foodETAPredictedAt := now.Add(time.Duration(foodQuote.ETAMinutes) * time.Minute)
+	cutlery := req.Cutlery
+	if cutlery == "" {
+		cutlery = "default"
+	}
+	receiverPrivacy := req.ReceiverPrivacy
+	if receiverPrivacy == "" {
+		if req.Contactless {
+			receiverPrivacy = "contactless"
+		} else {
+			receiverPrivacy = "standard"
+		}
+	}
+	contactless := req.Contactless || receiverPrivacy == "contactless"
 	order := &domain.Order{
-		ID:                  orderID,
-		OrderNumber:         orderNum,
-		CustomerID:          userID,
-		Model:               "p2p", // CHECK constraint orders_model_check — hanya p2p/two_legs/three_legs/hub_and_spoke; food = p2p + service_sub_type food_delivery
-		Status:              domain.StatusPendingPayment,
-		PickupAddress:       merchant.Address,
-		PickupLat:           merchant.Lat,
-		PickupLng:           merchant.Lng,
-		DropoffAddress:      req.DropoffAddress,
-		DropoffCity:         req.DropoffCity,
-		DropoffZipCode:      req.DropoffZipCode,
-		DropoffLat:          req.DropoffLat,
-		DropoffLng:          req.DropoffLng,
-		ItemDescription:     "Pesanan makanan",
-		DistanceKM:          distanceKM,
-		IncludedDistanceKM:  svc.IncludedDistanceKM,
-		DistanceFeeIDR:      deliveryFee,
-		BasePriceIDR:        subtotal,
-		DynamicPriceIDR:     subtotal,
-		TotalPriceIDR:       total,
-		DiscountIDR:         voucherDiscount,
-		PromoCode:           req.VoucherCode,
-		PricingSnapshot:     string(pricingSnapshot),
-		TaxRuleCode:         taxSnapshot.TaxRuleCode,
-		PPNRateEffectivePct: taxSnapshot.PPNRateEffectivePct,
-		PPNRateStatutoryPct: taxSnapshot.PPNRateStatutoryPct,
-		DPPIDR:              taxSnapshot.DPPIDR,
-		PPNIDR:              taxSnapshot.PPNIDR,
-		PlatformFeeIDR:      platformFee,
-		PlatformFeePct:      platformFeePct,
-		HandoverToken:       handoverToken,
-		QRCodeURL:           qrURL,
-		ReceiverName:        req.ReceiverName,
-		ReceiverPhone:       req.ReceiverPhone,
-		ServiceSubType:      serviceSubType,
-		Contactless:         req.Contactless,
-		OrderNotes:          req.OrderNotes, // FB-121: catatan level order
-		MerchantID:          &merchantID,
-		PrepTimeMinutes:     &prepMin,
-		ScheduledAt:         scheduledAt, // FB-123: NULL = pesan langsung
-		IsScheduled:         scheduledAt != nil,
-		CorrelationID:       uuid.New().String(),
-		CreatedAt:           now,
-		UpdatedAt:           now,
+		ID:                   orderID,
+		OrderNumber:          orderNum,
+		CustomerID:           userID,
+		Model:                "p2p", // CHECK constraint orders_model_check — hanya p2p/two_legs/three_legs/hub_and_spoke; food = p2p + service_sub_type food_delivery
+		Status:               domain.StatusPendingPayment,
+		PickupAddress:        merchant.Address,
+		PickupLat:            merchant.Lat,
+		PickupLng:            merchant.Lng,
+		DropoffAddress:       req.DropoffAddress,
+		DropoffCity:          req.DropoffCity,
+		DropoffZipCode:       req.DropoffZipCode,
+		DropoffLat:           req.DropoffLat,
+		DropoffLng:           req.DropoffLng,
+		ItemDescription:      "Pesanan makanan",
+		DistanceKM:           distanceKM,
+		IncludedDistanceKM:   svc.IncludedDistanceKM,
+		DistanceFeeIDR:       deliveryFee,
+		BasePriceIDR:         subtotal,
+		DynamicPriceIDR:      subtotal,
+		TotalPriceIDR:        total,
+		DiscountIDR:          voucherDiscount,
+		MembershipSubsidyIDR: membershipSubsidy,
+		PromoCode:            req.VoucherCode,
+		PricingSnapshot:      string(pricingSnapshot),
+		TaxRuleCode:          taxSnapshot.TaxRuleCode,
+		PPNRateEffectivePct:  taxSnapshot.PPNRateEffectivePct,
+		PPNRateStatutoryPct:  taxSnapshot.PPNRateStatutoryPct,
+		DPPIDR:               taxSnapshot.DPPIDR,
+		PPNIDR:               taxSnapshot.PPNIDR,
+		PlatformFeeIDR:       platformFee,
+		PlatformFeePct:       platformFeePct,
+		HandoverToken:        handoverToken,
+		QRCodeURL:            qrURL,
+		ReceiverName:         req.ReceiverName,
+		ReceiverPhone:        req.ReceiverPhone,
+		ServiceSubType:       serviceSubType,
+		Contactless:          contactless,
+		OrderNotes:           req.OrderNotes, // FB-121: catatan level order
+		Cutlery:              cutlery,
+		DeliveryNote:         req.DeliveryNote,
+		GiftMode:             req.GiftMode,
+		ReceiverPrivacy:      receiverPrivacy,
+		GroupOrderID:         req.GroupOrderID,
+		MerchantID:           &merchantID,
+		PrepTimeMinutes:      &prepMin,
+		FoodETAPredictedAt:   &foodETAPredictedAt,
+		ScheduledAt:          scheduledAt, // FB-123: NULL = pesan langsung
+		IsScheduled:          scheduledAt != nil,
+		CorrelationID:        uuid.New().String(),
+		CreatedAt:            now,
+		UpdatedAt:            now,
 	}
 
 	// 8. Simpan order + items dalam SATU transaksi
 	if err := s.foodRepo.CreateFoodOrderWithItems(ctx, order, orderItems); err != nil {
 		return nil, err
+	}
+	if membershipSubsidy > 0 && membershipID != "" && s.membershipRepo != nil {
+		if err := s.membershipRepo.RecordFoodMembershipSubsidy(ctx, membershipID, order.ID, membershipSubsidy); err != nil {
+			return nil, fmt.Errorf("record food membership subsidy: %w", err)
+		}
 	}
 
 	// 8.b Catat pemakaian voucher SETELAH order sukses — kalau order gagal,

@@ -240,6 +240,21 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 		o.ServiceCategory, o.ContractVersion, sqlNullableString(o.QuoteID), o.StateVersion, sqlNullableString(o.CorrelationID), serviceMetadata,
 		o.CreatedAt, o.UpdatedAt,
 	)
+	if err != nil {
+		return err
+	}
+	// FOOD-2026-016: keep checkout options in the same transaction as the
+	// order insert. Separate UPDATE avoids changing the legacy positional
+	// insert contract used by other order types.
+	_, err = q.ExecContext(ctx, `
+		UPDATE orders
+		   SET cutlery = NULLIF($1, ''),
+		       delivery_note = NULLIF($2, ''),
+		       gift_mode = $3,
+		       receiver_privacy = NULLIF($4, ''),
+		       group_order_id = NULLIF($5, '')::uuid
+		 WHERE id = $6`,
+		o.Cutlery, o.DeliveryNote, o.GiftMode, o.ReceiverPrivacy, o.GroupOrderID, o.ID)
 	return err
 }
 
@@ -260,8 +275,12 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				COALESCE(o.tax_rule_code, ''), COALESCE(o.ppn_rate_effective_pct, 0), COALESCE(o.ppn_rate_statutory_pct, 0), COALESCE(o.dpp_idr, 0), COALESCE(o.ppn_idr, 0),
 				COALESCE(o.tax_invoice_required, false), COALESCE(o.tax_invoice_status, ''), COALESCE(o.platform_fee_idr, 0), COALESCE(o.platform_fee_pct, 0), COALESCE(o.promo_subsidy_idr, 0),
 				COALESCE(o.service_sub_type, ''), COALESCE(o.service_code, ''), COALESCE(o.merchant_id::text, ''), o.merchant_accepted_at, o.prep_time_minutes, o.food_ready_at,
+				o.food_eta_predicted_at, o.food_eta_actual_ready_at, o.picked_up_at, o.delivered_at,
 				COALESCE(o.contactless, false),
 				COALESCE(o.order_notes, ''),
+				COALESCE(o.cutlery, 'default'), COALESCE(o.delivery_note, ''),
+				COALESCE(o.gift_mode, false), COALESCE(o.receiver_privacy, 'standard'),
+				COALESCE(o.group_order_id::text, ''),
 				o.scheduled_at,
 				COALESCE(o.service_category, ''), COALESCE(o.contract_version, '2026-09-01'), COALESCE(o.quote_id, ''),
 				COALESCE(o.state_version, 1), COALESCE(o.correlation_id::text, ''), COALESCE(o.service_metadata, '{}'::jsonb),
@@ -288,8 +307,10 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
 		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
 		&o.ServiceSubType, &o.ServiceCode, &merchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
+		&o.FoodETAPredictedAt, &o.FoodETAActualReadyAt, &o.PickedUpAt, &o.DeliveredAt,
 		&o.Contactless,
 		&o.OrderNotes,
+		&o.Cutlery, &o.DeliveryNote, &o.GiftMode, &o.ReceiverPrivacy, &o.GroupOrderID,
 		&o.ScheduledAt, // FB-123: NULL = pesan langsung
 		&o.ServiceCategory, &o.ContractVersion, &o.QuoteID, &o.StateVersion, &o.CorrelationID, &serviceMetadata,
 		&o.MerchantName,
@@ -481,7 +502,11 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 
 func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
 	query := `UPDATE orders
-	             SET status = $1, updated_at = $2
+	             SET status = $1,
+	                 updated_at = $2,
+	                 food_eta_actual_ready_at = CASE WHEN $1 = 'searching' AND service_sub_type = 'food_delivery' THEN COALESCE(food_eta_actual_ready_at, $2) ELSE food_eta_actual_ready_at END,
+	                 picked_up_at = CASE WHEN $1 = 'picked_up' AND service_sub_type = 'food_delivery' THEN COALESCE(picked_up_at, $2) ELSE picked_up_at END,
+	                 delivered_at = CASE WHEN $1 = 'delivered' AND service_sub_type = 'food_delivery' THEN COALESCE(delivered_at, $2) ELSE delivered_at END
 	           WHERE id = $3
 	             AND (status = $1 OR status NOT IN ('delivered', 'cancelled'))`
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
@@ -499,7 +524,10 @@ func (r *postgresRepo) UpdateStatusOptimistic(ctx context.Context, id string, st
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE orders
 		   SET status = $1,
-		       updated_at = $2
+		       updated_at = $2,
+		       food_eta_actual_ready_at = CASE WHEN $1 = 'searching' AND service_sub_type = 'food_delivery' THEN COALESCE(food_eta_actual_ready_at, $2) ELSE food_eta_actual_ready_at END,
+		       picked_up_at = CASE WHEN $1 = 'picked_up' AND service_sub_type = 'food_delivery' THEN COALESCE(picked_up_at, $2) ELSE picked_up_at END,
+		       delivered_at = CASE WHEN $1 = 'delivered' AND service_sub_type = 'food_delivery' THEN COALESCE(delivered_at, $2) ELSE delivered_at END
 		 WHERE id = $3
 		   AND COALESCE(state_version, 1) = $4
 		   AND status NOT IN ('delivered', 'cancelled')`,
