@@ -358,6 +358,58 @@ internal fun ProfileContent(
 
         CourierLanguagePickerCard()
 
+        if (!courierProfile?.enforcementActions.isNullOrEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.GppMaybe, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Akses layanan sedang dibatasi", fontWeight = FontWeight.Bold)
+                            Text(
+                                "Pekerjaan aktif diprioritaskan untuk selesai atau dialihkan dengan aman sebelum suspend akun bila memungkinkan.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                    courierProfile?.enforcementActions?.take(5)?.forEach { action ->
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "${action.enforcementType.replace('_', ' ').replaceFirstChar { it.uppercase() }} • ${action.scope.replace('_', ' ')} • ${action.reasonCategory.replace('_', ' ')}",
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(action.actionableReason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text(
+                                when (action.safeJobPolicy) {
+                                    "reassign_unpicked_jobs" -> "Pekerjaan pickup yang belum dimulai akan dikembalikan ke antrean."
+                                    "immediate_safety_stop" -> "Penghentian keselamatan berlaku segera; ikuti arahan dukungan."
+                                    else -> "Selesaikan pekerjaan aktif yang sedang berjalan sebelum suspend akun."
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            if (action.appealEligible) {
+                                Text(
+                                    "Banding dapat diajukan melalui dukungan TEMBUS; keputusan ditinjau dan dicatat.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

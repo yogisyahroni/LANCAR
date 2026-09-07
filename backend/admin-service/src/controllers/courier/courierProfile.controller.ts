@@ -73,6 +73,47 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
          ), '[]'::jsonb) AS operating_zone_ids,
          cp.max_weight_capacity_kg,
          cp.max_packages_capacity,
+         COALESCE((
+           SELECT jsonb_agg(jsonb_build_object(
+             'id', cea.id,
+             'courier_profile_id', cea.courier_profile_id,
+             'enforcement_type', cea.enforcement_type,
+             'scope', cea.scope,
+             'market_code', cea.market_code,
+             'service_code', cea.service_code,
+             'reason_category', cea.reason_category,
+             'actionable_reason', CASE
+               WHEN cea.disclosure_level = 'security_restricted'
+                 THEN 'Akses sedang dibatasi sementara untuk pemeriksaan keamanan. Hubungi dukungan TEMBUS untuk tindak lanjut.'
+               ELSE COALESCE(NULLIF(cea.courier_message, ''), 'Akses layanan sedang dibatasi. Ajukan banding melalui aplikasi untuk meminta peninjauan.')
+             END,
+             'disclosure_level', cea.disclosure_level,
+             'effective_from', cea.effective_from,
+             'effective_until', cea.effective_until,
+             'safe_job_policy', cea.safe_job_policy,
+             'status', cea.status,
+             'active_job_count', (
+               SELECT COUNT(*)::int
+               FROM order_legs eol
+               WHERE eol.courier_id = u.id
+                 AND COALESCE(eol.status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+             ),
+             'appeal_eligible', TRUE
+           ) ORDER BY cea.effective_from DESC, cea.created_at DESC)
+           FROM courier_enforcement_actions cea
+           WHERE cea.courier_profile_id = cp.id
+             AND (
+               (cea.status IN ('active', 'pending_safe_completion')
+                AND cea.effective_from <= NOW()
+                AND (cea.effective_until IS NULL OR cea.effective_until > NOW()))
+               OR cea.status = 'scheduled'
+             )
+             AND (
+               cea.scope = 'account'
+               OR (cea.scope = 'market' AND LOWER(cea.market_code) = LOWER(cp.market_code))
+               OR cea.scope = 'capability'
+             )
+         ), '[]'::jsonb) AS enforcement_actions,
          COUNT(ol.id)::int AS total_deliveries,
          COUNT(ol.id) FILTER (WHERE ol.updated_at::date = CURRENT_DATE)::int AS today_deliveries,
          COALESCE(SUM(ol.assigned_fee_idr) FILTER (WHERE ol.status = 'delivered'), 0)::int AS total_earnings_idr,
@@ -83,7 +124,7 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
        LEFT JOIN zones z ON z.id = cp.current_zone_id
        LEFT JOIN order_legs ol ON ol.courier_id = u.id AND ol.status = 'delivered'
        WHERE u.id = $1 AND u.role = 'courier'
-       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.application_channel,
+       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.id, cp.vehicle_type, cp.application_channel,
                 cp.market_code, cp.onboarding_status, cp.verification_status, cp.home_zone_id,
                 cp.is_online, cps.effective_presence_state, cps.presence_state, cps.work_state,
                 cps.presence_reason, cps.heartbeat_at, cps.is_matchable, cps.active_job_count,
@@ -134,6 +175,7 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
         } : null,
         max_weight_capacity_kg: courier.max_weight_capacity_kg,
         max_packages_capacity: courier.max_packages_capacity,
+        enforcement_actions: courier.enforcement_actions || [],
       },
       message: 'Courier profile loaded',
     });

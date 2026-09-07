@@ -69,6 +69,26 @@ describe('courier onboarding activation authority', () => {
     expect(client.release).toHaveBeenCalled();
   });
 
+  it('routes suspension through the audited enforcement workflow', async () => {
+    const response = makeResponse();
+
+    await updateCourierStatus({
+      params: { id: 'profile-1' },
+      body: { status: 'Suspended' },
+      user: { id: 'admin-1' },
+    } as any, response);
+
+    expect(response.statusCodeValue).toBe(409);
+    expect(response.bodyValue).toEqual(expect.objectContaining({
+      code: 'ERR_COURIER_ENFORCEMENT_REQUIRED',
+      data: expect.objectContaining({
+        endpoint: '/admin/couriers/profile-1/enforcement-actions',
+        action_type: 'suspension',
+      }),
+    }));
+    expect(db.connect).not.toHaveBeenCalled();
+  });
+
   it('requires an allowed compliance document status', async () => {
     const response = makeResponse();
     await updateCourierDocumentVerification({

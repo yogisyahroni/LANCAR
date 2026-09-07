@@ -12,3 +12,4 @@ export * from './courierOnDemand.controller';
 export * from './courierOffer.controller';
 export * from './courierProof.controller';
 export * from './courierAccount.controller';
+export * from './courierEnforcement.controller';

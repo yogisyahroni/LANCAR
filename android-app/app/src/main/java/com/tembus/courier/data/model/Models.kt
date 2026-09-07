@@ -523,6 +523,30 @@ data class CourierQualityAppealData(
 )
 
 @Serializable
+data class CourierEnforcementAppealRequest(
+    @SerialName("enforcement_action_id") val enforcementActionId: String,
+    @SerialName("reason") val reason: String
+)
+
+@Serializable
+data class CourierEnforcementAppealData(
+    @SerialName("appeal") val appeal: CourierEnforcementAppeal,
+    @SerialName("server_authoritative") val serverAuthoritative: Boolean = true
+)
+
+@Serializable
+data class CourierEnforcementAppeal(
+    @SerialName("id") val id: String,
+    @SerialName("enforcement_action_id") val enforcementActionId: String,
+    @SerialName("courier_profile_id") val courierProfileId: String,
+    @SerialName("reason") val reason: String,
+    @SerialName("status") val status: String,
+    @SerialName("review_note") val reviewNote: String? = null,
+    @SerialName("submitted_at") val submittedAt: String,
+    @SerialName("reviewed_at") val reviewedAt: String? = null
+)
+
+@Serializable
 data class CourierSafetyEventData(
     @SerialName("id")
     val id: String,

@@ -83,6 +83,25 @@ data class CourierZone(
 )
 
 @Serializable
+data class CourierEnforcementAction(
+    @SerialName("id") val id: String,
+    @SerialName("courier_profile_id") val courierProfileId: String? = null,
+    @SerialName("enforcement_type") val enforcementType: String,
+    @SerialName("scope") val scope: String,
+    @SerialName("market_code") val marketCode: String? = null,
+    @SerialName("service_code") val serviceCode: String? = null,
+    @SerialName("reason_category") val reasonCategory: String,
+    @SerialName("actionable_reason") val actionableReason: String,
+    @SerialName("disclosure_level") val disclosureLevel: String = "actionable",
+    @SerialName("effective_from") val effectiveFrom: String? = null,
+    @SerialName("effective_until") val effectiveUntil: String? = null,
+    @SerialName("safe_job_policy") val safeJobPolicy: String = "allow_active_job_completion",
+    @SerialName("status") val status: String,
+    @SerialName("active_job_count") val activeJobCount: Int = 0,
+    @SerialName("appeal_eligible") val appealEligible: Boolean = true
+)
+
+@Serializable
 data class CourierProfile(
     @SerialName("courier_id")
     val courierId: String,
@@ -146,7 +165,10 @@ data class CourierProfile(
     val radiusMaxKm: Int = 1,
 
     @SerialName("current_zone")
-    val currentZone: CourierZone? = null
+    val currentZone: CourierZone? = null,
+
+    @SerialName("enforcement_actions")
+    val enforcementActions: List<CourierEnforcementAction> = emptyList()
 )
 
 @Serializable

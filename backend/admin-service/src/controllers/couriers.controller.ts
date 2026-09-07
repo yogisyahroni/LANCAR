@@ -1280,6 +1280,23 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
     return;
   }
 
+  if (targetState === 'SUSPENDED') {
+    res.status(409).json({
+      error: 'Courier suspension must be created through the enforcement workflow',
+      code: 'ERR_COURIER_ENFORCEMENT_REQUIRED',
+      data: {
+        endpoint: `/admin/couriers/${id}/enforcement-actions`,
+        action_type: 'suspension',
+        safe_job_policies: [
+          'allow_active_job_completion',
+          'reassign_unpicked_jobs',
+          'immediate_safety_stop',
+        ],
+      },
+    });
+    return;
+  }
+
   const actorId = getActorId(req);
   const client = await db.connect();
   try {
@@ -1372,7 +1389,7 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
         targetState,
         verificationStatusForCourierState(targetState),
         targetState === 'ACTIVE',
-        targetState === 'ACTIVE' ? 'active' : targetState === 'SUSPENDED' ? 'suspended' : 'offline',
+        targetState === 'ACTIVE' ? 'active' : 'offline',
         String(req.body?.reason || ''),
         actorId,
         id,
