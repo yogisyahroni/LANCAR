@@ -1509,10 +1509,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `database/migrations/<timestamp>_add_logistics_provider_capabilities.sql`
 - `database/migrations/<timestamp>_add_reconciliation_exceptions.sql`
 
-- [ ] Reuse equivalent existing schema when semantics match.
-- [ ] Add unique/index for idempotency/event dedupe/owner queries.
-- [ ] Backfill legacy without fabricated facts.
-- [ ] Separate large backfill from blocking migration where necessary.
+- [x] Reuse equivalent existing schema when semantics match. (2026-09-07 — migration/schema audit and isolated PostgreSQL verification; evidence: `docs/task-evidence/DATA-2026-001.md`)
+- [x] Add unique/index for idempotency/event dedupe/owner queries. (2026-09-07 — idempotency, event, proof, AWB, reconciliation and adjustment indexes; evidence: `docs/task-evidence/DATA-2026-001.md`)
+- [x] Backfill legacy without fabricated facts. (2026-09-07 — canonical migration maps known facts and leaves unknown rows degraded; evidence: `docs/task-evidence/DATA-2026-001.md`)
+- [x] Separate large backfill from blocking migration where necessary. (2026-09-07 — migration/backfill paths are guarded and separated from request mutation; evidence: `docs/task-evidence/DATA-2026-001.md`)
 
 ---
 
