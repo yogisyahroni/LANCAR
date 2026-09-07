@@ -35,7 +35,11 @@ import { dispatchNextOnDemandCourier } from './courierOnDemand.controller';
 
 import {
   CreatedDispatchOffer,
+  courierOfferProofRequirements,
+  ON_DEMAND_DISPATCH_STRATEGY_VERSION,
   ON_DEMAND_OFFER_TTL_SECONDS,
+  ON_DEMAND_OFFER_RULE_VERSION,
+  ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION,
   expireStaleOnDemandOffers,
   mobileOrderSelect,
   normalizeMobileOrder,
@@ -63,6 +67,11 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
         stage: 'offer_created',
         metadata: {
           dispatch_id: offer.dispatch_id,
+          dispatch_strategy_version: offer.dispatch_strategy_version || ON_DEMAND_DISPATCH_STRATEGY_VERSION,
+          offer_rule_version: offer.offer_rule_version || ON_DEMAND_OFFER_RULE_VERSION,
+          performance_signal_policy_version: offer.performance_signal_policy_version || ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION,
+          capability_requirements: offer.capability_requirements || null,
+          proof_requirements: offer.proof_requirements || null,
           pickup_address: offer.pickup_address || '',
           distance: offer.distance || '',
           fee: offer.fee || '',
@@ -96,6 +105,11 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
         deep_link: `tembus://orders/${offer.order_id}`,
         metadata: {
           dispatch_id: offer.dispatch_id,
+          dispatch_strategy_version: offer.dispatch_strategy_version || ON_DEMAND_DISPATCH_STRATEGY_VERSION,
+          offer_rule_version: offer.offer_rule_version || ON_DEMAND_OFFER_RULE_VERSION,
+          performance_signal_policy_version: offer.performance_signal_policy_version || ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION,
+          capability_requirements: offer.capability_requirements || null,
+          proof_requirements: offer.proof_requirements || null,
           order_id: offer.order_id,
           pickup_address: offer.pickup_address || '',
           drop_address: 'Alamat tujuan dibuka setelah pekerjaan diterima',
@@ -148,6 +162,7 @@ export const getMobileCourierOffers = async (req: Request, res: Response) => {
     const result = await client.query(
       `SELECT ${mobileOrderSelect},
          d.id AS dispatch_id,
+         d.metadata AS dispatch_metadata,
          (EXTRACT(EPOCH FROM d.expires_at) * 1000)::bigint AS offer_expires_at,
          GREATEST(CEIL(EXTRACT(EPOCH FROM (d.expires_at - NOW()))), 0)::int AS offer_ttl_seconds
        FROM orders o
@@ -168,7 +183,20 @@ export const getMobileCourierOffers = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: result.rows.map(normalizeOfferMobileOrder),
+      data: result.rows.map((row: any) => {
+        const metadata = row.dispatch_metadata && typeof row.dispatch_metadata === 'object'
+          ? row.dispatch_metadata
+          : {};
+        const { dispatch_metadata: _dispatchMetadata, ...offerRow } = row;
+        return normalizeOfferMobileOrder({
+          ...offerRow,
+          dispatch_strategy_version: metadata.dispatch_strategy_version,
+          offer_rule_version: metadata.offer_rule_version,
+          performance_signal_policy_version: metadata.performance_signal_policy_version,
+          capability_requirements: metadata.capability_requirements,
+          proof_requirements: metadata.proof_requirements || courierOfferProofRequirements(row),
+        });
+      }),
       message: 'Courier on-demand offers loaded',
     });
   } catch (error) {

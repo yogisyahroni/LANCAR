@@ -34,7 +34,11 @@ import {
 import {
   CreatedDispatchOffer,
   ON_DEMAND_DISPATCH_READY_STATUSES,
+  ON_DEMAND_DISPATCH_STRATEGY_VERSION,
   ON_DEMAND_OFFER_TTL_SECONDS,
+  ON_DEMAND_OFFER_RULE_VERSION,
+  ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION,
+  courierOfferProofRequirements,
   expireStaleOnDemandOffers,
   routeContractFromOrder,
 } from './_shared';
@@ -151,6 +155,12 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           NULLIF(o.route_snapshot->>'snapshot_version', '')::int AS route_snapshot_version,
           NULLIF(o.route_snapshot->>'route_version', '') AS route_version,
           o.service_code,
+          COALESCE(dsp.face_verification_required, TRUE) AS service_face_verification_required,
+          COALESCE(dsp.proof_geofence_radius_m, 10)::int AS service_proof_geofence_radius_m,
+          COALESCE(dsp.proof_min_accuracy_m, 50)::int AS service_proof_min_accuracy_m,
+          COALESCE(dsp.failed_delivery_policy, 'must_deliver') AS service_failed_delivery_policy,
+          COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
+          dsp.service_category,
           o.merchant_id,
           COALESCE(dsp.max_active_orders_on_demand, 1)::int AS max_active_orders_on_demand,
           COALESCE(dsp.same_customer_batching_required, TRUE) AS same_customer_batching_required,
@@ -272,6 +282,16 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
   const experimentMetadata = courierExperimentMetadata(nextCourier);
   const routeDispatchMetadata = {
     source: 'dispatch_engine_v1',
+    dispatch_strategy_version: ON_DEMAND_DISPATCH_STRATEGY_VERSION,
+    offer_rule_version: ON_DEMAND_OFFER_RULE_VERSION,
+    performance_signal_policy_version: ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION,
+    capability_requirements: {
+      service_code: nextCourier.service_code,
+      application_channel: 'on_demand',
+      capability_status: 'enabled',
+      vehicle_type: nextCourier.vehicle_type || null,
+    },
+    proof_requirements: courierOfferProofRequirements(nextCourier),
     vehicle_id: nextCourier.vehicle_id,
     route_snapshot_hash: routeContract.snapshot_hash,
     route_snapshot_version: routeContract.snapshot_version,
@@ -413,6 +433,11 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
     courier_payout_estimate_idr: Number(nextCourier.courier_payout_estimate_idr || 0),
     courier_earning_policy: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).policy,
     courier_earning_components: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).components,
+    proof_requirements: routeDispatchMetadata.proof_requirements,
+    dispatch_strategy_version: ON_DEMAND_DISPATCH_STRATEGY_VERSION,
+    offer_rule_version: ON_DEMAND_OFFER_RULE_VERSION,
+    performance_signal_policy_version: ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION,
+    capability_requirements: routeDispatchMetadata.capability_requirements,
   };
 };
 
@@ -472,6 +497,12 @@ export const dispatchToPreferredCourier = async (
        COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS') AS service_name,
        o.merchant_id,
        o.service_code,
+       COALESCE(dsp.face_verification_required, TRUE) AS service_face_verification_required,
+       COALESCE(dsp.proof_geofence_radius_m, 10)::int AS service_proof_geofence_radius_m,
+       COALESCE(dsp.proof_min_accuracy_m, 50)::int AS service_proof_min_accuracy_m,
+       COALESCE(dsp.failed_delivery_policy, 'must_deliver') AS service_failed_delivery_policy,
+       COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
+       dsp.service_category,
        NULLIF(o.route_snapshot->>'vehicle_type', '') AS vehicle_type,
        COALESCE(NULLIF(o.route_snapshot->>'eta_minutes', '')::int, 0) AS eta_minutes,
        o.route_profile,
@@ -604,7 +635,22 @@ export const dispatchToPreferredCourier = async (
       nextCourier.acceptance_rate_snapshot,
       nextCourier.completion_rate_snapshot,
       ON_DEMAND_OFFER_TTL_SECONDS,
-      JSON.stringify({ source: 'customer_selected', dispatch_type: 'preferred', vehicle_id: nextCourier.vehicle_id, ...experimentMetadata }),
+      JSON.stringify({
+        source: 'customer_selected',
+        dispatch_strategy_version: ON_DEMAND_DISPATCH_STRATEGY_VERSION,
+        offer_rule_version: ON_DEMAND_OFFER_RULE_VERSION,
+        performance_signal_policy_version: ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION,
+        dispatch_type: 'preferred',
+        vehicle_id: nextCourier.vehicle_id,
+        capability_requirements: {
+          service_code: nextCourier.service_code,
+          application_channel: 'on_demand',
+          capability_status: 'enabled',
+          vehicle_type: nextCourier.vehicle_type || null,
+        },
+        proof_requirements: courierOfferProofRequirements(nextCourier),
+        ...experimentMetadata,
+      }),
     ]
   );
   const dispatch = inserted.rows[0];
@@ -669,6 +715,16 @@ export const dispatchToPreferredCourier = async (
     courier_payout_estimate_idr: Number(nextCourier.courier_payout_estimate_idr || 0),
     courier_earning_policy: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).policy,
     courier_earning_components: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).components,
+    proof_requirements: courierOfferProofRequirements(nextCourier),
+    dispatch_strategy_version: ON_DEMAND_DISPATCH_STRATEGY_VERSION,
+    offer_rule_version: ON_DEMAND_OFFER_RULE_VERSION,
+    performance_signal_policy_version: ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION,
+    capability_requirements: {
+      service_code: nextCourier.service_code,
+      application_channel: 'on_demand',
+      capability_status: 'enabled',
+      vehicle_type: nextCourier.vehicle_type || null,
+    },
   };
 };
 

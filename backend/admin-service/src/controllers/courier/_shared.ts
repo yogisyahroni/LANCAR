@@ -462,16 +462,7 @@ export const normalizeMobileOrder = (order: any) => {
       };
     }
   }
-  const proofRequirements = {
-    face_verification_required: order.service_face_verification_required !== false,
-    geofence_radius_m: Number(order.service_proof_geofence_radius_m || 10),
-    min_accuracy_m: Number(order.service_proof_min_accuracy_m || 50),
-    failed_delivery_policy: order.service_failed_delivery_policy || 'must_deliver',
-    pod_label: order.service_pod_label || 'POD',
-    required_steps: isMaintenance
-      ? ['arrival_photo', 'service_report', 'completion_photo']
-      : ['pickup_scan', 'pickup_photo', 'delivery_pod_photo'],
-  };
+  const proofRequirements = courierOfferProofRequirements(order, isMaintenance);
   return {
     ...order,
     pickup_lat: order.pickup_latitude == null ? null : Number(order.pickup_latitude),
@@ -506,8 +497,38 @@ export const normalizeMobileOrder = (order: any) => {
 
 export const normalizeOfferMobileOrder = (order: any) => ({
   ...normalizeMobileOrder(order),
+  dispatch_strategy_version: order.dispatch_strategy_version || ON_DEMAND_DISPATCH_STRATEGY_VERSION,
+  offer_rule_version: order.offer_rule_version || ON_DEMAND_OFFER_RULE_VERSION,
+  performance_signal_policy_version: order.performance_signal_policy_version || ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION,
+  capability_requirements: order.capability_requirements || {
+    service_code: order.service_code || null,
+    application_channel: 'on_demand',
+    capability_status: 'enabled',
+    vehicle_type: order.route_vehicle_type || null,
+  },
   drop_address: 'Alamat tujuan dibuka setelah pekerjaan diterima',
 });
+
+export const courierOfferProofRequirements = (
+  order: any,
+  maintenanceOverride?: boolean,
+): Record<string, unknown> => {
+  const isMaintenance = maintenanceOverride ?? (
+    ['tambal_ban', 'towing'].includes(String(order.service_category || '')) ||
+    String(order.service_code || '').startsWith('tambal_ban') ||
+    String(order.service_code || '').startsWith('towing')
+  );
+  return {
+    face_verification_required: order.service_face_verification_required !== false,
+    geofence_radius_m: Number(order.service_proof_geofence_radius_m || 10),
+    min_accuracy_m: Number(order.service_proof_min_accuracy_m || 50),
+    failed_delivery_policy: order.service_failed_delivery_policy || 'must_deliver',
+    pod_label: order.service_pod_label || 'POD',
+    required_steps: isMaintenance
+      ? ['arrival_photo', 'service_report', 'completion_photo']
+      : ['pickup_scan', 'pickup_photo', 'delivery_pod_photo'],
+  };
+};
 
 export const publicBaseUrl = () =>
   process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -689,6 +710,9 @@ export const sanitizeSafetyMessage = (value: unknown): string | null => {
 };
 
 export const ON_DEMAND_OFFER_TTL_SECONDS = 90;
+export const ON_DEMAND_DISPATCH_STRATEGY_VERSION = 'dispatch-engine-2026-v1';
+export const ON_DEMAND_OFFER_RULE_VERSION = 'courier-offer-rules-2026-v1';
+export const ON_DEMAND_PERFORMANCE_SIGNAL_POLICY_VERSION = 'courier-performance-signals-2026-v1';
 export const ON_DEMAND_OPEN_ORDER_STATUSES = ['pending', 'pending_payment', 'paid', 'matched', 'offered', 'dispatching', 'pending_assignment', 'searching'];
 export const ON_DEMAND_DISPATCH_READY_STATUSES = ['pending', 'matched', 'offered', 'dispatching', 'pending_assignment', 'searching'];
 
@@ -718,6 +742,11 @@ export type CreatedDispatchOffer = {
   courier_payout_estimate_idr?: number | null;
   courier_earning_policy?: Record<string, unknown> | null;
   courier_earning_components?: Record<string, number> | null;
+  proof_requirements?: Record<string, unknown>;
+  dispatch_strategy_version?: string;
+  offer_rule_version?: string;
+  performance_signal_policy_version?: string;
+  capability_requirements?: Record<string, unknown>;
 };
 
 export const expireStaleOnDemandOffers = async (client: any): Promise<CreatedDispatchOffer[]> => {

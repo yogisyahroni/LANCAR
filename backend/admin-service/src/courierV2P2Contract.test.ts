@@ -393,6 +393,51 @@ describe('courier v2 P2 contracts', () => {
     expect(client.release).toHaveBeenCalled();
   });
 
+  it('rejects an expired offer before any assignment mutation can create a ghost leg', async () => {
+    const client = makeClient();
+    (db.connect as jest.Mock).mockResolvedValueOnce(client);
+
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ order_id: 'order-expired-1' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [{
+          dispatch_id: 'dispatch-expired-1',
+          order_id: 'order-expired-1',
+          courier_id: 'courier-user-id',
+          dispatch_status: 'offered',
+          expires_at: new Date(Date.now() - 1_000),
+          zone_id: 'zone-1',
+          dispatch_metadata: {},
+          service_code: 'instant',
+          route_snapshot: {},
+          route_provider: 'maps_provider',
+          route_profile: 'motorcycle',
+          route_distance_meters: 5000,
+          route_duration_seconds: 1200,
+          route_polyline: 'encoded',
+          route_fallback_reason: null,
+          route_vehicle_type: 'motorcycle',
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const req = makeReq({ params: { id: 'dispatch-expired-1' } });
+    const res = makeResponse();
+
+    await acceptMobileCourierOffer(req, res);
+
+    expect(res.statusCodeValue).toBe(409);
+    expect(res.bodyValue).toEqual(expect.objectContaining({ code: 'ERR_OFFER_EXPIRED' }));
+    expect(client.query.mock.calls.some((call: any[]) => String(call[0]).includes('INSERT INTO order_legs'))).toBe(false);
+    expect(client.query.mock.calls.some((call: any[]) => String(call[0]).includes('pg_advisory_xact_lock'))).toBe(false);
+    expect(client.query.mock.calls.map((call: any[]) => String(call[0]))).toEqual(expect.arrayContaining(['BEGIN', 'ROLLBACK']));
+    expect(client.release).toHaveBeenCalled();
+  });
+
   it('guards preferred towing dispatch with vehicle, freshness, radius, and active-job policy', async () => {
     const client = makeClient();
     client.query

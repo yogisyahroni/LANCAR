@@ -319,6 +319,23 @@ describe('on-demand realtime lifecycle contract', () => {
       route_snapshot_version: 1,
       route_version: 'route_snapshot_v1',
       courier_payout_estimate_idr: 12000,
+      dispatch_strategy_version: 'dispatch-engine-2026-v1',
+      offer_rule_version: 'courier-offer-rules-2026-v1',
+      performance_signal_policy_version: 'courier-performance-signals-2026-v1',
+      capability_requirements: {
+        service_code: 'TEMBUS_INSTANT',
+        application_channel: 'on_demand',
+        capability_status: 'enabled',
+        vehicle_type: 'motorcycle',
+      },
+      proof_requirements: {
+        face_verification_required: true,
+        geofence_radius_m: 10,
+        min_accuracy_m: 50,
+        failed_delivery_policy: 'must_deliver',
+        pod_label: 'POD',
+        required_steps: ['pickup_scan', 'pickup_photo', 'delivery_pod_photo'],
+      },
     }]);
 
     expect(to).toHaveBeenCalledWith('order:22222222-2222-4222-8222-222222222222');
@@ -331,6 +348,23 @@ describe('on-demand realtime lifecycle contract', () => {
       stage: 'offer_created',
       metadata: expect.objectContaining({
         dispatch_id: 'dispatch-1',
+        dispatch_strategy_version: 'dispatch-engine-2026-v1',
+        offer_rule_version: 'courier-offer-rules-2026-v1',
+        performance_signal_policy_version: 'courier-performance-signals-2026-v1',
+        capability_requirements: {
+          service_code: 'TEMBUS_INSTANT',
+          application_channel: 'on_demand',
+          capability_status: 'enabled',
+          vehicle_type: 'motorcycle',
+        },
+        proof_requirements: {
+          face_verification_required: true,
+          geofence_radius_m: 10,
+          min_accuracy_m: 50,
+          failed_delivery_policy: 'must_deliver',
+          pod_label: 'POD',
+          required_steps: ['pickup_scan', 'pickup_photo', 'delivery_pod_photo'],
+        },
         pickup_address: 'Monas, Jakarta Pusat',
         offer_ttl_seconds: 90,
         route_snapshot_hash: 'route-hash-1',
@@ -353,6 +387,23 @@ describe('on-demand realtime lifecycle contract', () => {
       order_id: '22222222-2222-4222-8222-222222222222',
       metadata: expect.objectContaining({
         dispatch_id: 'dispatch-1',
+        dispatch_strategy_version: 'dispatch-engine-2026-v1',
+        offer_rule_version: 'courier-offer-rules-2026-v1',
+        performance_signal_policy_version: 'courier-performance-signals-2026-v1',
+        capability_requirements: {
+          service_code: 'TEMBUS_INSTANT',
+          application_channel: 'on_demand',
+          capability_status: 'enabled',
+          vehicle_type: 'motorcycle',
+        },
+        proof_requirements: {
+          face_verification_required: true,
+          geofence_radius_m: 10,
+          min_accuracy_m: 50,
+          failed_delivery_policy: 'must_deliver',
+          pod_label: 'POD',
+          required_steps: ['pickup_scan', 'pickup_photo', 'delivery_pod_photo'],
+        },
         offer_ttl_seconds: '90',
         route_snapshot_hash: 'route-hash-1',
         route_distance_meters: '2400',
@@ -570,6 +621,23 @@ describe('on-demand realtime lifecycle contract', () => {
       dispatch_id: 'dispatch-1',
       order_id: '22222222-2222-4222-8222-222222222222',
       courier_id: '55555555-5555-4555-8555-555555555555',
+      dispatch_strategy_version: 'dispatch-engine-2026-v1',
+      offer_rule_version: 'courier-offer-rules-2026-v1',
+      performance_signal_policy_version: 'courier-performance-signals-2026-v1',
+      capability_requirements: {
+        service_code: 'TEMBUS_INSTANT',
+        application_channel: 'on_demand',
+        capability_status: 'enabled',
+        vehicle_type: 'motorcycle',
+      },
+      proof_requirements: {
+        face_verification_required: true,
+        geofence_radius_m: 10,
+        min_accuracy_m: 50,
+        failed_delivery_policy: 'must_deliver',
+        pod_label: 'POD',
+        required_steps: ['pickup_scan', 'pickup_photo', 'delivery_pod_photo'],
+      },
       distance: '2.4',
       fee: '12000',
       eta_minutes: 15,
@@ -584,6 +652,23 @@ describe('on-demand realtime lifecycle contract', () => {
     const insertDispatchCall = client.query.mock.calls.find(([sql]: [string]) => sql.includes('INSERT INTO courier_offer_dispatches'));
     expect(JSON.parse(insertDispatchCall?.[1]?.[10])).toEqual(expect.objectContaining({
       source: 'dispatch_engine_v1',
+      dispatch_strategy_version: 'dispatch-engine-2026-v1',
+      offer_rule_version: 'courier-offer-rules-2026-v1',
+      performance_signal_policy_version: 'courier-performance-signals-2026-v1',
+      capability_requirements: {
+        service_code: 'TEMBUS_INSTANT',
+        application_channel: 'on_demand',
+        capability_status: 'enabled',
+        vehicle_type: 'motorcycle',
+      },
+      proof_requirements: {
+        face_verification_required: true,
+        geofence_radius_m: 10,
+        min_accuracy_m: 50,
+        failed_delivery_policy: 'must_deliver',
+        pod_label: 'POD',
+        required_steps: ['pickup_scan', 'pickup_photo', 'delivery_pod_photo'],
+      },
       route_snapshot_hash: 'route-hash-1',
       route_distance_meters: 2400,
       route_duration_seconds: 900,
@@ -592,6 +677,23 @@ describe('on-demand realtime lifecycle contract', () => {
     const eventCall = client.query.mock.calls.find(([sql]: [string]) => sql.includes('offer_dispatched'));
     expect(JSON.parse(eventCall?.[1]?.[2])).toEqual(expect.objectContaining({
       dispatch_id: 'dispatch-1',
+      dispatch_strategy_version: 'dispatch-engine-2026-v1',
+      offer_rule_version: 'courier-offer-rules-2026-v1',
+      performance_signal_policy_version: 'courier-performance-signals-2026-v1',
+      capability_requirements: {
+        service_code: 'TEMBUS_INSTANT',
+        application_channel: 'on_demand',
+        capability_status: 'enabled',
+        vehicle_type: 'motorcycle',
+      },
+      proof_requirements: {
+        face_verification_required: true,
+        geofence_radius_m: 10,
+        min_accuracy_m: 50,
+        failed_delivery_policy: 'must_deliver',
+        pod_label: 'POD',
+        required_steps: ['pickup_scan', 'pickup_photo', 'delivery_pod_photo'],
+      },
       route_snapshot_hash: 'route-hash-1',
       eta_minutes: 15,
     }));
