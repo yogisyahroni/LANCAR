@@ -1,0 +1,27 @@
+name: TIRE-2026-005 source review
+on:
+  push:
+    branches: [staging]
+    paths:
+      - .github/workflows/tire-2026-005-source-review.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Archive source for review
+        run: |
+          git archive --format=tar HEAD | gzip -9 > /tmp/lancar-source.tar.gz
+          sha256sum /tmp/lancar-source.tar.gz > /tmp/lancar-source.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tire-2026-005-source
+          path: |
+            /tmp/lancar-source.tar.gz
+            /tmp/lancar-source.sha256
+          retention-days: 1
