@@ -5146,10 +5146,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - historical successful pickup point where privacy-safe
 
 **Checklist**
-- [ ] Low-confidence pickup prompts user correction before expensive dispatch when practical.
-- [ ] Courier/customer can suggest corrected pickup pin with auditable acceptance flow.
-- [ ] Pin correction can requote/re-route when material.
-- [ ] Do not auto-move customer pin silently based only on map matching.
+  - [x] Low-confidence pickup prompts user correction before expensive dispatch when practical.
+  - [x] Courier/customer can suggest corrected pickup pin with auditable acceptance flow.
+  - [x] Pin correction can requote/re-route when material.
+  - [x] Do not auto-move customer pin silently based only on map matching.
 
 ---
 
