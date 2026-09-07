@@ -5156,11 +5156,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## GEO-2026-007 — Geo privacy, precision and retention [P0]
 
 **Checklist**
-- [ ] Raw continuous courier location retention is purpose/market scoped.
-- [ ] Customer background location uses least privilege.
-- [ ] Analytics receives coarsened/pseudonymous location where exact coordinates unnecessary.
-- [ ] Public tracking/share surfaces reduce precision when full precision is unnecessary.
-- [ ] Admin access to historical exact route/location audited.
+- [x] Raw continuous courier location retention is purpose/market scoped.
+- [x] Customer background location uses least privilege.
+- [x] Analytics receives coarsened/pseudonymous location where exact coordinates unnecessary.
+- [x] Public tracking/share surfaces reduce precision when full precision is unnecessary.
+- [x] Admin access to historical exact route/location audited.
 
 ---
 
