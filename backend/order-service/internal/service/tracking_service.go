@@ -211,10 +211,15 @@ func (s *TrackingServiceImpl) GetTrackingByOrder(ctx context.Context, orderID uu
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest location: %w", err)
 	}
+	derived, err := domain.DeriveGPSLocation(*loc, nil, nil, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("latest location is invalid: %w", err)
+	}
 
 	return &domain.TrackingResponse{
-		CourierID: *courierID,
-		Location:  *loc,
+		CourierID:       *courierID,
+		Location:        *loc,
+		DerivedLocation: &derived,
 	}, nil
 }
 
@@ -297,6 +302,8 @@ func (s *TrackingServiceImpl) GetPublicTracking(ctx context.Context, resi string
 			loc, err := s.repo.GetLatestLocation(ctx, *courierID)
 			if err == nil && loc != nil {
 				resp.LiveMap = loc
+				quality := domain.ClassifyGPSLocation(*loc, time.Now())
+				resp.LiveMapQuality = &quality
 			}
 		}
 	}

@@ -5113,11 +5113,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## GEO-2026-004 — Routing, traffic, ETA source and map matching [P0/P1]
 
 **Checklist**
-- [ ] Route result stores provider/source/version/time and route summary.
-- [ ] Traffic-aware ETA is source/time specific and never treated as permanent fact.
-- [ ] Courier GPS can be map-matched/smoothed without rewriting raw telemetry.
-- [ ] Stale GPS and low-accuracy state explicit.
-- [ ] Route recalculation policy avoids excessive provider cost/rate-limit.
+- [x] Route result stores provider/source/version/time and route summary. (Implemented 2026-09-07: route snapshot carries provider, source, contract version, generated time, distance/duration, geometry, profile, and confidence.)
+- [x] Traffic-aware ETA is source/time specific and never treated as permanent fact. (Verified: traffic-aware flag, provider, generated timestamp, bounded cache/stale-cache provenance, and fallback confidence are explicit.)
+- [x] Courier GPS can be map-matched/smoothed without rewriting raw telemetry. (Implemented/tested: derived GPS keeps immutable raw sample and separately smooths/snaps display point to route points.)
+- [x] Stale GPS and low-accuracy state explicit. (Implemented/tested: fresh, stale, low_accuracy, and invalid states expose display/navigation eligibility and reason.)
+- [x] Route recalculation policy avoids excessive provider cost/rate-limit. (Verified: provider/scope/profile-aware TTL cache, stale fallback, circuit guard, and bounded provider calls are in place.)
 
 ---
 

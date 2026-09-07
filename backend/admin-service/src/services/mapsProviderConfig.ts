@@ -88,6 +88,8 @@ export type RouteEtaSnapshot = {
   route_polyline: string | null;
   route_geometry: string | null;
   provider: string;
+  provider_version?: string;
+  source?: 'live_provider' | 'cache' | 'fallback' | 'disabled';
   requested_provider: MapProviderId;
   active_provider: MapProviderId;
   scope: MapProviderScope;
@@ -99,6 +101,8 @@ export type RouteEtaSnapshot = {
   fallback_reason?: string | null;
   optimized_waypoints?: { providedIndex: number, optimizedIndex: number }[];
 };
+
+export const MAPS_ROUTE_CONTRACT_VERSION = '2026-09-07';
 
 export type RouteSnapshotOptions = {
   serviceCode?: string | null;
@@ -435,6 +439,8 @@ const fallbackRoute = (
     route_polyline: null,
     route_geometry: null,
     provider,
+    provider_version: MAPS_ROUTE_CONTRACT_VERSION,
+    source: provider === 'disabled' ? 'disabled' : 'fallback',
     requested_provider: 'disabled',
     active_provider: 'disabled',
     scope: context.scope,
@@ -475,7 +481,12 @@ const routeStaleCacheTtlSeconds = () => {
 const parseCachedRoute = (value: string | null): RouteEtaSnapshot | null => {
   if (!value) return null;
   try {
-    return JSON.parse(value) as RouteEtaSnapshot;
+    const parsed = JSON.parse(value) as RouteEtaSnapshot;
+    return {
+      ...parsed,
+      provider_version: parsed.provider_version || 'legacy-route-snapshot',
+      source: parsed.source || (parsed.provider.includes('_cache') ? 'cache' : parsed.fallback_reason ? 'fallback' : 'live_provider'),
+    };
   } catch {
     return null;
   }
@@ -662,6 +673,7 @@ const getStaleCachedRoute = async (cacheKey: string, provider: string, reason: s
   return {
     ...stale,
     provider: `${provider}_stale_cache`,
+    source: 'fallback',
     fallback_reason: reason,
     confidence: stale.confidence === 'high' ? 'medium' : stale.confidence,
   } as RouteEtaSnapshot;
@@ -1456,6 +1468,8 @@ const enrichRouteSnapshot = (
     route_polyline: route.route_polyline ?? null,
     route_geometry: route.route_geometry ?? (route.route_polyline ?? null),
     provider: route.provider || fallback.provider,
+    provider_version: route.provider_version || MAPS_ROUTE_CONTRACT_VERSION,
+    source: route.source || (route.fallback_reason ? 'fallback' : 'live_provider'),
     requested_provider: providerConfig.requested_provider,
     active_provider: providerConfig.active_provider,
     scope: context.scope,

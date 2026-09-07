@@ -49,10 +49,11 @@ type CourierLocationUpdate struct {
 }
 
 type TrackingResponse struct {
-	CourierID     uuid.UUID   `json:"courier_id"`
-	Location      GPSLocation `json:"location"`
-	ETA           string      `json:"eta,omitempty"`
-	RoutePolyline string      `json:"route_polyline,omitempty"`
+	CourierID       uuid.UUID           `json:"courier_id"`
+	Location        GPSLocation         `json:"location"`
+	DerivedLocation *DerivedGPSLocation `json:"derived_location,omitempty"`
+	ETA             string              `json:"eta,omitempty"`
+	RoutePolyline   string              `json:"route_polyline,omitempty"`
 }
 
 // GeofenceCheckResult contains the result of a PostGIS geofence spatial query.
@@ -84,13 +85,14 @@ type PublicTrackingEvent struct {
 }
 
 type PublicTrackingResponse struct {
-	ResiNumber  string                `json:"resi_number"`
-	Status      OrderStatus           `json:"status"`
-	Model       string                `json:"model"`
-	Origin      string                `json:"origin"`
-	Destination string                `json:"destination"`
-	LiveMap     *GPSLocation          `json:"live_map,omitempty"` // For ondemand
-	Timeline    []PublicTrackingEvent `json:"timeline"`           // Sorted ascending
+	ResiNumber     string                `json:"resi_number"`
+	Status         OrderStatus           `json:"status"`
+	Model          string                `json:"model"`
+	Origin         string                `json:"origin"`
+	Destination    string                `json:"destination"`
+	LiveMap        *GPSLocation          `json:"live_map,omitempty"` // For ondemand
+	LiveMapQuality *GPSQuality           `json:"live_map_quality,omitempty"`
+	Timeline       []PublicTrackingEvent `json:"timeline"` // Sorted ascending
 }
 
 type TrackingService interface {

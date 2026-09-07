@@ -2,6 +2,7 @@ import {
   buildMapsRouteEtaSnapshot,
   geocodeAddress,
   getMapsProviderOpsSnapshot,
+  MAPS_ROUTE_CONTRACT_VERSION,
   normalizeMapsProviderConfig,
   recordMapsProviderObservation,
   resetMapsProviderOpsForTests,
@@ -409,6 +410,8 @@ describe('mapsProviderConfig', () => {
     expect(route.route_profile).toBe('car');
     expect(route.vehicle_type).toBe('car');
     expect(route.traffic_aware).toBe(true);
+    expect(route.provider_version).toBe(MAPS_ROUTE_CONTRACT_VERSION);
+    expect(route.source).toBe('live_provider');
     expect(JSON.stringify(route)).not.toContain('test-TomTom-key');
     expect(redis.set).toHaveBeenCalled();
   });
