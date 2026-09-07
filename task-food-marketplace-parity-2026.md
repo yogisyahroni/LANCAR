@@ -5490,10 +5490,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## COURIER-2026-010 — Courier Support + Safety integration [P0]
 
 **Checklist**
-- [ ] Active-job help routes to correct operational/safety queue.
-- [ ] Courier can report merchant/customer/location/service issue structurally.
-- [ ] Support actions use domain APIs for reassign/cancel/compensation.
-- [ ] Evidence/chat/location references available according to role.
+- [x] Active-job help routes to correct operational/safety queue.
+- [x] Courier can report merchant/customer/location/service issue structurally.
+- [x] Support actions use domain APIs for reassign/cancel/compensation.
+- [x] Evidence/chat/location references available according to role.
 
 ---
 
