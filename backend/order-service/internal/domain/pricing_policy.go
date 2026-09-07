@@ -38,6 +38,7 @@ type PricingBreakdown struct {
 	Currency        string             `json:"currency"`
 	Market          string             `json:"market"`
 	ServiceCode     string             `json:"service_code"`
+	TriggerContext  map[string]string  `json:"trigger_context,omitempty"`
 	Components      []PricingComponent `json:"components"`
 	ComponentLabels map[string]string  `json:"component_labels"`
 

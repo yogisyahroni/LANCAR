@@ -1017,6 +1017,27 @@ func (r *postgresRepo) CheckCoverage(ctx context.Context, lat, lng float64) (boo
 	return exists, nil
 }
 
+// ResolveZoneCode returns the active pickup zone used for zone-scoped pricing.
+// It is intentionally an optional capability on PricingRepository so existing
+// test doubles and non-zone integrations continue to use the global policy.
+func (r *postgresRepo) ResolveZoneCode(ctx context.Context, lat, lng float64) (string, error) {
+	var code string
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT code
+		FROM zones
+		WHERE is_active = TRUE
+		  AND ST_Covers(polygon, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography)
+		ORDER BY code ASC
+		LIMIT 1`, lat, lng).Scan(&code)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "global", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return code, nil
+}
+
 func (r *postgresRepo) SaveScan(ctx context.Context, scan *domain.PackageScan) error {
 	scannedByRole := scan.ScannedByRole
 	if scannedByRole == "" {

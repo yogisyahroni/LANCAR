@@ -70,6 +70,9 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 			CurrentTotal: estimate.TotalPriceIDR,
 		}
 	}
+	if err := validateDynamicPricingQuote(ctx, s.redisRepo, s.pricingRepo, s.configRepo, estimate); err != nil {
+		return nil, err
+	}
 
 	if req.IsScheduled {
 		scheduledEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "scheduled_delivery", false)
@@ -358,6 +361,9 @@ func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, r
 				Reason:  fmt.Sprintf("quote tujuan %d sudah kedaluwarsa", i+1),
 				QuoteID: estimate.QuoteIDOrEstimateID(),
 			}
+		}
+		if err := validateDynamicPricingQuote(ctx, s.redisRepo, s.pricingRepo, s.configRepo, estimate); err != nil {
+			return nil, "", fmt.Errorf("destination %d: %w", i+1, err)
 		}
 
 		if req.IsScheduled {

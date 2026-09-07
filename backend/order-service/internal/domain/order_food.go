@@ -97,6 +97,9 @@ type FoodQuoteResponse struct {
 	MembershipSubsidyIDR int64           `json:"membership_subsidy_idr,omitempty"`
 	TotalPriceIDR        int64           `json:"total_price_idr"`
 	DistanceKM           float64         `json:"distance_km"`
+	DynamicPriceIDR       int64           `json:"dynamic_price_idr,omitempty"`
+	SurgeFeeIDR           int64           `json:"surge_fee_idr,omitempty"`
+	SurgeMultiplier       float64         `json:"surge_multiplier,omitempty"`
 	ETAMinutes           int             `json:"eta_minutes"`
 	ETASource            string          `json:"eta_source"`
 	// ETA components are explicit so unavailable provider signals are not

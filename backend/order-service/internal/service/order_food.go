@@ -220,6 +220,14 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		extra := int64(math.Ceil(distanceKM - svc.IncludedDistanceKM))
 		deliveryFee += extra * svc.PerKmIDR
 	}
+	market := normalizePricingMarket(req.Market)
+	policy, decision, err := evaluateDynamicPricing(ctx, s.redisRepo, s.pricingRepo, s.configRepo, svc.Code, market, merchant.Lat, merchant.Lng)
+	if err != nil {
+		return nil, fmt.Errorf("food dynamic pricing evaluation: %w", err)
+	}
+	baseDeliveryFee := deliveryFee
+	dynamicAdjustment := dynamicPriceAdjustment(baseDeliveryFee, decision.Multiplier)
+	deliveryFee = baseDeliveryFee + dynamicAdjustment
 	membershipSubsidy := int64(0)
 	membershipID := ""
 	if s.membershipRepo != nil {
@@ -273,6 +281,14 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		return nil, &domain.RequoteRequiredError{
 			QuoteID: foodQuote.QuoteID, CurrentTotal: total,
 			Reason: "harga menu, ongkir, biaya layanan, atau voucher berubah",
+		}
+	}
+	if foodQuote.PricingRuleVersion == policy.PolicyVersion || (foodQuote.PricingBreakdown != nil && len(foodQuote.PricingBreakdown.TriggerContext) > 0) {
+		if foodQuote.PricingRuleVersion != policy.PolicyVersion || math.Abs(foodQuote.SurgeMultiplier-decision.Multiplier) > 0.0001 {
+			return nil, &domain.RequoteRequiredError{
+				QuoteID: foodQuote.QuoteID, CurrentTotal: total,
+				Reason: "dynamic pricing berubah sejak quote dibuat",
+			}
 		}
 	}
 	pricingSnapshot, err := json.Marshal(foodQuote)

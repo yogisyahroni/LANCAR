@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/featureflags"
@@ -164,28 +165,22 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	}
 	subtotal += weightSurcharge
 
-	// 6. Apply Dynamic Multiplier (Surge breakdown for audit PRC-003)
-	surgeMultiplier, err := s.redisRepo.GetMultiplier(ctx, "default")
+	// 6. Apply the versioned, scoped dynamic pricing policy. The zone is
+	// resolved server-side from pickup coordinates; clients cannot select a
+	// cheaper zone by changing a request field.
+	market := normalizePricingMarket(req.Market)
+	policy, decision, err := evaluateDynamicPricing(ctx, s.redisRepo, s.pricingRepo, s.configRepo, serviceProduct.Code, market, req.PickupLat, req.PickupLng)
 	if err != nil {
-		return nil, fmt.Errorf("surge multiplier error: %w", err)
+		return nil, fmt.Errorf("dynamic pricing evaluation: %w", err)
 	}
-
-	peakHourEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "dynamic_pricing_peak_hour", false)
-	demandSupplyEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "dynamic_pricing_demand_supply", false)
-
+	totalMultiplier := decision.Multiplier
 	trafficMultiplier := 1.0
+	if decision.PeakApplied {
+		trafficMultiplier = policy.PeakMultiplier
+	}
 	weatherMultiplier := 1.0
-	if peakHourEnabled {
-		peakHourSurge := s.configRepo.GetFloatConfig(ctx, "surge_peak_hour_multiplier", 0.20)
-		trafficMultiplier += peakHourSurge
-	}
-	if demandSupplyEnabled {
-		demandSupplySurge := s.configRepo.GetFloatConfig(ctx, "surge_high_demand_multiplier", 0.15)
-		weatherMultiplier += demandSupplySurge
-	}
-	totalMultiplier := surgeMultiplier * trafficMultiplier * weatherMultiplier
 
-	dynamicPrice := int64(float64(subtotal) * (totalMultiplier - 1.0))
+	dynamicPrice := dynamicPriceAdjustment(subtotal, totalMultiplier)
 	priceAfterSurge := int64(float64(subtotal) * totalMultiplier)
 
 	var insuranceFee int64 = 0
@@ -233,7 +228,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	roundingPrecision := int64(s.configRepo.GetIntConfig(ctx, "pricing_rounding_precision_idr", 100))
 	totalPrice := applyRoundingPolicy(totalBeforeRounding, roundingMode, roundingPrecision)
 
-	pricingRuleVersion := policyVersion(ctx, s.configRepo, "marketplace-pricing-2026-v1")
+	pricingRuleVersion := policy.PolicyVersion
 	courierPayoutPercent := serviceProduct.CourierPayoutPercent
 	if courierPayoutPercent <= 0 {
 		courierPayoutPercent = s.configRepo.GetFloatConfig(ctx, "courier_payout_percent", 80)
@@ -260,10 +255,11 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	if roundingAdjustment != 0 {
 		components = append(components, pricingComponent("rounding_adjustment", domain.PricingComponentCustomerAdjustment, roundingAdjustment, true))
 	}
-	breakdown, err := buildPricingBreakdown(ctx, s.configRepo, serviceProduct.Code, req.Market, pricingRuleVersion, components)
+	breakdown, err := buildPricingBreakdown(ctx, s.configRepo, serviceProduct.Code, market, pricingRuleVersion, components)
 	if err != nil {
 		return nil, fmt.Errorf("pricing reconciliation: %w", err)
 	}
+	breakdown.TriggerContext = decision.TriggerContext
 
 	// 8. Create Response with Complete Snapshot PRC-001 to PRC-004
 	quoteID := uuid.New().String()
@@ -282,7 +278,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		VolumetricSurchargeIDR: weightSurcharge,
 		DynamicPriceIDR:        dynamicPrice,
 		SurgeFeeIDR:            dynamicPrice,
-		SurgeMultiplier:        surgeMultiplier,
+		SurgeMultiplier:        totalMultiplier,
 		WeatherMultiplier:      weatherMultiplier,
 		TrafficMultiplier:      trafficMultiplier,
 		InsuranceFeeIDR:        insuranceFee,
@@ -326,6 +322,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		},
 	}
 	resp.SnapshotHash = domain.QuoteSnapshotHash(*resp)
+	log.Printf("[PricingQuote] quote_id=%s policy_version=%s service=%s market=%s trigger_context=%v", resp.QuoteID, pricingRuleVersion, serviceProduct.Code, market, decision.TriggerContext)
 
 	// 9. Cache in Redis
 	if err := s.redisRepo.SaveEstimate(ctx, resp); err != nil {

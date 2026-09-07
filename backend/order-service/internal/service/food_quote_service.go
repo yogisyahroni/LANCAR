@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"tembus/order-service/internal/domain"
@@ -161,7 +162,15 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if distanceKM > product.IncludedDistanceKM {
 		deliveryFee += int64(math.Ceil(distanceKM-product.IncludedDistanceKM)) * product.PerKmIDR
 	}
-	grossDeliveryFee := deliveryFee
+	market := normalizePricingMarket(req.Market)
+	policy, decision, err := evaluateDynamicPricing(ctx, s.redisRepo, s.pricingRepo, s.configRepo, product.Code, market, merchant.Lat, merchant.Lng)
+	if err != nil {
+		return nil, fmt.Errorf("food dynamic pricing evaluation: %w", err)
+	}
+	baseDeliveryFee := deliveryFee
+	dynamicAdjustment := dynamicPriceAdjustment(baseDeliveryFee, decision.Multiplier)
+	grossDeliveryFee := baseDeliveryFee + dynamicAdjustment
+	deliveryFee = grossDeliveryFee
 	membershipSubsidy := int64(0)
 	membershipID := ""
 	if s.membershipRepo != nil {
@@ -211,7 +220,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if etaSpeed <= 0 {
 		etaSpeed = 20
 	}
-	pricingRuleVersion := policyVersion(ctx, s.configRepo, "marketplace-pricing-2026-v1")
+	pricingRuleVersion := policy.PolicyVersion
 	merchantCommissionPercent := product.PlatformCommissionPercent
 	if merchantCommissionPercent <= 0 {
 		merchantCommissionPercent = s.configRepo.GetFloatConfig(ctx, "merchant_commission_percent", 2.5)
@@ -230,7 +239,8 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	courierEarning := int64(math.Round(float64(grossDeliveryFee) * courierPayoutPercent / 100))
 	components := []domain.PricingComponent{
 		pricingComponent("item_subtotal", domain.PricingComponentCustomerCharge, subtotal, true),
-		pricingComponent("delivery_fee", domain.PricingComponentCustomerCharge, grossDeliveryFee, true),
+		pricingComponent("delivery_fee", domain.PricingComponentCustomerCharge, baseDeliveryFee, true),
+		pricingComponent("dynamic_adjustment", domain.PricingComponentCustomerAdjustment, dynamicAdjustment, true),
 		pricingComponent("platform_fee", domain.PricingComponentCustomerCharge, platformFee, true),
 		pricingComponent("tax", domain.PricingComponentCustomerCharge, taxIDR, true),
 		pricingComponent("membership_subsidy", domain.PricingComponentCustomerDiscount, membershipSubsidy, true),
@@ -239,14 +249,11 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		pricingComponent("merchant_commission", domain.PricingComponentMerchantCommission, merchantCommission, false),
 		pricingComponent("courier_earning", domain.PricingComponentCourierEarning, courierEarning, false),
 	}
-	market := req.Market
-	if strings.TrimSpace(market) == "" {
-		market = req.DropoffCity
-	}
 	breakdown, err := buildPricingBreakdown(ctx, s.configRepo, product.Code, market, pricingRuleVersion, components)
 	if err != nil {
 		return nil, fmt.Errorf("food pricing reconciliation: %w", err)
 	}
+	breakdown.TriggerContext = decision.TriggerContext
 	prepMinutes := maxPrep
 	if merchant.BusyUntil != nil && merchant.BusyUntil.After(time.Now()) {
 		prepMinutes += merchant.BusyExtraPrepMinutes
@@ -261,6 +268,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		TotalPriceIDR: total, DistanceKM: distanceKM,
 		ETAMinutes: prepMinutes + pickupTravelMinutes,
 		ETASource:  "merchant_prep_plus_configured_route_speed", PricingRuleVersion: pricingRuleVersion, Market: market,
+		SurgeMultiplier:  decision.Multiplier,
 		PricingBreakdown: breakdown,
 		PrepMinutes:      prepMinutes, PickupTravelMinutes: pickupTravelMinutes,
 		// Traffic, batching, and live courier supply are not available from a
@@ -281,6 +289,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		BatchingMinutes: quote.BatchingMinutes, SupplyStatus: quote.SupplyStatus,
 		Confidence:   quote.Confidence,
 		BasePriceIDR: subtotal, DistanceKM: distanceKM, DistanceFeeIDR: deliveryFee,
+		DynamicPriceIDR: dynamicAdjustment, SurgeFeeIDR: dynamicAdjustment, SurgeMultiplier: decision.Multiplier,
 		PlatformFeeIDR: platformFee, PlatformFeePct: platformPct, TaxIDR: taxIDR, DiscountIDR: discount,
 		ETASource: quote.ETASource, PricingRuleVersion: pricingRuleVersion,
 		PricingBreakdown: breakdown,
@@ -289,7 +298,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		FoodVoucherCode: req.VoucherCode, FoodScheduledAt: req.ScheduledAt,
 		FoodMembershipID: membershipID,
 		PriceComponents: map[string]int64{
-			"food_subtotal_idr": subtotal, "delivery_fee_idr": deliveryFee, "membership_subsidy_idr": membershipSubsidy,
+			"food_subtotal_idr": subtotal, "delivery_fee_idr": deliveryFee, "dynamic_price_idr": dynamicAdjustment, "membership_subsidy_idr": membershipSubsidy,
 			"platform_fee_idr": platformFee, "tax_idr": taxIDR, "discount_idr": discount,
 			"merchant_commission_idr": merchantCommission, "courier_earning_idr": courierEarning,
 			"customer_total_idr": total, "merchant_payable_idr": breakdown.MerchantPayableIDR,
@@ -297,6 +306,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		},
 	}
 	stored.SnapshotHash = domain.QuoteSnapshotHash(*stored)
+	log.Printf("[FoodPricingQuote] quote_id=%s policy_version=%s service=%s market=%s trigger_context=%v", quote.QuoteID, pricingRuleVersion, product.Code, market, decision.TriggerContext)
 	if err := s.redisRepo.SaveEstimate(ctx, stored); err != nil {
 		return nil, fmt.Errorf("save food quote: %w", err)
 	}
