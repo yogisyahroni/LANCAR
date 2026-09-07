@@ -71,6 +71,7 @@ import {
   validAddress,
   validatePackagePolicy,
 } from './_shared';
+import { evaluatePickupLocationQuality } from '../../services/pickupLocationQuality';
 
 export const createCustomerOrder = async (req: Request, res: Response): Promise<void> => {
   const client = await db.connect();
@@ -92,6 +93,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     const {
       pickup_address,
       pickup_location,
+      pickup_point,
       dropoff_address,
       dropoff_location,
       recipient_name,
@@ -207,6 +209,26 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       res.status(400).json({
         code: 'ERR_ORDER_ROUTE_REQUIRED',
         error: 'Alamat dan koordinat pickup/dropoff wajib valid sebelum order dibuat'
+      });
+      return;
+    }
+
+    const pickupReference = normalizeCoordinatePayload(pickup_point);
+    const pickupAccuracy = Number(pickup_location?.accuracy_m ?? pickup_point?.accuracy_m);
+    const pickupQuality = evaluatePickupLocationQuality({
+      pickup: pickupPoint,
+      reference: pickupReference,
+      accuracyM: Number.isFinite(pickupAccuracy) ? pickupAccuracy : null,
+      source: pickup_point?.source,
+    });
+    if (pickupQuality.needs_correction) {
+      client.release();
+      res.status(409).json({
+        success: false,
+        code: 'PICKUP_LOCATION_CORRECTION_REQUIRED',
+        error: 'Titik pickup kurang akurat atau berbeda dari alamat terpilih. Pilih ulang titik pickup sebelum order dibuat.',
+        requires_pickup_correction: true,
+        pickup_location_quality: pickupQuality,
       });
       return;
     }

@@ -296,7 +296,8 @@ export function AddressPicker({
       async (position) => {
         const nextLocation = {
           lat: position.coords.latitude,
-          lng: position.coords.longitude
+          lng: position.coords.longitude,
+          accuracy_m: position.coords.accuracy
         };
         const ageMs = position.timestamp > 0 ? Date.now() - position.timestamp : 0;
         if (!isValidLocation(nextLocation) || ageMs > 5 * 60 * 1000 || position.coords.accuracy > 1000) {
@@ -329,9 +330,13 @@ export function AddressPicker({
             location_mapping_count: geocoded?.location_mapping_count,
             lat: nextLocation.lat,
             lng: nextLocation.lng,
+            accuracy_m: nextLocation.accuracy_m,
             source: "gps",
             resolved_at: new Date().toISOString()
           } satisfies AddressPoint, { shouldDirty: true, shouldValidate: true });
+        }
+        if (isPickup && position.coords.accuracy > 100) {
+          setMessage("Akurasi GPS pickup rendah. Pilih hasil alamat atau ambil lokasi lagi sebelum membuat order.");
         }
         setIsLocating(false);
       },

@@ -36,6 +36,9 @@ orderRoutes.post('/auth/web/orders/:id/public-tracking-link', verifyWebSession, 
 orderRoutes.delete('/auth/web/orders/:id/public-tracking-link', verifyWebSession, publicEndpointRateLimiter, (req, res) => controllers.customerOrder.revokeCustomerPublicTrackingLink(req, res));
 orderRoutes.post('/auth/web/orders/:id/cancel', verifyWebSession, (req, res) => controllers.customerOrder.cancelCustomerOrder(req, res));
 orderRoutes.post('/auth/web/orders/:id/retry-matching', verifyWebSession, (req, res) => controllers.customerOrder.retryCustomerOrderMatching(req, res));
+orderRoutes.get('/auth/web/orders/:id/pickup-corrections', verifyWebSession, (req, res) => controllers.customerOrder.listPickupLocationCorrections(req, res));
+orderRoutes.post('/auth/web/orders/:id/pickup-corrections', verifyWebSession, (req, res) => controllers.customerOrder.suggestPickupLocationCorrection(req, res));
+orderRoutes.post('/auth/web/orders/:id/pickup-corrections/:correctionId/accept', verifyWebSession, (req, res) => controllers.customerOrder.acceptPickupLocationCorrection(req, res));
 orderRoutes.get('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
 orderRoutes.post('/auth/web/orders/:id/chats', requireMobileOrWebAuth, communicationMessageRateLimiter, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
 orderRoutes.get('/api/v1/mobile/chats/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
@@ -59,6 +62,10 @@ orderRoutes.get('/api/v1/customer/orders/:id', requireMobileOrWebAuth, (req, res
 orderRoutes.post('/api/v1/customer/orders/:id/upload', requireMobileOrWebAuth, ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.customerOrder.uploadOrderFile(req, res));
 orderRoutes.post('/api/v1/customer/orders/:id/cancel', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.cancelCustomerOrder(req, res));
 orderRoutes.post('/api/v1/customer/orders/:id/retry-matching', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.retryCustomerOrderMatching(req, res));
+orderRoutes.get('/api/v1/customer/orders/:id/pickup-corrections', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.listPickupLocationCorrections(req, res));
+orderRoutes.post('/api/v1/customer/orders/:id/pickup-corrections', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.suggestPickupLocationCorrection(req, res));
+orderRoutes.post('/api/v1/customer/orders/:id/pickup-corrections/:correctionId/accept', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.acceptPickupLocationCorrection(req, res));
+orderRoutes.post('/api/v1/courier/orders/:id/pickup-corrections', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.suggestPickupLocationCorrection(req, res));
 orderRoutes.get('/api/v1/customer/disputes', requireMobileOrWebAuth, (req, res) => controllers.getCustomerDisputes(req, res));
 orderRoutes.post('/api/v1/customer/disputes', requireMobileOrWebAuth, (req, res) => controllers.createDispute(req, res));
 orderRoutes.get('/api/v1/customer/disputes/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.getDisputeChats(req, res));

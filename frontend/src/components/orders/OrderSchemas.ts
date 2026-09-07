@@ -3,7 +3,8 @@ import { RuntimeConfig } from "@/hooks/useRuntimeConfig";
 
 export const coordinateSchema = z.object({
   lat: z.number().finite().min(-90).max(90),
-  lng: z.number().finite().min(-180).max(180)
+  lng: z.number().finite().min(-180).max(180),
+  accuracy_m: z.number().finite().nonnegative().optional()
 }).refine(({ lat, lng }) => !(lat === 0 && lng === 0), {
   message: "Pilih titik lokasi yang valid, bukan koordinat 0,0"
 });
@@ -29,6 +30,7 @@ export const addressPointSchema = z.object({
   instruction: z.string().optional(),
   lat: coordinateSchema.shape.lat,
   lng: coordinateSchema.shape.lng,
+  accuracy_m: coordinateSchema.shape.accuracy_m,
   source: z.enum(["saved", "search", "gps", "manual"]),
   resolved_at: z.string().datetime()
 }).refine(({ lat, lng }) => !(lat === 0 && lng === 0), {
@@ -143,7 +145,7 @@ export const createOrderSchema = (config?: RuntimeConfig | null, mode: 'instan' 
 const defaultSchema = createOrderSchema();
 export type OrderFormValues = z.infer<typeof defaultSchema>;
 
-export type LocationValue = { lat: number; lng: number };
+export type LocationValue = { lat: number; lng: number; accuracy_m?: number };
 export type AddressMode = "pickup" | "dropoff";
 export type AddressPoint = z.infer<typeof addressPointSchema>;
 

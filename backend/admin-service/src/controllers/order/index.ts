@@ -8,3 +8,4 @@ export * from './customerOrderReceiverLocation.controller';
 export * from './customerOrderMobile.controller';
 export * from './customerOrderProfile.controller';
 export * from './customerOrderFile.controller';
+export * from './pickupLocationCorrection.controller';

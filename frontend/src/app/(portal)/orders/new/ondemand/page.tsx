@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { clearCustomerOrderDraft, DeliveryService, isValidLocation, OrderFormValues } from "@/components/orders/OrderSchemas";
+import { evaluatePickupQuality } from "@/components/orders/pickupLocationQuality";
 import { OnDemandOrderForm } from "@/components/orders/OnDemandOrderForm";
 import { OrderSummary } from "@/components/orders/OrderSummary";
 import Link from "next/link";
@@ -470,6 +471,15 @@ export default function NewOrderPage() {
       setCoverageError("Titik pickup dan tujuan harus dipilih dari lokasi yang terverifikasi.");
       return;
     }
+    const pickupQuality = evaluatePickupQuality(data.pickup_location, data.pickup_point);
+    if (pickupQuality.needsCorrection) {
+      setCoverageError(
+        pickupQuality.reason === 'low_accuracy'
+          ? "Akurasi GPS pickup rendah. Pilih hasil alamat atau ambil lokasi lagi sebelum order dibuat."
+          : "Titik pickup berbeda dari alamat terpilih. Pilih ulang alamat/titik pickup agar rute dan harga akurat."
+      );
+      return;
+    }
     setIsSubmitting(true);
     setTransactionPending(false);
     try {
@@ -484,6 +494,7 @@ export default function NewOrderPage() {
         quote_input_fingerprint: pricing.input_fingerprint,
         quote_snapshot_hash: pricing.snapshot_hash || pricing.route_snapshot?.snapshot_hash,
         quote_expires_at: pricing.expires_at,
+        pickup_location_quality: pickupQuality,
         quote_total_price_idr: pricing.total_price_idr,
         promo_code: appliedPromoCode
       };
