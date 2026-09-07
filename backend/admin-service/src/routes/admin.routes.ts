@@ -34,6 +34,7 @@ adminRoutes.delete('/admin/banners/:id', requireRole(['super_admin']), (req, res
 adminRoutes.get('/admin/courier-growth-configs', (req, res) => controllers.listAdminCourierGrowthConfigs(req, res));
 adminRoutes.patch('/admin/courier-tier-configs/:id', (req, res) => controllers.updateAdminCourierTierConfig(req, res));
 adminRoutes.patch('/admin/courier-incentive-campaigns/:id', (req, res) => controllers.updateAdminCourierIncentive(req, res));
+adminRoutes.post('/admin/courier-incentive-campaigns/:id/reconcile', requireRole(['super_admin', 'finance_admin']), requireTotp, requireIdempotencyKey('admin.courier_incentive.reconcile'), (req, res) => controllers.reconcileAdminCourierIncentive(req, res));
 adminRoutes.get('/admin/resi-templates', (req, res) => controllers.listResiTemplates(req, res));
 adminRoutes.post('/admin/resi-templates', (req, res) => controllers.createResiTemplate(req, res));
 adminRoutes.get('/admin/resi-templates/:id', (req, res) => controllers.getResiTemplate(req, res));

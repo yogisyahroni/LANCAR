@@ -352,30 +352,25 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
     );
 
     const campaignRes = await db.query(
-      `SELECT id, code, title, description, target_deliveries, reward_idr, ends_at
-       FROM courier_incentive_campaigns
-       WHERE is_active = TRUE
-         AND starts_at <= NOW()
-         AND ends_at >= NOW()
-       ORDER BY reward_idr DESC
-       LIMIT 5`
-    );
-
-    const deliveredToday = await db.query(
-      `SELECT COUNT(*)::int AS total
-       FROM order_legs
-       WHERE courier_id = $1
-         AND status = 'delivered'
-         AND updated_at::date = CURRENT_DATE`,
+      `SELECT c.id, c.code, c.title, c.description, c.target_deliveries,
+              c.reward_idr, c.ends_at, c.market_code, c.zone_id, c.service_code,
+              c.cohort_code, c.policy_version, c.budget_idr,
+              COALESCE(p.completed_deliveries, 0)::int AS progress_deliveries,
+              COALESCE(p.status, 'in_progress') AS progress_status,
+              CASE WHEN c.target_deliveries > 0
+                THEN LEAST(100, ROUND(COALESCE(p.completed_deliveries, 0)::numeric / c.target_deliveries * 100)::int)
+                ELSE 0 END AS progress_percent
+       FROM courier_incentive_campaigns c
+       LEFT JOIN courier_incentive_progress p
+         ON p.campaign_id = c.id AND p.courier_id = $1
+       WHERE c.is_active = TRUE
+         AND c.starts_at <= NOW()
+         AND c.ends_at >= NOW()
+       ORDER BY c.reward_idr DESC
+       LIMIT 5`,
       [req.user.id]
     );
-
-    const todayCount = Number(deliveredToday.rows[0]?.total || 0);
-    const incentives = campaignRes.rows.map((campaign: any) => ({
-      ...campaign,
-      progress_deliveries: todayCount,
-      progress_percent: campaign.target_deliveries > 0 ? Math.min(100, Math.round(todayCount / campaign.target_deliveries * 100)) : 0,
-    }));
+    const incentives = campaignRes.rows;
 
     res.json({
       success: true,

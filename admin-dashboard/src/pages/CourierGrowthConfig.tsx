@@ -27,6 +27,15 @@ type IncentiveCampaign = {
   starts_at?: string
   ends_at?: string
   is_active: boolean
+  market_code?: string
+  zone_id?: string
+  service_code?: string
+  cohort_code?: string
+  budget_idr: number
+  budget_reserved_idr?: number
+  budget_reconciled_idr?: number
+  policy_version?: string
+  max_customer_pair_deliveries?: number
 }
 
 const rupiah = (value: number) =>
@@ -201,6 +210,41 @@ export default function CourierGrowthConfig() {
                       <span>{rupiah(Number(draft.reward_idr || 0))} untuk {draft.target_deliveries} delivery</span>
                       <TrendingUp className="h-4 w-4 text-primary-light" />
                     </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label className="space-y-1">
+                        <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Market</span>
+                        <input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-primary" value={draft.market_code || ''} placeholder="ID-JK" onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], market_code: e.target.value } }))} />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Service</span>
+                        <input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-primary" value={draft.service_code || ''} placeholder="food_delivery" onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], service_code: e.target.value } }))} />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Cohort / Tier</span>
+                        <input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-primary" value={draft.cohort_code || 'all'} placeholder="all / regular / elite" onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], cohort_code: e.target.value } }))} />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Budget</span>
+                        <input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-primary" type="number" min="0" value={draft.budget_idr ?? 0} onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], budget_idr: Number(e.target.value) } }))} />
+                      </label>
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label className="space-y-1">
+                        <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Zone ID (optional)</span>
+                        <input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-primary" value={draft.zone_id || ''} placeholder="UUID zone" onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], zone_id: e.target.value } }))} />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Pair limit</span>
+                        <input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-primary" type="number" min="1" value={draft.max_customer_pair_deliveries ?? 10} onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], max_customer_pair_deliveries: Number(e.target.value) } }))} />
+                      </label>
+                    </div>
+                    <label className="mt-3 block space-y-1">
+                      <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Policy version</span>
+                      <input className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-primary" value={draft.policy_version || 'courier-incentive-2026-v1'} onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], policy_version: e.target.value } }))} />
+                    </label>
+                    <p className="mt-3 text-xs text-zinc-500">
+                      Reserved {rupiah(Number(draft.budget_reserved_idr || 0))} · Reconciled {rupiah(Number(draft.budget_reconciled_idr || 0))} · Policy {draft.policy_version || 'courier-incentive-2026-v1'}
+                    </p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <input className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-primary" type="date" value={dateValue(draft.starts_at)} onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], starts_at: e.target.value } }))} />
                       <input className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-primary" type="date" value={dateValue(draft.ends_at)} onChange={(e) => setIncentiveDrafts((prev) => ({ ...prev, [campaign.id]: { ...prev[campaign.id], ends_at: e.target.value } }))} />

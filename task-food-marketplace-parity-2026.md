@@ -5263,11 +5263,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - `admin-dashboard/src/pages/economics/Incentives.tsx`
 
 **Checklist**
-- [ ] Incentive has market/zone/service/cohort/schedule/target/budget/version.
-- [ ] Progress server-authoritative and replay-safe.
-- [ ] Budget liability reserved/reconciled.
-- [ ] Fraud/collusion/self-order protection.
-- [ ] Incentive cannot force unsafe driving or impossible completion target.
+- [x] Incentive has market/zone/service/cohort/schedule/target/budget/version.
+- [x] Progress server-authoritative and replay-safe.
+- [x] Budget liability reserved/reconciled.
+- [x] Fraud/collusion/self-order protection.
+- [x] Incentive cannot force unsafe driving or impossible completion target.
 
 ---
 

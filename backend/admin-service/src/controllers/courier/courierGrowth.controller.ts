@@ -42,7 +42,10 @@ export const listAdminCourierGrowthConfigs = async (_req: Request, res: Response
       ),
       db.query(
         `SELECT id, code, title, description, target_deliveries, reward_idr,
-                starts_at, ends_at, is_active, metadata, updated_at
+                starts_at, ends_at, is_active, metadata, market_code, zone_id,
+                service_code, cohort_code, budget_idr, budget_reserved_idr,
+                budget_reconciled_idr, policy_version, max_customer_pair_deliveries,
+                updated_at
          FROM courier_incentive_campaigns
          ORDER BY is_active DESC, reward_idr DESC, ends_at DESC`
       ),
@@ -106,8 +109,15 @@ export const updateAdminCourierIncentive = async (req: Request, res: Response) =
            starts_at = COALESCE($5, starts_at),
            ends_at = COALESCE($6, ends_at),
            is_active = COALESCE($7, is_active),
+           market_code = CASE WHEN $8::text IS NULL THEN market_code ELSE NULLIF($8::text, '') END,
+           zone_id = CASE WHEN $9::text IS NULL THEN zone_id ELSE NULLIF($9::text, '')::uuid END,
+           service_code = CASE WHEN $10::text IS NULL THEN service_code ELSE NULLIF($10::text, '') END,
+           cohort_code = CASE WHEN $11::text IS NULL THEN cohort_code ELSE COALESCE(NULLIF($11::text, ''), 'all') END,
+           budget_idr = COALESCE($12, budget_idr),
+           policy_version = CASE WHEN $13::text IS NULL THEN policy_version ELSE COALESCE(NULLIF($13::text, ''), policy_version) END,
+           max_customer_pair_deliveries = COALESCE($14, max_customer_pair_deliveries),
            updated_at = NOW()
-       WHERE id = $8
+       WHERE id = $15
        RETURNING *`,
       [
         body.title,
@@ -117,6 +127,13 @@ export const updateAdminCourierIncentive = async (req: Request, res: Response) =
         body.starts_at ?? null,
         body.ends_at ?? null,
         typeof body.is_active === 'boolean' ? body.is_active : null,
+        body.market_code ?? null,
+        body.zone_id ?? null,
+        body.service_code ?? null,
+        body.cohort_code ?? null,
+        body.budget_idr ?? null,
+        body.policy_version ?? null,
+        body.max_customer_pair_deliveries ?? null,
         id,
       ]
     );
@@ -127,6 +144,28 @@ export const updateAdminCourierIncentive = async (req: Request, res: Response) =
     res.json({ success: true, data: result.rows[0], message: 'Incentive campaign updated' });
   } catch (error: any) {
     res.status(500).json({ success: false, data: null, message: error.message });
+  }
+};
+
+export const reconcileAdminCourierIncentive = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const result = await db.query(
+      `SELECT reconcile_courier_incentive_campaign($1::uuid) AS reconciled_idr`,
+      [id]
+    );
+    if (result.rows[0]?.reconciled_idr === null || result.rows[0]?.reconciled_idr === undefined) {
+      res.status(404).json({ success: false, data: null, message: 'Campaign tidak ditemukan.' });
+      return;
+    }
+    res.json({
+      success: true,
+      data: { campaign_id: id, reconciled_idr: Number(result.rows[0].reconciled_idr) },
+      message: 'Incentive liability reconciled',
+    });
+  } catch (error: any) {
+    securityLog.error('Reconcile courier incentive error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error' });
   }
 };
 
