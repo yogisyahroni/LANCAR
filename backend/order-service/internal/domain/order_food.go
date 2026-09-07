@@ -36,6 +36,7 @@ type CreateFoodOrderRequest struct {
 	DropoffAddress string                 `json:"dropoff_address" validate:"required"`
 	DropoffCity    string                 `json:"dropoff_city,omitempty"`
 	DropoffZipCode string                 `json:"dropoff_zip_code,omitempty"`
+	Market         string                 `json:"market,omitempty"`
 	DropoffLat     float64                `json:"dropoff_lat" validate:"required"`
 	DropoffLng     float64                `json:"dropoff_lng" validate:"required"`
 	ReceiverName   string                 `json:"receiver_name,omitempty"`
@@ -100,14 +101,16 @@ type FoodQuoteResponse struct {
 	ETASource            string          `json:"eta_source"`
 	// ETA components are explicit so unavailable provider signals are not
 	// silently folded into a fabricated client-side number.
-	PrepMinutes         int       `json:"prep_minutes"`
-	PickupTravelMinutes int       `json:"pickup_travel_minutes"`
-	TrafficMinutes      *int      `json:"traffic_minutes"`
-	BatchingMinutes     *int      `json:"batching_minutes"`
-	SupplyStatus        string    `json:"supply_status"`
-	Confidence          string    `json:"confidence"`
-	PricingRuleVersion  string    `json:"pricing_rule_version"`
-	ExpiresAt           time.Time `json:"expires_at"`
+	PrepMinutes         int               `json:"prep_minutes"`
+	PickupTravelMinutes int               `json:"pickup_travel_minutes"`
+	TrafficMinutes      *int              `json:"traffic_minutes"`
+	BatchingMinutes     *int              `json:"batching_minutes"`
+	SupplyStatus        string            `json:"supply_status"`
+	Confidence          string            `json:"confidence"`
+	PricingRuleVersion  string            `json:"pricing_rule_version"`
+	Market              string            `json:"market,omitempty"`
+	PricingBreakdown    *PricingBreakdown `json:"pricing_breakdown,omitempty"`
+	ExpiresAt           time.Time         `json:"expires_at"`
 }
 
 type FoodOrderItem struct {

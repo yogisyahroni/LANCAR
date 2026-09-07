@@ -298,6 +298,9 @@ func (r *availabilityRepo) GetDeliveryServiceByCode(ctx context.Context, code st
 			max_weight_kg,
 			platform_fee_idr,
 			platform_fee_pct,
+			COALESCE(platform_commission_percent, 0),
+			COALESCE(courier_payout_percent, 0),
+			COALESCE(courier_min_payout_idr, 0),
 			COALESCE(search_radii_km::text, '[3, 5, 10]') AS search_radii_km
 		FROM delivery_service_products
 		WHERE code = $1
@@ -317,6 +320,9 @@ func (r *availabilityRepo) GetDeliveryServiceByCode(ctx context.Context, code st
 		&service.MaxWeightKG,
 		&service.PlatformFeeIDR,
 		&service.PlatformFeePct,
+		&service.PlatformCommissionPercent,
+		&service.CourierPayoutPercent,
+		&service.CourierMinPayoutIDR,
 		&searchRadiiJSON,
 	)
 	if err != nil {

@@ -35,13 +35,13 @@ func (m *MockPricingRepo) GetDeliveryServiceByCode(ctx context.Context, code str
 		perKm = m.Config.PricePerKM
 	}
 	return &domain.DeliveryServiceProduct{
-		Code:                 code,
-		Name:                 "Mocked Service",
-		BaseFareIDR:          baseFare,
-		PerKmIDR:             perKm,
-		IncludedDistanceKM:   10.0,
-		PlatformFeeIDR:       1500,
-		PlatformFeePct:       10,
+		Code:               code,
+		Name:               "Mocked Service",
+		BaseFareIDR:        baseFare,
+		PerKmIDR:           perKm,
+		IncludedDistanceKM: 10.0,
+		PlatformFeeIDR:     1500,
+		PlatformFeePct:     10,
 	}, nil
 }
 
@@ -390,6 +390,12 @@ func TestPricingService_ProducesAuditableQuoteMetadata(t *testing.T) {
 	}
 	if quote.ServiceCategory != "package_on_demand" || quote.PriceComponents["total_price_idr"] != quote.TotalPriceIDR {
 		t.Fatalf("quote components incomplete: %+v", quote.PriceComponents)
+	}
+	if quote.PricingBreakdown == nil || quote.PricingBreakdown.PolicyVersion == "" || quote.PricingBreakdown.CustomerTotalIDR != quote.TotalPriceIDR {
+		t.Fatalf("canonical pricing breakdown incomplete: %+v", quote.PricingBreakdown)
+	}
+	if err := quote.PricingBreakdown.Validate(); err != nil {
+		t.Fatalf("canonical pricing breakdown is not reconciled: %v", err)
 	}
 	if !quote.ExpiresAt.After(time.Now()) {
 		t.Fatalf("quote must expire in the future")

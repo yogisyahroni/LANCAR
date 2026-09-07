@@ -233,6 +233,38 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	roundingPrecision := int64(s.configRepo.GetIntConfig(ctx, "pricing_rounding_precision_idr", 100))
 	totalPrice := applyRoundingPolicy(totalBeforeRounding, roundingMode, roundingPrecision)
 
+	pricingRuleVersion := policyVersion(ctx, s.configRepo, "marketplace-pricing-2026-v1")
+	courierPayoutPercent := serviceProduct.CourierPayoutPercent
+	if courierPayoutPercent <= 0 {
+		courierPayoutPercent = s.configRepo.GetFloatConfig(ctx, "courier_payout_percent", 80)
+	}
+	if courierPayoutPercent < 0 || courierPayoutPercent > 100 {
+		return nil, fmt.Errorf("invalid courier payout policy percent %.3f", courierPayoutPercent)
+	}
+	transportGross := baseFare + distanceFare + weightSurcharge + dynamicPrice
+	if transportGross < 0 {
+		transportGross = 0
+	}
+	courierEarning := int64(math.Round(float64(transportGross) * courierPayoutPercent / 100))
+	components := []domain.PricingComponent{
+		pricingComponent("base_fare", domain.PricingComponentCustomerCharge, baseFare, true),
+		pricingComponent("distance_fee", domain.PricingComponentCustomerCharge, distanceFare, true),
+		pricingComponent("weight_surcharge", domain.PricingComponentCustomerCharge, weightSurcharge, true),
+		pricingComponent("dynamic_adjustment", domain.PricingComponentCustomerAdjustment, dynamicPrice, true),
+		pricingComponent("insurance_fee", domain.PricingComponentCustomerCharge, insuranceFee, true),
+		pricingComponent("platform_fee", domain.PricingComponentCustomerCharge, platformFee, true),
+		pricingComponent("promo_discount", domain.PricingComponentCustomerDiscount, discountIDR, true),
+		pricingComponent("courier_earning", domain.PricingComponentCourierEarning, courierEarning, false),
+	}
+	roundingAdjustment := totalPrice - (totalBeforeRounding)
+	if roundingAdjustment != 0 {
+		components = append(components, pricingComponent("rounding_adjustment", domain.PricingComponentCustomerAdjustment, roundingAdjustment, true))
+	}
+	breakdown, err := buildPricingBreakdown(ctx, s.configRepo, serviceProduct.Code, req.Market, pricingRuleVersion, components)
+	if err != nil {
+		return nil, fmt.Errorf("pricing reconciliation: %w", err)
+	}
+
 	// 8. Create Response with Complete Snapshot PRC-001 to PRC-004
 	quoteID := uuid.New().String()
 	resp := &domain.PricingEstimateResponse{
@@ -275,7 +307,9 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		ServiceCategory:        domain.CanonicalServiceCategoryForModel(serviceProduct.Code),
 		Currency:               "IDR",
 		ETASource:              "maps.traffic",
-		PricingRuleVersion:     s.configRepo.GetStringConfig(ctx, "pricing_rule_version", "pricing-2026-09-01"),
+		PricingRuleVersion:     pricingRuleVersion,
+		Market:                 breakdown.Market,
+		PricingBreakdown:       breakdown,
 		PriceComponents: map[string]int64{
 			"base_fare_idr":        baseFare,
 			"distance_fee_idr":     distanceFare,
@@ -284,6 +318,10 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 			"insurance_fee_idr":    insuranceFee,
 			"platform_fee_idr":     platformFee,
 			"discount_idr":         discountIDR,
+			"customer_total_idr":   totalPrice,
+			"courier_earning_idr":  courierEarning,
+			"merchant_payable_idr": breakdown.MerchantPayableIDR,
+			"platform_amount_idr":  breakdown.PlatformAmountIDR,
 			"total_price_idr":      totalPrice,
 		},
 	}

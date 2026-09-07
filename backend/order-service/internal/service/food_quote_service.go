@@ -161,6 +161,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if distanceKM > product.IncludedDistanceKM {
 		deliveryFee += int64(math.Ceil(distanceKM-product.IncludedDistanceKM)) * product.PerKmIDR
 	}
+	grossDeliveryFee := deliveryFee
 	membershipSubsidy := int64(0)
 	membershipID := ""
 	if s.membershipRepo != nil {
@@ -204,13 +205,47 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	}
 
 	etaSpeed := 20.0
-	ruleVersion := "food-pricing-2026-09-01"
 	if s.configRepo != nil {
 		etaSpeed = s.configRepo.GetFloatConfig(ctx, "food_eta_speed_kmh", etaSpeed)
-		ruleVersion = s.configRepo.GetStringConfig(ctx, "pricing_rule_version", ruleVersion)
 	}
 	if etaSpeed <= 0 {
 		etaSpeed = 20
+	}
+	pricingRuleVersion := policyVersion(ctx, s.configRepo, "marketplace-pricing-2026-v1")
+	merchantCommissionPercent := product.PlatformCommissionPercent
+	if merchantCommissionPercent <= 0 {
+		merchantCommissionPercent = s.configRepo.GetFloatConfig(ctx, "merchant_commission_percent", 2.5)
+	}
+	if merchantCommissionPercent < 0 || merchantCommissionPercent > 100 {
+		return nil, fmt.Errorf("invalid merchant commission policy percent %.3f", merchantCommissionPercent)
+	}
+	merchantCommission := int64(math.Round(float64(subtotal) * merchantCommissionPercent / 100))
+	courierPayoutPercent := product.CourierPayoutPercent
+	if courierPayoutPercent <= 0 {
+		courierPayoutPercent = s.configRepo.GetFloatConfig(ctx, "courier_payout_percent", 80)
+	}
+	if courierPayoutPercent < 0 || courierPayoutPercent > 100 {
+		return nil, fmt.Errorf("invalid courier payout policy percent %.3f", courierPayoutPercent)
+	}
+	courierEarning := int64(math.Round(float64(grossDeliveryFee) * courierPayoutPercent / 100))
+	components := []domain.PricingComponent{
+		pricingComponent("item_subtotal", domain.PricingComponentCustomerCharge, subtotal, true),
+		pricingComponent("delivery_fee", domain.PricingComponentCustomerCharge, grossDeliveryFee, true),
+		pricingComponent("platform_fee", domain.PricingComponentCustomerCharge, platformFee, true),
+		pricingComponent("tax", domain.PricingComponentCustomerCharge, taxIDR, true),
+		pricingComponent("membership_subsidy", domain.PricingComponentCustomerDiscount, membershipSubsidy, true),
+		pricingComponent("promo_discount", domain.PricingComponentCustomerDiscount, discount, true),
+		pricingComponent("merchant_gross", domain.PricingComponentMerchantGross, subtotal, false),
+		pricingComponent("merchant_commission", domain.PricingComponentMerchantCommission, merchantCommission, false),
+		pricingComponent("courier_earning", domain.PricingComponentCourierEarning, courierEarning, false),
+	}
+	market := req.Market
+	if strings.TrimSpace(market) == "" {
+		market = req.DropoffCity
+	}
+	breakdown, err := buildPricingBreakdown(ctx, s.configRepo, product.Code, market, pricingRuleVersion, components)
+	if err != nil {
+		return nil, fmt.Errorf("food pricing reconciliation: %w", err)
 	}
 	prepMinutes := maxPrep
 	if merchant.BusyUntil != nil && merchant.BusyUntil.After(time.Now()) {
@@ -225,8 +260,9 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		DeliveryFeeIDR: deliveryFee, PlatformFeeIDR: platformFee, TaxIDR: taxIDR, DiscountIDR: discount, MembershipSubsidyIDR: membershipSubsidy,
 		TotalPriceIDR: total, DistanceKM: distanceKM,
 		ETAMinutes: prepMinutes + pickupTravelMinutes,
-		ETASource:  "merchant_prep_plus_configured_route_speed", PricingRuleVersion: ruleVersion,
-		PrepMinutes: prepMinutes, PickupTravelMinutes: pickupTravelMinutes,
+		ETASource:  "merchant_prep_plus_configured_route_speed", PricingRuleVersion: pricingRuleVersion, Market: market,
+		PricingBreakdown: breakdown,
+		PrepMinutes:      prepMinutes, PickupTravelMinutes: pickupTravelMinutes,
 		// Traffic, batching, and live courier supply are not available from a
 		// provider-backed signal in this quote path. Keep them unknown instead
 		// of converting configured route speed into fake traffic/supply data.
@@ -239,20 +275,25 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	stored := &domain.PricingEstimateResponse{
 		EstimateID: quote.QuoteID, QuoteID: quote.QuoteID, InputFingerprint: quote.InputFingerprint,
 		ServiceCategory: "food", Currency: "IDR", TotalPriceIDR: total, ExpiresAt: quote.ExpiresAt,
+		Market:     market,
 		ETAMinutes: quote.ETAMinutes, PrepMinutes: quote.PrepMinutes,
 		PickupTravelMinutes: quote.PickupTravelMinutes, TrafficMinutes: quote.TrafficMinutes,
 		BatchingMinutes: quote.BatchingMinutes, SupplyStatus: quote.SupplyStatus,
 		Confidence:   quote.Confidence,
 		BasePriceIDR: subtotal, DistanceKM: distanceKM, DistanceFeeIDR: deliveryFee,
 		PlatformFeeIDR: platformFee, PlatformFeePct: platformPct, TaxIDR: taxIDR, DiscountIDR: discount,
-		ETASource: quote.ETASource, PricingRuleVersion: ruleVersion,
-		FoodMerchantID: req.MerchantID, FoodItems: req.Items, FoodDropoffAddress: req.DropoffAddress,
+		ETASource: quote.ETASource, PricingRuleVersion: pricingRuleVersion,
+		PricingBreakdown: breakdown,
+		FoodMerchantID:   req.MerchantID, FoodItems: req.Items, FoodDropoffAddress: req.DropoffAddress,
 		FoodDropoffCity: req.DropoffCity, FoodDropoffZipCode: req.DropoffZipCode,
 		FoodVoucherCode: req.VoucherCode, FoodScheduledAt: req.ScheduledAt,
 		FoodMembershipID: membershipID,
 		PriceComponents: map[string]int64{
 			"food_subtotal_idr": subtotal, "delivery_fee_idr": deliveryFee, "membership_subsidy_idr": membershipSubsidy,
-			"platform_fee_idr": platformFee, "tax_idr": taxIDR, "discount_idr": discount, "total_price_idr": total,
+			"platform_fee_idr": platformFee, "tax_idr": taxIDR, "discount_idr": discount,
+			"merchant_commission_idr": merchantCommission, "courier_earning_idr": courierEarning,
+			"customer_total_idr": total, "merchant_payable_idr": breakdown.MerchantPayableIDR,
+			"platform_amount_idr": breakdown.PlatformAmountIDR, "total_price_idr": total,
 		},
 	}
 	stored.SnapshotHash = domain.QuoteSnapshotHash(*stored)
