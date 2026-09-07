@@ -32,7 +32,30 @@ func (m *mockPaymentRepo) GetByOrderID(ctx context.Context, orderID string) (*do
 	return nil, domain.ErrNotFound
 }
 func (m *mockPaymentRepo) GetByPaymentNumber(ctx context.Context, paymentNumber string) (*domain.Payment, error) {
-	return nil, nil
+	for _, p := range m.payments {
+		if p.PaymentNumber == paymentNumber {
+			return p, nil
+		}
+	}
+	return nil, domain.ErrNotFound
+}
+func (m *mockPaymentRepo) ApplyVerifiedPayment(ctx context.Context, notice domain.VerifiedPaymentUpdate) (*domain.Payment, error) {
+	p, ok := m.payments[notice.PaymentID]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	if p.PaymentNumber != notice.PaymentNumber || int64(p.AmountIDR) != notice.AmountIDR {
+		return nil, domain.ErrInvalidServiceReport
+	}
+	p.Status = notice.Status
+	p.ProviderReference = &notice.ProviderReference
+	now := time.Now().UTC()
+	p.ProviderVerifiedAt = &now
+	if notice.Status == domain.PaymentStatusPaid {
+		p.PaidAt = &now
+	}
+	m.updated = true
+	return p, nil
 }
 func (m *mockPaymentRepo) UpdateStatus(ctx context.Context, id string, status domain.PaymentStatus, paidAt *time.Time, providerRef *string, webhookPayload []byte) error {
 	if p, ok := m.payments[id]; ok {
@@ -63,8 +86,12 @@ func (m *mockOrderRepo) GetByOrderNumber(ctx context.Context, orderNumber string
 func (m *mockOrderRepo) ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*domain.Order, error) {
 	return nil, nil
 }
-func (m *mockOrderRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order, error) { return nil, nil }
-func (m *mockOrderRepo) UpdateLegsStatus(ctx context.Context, orderID string, status domain.OrderStatus) error { return nil }
+func (m *mockOrderRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order, error) {
+	return nil, nil
+}
+func (m *mockOrderRepo) UpdateLegsStatus(ctx context.Context, orderID string, status domain.OrderStatus) error {
+	return nil
+}
 func (m *mockOrderRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
 	if m.order != nil && m.order.ID == id {
 		m.order.Status = status
@@ -198,7 +225,7 @@ type mockTaxService struct{}
 
 func (m *mockTaxService) CalculatePaymentMDRTax(ctx context.Context, mdrAmountIDR int64) (domain.TaxSnapshot, error) {
 	return domain.TaxSnapshot{
-		PPNIDR: int64(float64(mdrAmountIDR) * 0.11),
+		PPNIDR:      int64(float64(mdrAmountIDR) * 0.11),
 		TaxRuleCode: "DEFAULT_11",
 	}, nil
 }
@@ -214,7 +241,6 @@ func (m *mockTaxService) GenerateEFakturExport(ctx context.Context, periodMonthY
 func (m *mockTaxService) UpdateEFakturStatus(ctx context.Context, id string, status string) error {
 	return nil
 }
-
 
 func TestPaymentService_CreatePayment(t *testing.T) {
 	orderID := uuid.NewString()
@@ -265,7 +291,10 @@ func TestPaymentService_HandleWebhook_Settlement(t *testing.T) {
 
 	// Create mock payload
 	payloadMap := map[string]interface{}{
-		"order_id":           orderID,
+		"order_id":           p.PaymentNumber,
+		"transaction_id":     "MOCK-REF",
+		"gross_amount":       "100000.00",
+		"status_code":        "200",
 		"transaction_status": "settlement",
 	}
 	payloadBytes, _ := json.Marshal(payloadMap)

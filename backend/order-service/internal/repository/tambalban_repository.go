@@ -20,6 +20,19 @@ func NewSettlementRepository(db *sql.DB) domain.SettlementRepository {
 }
 
 func (r *settlementRepo) GetSettlementConfig(ctx context.Context, serviceCode string) (*domain.SettlementConfig, error) {
+	return loadSettlementConfig(ctx, r.db, serviceCode, false)
+}
+
+// GetSettlementConfigForSettlement holds a share lock until the financial transaction commits.
+func (r *settlementRepo) GetSettlementConfigForSettlement(ctx context.Context, tx *sql.Tx, serviceCode string) (*domain.SettlementConfig, error) {
+	return loadSettlementConfig(ctx, tx, serviceCode, true)
+}
+
+type settlementConfigQueryer interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func loadSettlementConfig(ctx context.Context, q settlementConfigQueryer, serviceCode string, lock bool) (*domain.SettlementConfig, error) {
 	query := `
 		SELECT id, service_code, service_category, commission_basis, 
 		       platform_commission_pct, mdr_pct, tax_pct,
@@ -27,9 +40,12 @@ func (r *settlementRepo) GetSettlementConfig(ctx context.Context, serviceCode st
 		       created_at, updated_at
 		FROM settlement_configs 
 		WHERE service_code = $1`
+	if lock {
+		query += " FOR SHARE"
+	}
 
 	config := &domain.SettlementConfig{}
-	err := r.db.QueryRowContext(ctx, query, serviceCode).Scan(
+	err := q.QueryRowContext(ctx, query, serviceCode).Scan(
 		&config.ID, &config.ServiceCode, &config.ServiceCategory,
 		&config.CommissionBasis, &config.PlatformCommissionPct,
 		&config.MDRPct, &config.TaxPct,

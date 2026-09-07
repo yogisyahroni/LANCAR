@@ -50,6 +50,7 @@ fun OrderDetailScreen(
     val serviceAdjustments by viewModel.serviceAdjustments.collectAsState()
     val adjustmentDecisionState by viewModel.serviceAdjustmentDecisionState.collectAsState()
     val context = LocalContext.current
+    var showRoadsideReport by remember(orderId) { mutableStateOf(false) }
     var showDisputeDialog by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -325,9 +326,9 @@ fun OrderDetailScreen(
                                 if (order.serviceSubType in setOf(
                                         "tambal_ban_motor", "tambal_ban_mobil",
                                         "towing_motor", "towing_mobil"
-                                    ) && order.status.lowercase() == "delivered") {
+                                    ) && isRoadsideFinalStatus(order.status)) {
                                     OutlinedButton(
-                                        onClick = { /* Navigate to service report */ },
+                                        onClick = { showRoadsideReport = !showRoadsideReport },
                                         modifier = Modifier.fillMaxWidth().height(52.dp).criticalAction("Lihat laporan layanan"),
                                         shape = RoundedCornerShape(TembusRadius.Button),
                                         border = BorderStroke(1.dp, Primary),
@@ -335,13 +336,24 @@ fun OrderDetailScreen(
                                     ) {
                                         Icon(Icons.Default.Assignment, contentDescription = "")
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Lihat Laporan Layanan", fontWeight = FontWeight.Bold)
+                                        Text(if (showRoadsideReport) "Sembunyikan Laporan" else "Lihat Laporan Layanan", fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
                         }
 
                         Spacer(Modifier.height(16.dp))
+
+                        if (order.serviceSubType?.startsWith("tambal_ban_") == true) {
+                            RoadsideAftercareSection(
+                                orderId = order.orderId,
+                                status = order.status,
+                                adjustments = serviceAdjustments,
+                                onRefresh = { viewModel.fetchOrderDetail(orderId) },
+                                reportRequested = showRoadsideReport
+                            )
+                            Spacer(Modifier.height(16.dp))
+                        }
 
                         // Tombol Bantuan / Komplain
                         TextButton(

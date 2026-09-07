@@ -72,6 +72,8 @@ func (r *PostgresPayoutRepo) GetPendingPayoutsByCourier(ctx context.Context, cou
 	query := `
 		SELECT * FROM payout_records 
 		WHERE courier_id = $1 AND disbursement_status = 'pending'
+          AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = COALESCE(payout_records.order_id,(SELECT order_id FROM order_legs WHERE id=payout_records.order_leg_id))
+            AND (o.service_category='tambal_ban' OR o.service_sub_type LIKE 'tambal_ban_%'))
 		ORDER BY created_at ASC
 	`
 	var records []domain.PayoutRecord
@@ -83,6 +85,8 @@ func (r *PostgresPayoutRepo) GetAllPendingPayouts(ctx context.Context) ([]domain
 	query := `
 		SELECT * FROM payout_records 
 		WHERE disbursement_status = 'pending'
+          AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = COALESCE(payout_records.order_id,(SELECT order_id FROM order_legs WHERE id=payout_records.order_leg_id))
+            AND (o.service_category='tambal_ban' OR o.service_sub_type LIKE 'tambal_ban_%'))
 		ORDER BY created_at ASC
 	`
 	var records []domain.PayoutRecord
@@ -99,7 +103,9 @@ func (r *PostgresPayoutRepo) GetEarningsSummary(ctx context.Context, courierID u
 			COALESCE(SUM(net_idr), 0) as total_net_idr,
 			COALESCE(SUM(pph21_idr), 0) as total_pph21_idr,
 			COALESCE(SUM(net_idr - pph21_idr) FILTER (WHERE disbursement_status = 'completed'), 0) as total_payout_idr,
-			COALESCE(SUM(net_idr - pph21_idr) FILTER (WHERE disbursement_status = 'pending'), 0) as pending_payout_idr
+			COALESCE(SUM(net_idr - pph21_idr) FILTER (WHERE disbursement_status = 'pending'
+          AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = COALESCE(payout_records.order_id,(SELECT order_id FROM order_legs WHERE id=payout_records.order_leg_id))
+            AND (o.service_category='tambal_ban' OR o.service_sub_type LIKE 'tambal_ban_%'))), 0) as pending_payout_idr
 		FROM payout_records
 		WHERE courier_id = $1 AND created_at >= $2 AND created_at <= $3
 	`

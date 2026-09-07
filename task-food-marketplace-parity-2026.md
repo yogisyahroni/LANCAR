@@ -812,10 +812,12 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Customer sees human-readable stages.
 
 ## TIRE-2026-005 — Settlement/warranty/claim/rating [P0]
-- [ ] Settlement after proof invariant.
-- [ ] Customer sees final report + approved adjustment.
-- [ ] Warranty/claim, if offered, links immutable evidence.
-- [ ] Rating distinguishes technician service quality where useful.
+- [x] Settlement after proof invariant. (Backend and PostgreSQL verified 2026-09-07; provider payout release remains fail-closed pending dedicated idempotent integration.)
+- [x] Customer sees final report + approved adjustment. (API and Android source implemented; Android build/device UAT pending Firebase CI configuration.)
+- [x] Warranty/claim, if offered, links immutable evidence. (PostgreSQL evidence and mutation guards verified; live warranty operations UAT pending.)
+- [x] Rating distinguishes technician service quality where useful. (Dedicated technician quality rating implemented; Android build/device UAT pending.)
+
+**Release status:** Implementation integrated into staging; NOT production-ready and NOT full UAT sign-off. Verified on GitHub Actions run 34088629633: all order-service Go tests, fresh PostgreSQL migrations through 20260907000002, and three real database integration scenarios passed. Android failed before Kotlin compilation because google-services.json was unavailable. Payout release is intentionally blocked until a provider-idempotent workflow and reconciliation are verified. Do not enable payouts or mark production release complete on this evidence alone.
 
 ## TIRE-2026-006 — Emergency-first UI/UX [P1]
 - [ ] First screen asks vehicle/problem/location.

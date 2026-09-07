@@ -80,5 +80,6 @@ func (h *RoadsideCustomerReportHandler) GetTambalBanFinalReport(w http.ResponseW
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"report":              report,
 		"approved_adjustment": latestApproved,
+		"adjustments":         adjustments,
 	})
 }

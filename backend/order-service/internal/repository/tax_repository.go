@@ -31,10 +31,10 @@ func (r *PostgresTaxRepository) GetActiveRuleByCode(ctx context.Context, code st
 		ORDER BY effective_from DESC
 		LIMIT 1
 	`
-	
+
 	now := time.Now()
 	var rule domain.TaxRule
-	
+
 	err := r.replicaDB.GetContext(ctx, &rule, query, code, now)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -42,7 +42,7 @@ func (r *PostgresTaxRepository) GetActiveRuleByCode(ctx context.Context, code st
 		}
 		return nil, err
 	}
-	
+
 	return &rule, nil
 }
 
@@ -57,10 +57,10 @@ func (r *PostgresTaxRepository) GetDefaultPPNRule(ctx context.Context) (*domain.
 		ORDER BY effective_from DESC
 		LIMIT 1
 	`
-	
+
 	now := time.Now()
 	var rule domain.TaxRule
-	
+
 	err := r.replicaDB.GetContext(ctx, &rule, query, now)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -68,7 +68,7 @@ func (r *PostgresTaxRepository) GetDefaultPPNRule(ctx context.Context) (*domain.
 		}
 		return nil, err
 	}
-	
+
 	return &rule, nil
 }
 

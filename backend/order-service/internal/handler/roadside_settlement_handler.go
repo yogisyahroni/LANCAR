@@ -49,6 +49,8 @@ func (h *RoadsideSettlementHandler) Calculate(w http.ResponseWriter, r *http.Req
 			status, code, message = http.StatusNotFound, "ERR_NOT_FOUND", "Order Tambal Ban tidak ditemukan"
 		case errors.Is(err, domain.ErrRoadsideSettlementNotDelivered):
 			status, code, message = http.StatusConflict, "ERR_SETTLEMENT_NOT_DELIVERED", "Settlement hanya tersedia setelah layanan selesai"
+		case errors.Is(err, domain.ErrRoadsideSettlementCollectionRequired):
+			status, code, message = http.StatusConflict, "COLLECTION_REQUIRED", "Pembayaran atau penyesuaian belum selesai diverifikasi"
 		case errors.Is(err, domain.ErrRoadsideSettlementProofRequired):
 			status, code, message = http.StatusConflict, "PROOF_REQUIRED", "Bukti sebelum, sesudah, dan laporan akhir wajib lengkap sebelum settlement"
 		}
@@ -56,6 +58,54 @@ func (h *RoadsideSettlementHandler) Calculate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+// Finalize is an admin-only, idempotent accounting operation. The read-only
+// Calculate endpoint never creates a journal or payout.
+func (h *RoadsideSettlementHandler) Finalize(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	role := middleware.GetRoleFromContext(r.Context())
+	if role != "admin" && role != "super_admin" {
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Admin authorization required", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	finalizer, ok := h.service.(domain.RoadsideSettlementFinalizer)
+	if !ok {
+		middleware.WriteError(w, http.StatusServiceUnavailable, "ERR_UNAVAILABLE", "Settlement finalizer unavailable", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	var req struct {
+		OrderID string `json:"order_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.OrderID) == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "order_id wajib", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	result, err := finalizer.Finalize(r.Context(), req.OrderID, middleware.GetUserIDFromContext(r.Context()), role)
+	if err != nil {
+		status, code := http.StatusConflict, "ERR_SETTLEMENT_NOT_READY"
+		switch {
+		case errors.Is(err, domain.ErrForbidden):
+			status, code = http.StatusForbidden, "ERR_FORBIDDEN"
+		case errors.Is(err, domain.ErrRoadsideSettlementNotFound):
+			status, code = http.StatusNotFound, "ERR_NOT_FOUND"
+		case errors.Is(err, domain.ErrRoadsideSettlementNotDelivered):
+			code = "ERR_SETTLEMENT_NOT_DELIVERED"
+		case errors.Is(err, domain.ErrRoadsideSettlementProofRequired):
+			code = "PROOF_REQUIRED"
+		case errors.Is(err, domain.ErrRoadsideSettlementCollectionRequired):
+			code = "COLLECTION_REQUIRED"
+		default:
+			status, code = http.StatusServiceUnavailable, "ERR_SETTLEMENT_UNAVAILABLE"
+		}
+		middleware.WriteError(w, status, code, err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)
 }

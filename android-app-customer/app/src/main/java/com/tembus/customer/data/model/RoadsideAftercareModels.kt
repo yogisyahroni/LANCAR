@@ -41,3 +41,19 @@ data class RoadsideRatingResponse(
     @SerialName("comment") val comment: String? = null,
     @SerialName("created_at") val createdAt: String? = null
 )
+
+@Serializable
+data class RoadsideCollectionRequest(
+    @SerialName("adjustment_id") val adjustmentId: String
+)
+
+@Serializable
+data class RoadsidePaymentIntent(
+    @SerialName("id") val id: String,
+    @SerialName("payment_number") val paymentNumber: String,
+    @SerialName("amount_idr") val amountIdr: Long,
+    @SerialName("status") val status: String,
+    @SerialName("qr_code_url") val qrCodeUrl: String? = null,
+    @SerialName("qr_code_string") val qrCodeString: String? = null,
+    @SerialName("provider_reference") val providerReference: String? = null
+)

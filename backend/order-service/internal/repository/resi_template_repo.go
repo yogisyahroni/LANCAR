@@ -28,10 +28,10 @@ func (r *resiTemplateRepo) GetActiveTemplateByProvider(ctx context.Context, prov
 			created_at DESC
 		LIMIT 1
 	`
-	
+
 	var t domain.ResiTemplate
 	var layoutConfigBytes []byte
-	
+
 	err := r.db.QueryRowContext(ctx, query, providerCode).Scan(&t.ID, &t.Name, &t.PaperSize, &layoutConfigBytes, &t.ProviderCode)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -39,7 +39,7 @@ func (r *resiTemplateRepo) GetActiveTemplateByProvider(ctx context.Context, prov
 		}
 		return nil, err
 	}
-	
+
 	t.LayoutConfig = string(layoutConfigBytes)
 	return &t, nil
 }

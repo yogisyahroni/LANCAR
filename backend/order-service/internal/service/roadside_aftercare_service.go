@@ -19,7 +19,7 @@ func NewRoadsideAftercareService(repo domain.RoadsideAftercareRepository) domain
 }
 
 func (s *roadsideAftercareService) SubmitClaim(ctx context.Context, req *domain.SubmitRoadsideClaimRequest, customerID string) (*domain.RoadsideServiceClaim, error) {
-	if req == nil || strings.TrimSpace(req.OrderID) == "" || strings.TrimSpace(customerID) == "" || strings.TrimSpace(req.IdempotencyKey) == "" {
+	if req == nil || strings.TrimSpace(req.OrderID) == "" || strings.TrimSpace(customerID) == "" || strings.TrimSpace(req.IdempotencyKey) == "" || len(req.IdempotencyKey) > 160 {
 		return nil, fmt.Errorf("%w: order, customer, dan idempotency key wajib", domain.ErrInvalidRoadsideAftercare)
 	}
 	req.OrderID = strings.TrimSpace(req.OrderID)
@@ -45,7 +45,7 @@ func (s *roadsideAftercareService) SubmitClaim(ctx context.Context, req *domain.
 }
 
 func (s *roadsideAftercareService) SubmitRating(ctx context.Context, req *domain.SubmitRoadsideRatingRequest, customerID string) (*domain.RoadsideServiceRating, error) {
-	if req == nil || strings.TrimSpace(req.OrderID) == "" || strings.TrimSpace(customerID) == "" || strings.TrimSpace(req.IdempotencyKey) == "" {
+	if req == nil || strings.TrimSpace(req.OrderID) == "" || strings.TrimSpace(customerID) == "" || strings.TrimSpace(req.IdempotencyKey) == "" || len(req.IdempotencyKey) > 160 {
 		return nil, fmt.Errorf("%w: order, customer, dan idempotency key wajib", domain.ErrInvalidRoadsideAftercare)
 	}
 	req.OrderID = strings.TrimSpace(req.OrderID)
@@ -57,10 +57,10 @@ func (s *roadsideAftercareService) SubmitRating(ctx context.Context, req *domain
 		return nil, fmt.Errorf("%w: comment maksimal 500 karakter", domain.ErrInvalidRoadsideAftercare)
 	}
 	fingerprint, err := roadsideAftercareFingerprint(map[string]any{
-		"order_id": req.OrderID,
-		"overall_rating": req.OverallRating,
+		"order_id":                  req.OrderID,
+		"overall_rating":            req.OverallRating,
 		"technician_quality_rating": req.TechnicianQualityRating,
-		"comment": req.Comment,
+		"comment":                   req.Comment,
 	})
 	if err != nil {
 		return nil, err

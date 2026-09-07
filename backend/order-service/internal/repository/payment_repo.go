@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -106,14 +107,14 @@ func NewPostgresPaymentRepo(db *sqlx.DB) *PostgresPaymentRepo {
 func (r *PostgresPaymentRepo) Create(ctx context.Context, p *domain.Payment) error {
 	query := `
 		INSERT INTO payments (
-			id, order_id, payment_number, provider, method, status,
+			id, order_id, payment_number, provider, method, status, purpose, service_adjustment_id,
 			amount_idr, mdr_amount_idr, ppn_amount_idr, weather_reserve_idr,
 			insurance_reserve_idr, net_operational_idr, provider_reference,
 			qr_code_url, qr_code_string, expires_at, created_at, updated_at,
 			tax_rule_code, ppn_rate_effective_pct, ppn_rate_statutory_pct, dpp_idr,
 			tax_invoice_required, tax_invoice_status
 		) VALUES (
-			:id, :order_id, :payment_number, :provider, :method, :status,
+			:id, :order_id, :payment_number, :provider, :method, :status, COALESCE(NULLIF(:purpose, ''), 'order'), :service_adjustment_id,
 			:amount_idr, :mdr_amount_idr, :ppn_amount_idr, :weather_reserve_idr,
 			:insurance_reserve_idr, :net_operational_idr, :provider_reference,
 			:qr_code_url, :qr_code_string, :expires_at, :created_at, :updated_at,
@@ -131,12 +132,12 @@ func (r *PostgresPaymentRepo) Create(ctx context.Context, p *domain.Payment) err
 // paymentColumns — SELECT kolom eksplisit payments dengan COALESCE untuk
 // kolom nullable yang di-scan ke tipe non-pointer di domain.Payment.
 // (UAT F8-AN-070: SELECT * gagal "converting NULL to float64" dkk.)
-const paymentColumns = `id, order_id, payment_number, provider, method, status, amount_idr,
+const paymentColumns = `id, order_id, payment_number, provider, method, status, purpose, service_adjustment_id, amount_idr,
 	mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, COALESCE(insurance_reserve_idr, 0) AS insurance_reserve_idr,
 	net_operational_idr, provider_reference, qr_code_url, qr_code_string,
 	COALESCE(webhook_payload, '{}'::jsonb) AS webhook_payload, expires_at, paid_at, created_at, updated_at,
 	snap_token, redirect_url, client_key, snap_js_url, batch_id,
-	tax_rule_code, COALESCE(ppn_rate_effective_pct, 0) AS ppn_rate_effective_pct,
+	provider_verified_at, tax_rule_code, COALESCE(ppn_rate_effective_pct, 0) AS ppn_rate_effective_pct,
 	COALESCE(ppn_rate_statutory_pct, 0) AS ppn_rate_statutory_pct,
 	COALESCE(dpp_idr, 0) AS dpp_idr, COALESCE(tax_invoice_required, false) AS tax_invoice_required, tax_invoice_status`
 
@@ -154,7 +155,7 @@ func (r *PostgresPaymentRepo) GetByID(ctx context.Context, id string) (*domain.P
 
 func (r *PostgresPaymentRepo) GetByOrderID(ctx context.Context, orderID string) (*domain.Payment, error) {
 	var p domain.Payment
-	err := r.db.GetContext(ctx, &p, "SELECT "+paymentColumns+" FROM payments WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1", orderID)
+	err := r.db.GetContext(ctx, &p, "SELECT "+paymentColumns+" FROM payments WHERE order_id = $1 AND purpose = 'order' ORDER BY created_at DESC LIMIT 1", orderID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -196,4 +197,75 @@ func (r *PostgresPaymentRepo) UpdateStatus(ctx context.Context, id string, statu
 	}
 
 	return nil
+}
+
+// ApplyVerifiedPayment serializes a signed provider event with the order row.
+// The caller must verify signature, amount, fraud status and transaction identity.
+func (r *PostgresPaymentRepo) ApplyVerifiedPayment(ctx context.Context, notice domain.VerifiedPaymentUpdate) (*domain.Payment, error) {
+	if notice.PaymentID == "" || notice.PaymentNumber == "" || notice.ProviderReference == "" || notice.AmountIDR <= 0 || len(notice.Payload) == 0 {
+		return nil, fmt.Errorf("invalid verified payment notice")
+	}
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var orderID string
+	if err = tx.GetContext(ctx, &orderID, `SELECT o.id::text FROM orders o JOIN payments p ON p.order_id=o.id WHERE p.id=$1 FOR UPDATE OF o`, notice.PaymentID); err != nil {
+		return nil, err
+	}
+	var p domain.Payment
+	if err = tx.GetContext(ctx, &p, `SELECT `+paymentColumns+` FROM payments WHERE id=$1 FOR UPDATE`, notice.PaymentID); err != nil {
+		return nil, err
+	}
+	if p.OrderID != orderID || p.Purpose != "order" || p.PaymentNumber != notice.PaymentNumber || int64(p.AmountIDR) != notice.AmountIDR || (p.ProviderReference != nil && *p.ProviderReference != notice.ProviderReference) {
+		return nil, fmt.Errorf("payment provider identity or amount mismatch")
+	}
+	if p.Status == domain.PaymentStatusPaid || p.Status == domain.PaymentStatusSettled {
+		if notice.Status != domain.PaymentStatusPaid {
+			return nil, fmt.Errorf("paid payment requires an explicit refund or reversal")
+		}
+		if p.ProviderVerifiedAt != nil {
+			if err = tx.Commit(); err != nil {
+				return nil, err
+			}
+			return &p, nil
+		}
+		if p.ProviderVerifiedAt == nil {
+			if notice.Status != domain.PaymentStatusPaid {
+				return nil, fmt.Errorf("paid payment requires a verified paid notice")
+			}
+			if _, err = tx.ExecContext(ctx, `UPDATE payments SET provider_verified_at=NOW(),webhook_payload=$2::jsonb WHERE id=$1`, p.ID, string(notice.Payload)); err != nil {
+				return nil, err
+			}
+			now := time.Now().UTC()
+			p.ProviderVerifiedAt = &now
+		}
+		if err = tx.Commit(); err != nil {
+			return nil, err
+		}
+		return &p, nil
+	}
+	if err = domain.ValidatePaymentTransition(p.Status, notice.Status); err != nil {
+		return nil, err
+	}
+	var paidAt any
+	if notice.Status == domain.PaymentStatusPaid {
+		paidAt = time.Now().UTC()
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE payments SET status=$2,paid_at=$3,provider_reference=$4,webhook_payload=$5::jsonb,provider_verified_at=NOW(),updated_at=NOW() WHERE id=$1`, p.ID, notice.Status, paidAt, notice.ProviderReference, string(notice.Payload)); err != nil {
+		return nil, err
+	}
+	p.Status = notice.Status
+	p.ProviderReference = &notice.ProviderReference
+	p.WebhookPayload = append([]byte(nil), notice.Payload...)
+	verifiedAt := time.Now().UTC()
+	p.ProviderVerifiedAt = &verifiedAt
+	if t, ok := paidAt.(time.Time); ok {
+		p.PaidAt = &t
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return &p, nil
 }

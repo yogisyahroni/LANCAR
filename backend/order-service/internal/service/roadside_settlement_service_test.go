@@ -43,6 +43,9 @@ func validRoadsideSettlementSource() *domain.RoadsideSettlementSource {
 		DistanceFeeIDR:    20_000,
 		InsuranceFeeIDR:   5_000,
 		FinalReportReady:  true,
+		FinancialReady:    true,
+		ReportID:          "report-1",
+		CollectedTotalIDR: 120_000,
 	}
 }
 

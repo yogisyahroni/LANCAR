@@ -217,7 +217,7 @@ func (r *postgresRepo) TransitionOrder(ctx context.Context, request domain.Order
 		}
 	}
 
-	if request.TargetStatus == domain.StatusDelivered {
+	if request.TargetStatus == domain.StatusDelivered && category != "tambal_ban" {
 		journalID, err := insertDeliveryLedger(ctx, tx, order, request)
 		if err != nil {
 			return domain.OrderTransitionResult{}, err

@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // PaymentStatus is deliberately explicit because a paid payment may still be
 // moving through refund or settlement. Handlers must not infer those states
@@ -88,6 +91,9 @@ func ValidateLedgerEntries(entries []LedgerEntry) error {
 		}
 		if entry.DebitIDR > 0 && entry.CreditIDR > 0 {
 			return fmt.Errorf("ledger entry %q cannot contain both debit and credit", entry.AccountName)
+		}
+		if entry.DebitIDR > math.MaxInt64-debit || entry.CreditIDR > math.MaxInt64-credit {
+			return fmt.Errorf("ledger journal amount overflow")
 		}
 		debit += entry.DebitIDR
 		credit += entry.CreditIDR

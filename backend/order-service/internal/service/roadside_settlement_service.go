@@ -10,6 +10,7 @@ import (
 type roadsideSettlementService struct {
 	sourceRepo domain.RoadsideSettlementSourceRepository
 	configRepo domain.SettlementRepository
+	taxPolicy  domain.RoadsideSettlementTaxPolicy
 }
 
 func NewRoadsideSettlementService(
@@ -36,14 +37,8 @@ func (s *roadsideSettlementService) Calculate(ctx context.Context, orderID, acto
 			return nil, domain.ErrForbidden
 		}
 	}
-	if source.Status != domain.StatusDelivered {
-		return nil, domain.ErrRoadsideSettlementNotDelivered
-	}
-	if !source.FinalReportReady {
-		return nil, domain.ErrRoadsideSettlementProofRequired
-	}
-	if source.GrossTotalIDR <= 0 || source.BaseFareIDR < 0 || source.DistanceFeeIDR < 0 || source.InsuranceFeeIDR < 0 {
-		return nil, fmt.Errorf("%w: authoritative financial snapshot invalid", domain.ErrInvalidServiceReport)
+	if err := domain.ValidateRoadsideSettlementSource(source); err != nil {
+		return nil, err
 	}
 
 	serviceCode := strings.TrimSpace(source.ServiceCode)
@@ -55,52 +50,21 @@ func (s *roadsideSettlementService) Calculate(ctx context.Context, orderID, acto
 		return nil, fmt.Errorf("settlement config not found for %s: %w", serviceCode, err)
 	}
 
-	mdrAmount := int64(float64(source.GrossTotalIDR) * config.MDRPct / 100.0)
-	taxAmount := int64(float64(source.GrossTotalIDR) * config.TaxPct / 100.0)
-	operationalPool := source.GrossTotalIDR - mdrAmount - taxAmount - source.InsuranceFeeIDR
-	if operationalPool < 0 {
-		return nil, fmt.Errorf("%w: operational pool negative", domain.ErrInvalidServiceReport)
-	}
+	return domain.CalculateRoadsideSettlement(source, config)
+}
 
-	// Use the frozen distance fee itself rather than recomputing from a live
-	// per-km tariff. This preserves the quote used when the order was created.
-	travelRevenue := source.BaseFareIDR + source.DistanceFeeIDR
-	var platformCommission int64
-	switch config.CommissionBasis {
-	case domain.SettlementBasisPool:
-		platformCommission = int64(float64(operationalPool) * config.PlatformCommissionPct / 100.0)
-	case domain.SettlementBasisPerKM:
-		platformCommission = int64(float64(travelRevenue) * config.PlatformCommissionPct / 100.0)
-	default:
-		return nil, fmt.Errorf("unknown commission basis: %s", config.CommissionBasis)
-	}
+// SetTaxPolicy installs the configured withholding policy before finalization.
+func (s *roadsideSettlementService) SetTaxPolicy(policy domain.RoadsideSettlementTaxPolicy) {
+	s.taxPolicy = policy
+}
 
-	courierDistanceEarning := source.DistanceFeeIDR
-	if config.CommissionBasis == domain.SettlementBasisPerKM {
-		courierDistanceEarning -= int64(float64(source.DistanceFeeIDR) * config.PlatformCommissionPct / 100.0)
+func (s *roadsideSettlementService) Finalize(ctx context.Context, orderID, actorID, actorRole string) (*domain.RoadsideSettlementRecord, error) {
+	if s.taxPolicy == nil {
+		return nil, fmt.Errorf("%w: withholding policy unavailable", domain.ErrRoadsideSettlementCollectionRequired)
 	}
-	courierBaseFee := source.BaseFareIDR
-	if !config.CourierKeepsBaseFee && config.CommissionBasis == domain.SettlementBasisPerKM {
-		courierBaseFee -= int64(float64(source.BaseFareIDR) * config.PlatformCommissionPct / 100.0)
+	repo, ok := s.sourceRepo.(domain.RoadsideSettlementWriteRepository)
+	if !ok {
+		return nil, fmt.Errorf("roadside settlement finalization repository unavailable")
 	}
-
-	return &domain.SettlementResult{
-		GrossTotal:            source.GrossTotalIDR,
-		MDRAmount:             mdrAmount,
-		TaxAmount:             taxAmount,
-		InsuranceFee:          source.InsuranceFeeIDR,
-		OperationalPool:       operationalPool,
-		CommissionBasis:       string(config.CommissionBasis),
-		PerKMRevenue:          source.DistanceFeeIDR,
-		BaseFareRevenue:       source.BaseFareIDR,
-		PlatformCommissionPct: config.PlatformCommissionPct,
-		PlatformCommissionAmt: platformCommission,
-		CourierServiceFee:     0, // no separate immutable fee exists in the canonical order snapshot
-		CourierBaseFee:        courierBaseFee,
-		CourierTollReimburse:  0,
-		CourierPerKMEarning:   courierDistanceEarning,
-		EstimatedNetEarnings:  operationalPool - platformCommission,
-		SettlementModel:       string(config.CommissionBasis),
-		AppliesToService:      []string{serviceCode},
-	}, nil
+	return repo.FinalizeRoadsideSettlement(ctx, strings.TrimSpace(orderID), strings.TrimSpace(actorID), strings.ToLower(strings.TrimSpace(actorRole)), s.configRepo, s.taxPolicy)
 }

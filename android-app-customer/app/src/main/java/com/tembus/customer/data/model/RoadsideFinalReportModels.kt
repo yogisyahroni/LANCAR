@@ -21,5 +21,6 @@ data class TambalBanFinalReport(
 @Serializable
 data class RoadsideFinalReportResponse(
     @SerialName("report") val report: TambalBanFinalReport,
-    @SerialName("approved_adjustment") val approvedAdjustment: ServiceAdjustment? = null
+    @SerialName("approved_adjustment") val approvedAdjustment: ServiceAdjustment? = null,
+    @SerialName("adjustments") val adjustments: List<ServiceAdjustment> = emptyList()
 )

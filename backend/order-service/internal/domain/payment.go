@@ -22,6 +22,9 @@ const (
 )
 
 type Payment struct {
+	ProviderVerifiedAt  *time.Time      `json:"provider_verified_at,omitempty" db:"provider_verified_at"`
+	Purpose             string          `json:"purpose" db:"purpose"`
+	ServiceAdjustmentID *string         `json:"service_adjustment_id,omitempty" db:"service_adjustment_id"`
 	ID                  string          `json:"id" db:"id"`
 	OrderID             string          `json:"order_id" db:"order_id"`
 	PaymentNumber       string          `json:"payment_number" db:"payment_number"`
@@ -97,4 +100,27 @@ type PaymentService interface {
 	CreatePayment(ctx context.Context, orderID string) (*Payment, error)
 	HandleWebhook(ctx context.Context, payload []byte, signature string) error
 	GetPaymentStatus(ctx context.Context, orderID string) (*Payment, error)
+}
+
+// RoadsideCollectionRepository owns the verified adjustment payment lifecycle.
+type RoadsideCollectionRepository interface {
+	ReserveRoadsideAdjustmentPayment(ctx context.Context, adjustmentID, customerID string) (*Payment, bool, error)
+	SaveRoadsideGatewayResult(ctx context.Context, paymentID string, result PaymentGatewayResponse, mdrIDR, ppnIDR int64) (*Payment, error)
+	ApplyRoadsideAdjustmentWebhook(ctx context.Context, paymentNumber string, status PaymentStatus, amountIDR int64, providerRef string, payload []byte) error
+}
+
+type RoadsideCollectionService interface {
+	Start(ctx context.Context, adjustmentID, customerID string) (*Payment, error)
+	ApplyVerifiedWebhook(ctx context.Context, paymentNumber string, status PaymentStatus, amountIDR int64, providerRef string, payload []byte) error
+}
+
+// VerifiedPaymentUpdate can only be called after authenticating a provider notice.
+// It is deliberately separate from the legacy administrative UpdateStatus method.
+type VerifiedPaymentUpdate struct {
+	PaymentID         string
+	PaymentNumber     string
+	ProviderReference string
+	AmountIDR         int64
+	Status            PaymentStatus
+	Payload           []byte
 }

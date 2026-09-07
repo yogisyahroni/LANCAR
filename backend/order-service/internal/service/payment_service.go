@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
@@ -54,14 +53,20 @@ func webhookEventID(data map[string]interface{}, payload []byte) string {
 }
 
 type DefaultPaymentService struct {
-	paymentRepo    domain.PaymentRepository
-	orderRepo      domain.OrderRepository
-	paymentGateway domain.PaymentGateway
-	configRepo     domain.ConfigRepository
-	taxService     domain.TaxService
-	pushSvc        domain.PushService
-	refundSvc      domain.RefundService  // AUDIT-FIX: refund late-payment/resurrection
-	foodRepo       domain.FoodRepository // AUDIT-FIX: auto-cancel scheduled lewat jadwal
+	paymentRepo        domain.PaymentRepository
+	orderRepo          domain.OrderRepository
+	paymentGateway     domain.PaymentGateway
+	configRepo         domain.ConfigRepository
+	taxService         domain.TaxService
+	pushSvc            domain.PushService
+	roadsideCollection domain.RoadsideCollectionService
+	refundSvc          domain.RefundService  // AUDIT-FIX: refund late-payment/resurrection
+	foodRepo           domain.FoodRepository // AUDIT-FIX: auto-cancel scheduled lewat jadwal
+}
+
+// SetRoadsideCollectionService connects the separate adjustment collection lifecycle.
+func (s *DefaultPaymentService) SetRoadsideCollectionService(collection domain.RoadsideCollectionService) {
+	s.roadsideCollection = collection
 }
 
 // SetPushService inject push service (FOOD-BIKE-064): notifikasi FCM ke
@@ -181,141 +186,80 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 }
 
 func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byte, signature string) error {
-	var data map[string]interface{}
-	if err := json.Unmarshal(payload, &data); err != nil {
-		return fmt.Errorf("failed to parse payload: %w", err)
-	}
-	eventID := webhookEventID(data, payload)
-	orderID, _ := data["order_id"].(string)
-	transactionStatus, _ := data["transaction_status"].(string)
-	auditRepo, hasAuditRepo := s.paymentRepo.(webhookAuditRepository)
-
-	// 1. Verify Signature
 	if err := s.paymentGateway.VerifyWebhookSignature(ctx, payload, signature); err != nil {
-		if hasAuditRepo {
-			code := "invalid_signature"
-			if signature == "" {
-				code = "missing_signature"
-			}
-			_, _, auditErr := auditRepo.InsertWebhookAuditEvent(
-				ctx,
-				"midtrans",
-				eventID,
-				orderID,
-				transactionStatus,
-				payload,
-				signature,
-				map[bool]string{true: "missing_signature", false: "invalid"}[signature == ""],
-				"failed",
-				&code,
-			)
-			if auditErr != nil {
-				slog.WarnContext(ctx, "Failed to audit invalid webhook", "error", auditErr)
-			}
-		}
-		slog.WarnContext(ctx, "Invalid webhook signature", "error", err)
-		return fmt.Errorf("invalid signature: %w", err)
+		return fmt.Errorf("invalid provider signature: %w", err)
 	}
-
-	var auditEventID string
-	if hasAuditRepo {
-		insertedID, duplicate, err := auditRepo.InsertWebhookAuditEvent(
-			ctx,
-			"midtrans",
-			eventID,
-			orderID,
-			transactionStatus,
-			payload,
-			signature,
-			"valid",
-			"received",
-			nil,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to audit webhook: %w", err)
+	notice, err := parsePaymentNotice(payload)
+	if err != nil {
+		return err
+	}
+	payment, err := s.paymentRepo.GetByPaymentNumber(ctx, notice.PaymentNumber)
+	if err != nil {
+		return fmt.Errorf("resolve provider payment number: %w", err)
+	}
+	if payment == nil || payment.PaymentNumber != notice.PaymentNumber || int64(payment.AmountIDR) != notice.AmountIDR || (payment.ProviderReference != nil && *payment.ProviderReference != notice.ProviderReference) {
+		return fmt.Errorf("provider payment identity or amount mismatch")
+	}
+	// The gateway uses payment_number, never the internal order UUID, as order_id.
+	orderID := payment.OrderID
+	if payment.Purpose == "service_adjustment" {
+		if s.roadsideCollection == nil {
+			return fmt.Errorf("roadside collection handler unavailable")
 		}
-		if duplicate {
-			slog.InfoContext(ctx, "Duplicate payment webhook ignored", "event_id", eventID)
+		if notice.Status == domain.PaymentStatusPending {
 			return nil
 		}
-		auditEventID = insertedID
+		return s.roadsideCollection.ApplyVerifiedWebhook(ctx, notice.PaymentNumber, notice.Status, notice.AmountIDR, notice.ProviderReference, payload)
 	}
-
-	if orderID == "" {
+	if payment.Purpose != "" && payment.Purpose != "order" {
+		return fmt.Errorf("unsupported payment purpose")
+	}
+	auditRepo, hasAuditRepo := s.paymentRepo.(webhookAuditRepository)
+	var auditEventID string
+	if hasAuditRepo {
+		eventID := "midtrans:" + notice.ProviderReference + ":" + notice.TransactionStatus
+		id, duplicate, auditErr := auditRepo.InsertWebhookAuditEvent(ctx, "midtrans", eventID, notice.ProviderReference, notice.TransactionStatus, payload, signature, "valid", "received", nil)
+		if auditErr != nil {
+			return fmt.Errorf("audit provider notice: %w", auditErr)
+		}
+		if !duplicate {
+			auditEventID = id
+		}
+	}
+	fail := func(code string, err error) error {
 		if hasAuditRepo {
-			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("missing_order_id"))
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr(code))
 		}
-		return fmt.Errorf("missing order_id in webhook")
+		return err
 	}
-
-	if transactionStatus == "" {
-		if hasAuditRepo {
-			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("missing_transaction_status"))
-		}
-		return fmt.Errorf("missing transaction_status in webhook")
-	}
-
-	// 3. Get Payment
-	payment, err := s.paymentRepo.GetByOrderID(ctx, orderID)
-	if err != nil {
-		if hasAuditRepo {
-			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("payment_lookup_failed"))
-		}
-		return fmt.Errorf("failed to get payment for order %s: %w", orderID, err)
-	}
-
-	// Idempotency check
-	if payment.Status == domain.PaymentStatusPaid {
-		slog.InfoContext(ctx, "Payment already paid, ignoring webhook", "payment_id", payment.ID)
-		if hasAuditRepo {
-			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "ignored", stringPtr("payment_already_paid"))
-		}
-		return nil // Already processed
-	}
-
-	// 4. Handle Status
-	var newStatus domain.PaymentStatus
-	var paidAt *time.Time
-	switch transactionStatus {
-	case "settlement", "capture":
-		newStatus = domain.PaymentStatusPaid
-		now := time.Now()
-		paidAt = &now
-	case "deny", "cancel", "expire":
-		newStatus = domain.PaymentStatusFailed
-		if transactionStatus == "expire" {
-			newStatus = domain.PaymentStatusExpired
-		}
-	case "pending":
-		// still pending
+	if notice.Status == domain.PaymentStatusPending {
 		if hasAuditRepo {
 			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "ignored", stringPtr("payment_pending"))
 		}
 		return nil
-	default:
-		slog.WarnContext(ctx, "Unknown transaction status", "status", transactionStatus)
+	}
+	writer, ok := s.paymentRepo.(interface {
+		ApplyVerifiedPayment(context.Context, domain.VerifiedPaymentUpdate) (*domain.Payment, error)
+	})
+	if !ok {
+		return fail("verified_writer_unavailable", fmt.Errorf("verified payment writer unavailable"))
+	}
+	previousStatus := payment.Status
+	payment, err = writer.ApplyVerifiedPayment(ctx, domain.VerifiedPaymentUpdate{PaymentID: payment.ID, PaymentNumber: notice.PaymentNumber, ProviderReference: notice.ProviderReference, AmountIDR: notice.AmountIDR, Status: notice.Status, Payload: payload})
+	if err != nil {
+		return fail("payment_update_failed", err)
+	}
+	newStatus := payment.Status
+	if newStatus == domain.PaymentStatusPaid && previousStatus == domain.PaymentStatusPaid {
+		// A previous attempt may have committed payment but failed to advance
+		// the order. Re-run the idempotent order orchestration below.
+	}
+	if newStatus != domain.PaymentStatusPaid {
 		if hasAuditRepo {
-			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "ignored", stringPtr("unknown_transaction_status"))
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "processed", nil)
 		}
 		return nil
 	}
-
-	if err := domain.ValidatePaymentTransition(payment.Status, newStatus); err != nil {
-		if hasAuditRepo {
-			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "ignored", stringPtr("invalid_payment_transition"))
-		}
-		return fmt.Errorf("invalid payment transition for %s: %w", payment.ID, err)
-	}
-
-	// 5. Update DB
-	err = s.paymentRepo.UpdateStatus(ctx, payment.ID, newStatus, paidAt, nil, payload)
-	if err != nil {
-		if hasAuditRepo {
-			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("payment_update_failed"))
-		}
-		return fmt.Errorf("failed to update payment status: %w", err)
-	}
-
 	// 6. If Paid, Update Order Status
 	if newStatus == domain.PaymentStatusPaid {
 		// FOOD-BIKE-021: order food → pending_merchant (merchant wajib respon dulu),
@@ -349,10 +293,18 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 			return nil
 		}
 
+		if order.Status != domain.StatusPendingPayment {
+			// A verified duplicate must not reset an accepted/in-progress/delivered order.
+			if hasAuditRepo {
+				_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "processed", nil)
+			}
+			return nil
+		}
+
 		// M4-AUDIT-FIX: re-validasi scheduled_at saat settlement — kalau customer
 		// membayar SETELAH jadwal lewat, order terjadwal dibatalkan + refund 100%
 		// (tidak bisa ditahan lalu diaktivasi dengan waktu lampau).
-		if order.IsScheduled && order.ScheduledAt != nil && order.ScheduledAt.Before(time.Now()) {
+		if order.ServiceSubType == "food_delivery" && order.IsScheduled && order.ScheduledAt != nil && order.ScheduledAt.Before(time.Now()) {
 			slog.WarnContext(ctx, "Scheduled order paid after scheduled_at — auto-cancel + refund", "order_id", orderID)
 			if err := s.foodRepo.CancelScheduledFoodOrder(ctx, orderID, "scheduled_at_sudah_lewat_saat_pembayaran"); err != nil {
 				slog.WarnContext(ctx, "auto-cancel late scheduled order failed", "order_id", orderID, "error", err)

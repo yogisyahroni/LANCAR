@@ -5,8 +5,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"regexp"
-	"testing"
 	"tembus/order-service/internal/domain"
+	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"

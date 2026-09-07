@@ -69,7 +69,7 @@ func (r *productCatalogRepo) List(ctx context.Context, req domain.ProductCatalog
 		WHERE customer_id = $1` + searchQuery + `
 		ORDER BY created_at DESC
 		LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
-	
+
 	args = append(args, req.Limit, req.Offset)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
