@@ -1398,14 +1398,14 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 # PART J — OBSERVABILITY
 
 ## OBS-2026-001 — Common transaction telemetry [P0]
-- [ ] Quote latency/success/requote.
-- [ ] Duplicate prevented.
-- [ ] Create→payment→dispatch latency.
-- [ ] Match/reassign/no-supply.
-- [ ] Transition errors.
-- [ ] Realtime reconnect mismatch.
-- [ ] Financial exceptions.
-- [ ] Proof/handoff failures.
+- [x] Quote latency/success/requote. (2026-09-07 — central order request telemetry classifies quote outcomes and duration; evidence: `docs/task-evidence/OBS-2026-001.md`)
+- [x] Duplicate prevented. (2026-09-07 — idempotency-aware telemetry marks conflict/prevention outcomes; evidence: `docs/task-evidence/OBS-2026-001.md`)
+- [x] Create→payment→dispatch latency. (2026-09-07 — telemetry emits low-cardinality flow segment and duration for create/financial/matching stages; evidence: `docs/task-evidence/OBS-2026-001.md`)
+- [x] Match/reassign/no-supply. (2026-09-07 — matching-stage classification covers dispatch/courier/reassign/no-supply routes; evidence: `docs/task-evidence/OBS-2026-001.md`)
+- [x] Transition errors. (2026-09-07 — transition conflict/error outcome classification; evidence: `docs/task-evidence/OBS-2026-001.md`)
+- [x] Realtime reconnect mismatch. (2026-09-07 — realtime stage classification and mismatch outcome; evidence: `docs/task-evidence/OBS-2026-001.md`)
+- [x] Financial exceptions. (2026-09-07 — financial-stage classification for payment/refund/payout/settlement/reconciliation failures; evidence: `docs/task-evidence/OBS-2026-001.md`)
+- [x] Proof/handoff failures. (2026-09-07 — proof/handoff stage classification and failure outcome; evidence: `docs/task-evidence/OBS-2026-001.md`)
 
 ## OBS-2026-002 — Service KPIs [P1]
 - [ ] Paket: match/pickup/delivery SLA, failed delivery, recovery path, POD issue.
