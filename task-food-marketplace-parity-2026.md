@@ -5404,10 +5404,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - Towing mobil
 
 **Checklist**
-- [ ] Capability has status, evidence/certification, effective/expiry and market scope.
-- [ ] Matching always checks capability server-side.
-- [ ] UI shows why capability unavailable and remediation path.
-- [ ] Capability can be paused/suspended independently when appropriate.
+- [x] Capability has status, evidence/certification, effective/expiry and market scope.
+- [x] Matching always checks capability server-side.
+- [x] UI shows why capability unavailable and remediation path.
+- [x] Capability can be paused/suspended independently when appropriate.
 
 ---
 
