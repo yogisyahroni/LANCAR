@@ -5217,10 +5217,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - demand/supply adjustment
 
 **Checklist**
-- [ ] Every quote stores rule/policy version.
-- [ ] Customer total, merchant payable, courier earning and platform amount reconcile from explicit components.
-- [ ] No hidden client-calculated fee.
-- [ ] Price component labels/localization configurable per market while financial semantics remain stable.
+- [x] Every quote stores rule/policy version.
+- [x] Customer total, merchant payable, courier earning and platform amount reconcile from explicit components.
+- [x] No hidden client-calculated fee.
+- [x] Price component labels/localization configurable per market while financial semantics remain stable.
 
 ---
 
