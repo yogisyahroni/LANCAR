@@ -33,6 +33,7 @@ orderRoutes.get('/auth/web/orders/:id/payment/status', verifyWebSession, (req, r
 orderRoutes.post('/auth/web/orders/:id/payment/check', verifyWebSession, requireIdempotencyKey('web.payment.confirm'), (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
 orderRoutes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
 orderRoutes.post('/auth/web/orders/:id/public-tracking-link', verifyWebSession, (req, res) => controllers.customerOrder.createCustomerPublicTrackingLink(req, res));
+orderRoutes.delete('/auth/web/orders/:id/public-tracking-link', verifyWebSession, publicEndpointRateLimiter, (req, res) => controllers.customerOrder.revokeCustomerPublicTrackingLink(req, res));
 orderRoutes.post('/auth/web/orders/:id/cancel', verifyWebSession, (req, res) => controllers.customerOrder.cancelCustomerOrder(req, res));
 orderRoutes.post('/auth/web/orders/:id/retry-matching', verifyWebSession, (req, res) => controllers.customerOrder.retryCustomerOrderMatching(req, res));
 orderRoutes.get('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));

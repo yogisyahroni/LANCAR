@@ -1529,10 +1529,10 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - `frontend/src/app/track/[token]/page.tsx`
 - `admin-dashboard/src/lib/csrf.ts`
 
-- [ ] Owner/role check for order/proof/job/payment/refund/claim.
-- [ ] Public tracking token scoped/expiring/revocable.
-- [ ] Provider credentials never reach browser/client.
-- [ ] Rate limit geocode/quote/OTP/tracking/public mutation.
+- [x] Owner/role check for order/proof/job/payment/refund/claim.
+- [x] Public tracking token scoped/expiring/revocable.
+- [x] Provider credentials never reach browser/client.
+- [x] Rate limit geocode/quote/OTP/tracking/public mutation.
 
 ## SEC-2026-002 — Cross-service abuse controls [P1]
 - [ ] Handoff brute-force rate-limited/audited.

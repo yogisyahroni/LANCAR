@@ -551,6 +551,19 @@ export const createCustomerPublicTrackingLink = async (req: Request, res: Respon
     const token = crypto.randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
 
+    // Keep one active customer-created link per order. This both limits the
+    // blast radius of a shared URL and gives the customer an immediate
+    // revocation effect when a replacement link is generated.
+    await db.query(
+      `UPDATE trip_share_tokens
+       SET revoked_at = NOW()
+       WHERE order_id = $1
+         AND revoked_at IS NULL
+         AND expires_at > NOW()
+         AND metadata->>'source' = 'customer_web'`,
+      [orderId]
+    );
+
     await db.query(
       `INSERT INTO trip_share_tokens (order_id, courier_id, token_hash, expires_at, metadata)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -570,6 +583,50 @@ export const createCustomerPublicTrackingLink = async (req: Request, res: Respon
         expires_at: expiresAt.toISOString(),
       },
       message: 'Link tracking publik dibuat.',
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
+  }
+};
+
+
+export const revokeCustomerPublicTrackingLink = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const orderId = String(req.params.id || '');
+
+    if (!userId) {
+      res.status(401).json({ success: false, data: null, message: 'Unauthorized' });
+      return;
+    }
+
+    const result = await db.query(
+      `UPDATE trip_share_tokens tst
+       SET revoked_at = NOW()
+       FROM orders o
+       WHERE tst.order_id = o.id
+         AND tst.order_id = $1
+         AND o.customer_id = $2
+         AND tst.revoked_at IS NULL
+       RETURNING tst.id`,
+      [orderId, userId]
+    );
+
+    if (result.rowCount === 0) {
+      const order = await db.query(
+        `SELECT 1 FROM orders WHERE id = $1 AND customer_id = $2 LIMIT 1`,
+        [orderId, userId]
+      );
+      if (order.rowCount === 0) {
+        res.status(404).json({ success: false, data: null, message: 'Order tidak ditemukan.' });
+        return;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: { revoked_count: result.rowCount || 0 },
+      message: 'Link tracking publik sudah dicabut.',
     });
   } catch (error: any) {
     res.status(500).json({ success: false, data: null, message: error.message });
@@ -829,5 +886,4 @@ export const getCustomerDashboardStats = async (req: Request, res: Response): Pr
     res.status(500).json({ success: false, data: null, message: error.message });
   }
 };
-
 

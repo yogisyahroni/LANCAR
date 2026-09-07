@@ -186,7 +186,10 @@ export const exchangeCustomerJwtForWebSession = async (req: Request, res: Respon
   }
 
   try {
-    const decoded = jwt.verify(token, jwtSecret) as CustomerJwtPayload;
+    const decoded = jwt.verify(token, jwtSecret, {
+      algorithms: ['HS256'],
+      issuer: process.env.JWT_ISSUER || 'tembus-auth-service',
+    }) as CustomerJwtPayload;
     const customerId = decoded.user_id || decoded.id;
 
     if (!customerId || decoded.role !== 'customer') {

@@ -206,10 +206,21 @@ export const promoReadRateLimiter = createAuthenticatedMutationRateLimiter(
   promoReadLimit,
 );
 
+export const publicEndpointRateLimitScope = (path: string): string => {
+  if (path.startsWith('/track/')) return '/track';
+  if (path.startsWith('/api/v1/public/location-requests/')) return '/api/v1/public/location-requests';
+  if (path.startsWith('/api/v1/public/jobs/')) return '/api/v1/public/jobs';
+  return path;
+};
+
 export const publicEndpointRateLimiter = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const key = `rate_limit:public:${req.path}:${ip}`;
+    // Do not include an attacker-controlled token/id in the bucket key. Public
+    // token endpoints must share one IP bucket even when the caller rotates
+    // the path parameter on every request.
+    const scope = publicEndpointRateLimitScope(req.path || '');
+    const key = `rate_limit:public:${scope}:${ip}`;
     const limit = 20; // 20 requests per hour
     const windowSeconds = 3600;
 

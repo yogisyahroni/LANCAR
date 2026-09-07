@@ -83,7 +83,10 @@ export const requireMobileOrWebAuth = async (req: Request, res: Response, next: 
     }
 
     try {
-      const decoded = jwt.verify(token, jwtSecret) as any;
+      const decoded = jwt.verify(token, jwtSecret, {
+        algorithms: ['HS256'],
+        issuer: process.env.JWT_ISSUER || 'tembus-auth-service',
+      }) as any;
       
       const userId = decoded.user_id || decoded.id;
       

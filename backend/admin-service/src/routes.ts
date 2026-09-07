@@ -61,7 +61,7 @@ routes.get('/api/admin/chat/messages', requireAuth, async (req, res) => {
         res.status(500).json({error: 'Internal Server Error'});
     }
 });
-routes.post('/api/v1/public/location-requests/:token', (req, res) => controllers.customerOrder.submitReceiverLocationRequestPublic(req, res));
-routes.post('/api/v1/public/business/api-requests', (req, res) => controllers.businessApiRequest.createBusinessApiRequest(req, res));
+routes.post('/api/v1/public/location-requests/:token', publicEndpointRateLimiter, (req, res) => controllers.customerOrder.submitReceiverLocationRequestPublic(req, res));
+routes.post('/api/v1/public/business/api-requests', publicEndpointRateLimiter, (req, res) => controllers.businessApiRequest.createBusinessApiRequest(req, res));
 routes.post('/payments/midtrans/notification', (req, res) => controllers.customerOrder.handleMidtransNotification(req, res));
 routes.post('/webhooks/courier-payout-provider', (req, res) => controllers.handleCourierPayoutProviderWebhook(req, res));

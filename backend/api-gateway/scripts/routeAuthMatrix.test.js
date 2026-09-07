@@ -20,6 +20,7 @@ assertPolicy('POST', '/api/v1/auth/customer/apple/complete', 'public', 'auth-ser
 assertPolicy('POST', '/api/v1/auth/courier/login', 'public', 'courier-auth-public');
 assertPolicy('GET', '/api/v1/system/latest-version', 'public', 'mobile-update-version-public');
 assertPolicy('GET', '/api/v1/maps/config', 'public', 'maps-public-runtime');
+assertPolicy('GET', '/track/scoped-token-value', 'public', 'public-trip-share');
 assertPolicy('POST', '/api/v1/public/location-requests/token-1', 'public', 'customer-public-handoff');
 assertPolicy('POST', '/api/v1/pricing/estimate', 'public', 'pricing-estimate-public');
 assertPolicy('GET', '/api/v1/auth/web/delivery-services', 'public', 'web-auth-public');

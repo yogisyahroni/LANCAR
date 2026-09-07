@@ -105,6 +105,12 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: prefix('/uploads', ['GET', 'HEAD']),
   },
   {
+    id: 'public-trip-share',
+    requirement: 'public',
+    publicReason: 'Trip-share tracking uses a scoped, hashed, expiring token validated by admin-service.',
+    matches: prefix('/track', ['GET']),
+  },
+  {
     id: 'auth-service-public',
     requirement: 'public',
     publicReason: 'Login, OTP, refresh, and logout endpoints must be reachable before authentication.',

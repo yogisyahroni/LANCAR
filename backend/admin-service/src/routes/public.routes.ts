@@ -85,5 +85,5 @@ publicRoutes.get('/api/v1/maps/tiles/:z/:x/:y.png', (req, res) => controllers.ge
 publicRoutes.get('/api/v1/maps/route', (req, res) => controllers.getPublicMapsRoutePreview(req, res));
 publicRoutes.get('/api/v1/maps/geocode', (req, res) => controllers.getPublicMapsGeocode(req, res));
 publicRoutes.get('/api/v1/maps/reverse-geocode', (req, res) => controllers.getPublicMapsReverseGeocode(req, res));
-publicRoutes.get('/track/:token', (req, res) => controllers.getPublicTripShare(req, res));
-publicRoutes.get('/api/v1/public/location-requests/:token', (req, res) => controllers.customerOrder.getReceiverLocationRequestPublic(req, res));
+publicRoutes.get('/track/:token', publicEndpointRateLimiter, (req, res) => controllers.getPublicTripShare(req, res));
+publicRoutes.get('/api/v1/public/location-requests/:token', publicEndpointRateLimiter, (req, res) => controllers.customerOrder.getReceiverLocationRequestPublic(req, res));
