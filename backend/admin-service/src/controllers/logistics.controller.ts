@@ -76,6 +76,15 @@ export const createZone = async (req: Request, res: Response) => {
 export const updateZone = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { name, is_active, max_couriers, polygon, market_code, reason } = req.body;
+  const orderCoordinateFields = ['order_id', 'pickup_location', 'dropoff_location', 'pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng'];
+  const attemptedOrderFields = orderCoordinateFields.filter((field) => Object.prototype.hasOwnProperty.call(req.body || {}, field));
+  if (attemptedOrderFields.length > 0) {
+    return res.status(400).json({
+      error: 'Zone editor cannot modify active order coordinates.',
+      code: 'ZONE_EDITOR_ORDER_COORDINATE_FORBIDDEN',
+      fields: attemptedOrderFields,
+    });
+  }
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -154,7 +163,7 @@ export const getZoneRevisions = async (req: Request, res: Response): Promise<voi
 export const previewZoneRevision = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   try {
-    const [currentResult, draftResult, activeOrdersResult] = await Promise.all([
+    const [currentResult, draftResult, activeOrdersResult, affectedServicesResult] = await Promise.all([
       readDb.query(
         `SELECT id, name, code, market_code, geometry_version, is_active, max_couriers, ST_AsText(polygon) AS polygon
            FROM zones WHERE id = $1`,
@@ -174,6 +183,16 @@ export const previewZoneRevision = async (req: Request, res: Response): Promise<
           WHERE zone_id = $1 AND status NOT IN ('delivered', 'failed', 'cancelled')`,
         [id]
       ),
+      readDb.query(
+        `SELECT COALESCE(NULLIF(o.service_code, ''), NULLIF(o.service_sub_type, ''), 'unknown') AS service_code,
+                COUNT(DISTINCT ol.order_id)::int AS active_orders_count
+           FROM order_legs ol
+           JOIN orders o ON o.id = ol.order_id
+          WHERE ol.zone_id = $1 AND ol.status NOT IN ('delivered', 'failed', 'cancelled')
+          GROUP BY COALESCE(NULLIF(o.service_code, ''), NULLIF(o.service_sub_type, ''), 'unknown')
+          ORDER BY active_orders_count DESC, service_code ASC`,
+        [id]
+      ),
     ]);
     if (currentResult.rows.length === 0) {
       res.status(404).json({ error: 'Zone not found' });
@@ -187,11 +206,28 @@ export const previewZoneRevision = async (req: Request, res: Response): Promise<
     const current = currentResult.rows[0];
     const changedFields = ['name', 'code', 'market_code', 'is_active', 'max_couriers', 'polygon']
       .filter((field) => String(current[field] ?? '') !== String(draft[field] ?? ''));
+    const affectedMarkets = Array.from(new Set([current.market_code, draft.market_code].filter(Boolean)));
+    const affectedServices = affectedServicesResult.rows.map((row) => ({
+      service_code: row.service_code,
+      active_orders_count: Number(row.active_orders_count || 0),
+    }));
     res.json({
       zone_id: id,
       current,
       draft,
-      diff: { changed_fields: changedFields, active_orders_count: activeOrdersResult.rows[0]?.active_orders_count || 0 },
+      diff: {
+        changed_fields: changedFields,
+        active_orders_count: Number(activeOrdersResult.rows[0]?.active_orders_count || 0),
+        affected_services: affectedServices,
+        affected_markets: affectedMarkets,
+        impact_estimate: {
+          active_order_assignments: Number(activeOrdersResult.rows[0]?.active_orders_count || 0),
+          affected_service_count: affectedServices.length,
+          affected_market_count: affectedMarkets.length,
+          existing_orders_preserved: true,
+          new_orders_re_evaluate_zone: true,
+        },
+      },
       approval: { required: true, status: draft.status, maker_id: draft.created_by },
     });
   } catch (error: any) {

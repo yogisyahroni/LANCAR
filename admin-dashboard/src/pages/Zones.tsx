@@ -440,6 +440,15 @@ export default function Zones() {
               <div className="rounded-2xl bg-white/5 border border-white/10 p-5 text-xs text-zinc-300 space-y-2">
                 <p className="font-black uppercase tracking-widest text-amber-300">Changed fields</p>
                 <p>{(zonePreview.diff?.changed_fields || []).join(', ') || 'No field changes detected'}</p>
+                <p className="font-black uppercase tracking-widest text-amber-300 mt-4">Impact estimate</p>
+                <p>
+                  Markets: {(zonePreview.diff?.affected_markets || []).join(', ') || 'none'} · Services: {zonePreview.diff?.impact_estimate?.affected_service_count || 0}
+                </p>
+                {(zonePreview.diff?.affected_services || []).length > 0 && (
+                  <p className="text-zinc-400">
+                    Active services: {zonePreview.diff.affected_services.map((service: any) => `${service.service_code} (${service.active_orders_count})`).join(', ')}
+                  </p>
+                )}
                 <p className="text-zinc-500">Draft changes do not affect routing until approved and published.</p>
               </div>
               <div className="flex flex-wrap gap-3">
