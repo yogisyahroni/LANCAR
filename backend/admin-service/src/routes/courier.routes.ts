@@ -19,6 +19,7 @@ courierRoutes.get('/api/v1/courier/on-demand/hotspots', requireMobileOrWebAuth, 
 courierRoutes.get('/api/v1/courier/on-demand/pickup-cancellation-reasons', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPickupCancellationReasons(req, res));
 courierRoutes.get('/api/v1/courier/order-status-transitions', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierStatusTransitions(req, res));
 courierRoutes.get('/api/v1/courier/performance', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPerformance(req, res));
+courierRoutes.post('/api/v1/courier/performance/appeals', requireMobileOrWebAuth, requireIdempotencyKey('courier.performance.appeal'), (req, res) => controllers.submitMobileCourierQualityAppeal(req, res));
 courierRoutes.get('/api/v1/courier/earnings-ledger', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierEarningsLedger(req, res));
 courierRoutes.get('/api/v1/courier/payout/summary', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPayoutSummary(req, res));
 courierRoutes.get('/api/v1/courier/payout/requests', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPayoutRequests(req, res));

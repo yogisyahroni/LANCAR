@@ -642,6 +642,76 @@ internal fun ProfileContent(
                         value = "${summary.acceptanceRatePct}%",
                         color = Primary
                     )
+                    if (summary.scorecardMetrics.isNotEmpty()) {
+                        HorizontalDivider()
+                        Text("Scorecard kualitas", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Versi ${summary.scorecardVersion} • definisi dan window ditampilkan sebelum metric dipakai untuk keputusan.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            summary.qualityScore?.let { "Quality score: ${"%.1f".format(it)} / 100" } ?: "Quality score: belum cukup data",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (summary.qualityScoreEnforcementEligible) Success else MaterialTheme.colorScheme.onSurface
+                        )
+                        if (summary.materialDecisionRequiresReview) {
+                            Text(
+                                "Ada ${summary.anomalousRatingCount} rating anomali. Rating ini ditandai untuk review dan tidak otomatis menjadi hukuman.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        summary.scorecardMetrics.filter { it.visibleToCourier }.forEach { metric ->
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(metric.label, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        metric.value?.let {
+                                            when (metric.unit) {
+                                                "rating" -> "%.2f / 5".format(it)
+                                                "count" -> "%.0f".format(it)
+                                                else -> "%.1f%%".format(it)
+                                            }
+                                        } ?: "Belum ada data",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    "${metric.definition} Window: ${metric.window}.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (summary.scorecardAppealPolicy.materialDecisionsAppealable) {
+                            Text(
+                                "Keputusan material dapat diajukan review melalui dukungan. ${summary.scorecardAppealPolicy.reviewTimeline}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Info
+                            )
+                        }
+                    }
+                    if (summary.serviceMetrics.isNotEmpty()) {
+                        HorizontalDivider()
+                        Text("Metric per layanan", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        summary.serviceMetrics.take(5).forEach { service ->
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(service.serviceLabel, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "30 hari • completion ${service.completionRatePct?.let { "%.1f%%".format(it) } ?: "–"} • SLA ${service.pickupDeliverySlaPct?.let { "%.1f%%".format(it) } ?: "–"} • proof ${service.proofQualityPct?.let { "%.1f%%".format(it) } ?: "–"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                     if (summary.incentives.isNotEmpty()) {
                         HorizontalDivider()
                         Text("Insentif aktif", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)

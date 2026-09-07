@@ -15,6 +15,8 @@ import com.tembus.courier.data.model.CourierServiceCapability
 import com.tembus.courier.data.model.CourierHotspot
 import com.tembus.courier.data.model.CourierEarningsLedger
 import com.tembus.courier.data.model.CourierPerformanceSummary
+import com.tembus.courier.data.model.CourierQualityAppealData
+import com.tembus.courier.data.model.CourierQualityAppealRequest
 import com.tembus.courier.data.model.CourierPayoutCreateData
 import com.tembus.courier.data.model.CourierPayoutCreateRequest
 import com.tembus.courier.data.model.CourierPayoutRequestItem
@@ -180,6 +182,12 @@ interface TEMBUSApiService {
 
     @GET("api/v1/courier/performance")
     suspend fun getCourierPerformance(): Response<ApiResponse<CourierPerformanceSummary>>
+
+    @POST("api/v1/courier/performance/appeals")
+    suspend fun submitCourierQualityAppeal(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: CourierQualityAppealRequest
+    ): Response<ApiResponse<CourierQualityAppealData>>
 
     @GET("api/v1/courier/earnings-ledger")
     suspend fun getCourierEarningsLedger(): Response<ApiResponse<CourierEarningsLedger>>

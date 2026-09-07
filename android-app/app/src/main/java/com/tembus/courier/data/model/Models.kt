@@ -509,6 +509,20 @@ data class CourierSafetyEventRequest(
 )
 
 @Serializable
+data class CourierQualityAppealRequest(
+    @SerialName("metric_code") val metricCode: String = "quality_score",
+    @SerialName("scorecard_version") val scorecardVersion: String,
+    @SerialName("reason") val reason: String
+)
+
+@Serializable
+data class CourierQualityAppealData(
+    @SerialName("appeal") val appeal: CourierQualityAppeal,
+    @SerialName("score_snapshot_server_authoritative") val scoreSnapshotServerAuthoritative: Boolean = true,
+    @SerialName("appeal_policy") val appealPolicy: CourierQualityAppealPolicy = CourierQualityAppealPolicy()
+)
+
+@Serializable
 data class CourierSafetyEventData(
     @SerialName("id")
     val id: String,
@@ -595,6 +609,53 @@ data class CourierEducationModule(
 )
 
 @Serializable
+data class CourierPerformanceMetric(
+    @SerialName("code") val code: String = "",
+    @SerialName("label") val label: String = "",
+    @SerialName("definition") val definition: String = "",
+    @SerialName("window") val window: String = "30d",
+    @SerialName("unit") val unit: String = "percent",
+    @SerialName("value") val value: Double? = null,
+    @SerialName("eligible") val eligible: Boolean = false,
+    @SerialName("visible_to_courier") val visibleToCourier: Boolean = true,
+    @SerialName("enforcement") val enforcement: String = "material_decision",
+    @SerialName("service_scoped") val serviceScoped: Boolean = false
+)
+
+@Serializable
+data class CourierQualityAppealPolicy(
+    @SerialName("available") val available: Boolean = false,
+    @SerialName("material_decisions_appealable") val materialDecisionsAppealable: Boolean = false,
+    @SerialName("route") val route: String = "",
+    @SerialName("review_timeline") val reviewTimeline: String = "",
+    @SerialName("score_snapshot_server_authoritative") val scoreSnapshotServerAuthoritative: Boolean = true
+)
+
+@Serializable
+data class CourierQualityAppeal(
+    @SerialName("id") val id: String = "",
+    @SerialName("scorecard_version") val scorecardVersion: String = "",
+    @SerialName("metric_code") val metricCode: String = "",
+    @SerialName("reason") val reason: String = "",
+    @SerialName("status") val status: String = "submitted",
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("updated_at") val updatedAt: String = ""
+)
+
+@Serializable
+data class CourierServiceMetric(
+    @SerialName("service_code") val serviceCode: String = "",
+    @SerialName("service_label") val serviceLabel: String = "",
+    @SerialName("window") val window: String = "30d",
+    @SerialName("total_assignments") val totalAssignments: Int = 0,
+    @SerialName("completion_rate_pct") val completionRatePct: Double? = null,
+    @SerialName("preventable_cancellation_rate_pct") val preventableCancellationRatePct: Double? = null,
+    @SerialName("pickup_delivery_sla_pct") val pickupDeliverySlaPct: Double? = null,
+    @SerialName("proof_quality_pct") val proofQualityPct: Double? = null,
+    @SerialName("metric_definitions") val metricDefinitions: List<CourierPerformanceMetric> = emptyList()
+)
+
+@Serializable
 data class CourierPerformanceSummary(
     @SerialName("today_earnings_idr")
     val todayEarningsIdr: Int = 0,
@@ -614,6 +675,28 @@ data class CourierPerformanceSummary(
     val avgRating: Double = 0.0,
     @SerialName("rating_count")
     val ratingCount: Int = 0,
+    @SerialName("scorecard_version")
+    val scorecardVersion: String = "",
+    @SerialName("quality_score")
+    val qualityScore: Double? = null,
+    @SerialName("quality_score_status")
+    val qualityScoreStatus: String = "insufficient_data",
+    @SerialName("quality_score_enforcement_eligible")
+    val qualityScoreEnforcementEligible: Boolean = false,
+    @SerialName("material_decision_requires_review")
+    val materialDecisionRequiresReview: Boolean = false,
+    @SerialName("anomalous_rating_count")
+    val anomalousRatingCount: Int = 0,
+    @SerialName("rating_anomaly_policy")
+    val ratingAnomalyPolicy: String = "",
+    @SerialName("scorecard_metrics")
+    val scorecardMetrics: List<CourierPerformanceMetric> = emptyList(),
+    @SerialName("scorecard_appeal_policy")
+    val scorecardAppealPolicy: CourierQualityAppealPolicy = CourierQualityAppealPolicy(),
+    @SerialName("scorecard_appeals")
+    val scorecardAppeals: List<CourierQualityAppeal> = emptyList(),
+    @SerialName("service_metrics")
+    val serviceMetrics: List<CourierServiceMetric> = emptyList(),
     @SerialName("tier")
     val tier: CourierTier = CourierTier(),
     @SerialName("incentives")

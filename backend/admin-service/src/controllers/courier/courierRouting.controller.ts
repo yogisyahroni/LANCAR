@@ -23,7 +23,15 @@ import {
   COURIER_INCENTIVE_SAFETY_NOTICE,
   getCourierEducationModules,
 } from '../../services/courierGrowthPolicy';
+import {
+  buildCourierQualityScorecard,
+  buildCourierServiceMetrics,
+  COURIER_SCORECARD_APPEAL_POLICY,
+  COURIER_SCORECARD_METRICS,
+  COURIER_SCORECARD_VERSION,
+} from '../../services/courierQualityScorecard';
 import { saveSecureUploadBuffer } from '../../security/uploadSecurity';
+import { getActorId } from '../../utils/authUtils';
 
 import {
   AuthProtectionError,
@@ -320,16 +328,19 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
 
   try {
     const summary = await db.query(
-      `WITH delivered AS (
-         SELECT ol.*, o.delivered_at
+      `WITH assignments AS (
+         SELECT ol.*, o.delivered_at, o.service_sub_type, o.service_code
          FROM order_legs ol
          JOIN orders o ON o.id = ol.order_id
          WHERE ol.courier_id = $1
        ),
        ratings AS (
-         SELECT COALESCE(AVG(stars), 5.0)::numeric(3,2) AS avg_rating, COUNT(*)::int AS rating_count
+         SELECT COALESCE(AVG(stars), 5.0)::numeric(3,2) AS avg_rating,
+                COUNT(*)::int AS rating_count,
+                COALESCE(ARRAY_AGG(stars::int ORDER BY created_at DESC), ARRAY[]::int[]) AS rating_values
          FROM courier_ratings
          WHERE courier_id = $1
+           AND created_at >= NOW() - INTERVAL '90 days'
        )
        SELECT
          COUNT(*) FILTER (WHERE status = 'delivered')::int AS total_deliveries,
@@ -337,14 +348,52 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
          COALESCE(SUM(assigned_fee_idr) FILTER (WHERE status = 'delivered' AND updated_at::date = CURRENT_DATE), 0)::int AS today_earnings_idr,
          COALESCE(SUM(assigned_fee_idr) FILTER (WHERE status = 'delivered' AND updated_at >= date_trunc('week', NOW())), 0)::int AS week_earnings_idr,
          COALESCE(SUM(assigned_fee_idr) FILTER (WHERE status = 'delivered'), 0)::int AS total_earnings_idr,
-         COALESCE(ROUND(COUNT(*) FILTER (WHERE status = 'delivered')::numeric / NULLIF(COUNT(*) FILTER (WHERE status NOT IN ('pending')), 0) * 100), 100)::int AS completion_rate_pct,
+         COUNT(*) FILTER (WHERE status = 'delivered' AND updated_at >= NOW() - INTERVAL '30 days')::int AS completed_30d,
+         COUNT(*) FILTER (WHERE status IN ('delivered', 'cancelled', 'failed') AND updated_at >= NOW() - INTERVAL '30 days')::int AS terminal_30d,
+         COALESCE(ROUND(COUNT(*) FILTER (WHERE status = 'delivered' AND updated_at >= NOW() - INTERVAL '30 days')::numeric / NULLIF(COUNT(*) FILTER (WHERE status IN ('delivered', 'cancelled', 'failed') AND updated_at >= NOW() - INTERVAL '30 days'), 0) * 100), 100)::int AS completion_rate_pct,
+         COUNT(*) FILTER (WHERE status IN ('cancelled', 'failed') AND updated_at >= NOW() - INTERVAL '30 days')::int AS cancelled_30d,
+         COUNT(*) FILTER (WHERE status = 'delivered' AND sla_deadline IS NOT NULL AND updated_at >= NOW() - INTERVAL '30 days')::int AS sla_eligible_30d,
+         COUNT(*) FILTER (WHERE status = 'delivered' AND sla_deadline IS NOT NULL AND COALESCE(completed_at, delivered_at, updated_at) <= sla_deadline AND updated_at >= NOW() - INTERVAL '30 days')::int AS sla_met_30d,
+         (SELECT COUNT(*)::int FROM courier_proof_attempts cpa
+          WHERE cpa.courier_id = $1 AND cpa.proof_step = 'delivery'
+            AND cpa.created_at >= NOW() - INTERVAL '30 days') AS proof_attempts_30d,
+         (SELECT COUNT(*)::int FROM courier_proof_attempts cpa
+          WHERE cpa.courier_id = $1 AND cpa.proof_step = 'delivery' AND cpa.proof_status = 'accepted'
+            AND cpa.created_at >= NOW() - INTERVAL '30 days') AS proof_accepted_30d,
+         (SELECT COUNT(*)::int
+          FROM driver_penalty_log dpl
+          JOIN courier_profiles cp ON cp.id = dpl.driver_id
+          WHERE cp.user_id = $1 AND dpl.created_at >= NOW() - INTERVAL '30 days'
+            AND dpl.violation_type IN ('silent_cancel', 'soft_ghosting', 'coerced_cancel')) AS preventable_cancellations_30d,
+         (SELECT COUNT(*)::int FROM courier_safety_events cse
+          WHERE cse.courier_id = $1 AND cse.created_at >= NOW() - INTERVAL '90 days'
+            AND cse.status IN ('resolved', 'dismissed')) AS reviewed_safety_incidents_90d,
+         (SELECT COUNT(*)::int FROM courier_safety_events cse
+          WHERE cse.courier_id = $1 AND cse.created_at >= NOW() - INTERVAL '90 days'
+            AND cse.status = 'resolved' AND LOWER(COALESCE(cse.metadata->>'quality_impact', 'false')) IN ('true', '1', 'yes')) AS quality_impact_safety_incidents_90d,
          COALESCE((SELECT avg_rating FROM ratings), 5.00) AS avg_rating,
-         COALESCE((SELECT rating_count FROM ratings), 0)::int AS rating_count
-       FROM delivered`,
+         COALESCE((SELECT rating_count FROM ratings), 0)::int AS rating_count,
+         COALESCE((SELECT rating_values FROM ratings), ARRAY[]::int[]) AS rating_values
+       FROM assignments`,
       [req.user.id]
     );
 
     const row = summary.rows[0] || {};
+    const qualityScorecard = buildCourierQualityScorecard({
+      completion_rate_pct: row.terminal_30d > 0 ? Number(row.completion_rate_pct) : null,
+      preventable_cancellation_rate_pct: row.cancelled_30d > 0
+        ? (Number(row.preventable_cancellations_30d || 0) / Number(row.cancelled_30d)) * 100
+        : null,
+      pickup_delivery_sla_pct: row.sla_eligible_30d > 0
+        ? (Number(row.sla_met_30d || 0) / Number(row.sla_eligible_30d)) * 100
+        : null,
+      proof_quality_pct: row.proof_attempts_30d > 0
+        ? (Number(row.proof_accepted_30d || 0) / Number(row.proof_attempts_30d)) * 100
+        : null,
+      ratings: row.rating_values || [],
+      reviewed_safety_incidents: Number(row.reviewed_safety_incidents_90d || 0),
+      quality_impact_safety_incidents: Number(row.quality_impact_safety_incidents_90d || 0),
+    });
     const tierRes = await db.query(
       `SELECT tier_code, tier_name, benefit_summary
        FROM courier_tier_configs
@@ -357,7 +406,7 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
       [Number(row.avg_rating || 5), Number(row.completion_rate_pct || 100), Number(row.deliveries_30d || 0)]
     );
 
-    const [campaignRes, educationModules] = await Promise.all([
+    const [campaignRes, educationModules, serviceMetricRes, appealRes] = await Promise.all([
       db.query(
       `SELECT c.id, c.code, c.title, c.description, c.target_deliveries,
               c.reward_idr, c.ends_at, c.market_code, c.zone_id, c.service_code,
@@ -385,8 +434,50 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
       [req.user.id, COURIER_GROWTH_SAFETY_POLICY_VERSION, COURIER_INCENTIVE_SAFETY_NOTICE]
       ),
       getCourierEducationModules(),
+      db.query(
+        `WITH proof_counts AS (
+           SELECT order_id,
+                  COUNT(*) FILTER (WHERE proof_step = 'delivery')::int AS proof_attempts,
+                  COUNT(*) FILTER (WHERE proof_step = 'delivery' AND proof_status = 'accepted')::int AS proof_accepted
+           FROM courier_proof_attempts
+           WHERE courier_id = $1 AND created_at >= NOW() - INTERVAL '30 days'
+           GROUP BY order_id
+         )
+         SELECT COALESCE(NULLIF(o.service_sub_type, ''), NULLIF(o.service_code, ''), 'delivery') AS service_code,
+                COUNT(*)::int AS total_assignments,
+                COUNT(*) FILTER (WHERE ol.status = 'delivered')::int AS completed_deliveries,
+                COUNT(*) FILTER (WHERE ol.status IN ('cancelled', 'failed'))::int AS cancelled_deliveries,
+                COUNT(*) FILTER (WHERE ol.status IN ('cancelled', 'failed') AND EXISTS (
+                  SELECT 1 FROM driver_penalty_log dpl
+                  JOIN courier_profiles cp ON cp.id = dpl.driver_id
+                  WHERE cp.user_id = $1 AND dpl.order_id = ol.order_id
+                    AND dpl.created_at >= NOW() - INTERVAL '30 days'
+                    AND dpl.violation_type IN ('silent_cancel', 'soft_ghosting', 'coerced_cancel')
+                ))::int AS preventable_cancellations,
+                COUNT(*) FILTER (WHERE ol.status = 'delivered' AND ol.sla_deadline IS NOT NULL)::int AS sla_eligible,
+                COUNT(*) FILTER (WHERE ol.status = 'delivered' AND ol.sla_deadline IS NOT NULL
+                  AND COALESCE(ol.completed_at, o.delivered_at, ol.updated_at) <= ol.sla_deadline)::int AS sla_met,
+                COALESCE(SUM(pc.proof_attempts), 0)::int AS proof_attempts,
+                COALESCE(SUM(pc.proof_accepted), 0)::int AS proof_accepted
+         FROM order_legs ol
+         JOIN orders o ON o.id = ol.order_id
+         LEFT JOIN proof_counts pc ON pc.order_id = ol.order_id
+         WHERE ol.courier_id = $1 AND ol.updated_at >= NOW() - INTERVAL '30 days'
+         GROUP BY 1
+         ORDER BY total_assignments DESC, service_code ASC`,
+        [req.user.id]
+      ),
+      db.query(
+        `SELECT id, scorecard_version, metric_code, reason, status, created_at, updated_at
+         FROM courier_quality_score_appeals
+         WHERE courier_id = $1
+         ORDER BY created_at DESC
+         LIMIT 10`,
+        [req.user.id]
+      ),
     ]);
     const incentives = campaignRes.rows;
+    const serviceMetrics = buildCourierServiceMetrics(serviceMetricRes.rows);
 
     res.json({
       success: true,
@@ -400,6 +491,19 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
         acceptance_rate_pct: 100,
         avg_rating: Number(row.avg_rating || 5),
         rating_count: Number(row.rating_count || 0),
+        scorecard_version: qualityScorecard.version,
+        quality_score: qualityScorecard.score,
+        quality_score_status: qualityScorecard.status,
+        quality_score_enforcement_eligible: qualityScorecard.enforcement_eligible,
+        material_decision_requires_review: qualityScorecard.material_decision_requires_review,
+        anomalous_rating_count: qualityScorecard.rating.anomalous_rating_count,
+        rating_anomaly_policy: qualityScorecard.rating.anomaly_policy,
+        reviewed_safety_incidents_90d: qualityScorecard.reviewed_safety_incidents,
+        quality_impact_safety_incidents_90d: qualityScorecard.quality_impact_safety_incidents,
+        scorecard_metrics: qualityScorecard.metrics,
+        scorecard_appeal_policy: COURIER_SCORECARD_APPEAL_POLICY,
+        scorecard_appeals: appealRes.rows,
+        service_metrics: serviceMetrics,
         tier: tierRes.rows[0] || { tier_code: 'starter', tier_name: 'Starter', benefit_summary: 'Akses pekerjaan on-demand reguler.' },
         incentives,
         operational_modules: educationModules,
@@ -410,6 +514,117 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
     });
   } catch (error) {
     securityLog.error('Get mobile courier performance error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const submitMobileCourierQualityAppeal = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  const metricCode = String(req.body?.metric_code || 'quality_score').trim().toLowerCase();
+  const reason = String(req.body?.reason || '').trim();
+  const requestedVersion = String(req.body?.scorecard_version || COURIER_SCORECARD_VERSION).trim();
+  const allowedMetricCodes = new Set(['quality_score', ...COURIER_SCORECARD_METRICS.map((metric) => metric.code)]);
+
+  if (!allowedMetricCodes.has(metricCode)) {
+    res.status(400).json({ success: false, data: null, message: 'Metric scorecard tidak dikenali.', code: 'ERR_INVALID_METRIC' });
+    return;
+  }
+  if (requestedVersion !== COURIER_SCORECARD_VERSION) {
+    res.status(409).json({ success: false, data: null, message: 'Versi scorecard sudah berubah. Muat ulang performa lalu kirim ulang appeal.', code: 'ERR_SCORECARD_VERSION_CHANGED' });
+    return;
+  }
+  if (reason.length < 10 || reason.length > 2000) {
+    res.status(400).json({ success: false, data: null, message: 'Alasan appeal harus berisi 10-2000 karakter.', code: 'ERR_INVALID_APPEAL_REASON' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `INSERT INTO courier_quality_score_appeals (courier_id, scorecard_version, metric_code, reason)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, scorecard_version, metric_code, reason, status, created_at, updated_at`,
+      [req.user.id, COURIER_SCORECARD_VERSION, metricCode, reason]
+    );
+    res.status(201).json({
+      success: true,
+      data: {
+        appeal: result.rows[0],
+        score_snapshot_server_authoritative: true,
+        appeal_policy: COURIER_SCORECARD_APPEAL_POLICY,
+      },
+      message: 'Permintaan review scorecard berhasil dikirim.',
+    });
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      res.status(409).json({ success: false, data: null, message: 'Appeal metric ini masih dalam review.', code: 'ERR_APPEAL_ALREADY_OPEN' });
+      return;
+    }
+    securityLog.error('Submit mobile courier quality appeal error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const listAdminCourierQualityAppeals = async (_req: Request, res: Response) => {
+  try {
+    const result = await db.query(
+      `SELECT a.id, a.courier_id, u.full_name AS courier_name,
+              a.scorecard_version, a.metric_code, a.reason, a.status,
+              a.review_note, a.reviewed_by, a.reviewed_at, a.created_at, a.updated_at
+       FROM courier_quality_score_appeals a
+       JOIN users u ON u.id = a.courier_id
+       ORDER BY CASE a.status WHEN 'submitted' THEN 0 WHEN 'in_review' THEN 1 ELSE 2 END,
+                a.created_at DESC
+       LIMIT 200`
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    securityLog.error('List admin courier quality appeals error:', error);
+    res.status(500).json({ success: false, data: [], message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const reviewAdminCourierQualityAppeal = async (req: Request, res: Response) => {
+  const appealId = String(req.params.id || '').trim();
+  const status = String(req.body?.status || '').trim().toLowerCase();
+  const reviewNote = String(req.body?.review_note || '').trim().slice(0, 2000);
+  if (!appealId || !['in_review', 'approved', 'rejected'].includes(status)) {
+    res.status(400).json({ success: false, data: null, message: 'status harus in_review, approved, atau rejected.', code: 'ERR_INVALID_REVIEW_STATUS' });
+    return;
+  }
+  if (['approved', 'rejected'].includes(status) && reviewNote.length < 10) {
+    res.status(400).json({ success: false, data: null, message: 'Keputusan final membutuhkan catatan review minimal 10 karakter.', code: 'ERR_REVIEW_NOTE_REQUIRED' });
+    return;
+  }
+
+  try {
+    const actorId = getActorId(req);
+    const result = await db.query(
+      `UPDATE courier_quality_score_appeals
+       SET status = $1::varchar,
+           review_note = NULLIF($2, ''),
+           reviewed_by = CASE WHEN $1::varchar IN ('approved', 'rejected') THEN $3::uuid ELSE reviewed_by END,
+           reviewed_at = CASE WHEN $1::varchar IN ('approved', 'rejected') THEN NOW() ELSE reviewed_at END,
+           updated_at = NOW()
+       WHERE id = $4 AND status IN ('submitted', 'in_review')
+       RETURNING id, courier_id, scorecard_version, metric_code, status, review_note, reviewed_by, reviewed_at, updated_at`,
+      [status, reviewNote, actorId, appealId]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, data: null, message: 'Appeal tidak ditemukan atau sudah ditutup.', code: 'ERR_APPEAL_NOT_OPEN' });
+      return;
+    }
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+       VALUES ($1, $2, $3, $4)`,
+      [actorId, `courier.quality_score.appeal.${status}`, appealId, JSON.stringify({ scorecard_version: result.rows[0].scorecard_version, metric_code: result.rows[0].metric_code })]
+    );
+    res.json({ success: true, data: result.rows[0], message: 'Review appeal scorecard tersimpan.' });
+  } catch (error) {
+    securityLog.error('Review admin courier quality appeal error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
