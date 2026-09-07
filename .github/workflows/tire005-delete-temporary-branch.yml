@@ -1,0 +1,43 @@
+name: Remove temporary TIRE005 validation branch
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - .github/workflows/tire005-delete-temporary-branch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+      - name: Verify staging retains implementation
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor d77d30eaed58220a01c7c2b7261be2f8eba354dc HEAD
+          test -f backend/order-service/internal/repository/roadside_settlement_finalizer.go
+          test -f database/migrations/20260907000002_roadside_financial_guards.sql
+          echo "Staging retains TIRE-2026-005 implementation."
+      - name: Delete only the temporary validation branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          target='refs/heads/tire-2026-005-validation'
+          expected='0b1af0339d87df5b11e3018ae0ff60f09cae3c33'
+          actual="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/${target}" --jq '.object.sha')"
+          test "$actual" = "$expected"
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/${target}"
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/${target}" >/dev/null 2>&1; then
+            echo 'Temporary branch still exists' >&2
+            exit 1
+          fi
+          echo 'Temporary validation branch deleted.'
+          echo '### TIRE-2026-005 cleanup' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Deleted `tire-2026-005-validation`. The staging branch and implementation remain intact.' >> "$GITHUB_STEP_SUMMARY"
