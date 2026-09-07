@@ -5330,10 +5330,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## ECON-2026-010 — Experimentation with financial guardrails [P1]
 
 **Checklist**
-- [ ] Experiment assignment and pricing rule version both recorded.
-- [ ] User/courier treatment remains deterministic during defined quote/order window.
-- [ ] Guardrails include cancellation, ETA, support, courier earnings and margin.
-- [ ] Experiment can be killed without corrupting active quote/order contract.
+- [x] Experiment assignment and pricing rule version both recorded.
+- [x] User/courier treatment remains deterministic during defined quote/order window.
+- [x] Guardrails include cancellation, ETA, support, courier earnings and margin.
+- [x] Experiment can be killed without corrupting active quote/order contract.
 
 ---
 

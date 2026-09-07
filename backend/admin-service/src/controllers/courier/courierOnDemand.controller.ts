@@ -39,6 +39,34 @@ import {
   routeContractFromOrder,
 } from './_shared';
 import { earningComponentsFromSnapshot } from '../../services/courierEarningsPolicy';
+import {
+  deterministicPricingExperimentAssignment,
+  pricingExperimentConfigFromSnapshot,
+} from '../../services/pricingExperiment';
+
+const courierExperimentMetadata = (row: Record<string, any>): Record<string, string> => {
+  let snapshot = row.pricing_snapshot;
+  let runtimeConfig = row.pricing_experiment_config;
+  try {
+    if (typeof snapshot === 'string') snapshot = JSON.parse(snapshot);
+    if (typeof runtimeConfig === 'string') runtimeConfig = JSON.parse(runtimeConfig);
+  } catch {
+    return {};
+  }
+  const config = pricingExperimentConfigFromSnapshot(snapshot, runtimeConfig);
+  const assignment = deterministicPricingExperimentAssignment(
+    config,
+    'courier',
+    String(row.courier_id || ''),
+  );
+  if (!assignment) return {};
+  return {
+    experiment_id: assignment.experiment_id,
+    experiment_courier_variant: assignment.variant,
+    experiment_courier_assignment_key: assignment.assignment_key,
+    experiment_courier_pricing_rule_version: assignment.pricing_rule_version,
+  };
+};
 
 export const dispatchNextOnDemandCourier = async (client: any, orderId: string): Promise<CreatedDispatchOffer | null> => {
   const activeOffer = await client.query(
@@ -108,6 +136,8 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::int AS courier_payout_estimate_idr,
           COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
           o.settlement_snapshot,
+          o.pricing_snapshot,
+          experiment_config.value AS pricing_experiment_config,
           o.route_snapshot,
           o.route_provider,
           o.route_profile,
@@ -180,6 +210,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
         AND z.is_active = TRUE
         AND ST_Covers(z.polygon, o.pickup_location)
        LEFT JOIN users u ON u.id = o.customer_id
+       LEFT JOIN system_configs experiment_config ON experiment_config.key = 'marketplace_pricing_experiment_food_delivery'
        LEFT JOIN active_jobs aj ON aj.courier_id = cp.user_id
        WHERE o.id = $1
         AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
@@ -234,6 +265,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
   const nextCourier = candidate.rows[0];
   if (!nextCourier) return null;
   const routeContract = routeContractFromOrder(nextCourier);
+  const experimentMetadata = courierExperimentMetadata(nextCourier);
   const routeDispatchMetadata = {
     source: 'dispatch_engine_v1',
     vehicle_id: nextCourier.vehicle_id,
@@ -251,6 +283,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
     courier_earning_policy: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).policy,
     courier_earning_components: earningComponentsFromSnapshot(nextCourier.settlement_snapshot, Number(nextCourier.courier_payout_estimate_idr || 0)).components,
     customer_price_idr: Number(nextCourier.customer_price_idr || 0),
+    ...experimentMetadata,
     assignment_policy: {
       active_count: Number(nextCourier.active_count || 0),
       max_active_orders_on_demand: Number(nextCourier.max_active_orders_on_demand || 1),
@@ -429,6 +462,8 @@ export const dispatchToPreferredCourier = async (
        COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::int AS courier_payout_estimate_idr,
        COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
        o.settlement_snapshot,
+       o.pricing_snapshot,
+       experiment_config.value AS pricing_experiment_config,
        COALESCE(u.full_name, 'Customer') AS customer_name,
        COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS') AS service_name,
        o.merchant_id,
@@ -488,6 +523,7 @@ export const dispatchToPreferredCourier = async (
       )
      LEFT JOIN active_jobs aj ON aj.courier_id = cp.user_id
      LEFT JOIN users u ON u.id = o.customer_id
+     LEFT JOIN system_configs experiment_config ON experiment_config.key = 'marketplace_pricing_experiment_food_delivery'
      WHERE o.id = $1
        AND o.status = ANY($3::text[])
        AND EXISTS (
@@ -518,6 +554,7 @@ export const dispatchToPreferredCourier = async (
   );
   const nextCourier = courier.rows[0];
   if (!nextCourier) return null;
+  const experimentMetadata = courierExperimentMetadata(nextCourier);
 
   const rank = await client.query(
     `SELECT COALESCE(MAX(rank_number), 0) + 1 AS next_rank
@@ -559,7 +596,7 @@ export const dispatchToPreferredCourier = async (
       nextCourier.acceptance_rate_snapshot,
       nextCourier.completion_rate_snapshot,
       ON_DEMAND_OFFER_TTL_SECONDS,
-      JSON.stringify({ source: 'customer_selected', dispatch_type: 'preferred', vehicle_id: nextCourier.vehicle_id }),
+      JSON.stringify({ source: 'customer_selected', dispatch_type: 'preferred', vehicle_id: nextCourier.vehicle_id, ...experimentMetadata }),
     ]
   );
   const dispatch = inserted.rows[0];
@@ -589,6 +626,7 @@ export const dispatchToPreferredCourier = async (
         source: 'customer_selected',
         dispatch_type: 'preferred',
         vehicle_id: nextCourier.vehicle_id,
+        ...experimentMetadata,
       }),
     ]
   );

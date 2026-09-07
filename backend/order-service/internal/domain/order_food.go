@@ -87,6 +87,7 @@ type FoodQuoteItem struct {
 type FoodQuoteResponse struct {
 	QuoteID              string          `json:"quote_id"`
 	InputFingerprint     string          `json:"input_fingerprint"`
+	SnapshotHash         string          `json:"snapshot_hash"`
 	MerchantID           string          `json:"merchant_id"`
 	Items                []FoodQuoteItem `json:"items"`
 	SubtotalIDR          int64           `json:"subtotal_idr"`
@@ -97,23 +98,28 @@ type FoodQuoteResponse struct {
 	MembershipSubsidyIDR int64           `json:"membership_subsidy_idr,omitempty"`
 	TotalPriceIDR        int64           `json:"total_price_idr"`
 	DistanceKM           float64         `json:"distance_km"`
-	DynamicPriceIDR       int64           `json:"dynamic_price_idr,omitempty"`
-	SurgeFeeIDR           int64           `json:"surge_fee_idr,omitempty"`
-	SurgeMultiplier       float64         `json:"surge_multiplier,omitempty"`
+	DynamicPriceIDR      int64           `json:"dynamic_price_idr,omitempty"`
+	SurgeFeeIDR          int64           `json:"surge_fee_idr,omitempty"`
+	SurgeMultiplier      float64         `json:"surge_multiplier,omitempty"`
 	ETAMinutes           int             `json:"eta_minutes"`
 	ETASource            string          `json:"eta_source"`
 	// ETA components are explicit so unavailable provider signals are not
 	// silently folded into a fabricated client-side number.
-	PrepMinutes         int               `json:"prep_minutes"`
-	PickupTravelMinutes int               `json:"pickup_travel_minutes"`
-	TrafficMinutes      *int              `json:"traffic_minutes"`
-	BatchingMinutes     *int              `json:"batching_minutes"`
-	SupplyStatus        string            `json:"supply_status"`
-	Confidence          string            `json:"confidence"`
-	PricingRuleVersion  string            `json:"pricing_rule_version"`
-	Market              string            `json:"market,omitempty"`
-	PricingBreakdown    *PricingBreakdown `json:"pricing_breakdown,omitempty"`
-	ExpiresAt           time.Time         `json:"expires_at"`
+	PrepMinutes                    int               `json:"prep_minutes"`
+	PickupTravelMinutes            int               `json:"pickup_travel_minutes"`
+	TrafficMinutes                 *int              `json:"traffic_minutes"`
+	BatchingMinutes                *int              `json:"batching_minutes"`
+	SupplyStatus                   string            `json:"supply_status"`
+	Confidence                     string            `json:"confidence"`
+	PricingRuleVersion             string            `json:"pricing_rule_version"`
+	Market                         string            `json:"market,omitempty"`
+	ExperimentID                   string            `json:"experiment_id,omitempty"`
+	ExperimentVariant              string            `json:"experiment_variant,omitempty"`
+	ExperimentAssignmentKey        string            `json:"experiment_assignment_key,omitempty"`
+	ExperimentPricingRuleVersion   string            `json:"experiment_pricing_rule_version,omitempty"`
+	ExperimentQuoteWindowExpiresAt *time.Time        `json:"experiment_quote_window_expires_at,omitempty"`
+	PricingBreakdown               *PricingBreakdown `json:"pricing_breakdown,omitempty"`
+	ExpiresAt                      time.Time         `json:"expires_at"`
 }
 
 type FoodOrderItem struct {

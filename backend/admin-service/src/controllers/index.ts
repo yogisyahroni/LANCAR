@@ -40,6 +40,7 @@ export * from './disputes.controller';
 export * from './analytics.controller';
 export * from './marketplaceFairness.controller';
 export * from './economicPolicy.controller';
+export * from './pricingExperiment.controller';
 
 // Notifications (Templates)
 export * from './notifications.controller';

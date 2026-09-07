@@ -68,6 +68,21 @@ func (r *PostgresConfigRepo) GetConfig(ctx context.Context, key string) (*domain
 	return &config, nil
 }
 
+// GetConfigFresh is used for safety-critical kill switches and experiments.
+// It deliberately bypasses the read cache and reads primary so an admin kill
+// cannot wait for the normal five-minute configuration TTL or replica lag.
+func (r *PostgresConfigRepo) GetConfigFresh(ctx context.Context, key string) (*domain.SystemConfig, error) {
+	query := `SELECT key, value, description, category FROM system_configs WHERE key = $1`
+	var config domain.SystemConfig
+	if err := r.primaryDB.GetContext(ctx, &config, query, key); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &config, nil
+}
+
 func (r *PostgresConfigRepo) GetFloatConfig(ctx context.Context, key string, fallback float64) float64 {
 	config, err := r.GetConfig(ctx, key)
 	if err != nil || config == nil {

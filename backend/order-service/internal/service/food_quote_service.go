@@ -167,6 +167,17 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if err != nil {
 		return nil, fmt.Errorf("food dynamic pricing evaluation: %w", err)
 	}
+	quoteExpiresAt := time.Now().Add(10 * time.Minute)
+	var experiment *pricingExperimentConfig
+	var experimentAssignment pricingExperimentAssignment
+	experiment, err = loadFoodPricingExperiment(ctx, s.configRepo, market, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("food pricing experiment evaluation: %w", err)
+	}
+	if experiment != nil {
+		experimentAssignment = assignPricingExperiment(*experiment, "customer", userID, quoteExpiresAt)
+		decision = applyPricingExperiment(experiment, experimentAssignment, decision)
+	}
 	baseDeliveryFee := deliveryFee
 	dynamicAdjustment := dynamicPriceAdjustment(baseDeliveryFee, decision.Multiplier)
 	grossDeliveryFee := baseDeliveryFee + dynamicAdjustment
@@ -221,6 +232,9 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		etaSpeed = 20
 	}
 	pricingRuleVersion := policy.PolicyVersion
+	if experiment != nil {
+		pricingRuleVersion = experimentAssignment.PricingRuleVersion
+	}
 	merchantCommissionPercent := product.PlatformCommissionPercent
 	if merchantCommissionPercent <= 0 {
 		merchantCommissionPercent = s.configRepo.GetFloatConfig(ctx, "merchant_commission_percent", 2.5)
@@ -278,7 +292,14 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		BatchingMinutes: nil,
 		SupplyStatus:    "unknown",
 		Confidence:      "medium",
-		ExpiresAt:       time.Now().Add(10 * time.Minute),
+		ExpiresAt:       quoteExpiresAt,
+	}
+	if experiment != nil {
+		quote.ExperimentID = experimentAssignment.ExperimentID
+		quote.ExperimentVariant = experimentAssignment.Variant
+		quote.ExperimentAssignmentKey = experimentAssignment.AssignmentKey
+		quote.ExperimentPricingRuleVersion = experimentAssignment.PricingRuleVersion
+		quote.ExperimentQuoteWindowExpiresAt = &quoteExpiresAt
 	}
 	stored := &domain.PricingEstimateResponse{
 		EstimateID: quote.QuoteID, QuoteID: quote.QuoteID, InputFingerprint: quote.InputFingerprint,
@@ -293,7 +314,11 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		PlatformFeeIDR: platformFee, PlatformFeePct: platformPct, TaxIDR: taxIDR, DiscountIDR: discount,
 		ETASource: quote.ETASource, PricingRuleVersion: pricingRuleVersion,
 		PricingBreakdown: breakdown,
-		FoodMerchantID:   req.MerchantID, FoodItems: req.Items, FoodDropoffAddress: req.DropoffAddress,
+		ExperimentID:     quote.ExperimentID, ExperimentVariant: quote.ExperimentVariant,
+		ExperimentAssignmentKey:        quote.ExperimentAssignmentKey,
+		ExperimentPricingRuleVersion:   quote.ExperimentPricingRuleVersion,
+		ExperimentQuoteWindowExpiresAt: quote.ExperimentQuoteWindowExpiresAt,
+		FoodMerchantID:                 req.MerchantID, FoodItems: req.Items, FoodDropoffAddress: req.DropoffAddress,
 		FoodDropoffCity: req.DropoffCity, FoodDropoffZipCode: req.DropoffZipCode,
 		FoodVoucherCode: req.VoucherCode, FoodScheduledAt: req.ScheduledAt,
 		FoodMembershipID: membershipID,
@@ -306,6 +331,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		},
 	}
 	stored.SnapshotHash = domain.QuoteSnapshotHash(*stored)
+	quote.SnapshotHash = domain.FoodQuoteSnapshotHash(*quote)
 	log.Printf("[FoodPricingQuote] quote_id=%s policy_version=%s service=%s market=%s trigger_context=%v", quote.QuoteID, pricingRuleVersion, product.Code, market, decision.TriggerContext)
 	if err := s.redisRepo.SaveEstimate(ctx, stored); err != nil {
 		return nil, fmt.Errorf("save food quote: %w", err)

@@ -26,6 +26,15 @@ func QuoteSnapshotHash(quote PricingEstimateResponse) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// FoodQuoteSnapshotHash applies the same immutable-snapshot rule to the
+// food-specific quote response returned by the food quote endpoint.
+func FoodQuoteSnapshotHash(quote FoodQuoteResponse) string {
+	quote.SnapshotHash = ""
+	payload, _ := json.Marshal(quote)
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
+}
+
 func CanonicalServiceCategoryForModel(model string) string {
 	switch strings.ToLower(strings.TrimSpace(model)) {
 	case "food", "food_delivery":

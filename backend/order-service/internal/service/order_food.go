@@ -225,6 +225,17 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	if err != nil {
 		return nil, fmt.Errorf("food dynamic pricing evaluation: %w", err)
 	}
+	// An experiment quote is an immutable customer/order contract. A kill
+	// switch or a later base-policy change affects only new quotes; it must not
+	// silently rewrite the amount a customer already accepted within the quote
+	// window.
+	experimentQuote := strings.TrimSpace(foodQuote.ExperimentID) != ""
+	if experimentQuote {
+		decision.Multiplier = foodQuote.SurgeMultiplier
+		if decision.Multiplier <= 0 {
+			decision.Multiplier = 1
+		}
+	}
 	baseDeliveryFee := deliveryFee
 	dynamicAdjustment := dynamicPriceAdjustment(baseDeliveryFee, decision.Multiplier)
 	deliveryFee = baseDeliveryFee + dynamicAdjustment
@@ -283,7 +294,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 			Reason: "harga menu, ongkir, biaya layanan, atau voucher berubah",
 		}
 	}
-	if foodQuote.PricingRuleVersion == policy.PolicyVersion || (foodQuote.PricingBreakdown != nil && len(foodQuote.PricingBreakdown.TriggerContext) > 0) {
+	if !experimentQuote && (foodQuote.PricingRuleVersion == policy.PolicyVersion || (foodQuote.PricingBreakdown != nil && len(foodQuote.PricingBreakdown.TriggerContext) > 0)) {
 		if foodQuote.PricingRuleVersion != policy.PolicyVersion || math.Abs(foodQuote.SurgeMultiplier-decision.Multiplier) > 0.0001 {
 			return nil, &domain.RequoteRequiredError{
 				QuoteID: foodQuote.QuoteID, CurrentTotal: total,
