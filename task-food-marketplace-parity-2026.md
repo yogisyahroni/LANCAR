@@ -1535,11 +1535,11 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Rate limit geocode/quote/OTP/tracking/public mutation.
 
 ## SEC-2026-002 — Cross-service abuse controls [P1]
-- [ ] Handoff brute-force rate-limited/audited.
-- [ ] Fake GPS/impossible movement ops signals.
-- [ ] Repeated post-dispatch cancellation surfaced.
-- [ ] Provider webhook signature/replay protection capability-aware.
-- [ ] High-risk financial override can require elevated/dual review.
+- [x] Handoff brute-force rate-limited/audited.
+- [x] Fake GPS/impossible movement ops signals.
+- [x] Repeated post-dispatch cancellation surfaced.
+- [x] Provider webhook signature/replay protection capability-aware.
+- [x] High-risk financial override can require elevated/dual review.
 
 ---
 

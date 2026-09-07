@@ -11,6 +11,7 @@ const EXCEPTION_CATEGORIES = new Set([
   'merchant_timeout',
   'service_adjustment_pending',
   'missing_proof',
+  'repeated_post_dispatch_cancellation',
   'reconciliation_mismatch',
 ]);
 
@@ -35,6 +36,27 @@ export const listOrderExceptions = async (req: Request, res: Response): Promise<
             ORDER BY cei.received_at ASC, cei.id ASC
           ) AS previous_occurred_at
         FROM carrier_event_inbox cei
+      ),
+      post_dispatch_cancellations AS (
+        SELECT o.id, o.customer_id, o.order_number, o.status, o.created_at, o.updated_at
+        FROM orders o
+        WHERE LOWER(o.status) IN ('cancelled', 'canceled')
+          AND EXISTS (
+            SELECT 1
+            FROM order_events oe
+            WHERE oe.order_id = o.id
+              AND LOWER(oe.event_type::text) IN (
+                'dispatching', 'offered', 'matched', 'assigned',
+                'accepted', 'pickup_arrived', 'picked_up', 'in_transit'
+              )
+          )
+      ),
+      repeated_post_dispatch_customers AS (
+        SELECT customer_id, COUNT(*)::int AS cancellation_count
+        FROM post_dispatch_cancellations
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY customer_id
+        HAVING COUNT(*) >= 3
       ),
       exception_feed AS (
         -- No courier/technician/operator after dispatch has started.
@@ -236,6 +258,26 @@ export const listOrderExceptions = async (req: Request, res: Response): Promise<
             WHERE ps.order_id = o.id
               AND LOWER(ps.scan_type) IN ('delivered', 'pod')
           )
+
+        UNION ALL
+
+        -- Repeated customer cancellations after dispatch started are surfaced
+        -- for fraud/support review without changing authoritative order state.
+        SELECT
+          'repeated_post_dispatch_cancellation'::text,
+          'Repeated post-dispatch cancellation'::text,
+          FORMAT('Customer membatalkan %s order setelah dispatch dimulai dalam 30 hari.', rpc.cancellation_count)::text,
+          'high'::text,
+          pdc.id::text,
+          pdc.order_number::text,
+          pdc.status::text,
+          NULL::text,
+          COALESCE(pdc.updated_at, pdc.created_at),
+          GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(pdc.updated_at, pdc.created_at))) / 60))::int,
+          'Review pola pembatalan dan hubungi customer; jangan ubah order state langsung dari dashboard.'::text
+        FROM post_dispatch_cancellations pdc
+        JOIN repeated_post_dispatch_customers rpc ON rpc.customer_id = pdc.customer_id
+        WHERE pdc.created_at >= NOW() - INTERVAL '30 days'
 
         UNION ALL
 

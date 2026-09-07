@@ -13,6 +13,7 @@ type ExceptionCategory =
   | 'merchant_timeout'
   | 'service_adjustment_pending'
   | 'missing_proof'
+  | 'repeated_post_dispatch_cancellation'
   | 'reconciliation_mismatch'
 
 interface OperationalException {
@@ -39,6 +40,7 @@ const categories: Array<{ value: '' | ExceptionCategory; label: string }> = [
   { value: 'merchant_timeout', label: 'Merchant timeout / readiness' },
   { value: 'service_adjustment_pending', label: 'Service adjustment approval' },
   { value: 'missing_proof', label: 'Missing proof' },
+  { value: 'repeated_post_dispatch_cancellation', label: 'Repeated post-dispatch cancellation' },
   { value: 'reconciliation_mismatch', label: 'Reconciliation mismatch' },
 ]
 

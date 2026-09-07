@@ -29,6 +29,8 @@ describe('admin order exception queue', () => {
     expect(sql).toContain("a.status = 'failed'");
     expect(sql).toContain("fre.status IN ('open', 'under_review')");
     expect(sql).toContain('c.occurred_at < c.previous_occurred_at');
+    expect(sql).toContain('repeated_post_dispatch_cancellation');
+    expect(sql).toContain('HAVING COUNT(*) >= 3');
     expect(values).toEqual(['payment_sla', 20]);
     expect(res.json).toHaveBeenCalledWith({
       data: [{ category: 'payment_sla', severity: 'critical', order_id: 'order-1', total: 1 }],
