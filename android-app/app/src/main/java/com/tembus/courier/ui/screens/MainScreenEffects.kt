@@ -180,6 +180,7 @@ internal fun MainScreenEffects(deps: MainScreenDeps) {
     val mapsProviderConfig = deps.mapsProviderConfig
     val activeOnDemandJobCount = deps.activeOnDemandJobCount
     val maxActiveOnDemandJobs = deps.maxActiveOnDemandJobs
+    val snapshotRecovered = deps.snapshotRecovered
     val openOrderDetail = deps.openOrderDetail
     val openChat = deps.openChat
     val error by orderViewModel.error.collectAsState()
@@ -212,12 +213,20 @@ internal fun MainScreenEffects(deps: MainScreenDeps) {
 
     if (courierRole == "on_demand" && onDemandOffers.isNotEmpty()) {
         val capacityBlocked = activeOnDemandJobCount >= maxActiveOnDemandJobs
+        val recoveryBlocked = !snapshotRecovered
+        val acceptBlocked = capacityBlocked || recoveryBlocked
+        val acceptBlockedReason = when {
+            recoveryBlocked -> "Memulihkan snapshot pekerjaan dari server. Tunggu sampai sinkronisasi selesai sebelum menerima tawaran baru."
+            capacityBlocked -> "Selesaikan pekerjaan aktif dulu. Profil operasional saat ini mengizinkan $maxActiveOnDemandJobs pekerjaan aktif."
+            else -> null
+        }
         OnDemandOfferQueueDialog(
             offers = onDemandOffers,
             mapsProviderConfig = mapsProviderConfig,
             activeJobCount = activeOnDemandJobCount,
             maxActiveJobs = maxActiveOnDemandJobs,
-            acceptBlocked = capacityBlocked,
+            acceptBlocked = acceptBlocked,
+            acceptBlockedReason = acceptBlockedReason,
             activeCapabilities = capabilityProfile?.serviceCapabilities.orEmpty(),
             onAccept = { offer ->
                 orderViewModel.acceptOffer(offer) { accepted ->

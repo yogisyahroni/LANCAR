@@ -36,6 +36,7 @@ internal data class MainScreenDeps(
     val statusTransitions: List<com.tembus.courier.data.model.OrderStatusTransition>,
     val activeOnDemandJobCount: Int,
     val maxActiveOnDemandJobs: Int,
+    val snapshotRecovered: Boolean,
     val initialOrderId: String?,
     val initialChatOrderId: String?,
     val onConsumedDeepLink: () -> Unit,

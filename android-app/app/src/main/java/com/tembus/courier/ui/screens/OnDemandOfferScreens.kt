@@ -544,6 +544,7 @@ internal fun OnDemandOfferQueueDialog(
     activeJobCount: Int,
     maxActiveJobs: Int,
     acceptBlocked: Boolean,
+    acceptBlockedReason: String? = null,
     activeCapabilities: List<CourierServiceCapability> = emptyList(),
     onAccept: (Order) -> Unit,
     onReject: (Order) -> Unit,
@@ -556,7 +557,8 @@ internal fun OnDemandOfferQueueDialog(
         )
     }
     val capacityText = if (acceptBlocked) {
-        "Selesaikan pekerjaan aktif dulu. Profil operasional saat ini mengizinkan $maxActiveJobs pekerjaan aktif."
+        acceptBlockedReason
+            ?: "Selesaikan pekerjaan aktif dulu. Profil operasional saat ini mengizinkan $maxActiveJobs pekerjaan aktif."
     } else {
         "Kapasitas aktif $activeJobCount/$maxActiveJobs pekerjaan."
     }

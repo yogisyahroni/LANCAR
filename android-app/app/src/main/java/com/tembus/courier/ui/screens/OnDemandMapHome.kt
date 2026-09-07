@@ -174,6 +174,7 @@ internal fun OnDemandMapHome(
     hotspots: List<CourierHotspot>,
     mapsProviderConfig: MapsProviderConfig,
     isOnline: Boolean,
+    presenceState: String = if (isOnline) "online" else "offline",
     onOnlineToggle: (Boolean) -> Unit,
     onOpenDelivery: (Order) -> Unit,
     onViewOrders: () -> Unit
@@ -409,7 +410,7 @@ internal fun OnDemandMapHome(
                     shape = RoundedCornerShape(50)
                 ) {}
                 Text(
-                    text = if (isOnline) "Online" else "Offline",
+                    text = presenceStateLabel(presenceState),
                     color = Color.White,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Black

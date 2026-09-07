@@ -174,8 +174,9 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
        AND cp.verification_status = 'approved'
         AND cp.onboarding_status = 'ACTIVE'
         AND courier_profile_documents_eligible(cp.id)
-        AND cp.is_online = TRUE
-        AND cp.current_zone_id IS NOT NULL
+       AND cp.is_online = TRUE
+       AND courier_presence_is_matchable(cp.id)
+       AND cp.current_zone_id IS NOT NULL
         AND cp.current_location IS NOT NULL
         AND cp.last_location_at >= NOW() - INTERVAL '10 minutes'
        JOIN courier_service_capabilities csc ON csc.courier_profile_id = cp.id
@@ -497,8 +498,9 @@ export const dispatchToPreferredCourier = async (
       AND cp.verification_status = 'approved'
       AND cp.onboarding_status = 'ACTIVE'
       AND courier_profile_documents_eligible(cp.id)
-      AND cp.is_online = TRUE
-      AND cp.current_location IS NOT NULL
+        AND cp.is_online = TRUE
+        AND courier_presence_is_matchable(cp.id)
+        AND cp.current_location IS NOT NULL
       AND cp.last_location_at >= NOW() - INTERVAL '10 minutes'
      JOIN courier_service_capabilities csc ON csc.courier_profile_id = cp.id
       AND csc.service_code = COALESCE(NULLIF(o.service_code, ''), o.service_sub_type)

@@ -322,6 +322,12 @@ func (s *orderServiceImpl) courierAvailableForMatching(ctx context.Context, cour
 		// state row as idle; capability/online/radius still passed above.
 		return true
 	}
+	if state.PresenceState != "" && state.PresenceState != "online" {
+		return false
+	}
+	if state.HeartbeatAt != nil && time.Since(*state.HeartbeatAt) > 120*time.Second {
+		return false
+	}
 
 	switch state.CurrentState {
 	case domain.AvailabilityStateIdle:

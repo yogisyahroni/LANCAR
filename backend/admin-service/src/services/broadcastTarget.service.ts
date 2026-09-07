@@ -95,6 +95,7 @@ const buildPredicate = (
          FROM courier_profiles cp
          WHERE cp.user_id = u.id
            AND cp.is_online = TRUE
+           AND courier_presence_is_matchable(cp.id)
            AND cp.onboarding_status = 'ACTIVE'
            AND courier_profile_documents_eligible(cp.id)
        )`,

@@ -102,6 +102,24 @@ data class CourierProfile(
     @SerialName("status")
     val status: String = "offline",
 
+    @SerialName("presence_state")
+    val presenceState: String = "offline",
+
+    @SerialName("work_state")
+    val workState: String = "idle",
+
+    @SerialName("presence_reason")
+    val presenceReason: String? = null,
+
+    @SerialName("heartbeat_at")
+    val heartbeatAt: String? = null,
+
+    @SerialName("is_matchable")
+    val isMatchable: Boolean = false,
+
+    @SerialName("active_job_count")
+    val activeJobCount: Int = 0,
+
     @SerialName("profile_photo_url")
     val profilePhotoUrl: String? = null,
 
@@ -168,5 +186,11 @@ data class DutyStatusRequest(
     val longitude: Double? = null,
 
     @SerialName("accuracy")
-    val accuracy: Float? = null
+    val accuracy: Float? = null,
+
+    @SerialName("presence_state")
+    val presenceState: String? = null,
+
+    @SerialName("presence_reason")
+    val presenceReason: String? = null
 )

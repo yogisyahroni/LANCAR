@@ -5414,11 +5414,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## COURIER-2026-004 — Availability / online / work-state contract [P0]
 
 **Checklist**
-- [ ] Online state separate from active-job state.
-- [ ] Stale heartbeat/location transitions courier to unavailable by policy.
-- [ ] Break/offline/limited capability state explicit.
-- [ ] App restart/network loss snapshot-recovers current job before accepting another.
-- [ ] One courier cannot accept incompatible simultaneous jobs outside batching policy.
+- [x] Online state separate from active-job state.
+- [x] Stale heartbeat/location transitions courier to unavailable by policy.
+- [x] Break/offline/limited capability state explicit.
+- [x] App restart/network loss snapshot-recovers current job before accepting another.
+- [x] One courier cannot accept incompatible simultaneous jobs outside batching policy.
 
 ---
 

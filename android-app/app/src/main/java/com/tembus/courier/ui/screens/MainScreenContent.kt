@@ -56,6 +56,7 @@ internal fun MainScreenContent(
     lastRemoteSyncAt: Long?,
     displayCourierName: String,
     courierProfile: CourierProfile?,
+    presenceState: String = "offline",
     localSecurityManager: LocalDeviceSecurityManager,
     localSecuritySettings: LocalDeviceSecuritySettings,
     authSessionManager: AuthSessionManager,
@@ -165,6 +166,7 @@ internal fun MainScreenContent(
                 hotspots = onDemandHotspots,
                 mapsProviderConfig = mapsProviderConfig,
                 isOnline = isOnline,
+                presenceState = presenceState,
                 onOnlineToggle = { online -> requestDutyToggle(online) },
                 onOpenDelivery = { order ->
                     if (order.isMaintenanceService()) {

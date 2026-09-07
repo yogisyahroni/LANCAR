@@ -271,7 +271,9 @@ class OrderViewModel @Inject constructor(
                     online = online,
                     latitude = latitude,
                     longitude = longitude,
-                    accuracy = accuracy
+                    accuracy = accuracy,
+                    presenceState = if (online) "online" else "offline",
+                    presenceReason = if (online) "courier_on_duty" else "manual_offline"
                 )
             )
             val body = response.body()

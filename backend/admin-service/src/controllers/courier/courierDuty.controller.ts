@@ -42,7 +42,31 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
     return;
   }
 
-  const online = req.body?.online === true;
+  const requestedOnline = req.body?.online === true;
+  const rawPresenceState = req.body?.presence_state;
+  const presenceState = String(
+    rawPresenceState === undefined ? (requestedOnline ? 'online' : 'offline') : rawPresenceState
+  ).trim().toLowerCase();
+  const allowedPresenceStates = new Set(['offline', 'online', 'break', 'limited']);
+  if (!allowedPresenceStates.has(presenceState)) {
+    res.status(400).json({
+      success: false,
+      data: null,
+      message: 'State operasional tidak valid. Gunakan online, offline, break, atau limited.',
+      code: 'ERR_INVALID_PRESENCE_STATE',
+    });
+    return;
+  }
+  const online = presenceState === 'online';
+  if (rawPresenceState !== undefined && requestedOnline !== online) {
+    res.status(400).json({
+      success: false,
+      data: null,
+      message: 'Field online harus konsisten dengan presence_state.',
+      code: 'ERR_PRESENCE_STATE_CONFLICT',
+    });
+    return;
+  }
   const latitude = Number(req.body?.latitude);
   const longitude = Number(req.body?.longitude);
   const accuracy = req.body?.accuracy === undefined ? null : Number(req.body.accuracy);
@@ -110,6 +134,25 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
       return;
     }
 
+    if (!online) {
+      const activeJobs = await db.query(
+        `SELECT COUNT(*)::int AS active_count
+         FROM order_legs
+         WHERE courier_id = $1
+           AND COALESCE(status, '') NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')`,
+        [req.user.id]
+      );
+      if (Number(activeJobs.rows[0]?.active_count || 0) > 0) {
+        res.status(409).json({
+          success: false,
+          data: { status: 'online', presence_state: 'online' },
+          message: 'Selesaikan pekerjaan aktif sebelum masuk Off Duty, break, atau limited.',
+          code: 'ERR_ACTIVE_WORK_REQUIRES_COMPLETION',
+        });
+        return;
+      }
+    }
+
     let zone: { id: string; name: string; code: string } | null = null;
 
     if (online) {
@@ -161,6 +204,43 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
       );
     }
 
+    const presenceReason = typeof req.body?.presence_reason === 'string'
+      ? req.body.presence_reason.trim().slice(0, 250)
+      : (presenceState === 'offline' ? 'manual_offline' : presenceState);
+    await db.query(
+      `INSERT INTO courier_availability_state (
+         courier_id, presence_state, presence_reason, heartbeat_at,
+         latitude, longitude, last_location_update, last_transition_at, updated_at
+       )
+       VALUES ($1, $2, $3, CASE WHEN $2 = 'online' THEN NOW() ELSE NULL END,
+               CASE WHEN $2 = 'online' THEN $4 ELSE NULL END,
+               CASE WHEN $2 = 'online' THEN $5 ELSE NULL END,
+               CASE WHEN $2 = 'online' THEN NOW() ELSE NULL END,
+               NOW(), NOW())
+       ON CONFLICT (courier_id) DO UPDATE SET
+         presence_state = EXCLUDED.presence_state,
+         presence_reason = EXCLUDED.presence_reason,
+         heartbeat_at = CASE
+           WHEN EXCLUDED.presence_state = 'online' THEN NOW()
+           ELSE courier_availability_state.heartbeat_at
+         END,
+         latitude = CASE
+           WHEN EXCLUDED.presence_state = 'online' THEN EXCLUDED.latitude
+           ELSE courier_availability_state.latitude
+         END,
+         longitude = CASE
+           WHEN EXCLUDED.presence_state = 'online' THEN EXCLUDED.longitude
+           ELSE courier_availability_state.longitude
+         END,
+         last_location_update = CASE
+           WHEN EXCLUDED.presence_state = 'online' THEN NOW()
+           ELSE courier_availability_state.last_location_update
+         END,
+         last_transition_at = NOW(),
+         updated_at = NOW()`,
+      [courier.id, presenceState, presenceReason || null, online ? latitude : null, online ? longitude : null]
+    );
+
     const profileRes = await db.query(
       `SELECT
          u.id,
@@ -170,6 +250,13 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
          cp.vehicle_type,
          cp.application_channel,
          cp.is_online,
+         COALESCE(cps.effective_presence_state, CASE WHEN cp.is_online THEN 'online' ELSE 'offline' END) AS effective_presence_state,
+         COALESCE(cps.presence_state, CASE WHEN cp.is_online THEN 'online' ELSE 'offline' END) AS presence_state,
+         cps.work_state,
+         cps.presence_reason,
+         cps.heartbeat_at,
+         COALESCE(cps.is_matchable, FALSE) AS is_matchable,
+         COALESCE(cps.active_job_count, 0)::int AS active_job_count,
          z.id AS current_zone_id,
          z.name AS current_zone_name,
          z.code AS current_zone_code,
@@ -179,10 +266,13 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
          COALESCE(SUM(ol.assigned_fee_idr) FILTER (WHERE ol.status = 'delivered' AND ol.updated_at::date = CURRENT_DATE), 0)::int AS today_earnings_idr
        FROM users u
        LEFT JOIN courier_profiles cp ON cp.user_id = u.id
+       LEFT JOIN courier_presence_snapshot cps ON cps.courier_profile_id = cp.id
        LEFT JOIN zones z ON z.id = cp.current_zone_id
        LEFT JOIN order_legs ol ON ol.courier_id = u.id AND ol.status = 'delivered'
        WHERE u.id = $1 AND u.role = 'courier'
-       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.application_channel, cp.is_online, z.id, z.name, z.code`,
+       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.application_channel, cp.is_online,
+                cps.effective_presence_state, cps.presence_state, cps.work_state, cps.presence_reason, cps.heartbeat_at, cps.is_matchable, cps.active_job_count,
+                z.id, z.name, z.code`,
       [req.user.id]
     );
 
@@ -195,7 +285,13 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
         phone: profile.phone_number,
         vehicle_type: profile.vehicle_type,
         application_channel: profile.application_channel || 'on_demand',
-        status: profile.is_online ? 'online' : 'offline',
+        status: profile.effective_presence_state || (profile.is_online ? 'online' : 'offline'),
+        presence_state: profile.presence_state || (profile.is_online ? 'online' : 'offline'),
+        work_state: profile.work_state || 'idle',
+        presence_reason: profile.presence_reason || null,
+        heartbeat_at: profile.heartbeat_at || null,
+        is_matchable: profile.is_matchable === true,
+        active_job_count: Number(profile.active_job_count || 0),
         profile_photo_url: profile.photo_url,
         total_deliveries: profile.total_deliveries,
         today_deliveries: profile.today_deliveries,

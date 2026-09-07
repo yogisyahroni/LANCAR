@@ -20,9 +20,9 @@ import javax.inject.Inject
  *
  * Handles notification action buttons (dismiss, accept).
  * On accept:
- *   1. Save order to local Room DB (offline-first)
- *   2. Confirm acceptance to backend via API
- *   3. If backend fails → needsSync=true, WorkManager will retry
+ *   1. Persist the acceptance intent to local Room DB
+ *   2. Recover the authoritative job snapshot before confirming acceptance
+ *   3. If backend fails → needsSync=true, WorkManager will retry the same guarded path
  */
 @AndroidEntryPoint
 class NotificationReceiver : BroadcastReceiver() {
@@ -95,30 +95,20 @@ class NotificationReceiver : BroadcastReceiver() {
                 val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        // 1. Save locally first (offline-first guarantee)
+                        // 1. Persist the intent so a process death cannot lose it.
                         orderRepository.addOrder(order)
                         Log.d(TAG, "Order saved locally: $orderId")
 
-                        // 2. Confirm acceptance to backend immediately
-                        try {
-                            val targetId = order.dispatchId ?: orderId
-                            val response = apiService.acceptOnDemandOffer(
-                                orderId = targetId,
-                                idempotencyKey = "courier-offer-accept-$targetId-${UUID.randomUUID()}"
-                            )
-                            if (response.isSuccessful && response.body()?.success == true) {
-                                // Mark as synced — no need for WorkManager retry
-                                val accepted = response.body()?.data ?: order.copy(status = "accepted")
-                                orderRepository.deleteOrderById(orderId)
-                                orderRepository.addOrder(accepted.copy(needsSync = false))
+                        // 2. Use the repository's guarded path. It first refreshes
+                        // the server snapshot and only then calls the accept API.
+                        orderRepository.acceptOnDemandOffer(order)
+                            .onSuccess {
                                 Log.d(TAG, "Order acceptance confirmed to backend: $orderId")
-                            } else {
-                                Log.w(TAG, "Backend accept failed (${response.code()}), WorkManager will retry")
                             }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Network error on accept confirm, WorkManager will retry: ${e.message}")
-                            // needsSync=true is already set — WorkManager handles the retry
-                        }
+                            .onFailure { error ->
+                                Log.w(TAG, "Order acceptance deferred, WorkManager will retry: ${error.message}")
+                                // needsSync=true is already set — WorkManager handles the retry
+                            }
                     } finally {
                         // CRITICAL: Must call finish() to release the wakelock held by goAsync()
                         pendingResult.finish()

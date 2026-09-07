@@ -290,11 +290,26 @@ class OrderRepository @Inject constructor(
 
     suspend fun acceptOnDemandOffer(order: Order): Result<Order> = withContext(Dispatchers.IO) {
         try {
+            val snapshot = recoverRemoteOrderSnapshot().getOrElse { error ->
+                return@withContext Result.failure(error)
+            }
+            val activeJobs = snapshot.count { candidate ->
+                candidate.orderId != order.orderId && isActiveCourierJob(candidate.status)
+            }
+            val maxActiveJobs = order.serviceMaxActiveOrdersOnDemand.coerceAtLeast(1)
+            if (activeJobs >= maxActiveJobs) {
+                return@withContext Result.failure(
+                    IllegalStateException(
+                        "Pekerjaan aktif sudah mencapai batas operasional ($activeJobs/$maxActiveJobs)."
+                    )
+                )
+            }
+
             orderDao.upsert(order.copy(status = "accepting", workflowRole = "on_demand", needsSync = true))
             val targetId = order.dispatchId ?: order.orderId
             val response = apiService.acceptOnDemandOffer(
                 orderId = targetId,
-                idempotencyKey = idempotencyKey("offer-accept", targetId)
+                idempotencyKey = offerAcceptIdempotencyKey(targetId)
             )
             if (response.isSuccessful && response.body()?.success == true) {
                 val accepted = response.body()?.data ?: order.copy(status = "accepted", workflowRole = "on_demand")
@@ -308,6 +323,53 @@ class OrderRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    /**
+     * A courier must have an authoritative server snapshot before accepting a
+     * new offer. This closes the restart/network-loss gap where stale Room
+     * data could make an incompatible second job look available.
+     */
+    private suspend fun recoverRemoteOrderSnapshot(): Result<List<Order>> {
+        return try {
+            val response = apiService.getOrders()
+            val body = response.body()
+            if (!response.isSuccessful || body?.success != true || body.data == null) {
+                Result.failure(
+                    IllegalStateException(
+                        body?.message ?: "Snapshot pekerjaan belum dapat dipulihkan dari server."
+                    )
+                )
+            } else {
+                val remoteOrders = body.data
+                mergeRemoteOrders(remoteOrders)
+                Result.success(remoteOrders)
+            }
+        } catch (error: Exception) {
+            Result.failure(
+                IllegalStateException(
+                    "Snapshot pekerjaan belum dapat dipulihkan dari server. Coba lagi saat koneksi tersedia.",
+                    error
+                )
+            )
+        }
+    }
+
+    private fun isActiveCourierJob(status: String): Boolean = status.trim().lowercase() in ACTIVE_COURIER_JOB_STATUSES
+
+    private val ACTIVE_COURIER_JOB_STATUSES = setOf(
+        "accepted",
+        "assigned",
+        "going_to_pickup",
+        "pickup_pending",
+        "arrived_pickup",
+        "service_started",
+        "picked_up",
+        "in_transit",
+        "in_progress",
+        "loading",
+        "unloading",
+        "arrived_dropoff"
+    )
 
     suspend fun rejectOnDemandOffer(order: Order, reason: String = "courier_rejected"): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
@@ -372,8 +434,17 @@ class OrderRepository @Inject constructor(
 
             val syncedOrderIds = mutableSetOf<String>()
 
-            // Sync statuses
-            for (order in pendingOrders) {
+            // Acceptance intents need the same authoritative preflight as the
+            // foreground path. Never replay them as a generic status update.
+            val acceptingOrders = pendingOrders.filter { it.status.trim().lowercase() == "accepting" }
+            for (order in acceptingOrders) {
+                acceptOnDemandOffer(order)
+                    .onSuccess { syncedOrderIds.add(order.orderId) }
+            }
+
+            // Sync statuses other than acceptance intents.
+            val pendingStatusOrders = pendingOrders.filterNot { it.status.trim().lowercase() == "accepting" }
+            for (order in pendingStatusOrders) {
                 val outboundStatus = if (isTambalBanOrder(order)) canonicalTambalBanStatus(order.status) else order.status
                 val request = StatusUpdateRequest(
                     orderId = order.orderId,
@@ -594,5 +665,9 @@ class OrderRepository @Inject constructor(
 
     private fun statusIdempotencyKey(orderId: String, status: String): String {
         return "courier-status-$orderId-${status.trim().lowercase()}"
+    }
+
+    private fun offerAcceptIdempotencyKey(targetId: String): String {
+        return "courier-offer-accept-$targetId"
     }
 }

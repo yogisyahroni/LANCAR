@@ -263,6 +263,15 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       return;
     }
 
+    // Serialize all acceptance attempts for one courier before evaluating the
+    // active-job snapshot. A row lock alone is insufficient here because the
+    // second READ COMMITTED statement could otherwise reuse a pre-commit view
+    // of order_legs while waiting on the same courier row.
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext($1))`,
+      [`courier-accept:${req.user.id}`]
+    );
+
     const courierEligibility = await client.query(
       `WITH active_jobs AS (
          SELECT
@@ -305,6 +314,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
          AND cp.onboarding_status = 'ACTIVE'
          AND courier_profile_documents_eligible(cp.id)
          AND cp.is_online = TRUE
+         AND courier_presence_is_matchable(cp.id)
          AND cp.current_zone_id = $2
          AND COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)
          AND (
@@ -315,7 +325,8 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
              AND (COALESCE(dsp.same_customer_batching_required, TRUE) = FALSE OR COALESCE(aj.has_different_customer_job, FALSE) = FALSE)
            )
          )
-       LIMIT 1`,
+       LIMIT 1
+       FOR UPDATE OF cp`,
       [req.user.id, dispatch.zone_id, dispatch.service_code, dispatch.order_id, dispatch.customer_id]
     );
 

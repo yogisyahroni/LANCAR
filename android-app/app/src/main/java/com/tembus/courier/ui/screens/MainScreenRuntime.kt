@@ -287,6 +287,10 @@ internal fun MainScreenRuntime(
             courierVehicleType = courierVehicleType
         )
     }
+    val snapshotRecovered = isCourierSnapshotRecovered(lastRemoteSyncAt, isSyncing)
+    val presenceState = courierProfile?.presenceState
+        ?: courierProfile?.status
+        ?: if (isOnline) "online" else "offline"
     // S2-MA-04 AUDIT — FLAG_SECURE Coverage for Courier App:
     // Tab 0 (Home/Orders)     → NOT secure by default (public order list, no PII shown at list level)
     // Tab 1 (Active Orders)   → NOT secure (same as home)
@@ -367,6 +371,7 @@ internal fun MainScreenRuntime(
         statusTransitions = statusTransitions,
         activeOnDemandJobCount = activeOnDemandJobCount,
         maxActiveOnDemandJobs = maxActiveOnDemandJobs,
+        snapshotRecovered = snapshotRecovered,
         initialOrderId = initialOrderId,
         initialChatOrderId = initialChatOrderId,
         onConsumedDeepLink = onConsumedDeepLink,
@@ -435,6 +440,7 @@ internal fun MainScreenRuntime(
         lastRemoteSyncAt = lastRemoteSyncAt,
         displayCourierName = displayCourierName,
         courierProfile = courierProfile,
+        presenceState = presenceState,
         localSecurityManager = localSecurityManager,
         localSecuritySettings = localSecuritySettings,
         authSessionManager = authSessionManager,

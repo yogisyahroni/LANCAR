@@ -385,6 +385,10 @@ describe('courier v2 P2 contracts', () => {
 
     expect(res.statusCodeValue).toBe(403);
     expect(res.bodyValue).toEqual(expect.objectContaining({ code: 'ERR_COURIER_NOT_ELIGIBLE' }));
+    const acceptanceLockQuery = client.query.mock.calls.find((call: any[]) => String(call[0]).includes('pg_advisory_xact_lock'));
+    expect(acceptanceLockQuery?.[1]).toEqual(['courier-accept:courier-user-id']);
+    const eligibilityQuery = client.query.mock.calls.find((call: any[]) => String(call[0]).includes('courier_presence_is_matchable'));
+    expect(eligibilityQuery?.[0]).toContain('FOR UPDATE OF cp');
     expect(createNotification).not.toHaveBeenCalled();
     expect(client.release).toHaveBeenCalled();
   });

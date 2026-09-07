@@ -274,6 +274,44 @@ export const syncCourierTracking = async (req: Request, res: Response): Promise<
            WHERE id = $4`,
           [longitude, latitude, recordedAt, courierProfile.id]
         );
+        await client.query(
+          `INSERT INTO courier_availability_state (
+             courier_id, presence_state, presence_reason, heartbeat_at,
+             latitude, longitude, last_location_update, updated_at
+           )
+           SELECT $4, CASE WHEN cp.is_online THEN 'online' ELSE 'offline' END,
+                  CASE WHEN cp.is_online THEN NULL ELSE 'manual_offline' END,
+                  $3, $2, $1, $3, NOW()
+           FROM courier_profiles cp
+           WHERE cp.id = $4
+           ON CONFLICT (courier_id) DO UPDATE SET
+             heartbeat_at = GREATEST(COALESCE(courier_availability_state.heartbeat_at, EXCLUDED.heartbeat_at), EXCLUDED.heartbeat_at),
+             latitude = CASE
+               WHEN EXCLUDED.heartbeat_at >= NOW() - INTERVAL '120 seconds' THEN EXCLUDED.latitude
+               ELSE courier_availability_state.latitude
+             END,
+             longitude = CASE
+               WHEN EXCLUDED.heartbeat_at >= NOW() - INTERVAL '120 seconds' THEN EXCLUDED.longitude
+               ELSE courier_availability_state.longitude
+             END,
+             last_location_update = GREATEST(COALESCE(courier_availability_state.last_location_update, EXCLUDED.last_location_update), EXCLUDED.last_location_update),
+             presence_state = CASE
+               WHEN courier_availability_state.presence_state = 'unavailable'
+                AND courier_availability_state.presence_reason = 'heartbeat_or_location_stale'
+                AND EXCLUDED.heartbeat_at >= NOW() - INTERVAL '120 seconds'
+                 THEN 'online'
+               ELSE courier_availability_state.presence_state
+             END,
+             presence_reason = CASE
+               WHEN courier_availability_state.presence_state = 'unavailable'
+                AND courier_availability_state.presence_reason = 'heartbeat_or_location_stale'
+                AND EXCLUDED.heartbeat_at >= NOW() - INTERVAL '120 seconds'
+                 THEN NULL
+               ELSE courier_availability_state.presence_reason
+             END,
+             updated_at = NOW()`,
+          [longitude, latitude, recordedAt, courierProfile.id]
+        );
         acceptedCount += 1;
       } else {
         rejectedCount += 1;

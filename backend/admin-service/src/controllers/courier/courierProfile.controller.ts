@@ -56,6 +56,13 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
          cp.verification_status,
          cp.home_zone_id,
          cp.is_online,
+         COALESCE(cps.effective_presence_state, CASE WHEN cp.is_online THEN 'online' ELSE 'offline' END) AS effective_presence_state,
+         COALESCE(cps.presence_state, CASE WHEN cp.is_online THEN 'online' ELSE 'offline' END) AS presence_state,
+         COALESCE(cps.work_state, 'idle') AS work_state,
+         cps.presence_reason,
+         cps.heartbeat_at,
+         COALESCE(cps.is_matchable, FALSE) AS is_matchable,
+         COALESCE(cps.active_job_count, 0)::int AS active_job_count,
          z.id AS current_zone_id,
          z.name AS current_zone_name,
          z.code AS current_zone_code,
@@ -72,12 +79,15 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
          COALESCE(SUM(ol.assigned_fee_idr) FILTER (WHERE ol.status = 'delivered' AND ol.updated_at::date = CURRENT_DATE), 0)::int AS today_earnings_idr
        FROM users u
        LEFT JOIN courier_profiles cp ON cp.user_id = u.id
+       LEFT JOIN courier_presence_snapshot cps ON cps.courier_profile_id = cp.id
        LEFT JOIN zones z ON z.id = cp.current_zone_id
        LEFT JOIN order_legs ol ON ol.courier_id = u.id AND ol.status = 'delivered'
        WHERE u.id = $1 AND u.role = 'courier'
        GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.application_channel,
                 cp.market_code, cp.onboarding_status, cp.verification_status, cp.home_zone_id,
-                cp.is_online, z.id, z.name, z.code, cp.max_weight_capacity_kg, cp.max_packages_capacity`,
+                cp.is_online, cps.effective_presence_state, cps.presence_state, cps.work_state,
+                cps.presence_reason, cps.heartbeat_at, cps.is_matchable, cps.active_job_count,
+                z.id, z.name, z.code, cp.max_weight_capacity_kg, cp.max_packages_capacity`,
       [req.user.id]
     );
 
@@ -105,7 +115,13 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
         verification_status: courier.verification_status || 'pending',
         home_zone_id: courier.home_zone_id,
         operating_zone_ids: courier.operating_zone_ids || [],
-        status: courier.is_online ? 'online' : 'offline',
+        status: courier.effective_presence_state || (courier.is_online ? 'online' : 'offline'),
+        presence_state: courier.presence_state || (courier.is_online ? 'online' : 'offline'),
+        work_state: courier.work_state || 'idle',
+        presence_reason: courier.presence_reason || null,
+        heartbeat_at: courier.heartbeat_at || null,
+        is_matchable: courier.is_matchable === true,
+        active_job_count: Number(courier.active_job_count || 0),
         profile_photo_url: courier.photo_url,
         total_deliveries: courier.total_deliveries,
         today_deliveries: courier.today_deliveries,

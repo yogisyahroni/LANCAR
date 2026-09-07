@@ -105,14 +105,16 @@ func NewAvailabilityRepository(db *sql.DB) domain.AvailabilityRepository {
 
 func (r *availabilityRepo) GetAvailabilityState(ctx context.Context, courierID string) (*domain.CourierAvailabilityState, error) {
 	query := `
-		SELECT courier_id, current_state, active_order_id, active_order_type,
+		SELECT courier_id, current_state, presence_state, presence_reason,
+		       heartbeat_at, last_transition_at, active_order_id, active_order_type,
 		       latitude, longitude, last_location_update, created_at, updated_at
 		FROM courier_availability_state 
 		WHERE courier_id = $1`
 
 	state := &domain.CourierAvailabilityState{}
 	err := r.db.QueryRowContext(ctx, query, courierID).Scan(
-		&state.CourierID, &state.CurrentState, &state.ActiveOrderID, &state.ActiveOrderType,
+		&state.CourierID, &state.CurrentState, &state.PresenceState, &state.PresenceReason,
+		&state.HeartbeatAt, &state.LastTransitionAt, &state.ActiveOrderID, &state.ActiveOrderType,
 		&state.Latitude, &state.Longitude, &state.LastLocationUpdate,
 		&state.CreatedAt, &state.UpdatedAt,
 	)
@@ -126,8 +128,9 @@ func (r *availabilityRepo) UpsertAvailabilityState(ctx context.Context, state *d
 	query := `
 		INSERT INTO courier_availability_state 
 		    (courier_id, current_state, active_order_id, active_order_type, 
-		     latitude, longitude, last_location_update, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		     latitude, longitude, last_location_update, presence_state,
+		     heartbeat_at, last_transition_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'online', NOW(), NOW(), $8)
 		ON CONFLICT (courier_id) DO UPDATE SET
 		    current_state = EXCLUDED.current_state,
 		    active_order_id = EXCLUDED.active_order_id,
@@ -135,6 +138,10 @@ func (r *availabilityRepo) UpsertAvailabilityState(ctx context.Context, state *d
 		    latitude = EXCLUDED.latitude,
 		    longitude = EXCLUDED.longitude,
 		    last_location_update = EXCLUDED.last_location_update,
+		    heartbeat_at = CASE
+		        WHEN courier_availability_state.presence_state = 'online' THEN NOW()
+		        ELSE courier_availability_state.heartbeat_at
+		    END,
 		    updated_at = EXCLUDED.updated_at`
 
 	now := time.Now()
@@ -182,6 +189,7 @@ func (r *availabilityRepo) FindCouriersByCapability(
 		    AND cp.onboarding_status = 'ACTIVE'
 		    AND courier_profile_documents_eligible(cp.id)
 		    AND cp.is_online = TRUE
+		    AND courier_presence_is_matchable(cp.id)
 		    AND ($4 = ANY(cp.service_categories) OR cp.allows_tambal_ban = TRUE OR cp.allows_towing = TRUE)
 		    AND (
 		        6371 * acos(

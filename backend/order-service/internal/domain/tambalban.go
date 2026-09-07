@@ -89,6 +89,10 @@ type SettlementResult struct {
 type CourierAvailabilityState struct {
 	CourierID          string     `json:"courier_id" db:"courier_id"`
 	CurrentState       string     `json:"current_state" db:"current_state"`
+	PresenceState      string     `json:"presence_state" db:"presence_state"`
+	PresenceReason     *string    `json:"presence_reason,omitempty" db:"presence_reason"`
+	HeartbeatAt        *time.Time `json:"heartbeat_at,omitempty" db:"heartbeat_at"`
+	LastTransitionAt   time.Time  `json:"last_transition_at" db:"last_transition_at"`
 	ActiveOrderID      *string    `json:"active_order_id,omitempty" db:"active_order_id"`
 	ActiveOrderType    *string    `json:"active_order_type,omitempty" db:"active_order_type"`
 	Latitude           float64    `json:"latitude" db:"latitude"`

@@ -5,6 +5,7 @@ type PreferredCourierEligibilitySnapshot = {
   courier_id?: string | null;
   verification_status?: string | null;
   is_online?: boolean | null;
+  effective_presence_state?: string | null;
   location_fresh?: boolean | null;
   capability_ok?: boolean | null;
   zone_ok?: boolean | null;
@@ -66,6 +67,7 @@ export const evaluatePreferredCourierEligibility = (
   const maxActive = finiteNumber(snapshot.max_active_orders_on_demand) ?? 0;
   const operationallyAvailable =
     snapshot.is_online === true &&
+    (snapshot.effective_presence_state === 'online' || snapshot.effective_presence_state == null) &&
     snapshot.location_fresh === true &&
     snapshot.zone_ok === true &&
     assignmentRadiusKm > 0 &&
@@ -111,6 +113,7 @@ const preferredCourierEligibilityQuery = `
     cp.user_id AS courier_id,
     cp.verification_status,
     cp.is_online,
+    courier_presence_effective_state(cp.id) AS effective_presence_state,
     (
       cp.current_location IS NOT NULL
       AND cp.last_location_at IS NOT NULL
