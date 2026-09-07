@@ -5175,9 +5175,9 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - provider config/version
 
 **Checklist**
-- [ ] Ops can disable degraded provider capability without editing env manually.
-- [ ] Zone changes have impact estimate and affected services/markets.
-- [ ] Admin never edits an active order coordinate through generic zone editor.
+- [x] Ops can disable degraded provider capability without editing env manually.
+- [x] Zone changes have impact estimate and affected services/markets.
+- [x] Admin never edits an active order coordinate through generic zone editor.
 
 ---
 
