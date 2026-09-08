@@ -1881,12 +1881,12 @@ A task is complete only when applicable boxes below are true:
 - `database/migrations/<timestamp>_add_support_cases.sql`
 
 **Checklist**
-- [ ] Case links order, payment, refund, courier, merchant, carrier, proof, claim and reconciliation references without copying inconsistent state.
-- [ ] Suggested/allowed actions are policy-driven by service/state/market.
-- [ ] Support can resolve common edge cases without direct DB/SQL mutation.
-- [ ] Compensation/refund actions call audited financial APIs and remain idempotent.
-- [ ] SLA, ownership, escalation and reopen history are tracked.
-- [ ] Sensitive proof/payment data is role restricted.
+- [x] Case links order, payment, refund, courier, merchant, carrier, proof, claim and reconciliation references without copying inconsistent state. Evidence: `docs/task-evidence/GLOB-2026-010.md`
+- [x] Suggested/allowed actions are policy-driven by service/state/market. Evidence: `docs/task-evidence/GLOB-2026-010.md`
+- [x] Support can resolve common edge cases without direct DB/SQL mutation. Evidence: `docs/task-evidence/GLOB-2026-010.md`
+- [x] Compensation/refund actions call audited financial APIs and remain idempotent. Evidence: `docs/task-evidence/GLOB-2026-010.md`
+- [x] SLA, ownership, escalation and reopen history are tracked. Evidence: `docs/task-evidence/GLOB-2026-010.md`
+- [x] Sensitive proof/payment data is role restricted. Evidence: `docs/task-evidence/GLOB-2026-010.md`
 
 ---
 
