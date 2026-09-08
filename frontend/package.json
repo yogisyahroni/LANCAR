@@ -23,7 +23,7 @@
     "framer-motion": "^12.38.0",
     "lightningcss": "^1.32.0",
     "lucide-react": "^1.14.0",
-    "next": "^16.2.12",
+    "next": "^16.3.3",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-barcode": "^1.6.1",
@@ -56,12 +56,13 @@
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "ws": "8.21.0",
     "postcss": "8.5.25",
-    "sharp": ">=0.35.0",
-    "minimatch": ">=9.0.5"
+    "sharp": ">=0.35.4",
+    "minimatch": ">=9.0.5",
+    "js-yaml": ">=4.3.2"
   }
 }
