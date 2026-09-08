@@ -49,6 +49,7 @@ fun MainScreen(
     onOpenOrderHistory: () -> Unit,
     onOpenLanguage: () -> Unit,
     onOpenCreatePromo: () -> Unit,
+    onOpenAds: () -> Unit,
     onOpenCreateMenu: () -> Unit,
     onOpenEditMenu: (String) -> Unit,
     onGoToRegistration: () -> Unit
@@ -102,6 +103,7 @@ fun MainScreen(
                 "report" -> BusinessInsightsZipScreen(
                     onOpenNotifications = onOpenNotifications,
                     onOpenCreatePromo = onOpenCreatePromo,
+                    onOpenAds = onOpenAds,
                     onOpenCustomerReviews = onOpenCustomerReviews
                 )
                 "profile" -> StoreProfileZipScreen(

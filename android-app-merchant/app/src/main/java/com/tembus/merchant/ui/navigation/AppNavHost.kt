@@ -34,6 +34,7 @@ import com.tembus.merchant.ui.screens.profile.StoreInformationZipScreen
 import com.tembus.merchant.ui.screens.profile.MerchantLanguageScreen
 import com.tembus.merchant.ui.screens.settlement.SettlementZipScreen
 import com.tembus.merchant.ui.screens.promo.CreatePromoZipScreen
+import com.tembus.merchant.ui.screens.ads.AdsZipScreen
 import com.tembus.merchant.ui.screens.report.BusinessInsightsZipScreen
 import com.tembus.merchant.ui.screens.registration.RegistrationScreen
 import com.tembus.merchant.ui.screens.staff.StaffAcceptScreen
@@ -78,6 +79,7 @@ object MerchantRoutes {
     const val ORDER_DETAIL_REJECTED = "order_detail_rejected/{orderId}"
     const val ORDER_DETAIL_MERCHANT = "order_detail_merchant/{orderId}"
     const val CREATE_PROMO = "create_promo"
+    const val ADS = "ads"
     const val CUSTOMER_REVIEWS = "customer_reviews"
     const val PAYMENT_SETTINGS = "payment_settings"
     const val SETTLEMENTS = "settlements"
@@ -119,6 +121,7 @@ private object MerchantZipDeepLinks {
     const val ORDER_DETAIL_REJECTED = "tembusmerchant://merchant/orders/{orderId}/rejected"
     const val ORDER_DETAIL_MERCHANT = "tembusmerchant://merchant/orders/{orderId}"
     const val CREATE_PROMO = "tembusmerchant://merchant/promo/create"
+    const val ADS = "tembusmerchant://merchant/ads"
     const val CUSTOMER_REVIEWS = "tembusmerchant://merchant/profile/reviews"
     const val PAYMENT_SETTINGS = "tembusmerchant://merchant/profile/payment"
     const val NOTIFICATIONS = "tembusmerchant://merchant/profile/notifications"
@@ -249,6 +252,9 @@ fun AppNavHost() {
                 onOpenCreatePromo = {
                     navController.navigate(MerchantRoutes.CREATE_PROMO)
                 },
+                onOpenAds = {
+                    navController.navigate(MerchantRoutes.ADS)
+                },
                 onOpenCreateMenu = {
                     navController.navigate(MerchantRoutes.ADD_MENU)
                 },
@@ -309,6 +315,7 @@ fun AppNavHost() {
             BusinessInsightsZipScreen(
                 onOpenNotifications = { navController.navigate(MerchantRoutes.NOTIFICATIONS) },
                 onOpenCreatePromo = { navController.navigate(MerchantRoutes.CREATE_PROMO) },
+                onOpenAds = { navController.navigate(MerchantRoutes.ADS) },
                 onOpenCustomerReviews = { navController.navigate(MerchantRoutes.CUSTOMER_REVIEWS) }
             )
         }
@@ -385,6 +392,13 @@ fun AppNavHost() {
             deepLinks = listOf(navDeepLink { uriPattern = MerchantZipDeepLinks.CREATE_PROMO })
         ) {
             CreatePromoZipScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = MerchantRoutes.ADS,
+            deepLinks = listOf(navDeepLink { uriPattern = MerchantZipDeepLinks.ADS })
+        ) {
+            AdsZipScreen(onBack = { navController.popBackStack() })
         }
 
         composable(
@@ -576,6 +590,7 @@ private fun Uri.toMerchantZipRoute(): String? {
         segment == listOf("profile") -> MerchantRoutes.STORE_PROFILE
         segment == listOf("orders", "history") -> MerchantRoutes.ORDER_HISTORY
         segment == listOf("promo", "create") -> MerchantRoutes.CREATE_PROMO
+        segment == listOf("ads") -> MerchantRoutes.ADS
         segment == listOf("profile", "reviews") -> MerchantRoutes.CUSTOMER_REVIEWS
         segment == listOf("profile", "payment") -> MerchantRoutes.PAYMENT_SETTINGS
         segment == listOf("profile", "notifications") -> MerchantRoutes.NOTIFICATIONS

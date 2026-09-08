@@ -21,11 +21,12 @@ func (r *foodSponsoredRepository) RecordFoodSponsoredEvent(ctx context.Context, 
 		SELECT p.id, $2::uuid, $3::uuid, $4, $5, NULLIF($6, '')::uuid
 		FROM promo_campaigns p
 		WHERE p.id = $1::uuid
+		  AND p.product_type = 'ads'
 		  AND p.status = 'active'
 		  AND p.starts_at <= NOW() AND p.ends_at > NOW()
 		  AND 'food_delivery' = ANY(p.service_codes)
 		  AND p.audience_rules->>'placement' = 'food_discovery'
-		  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = $2)
+		  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = $2::uuid::text)
 		ON CONFLICT DO NOTHING`, event.CampaignID, event.MerchantID, event.UserID, event.EventType, event.SessionID, event.OrderID)
 	if err != nil {
 		return false, err

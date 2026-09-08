@@ -599,7 +599,8 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			LEFT JOIN LATERAL (
 				SELECT p.id
 				FROM promo_campaigns p
-				WHERE p.status = 'active' AND p.starts_at <= NOW() AND p.ends_at > NOW()
+				WHERE p.product_type = 'ads'
+				  AND p.status = 'active' AND p.starts_at <= NOW() AND p.ends_at > NOW()
 				  AND 'food_delivery' = ANY(p.service_codes)
 				  AND p.audience_rules->>'placement' = 'food_discovery'
 				  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = m.id::text)
@@ -631,7 +632,8 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			LEFT JOIN LATERAL (
 				SELECT p.id
 				FROM promo_campaigns p
-				WHERE p.status = 'active' AND p.starts_at <= NOW() AND p.ends_at > NOW()
+				WHERE p.product_type = 'ads'
+				  AND p.status = 'active' AND p.starts_at <= NOW() AND p.ends_at > NOW()
 				  AND 'food_delivery' = ANY(p.service_codes)
 				  AND p.audience_rules->>'placement' = 'food_discovery'
 				  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = m.id::text)

@@ -199,6 +199,19 @@ class MerchantRepository(
     suspend fun setPromoActive(id: String, active: Boolean): Result<Boolean> =
         request { api.setPromoActive(id, PromoActiveRequest(active)) }.map { it.success }
 
+    // ── MERCH-2026-007: Iklan merchant ──
+    suspend fun listMerchantAds(page: Int = 1, pageSize: Int = 50): Result<List<MerchantAd>> =
+        request { api.listMerchantAds(page, pageSize) }.map { it.items }
+
+    suspend fun createMerchantAd(idempotencyKey: String, adRequest: MerchantAdRequest): Result<MerchantAd> =
+        request { api.createMerchantAd(idempotencyKey, adRequest) }
+
+    suspend fun setMerchantAdActive(id: String, active: Boolean): Result<Boolean> =
+        request { api.setMerchantAdActive(id, PromoActiveRequest(active)) }.map { it.success }
+
+    suspend fun getMerchantMarketingPerformance(period: String): Result<MerchantMarketingPerformance> =
+        request { api.getMerchantMarketingPerformance(period) }
+
     // ── M1: Staff Management (CORPORATE ONLY) ──
     suspend fun inviteStaff(merchantId: String, req: InviteStaffRequest): Result<InviteStaffResponse> =
         request { api.inviteStaff(merchantId, req) }

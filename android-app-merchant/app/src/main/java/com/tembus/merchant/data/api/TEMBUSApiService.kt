@@ -285,6 +285,30 @@ interface TEMBUSApiService {
         @Body request: PromoActiveRequest
     ): Response<SuccessResponse>
 
+    // ── MERCH-2026-007: Iklan merchant, paid visibility only ──
+    @GET("api/v1/merchant/ads")
+    suspend fun listMerchantAds(
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 50
+    ): Response<MerchantAdListResponse>
+
+    @POST("api/v1/merchant/ads")
+    suspend fun createMerchantAd(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: MerchantAdRequest
+    ): Response<MerchantAd>
+
+    @POST("api/v1/merchant/ads/{id}/active")
+    suspend fun setMerchantAdActive(
+        @Path("id") id: String,
+        @Body request: PromoActiveRequest
+    ): Response<SuccessResponse>
+
+    @GET("api/v1/merchant/ads/performance")
+    suspend fun getMerchantMarketingPerformance(
+        @Query("period") period: String
+    ): Response<MerchantMarketingPerformance>
+
     // ── Chat order (FB-119): merchant ↔ customer ──
     // Endpoint sama dengan customer/courier — backend mengizinkan
     // role 'merchant' via orderCommunication.ts (member_type 'merchant').

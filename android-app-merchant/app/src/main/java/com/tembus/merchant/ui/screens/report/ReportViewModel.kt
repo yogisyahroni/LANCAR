@@ -2,6 +2,7 @@ package com.tembus.merchant.ui.screens.report
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tembus.merchant.data.model.MerchantMarketingPerformance
 import com.tembus.merchant.data.model.SalesReportSummary
 import com.tembus.merchant.data.repository.MerchantRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ enum class ReportPeriod(val label: String, val apiValue: String) {
 data class ReportUiState(
     val period: ReportPeriod = ReportPeriod.DAILY,
     val report: SalesReportSummary? = null,
+    val marketingPerformance: MerchantMarketingPerformance? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
@@ -46,7 +48,9 @@ class ReportViewModel(
         val period = _uiState.value.period
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
-            merchantRepository.getSalesReport(period.apiValue)
+            val salesResult = merchantRepository.getSalesReport(period.apiValue)
+            val marketingResult = merchantRepository.getMerchantMarketingPerformance(period.apiValue)
+            salesResult
                 .onSuccess { report ->
                     _uiState.value = _uiState.value.copy(
                         report = report,
@@ -59,6 +63,9 @@ class ReportViewModel(
                         isLoading = false
                     )
                 }
+            marketingResult.onSuccess { performance ->
+                _uiState.value = _uiState.value.copy(marketingPerformance = performance)
+            }
         }
     }
 }

@@ -607,3 +607,59 @@ data class PromoListResponse(
 data class PromoActiveRequest(
     @SerializedName("is_active") val isActive: Boolean
 )
+
+// ── MERCH-2026-007: merchant-funded Ads / paid visibility ──
+data class MerchantAd(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("merchant_id") val merchantId: String = "",
+    @SerializedName("product_type") val productType: String = "ads",
+    @SerializedName("name") val name: String = "",
+    @SerializedName("description") val description: String = "",
+    @SerializedName("status") val status: String = "",
+    @SerializedName("creative_headline") val creativeHeadline: String = "",
+    @SerializedName("creative_body") val creativeBody: String = "",
+    @SerializedName("creative_image_url") val creativeImageUrl: String = "",
+    @SerializedName("total_budget_idr") val totalBudgetIdr: Long = 0,
+    @SerializedName("daily_budget_idr") val dailyBudgetIdr: Long = 0,
+    @SerializedName("starts_at") val startsAt: String = "",
+    @SerializedName("ends_at") val endsAt: String = "",
+    @SerializedName("impressions") val impressions: Long = 0,
+    @SerializedName("clicks") val clicks: Long = 0,
+    @SerializedName("attributed_orders") val attributedOrders: Long = 0,
+    @SerializedName("attributed_revenue_idr") val attributedRevenueIdr: Long = 0,
+    @SerializedName("charged_amount_idr") val chargedAmountIdr: Long = 0,
+    @SerializedName("created_at") val createdAt: String = ""
+)
+
+data class MerchantAdRequest(
+    @SerializedName("name") val name: String,
+    @SerializedName("description") val description: String = "",
+    @SerializedName("creative_headline") val creativeHeadline: String,
+    @SerializedName("creative_body") val creativeBody: String = "",
+    @SerializedName("creative_image_url") val creativeImageUrl: String = "",
+    @SerializedName("total_budget_idr") val totalBudgetIdr: Long,
+    @SerializedName("daily_budget_idr") val dailyBudgetIdr: Long,
+    @SerializedName("starts_at") val startsAt: String,
+    @SerializedName("ends_at") val endsAt: String
+)
+
+data class MerchantAdListResponse(
+    @SerializedName("items") val items: List<MerchantAd> = emptyList(),
+    @SerializedName("total") val total: Int = 0,
+    @SerializedName("page") val page: Int = 1,
+    @SerializedName("page_size") val pageSize: Int = 20
+)
+
+data class MerchantMarketingMetric(
+    @SerializedName("impressions") val impressions: Long = 0,
+    @SerializedName("clicks") val clicks: Long = 0,
+    @SerializedName("attributed_orders") val attributedOrders: Long = 0,
+    @SerializedName("revenue_idr") val revenueIdr: Long = 0,
+    @SerializedName("spend_idr") val spendIdr: Long = 0
+)
+
+data class MerchantMarketingPerformance(
+    @SerializedName("period") val period: String = "daily",
+    @SerializedName("paid") val paid: MerchantMarketingMetric = MerchantMarketingMetric(),
+    @SerializedName("organic") val organic: MerchantMarketingMetric = MerchantMarketingMetric()
+)

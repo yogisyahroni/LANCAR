@@ -54,7 +54,7 @@ func (h *MerchantHandler) parseUserID(w http.ResponseWriter, r *http.Request) (s
 
 func merchantPermissionForRequest(r *http.Request) int {
 	path := strings.ToLower(r.URL.Path)
-	if strings.Contains(path, "/promo") {
+	if strings.Contains(path, "/promo") || strings.Contains(path, "/ads") {
 		if r.Method == http.MethodGet {
 			return domain.PermViewStore
 		}

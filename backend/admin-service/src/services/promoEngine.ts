@@ -179,9 +179,10 @@ export const listPromoCampaigns = async (query: { status?: string; service_code?
   const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 50;
 
   const result = await readDb.query(
-    `${campaignSelect}
-     WHERE ($1::TEXT IS NULL OR status = $1)
-       AND ($2::TEXT IS NULL OR $2 = ANY(service_codes))
+     `${campaignSelect}
+      WHERE COALESCE(product_type, 'promo') = 'promo'
+        AND ($1::TEXT IS NULL OR status = $1)
+        AND ($2::TEXT IS NULL OR $2 = ANY(service_codes))
      ORDER BY created_at DESC
      LIMIT $3`,
     [status, serviceCode, limit]
@@ -191,7 +192,7 @@ export const listPromoCampaigns = async (query: { status?: string; service_code?
 
 export const getPromoCampaignById = async (id: string) => {
   uuidSchema.parse(id);
-  const result = await readDb.query(`${campaignSelect} WHERE id = $1 LIMIT 1`, [id]);
+  const result = await readDb.query(`${campaignSelect} WHERE COALESCE(product_type, 'promo') = 'promo' AND id = $1 LIMIT 1`, [id]);
   return result.rows[0] || null;
 };
 
@@ -590,8 +591,9 @@ export const pausePromoCampaign = async (actor: PromoActor, id: string, reason: 
 
 const findCampaignForValidation = async (input: z.infer<typeof validationSchema>) => {
   const result = await readDb.query(
-    `${campaignSelect}
-     WHERE status = 'active'
+     `${campaignSelect}
+      WHERE COALESCE(product_type, 'promo') = 'promo'
+        AND status = 'active'
        AND starts_at <= NOW()
        AND ends_at > NOW()
        AND (total_budget_idr = 0 OR (reserved_budget_idr + redeemed_budget_idr) < total_budget_idr)

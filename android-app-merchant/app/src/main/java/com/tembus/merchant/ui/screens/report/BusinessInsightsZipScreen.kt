@@ -52,6 +52,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.data.model.Merchant
+import com.tembus.merchant.data.model.MerchantMarketingMetric
+import com.tembus.merchant.data.model.MerchantMarketingPerformance
 import com.tembus.merchant.data.model.SalesReportSummary
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
@@ -64,6 +66,7 @@ import com.tembus.merchant.ui.theme.PrimaryPale
 fun BusinessInsightsZipScreen(
     onOpenNotifications: () -> Unit,
     onOpenCreatePromo: () -> Unit,
+    onOpenAds: () -> Unit,
     onOpenCustomerReviews: () -> Unit,
     viewModel: ReportViewModel = appViewModel { ReportViewModel(it.merchantRepository) },
     profileViewModel: com.tembus.merchant.ui.screens.profile.ProfileViewModel = appViewModel {
@@ -127,8 +130,9 @@ fun BusinessInsightsZipScreen(
                 item { RevenueInsightCard(reportState.report) }
                 item { OrderCountCard(reportState.report) }
                 item { PerformanceCard(reportState.report?.performance) }
+                item { MarketingPerformanceCard(reportState.marketingPerformance) }
                 item { RatingCard(profileState.merchant, onOpenCustomerReviews) }
-                item { BoostSalesCard(onOpenCreatePromo) }
+                item { BoostSalesCard(onOpenCreatePromo, onOpenAds) }
                 item { Text("Best Selling Items", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
                 if (reportState.report?.topItems.isNullOrEmpty()) {
                     item { NoInsightData("Belum ada penjualan pada periode ini.") }
@@ -311,7 +315,7 @@ private fun RatingCard(merchant: Merchant?, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun BoostSalesCard(onOpenCreatePromo: () -> Unit) {
+private fun BoostSalesCard(onOpenCreatePromo: () -> Unit, onOpenAds: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         shape = RoundedCornerShape(16.dp),
@@ -319,8 +323,42 @@ private fun BoostSalesCard(onOpenCreatePromo: () -> Unit) {
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Boost Your Sales", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            Text("Run a promotion this weekend to increase orders.", color = MaterialTheme.colorScheme.onPrimaryContainer)
-            Button(onClick = onOpenCreatePromo) { Text("Create Promo") }
+            Text("Pilih produk pertumbuhan sesuai tujuan toko.", color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onOpenCreatePromo, modifier = Modifier.weight(1f)) { Text("Promo") }
+                OutlinedButton(onClick = onOpenAds, modifier = Modifier.weight(1f)) { Text("Iklan") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarketingPerformanceCard(performance: MerchantMarketingPerformance?) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Promo & Iklan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Performa berbayar dan organik dihitung terpisah dari order delivered.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MarketingMetricColumn("Iklan (paid)", performance?.paid, Modifier.weight(1f))
+                MarketingMetricColumn("Organik", performance?.organic, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarketingMetricColumn(label: String, metric: MerchantMarketingMetric?, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(label, fontWeight = FontWeight.Bold)
+        Text("${metric?.attributedOrders ?: 0} order", style = MaterialTheme.typography.bodyMedium)
+        Text(Format.rupiah(metric?.revenueIdr ?: 0L), style = MaterialTheme.typography.bodySmall, color = Primary)
+        if (label.contains("paid")) {
+            Text("Spend ${Format.rupiah(metric?.spendIdr ?: 0L)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

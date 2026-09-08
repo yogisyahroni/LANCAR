@@ -5599,10 +5599,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MERCH-2026-007 — Promo / Ads / organic ranking boundary [P0/P1]
 
 **Checklist**
-- [ ] Merchant UI has separate `Promo` and `Iklan` products.
-- [ ] Promo changes financial offer; Ads purchases eligible visibility; organic ranking remains independent.
-- [ ] Ads creative cannot fake discount/ETA/rating.
-- [ ] Merchant sees attributable paid vs organic performance separately.
+- [x] Merchant UI has separate `Promo` and `Iklan` products.
+- [x] Promo changes financial offer; Ads purchases eligible visibility; organic ranking remains independent.
+- [x] Ads creative cannot fake discount/ETA/rating.
+- [x] Merchant sees attributable paid vs organic performance separately.
 
 ---
 

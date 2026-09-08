@@ -117,6 +117,11 @@ func main() {
 	promoRepo := repository.NewPostgresMerchantPromoRepository(db, db)
 	promoSvc := service.NewMerchantPromoService(promoRepo, menuRepo, merchantRepo, accessRepo)
 	promoH := handler.NewPromoHandler(promoSvc)
+	// MERCH-2026-007: merchant-funded paid visibility uses the existing
+	// promo_campaigns registry with an explicit product boundary.
+	adsRepo := repository.NewPostgresMerchantAdsRepository(db, db)
+	adsSvc := service.NewMerchantAdsService(adsRepo, merchantRepo, accessRepo)
+	adsH := handler.NewMerchantAdsHandler(adsSvc)
 
 	// FB-092: auto-suspend toko saat dokumen pangan kedaluwarsa (re-KYC)
 	foodDocsWorker := worker.NewFoodDocsExpiryWorker(merchantRepo)
@@ -263,6 +268,18 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/reports/export", middleware.BaseChain(h.ExportSalesReport))
 	mux.HandleFunc("/api/v1/merchant/settlements", middleware.BaseChain(h.GetSettlements))
 	mux.HandleFunc("/api/v1/merchant/finance-statement", middleware.BaseChain(h.GetFinanceStatement))
+	mux.HandleFunc("/api/v1/merchant/ads", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			adsH.Create(w, r)
+		case http.MethodGet:
+			adsH.List(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	mux.HandleFunc("/api/v1/merchant/ads/performance", middleware.BaseChain(adsH.Performance))
+	mux.HandleFunc("/api/v1/merchant/ads/{id}/active", middleware.BaseChain(adsH.SetActive))
 	// MERCH-2026-006: versioned operational quality score and appeal/review path.
 	mux.HandleFunc("/api/v1/merchant/quality-score", middleware.BaseChain(h.GetQualityScore))
 	mux.HandleFunc("/api/v1/merchant/quality-score/appeals", middleware.BaseChain(h.SubmitQualityAppeal))
