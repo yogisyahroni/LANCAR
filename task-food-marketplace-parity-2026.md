@@ -5548,11 +5548,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MERCH-2026-003 — Catalog quality, inventory and menu governance [P0/P1]
 
 **Checklist**
-- [ ] Item/category/variant/modifier/image/status schemas canonical.
-- [ ] Inventory/sold-out/schedule integrates `FOOD-2026-012/015`.
-- [ ] Invalid/misleading prohibited item moderation path.
-- [ ] Catalog change version/event feeds Search index.
-- [ ] Bulk edit/import has per-row validation and rollback/retry safety.
+- [x] Item/category/variant/modifier/image/status schemas canonical.
+- [x] Inventory/sold-out/schedule integrates `FOOD-2026-012/015`.
+- [x] Invalid/misleading prohibited item moderation path.
+- [x] Catalog change version/event feeds Search index.
+- [x] Bulk edit/import has per-row validation and rollback/retry safety.
 
 ---
 
