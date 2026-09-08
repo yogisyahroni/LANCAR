@@ -585,6 +585,9 @@ services:
       TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
       TOMTOM_ROUTING_API_URL: ${TOMTOM_ROUTING_API_URL:-https://api.tomtom.com/routing/1}
       RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER:-tembus_mq}:${RABBITMQ_DEFAULT_PASS:-changeme_rabbitmq_in_production}@rabbitmq:5672/"
+      EVENT_ACTOR_PSEUDONYM_KEY: ${EVENT_ACTOR_PSEUDONYM_KEY:-}
+      LANCAR_SERVICE_NAME: order-service
+      LANCAR_MARKET_CODE: ${LANCAR_MARKET_CODE:-id-jk}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
     ports:
@@ -809,6 +812,9 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_ENDPOINT: ${R2_ENDPOINT}
       R2_BUCKET_NAME: ${R2_BUCKET_NAME:-lancar-ai-datalake}
+      CANONICAL_EVENT_SPOOL_DIR: /var/lib/lancar/events
+    volumes:
+      - lancar-canonical-events:/var/lib/lancar/events
     networks:
       - tembus-net
 
@@ -854,6 +860,8 @@ volumes:
     name: tembus-prometheus-data
   tembus-grafana-data:
     name: tembus-grafana-data
+  lancar-canonical-events:
+    name: lancar-canonical-events
 
 networks:
   tembus-net:

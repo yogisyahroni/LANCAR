@@ -344,6 +344,12 @@ export default function Analytics() {
     ...analyticsQueryOptions,
   })
 
+  const { data: canonicalAnalyticsPayload } = useQuery({
+    queryKey: ['analytics', 'canonical-definitions'],
+    queryFn: () => api.get('/admin/analytics/definitions').then(res => res.data?.data),
+    ...analyticsQueryOptions,
+  })
+
   const { data: slaData, isLoading: slaLoading, isError: slaError, error: slaQueryError, refetch: refetchSla } = useQuery({
     queryKey: ['analytics', 'sla', timeRange],
     queryFn: () => api.get(`/admin/analytics/sla?range=${timeRange}`).then(res => res.data),
@@ -497,6 +503,31 @@ export default function Analytics() {
             </div>
           );
         })}
+      </div>
+
+      <div className="glass-card p-8 rounded-[40px] border-white/5">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
+              <Activity className="text-primary-light" size={22} />
+              Canonical metric definitions
+            </h3>
+            <p className="text-xs text-zinc-500 mt-2">Semua metrik global berasal dari governed event stream dan memakai definisi kontrak yang sama.</p>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Contract {canonicalAnalyticsPayload?.contract_version || '—'}</span>
+        </div>
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {(canonicalAnalyticsPayload?.definitions || []).map((definition: any) => (
+            <div key={definition.name} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-black text-zinc-100">{definition.name}</p>
+                <span className="text-[9px] font-black uppercase tracking-widest text-primary-light">{definition.unit}</span>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-zinc-500">{definition.description}</p>
+              <p className="mt-2 text-[10px] text-zinc-600">Source: {definition.source_of_truth}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">

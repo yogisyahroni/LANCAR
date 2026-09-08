@@ -260,6 +260,11 @@ func main() {
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader, configRepo)
 	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
 	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo, ledgerRepo, taxSvc)
+	if canonicalPublisher, ok := datalakePub.(domain.CanonicalEventPublisher); ok {
+		if configurable, ok := orderSvc.(interface{ SetCanonicalEventPublisher(domain.CanonicalEventPublisher) }); ok {
+			configurable.SetCanonicalEventPublisher(canonicalPublisher)
+		}
+	}
 	handoffSvc := service.NewHandoffService(pgRepo, pgRepo)
 	if configurable, ok := orderSvc.(interface{ SetHandoffService(domain.HandoffService) }); ok {
 		configurable.SetHandoffService(handoffSvc)

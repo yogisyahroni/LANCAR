@@ -9,6 +9,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"tembus/order-service/internal/domain"
 )
 
 const DatalakeQueueName = "queue.ai.datalake.gps"
@@ -104,6 +105,45 @@ func (p *GPSDatalakePublisher) Publish(ctx context.Context, msg interface{}) err
 		return fmt.Errorf("failed to publish gps datalake message: %w", err)
 	}
 
+	return nil
+}
+
+// PublishCanonical publishes governed analytics events to the durable topic
+// exchange. GPS keeps its legacy queue, while canonical events use a separate
+// exchange so the datalake validator can reject malformed payloads safely.
+func (p *GPSDatalakePublisher) PublishCanonical(ctx context.Context, event domain.CanonicalEventEnvelope) error {
+	p.mu.RLock()
+	ch := p.channel
+	p.mu.RUnlock()
+	if ch == nil {
+		return fmt.Errorf("rabbitmq channel is not initialized")
+	}
+	if err := ch.ExchangeDeclare("tembus.events", "topic", true, false, false, false, nil); err != nil {
+		return fmt.Errorf("declare canonical event exchange: %w", err)
+	}
+	body, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal canonical event: %w", err)
+	}
+	if err := ch.PublishWithContext(ctx, "tembus.events", event.EventType, false, false, amqp.Publishing{
+		ContentType:  "application/json",
+		DeliveryMode: amqp.Persistent,
+		MessageId:    event.EventID,
+		Timestamp:    event.ProducedAt,
+		Headers: amqp.Table{
+			"event_id":           event.EventID,
+			"schema_version":     event.SchemaVersion,
+			"market":             event.Market,
+			"service":            event.Service,
+			"correlation_id":     event.CorrelationID,
+			"trace_id":           event.TraceID,
+			"dedupe_key":         event.DedupeKey,
+			"pii_classification": event.PIIClassification,
+		},
+		Body: body,
+	}); err != nil {
+		return fmt.Errorf("publish canonical event: %w", err)
+	}
 	return nil
 }
 

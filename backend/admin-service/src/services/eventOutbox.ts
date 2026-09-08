@@ -1,15 +1,12 @@
 import { PoolClient } from 'pg';
 import { db } from '../db';
+import {
+  buildCanonicalEventMetadata,
+  CanonicalEventInput,
+  canonicalEventHeaders,
+} from './canonicalEvent';
 
-export type OutboxEventInput = {
-  aggregateType: string;
-  aggregateId?: string | null;
-  eventType: string;
-  eventVersion?: number;
-  payload?: Record<string, unknown>;
-  headers?: Record<string, unknown>;
-  availableAt?: Date;
-};
+export type OutboxEventInput = CanonicalEventInput;
 
 export type EventOutboxRow = {
   id: string;
@@ -17,8 +14,21 @@ export type EventOutboxRow = {
   aggregate_id: string | null;
   event_type: string;
   event_version: number;
+  schema_version: number;
   payload: Record<string, unknown>;
   headers: Record<string, unknown>;
+  occurred_at: Date | string;
+  produced_at: Date | string;
+  market_code: string;
+  service_name: string;
+  actor_pseudonymous_id: string;
+  entity_id: string;
+  correlation_id: string;
+  trace_id: string;
+  pii_classification: string;
+  field_pii_classification: Record<string, string>;
+  retention_class: string;
+  dedupe_key: string;
   attempts: number;
 };
 
@@ -28,24 +38,51 @@ export const enqueueOutboxEvent = async (
   queryable: Queryable,
   event: OutboxEventInput,
 ) => {
+  const metadata = buildCanonicalEventMetadata(event);
+  const version = metadata.schemaVersion;
   const { rows } = await queryable.query<{ id: string }>(
     `INSERT INTO event_outbox (
         aggregate_type,
         aggregate_id,
         event_type,
         event_version,
+        schema_version,
         payload,
         headers,
+        occurred_at,
+        produced_at,
+        market_code,
+        service_name,
+        actor_pseudonymous_id,
+        entity_id,
+        correlation_id,
+        trace_id,
+        pii_classification,
+        field_pii_classification,
+        retention_class,
+        dedupe_key,
         available_at
-      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, COALESCE($7, NOW()))
+      ) VALUES ($1, $2, $3, $4, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, $17, $18, COALESCE($19, NOW()))
       RETURNING id`,
     [
       event.aggregateType,
       event.aggregateId || null,
       event.eventType,
-      event.eventVersion || 1,
+      version,
       JSON.stringify(event.payload || {}),
-      JSON.stringify(event.headers || {}),
+      JSON.stringify(canonicalEventHeaders(event.headers || {})),
+      metadata.occurredAt,
+      metadata.producedAt,
+      metadata.marketCode,
+      metadata.serviceName,
+      metadata.actorPseudonymousId,
+      metadata.entityId,
+      metadata.correlationId,
+      metadata.traceId,
+      metadata.piiClassification,
+      JSON.stringify(metadata.fieldPiiClassification),
+      metadata.retentionClass,
+      metadata.dedupeKey,
       event.availableAt || null,
     ],
   );
@@ -79,8 +116,21 @@ export const lockReadyOutboxEvents = async (
                 eo.aggregate_id,
                 eo.event_type,
                 eo.event_version,
+                eo.schema_version,
                 eo.payload,
                 eo.headers,
+                eo.occurred_at,
+                eo.produced_at,
+                eo.market_code,
+                eo.service_name,
+                eo.actor_pseudonymous_id,
+                eo.entity_id,
+                eo.correlation_id,
+                eo.trace_id,
+                eo.pii_classification,
+                eo.field_pii_classification,
+                eo.retention_class,
+                eo.dedupe_key,
                 eo.attempts`,
     [Math.max(1, Math.min(limit, 500)), workerId],
   );

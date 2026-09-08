@@ -1762,12 +1762,12 @@ A task is complete only when applicable boxes below are true:
 - `backend/datalake-worker/internal/service/event_validator_test.go`
 
 **Checklist**
-- [ ] Canonical event envelope includes event id, type, schema version, occurred_at, produced_at, market, service, actor pseudonymous id, entity id and correlation/trace id.
-- [ ] Event schemas are versioned/backward compatible.
-- [ ] PII classification and retention are explicit per field/event.
-- [ ] Duplicate/replayed events are identifiable.
-- [ ] Analytics definitions for GMV, completed order, cancellation, refund, active courier/merchant and SLA are globally consistent.
-- [ ] ML/experimentation consumes governed events, not ad-hoc production DB queries.
+- [x] Canonical event envelope includes event id, type, schema version, occurred_at, produced_at, market, service, actor pseudonymous id, entity id and correlation/trace id.
+- [x] Event schemas are versioned/backward compatible.
+- [x] PII classification and retention are explicit per field/event.
+- [x] Duplicate/replayed events are identifiable.
+- [x] Analytics definitions for GMV, completed order, cancellation, refund, active courier/merchant and SLA are globally consistent.
+- [x] ML/experimentation consumes governed events, not ad-hoc production DB queries.
 
 ---
 

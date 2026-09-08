@@ -4,6 +4,7 @@ import { readDb } from '../db';
 import { db } from '../db';
 import { coarsenLocationRow } from '../services/geoPrivacy';
 import { getServiceKpis, parseServiceKpiWindow, SERVICE_KPI_DEFINITIONS } from '../services/serviceKpis';
+import { CANONICAL_ANALYTICS_DEFINITIONS } from '../services/analyticsDefinitions';
 
 const parseCount = (value: unknown): number => {
   const parsed = Number(value);
@@ -210,6 +211,17 @@ export const getAnalyticsServiceKPIs = async (req: Request, res: Response): Prom
     securityLog.error('Service KPI analytics error:', error);
     res.status(500).json({ success: false, data: null, message: 'Service KPI analytics unavailable' });
   }
+};
+
+export const getAnalyticsDefinitions = (_req: Request, res: Response): void => {
+  res.json({
+    success: true,
+    data: {
+      contract_version: '2026-09-08',
+      source: 'canonical event stream',
+      definitions: CANONICAL_ANALYTICS_DEFINITIONS,
+    },
+  });
 };
 
 export const getAnalyticsSLA = async (req: Request, res: Response) => {

@@ -165,6 +165,28 @@ jobs:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
+  datalake-worker:
+    name: Datalake Worker Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache-dependency-path: backend/datalake-worker/go.sum
+      - name: Verify modules are tidy
+        working-directory: ./backend/datalake-worker
+        run: |
+          go mod tidy
+          go mod verify
+      - name: Run tests with race detector
+        working-directory: ./backend/datalake-worker
+        run: go test -race -timeout 5m ./...
+      - name: Build worker
+        working-directory: ./backend/datalake-worker
+        run: go build ./...
+
   routing-service:
     name: Routing Service Test
     runs-on: ubuntu-latest
@@ -253,7 +275,7 @@ jobs:
     name: Observability Guard
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [frontend, maps-runtime-guard, admin-service, auth-service, routing-service, migration-test, regional-resilience]
+    needs: [frontend, maps-runtime-guard, admin-service, auth-service, datalake-worker, routing-service, migration-test, regional-resilience]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

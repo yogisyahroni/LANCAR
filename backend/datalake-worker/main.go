@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/LANCAR/datalake-worker/internal/consumer"
+	"github.com/LANCAR/datalake-worker/internal/sink"
 	"github.com/joho/godotenv"
 )
 
@@ -32,10 +33,25 @@ func main() {
 	}
 	defer gpsConsumer.Close()
 
+	eventSpool, err := sink.NewEventSpool(os.Getenv("CANONICAL_EVENT_SPOOL_DIR"))
+	if err != nil {
+		log.Fatalf("Failed to initialize canonical event spool: %v", err)
+	}
+	canonicalEventConsumer, err := consumer.NewCanonicalEventConsumer(rabbitURL, eventSpool)
+	if err != nil {
+		log.Fatalf("Failed to initialize canonical event consumer: %v", err)
+	}
+	defer canonicalEventConsumer.Close()
+
 	// Start consuming
 	go func() {
 		if err := gpsConsumer.Start(ctx); err != nil {
-			log.Fatalf("Consumer error: %v", err)
+			log.Printf("GPS consumer error: %v", err)
+		}
+	}()
+	go func() {
+		if err := canonicalEventConsumer.Start(ctx); err != nil {
+			log.Printf("Canonical event consumer error: %v", err)
 		}
 	}()
 

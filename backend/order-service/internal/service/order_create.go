@@ -84,14 +84,19 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 	// 2. Double check Feature Flag for the selected model
 	flag, err := s.flagReader.GetFlag(ctx, estimate.Model)
 	if err != nil || flag == nil || !flag.IsEnabled {
-		// Analytics: model_unavailable_shown
-		_ = s.eventBus.Publish(ctx, "analytics.events", map[string]interface{}{
-			"event":          "model_unavailable_shown",
-			"user_id":        userID,
-			"model":          estimate.Model,
-			"route_distance": estimate.DistanceKM,
-			"timestamp":      time.Now().Unix(),
-		})
+		// GLOB-2026-005: analytics events use the governed RabbitMQ envelope.
+		// The raw user id is converted to a pseudonymous actor only when the
+		// deployment provides EVENT_ACTOR_PSEUDONYM_KEY; otherwise this remains a
+		// system event rather than leaking the identifier.
+		if s.canonicalPublisher != nil {
+			event := domain.NewCanonicalEvent("model.unavailable.shown", estimate.Model, userID, map[string]interface{}{
+				"model":             estimate.Model,
+				"route_distance_km": estimate.DistanceKM,
+			})
+			if err := s.canonicalPublisher.PublishCanonical(ctx, event); err != nil {
+				log.Printf("canonical analytics event publish failed: %v", err)
+			}
+		}
 
 		return nil, &domain.ModelUnavailableError{
 			Model:     estimate.Model,
