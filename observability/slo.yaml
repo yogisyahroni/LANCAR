@@ -13,6 +13,17 @@ groups:
             0.95,
             sum(rate(tembus_http_server_request_duration_seconds_bucket[5m])) by (le)
           )
+      - record: tembus:sli:http_request_success_ratio_by_service:5m
+        expr: |
+          sum(rate(tembus_http_server_request_duration_seconds_count{service_name!="",http_status_code=~"2..|3.."}[5m])) by (service_name)
+          /
+          clamp_min(sum(rate(tembus_http_server_request_duration_seconds_count{service_name!=""}[5m])) by (service_name), 1)
+      - record: tembus:sli:http_request_latency_p95_by_service:5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(tembus_http_server_request_duration_seconds_bucket{service_name!=""}[5m])) by (service_name, le)
+          )
 
   - name: tembus-slo-alerts
     rules:
@@ -34,3 +45,23 @@ groups:
         annotations:
           summary: "P95 latency API melewati 750ms"
           description: "Latency p95 melewati target API; audit query lambat, pool, dan downstream provider."
+      - alert: TembusCriticalServiceAvailabilityBudgetBurn
+        expr: |
+          tembus:sli:http_request_success_ratio_by_service:5m{service_name=~"api-gateway|auth-service|order-service|payment-service|routing-service|integration-gateway"} < 0.995
+        for: 10m
+        labels:
+          severity: critical
+          slo: critical-service-availability
+        annotations:
+          summary: "Error budget critical service terbakar"
+          description: "Service {{ $labels.service_name }} berada di bawah availability SLO; hentikan rollout dan ikuti incident-command runbook."
+      - alert: TembusCriticalServiceLatencyBudgetBurn
+        expr: |
+          tembus:sli:http_request_latency_p95_by_service:5m{service_name=~"api-gateway|auth-service|order-service|payment-service|routing-service|integration-gateway"} > 0.75
+        for: 10m
+        labels:
+          severity: warning
+          slo: critical-service-latency
+        annotations:
+          summary: "P95 critical service melewati 750ms"
+          description: "Service {{ $labels.service_name }} melewati latency SLO; cek saturation, dependency breaker, dan backpressure."

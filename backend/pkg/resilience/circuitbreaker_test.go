@@ -71,6 +71,29 @@ func TestCircuitBreakerHalfOpenAfterTimeout(t *testing.T) {
 	}
 }
 
+func TestCircuitBreakerAllowsOnlyOneHalfOpenProbe(t *testing.T) {
+	cb := NewCircuitBreaker(BreakerOptions{
+		Name:             "test",
+		FailureThreshold: 1,
+		SuccessThreshold: 2,
+		OpenTimeout:      10 * time.Millisecond,
+	})
+
+	cb.RecordFailure()
+	time.Sleep(15 * time.Millisecond)
+	if err := cb.Allow(); err != nil {
+		t.Fatalf("expected first recovery probe to pass, got %v", err)
+	}
+	var probeErr *ErrCircuitProbeInFlight
+	if err := cb.Allow(); !errors.As(err, &probeErr) {
+		t.Fatalf("expected concurrent recovery probe to be rejected, got %v", err)
+	}
+	cb.RecordSuccess()
+	if err := cb.Allow(); err != nil {
+		t.Fatalf("expected next probe after first success to pass, got %v", err)
+	}
+}
+
 func TestCircuitBreakerClosesAfterConsecutiveProbeSuccesses(t *testing.T) {
 	cb := NewCircuitBreaker(BreakerOptions{
 		Name:             "test",
@@ -86,6 +109,9 @@ func TestCircuitBreakerClosesAfterConsecutiveProbeSuccesses(t *testing.T) {
 	cb.RecordSuccess()
 	if cb.State() != "half_open" {
 		t.Fatalf("expected half_open after first probe success, got %s", cb.State())
+	}
+	if err := cb.Allow(); err != nil {
+		t.Fatalf("expected second recovery probe to pass, got %v", err)
 	}
 	cb.RecordSuccess()
 	if cb.State() != "closed" {

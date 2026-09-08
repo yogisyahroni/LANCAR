@@ -37,30 +37,31 @@ func (s State) String() string {
 
 // CircuitBreaker implements a thread-safe circuit breaker.
 //
-//   Closed    calls pass through; consecutive failures are counted
-//   Open      calls fail fast until openTimeout elapses
-//   HalfOpen  a single probe passes through; successThresh consecutive
-//             successes close the circuit, any failure reopens it
+//	Closed    calls pass through; consecutive failures are counted
+//	Open      calls fail fast until openTimeout elapses
+//	HalfOpen  a single probe passes through; successThresh consecutive
+//	          successes close the circuit, any failure reopens it
 type CircuitBreaker struct {
 	name          string
 	failureThresh int           // failures before opening
 	successThresh int           // consecutive successes before closing
 	openTimeout   time.Duration // how long to stay open before half-open
 
-	mu          sync.Mutex
-	state       State
-	failures    int
-	successes   int
-	lastFailure time.Time
-	openedAt    time.Time
+	mu            sync.Mutex
+	state         State
+	failures      int
+	successes     int
+	probeInFlight bool
+	lastFailure   time.Time
+	openedAt      time.Time
 }
 
 // BreakerOptions configures NewCircuitBreaker.
 type BreakerOptions struct {
-	Name            string        // identifier for logging/metrics
-	FailureThreshold int          // consecutive failures before opening (default 5)
-	SuccessThreshold int          // consecutive half-open successes before closing (default 2)
-	OpenTimeout     time.Duration // how long to stay open before probing (default 30s)
+	Name             string        // identifier for logging/metrics
+	FailureThreshold int           // consecutive failures before opening (default 5)
+	SuccessThreshold int           // consecutive half-open successes before closing (default 2)
+	OpenTimeout      time.Duration // how long to stay open before probing (default 30s)
 }
 
 // NewCircuitBreaker creates a breaker from options, applying defaults for
@@ -90,6 +91,17 @@ type ErrCircuitOpen struct {
 	OpenFor time.Duration
 }
 
+// ErrCircuitProbeInFlight is returned while a half-open probe is already
+// running. A circuit must never fan out recovery probes to an unhealthy
+// dependency.
+type ErrCircuitProbeInFlight struct {
+	Name string
+}
+
+func (e *ErrCircuitProbeInFlight) Error() string {
+	return fmt.Sprintf("circuit breaker %q has a recovery probe in flight", e.Name)
+}
+
 func (e *ErrCircuitOpen) Error() string {
 	return fmt.Sprintf("circuit breaker %q is open (has been open for %s)", e.Name, e.OpenFor.Round(time.Second))
 }
@@ -108,12 +120,17 @@ func (cb *CircuitBreaker) Allow() error {
 		if time.Since(cb.openedAt) >= cb.openTimeout {
 			cb.state = StateHalfOpen
 			cb.successes = 0
+			cb.probeInFlight = true
 			return nil
 		}
 		return &ErrCircuitOpen{Name: cb.name, OpenFor: time.Since(cb.openedAt)}
 
 	case StateHalfOpen:
+		if cb.probeInFlight {
+			return &ErrCircuitProbeInFlight{Name: cb.name}
+		}
 		// Only one probe at a time in half-open state.
+		cb.probeInFlight = true
 		return nil
 	}
 	return nil
@@ -126,6 +143,10 @@ func (cb *CircuitBreaker) RecordSuccess() {
 
 	switch cb.state {
 	case StateHalfOpen:
+		if !cb.probeInFlight {
+			return
+		}
+		cb.probeInFlight = false
 		cb.successes++
 		if cb.successes >= cb.successThresh {
 			cb.state = StateClosed
@@ -146,6 +167,7 @@ func (cb *CircuitBreaker) RecordFailure() {
 	switch cb.state {
 	case StateHalfOpen:
 		// Probe failed - reopen.
+		cb.probeInFlight = false
 		cb.state = StateOpen
 		cb.openedAt = time.Now()
 		cb.successes = 0

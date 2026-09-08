@@ -39,25 +39,26 @@ func (s circuitState) String() string {
 
 // CircuitBreaker implements a thread-safe circuit breaker pattern.
 type CircuitBreaker struct {
-	name            string
-	failureThresh   int           // failures before opening
-	successThresh   int           // consecutive successes before closing
-	openTimeout     time.Duration // how long to stay open before half-open
+	name          string
+	failureThresh int           // failures before opening
+	successThresh int           // consecutive successes before closing
+	openTimeout   time.Duration // how long to stay open before half-open
 
-	mu              sync.Mutex
-	state           circuitState
-	failures        int
-	successes       int
-	lastFailure     time.Time
-	openedAt        time.Time
+	mu            sync.Mutex
+	state         circuitState
+	failures      int
+	successes     int
+	probeInFlight bool
+	lastFailure   time.Time
+	openedAt      time.Time
 }
 
 // NewCircuitBreaker creates a new circuit breaker.
 //
-//   name            — identifier for logging
-//   failureThresh   — number of consecutive failures before opening (e.g., 5)
-//   successThresh   — consecutive successes in half-open before closing (e.g., 2)
-//   openTimeout     — how long to stay open before allowing a probe (e.g., 30s)
+//	name            — identifier for logging
+//	failureThresh   — number of consecutive failures before opening (e.g., 5)
+//	successThresh   — consecutive successes in half-open before closing (e.g., 2)
+//	openTimeout     — how long to stay open before allowing a probe (e.g., 30s)
 func NewCircuitBreaker(name string, failureThresh, successThresh int, openTimeout time.Duration) *CircuitBreaker {
 	return &CircuitBreaker{
 		name:          name,
@@ -72,6 +73,14 @@ func NewCircuitBreaker(name string, failureThresh, successThresh int, openTimeou
 type ErrCircuitOpen struct {
 	Name    string
 	OpenFor time.Duration
+}
+
+type ErrCircuitProbeInFlight struct {
+	Name string
+}
+
+func (e *ErrCircuitProbeInFlight) Error() string {
+	return fmt.Sprintf("circuit breaker %q has a recovery probe in flight", e.Name)
 }
 
 func (e *ErrCircuitOpen) Error() string {
@@ -93,12 +102,17 @@ func (cb *CircuitBreaker) Allow() error {
 		if time.Since(cb.openedAt) >= cb.openTimeout {
 			cb.state = circuitHalfOpen
 			cb.successes = 0
+			cb.probeInFlight = true
 			return nil
 		}
 		return &ErrCircuitOpen{Name: cb.name, OpenFor: time.Since(cb.openedAt)}
 
 	case circuitHalfOpen:
+		if cb.probeInFlight {
+			return &ErrCircuitProbeInFlight{Name: cb.name}
+		}
 		// Only one probe at a time in half-open state
+		cb.probeInFlight = true
 		return nil
 	}
 	return nil
@@ -111,6 +125,10 @@ func (cb *CircuitBreaker) RecordSuccess() {
 
 	switch cb.state {
 	case circuitHalfOpen:
+		if !cb.probeInFlight {
+			return
+		}
+		cb.probeInFlight = false
 		cb.successes++
 		if cb.successes >= cb.successThresh {
 			cb.state = circuitClosed
@@ -131,6 +149,7 @@ func (cb *CircuitBreaker) RecordFailure() {
 	switch cb.state {
 	case circuitHalfOpen:
 		// Probe failed — reopen
+		cb.probeInFlight = false
 		cb.state = circuitOpen
 		cb.openedAt = time.Now()
 		cb.successes = 0

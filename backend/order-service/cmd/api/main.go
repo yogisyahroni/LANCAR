@@ -489,6 +489,7 @@ func main() {
 
 	// Routes
 	mux := http.NewServeMux()
+	transactionLoadShedder := middleware.NewTransactionLoadShedderFromEnv()
 
 	// Infrastructure Routes
 	mux.HandleFunc("/health", handler.HealthHandler)
@@ -906,7 +907,7 @@ func main() {
 	}
 
 	log.Printf("Order service starting on port %s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, transactionLoadShedder.Wrap(mux)); err != nil {
 		log.Fatal("Server failed:", err)
 	}
 }

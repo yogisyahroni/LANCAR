@@ -222,3 +222,14 @@ jobs:
             --entrypoint promtool \
             prom/prometheus:v3.5.0 \
             check rules /etc/prometheus/rules/prometheus-rules.yaml /etc/prometheus/rules/slo.yaml
+
+  sre-reliability-quality:
+    name: SRE Reliability Contract
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deterministic fault-injection matrix
+        run: python -m unittest discover -s tests/chaos -p "test_*.py" -v
+      - name: Compile operational drill scripts
+        run: python -m compileall -q scripts tests/chaos
