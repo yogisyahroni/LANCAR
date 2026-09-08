@@ -114,6 +114,8 @@ func (r *relayRepository) GetCourierDispatchScoreStats(ctx context.Context, cour
 			cp.id,
 			cp.relay_score::float8 AS relay_score,
 			cp.acceptance_rate_pct::float8 AS acceptance_rate_pct,
+			cp.completion_rate_pct::float8 AS completion_rate_pct,
+			COALESCE(cp.vehicle_type, '') AS vehicle_type,
 			cp.max_weight_capacity_kg::float8 AS max_weight_capacity_kg,
 			cp.max_packages_capacity::int AS max_packages_capacity,
 			(u.profile_photo_locked_at IS NOT NULL) AS profile_photo_locked,

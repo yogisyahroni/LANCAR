@@ -55,9 +55,11 @@ type CourierDispatchScoreStats struct {
 	MaxPackagesCapacity *int      `json:"max_packages_capacity" db:"max_packages_capacity"`
 	ProfilePhotoLocked  bool      `json:"profile_photo_locked" db:"profile_photo_locked"`
 	// S3-OS-01: Idle time & rating for fairness scoring
-	IdleMinutes float64 `json:"idle_minutes" db:"idle_minutes"`
-	AvgRating   float64 `json:"avg_rating" db:"avg_rating"`
-	Tier        string  `json:"tier" db:"tier"`
+	IdleMinutes       float64 `json:"idle_minutes" db:"idle_minutes"`
+	AvgRating         float64 `json:"avg_rating" db:"avg_rating"`
+	Tier              string  `json:"tier" db:"tier"`
+	CompletionRatePct float64 `json:"completion_rate_pct" db:"completion_rate_pct"`
+	VehicleType       string  `json:"vehicle_type" db:"vehicle_type"`
 }
 
 // CourierBankInfo holds bank account info needed for payout disbursement.

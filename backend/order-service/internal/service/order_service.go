@@ -11,51 +11,59 @@ import (
 )
 
 type orderServiceImpl struct {
-	orderRepo          domain.OrderRepository
-	eventRepo          domain.OrderEventRepository
-	redisRepo          domain.RedisRepository
-	pricingRepo        domain.PricingRepository
-	relayRepo          domain.RelayRepository
-	availabilityRepo   domain.AvailabilityRepository
-	eventBus           domain.EventBus
-	canonicalPublisher domain.CanonicalEventPublisher
-	taskQueue          queue.Queue
-	flagReader         featureflags.FlagReader
-	notificationSvc    domain.NotificationService
-	configRepo         domain.ConfigRepository
-	refundSvc          domain.RefundService
-	reportSvc          domain.ServiceReportService
-	ledgerRepo         domain.FinanceLedgerRepository
-	taxSvc             domain.TaxService
-	foodRepo           domain.FoodRepository
-	membershipRepo     domain.FoodMembershipRepository
-	settlementSvc      domain.MerchantSettlementService
-	pointsSvc          domain.DriverPointsService
-	penaltySvc         domain.DriverPenaltyService
-	voucherSvc         domain.VoucherService
-	tipSvc             domain.TipService  // FB-083: refund tip saat order batal
-	pushSvc            domain.PushService // FB-084: notif push customer saat merchant reject/timeout
-	handoffSvc         domain.HandoffService
+	orderRepo               domain.OrderRepository
+	eventRepo               domain.OrderEventRepository
+	redisRepo               domain.RedisRepository
+	pricingRepo             domain.PricingRepository
+	relayRepo               domain.RelayRepository
+	availabilityRepo        domain.AvailabilityRepository
+	eventBus                domain.EventBus
+	canonicalPublisher      domain.CanonicalEventPublisher
+	taskQueue               queue.Queue
+	flagReader              featureflags.FlagReader
+	notificationSvc         domain.NotificationService
+	configRepo              domain.ConfigRepository
+	refundSvc               domain.RefundService
+	reportSvc               domain.ServiceReportService
+	ledgerRepo              domain.FinanceLedgerRepository
+	taxSvc                  domain.TaxService
+	foodRepo                domain.FoodRepository
+	mapsRepo                domain.MapsRepository
+	marketplaceIntelligence *MarketplaceIntelligence
+	membershipRepo          domain.FoodMembershipRepository
+	settlementSvc           domain.MerchantSettlementService
+	pointsSvc               domain.DriverPointsService
+	penaltySvc              domain.DriverPenaltyService
+	voucherSvc              domain.VoucherService
+	tipSvc                  domain.TipService  // FB-083: refund tip saat order batal
+	pushSvc                 domain.PushService // FB-084: notif push customer saat merchant reject/timeout
+	handoffSvc              domain.HandoffService
 }
 
 func (s *orderServiceImpl) SetCanonicalEventPublisher(publisher domain.CanonicalEventPublisher) {
 	s.canonicalPublisher = publisher
+	if s.marketplaceIntelligence == nil {
+		s.marketplaceIntelligence = NewMarketplaceIntelligence(s.configRepo, publisher, nil)
+	} else {
+		s.marketplaceIntelligence.SetCanonicalEventPublisher(publisher)
+	}
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
 	return &orderServiceImpl{
-		orderRepo:       o,
-		eventRepo:       er,
-		redisRepo:       r,
-		pricingRepo:     p,
-		relayRepo:       relayRepo,
-		eventBus:        eb,
-		taskQueue:       tq,
-		flagReader:      f,
-		notificationSvc: ns,
-		configRepo:      cr,
-		ledgerRepo:      lr,
-		taxSvc:          ts,
+		orderRepo:               o,
+		eventRepo:               er,
+		redisRepo:               r,
+		pricingRepo:             p,
+		relayRepo:               relayRepo,
+		eventBus:                eb,
+		taskQueue:               tq,
+		flagReader:              f,
+		notificationSvc:         ns,
+		configRepo:              cr,
+		ledgerRepo:              lr,
+		taxSvc:                  ts,
+		marketplaceIntelligence: NewMarketplaceIntelligence(cr, nil, nil),
 	}
 }
 
@@ -109,6 +117,20 @@ func (s *orderServiceImpl) SetAvailabilityRepository(ar domain.AvailabilityRepos
 	s.availabilityRepo = ar
 }
 
+// SetMapsRepository injects the existing route provider for ETA prediction.
+// A maps outage only degrades the prediction to the deterministic speed rule.
+func (s *orderServiceImpl) SetMapsRepository(mr domain.MapsRepository) {
+	s.mapsRepo = mr
+}
+
+// SetMarketplaceIntelligence allows a controlled model implementation to be
+// injected in experiments while keeping the default rule fallback intact.
+func (s *orderServiceImpl) SetMarketplaceIntelligence(mi *MarketplaceIntelligence) {
+	if mi != nil {
+		s.marketplaceIntelligence = mi
+	}
+}
+
 // SetVoucherService — inject voucher service (FB-078).
 // Dipanggil dari wiring setelah service di-construct.
 func (s *orderServiceImpl) SetVoucherService(vs domain.VoucherService) {
@@ -123,6 +145,7 @@ type scoredCourier struct {
 	ID       string
 	Score    float64
 	TierRank int
+	Decision domain.DispatchDecision
 }
 
 func clampFloat(value float64, minValue float64, maxValue float64) float64 {

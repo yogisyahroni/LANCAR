@@ -115,6 +115,9 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 			uses_size_tier,
 			max_distance_km,
 			max_weight_kg,
+			COALESCE(to_json(vehicle_types)::text, '[]') AS vehicle_types,
+			batching_allowed,
+			max_eta_minutes,
 			platform_fee_idr,
 			platform_fee_pct,
 			COALESCE(platform_commission_percent, 0),
@@ -128,6 +131,7 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 
 	service := &domain.DeliveryServiceProduct{}
 	var searchRadiiJSON string
+	var vehicleTypesJSON string
 	err := r.readDB.QueryRowContext(ctx, query, code).Scan(
 		&service.Code,
 		&service.Name,
@@ -137,6 +141,9 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 		&service.UsesSizeTier,
 		&service.MaxDistanceKM,
 		&service.MaxWeightKG,
+		&vehicleTypesJSON,
+		&service.BatchingAllowed,
+		&service.MaxETAMinutes,
 		&service.PlatformFeeIDR,
 		&service.PlatformFeePct,
 		&service.PlatformCommissionPercent,
@@ -153,6 +160,9 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 
 	if err := json.Unmarshal([]byte(searchRadiiJSON), &service.SearchRadiiKM); err != nil || len(service.SearchRadiiKM) == 0 {
 		service.SearchRadiiKM = []float64{3, 5, 10}
+	}
+	if err := json.Unmarshal([]byte(vehicleTypesJSON), &service.VehicleTypes); err != nil {
+		service.VehicleTypes = nil
 	}
 
 	return service, nil

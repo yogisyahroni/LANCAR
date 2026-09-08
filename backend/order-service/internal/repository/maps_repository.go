@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -54,6 +55,12 @@ type DistanceMatrixResponse struct {
 }
 
 func (r *mapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64, useTraffic bool) (float64, float64, string, string, error) {
+	if err := validateCoordinate(originLat, originLng); err != nil {
+		return 0, 0, "", "", fmt.Errorf("invalid origin coordinates: %w", err)
+	}
+	if err := validateCoordinate(destLat, destLng); err != nil {
+		return 0, 0, "", "", fmt.Errorf("invalid destination coordinates: %w", err)
+	}
 	payload := DistanceMatrixRequest{
 		OriginLat:  originLat,
 		OriginLng:  originLng,
@@ -90,6 +97,9 @@ func (r *mapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return 0, 0, "", "", fmt.Errorf("maps gateway response invalid: %w", err)
 	}
+	if err := validateRouteMetrics(result.DistanceKM, result.DurationMin); err != nil {
+		return 0, 0, "", "", fmt.Errorf("maps gateway response invalid: %w", err)
+	}
 
 	return result.DistanceKM, result.DurationMin, result.OriginAddr, result.DestAddr, nil
 }
@@ -102,6 +112,17 @@ type OptimizeWaypointsRequest struct {
 }
 
 func (r *mapsRepo) OptimizeWaypoints(ctx context.Context, origin domain.Waypoint, waypoints []domain.Waypoint, dest domain.Waypoint, useTraffic bool) (*domain.OptimizedRouteResult, error) {
+	if err := validateCoordinate(origin.Lat, origin.Lng); err != nil {
+		return nil, fmt.Errorf("invalid route origin: %w", err)
+	}
+	if err := validateCoordinate(dest.Lat, dest.Lng); err != nil {
+		return nil, fmt.Errorf("invalid route destination: %w", err)
+	}
+	for i, waypoint := range waypoints {
+		if err := validateCoordinate(waypoint.Lat, waypoint.Lng); err != nil {
+			return nil, fmt.Errorf("invalid route waypoint %d: %w", i, err)
+		}
+	}
 	payload := OptimizeWaypointsRequest{
 		Origin:     origin,
 		Waypoints:  waypoints,
@@ -137,6 +158,29 @@ func (r *mapsRepo) OptimizeWaypoints(ctx context.Context, origin domain.Waypoint
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("maps gateway optimize response invalid: %w", err)
 	}
+	if err := validateRouteMetrics(result.DistanceKM, result.DurationMin); err != nil {
+		return nil, fmt.Errorf("maps gateway optimize response invalid: %w", err)
+	}
 
 	return &result, nil
+}
+
+func validateCoordinate(lat, lng float64) error {
+	if math.IsNaN(lat) || math.IsInf(lat, 0) || math.IsNaN(lng) || math.IsInf(lng, 0) {
+		return fmt.Errorf("coordinates must be finite")
+	}
+	if lat < -90 || lat > 90 || lng < -180 || lng > 180 {
+		return fmt.Errorf("coordinates are outside valid bounds")
+	}
+	return nil
+}
+
+func validateRouteMetrics(distanceKM, durationMin float64) error {
+	if math.IsNaN(distanceKM) || math.IsInf(distanceKM, 0) || distanceKM < 0 {
+		return fmt.Errorf("distance must be finite and non-negative")
+	}
+	if math.IsNaN(durationMin) || math.IsInf(durationMin, 0) || durationMin < 0 {
+		return fmt.Errorf("duration must be finite and non-negative")
+	}
+	return nil
 }

@@ -310,6 +310,9 @@ type OrderService interface {
 	// SetAvailabilityRepository injects capability and availability state for
 	// dispatch eligibility checks.
 	SetAvailabilityRepository(ar AvailabilityRepository)
+	// SetMapsRepository injects the route provider used for non-authoritative
+	// dispatch ETA prediction.
+	SetMapsRepository(mr MapsRepository)
 	// SetVoucherService inject voucher service untuk apply voucher (FB-078)
 	SetVoucherService(vs VoucherService)
 	// SetTipService inject tip service untuk refund tip saat order batal (FB-083)

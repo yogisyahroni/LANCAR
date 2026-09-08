@@ -200,7 +200,7 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 
 			// Notify all couriers in the batch
 			for _, sc := range batch {
-				s.notifyCourierOfNewOrder(ctx, sc.ID, order, packageCount)
+				s.notifyCourierOfNewOrder(ctx, sc.ID, order, packageCount, &sc.Decision)
 			}
 
 			// ── Polling wait instead of time.Sleep ─────────────────
@@ -348,6 +348,28 @@ func (s *orderServiceImpl) courierAvailableForMatching(ctx context.Context, cour
 }
 
 func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []string, order *domain.Order, totalWeight float64, packageCount int) []scoredCourier {
+	policy := domain.DefaultDispatchScoringPolicy()
+	if s.marketplaceIntelligence != nil {
+		policy = s.marketplaceIntelligence.Policy(ctx)
+	}
+	serviceProduct, productErr := s.pricingRepo.GetDeliveryServiceByCode(ctx, order.Model)
+	if productErr != nil {
+		serviceProduct = nil
+	}
+	deliveryDistanceKM := order.DistanceKM
+	if deliveryDistanceKM <= 0 {
+		deliveryDistanceKM = haversineKM(order.PickupLat, order.PickupLng, order.DropoffLat, order.DropoffLng)
+	}
+	deliveryTravelMinutes := deliveryDistanceKM / policy.AverageSpeedKMPH * 60
+	if s.mapsRepo != nil {
+		if _, duration, _, _, err := s.mapsRepo.GetDistanceMatrix(ctx, order.PickupLat, order.PickupLng, order.DropoffLat, order.DropoffLng, true); err == nil && duration >= 0 && !math.IsNaN(duration) && !math.IsInf(duration, 0) {
+			deliveryTravelMinutes = duration
+		} else if err != nil {
+			log.Printf("[Matching] maps ETA unavailable for order %s; using deterministic speed fallback: %v", order.ID, err)
+		}
+	}
+	isFood := isFoodDispatchOrder(order)
+	now := time.Now().UTC()
 	scored := make([]scoredCourier, 0, len(courierIDs))
 	for _, id := range courierIDs {
 		courierUUID, err := uuid.Parse(id)
@@ -378,12 +400,6 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 			continue
 		}
 
-		relayWeight := s.configRepo.GetFloatConfig(ctx, "relay_score_weight", 0.4)
-		proximityWeight := s.configRepo.GetFloatConfig(ctx, "proximity_score_weight", 0.25)
-		acceptanceWeight := s.configRepo.GetFloatConfig(ctx, "acceptance_score_weight", 0.15)
-		idleWeight := s.configRepo.GetFloatConfig(ctx, "idle_time_weight", 0.1)
-		ratingWeight := s.configRepo.GetFloatConfig(ctx, "rating_score_weight", 0.1)
-
 		// S3-OS-01: Rating minimum threshold — kurir rating < 3.5 difilter
 		minRating := s.configRepo.GetFloatConfig(ctx, "min_courier_rating_threshold", 3.5)
 		if stats.AvgRating < minRating {
@@ -391,22 +407,86 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 			continue
 		}
 
-		relayScore := clampFloat(stats.RelayScore, 0, 5) / 5
-		acceptanceRate := clampFloat(stats.AcceptanceRatePct, 0, 100) / 100
-		proximityScore := s.proximityScoreFromDistance(ctx, stats.DistanceMeters)
+		vehicleFit := dispatchVehicleFit(stats.VehicleType, serviceProduct)
+		marketplaceScore := 1.0
+		if serviceProduct != nil && serviceProduct.MaxDistanceKM != nil && deliveryDistanceKM > *serviceProduct.MaxDistanceKM {
+			marketplaceScore = 0
+		}
+		if serviceProduct != nil && serviceProduct.MaxWeightKG != nil && totalWeight > *serviceProduct.MaxWeightKG {
+			marketplaceScore = 0
+		}
 
-		// S3-OS-02: Idle time bonus — kurir yang lama nunggu diprioritaskan
-		// Idle 0 menit = 0, idle 30+ menit = 1 (full bonus)
-		idleScore := clampFloat(stats.IdleMinutes/30.0, 0, 1)
-
-		// Rating score: 1.0-5.0 dinormalisasi ke 0-1
-		ratingScore := clampFloat(stats.AvgRating, 1.0, 5.0) / 5.0
-
-		score := (relayScore * relayWeight) +
-			(proximityScore * proximityWeight) +
-			(acceptanceRate * acceptanceWeight) +
-			(idleScore * idleWeight) +
-			(ratingScore * ratingWeight)
+		courierTravelMinutes := clampFloat(stats.DistanceMeters/1000/policy.AverageSpeedKMPH*60, 0, policy.MaxETAMinutes)
+		activeWorkload := dispatchActiveWorkload(ctx, s.availabilityRepo, id)
+		prepReadyAt := order.FoodReadyAt
+		if isFood && prepReadyAt == nil && order.PrepTimeMinutes != nil && *order.PrepTimeMinutes > 0 {
+			derivedReadyAt := now.Add(time.Duration(*order.PrepTimeMinutes) * time.Minute)
+			prepReadyAt = &derivedReadyAt
+		}
+		batchingMinutes := 0.0
+		isBatch := packageCount > 1 || order.BatchID != nil
+		if isBatch {
+			batchingMinutes = float64(packageCount-1) * 2
+		}
+		foodScore := 1.0
+		var foodSignals domain.FoodMatchingSignals
+		if isFood {
+			prepRemaining := 0.0
+			if prepReadyAt != nil && prepReadyAt.After(now) {
+				prepRemaining = prepReadyAt.Sub(now).Minutes()
+			}
+			batchingAllowed := serviceProduct != nil && serviceProduct.BatchingAllowed
+			foodSignals = domain.BuildFoodMatchingSignals(prepRemaining, courierTravelMinutes, batchingAllowed, isBatch, batchingMinutes, policy.MaxFoodWaitMinutes, policy.MaxBatchDetourMinutes)
+			foodScore = foodSignals.Score
+		}
+		input := domain.DispatchCandidateInput{
+			CandidateID:                id,
+			ServiceCode:                order.Model,
+			VehicleType:                stats.VehicleType,
+			RequiredVehicleTypes:       serviceProductVehicleTypes(serviceProduct),
+			DistanceKM:                 stats.DistanceMeters / 1000,
+			CourierTravelMinutes:       courierTravelMinutes,
+			DeliveryTravelMinutes:      deliveryTravelMinutes,
+			ActiveWorkload:             activeWorkload,
+			AcceptanceRate:             stats.AcceptanceRatePct,
+			CompletionRate:             stats.CompletionRatePct,
+			RelayScore:                 stats.RelayScore,
+			AverageRating:              stats.AvgRating,
+			CapabilityFit:              1,
+			VehicleFit:                 vehicleFit,
+			MarketplaceConstraintScore: marketplaceScore,
+			FoodMatchingScore:          foodScore,
+			BatchingMinutes:            batchingMinutes,
+			PrepReadyAt:                prepReadyAt,
+			Now:                        now,
+			IsFood:                     isFood,
+			IsBatch:                    isBatch,
+		}
+		var decision domain.DispatchDecision
+		if s.marketplaceIntelligence == nil {
+			decision, _ = domain.ScoreDispatchCandidate(policy, input)
+			decision.UsedFallback = true
+			decision.FallbackReason = "intelligence_not_configured"
+		} else {
+			decision = s.marketplaceIntelligence.EvaluateWithPolicy(ctx, input, policy)
+		}
+		decision.FoodSignals = foodSignals
+		if marketplaceScore == 0 {
+			decision.Eligible = false
+			decision.ConstraintReasons = append(decision.ConstraintReasons, "service_product_constraint")
+		}
+		if serviceProduct != nil && serviceProduct.MaxETAMinutes > 0 && decision.ETA.TotalMinutes > float64(serviceProduct.MaxETAMinutes) {
+			decision.Eligible = false
+			decision.ConstraintReasons = append(decision.ConstraintReasons, "service_product_eta_constraint")
+		}
+		if vehicleFit == 0 {
+			decision.Eligible = false
+			decision.ConstraintReasons = append(decision.ConstraintReasons, "vehicle_type_constraint")
+		}
+		if !decision.Eligible {
+			log.Printf("[Matching] Skipping courier %s due to dispatch constraints: %s", id, strings.Join(decision.ConstraintReasons, ","))
+			continue
+		}
 
 		var tierRank int
 		switch stats.Tier {
@@ -420,7 +500,7 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 			tierRank = 1
 		}
 
-		scored = append(scored, scoredCourier{ID: id, Score: score, TierRank: tierRank})
+		scored = append(scored, scoredCourier{ID: id, Score: decision.Score, TierRank: tierRank, Decision: decision})
 	}
 
 	sort.SliceStable(scored, func(i, j int) bool {
@@ -429,7 +509,74 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 		}
 		return scored[i].Score > scored[j].Score
 	})
+	for rank := range scored {
+		if s.marketplaceIntelligence != nil {
+			s.marketplaceIntelligence.RecordDecision(ctx, order, scored[rank].ID, scored[rank].Decision, rank+1)
+		}
+	}
 	return scored
+}
+
+func isFoodDispatchOrder(order *domain.Order) bool {
+	if order == nil {
+		return false
+	}
+	if strings.EqualFold(order.Model, "food_delivery") || strings.EqualFold(order.ServiceCode, "food_delivery") {
+		return true
+	}
+	category := domain.CanonicalServiceCategoryFor(order)
+	return category != nil && *category == domain.CanonicalFood
+}
+
+func serviceProductVehicleTypes(product *domain.DeliveryServiceProduct) []string {
+	if product == nil {
+		return nil
+	}
+	return product.VehicleTypes
+}
+
+func dispatchVehicleFit(vehicleType string, product *domain.DeliveryServiceProduct) float64 {
+	if product == nil || len(product.VehicleTypes) == 0 {
+		return 1
+	}
+	vehicleType = strings.ToLower(strings.TrimSpace(vehicleType))
+	if vehicleType == "" {
+		return 0
+	}
+	for _, required := range product.VehicleTypes {
+		if vehicleTypeMatches(strings.TrimSpace(required), vehicleType) {
+			return 1
+		}
+	}
+	return 0
+}
+
+func vehicleTypeMatches(required, actual string) bool {
+	required = strings.ToLower(strings.TrimSpace(required))
+	actual = strings.ToLower(strings.TrimSpace(actual))
+	if required == actual {
+		return true
+	}
+	// Legacy courier profiles use motorcycle variants while newer service
+	// products use the marketplace capability family name.
+	if required == "motor" && (actual == "bebek" || actual == "matic" || actual == "sport" || actual == "motorcycle") {
+		return true
+	}
+	if required == "mobil" && (actual == "car" || actual == "mobil") {
+		return true
+	}
+	return false
+}
+
+func dispatchActiveWorkload(ctx context.Context, repo domain.AvailabilityRepository, courierID string) float64 {
+	if repo == nil {
+		return 0
+	}
+	state, err := repo.GetAvailabilityState(ctx, courierID)
+	if err != nil || state == nil || state.CurrentState == domain.AvailabilityStateIdle {
+		return 0
+	}
+	return 1
 }
 
 func (s *orderServiceImpl) proximityScoreFromDistance(ctx context.Context, distanceMeters float64) float64 {
@@ -446,7 +593,7 @@ func (s *orderServiceImpl) proximityScoreFromDistance(ctx context.Context, dista
 	return clampFloat(score, 0, 1)
 }
 
-func (s *orderServiceImpl) notifyCourierOfNewOrder(ctx context.Context, courierID string, order *domain.Order, packageCount int) {
+func (s *orderServiceImpl) notifyCourierOfNewOrder(ctx context.Context, courierID string, order *domain.Order, packageCount int, decision *domain.DispatchDecision) {
 	log.Printf("[OrderService] Notifying courier %s of new order %s", courierID, order.OrderNumber)
 
 	title := "New Order Available"
@@ -456,14 +603,22 @@ func (s *orderServiceImpl) notifyCourierOfNewOrder(ctx context.Context, courierI
 		msg = fmt.Sprintf("New batch order (%d packages) is available nearby. Tap to view details.", packageCount)
 	}
 
+	data := map[string]string{
+		"order_id": order.ID,
+		"type":     "new_order",
+	}
+	if decision != nil {
+		data["eta_minutes"] = fmt.Sprintf("%.0f", decision.ETA.TotalMinutes)
+		data["eta_source"] = decision.ETA.Source
+		data["eta_confidence"] = decision.ETA.Confidence
+		data["dispatch_model_version"] = decision.ModelVersion
+		data["dispatch_rule_version"] = decision.RuleVersion
+	}
 	payload := domain.NotificationRequest{
 		UserID:  courierID,
 		Title:   title,
 		Message: msg,
-		Data: map[string]string{
-			"order_id": order.ID,
-			"type":     "new_order",
-		},
+		Data:    data,
 	}
 
 	// 1. Send Push Notification

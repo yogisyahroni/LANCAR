@@ -168,6 +168,9 @@ type DeliveryServiceProduct struct {
 	CourierMinPayoutIDR       int64     `json:"courier_min_payout_idr"`
 	ExtraDropoffFeeIDR        int64     `json:"extra_dropoff_fee_idr"`
 	SearchRadiiKM             []float64 `json:"search_radii_km"`
+	VehicleTypes              []string  `json:"vehicle_types,omitempty"`
+	BatchingAllowed           bool      `json:"batching_allowed"`
+	MaxETAMinutes             int       `json:"max_eta_minutes"`
 }
 
 type PricingRepository interface {
