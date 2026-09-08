@@ -13,6 +13,9 @@ import { secureUploadSingle } from '../security/uploadSecurity';
 export const courierRoutes = Router();
 
 courierRoutes.get('/api/v1/courier/profile', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierProfile(req, res));
+courierRoutes.get('/api/v1/courier/market-eligibility', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierMarketEligibility(req, res));
+courierRoutes.post('/api/v1/courier/market-change-requests', requireMobileOrWebAuth, requireIdempotencyKey('courier.market_change.request'), (req, res) => controllers.createMobileCourierMarketChangeRequest(req, res));
+courierRoutes.post('/api/v1/courier/cross-border-eligibility', requireMobileOrWebAuth, requireIdempotencyKey('courier.cross_border.request'), (req, res) => controllers.createMobileCourierCrossBorderEligibility(req, res));
 courierRoutes.put('/api/v1/courier/profile/capacity', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierCapacity(req, res));
 courierRoutes.get('/api/v1/courier/on-demand/services', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOnDemandServices(req, res));
 courierRoutes.get('/api/v1/courier/on-demand/hotspots', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierHotspots(req, res));

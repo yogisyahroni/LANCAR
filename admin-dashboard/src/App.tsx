@@ -13,6 +13,7 @@ import Banners from './pages/Banners'
 import CourierFaceVerifications from './pages/CourierFaceVerifications'
 import CourierSafetyEvents from './pages/CourierSafetyEvents'
 import CourierGrowthConfig from './pages/CourierGrowthConfig'
+import CourierMarketConfig from './pages/CourierMarketConfig'
 import CourierPerformance from './pages/CourierPerformance'
 import MerchantPerformance from './pages/MerchantPerformance' // FOOD-BIKE-051
 import DriverWalletHold from './pages/DriverWalletHold' // FOOD-BIKE-054
@@ -216,6 +217,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/courier-market-config" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security', 'finance_admin']}><CourierMarketConfig /></ProtectedRoute>} />
           <Route path="/courier-retention" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'ops_admin', 'ops_security']}><CourierRetention /></ProtectedRoute>} />
           <Route 
             path="/pricing" 

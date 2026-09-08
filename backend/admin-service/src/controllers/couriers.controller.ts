@@ -466,6 +466,22 @@ const submitCourierApplication = async (
       [normalizePhone(phone_number), email || null, String(full_name).trim(), String(password)]
     );
     const userId = userRes.rows[0].id;
+    const requestedMarketCode = String(market_code || 'id').trim().toLowerCase();
+    const existingProfileMarket = await client.query(
+      `SELECT market_code FROM courier_profiles WHERE user_id = $1 FOR UPDATE`,
+      [userId]
+    );
+    if (existingProfileMarket.rows[0] && String(existingProfileMarket.rows[0].market_code || 'id').trim().toLowerCase() !== requestedMarketCode) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        error: 'Perubahan country/market membutuhkan pengajuan market change dan verifikasi regulasi terpisah.',
+        code: 'ERR_MARKET_CHANGE_REQUEST_REQUIRED',
+        current_market_code: existingProfileMarket.rows[0].market_code,
+        requested_market_code: requestedMarketCode,
+      });
+      return;
+    }
     const normalizedServiceCategories = Array.from(new Set(
       (Array.isArray(service_categories) ? service_categories : service_categories ? [service_categories] : [])
         .map((value: unknown) => String(value).trim().toLowerCase())
@@ -473,7 +489,7 @@ const submitCourierApplication = async (
     ));
     const checklistInput = {
       ...req.body,
-      market_code: market_code || 'id',
+      market_code: requestedMarketCode,
       service_categories: normalizedServiceCategories,
     };
     const checklist = buildOnboardingChecklist(checklistInput, applicationChannel);
@@ -537,7 +553,7 @@ const submitCourierApplication = async (
         bank_account_number || null,
         bank_account_name || null,
         applicationChannel,
-        String(market_code || 'id').trim().toLowerCase(),
+        requestedMarketCode,
         normalizedServiceCategories.length > 0 ? normalizedServiceCategories : [applicationChannel],
         COURIER_ONBOARDING_POLICY_VERSION,
         JSON.stringify(checklist)

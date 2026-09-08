@@ -93,8 +93,10 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
 
   try {
     const courierRes = await db.query(
-      `SELECT cp.id, cp.user_id, cp.onboarding_status,
+      `SELECT cp.id, cp.user_id, cp.market_code, cp.onboarding_status,
               courier_profile_documents_eligible(cp.id) AS documents_eligible,
+              courier_market_is_eligible(cp.id, cp.market_code) AS market_eligible,
+              (courier_market_eligibility(cp.id, cp.market_code)).reason_codes AS market_eligibility_reasons,
               u.photo_url, u.profile_photo_locked_at
        FROM courier_profiles cp
        JOIN users u ON u.id = cp.user_id
@@ -120,6 +122,20 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
         data: { status: 'offline' },
         message: 'Profil dan dokumen kurir belum memenuhi syarat untuk mulai On Duty.',
         code: 'ERR_COURIER_DOCUMENTS_NOT_ELIGIBLE',
+      });
+      return;
+    }
+
+    if (online && courier.market_eligible !== true) {
+      res.status(403).json({
+        success: false,
+        data: {
+          status: 'offline',
+          market_code: courier.market_code,
+          eligibility_reasons: courier.market_eligibility_reasons || [],
+        },
+        message: 'Persyaratan regulasi market kurir belum terpenuhi. Selesaikan verifikasi sebelum mulai On Duty.',
+        code: 'ERR_COURIER_MARKET_NOT_ELIGIBLE',
       });
       return;
     }
@@ -285,6 +301,7 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
         phone: profile.phone_number,
         vehicle_type: profile.vehicle_type,
         application_channel: profile.application_channel || 'on_demand',
+        market_code: courier.market_code,
         status: profile.effective_presence_state || (profile.is_online ? 'online' : 'offline'),
         presence_state: profile.presence_state || (profile.is_online ? 'online' : 'offline'),
         work_state: profile.work_state || 'idle',

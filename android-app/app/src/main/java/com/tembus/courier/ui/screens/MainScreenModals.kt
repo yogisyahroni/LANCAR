@@ -2,9 +2,15 @@ package com.tembus.courier.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import com.tembus.courier.ui.localization.CourierText as Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.tembus.courier.data.model.CourierMarketEligibility
 
 /**
  * Dialog and alert components extracted from MainScreen.kt on 2026-08-30.
@@ -67,5 +73,24 @@ internal fun MainScreenInlineError(
             },
             onDismiss = onDismiss
         )
+    }
+}
+
+@Composable
+internal fun CourierMarketEligibilityNotice(eligibility: CourierMarketEligibility?) {
+    if (eligibility == null || eligibility.isEligible) return
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("Akses kerja market ${eligibility.marketCode} belum aktif", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Selesaikan verifikasi regulatory sebelum duty online. Alasan: ${eligibility.reasonCodes.joinToString(", ")}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
     }
 }

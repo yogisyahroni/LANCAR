@@ -266,6 +266,7 @@ internal fun WalletContent(
         if (earningsLedger == null) {
             CourierWalletSkeleton()
         } else {
+            val localizedSummary = earningsLedger.localizedSummary
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -294,25 +295,25 @@ internal fun WalletContent(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        MiniProfileStat("Tersedia", earningsLedger.summary.availableBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
-                        MiniProfileStat("Pending", earningsLedger.summary.pendingBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
-                        MiniProfileStat("Held", earningsLedger.summary.heldBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Tersedia", localizedSummary?.availableBalanceFormatted ?: earningsLedger.summary.availableBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Pending", localizedSummary?.pendingBalanceFormatted ?: earningsLedger.summary.pendingBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Held", localizedSummary?.heldBalanceFormatted ?: earningsLedger.summary.heldBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        MiniProfileStat("Withdrawn", earningsLedger.summary.withdrawnBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
-                        MiniProfileStat("Total", earningsLedger.summary.totalBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Withdrawn", localizedSummary?.withdrawnBalanceFormatted ?: earningsLedger.summary.withdrawnBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Total", localizedSummary?.totalBalanceFormatted ?: earningsLedger.summary.totalBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
                         Spacer(modifier = Modifier.weight(1f))
                     }
 
                     Text("Statement", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        MiniProfileStat("Order", earningsLedger.summary.orderEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
-                        MiniProfileStat("Insentif", earningsLedger.summary.incentiveEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
-                        MiniProfileStat("Adjustment", earningsLedger.summary.adjustmentIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Order", localizedSummary?.orderEarningsFormatted ?: earningsLedger.summary.orderEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Insentif", localizedSummary?.incentiveEarningsFormatted ?: earningsLedger.summary.incentiveEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Adjustment", localizedSummary?.adjustmentFormatted ?: earningsLedger.summary.adjustmentIdr.toRupiahCompact(), Modifier.weight(1f))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        MiniProfileStat("Pajak", earningsLedger.summary.taxIdr.toRupiahCompact(), Modifier.weight(1f))
-                        MiniProfileStat("Biaya", earningsLedger.summary.feeIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Pajak", localizedSummary?.taxFormatted ?: earningsLedger.summary.taxIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Biaya", localizedSummary?.feeFormatted ?: earningsLedger.summary.feeIdr.toRupiahCompact(), Modifier.weight(1f))
                         Spacer(modifier = Modifier.weight(1f))
                     }
 

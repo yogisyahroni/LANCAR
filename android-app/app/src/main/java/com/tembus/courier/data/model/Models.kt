@@ -789,6 +789,12 @@ data class CourierEarningsLedgerSummary(
     val taxIdr: Int = 0,
     @SerialName("fee_idr")
     val feeIdr: Int = 0,
+    @SerialName("market_code")
+    val marketCode: String? = null,
+    @SerialName("currency_code")
+    val currencyCode: String = "IDR",
+    @SerialName("currency_minor_unit")
+    val currencyMinorUnit: Int = 0,
     @SerialName("payout_account")
     val payoutAccount: CourierPayoutAccount? = null
 )
@@ -806,7 +812,11 @@ data class CourierPayoutAccount(
     @SerialName("status")
     val status: String? = null,
     @SerialName("verified_at")
-    val verifiedAt: String? = null
+    val verifiedAt: String? = null,
+    @SerialName("market_code")
+    val marketCode: String? = null,
+    @SerialName("currency_code")
+    val currencyCode: String? = null
 )
 
 @Serializable
@@ -824,7 +834,10 @@ data class CourierPayoutBalanceSummary(
     @SerialName("requested_today_idr")
     val requestedTodayIdr: Int = 0,
     @SerialName("active_request_count")
-    val activeRequestCount: Int = 0
+    val activeRequestCount: Int = 0,
+    @SerialName("market_code") val marketCode: String? = null,
+    @SerialName("currency_code") val currencyCode: String = "IDR",
+    @SerialName("currency_minor_unit") val currencyMinorUnit: Int = 0
 )
 
 @Serializable
@@ -933,6 +946,10 @@ data class CourierEarningsTransaction(
     val direction: String = "credit",
     @SerialName("amount_idr")
     val amountIdr: Int = 0,
+    @SerialName("amount_minor") val amountMinor: Long = 0,
+    @SerialName("market_code") val marketCode: String? = null,
+    @SerialName("currency_code") val currencyCode: String = "IDR",
+    @SerialName("currency_minor_unit") val currencyMinorUnit: Int = 0,
     @SerialName("settlement_status")
     val settlementStatus: String = "pending",
     @SerialName("statement_category")
@@ -944,7 +961,38 @@ data class CourierEarningsTransaction(
     @SerialName("description")
     val description: String? = null,
     @SerialName("created_at")
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    @SerialName("display_amount") val displayAmount: String? = null,
+    @SerialName("occurred_at_local") val occurredAtLocal: String? = null
+)
+
+@Serializable
+data class CourierLocalizedEarningsSummary(
+    @SerialName("market_code") val marketCode: String = "id",
+    @SerialName("currency_code") val currencyCode: String = "IDR",
+    @SerialName("currency_minor_unit") val currencyMinorUnit: Int = 0,
+    @SerialName("timezone") val timezone: String = "Asia/Jakarta",
+    @SerialName("display_locale") val displayLocale: String = "id-ID",
+    @SerialName("total_balance_minor") val totalBalanceMinor: Long = 0,
+    @SerialName("available_balance_minor") val availableBalanceMinor: Long = 0,
+    @SerialName("pending_balance_minor") val pendingBalanceMinor: Long = 0,
+    @SerialName("held_balance_minor") val heldBalanceMinor: Long = 0,
+    @SerialName("withdrawn_balance_minor") val withdrawnBalanceMinor: Long = 0,
+    @SerialName("order_earnings_minor") val orderEarningsMinor: Long = 0,
+    @SerialName("incentive_earnings_minor") val incentiveEarningsMinor: Long = 0,
+    @SerialName("adjustment_minor") val adjustmentMinor: Long = 0,
+    @SerialName("tax_minor") val taxMinor: Long = 0,
+    @SerialName("fee_minor") val feeMinor: Long = 0,
+    @SerialName("total_balance_formatted") val totalBalanceFormatted: String? = null,
+    @SerialName("available_balance_formatted") val availableBalanceFormatted: String? = null,
+    @SerialName("pending_balance_formatted") val pendingBalanceFormatted: String? = null,
+    @SerialName("held_balance_formatted") val heldBalanceFormatted: String? = null,
+    @SerialName("withdrawn_balance_formatted") val withdrawnBalanceFormatted: String? = null,
+    @SerialName("order_earnings_formatted") val orderEarningsFormatted: String? = null,
+    @SerialName("incentive_earnings_formatted") val incentiveEarningsFormatted: String? = null,
+    @SerialName("adjustment_formatted") val adjustmentFormatted: String? = null,
+    @SerialName("tax_formatted") val taxFormatted: String? = null,
+    @SerialName("fee_formatted") val feeFormatted: String? = null
 )
 
 @Serializable
@@ -952,7 +1000,8 @@ data class CourierEarningsLedger(
     @SerialName("summary")
     val summary: CourierEarningsLedgerSummary = CourierEarningsLedgerSummary(),
     @SerialName("transactions")
-    val transactions: List<CourierEarningsTransaction> = emptyList()
+    val transactions: List<CourierEarningsTransaction> = emptyList(),
+    @SerialName("localized_summary") val localizedSummary: CourierLocalizedEarningsSummary? = null
 )
 
 @Serializable

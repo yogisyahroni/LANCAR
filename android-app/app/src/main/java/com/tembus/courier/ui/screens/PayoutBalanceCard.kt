@@ -254,7 +254,7 @@ internal fun PayoutBalanceCard(
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         Text(
-                            "IDR",
+                            summary?.currencyCode ?: "IDR",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp,

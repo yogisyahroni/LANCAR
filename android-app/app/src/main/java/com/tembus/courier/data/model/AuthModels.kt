@@ -102,6 +102,21 @@ data class CourierEnforcementAction(
 )
 
 @Serializable
+data class CourierMarketEligibility(
+    @SerialName("market_code") val marketCode: String = "id",
+    @SerialName("country_code") val countryCode: String? = null,
+    @SerialName("currency_code") val currencyCode: String = "IDR",
+    @SerialName("currency_minor_unit") val currencyMinorUnit: Int = 0,
+    @SerialName("timezone") val timezone: String = "Asia/Jakarta",
+    @SerialName("display_locale") val displayLocale: String = "id-ID",
+    @SerialName("cross_border_supported") val crossBorderSupported: Boolean = false,
+    @SerialName("policy_version") val policyVersion: String = "",
+    @SerialName("verification_status") val verificationStatus: String = "missing",
+    @SerialName("is_eligible") val isEligible: Boolean = false,
+    @SerialName("reason_codes") val reasonCodes: List<String> = emptyList()
+)
+
+@Serializable
 data class CourierProfile(
     @SerialName("courier_id")
     val courierId: String,
@@ -168,7 +183,28 @@ data class CourierProfile(
     val currentZone: CourierZone? = null,
 
     @SerialName("enforcement_actions")
-    val enforcementActions: List<CourierEnforcementAction> = emptyList()
+    val enforcementActions: List<CourierEnforcementAction> = emptyList(),
+
+    @SerialName("market_eligibility")
+    val marketEligibility: CourierMarketEligibility? = null
+)
+
+@Serializable
+data class CourierCrossBorderEligibility(
+    @SerialName("origin_market_code") val originMarketCode: String? = null,
+    @SerialName("target_market_code") val targetMarketCode: String? = null,
+    @SerialName("status") val status: String = "not_supported",
+    @SerialName("supported") val supported: Boolean? = null,
+    @SerialName("decision_reason") val decisionReason: String? = null,
+    @SerialName("expires_at") val expiresAt: String? = null
+)
+
+@Serializable
+data class CourierMarketEligibilityData(
+    @SerialName("current_market_code") val currentMarketCode: String = "id",
+    @SerialName("current") val current: CourierMarketEligibility? = null,
+    @SerialName("pending_market_changes") val pendingMarketChanges: List<Map<String, String?>> = emptyList(),
+    @SerialName("cross_border") val crossBorder: List<CourierCrossBorderEligibility> = emptyList()
 )
 
 @Serializable

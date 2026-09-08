@@ -95,6 +95,8 @@ internal fun MainScreenTabContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        CourierMarketEligibilityNotice(courierProfile?.marketEligibility)
+
         when (selectedTab) {
             0 -> HomeContent(
                 courierName = displayCourierName,

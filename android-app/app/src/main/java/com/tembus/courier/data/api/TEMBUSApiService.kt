@@ -9,6 +9,7 @@ import com.tembus.courier.data.model.SosTamperRequest
 import com.tembus.courier.data.model.SosTriggerRequest
 import com.tembus.courier.data.model.SosTriggerResponse
 import com.tembus.courier.data.model.CourierProfile
+import com.tembus.courier.data.model.CourierMarketEligibilityData
 import com.tembus.courier.data.model.CourierCapabilityProfile
 import com.tembus.courier.data.model.CourierCapabilityUpgradeRequest
 import com.tembus.courier.data.model.CourierServiceCapability
@@ -157,6 +158,9 @@ interface TEMBUSApiService {
      */
     @GET("api/v1/courier/profile")
     suspend fun getCourierProfile(): Response<ApiResponse<CourierProfile>>
+
+    @GET("api/v1/courier/market-eligibility")
+    suspend fun getCourierMarketEligibility(): Response<ApiResponse<CourierMarketEligibilityData>>
 
     @PUT("api/v1/courier/profile/capacity")
     suspend fun updateCapacity(

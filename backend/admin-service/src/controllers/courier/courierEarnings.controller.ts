@@ -38,6 +38,27 @@ import {
   sha256,
 } from './_shared';
 
+const localizedMoney = (amountMinor: number, currencyCode: string, minorUnit: number, locale: string) => {
+  try {
+    return new Intl.NumberFormat(locale || 'en-US', {
+      style: 'currency',
+      currency: currencyCode || 'IDR',
+      minimumFractionDigits: minorUnit,
+      maximumFractionDigits: minorUnit,
+    }).format(amountMinor / (10 ** minorUnit));
+  } catch {
+    return `${currencyCode || 'IDR'} ${amountMinor}`;
+  }
+};
+
+const localizedDate = (value: unknown, timezone: string, locale: string) => {
+  try {
+    return new Intl.DateTimeFormat(locale || 'en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: timezone || 'UTC' }).format(new Date(String(value)));
+  } catch {
+    return String(value || '');
+  }
+};
+
 export const getMobileCourierEarningsLedger = async (req: Request, res: Response) => {
   if (!req.user?.id) {
     res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
@@ -54,6 +75,12 @@ export const getMobileCourierEarningsLedger = async (req: Request, res: Response
          COALESCE(cel.transaction_type, 'earning_credit') AS transaction_type,
          cel.direction,
          cel.amount_idr,
+         COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0)::bigint AS amount_minor,
+         COALESCE(cel.market_code, els.market_code, cp.market_code, 'id') AS market_code,
+         COALESCE(cel.currency_code, els.currency_code, cmc.currency_code, 'IDR') AS currency_code,
+         COALESCE(els.currency_minor_unit, cmc.currency_minor_unit, 0)::int AS currency_minor_unit,
+         COALESCE(cel.timezone, els.timezone, cmc.timezone, 'Asia/Jakarta') AS timezone,
+         COALESCE(cel.display_locale, els.display_locale, cmc.display_locale, 'id-ID') AS display_locale,
          cel.settlement_status,
          courier_ledger_statement_category(
            cel.source,
@@ -76,11 +103,31 @@ export const getMobileCourierEarningsLedger = async (req: Request, res: Response
          cel.created_at
        FROM courier_earnings_ledger cel
        LEFT JOIN orders o ON o.id = cel.order_id
+       LEFT JOIN courier_earning_localization_snapshots els ON els.ledger_id = cel.id
+       LEFT JOIN courier_profiles cp ON cp.user_id = cel.courier_id
+       LEFT JOIN courier_market_configs cmc ON cmc.market_code = COALESCE(cel.market_code, els.market_code, cp.market_code, 'id')
        WHERE cel.courier_id = $1
        ORDER BY cel.created_at DESC
        LIMIT 40`,
       [req.user.id]
     );
+
+    const localizedTransactions = result.rows.map((row: any) => {
+      const amountMinor = Number(row.amount_minor || row.amount_idr || 0);
+      const currencyCode = String(row.currency_code || 'IDR');
+      const minorUnit = Number(row.currency_minor_unit || 0);
+      const locale = String(row.display_locale || 'id-ID');
+      return {
+        ...row,
+        amount_idr: row.amount_idr ?? (currencyCode === 'IDR' ? amountMinor : null),
+        amount_minor: amountMinor,
+        currency_code: currencyCode,
+        market_code: String(row.market_code || 'id'),
+        currency_minor_unit: minorUnit,
+        display_amount: localizedMoney(amountMinor, currencyCode, minorUnit, locale),
+        occurred_at_local: localizedDate(row.created_at, String(row.timezone || 'Asia/Jakarta'), locale),
+      };
+    });
 
     const summary = await db.query(
       `SELECT
@@ -127,6 +174,46 @@ export const getMobileCourierEarningsLedger = async (req: Request, res: Response
        GROUP BY courier_id`,
       [req.user.id]
     );
+    const localizedSummary = await db.query(
+      `SELECT
+         cp.market_code,
+         cmc.currency_code,
+         cmc.currency_minor_unit,
+         cmc.timezone,
+         cmc.display_locale,
+         COALESCE(SUM(CASE WHEN cel.direction = 'credit' THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) ELSE -COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) END), 0)::bigint AS total_balance_minor,
+         COALESCE(SUM(CASE WHEN cel.direction = 'credit' AND cel.settlement_status = 'available' AND courier_ledger_is_withdrawable(cel.metadata) THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) WHEN cel.direction = 'debit' AND cel.settlement_status IN ('requested','processing','paid') THEN -COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) ELSE 0 END), 0)::bigint AS available_balance_minor,
+         COALESCE(SUM(CASE WHEN cel.settlement_status = 'pending' AND cel.direction = 'credit' THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) WHEN cel.settlement_status IN ('requested','processing') AND cel.direction = 'debit' THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) ELSE 0 END), 0)::bigint AS pending_balance_minor,
+         COALESCE(SUM(CASE WHEN cel.direction = 'credit' AND cel.settlement_status <> 'cancelled' AND cel.settlement_status = 'held' THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) ELSE 0 END), 0)::bigint AS held_balance_minor,
+         COALESCE((SELECT SUM(COALESCE(pr.amount_minor, pr.amount_idr, 0))::bigint FROM courier_payout_requests pr WHERE pr.courier_id = cp.user_id AND pr.market_code = cp.market_code AND pr.status = 'paid'), 0)::bigint AS withdrawn_balance_minor,
+         COALESCE(SUM(CASE WHEN courier_ledger_statement_category(cel.source, cel.direction, COALESCE(cel.transaction_type, 'earning_credit'), cel.metadata) = 'order' THEN CASE WHEN cel.direction = 'credit' THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) ELSE -COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) END ELSE 0 END), 0)::bigint AS order_earnings_minor,
+         COALESCE(SUM(CASE WHEN courier_ledger_statement_category(cel.source, cel.direction, COALESCE(cel.transaction_type, 'earning_credit'), cel.metadata) = 'incentive' THEN CASE WHEN cel.direction = 'credit' THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) ELSE -COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) END ELSE 0 END), 0)::bigint AS incentive_earnings_minor,
+         COALESCE(SUM(CASE WHEN courier_ledger_statement_category(cel.source, cel.direction, COALESCE(cel.transaction_type, 'earning_credit'), cel.metadata) = 'adjustment' THEN CASE WHEN cel.direction = 'credit' THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) ELSE -COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) END ELSE 0 END), 0)::bigint AS adjustment_minor,
+         COALESCE(SUM(CASE WHEN courier_ledger_statement_category(cel.source, cel.direction, COALESCE(cel.transaction_type, 'earning_credit'), cel.metadata) = 'tax' THEN CASE WHEN cel.direction = 'credit' THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) ELSE -COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) END ELSE 0 END), 0)::bigint AS tax_minor,
+         COALESCE(SUM(CASE WHEN courier_ledger_statement_category(cel.source, cel.direction, COALESCE(cel.transaction_type, 'earning_credit'), cel.metadata) = 'fee' THEN CASE WHEN cel.direction = 'credit' THEN COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) ELSE -COALESCE(cel.amount_minor, els.amount_minor, cel.amount_idr, 0) END ELSE 0 END), 0)::bigint AS fee_minor
+       FROM courier_profiles cp
+       JOIN courier_market_configs cmc ON cmc.market_code = cp.market_code
+       LEFT JOIN courier_earnings_ledger cel ON cel.courier_id = cp.user_id AND COALESCE(cel.market_code, cp.market_code) = cp.market_code
+       LEFT JOIN courier_earning_localization_snapshots els ON els.ledger_id = cel.id
+       WHERE cp.user_id = $1
+       GROUP BY cp.user_id, cp.market_code, cmc.currency_code, cmc.currency_minor_unit, cmc.timezone, cmc.display_locale`,
+      [req.user.id]
+    );
+
+    const localizedSummaryRow = localizedSummary.rows[0] || null;
+    const localizedSummaryPayload = localizedSummaryRow ? {
+      ...localizedSummaryRow,
+      total_balance_formatted: localizedMoney(Number(localizedSummaryRow.total_balance_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+      available_balance_formatted: localizedMoney(Number(localizedSummaryRow.available_balance_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+      pending_balance_formatted: localizedMoney(Number(localizedSummaryRow.pending_balance_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+      held_balance_formatted: localizedMoney(Number(localizedSummaryRow.held_balance_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+      withdrawn_balance_formatted: localizedMoney(Number(localizedSummaryRow.withdrawn_balance_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+      order_earnings_formatted: localizedMoney(Number(localizedSummaryRow.order_earnings_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+      incentive_earnings_formatted: localizedMoney(Number(localizedSummaryRow.incentive_earnings_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+      adjustment_formatted: localizedMoney(Number(localizedSummaryRow.adjustment_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+      tax_formatted: localizedMoney(Number(localizedSummaryRow.tax_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+      fee_formatted: localizedMoney(Number(localizedSummaryRow.fee_minor || 0), localizedSummaryRow.currency_code, Number(localizedSummaryRow.currency_minor_unit || 0), localizedSummaryRow.display_locale),
+    } : null;
     const payoutAccount = await db.query(
       `WITH verified_account AS (
          SELECT
@@ -192,7 +279,8 @@ export const getMobileCourierEarningsLedger = async (req: Request, res: Response
           ...summaryRow,
           payout_account: payoutAccount.rows[0] || null,
         },
-        transactions: result.rows,
+        transactions: localizedTransactions,
+        localized_summary: localizedSummaryPayload,
       },
       message: 'Courier earnings ledger loaded',
     });
@@ -212,6 +300,14 @@ export const getMobileCourierPayoutSummary = async (req: Request, res: Response)
 
   try {
     const policy = await getCourierPayoutPolicy();
+    const marketResult = await db.query(
+      `SELECT cp.market_code, cmc.country_code, cmc.currency_code, cmc.currency_minor_unit, cmc.timezone, cmc.display_locale
+       FROM courier_profiles cp
+       JOIN courier_market_configs cmc ON cmc.market_code = cp.market_code
+       WHERE cp.user_id = $1 LIMIT 1`,
+      [req.user.id]
+    );
+    const marketRow = marketResult.rows[0] || { market_code: 'id', country_code: 'ID', currency_code: 'IDR', currency_minor_unit: 0, timezone: 'Asia/Jakarta', display_locale: 'id-ID' };
     const [balance, account, activeRequests, dailyRequested] = await Promise.all([
       db.query(
         `SELECT
@@ -325,7 +421,11 @@ export const getMobileCourierPayoutSummary = async (req: Request, res: Response)
           withdrawn_balance_idr: Number(balanceRow.withdrawn_balance_idr || 0),
           requested_today_idr: requestedToday,
           active_request_count: activeRequestCount,
+          market_code: marketRow.market_code,
+          currency_code: marketRow.currency_code,
+          currency_minor_unit: Number(marketRow.currency_minor_unit || 0),
         },
+        market: marketRow,
         payout_account: accountRow,
         policy,
         eligibility: {
@@ -414,6 +514,15 @@ export const createMobileCourierPayoutRequest = async (req: Request, res: Respon
   }
 
   try {
+    const marketResult = await db.query(
+      `SELECT cp.market_code, cmc.currency_code FROM courier_profiles cp JOIN courier_market_configs cmc ON cmc.market_code = cp.market_code WHERE cp.user_id = $1 LIMIT 1`,
+      [req.user.id]
+    );
+    const market = marketResult.rows[0];
+    if (market && market.currency_code !== 'IDR') {
+      res.status(422).json({ success: false, data: null, message: 'Pencairan untuk mata uang market ini belum tersedia; saldo tidak boleh diproses sebagai IDR.', code: 'ERR_PAYOUT_CURRENCY_NOT_SUPPORTED' });
+      return;
+    }
     const courier = await db.query(
       `SELECT id, role, status, pin_hash
        FROM users

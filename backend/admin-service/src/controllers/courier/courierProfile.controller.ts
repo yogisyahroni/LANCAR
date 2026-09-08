@@ -46,6 +46,7 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
     const result = await db.query(
       `SELECT
          u.id,
+         cp.id AS courier_profile_id,
          u.full_name,
          u.phone_number,
          u.photo_url,
@@ -143,6 +144,14 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
       return;
     }
 
+    const marketEligibilityResult = await db.query(
+      `SELECT row_to_json(me) AS eligibility
+       FROM courier_profiles cp
+       CROSS JOIN LATERAL courier_market_eligibility(cp.id, cp.market_code) me
+       WHERE cp.id = $1`,
+      [courier.courier_profile_id]
+    );
+
     res.json({
       success: true,
       data: {
@@ -152,6 +161,7 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
         vehicle_type: courier.vehicle_type,
         application_channel: courier.application_channel || 'on_demand',
         market_code: courier.market_code || 'id',
+        market_eligibility: marketEligibilityResult.rows[0]?.eligibility || null,
         onboarding_status: courier.onboarding_status || 'DRAFT',
         verification_status: courier.verification_status || 'pending',
         home_zone_id: courier.home_zone_id,

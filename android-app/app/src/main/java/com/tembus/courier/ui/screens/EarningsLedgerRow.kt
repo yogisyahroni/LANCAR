@@ -193,13 +193,16 @@ internal fun EarningsLedgerRow(transaction: CourierEarningsTransaction) {
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                transaction.amountIdr.toRupiahCompact(),
+                transaction.displayAmount ?: transaction.amountIdr.toRupiahCompact(),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = color
             )
             Text(
-                (transaction.walletState.ifBlank { transaction.settlementStatus }).replace("_", " "),
+                listOfNotNull(
+                    transaction.occurredAtLocal,
+                    (transaction.walletState.ifBlank { transaction.settlementStatus }).replace("_", " ")
+                ).joinToString(" • "),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
