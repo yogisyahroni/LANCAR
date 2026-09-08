@@ -5589,10 +5589,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 - safety/policy issues after review
 
 **Checklist**
-- [ ] Quality score is not just star rating.
-- [ ] Metric/version/window documented.
-- [ ] Quality can gate Ads/search eligibility only through explicit policy.
-- [ ] Appeal/review path for material enforcement.
+- [x] Quality score is not just star rating.
+- [x] Metric/version/window documented.
+- [x] Quality can gate Ads/search eligibility only through explicit policy.
+- [x] Appeal/review path for material enforcement.
 
 ---
 
