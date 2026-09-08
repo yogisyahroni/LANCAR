@@ -5619,10 +5619,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MERCH-2026-009 — POS/KDS/integration platform readiness [P1/P2]
 
 **Checklist**
-- [ ] External integration uses capability adapter + idempotency + health.
-- [ ] Catalog/inventory ownership conflict rules explicit.
-- [ ] POS ack failure cannot make customer believe order accepted when merchant never received it.
-- [ ] Integration reconciliation/health visible to Merchant/Admin.
+- [x] External integration uses capability adapter + idempotency + health.
+- [x] Catalog/inventory ownership conflict rules explicit.
+- [x] POS ack failure cannot make customer believe order accepted when merchant never received it.
+- [x] Integration reconciliation/health visible to Merchant/Admin.
 
 ---
 
