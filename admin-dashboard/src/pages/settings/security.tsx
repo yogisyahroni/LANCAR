@@ -106,6 +106,18 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
     slaData,
   } = data;
 
+  const [complianceMarket, setComplianceMarket] = useState('id-jk');
+  const { data: compliancePolicy, isLoading: isLoadingCompliancePolicy } = useQuery({
+    queryKey: ['admin-compliance-policy', complianceMarket],
+    queryFn: async () => (await api.get('/admin/compliance/policy', { params: { market_code: complianceMarket } })).data?.data,
+    enabled: complianceMarket.trim().length > 0,
+  });
+
+  const complianceRequirements = Array.isArray(compliancePolicy?.requirements) ? compliancePolicy.requirements : [];
+  const complianceDataPolicies = Array.isArray(compliancePolicy?.data_policies) ? compliancePolicy.data_policies : [];
+  const complianceArtifactPolicies = Array.isArray(compliancePolicy?.artifact_policies) ? compliancePolicy.artifact_policies : [];
+  const complianceServiceCategories = Array.isArray(compliancePolicy?.service_categories) ? compliancePolicy.service_categories : [];
+
   return (
     <>              <motion.div 
                 key="security"
@@ -183,6 +195,125 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                     })}
                   </div>
                 </div>
+              </motion.div>
+
+              <motion.div
+                key="compliance-boundary"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="glass-card p-10 rounded-[48px] border-white/5 space-y-8"
+              >
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                      <ShieldCheck className="text-primary-light" size={24} />
+                      Market Compliance Boundary
+                    </h3>
+                    <p className="mt-2 text-sm text-zinc-500">Role verification, consent, retention, artifact access, and service availability are resolved per market.</p>
+                  </div>
+                  <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-zinc-600">
+                    Market
+                    <input
+                      value={complianceMarket}
+                      onChange={(event) => setComplianceMarket(event.target.value.toLowerCase())}
+                      className="w-32 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case tracking-normal text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      aria-label="Compliance market code"
+                    />
+                  </label>
+                </div>
+
+                {isLoadingCompliancePolicy ? (
+                  <div className="flex items-center gap-3 rounded-3xl border border-white/5 bg-white/[0.02] p-6 text-sm text-zinc-500">
+                    <Loader2 className="animate-spin" size={18} /> Loading market policy…
+                  </div>
+                ) : compliancePolicy ? (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Launch readiness</p>
+                        <p className={cn('mt-2 flex items-center gap-2 text-lg font-black', compliancePolicy.readiness?.is_ready ? 'text-emerald-400' : 'text-amber-400')}>
+                          {compliancePolicy.readiness?.is_ready ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+                          {compliancePolicy.readiness?.is_ready ? 'Ready' : 'Not ready'}
+                        </p>
+                        <p className="mt-2 text-xs text-zinc-500">{(compliancePolicy.readiness?.reason_codes || []).join(', ') || 'No readiness exceptions'}</p>
+                      </div>
+                      <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Policy version</p>
+                        <p className="mt-2 text-lg font-black text-zinc-100">v{compliancePolicy.config_version || '—'}</p>
+                        <p className="mt-2 text-xs text-zinc-500">Locale: {compliancePolicy.default_locale || '—'}</p>
+                      </div>
+                      <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Consent records</p>
+                        <p className="mt-2 text-lg font-black text-zinc-100">{complianceRequirements.filter((item: any) => item.requirement_kind === 'consent').length}</p>
+                        <p className="mt-2 text-xs text-zinc-500">Versioned by locale, purpose, actor, and timestamp</p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-6 xl:grid-cols-2">
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-black uppercase tracking-widest text-zinc-400">Role requirements</h4>
+                        {['customer', 'courier', 'merchant'].map((role) => {
+                          const roleItems = complianceRequirements.filter((item: any) => item.role_code === role);
+                          return (
+                            <div key={role} className="rounded-3xl border border-white/5 bg-white/[0.02] p-5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-black capitalize text-zinc-200">{role}</span>
+                                <span className="text-xs text-zinc-600">{roleItems.length} requirements</span>
+                              </div>
+                              <div className="mt-3 space-y-2">
+                                {roleItems.map((item: any) => (
+                                  <div key={`${role}-${item.requirement_code}`} className="flex items-center justify-between gap-4 text-xs text-zinc-400">
+                                    <span>{item.requirement_code}</span>
+                                    <span className="text-right text-zinc-600">{item.requirement_kind} · {item.locale}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-black uppercase tracking-widest text-zinc-400">Retention & artifact access</h4>
+                        {[...complianceDataPolicies, ...complianceArtifactPolicies].map((item: any, index: number) => (
+                          <div key={`${item.data_class || item.artifact_type}-${index}`} className="flex items-center justify-between gap-4 rounded-3xl border border-white/5 bg-white/[0.02] p-5">
+                            <div>
+                              <p className="text-sm font-black text-zinc-200">{item.data_class || item.artifact_type}</p>
+                              <p className="mt-1 text-xs text-zinc-600">{item.role_code ? `${item.role_code} · ` : ''}{item.storage_access_class || item.legal_basis || 'market policy'}</p>
+                            </div>
+                            <div className="text-right text-xs text-zinc-500">
+                              <p>{item.retention_days} days</p>
+                              <p className="mt-1">{item.export_mode} · {item.deletion_mode}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-black uppercase tracking-widest text-zinc-400">Service categories by market</h4>
+                        <span className="text-xs text-zinc-600">Managed in Market Configuration</span>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        {complianceServiceCategories.map((item: any) => (
+                          <div key={`${item.city_code}-${item.service_code}`} className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                            <div>
+                              <p className="text-sm font-bold text-zinc-200">{item.service_code}</p>
+                              <p className="text-xs text-zinc-600">{item.city_code}</p>
+                            </div>
+                            <span className={cn('rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest', item.is_enabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400')}>
+                              {item.is_enabled ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-3xl border border-amber-500/20 bg-amber-500/5 p-6 text-sm text-amber-300">No compliance policy is available for this market.</div>
+                )}
               </motion.div>
     </>
   );

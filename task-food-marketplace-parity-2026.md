@@ -1714,12 +1714,12 @@ A task is complete only when applicable boxes below are true:
 - `docs/contracts/compliance-market-policy-2026.md`
 
 **Checklist**
-- [ ] Customer/courier/merchant verification requirements are market/role based.
-- [ ] Consent captures document version, locale, timestamp, actor and purpose.
-- [ ] Data retention/deletion/export rules are market scoped.
-- [ ] Sensitive verification artifacts use least-privilege access and dedicated retention policy.
-- [ ] Launching a new market requires explicit compliance checklist instead of inheriting Indonesian rules silently.
-- [ ] Restricted/regulated service categories can be disabled per market without app rebuild.
+- [x] Customer/courier/merchant verification requirements are market/role based.
+- [x] Consent captures document version, locale, timestamp, actor and purpose.
+- [x] Data retention/deletion/export rules are market scoped.
+- [x] Sensitive verification artifacts use least-privilege access and dedicated retention policy.
+- [x] Launching a new market requires explicit compliance checklist instead of inheriting Indonesian rules silently.
+- [x] Restricted/regulated service categories can be disabled per market without app rebuild.
 
 ---
 

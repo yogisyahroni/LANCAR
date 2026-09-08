@@ -89,6 +89,7 @@ adminRoutes.put('/admin/market-configs/:marketCode/services', requireRole(['supe
 adminRoutes.put('/admin/market-configs/:marketCode/legal-documents', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.market_config.legal.update'), (req, res) => controllers.upsertAdminMarketLegalDocument(req, res));
 adminRoutes.post('/admin/market-configs/:marketCode/approve', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.market_config.approve'), (req, res) => controllers.approveAdminMarketConfig(req, res));
 adminRoutes.get('/admin/market-configs/:marketCode/audit', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMarketConfigAudit(req, res));
+adminRoutes.get('/admin/compliance/policy', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminCompliancePolicy(req, res));
 adminRoutes.get('/admin/maps-provider-config', (req, res) => controllers.getAdminMapsProviderRuntimeConfig(req, res));
 adminRoutes.patch('/admin/maps-provider-config', requireTotp, (req, res) => controllers.updateAdminMapsProviderRuntimeConfig(req, res));
 adminRoutes.get('/admin/maps-production-readiness', (req, res) => controllers.getAdminMapsProductionReadiness(req, res));

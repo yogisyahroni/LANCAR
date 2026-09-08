@@ -153,6 +153,17 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: exact('/api/v1/markets/config', ['GET']),
   },
   {
+    id: 'compliance-policy-public-runtime',
+    requirement: 'public',
+    publicReason: 'Market compliance policy is public configuration needed before role onboarding and service discovery.',
+    matches: exact('/api/v1/compliance/policy', ['GET']),
+  },
+  {
+    id: 'compliance-user-api',
+    requirement: 'web-session-or-jwt',
+    matches: prefix('/api/v1/compliance'),
+  },
+  {
     id: 'maps-public-runtime',
     requirement: 'public',
     publicReason: 'Customer and courier clients need maps runtime config before order placement.',

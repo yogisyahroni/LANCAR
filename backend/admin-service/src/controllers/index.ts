@@ -62,6 +62,7 @@ export * from './flags.controller';
 // System (Health, Configs, Readiness)
 export * from './system.controller';
 export * from './marketConfig.controller';
+export * from './compliance.controller';
 
 // Customer Web Portal Auth
 export * from './customerAuth.controller';

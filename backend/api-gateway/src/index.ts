@@ -1236,6 +1236,23 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Compliance policy and consent boundary. Policy discovery is public and
+// consent reads/writes are authenticated downstream by admin-service.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/compliance',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('compliance', req, ADMIN_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(adminBreaker);
+    },
+  },
+}));
+
 // Admin Service - Mobile & Courier Notifications
 app.use(createProxyMiddleware({
   pathFilter: (pathname: string) =>
