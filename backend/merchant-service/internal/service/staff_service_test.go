@@ -195,4 +195,19 @@ func TestPermissionCheck(t *testing.T) {
 	}
 }
 
+func TestStaffRoles_CanonicalAndLegacyAlias(t *testing.T) {
+	roles := []string{"manager", "kitchen", "cashier", "marketing", "finance", "kasir"}
+	for _, role := range roles {
+		if !domain.ValidStaffRole(role) {
+			t.Fatalf("role %q should be accepted", role)
+		}
+		if domain.DefaultPermissionsForRole(domain.NormalizeStaffRole(role)) == 0 {
+			t.Fatalf("role %q should receive server-derived permissions", role)
+		}
+	}
+	if got := domain.NormalizeStaffRole("kasir"); got != domain.StaffRoleCashier {
+		t.Fatalf("legacy kasir alias normalized to %q", got)
+	}
+}
+
 func ptr(s string) *string { return &s }

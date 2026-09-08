@@ -31,6 +31,13 @@ func (h *PromoHandler) parseUserID(w http.ResponseWriter, r *http.Request) (stri
 		h.respondError(w, http.StatusBadRequest, "Invalid User ID")
 		return "", false
 	}
+	access := domain.MerchantAccessContext{
+		SessionToken:       r.Header.Get("X-Merchant-Session-Token"),
+		BranchID:           r.Header.Get("X-Merchant-Branch-ID"),
+		DeviceID:           r.Header.Get("X-Device-ID"),
+		RequiredPermission: merchantPermissionForRequest(r),
+	}
+	*r = *r.WithContext(domain.WithMerchantAccess(r.Context(), access))
 	return userID, true
 }
 

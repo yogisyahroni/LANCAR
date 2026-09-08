@@ -213,4 +213,5 @@ type CreateMerchantWithdrawalInput struct {
 	BankAccountNumber string `json:"bank_account_number"`
 	BankAccountHolder string `json:"bank_account_holder"`
 	IdempotencyKey    string `json:"idempotency_key"`
+	ApprovalID        string `json:"approval_id,omitempty"`
 }

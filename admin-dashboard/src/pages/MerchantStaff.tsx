@@ -11,8 +11,11 @@ const statusStyle: Record<string, string> = {
 }
 const roleStyle: Record<string, string> = {
   manager: 'text-sky-300',
+  cashier: 'text-zinc-300',
   kasir: 'text-zinc-300',
   kitchen: 'text-violet-300',
+  marketing: 'text-amber-300',
+  finance: 'text-emerald-300',
 }
 
 export default function MerchantStaff() {
@@ -62,8 +65,10 @@ export default function MerchantStaff() {
           >
             <option value="all">Semua</option>
             <option value="manager">Manager</option>
-            <option value="kasir">Kasir</option>
+            <option value="cashier">Cashier</option>
             <option value="kitchen">Kitchen</option>
+            <option value="marketing">Marketing</option>
+            <option value="finance">Finance</option>
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">

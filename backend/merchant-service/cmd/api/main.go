@@ -105,14 +105,17 @@ func main() {
 	orderRepo := repository.NewPostgresMerchantOrderRepository(db, db)
 	reportRepo := repository.NewPostgresReportRepository(db, db)
 	staffRepo := repository.NewPostgresMerchantStaffRepository(db, db)
-	svc := service.NewMerchantService(merchantRepo, menuRepo, orderRepo, reportRepo)
-	staffSvc := service.NewStaffService(merchantRepo, staffRepo, infrastructure.NewStaffNotifier())
+	accessRepo := repository.NewPostgresMerchantAccessRepository(db, db)
+	svc := service.NewMerchantService(merchantRepo, menuRepo, orderRepo, reportRepo, accessRepo)
+	staffSvc := service.NewStaffService(merchantRepo, staffRepo, infrastructure.NewStaffNotifier(), accessRepo)
+	accessSvc := service.NewMerchantAccessService(merchantRepo, staffRepo, accessRepo)
 	h := handler.NewMerchantHandler(svc, uploadSvc)
 	staffH := handler.NewStaffHandler(h, staffSvc)
+	accessH := handler.NewMerchantAccessHandler(h, accessSvc)
 
 	// FB-099: promo merchant self-serve (dibiayai merchant, bukan duit PT)
 	promoRepo := repository.NewPostgresMerchantPromoRepository(db, db)
-	promoSvc := service.NewMerchantPromoService(promoRepo, menuRepo)
+	promoSvc := service.NewMerchantPromoService(promoRepo, menuRepo, merchantRepo, accessRepo)
 	promoH := handler.NewPromoHandler(promoSvc)
 
 	// FB-092: auto-suspend toko saat dokumen pangan kedaluwarsa (re-KYC)
@@ -249,6 +252,33 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/reviews/{id}/reply", middleware.BaseChain(h.ReplyToCustomerReview))
 	mux.HandleFunc("/api/v1/merchant/withdraw", middleware.BaseChain(h.RequestWithdrawal))
 	mux.HandleFunc("/api/v1/merchant/withdrawals", middleware.BaseChain(h.ListWithdrawals))
+
+	// MERCH-2026-002: branch ownership, scoped staff access and device sessions.
+	mux.HandleFunc("/api/v1/merchant/branches/{id}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			accessH.CreateBranch(w, r)
+		case http.MethodGet:
+			accessH.ListBranches(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	mux.HandleFunc("/api/v1/merchant/branches/{id}/{branchId}", middleware.BaseChain(accessH.UpdateBranch))
+	mux.HandleFunc("/api/v1/merchant/branches/{id}/staff/{staffId}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			accessH.AssignStaffBranches(w, r)
+		case http.MethodGet:
+			accessH.ListStaffBranches(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	mux.HandleFunc("/api/v1/merchant/device-sessions/{id}", middleware.BaseChain(accessH.CreateDeviceSession))
+	mux.HandleFunc("/api/v1/merchant/device-sessions/{id}/{sessionId}", middleware.BaseChain(accessH.RevokeDeviceSession))
+	mux.HandleFunc("/api/v1/merchant/security-approvals/{id}", middleware.BaseChain(accessH.CreateSecurityApproval))
+	mux.HandleFunc("/api/v1/merchant/security-approvals/{id}/{approvalId}/approve", middleware.BaseChain(accessH.ApproveSecurityApproval))
 
 	// ── Staff Management (M1, CORPORATE ONLY) ──
 	// NOTE: route di-namespaced ke /merchant/staff/{id} (bukan /merchant/{id}/staff)

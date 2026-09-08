@@ -33,7 +33,7 @@ func generateQRCodeDataURI(content string, size int) (string, error) {
 // GetStruk — generate data struk pembelian + QR code (berisi handover token)
 // untuk order food milik merchant. Merchant wajib approved & pemilik order.
 func (s *merchantServiceImpl) GetStruk(ctx context.Context, userID, orderID string) (*domain.StrukData, error) {
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

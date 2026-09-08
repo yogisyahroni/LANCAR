@@ -43,7 +43,7 @@ func (s *merchantServiceImpl) GetSalesReport(ctx context.Context, userID, period
 	if err != nil {
 		return nil, err
 	}
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (s *merchantServiceImpl) ListSettlements(ctx context.Context, userID string
 	if s.reportRepo == nil {
 		return nil, errors.New("report repository not wired")
 	}
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -110,12 +110,18 @@ func (s *merchantServiceImpl) RequestWithdrawal(ctx context.Context, userID stri
 	if input.BankName == "" || input.BankAccountNumber == "" || input.BankAccountHolder == "" {
 		return nil, 0, errors.New("data rekening tujuan wajib lengkap")
 	}
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, 0, err
 	}
 	if m == nil {
 		return nil, 0, errors.New("merchant belum terdaftar")
+	}
+	if len(strings.TrimSpace(input.IdempotencyKey)) < 12 {
+		return nil, 0, errors.New("idempotency_key minimal 12 karakter")
+	}
+	if err := s.requireApprovedHighRisk(ctx, userID, m.ID, input.ApprovalID, "payout"); err != nil {
+		return nil, 0, err
 	}
 	if m.VerificationStatus != "approved" {
 		return nil, 0, errors.New("merchant belum disetujui")
@@ -172,7 +178,7 @@ func (s *merchantServiceImpl) ListWithdrawals(ctx context.Context, userID string
 	if s.reportRepo == nil || s.merchantRepo == nil {
 		return nil, errors.New("repository not wired")
 	}
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +202,7 @@ func (s *merchantServiceImpl) GetCustomerReviews(ctx context.Context, userID str
 	if pageSize > 100 {
 		pageSize = 100
 	}
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +240,7 @@ func (s *merchantServiceImpl) ReplyToCustomerReview(ctx context.Context, userID,
 	if len([]rune(input.Body)) > 1000 {
 		return nil, errors.New("tanggapan maksimal 1000 karakter")
 	}
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +261,7 @@ func (s *merchantServiceImpl) ExportSalesReportCSV(ctx context.Context, userID, 
 	if err != nil {
 		return "", err
 	}
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return "", err
 	}

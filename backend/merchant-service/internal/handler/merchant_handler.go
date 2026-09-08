@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"tembus/merchant-service/internal/domain"
@@ -38,7 +39,46 @@ func (h *MerchantHandler) parseUserID(w http.ResponseWriter, r *http.Request) (s
 		h.respondError(w, http.StatusBadRequest, "Invalid User ID")
 		return "", false
 	}
+	// Staff access is bound to an opaque server-issued session, branch and
+	// device. The service revalidates these values against PostgreSQL on every
+	// request; headers are only transport for the gateway-authenticated context.
+	access := domain.MerchantAccessContext{
+		SessionToken:       strings.TrimSpace(r.Header.Get("X-Merchant-Session-Token")),
+		BranchID:           strings.TrimSpace(r.Header.Get("X-Merchant-Branch-ID")),
+		DeviceID:           strings.TrimSpace(r.Header.Get("X-Device-ID")),
+		RequiredPermission: merchantPermissionForRequest(r),
+	}
+	*r = *r.WithContext(domain.WithMerchantAccess(r.Context(), access))
 	return userID, true
+}
+
+func merchantPermissionForRequest(r *http.Request) int {
+	path := strings.ToLower(r.URL.Path)
+	if strings.Contains(path, "/promo") {
+		if r.Method == http.MethodGet {
+			return domain.PermViewStore
+		}
+		return domain.PermManagePromo
+	}
+	if strings.Contains(path, "/menu") {
+		if r.Method == http.MethodGet {
+			return domain.PermViewStore
+		}
+		return domain.PermManageMenu
+	}
+	if strings.Contains(path, "/orders") {
+		if strings.HasSuffix(path, "/accept") || strings.HasSuffix(path, "/reject") || strings.HasSuffix(path, "/items/unavailable") || strings.HasSuffix(path, "/items") {
+			return domain.PermAcceptOrder
+		}
+		if strings.HasSuffix(path, "/ready") {
+			return domain.PermUpdatePrep
+		}
+		return domain.PermViewStore
+	}
+	if strings.Contains(path, "/report") || strings.Contains(path, "/settlement") || strings.Contains(path, "/review") || strings.Contains(path, "/withdrawal") {
+		return domain.PermViewReports
+	}
+	return 0
 }
 
 // respondError mengirim JSON error {error: message}.
@@ -125,6 +165,16 @@ func (h *MerchantHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
 		return
+	}
+	if req.PayoutSchedule != nil || req.NPWP != nil {
+		if !requireStepUp(r) {
+			h.respondError(w, http.StatusUnauthorized, "step-up authentication (TOTP) wajib untuk konfigurasi payout")
+			return
+		}
+		if len(strings.TrimSpace(req.IdempotencyKey)) < 12 {
+			h.respondError(w, http.StatusBadRequest, "idempotency_key minimal 12 karakter untuk konfigurasi payout")
+			return
+		}
 	}
 	m, err := h.svc.UpdateProfile(r.Context(), userID, req)
 	if err != nil {
@@ -684,6 +734,14 @@ func (h *MerchantHandler) UpdateBankAccount(w http.ResponseWriter, r *http.Reque
 		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
 		return
 	}
+	if !requireStepUp(r) {
+		h.respondError(w, http.StatusUnauthorized, "step-up authentication (TOTP) wajib untuk rekening payout")
+		return
+	}
+	if len(strings.TrimSpace(body.IdempotencyKey)) < 12 {
+		h.respondError(w, http.StatusBadRequest, "idempotency_key minimal 12 karakter untuk rekening payout")
+		return
+	}
 	merchant, err := h.svc.UpdateBankAccount(r.Context(), userID, body)
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())
@@ -936,6 +994,14 @@ func (h *MerchantHandler) RequestWithdrawal(w http.ResponseWriter, r *http.Reque
 	var body domain.CreateMerchantWithdrawalInput
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	if !requireStepUp(r) {
+		h.respondError(w, http.StatusUnauthorized, "step-up authentication (TOTP) wajib untuk payout")
+		return
+	}
+	if len(strings.TrimSpace(body.IdempotencyKey)) < 12 || strings.TrimSpace(body.ApprovalID) == "" {
+		h.respondError(w, http.StatusBadRequest, "idempotency_key dan approval_id wajib untuk payout")
 		return
 	}
 	rec, available, err := h.svc.RequestWithdrawal(r.Context(), userID, body)

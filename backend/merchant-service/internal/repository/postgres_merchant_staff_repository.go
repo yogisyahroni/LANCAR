@@ -105,34 +105,43 @@ func (r *postgresMerchantStaffRepository) GetByToken(ctx context.Context, token 
 
 // SetUserAndActivate — accept invite: set user_id + status active.
 func (r *postgresMerchantStaffRepository) SetUserAndActivate(ctx context.Context, id string, userID string) error {
-	_, err := r.db.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		UPDATE merchant_staff
 		SET user_id = $2, status = 'active', updated_at = NOW()
 		WHERE id = $1 AND status = 'pending'`, id, userID)
 	if err != nil {
 		return fmt.Errorf("activate staff: %w", err)
 	}
+	if count, _ := result.RowsAffected(); count == 0 {
+		return errors.New("undangan sudah digunakan atau dicabut")
+	}
 	return nil
 }
 
 // UpdateRole — ubah role + permissions staff.
 func (r *postgresMerchantStaffRepository) UpdateRole(ctx context.Context, id string, role string, permissions int) error {
-	_, err := r.db.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		UPDATE merchant_staff
 		SET role = $2, permissions = $3, updated_at = NOW()
 		WHERE id = $1`, id, role, permissions)
 	if err != nil {
 		return fmt.Errorf("update staff role: %w", err)
 	}
+	if count, _ := result.RowsAffected(); count == 0 {
+		return sql.ErrNoRows
+	}
 	return nil
 }
 
 // UpdateStatus — set status aktif/revoked.
 func (r *postgresMerchantStaffRepository) UpdateStatus(ctx context.Context, id string, status string) error {
-	_, err := r.db.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		UPDATE merchant_staff SET status = $2, updated_at = NOW() WHERE id = $1`, id, status)
 	if err != nil {
 		return fmt.Errorf("update staff status: %w", err)
+	}
+	if count, _ := result.RowsAffected(); count == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }

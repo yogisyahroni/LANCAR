@@ -20,7 +20,7 @@ import (
 // and quantities are checked against the merchant's server-side order snapshot;
 // price is never accepted from the Android/web client.
 func (s *merchantServiceImpl) PartialRejectOrder(ctx context.Context, userID, orderID string, req domain.PartialRejectOrderRequest) (*domain.PartialRejectResult, error) {
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

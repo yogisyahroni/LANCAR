@@ -68,6 +68,8 @@ type UpdateMerchantRequest struct {
 	MinOrderIDR    *int64  `json:"min_order_idr,omitempty"`
 	PayoutSchedule *string `json:"payout_schedule,omitempty"`
 	NPWP           *string `json:"npwp,omitempty"`
+	ApprovalID     string  `json:"approval_id,omitempty"`
+	IdempotencyKey string  `json:"idempotency_key,omitempty"`
 }
 
 type ReplaceMerchantOperatingHoursInput struct {
@@ -202,4 +204,8 @@ type UpdateBankAccountRequest struct {
 	BankAccountNumber string `json:"bank_account_number"`
 	BankAccountHolder string `json:"bank_account_holder"`
 	RekeningBankURL   string `json:"rekening_bank_url,omitempty"` // foto buku tabungan baru (opsional)
+	// High-risk mutation controls. The approval is issued by the merchant
+	// security workflow and approved by an independent ops/finance actor.
+	ApprovalID     string `json:"approval_id,omitempty"`
+	IdempotencyKey string `json:"idempotency_key,omitempty"`
 }

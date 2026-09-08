@@ -18,10 +18,15 @@ type staffServiceImpl struct {
 	merchantRepo domain.MerchantRepository
 	staffRepo    domain.StaffRepository
 	notifier     domain.StaffNotifier
+	accessRepo   domain.MerchantAccessRepository
 }
 
-func NewStaffService(mr domain.MerchantRepository, sr domain.StaffRepository, n domain.StaffNotifier) domain.StaffService {
-	return &staffServiceImpl{merchantRepo: mr, staffRepo: sr, notifier: n}
+func NewStaffService(mr domain.MerchantRepository, sr domain.StaffRepository, n domain.StaffNotifier, accessRepos ...domain.MerchantAccessRepository) domain.StaffService {
+	var ar domain.MerchantAccessRepository
+	if len(accessRepos) > 0 {
+		ar = accessRepos[0]
+	}
+	return &staffServiceImpl{merchantRepo: mr, staffRepo: sr, notifier: n, accessRepo: ar}
 }
 
 // requireCorporateOwner — pastikan userID adalah OWNER merchant korporat.
@@ -64,7 +69,7 @@ func (s *staffServiceImpl) Invite(ctx context.Context, ownerUserID, merchantID s
 	if err != nil {
 		return nil, fmt.Errorf("generate token: %w", err)
 	}
-	role := domain.StaffRole(req.Role)
+	role := domain.NormalizeStaffRole(req.Role)
 	staff := &domain.MerchantStaff{
 		MerchantID:  merchantID,
 		Role:        string(role),
@@ -75,6 +80,27 @@ func (s *staffServiceImpl) Invite(ctx context.Context, ownerUserID, merchantID s
 	}
 	if err := s.staffRepo.Create(ctx, staff); err != nil {
 		return nil, err
+	}
+	if s.accessRepo != nil {
+		branchIDs := req.BranchIDs
+		if len(branchIDs) == 0 {
+			branches, branchErr := s.accessRepo.ListBranches(ctx, merchantID)
+			if branchErr != nil {
+				return nil, fmt.Errorf("resolve default branch access: %w", branchErr)
+			}
+			for _, branch := range branches {
+				if branch.IsActive {
+					branchIDs = append(branchIDs, branch.ID)
+				}
+			}
+		}
+		if len(branchIDs) == 0 {
+			return nil, errors.New("merchant belum memiliki branch aktif")
+		}
+		if err := s.accessRepo.ReplaceStaffBranches(ctx, merchantID, staff.ID, branchIDs); err != nil {
+			return nil, fmt.Errorf("assign staff branch: %w", err)
+		}
+		staff.BranchIDs = append([]string(nil), branchIDs...)
 	}
 	// Kirim notifikasi (email/WA) best-effort; tidak gagal-kan invite kalau notif gagal.
 	if s.notifier != nil {
@@ -118,6 +144,16 @@ func (s *staffServiceImpl) ListStaff(ctx context.Context, requesterUserID, merch
 		if st == nil || st.MerchantID != merchantID || !st.HasPermission(domain.PermManageStaff) {
 			return nil, errors.New("tidak memiliki akses ke staff toko ini")
 		}
+		if s.accessRepo != nil {
+			access := domain.MerchantAccessFromContext(ctx)
+			if _, err := s.accessRepo.AuthorizeDeviceSession(ctx, domain.MerchantSessionAuthorization{
+				UserID: requesterUserID, MerchantID: merchantID, BranchID: access.BranchID,
+				DeviceID: access.DeviceID, SessionToken: access.SessionToken,
+				RequiredPermission: domain.PermManageStaff,
+			}); err != nil {
+				return nil, err
+			}
+		}
 		canManage = true
 	} else {
 		canManage = true
@@ -131,6 +167,13 @@ func (s *staffServiceImpl) ListStaff(ctx context.Context, requesterUserID, merch
 		enrichNames(context.Context, []*domain.MerchantStaff) error
 	}); ok {
 		_ = repo.enrichNames(ctx, list)
+	}
+	if s.accessRepo != nil {
+		for _, staff := range list {
+			if branches, branchErr := s.accessRepo.ListStaffBranches(ctx, merchantID, staff.ID); branchErr == nil {
+				staff.BranchIDs = branches
+			}
+		}
 	}
 	return &domain.StaffListResult{Staff: list, CanManage: canManage}, nil
 }
@@ -152,6 +195,7 @@ func (s *staffServiceImpl) AcceptInvite(ctx context.Context, userID, token strin
 	}
 	// Promote role user → merchant_staff (login sebagai staff).
 	if err := s.staffRepo.SetUserRole(ctx, userID, "merchant_staff"); err != nil {
+		_ = s.staffRepo.UpdateStatus(ctx, st.ID, string(domain.StaffStatusRevoked))
 		return nil, err
 	}
 	// Re-fetch untuk response.
@@ -178,11 +222,12 @@ func (s *staffServiceImpl) UpdateStaff(ctx context.Context, ownerUserID, merchan
 		if !domain.ValidStaffRole(*req.Role) {
 			return nil, errors.New("role staff tidak valid")
 		}
-		perms := domain.DefaultPermissionsForRole(domain.StaffRole(*req.Role))
-		if err := s.staffRepo.UpdateRole(ctx, staffID, *req.Role, perms); err != nil {
+		normalizedRole := domain.NormalizeStaffRole(*req.Role)
+		perms := domain.DefaultPermissionsForRole(normalizedRole)
+		if err := s.staffRepo.UpdateRole(ctx, staffID, string(normalizedRole), perms); err != nil {
 			return nil, err
 		}
-		st.Role = *req.Role
+		st.Role = string(normalizedRole)
 		st.Permissions = perms
 	}
 	if req.Status != nil {
@@ -203,6 +248,17 @@ func (s *staffServiceImpl) UpdateStaff(ctx context.Context, ownerUserID, merchan
 
 // PermissionCheck — untuk endpoint lain (order/accept) cek staff punya perm.
 func (s *staffServiceImpl) PermissionCheck(ctx context.Context, userID, merchantID string, perm int) (bool, error) {
+	if s.accessRepo != nil {
+		access := domain.MerchantAccessFromContext(ctx)
+		if access.SessionToken != "" {
+			_, err := s.accessRepo.AuthorizeDeviceSession(ctx, domain.MerchantSessionAuthorization{
+				UserID: userID, MerchantID: merchantID, BranchID: access.BranchID,
+				DeviceID: access.DeviceID, SessionToken: access.SessionToken,
+				RequiredPermission: perm,
+			})
+			return err == nil, err
+		}
+	}
 	st, err := s.staffRepo.GetActiveByUser(ctx, userID)
 	if err != nil {
 		return false, err

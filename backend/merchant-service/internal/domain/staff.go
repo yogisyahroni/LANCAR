@@ -23,18 +23,30 @@ type StaffNotifier interface {
 type StaffRole string
 
 const (
-	StaffRoleManager StaffRole = "manager" // full kecuali payout/withdraw & hapus toko
-	StaffRoleKasir   StaffRole = "kasir"   // terima/tolak order, lihat menu, chat
-	StaffRoleKitchen StaffRole = "kitchen" // update status masak (prep), lihat order
+	StaffRoleManager   StaffRole = "manager"   // full kecuali payout/withdraw & hapus toko
+	StaffRoleKitchen   StaffRole = "kitchen"   // update status masak (prep), lihat order
+	StaffRoleCashier   StaffRole = "cashier"   // terima/tolak order, lihat menu, chat
+	StaffRoleMarketing StaffRole = "marketing" // menu/promo/report sesuai permission
+	StaffRoleFinance   StaffRole = "finance"   // report, bukan payout account mutation
+	// StaffRoleKasir is the legacy Indonesian API value. New writes normalize it
+	// to cashier while old rows remain readable during rollout.
+	StaffRoleKasir StaffRole = "kasir"
 )
 
 // ValidStaffRole — true kalau r peran valid.
 func ValidStaffRole(r string) bool {
 	switch StaffRole(r) {
-	case StaffRoleManager, StaffRoleKasir, StaffRoleKitchen:
+	case StaffRoleManager, StaffRoleKitchen, StaffRoleCashier, StaffRoleMarketing, StaffRoleFinance, StaffRoleKasir:
 		return true
 	}
 	return false
+}
+
+func NormalizeStaffRole(r string) StaffRole {
+	if StaffRole(r) == StaffRoleKasir {
+		return StaffRoleCashier
+	}
+	return StaffRole(r)
 }
 
 // StaffStatus — lifecycle undangan staff.
@@ -66,10 +78,14 @@ func DefaultPermissionsForRole(role StaffRole) int {
 	case StaffRoleManager:
 		return PermViewStore | PermManageMenu | PermAcceptOrder | PermUpdatePrep |
 			PermChatCustomer | PermManageStaff | PermViewReports | PermManagePromo
-	case StaffRoleKasir:
+	case StaffRoleKasir, StaffRoleCashier:
 		return PermViewStore | PermAcceptOrder | PermChatCustomer | PermViewReports
 	case StaffRoleKitchen:
 		return PermViewStore | PermUpdatePrep
+	case StaffRoleMarketing:
+		return PermViewStore | PermManageMenu | PermViewReports | PermManagePromo
+	case StaffRoleFinance:
+		return PermViewStore | PermViewReports
 	}
 	return 0
 }
@@ -92,6 +108,7 @@ type MerchantStaff struct {
 	InvitedBy   string    `json:"-"` // diisi service
 	Status      string    `json:"status"`
 	Permissions int       `json:"permissions"`
+	BranchIDs   []string  `json:"branch_ids,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	// Field denormalisasi untuk response (diisi service, bukan DB):
@@ -101,15 +118,16 @@ type MerchantStaff struct {
 
 // StaffPublicView — response list (tanpa invite_token).
 type StaffPublicView struct {
-	ID          string  `json:"id"`
-	MerchantID  string  `json:"merchant_id"`
-	UserID      *string `json:"user_id,omitempty"`
-	Role        string  `json:"role"`
-	Status      string  `json:"status"`
-	Permissions int     `json:"permissions"`
-	StaffName   *string `json:"staff_name,omitempty"`
-	StaffEmail  *string `json:"staff_email,omitempty"`
-	InvitedAt   string  `json:"invited_at"`
+	ID          string   `json:"id"`
+	MerchantID  string   `json:"merchant_id"`
+	UserID      *string  `json:"user_id,omitempty"`
+	Role        string   `json:"role"`
+	Status      string   `json:"status"`
+	Permissions int      `json:"permissions"`
+	BranchIDs   []string `json:"branch_ids,omitempty"`
+	StaffName   *string  `json:"staff_name,omitempty"`
+	StaffEmail  *string  `json:"staff_email,omitempty"`
+	InvitedAt   string   `json:"invited_at"`
 }
 
 // ToPublic — strip invite_token.
@@ -121,6 +139,7 @@ func (s *MerchantStaff) ToPublic() StaffPublicView {
 		Role:        s.Role,
 		Status:      s.Status,
 		Permissions: s.Permissions,
+		BranchIDs:   append([]string(nil), s.BranchIDs...),
 		StaffName:   s.StaffName,
 		StaffEmail:  s.StaffEmail,
 		InvitedAt:   s.CreatedAt.Format(time.RFC3339),
@@ -130,10 +149,11 @@ func (s *MerchantStaff) ToPublic() StaffPublicView {
 // InviteStaffRequest — body owner mengundang staff.
 type InviteStaffRequest struct {
 	// Email/WA tujuan (disimpan sebagai identifier undangan, dikirim notif oleh caller).
-	Email   string `json:"email,omitempty"`
-	Phone   string `json:"phone,omitempty"`
-	Role    string `json:"role"` // manager|kasir|kitchen
-	Message string `json:"message,omitempty"`
+	Email     string   `json:"email,omitempty"`
+	Phone     string   `json:"phone,omitempty"`
+	Role      string   `json:"role"` // manager|kitchen|cashier|marketing|finance (kasir legacy alias)
+	BranchIDs []string `json:"branch_ids,omitempty"`
+	Message   string   `json:"message,omitempty"`
 }
 
 // AcceptStaffInviteRequest — body staff menerima undangan.
@@ -150,7 +170,7 @@ type UpdateStaffRequest struct {
 // ValidateInvite — cek field undangan valid.
 func (r InviteStaffRequest) Validate() error {
 	if !ValidStaffRole(r.Role) {
-		return errors.New("role staff tidak valid (manager|kasir|kitchen)")
+		return errors.New("role staff tidak valid (manager|kitchen|cashier|marketing|finance)")
 	}
 	if r.Email == "" && r.Phone == "" {
 		return errors.New("email atau phone wajib diisi")

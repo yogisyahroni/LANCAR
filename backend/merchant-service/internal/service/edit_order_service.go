@@ -26,7 +26,7 @@ import (
 // Validasi sama dengan EditOrderItems (merchant terdaftar + approved,
 // order pending_merchant milik merchant). Return harga lama + items.
 func (s *merchantServiceImpl) GetOrderEdit(ctx context.Context, userID, orderID string) (*domain.OrderEditData, error) {
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s *merchantServiceImpl) GetOrderEdit(ctx context.Context, userID, orderID 
 // pending_merchant. Harga dihitung ulang server-side dari menu SEKARANG
 // (zero-trust, jangan percaya harga dari client).
 func (s *merchantServiceImpl) EditOrderItems(ctx context.Context, userID, orderID string, req domain.EditOrderItemsRequest) (*domain.EditOrderResult, error) {
-	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

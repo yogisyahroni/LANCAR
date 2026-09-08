@@ -24,10 +24,15 @@ type merchantServiceImpl struct {
 	menuRepo     domain.MenuItemRepository
 	orderRepo    domain.MerchantOrderRepository
 	reportRepo   domain.MerchantReportRepository
+	accessRepo   domain.MerchantAccessRepository
 }
 
-func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository, rr domain.MerchantReportRepository) domain.MerchantService {
-	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr}
+func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository, rr domain.MerchantReportRepository, accessRepos ...domain.MerchantAccessRepository) domain.MerchantService {
+	var ar domain.MerchantAccessRepository
+	if len(accessRepos) > 0 {
+		ar = accessRepos[0]
+	}
+	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, accessRepo: ar}
 }
 
 // ─────────────────────────────────────────────
@@ -154,9 +159,17 @@ func (s *merchantServiceImpl) GetProfile(ctx context.Context, userID string) (*d
 }
 
 func (s *merchantServiceImpl) UpdateProfile(ctx context.Context, userID string, req domain.UpdateMerchantRequest) (*domain.Merchant, error) {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
+	}
+	if req.PayoutSchedule != nil || req.NPWP != nil {
+		if len(strings.TrimSpace(req.IdempotencyKey)) < 12 {
+			return nil, errors.New("idempotency_key minimal 12 karakter untuk konfigurasi payout")
+		}
+		if err := s.requireApprovedHighRisk(ctx, userID, m.ID, req.ApprovalID, "merchant_config"); err != nil {
+			return nil, err
+		}
 	}
 	if req.NamaToko != nil {
 		m.NamaToko = *req.NamaToko
@@ -229,7 +242,7 @@ func (s *merchantServiceImpl) GetOperatingHours(ctx context.Context, userID stri
 }
 
 func (s *merchantServiceImpl) ReplaceOperatingHours(ctx context.Context, userID string, hours []domain.MerchantOperatingHour) (*domain.MerchantOperatingHoursResponse, error) {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +289,7 @@ func (s *merchantServiceImpl) ReplaceOperatingHours(ctx context.Context, userID 
 }
 
 func (s *merchantServiceImpl) CreateSpecialClosure(ctx context.Context, userID string, input domain.CreateMerchantSpecialClosureInput) (*domain.MerchantSpecialClosure, error) {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +304,7 @@ func (s *merchantServiceImpl) CreateSpecialClosure(ctx context.Context, userID s
 }
 
 func (s *merchantServiceImpl) DeleteSpecialClosure(ctx context.Context, userID, closureID string) error {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -330,7 +343,7 @@ func merchantOnboardingActive(m *domain.Merchant) bool {
 }
 
 func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isOpen bool) (*domain.Merchant, error) {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +362,7 @@ func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isO
 // `until`. Auto un-pause oleh order-service (cek paused_until < NOW()).
 // Tidak mengubah is_open maupun jam operasional.
 func (s *merchantServiceImpl) Pause(ctx context.Context, userID string, until time.Time) (*domain.Merchant, error) {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +380,7 @@ func (s *merchantServiceImpl) Pause(ctx context.Context, userID string, until ti
 
 // Resume (FB-107): batalkan pause sementara lebih awal.
 func (s *merchantServiceImpl) Resume(ctx context.Context, userID string) (*domain.Merchant, error) {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +393,7 @@ func (s *merchantServiceImpl) Resume(ctx context.Context, userID string) (*domai
 // Busy (FOOD-2026-011): merchant tetap menerima order, tetapi quote Food
 // memasukkan tambahan prep yang tersimpan sampai `until`.
 func (s *merchantServiceImpl) Busy(ctx context.Context, userID string, until time.Time, extraPrepMinutes int) (*domain.Merchant, error) {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +423,7 @@ func (s *merchantServiceImpl) Busy(ctx context.Context, userID string, until tim
 // tidak diisi dipertahankan dari data lama. SEMUA dokumen OPSIONAL (soft-gate)
 // — validasi format hanya untuk nilai yang dikirim eksplisit di request ini.
 func (s *merchantServiceImpl) UpdateFoodDocs(ctx context.Context, userID string, req domain.UpdateFoodDocsRequest) (*domain.Merchant, error) {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -512,8 +525,14 @@ func (s *merchantServiceImpl) UpdateFoodDocs(ctx context.Context, userID string,
 // Semua field wajib. Rekening baru → bank_account_verified di-reset false
 // sampai admin approve (verifikasi ulang).
 func (s *merchantServiceImpl) UpdateBankAccount(ctx context.Context, userID string, req domain.UpdateBankAccountRequest) (*domain.Merchant, error) {
-	m, err := s.requireMerchant(ctx, userID)
+	m, err := s.requireOwnerMerchant(ctx, userID)
 	if err != nil {
+		return nil, err
+	}
+	if len(strings.TrimSpace(req.IdempotencyKey)) < 12 {
+		return nil, errors.New("idempotency_key minimal 12 karakter untuk rekening payout")
+	}
+	if err := s.requireApprovedHighRisk(ctx, userID, m.ID, req.ApprovalID, "bank_account"); err != nil {
 		return nil, err
 	}
 	bankName := strings.TrimSpace(req.BankName)
@@ -673,10 +692,45 @@ func (s *merchantServiceImpl) requireMerchant(ctx context.Context, userID string
 	if err != nil {
 		return nil, err
 	}
+	if m != nil {
+		return m, nil
+	}
+	if s.accessRepo == nil {
+		return nil, errors.New("merchant belum terdaftar")
+	}
+	access := domain.MerchantAccessFromContext(ctx)
+	if access.SessionToken == "" || access.BranchID == "" || access.DeviceID == "" {
+		return nil, errors.New("merchant session, branch, dan device wajib diisi untuk staff")
+	}
+	session, err := s.accessRepo.AuthorizeDeviceSession(ctx, domain.MerchantSessionAuthorization{
+		UserID: userID, MerchantID: "", BranchID: access.BranchID, DeviceID: access.DeviceID,
+		SessionToken: access.SessionToken, RequiredPermission: access.RequiredPermission,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return s.merchantRepo.GetByID(ctx, session.MerchantID)
+}
+
+func (s *merchantServiceImpl) requireOwnerMerchant(ctx context.Context, userID string) (*domain.Merchant, error) {
+	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 	if m == nil {
 		return nil, errors.New("merchant tidak ditemukan — daftar dulu")
 	}
 	return m, nil
+}
+
+func (s *merchantServiceImpl) requireApprovedHighRisk(ctx context.Context, userID, merchantID, approvalID, changeType string) error {
+	if s.accessRepo == nil {
+		return errors.New("high-risk approval repository not wired")
+	}
+	if strings.TrimSpace(approvalID) == "" {
+		return errors.New("approval_id wajib untuk perubahan high-risk")
+	}
+	return s.accessRepo.ValidateApprovedSecurityApproval(ctx, merchantID, userID, approvalID, changeType)
 }
 
 // ─────────────────────────────────────────────

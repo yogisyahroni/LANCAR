@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,16 +15,56 @@ import (
 // Validasi: discount_type valid, value > 0, window waktu valid,
 // max_discount_idr >= 0 (opsional), harga tidak boleh negatif/nol.
 type MerchantPromoService struct {
-	promoRepo domain.MerchantPromoRepository
-	menuRepo  domain.MenuItemRepository
+	promoRepo    domain.MerchantPromoRepository
+	menuRepo     domain.MenuItemRepository
+	merchantRepo domain.MerchantRepository
+	accessRepo   domain.MerchantAccessRepository
 }
 
 // NewMerchantPromoService buat service promo merchant.
 func NewMerchantPromoService(
 	promoRepo domain.MerchantPromoRepository,
 	menuRepo domain.MenuItemRepository,
+	optional ...interface{},
 ) *MerchantPromoService {
-	return &MerchantPromoService{promoRepo: promoRepo, menuRepo: menuRepo}
+	service := &MerchantPromoService{promoRepo: promoRepo, menuRepo: menuRepo}
+	for _, dependency := range optional {
+		switch value := dependency.(type) {
+		case domain.MerchantRepository:
+			service.merchantRepo = value
+		case domain.MerchantAccessRepository:
+			service.accessRepo = value
+		}
+	}
+	return service
+}
+
+func (s *MerchantPromoService) resolveMerchant(ctx context.Context, userID string) (string, error) {
+	if s.merchantRepo == nil {
+		return userID, nil
+	}
+	merchant, err := s.merchantRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+	if merchant != nil {
+		return merchant.ID, nil
+	}
+	if s.accessRepo == nil {
+		return "", errors.New("merchant belum terdaftar")
+	}
+	access := domain.MerchantAccessFromContext(ctx)
+	if strings.TrimSpace(access.SessionToken) == "" || strings.TrimSpace(access.BranchID) == "" || strings.TrimSpace(access.DeviceID) == "" {
+		return "", errors.New("merchant session, branch, dan device wajib diisi untuk staff")
+	}
+	session, err := s.accessRepo.AuthorizeDeviceSession(ctx, domain.MerchantSessionAuthorization{
+		UserID: userID, BranchID: access.BranchID, DeviceID: access.DeviceID,
+		SessionToken: access.SessionToken, RequiredPermission: access.RequiredPermission,
+	})
+	if err != nil {
+		return "", err
+	}
+	return session.MerchantID, nil
 }
 
 var validPromoTypes = map[string]bool{"percent": true, "fixed": true, "buy1get1": true}
@@ -65,6 +106,10 @@ func validatePromo(discountType string, discountValue int64, maxDiscountIDR *int
 }
 
 func (s *MerchantPromoService) Create(ctx context.Context, userID string, req domain.CreateMerchantPromoRequest) (*domain.MerchantPromo, error) {
+	merchantID, err := s.resolveMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 	if err := validatePromo(req.DiscountType, req.DiscountValue, req.MaxDiscountIDR); err != nil {
 		return nil, err
 	}
@@ -78,14 +123,14 @@ func (s *MerchantPromoService) Create(ctx context.Context, userID string, req do
 		if err != nil {
 			return nil, errors.New("menu item tidak ditemukan")
 		}
-		if item.MerchantID != userID {
+		if item.MerchantID != merchantID {
 			return nil, errors.New("menu item bukan milik merchant ini")
 		}
 	}
 
 	p := &domain.MerchantPromo{
 		ID:             uuid.NewString(),
-		MerchantID:     userID,
+		MerchantID:     merchantID,
 		MenuItemID:     req.MenuItemID,
 		DiscountType:   req.DiscountType,
 		DiscountValue:  req.DiscountValue,
@@ -101,17 +146,25 @@ func (s *MerchantPromoService) Create(ctx context.Context, userID string, req do
 }
 
 func (s *MerchantPromoService) List(ctx context.Context, userID string, page, pageSize int) ([]*domain.MerchantPromo, int, error) {
+	merchantID, err := s.resolveMerchant(ctx, userID)
+	if err != nil {
+		return nil, 0, err
+	}
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	return s.promoRepo.ListByMerchant(ctx, userID, pageSize, (page-1)*pageSize)
+	return s.promoRepo.ListByMerchant(ctx, merchantID, pageSize, (page-1)*pageSize)
 }
 
 func (s *MerchantPromoService) Update(ctx context.Context, userID, promoID string, req domain.UpdateMerchantPromoRequest) (*domain.MerchantPromo, error) {
-	existing, err := s.promoRepo.GetByID(ctx, promoID, userID)
+	merchantID, err := s.resolveMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	existing, err := s.promoRepo.GetByID(ctx, promoID, merchantID)
 	if err != nil {
 		return nil, err
 	}
@@ -153,13 +206,21 @@ func (s *MerchantPromoService) Update(ctx context.Context, userID, promoID strin
 	if err := s.promoRepo.Update(ctx, existing); err != nil {
 		return nil, err
 	}
-	return s.promoRepo.GetByID(ctx, promoID, userID)
+	return s.promoRepo.GetByID(ctx, promoID, merchantID)
 }
 
 func (s *MerchantPromoService) SetActive(ctx context.Context, userID, promoID string, active bool) error {
-	return s.promoRepo.SetActive(ctx, promoID, userID, active)
+	merchantID, err := s.resolveMerchant(ctx, userID)
+	if err != nil {
+		return err
+	}
+	return s.promoRepo.SetActive(ctx, promoID, merchantID, active)
 }
 
 func (s *MerchantPromoService) Delete(ctx context.Context, userID, promoID string) error {
-	return s.promoRepo.Delete(ctx, promoID, userID)
+	merchantID, err := s.resolveMerchant(ctx, userID)
+	if err != nil {
+		return err
+	}
+	return s.promoRepo.Delete(ctx, promoID, merchantID)
 }
