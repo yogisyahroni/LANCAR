@@ -60,10 +60,13 @@ func main() {
 	}
 
 	store := platform.NewStore(db, secretBox)
-	orderClient := platform.NewOrderClient(
+	orderClient, err := platform.NewOrderClient(
 		envOr("ORDER_SERVICE_URL", "http://localhost:8083"),
 		os.Getenv("JWT_SECRET"),
 	)
+	if err != nil {
+		log.Fatalf("configure order service client: %v", err)
+	}
 	handler := platform.NewHandler(
 		store,
 		orderClient,

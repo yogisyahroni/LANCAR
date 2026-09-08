@@ -583,7 +583,7 @@ func (h *Handler) deliverOne(ctx context.Context) error {
 	req.Header.Set("X-Lancar-Event-ID", jsonField(delivery.Payload, "id"))
 	req.Header.Set("X-Lancar-Timestamp", fmt.Sprintf("%d", now.Unix()))
 	req.Header.Set("X-Lancar-Signature", SignWebhook(secret, now, delivery.Payload))
-	response, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	response, err := webhookHTTPClient(h.environment != "production").Do(req) // #nosec G704 -- endpoint was validated and the transport blocks private-network resolution
 	if err != nil {
 		return h.store.MarkDeliveryFailure(ctx, *delivery, 0, "webhook request failed")
 	}

@@ -22,11 +22,22 @@ type OrderClient struct {
 	client    *http.Client
 }
 
-func NewOrderClient(baseURL, jwtSecret string) *OrderClient {
-	return &OrderClient{
-		baseURL: strings.TrimRight(baseURL, "/"), jwtSecret: []byte(jwtSecret),
-		client: &http.Client{Timeout: 12 * time.Second},
+func NewOrderClient(baseURL, jwtSecret string) (*OrderClient, error) {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	parsed, err := url.Parse(baseURL)
+	if err != nil || parsed.Scheme == "" || parsed.Hostname() == "" {
+		return nil, errors.New("order service URL must include a valid host")
 	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return nil, errors.New("order service URL must use http or https")
+	}
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return nil, errors.New("order service URL must not contain credentials, query parameters, or fragments")
+	}
+	return &OrderClient{
+		baseURL: baseURL, jwtSecret: []byte(jwtSecret),
+		client: &http.Client{Timeout: 12 * time.Second},
+	}, nil
 }
 
 func (c *OrderClient) userToken(userID string) (string, error) {
@@ -48,7 +59,9 @@ func (c *OrderClient) request(ctx context.Context, method, path, ownerUserID str
 	if len(body) > 0 {
 		reader = bytes.NewReader(body)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, reader)
+	// The base URL is operator-provided service configuration and is validated
+	// before the client is constructed; request paths are fixed by this package.
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, reader) // #nosec G704 -- validated internal service URL
 	if err != nil {
 		return 0, nil, err
 	}
@@ -69,7 +82,7 @@ func (c *OrderClient) request(ctx context.Context, method, path, ownerUserID str
 	if correlationID := strings.TrimSpace(os.Getenv("DEVELOPER_CORRELATION_ID")); correlationID != "" {
 		req.Header.Set("X-Correlation-ID", correlationID)
 	}
-	response, err := c.client.Do(req)
+	response, err := c.client.Do(req) // #nosec G704 -- request targets validated internal service URL
 	if err != nil {
 		return 0, nil, fmt.Errorf("call order-service: %w", err)
 	}

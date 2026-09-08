@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -13,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -227,16 +229,61 @@ func validateWebhookURL(raw string, allowLocalhost bool) error {
 		return errors.New("webhook url must use https")
 	}
 	host := parsed.Hostname()
-	if host == "localhost" || host == "localhost.localdomain" || host == "::1" || host == "127.0.0.1" {
+	if host == "" {
+		return errors.New("webhook url must include a host")
+	}
+	if isLocalhostHost(host) {
 		if !allowLocalhost {
 			return errors.New("webhook url cannot target localhost")
 		}
 		return nil
 	}
-	if ip := net.ParseIP(host); ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast()) {
+	if ip := net.ParseIP(host); ip != nil && isBlockedWebhookIP(ip) {
 		return errors.New("webhook url cannot target a private network address")
 	}
 	return nil
+}
+
+func isLocalhostHost(host string) bool {
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	return host == "localhost" || host == "localhost.localdomain" || host == "::1" || host == "127.0.0.1"
+}
+
+func isBlockedWebhookIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	return ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() ||
+		ip.IsUnspecified() || ip.IsMulticast()
+}
+
+func webhookHTTPClient(allowLocalhost bool) *http.Client {
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	transport := &http.Transport{
+		Proxy: nil,
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(address)
+			if err != nil {
+				return nil, fmt.Errorf("split webhook address: %w", err)
+			}
+			ips, err := net.LookupIP(host)
+			if err != nil {
+				return nil, fmt.Errorf("resolve webhook host: %w", err)
+			}
+			localHost := allowLocalhost && isLocalhostHost(host)
+			for _, ip := range ips {
+				if isBlockedWebhookIP(ip) && !(localHost && ip.IsLoopback()) {
+					continue
+				}
+				connection, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+				if dialErr == nil {
+					return connection, nil
+				}
+			}
+			return nil, errors.New("webhook host resolved only to blocked or unreachable addresses")
+		},
+	}
+	return &http.Client{Timeout: 10 * time.Second, Transport: transport}
 }
 
 func sanitizeJSON(value any) any {
