@@ -1858,13 +1858,13 @@ A task is complete only when applicable boxes below are true:
 - `tests/chaos/`
 
 **Checklist**
-- [ ] Every critical service has owner, dependency map, SLI/SLO and alerting threshold.
-- [ ] Capacity model covers quote, order create, tracking, socket, payment callback and provider webhook peaks.
-- [ ] Backpressure/load shedding protects transactional writes under overload.
-- [ ] Circuit breaker/bulkhead/retry budgets prevent cascading failure.
-- [ ] Chaos tests cover Redis, database replica, queue, maps, payment, carrier and notification failures.
-- [ ] Error budget influences release pace for unstable critical services.
-- [ ] Production incident has timeline, owner, severity, communication and postmortem workflow.
+- [x] Every critical service has owner, dependency map, SLI/SLO and alerting threshold. *(2026-09-09 — proven by `docs/sre/service-catalog.md` and `docs/sre/slo-catalog.md`; evidence: `docs/task-evidence/GLOB-2026-009.md`.)*
+- [x] Capacity model covers quote, order create, tracking, socket, payment callback and provider webhook peaks. *(2026-09-09 — proven by `docs/sre/capacity-model.md` and the canonical k6 profile; evidence: `docs/task-evidence/GLOB-2026-009.md`.)*
+- [x] Backpressure/load shedding protects transactional writes under overload. *(2026-09-09 — proven by order-service transactional load shedder, typed 503 test, and compose configuration; evidence: `docs/task-evidence/GLOB-2026-009.md`.)*
+- [x] Circuit breaker/bulkhead/retry budgets prevent cascading failure. *(2026-09-09 — proven by gateway/Go resilience tests, serialized half-open probes, retry defaults and bounded bulkheads; evidence: `docs/task-evidence/GLOB-2026-009.md`.)*
+- [x] Chaos tests cover Redis, database replica, queue, maps, payment, carrier and notification failures. *(2026-09-09 — proven by deterministic seven-dependency fault-injection matrix; evidence: `docs/task-evidence/GLOB-2026-009.md`.)*
+- [x] Error budget influences release pace for unstable critical services. *(2026-09-09 — proven by `docs/sre/error-budget-policy.md` and alert rules; evidence: `docs/task-evidence/GLOB-2026-009.md`.)*
+- [x] Production incident has timeline, owner, severity, communication and postmortem workflow. *(2026-09-09 — proven by `docs/runbooks/incident-command.md` and outage runbooks; evidence: `docs/task-evidence/GLOB-2026-009.md`.)*
 
 ---
 
