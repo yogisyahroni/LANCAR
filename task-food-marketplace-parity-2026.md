@@ -5660,8 +5660,8 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 
 **Checklist**
 - [ ] Budgets defined per app/surface and measured on representative low/mid/high device tiers.
-- [ ] Regression threshold gates release, not dashboard-only observation.
-- [ ] Performance target uses percentile, not only average.
+- [x] Regression threshold gates release, not dashboard-only observation.
+- [x] Performance target uses percentile, not only average.
 
 ---
 
