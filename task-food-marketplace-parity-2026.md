@@ -5559,11 +5559,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MERCH-2026-004 — Operating state/readiness capability [P0]
 
 **Checklist**
-- [ ] Open/closed/busy/paused/temp-closed/holiday states distinct.
-- [ ] Busy modifies prep capacity/ETA; Pause stops new orders.
-- [ ] Scheduled state changes timezone aware.
-- [ ] Admin/support override reasoned/audited.
-- [ ] Search/Ads eligibility reacts to authoritative operating state.
+- [x] Open/closed/busy/paused/temp-closed/holiday states distinct.
+- [x] Busy modifies prep capacity/ETA; Pause stops new orders.
+- [x] Scheduled state changes timezone aware.
+- [x] Admin/support override reasoned/audited.
+- [x] Search/Ads eligibility reacts to authoritative operating state.
 
 ---
 
