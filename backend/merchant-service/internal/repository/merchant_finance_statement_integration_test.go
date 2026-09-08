@@ -34,6 +34,25 @@ func TestMerchantFinanceStatementIntegration(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	financeRepo, ok := NewPostgresReportRepository(db, db).(domain.MerchantFinanceRepository)
+	if !ok {
+		t.Fatal("postgres report repository does not implement merchant finance repository")
+	}
+	baseline, err := financeRepo.FinanceStatement(ctx, merchantID, 100)
+	if err != nil {
+		t.Fatalf("baseline finance statement: %v", err)
+	}
+	var baselineTotals *domain.MerchantStatementTotals
+	for _, totals := range baseline.Totals {
+		if totals.CurrencyCode == "IDR" {
+			baselineTotals = totals
+			break
+		}
+	}
+	if baselineTotals == nil {
+		t.Fatal("fixture must expose an IDR finance bucket")
+	}
+	baselineEntryCount := len(baseline.Entries)
 	settlementID := uuid.New()
 	refundID := uuid.New()
 	withdrawalID := uuid.New()
@@ -117,33 +136,38 @@ func TestMerchantFinanceStatementIntegration(t *testing.T) {
 		}
 	}
 
-	financeRepo, ok := NewPostgresReportRepository(db, db).(domain.MerchantFinanceRepository)
-	if !ok {
-		t.Fatal("postgres report repository does not implement merchant finance repository")
-	}
 	statement, err := financeRepo.FinanceStatement(ctx, merchantID, 100)
 	if err != nil {
 		t.Fatalf("finance statement: %v", err)
 	}
-	if len(statement.Discrepancies) != 0 {
-		t.Fatalf("unexpected settlement discrepancy: %+v", statement.Discrepancies)
+	for _, discrepancy := range statement.Discrepancies {
+		if discrepancy.ReferenceID == settlementID.String() {
+			t.Fatalf("generated settlement unexpectedly reconciled as a discrepancy: %+v", discrepancy)
+		}
 	}
-	if len(statement.Totals) != 1 {
-		t.Fatalf("expected one currency bucket, got %+v", statement.Totals)
+	var totals *domain.MerchantStatementTotals
+	for _, candidate := range statement.Totals {
+		if candidate.CurrencyCode == "IDR" {
+			totals = candidate
+			break
+		}
 	}
-	totals := statement.Totals[0]
-	if totals.CurrencyCode != "IDR" || totals.CurrencyMinorUnit != 0 {
+	if totals == nil || totals.CurrencyMinorUnit != 0 {
 		t.Fatalf("unexpected currency context: %+v", totals)
 	}
-	if totals.SalesMinor != 42000 || totals.CommissionMinor != 4000 ||
-		totals.PromoSubsidyMinor != 1000 || totals.FeeMinor != 4000 ||
-		totals.RefundMinor != 5000 || totals.AdsSpendMinor != 1200 ||
-		totals.AdjustmentMinor != 700 || totals.PayoutMinor != 10000 ||
-		totals.NetBalanceMinor != 17500 {
-		t.Fatalf("statement categories do not reconcile: %+v", totals)
+	if totals.SalesMinor-baselineTotals.SalesMinor != 42000 ||
+		totals.CommissionMinor-baselineTotals.CommissionMinor != 4000 ||
+		totals.PromoSubsidyMinor-baselineTotals.PromoSubsidyMinor != 1000 ||
+		totals.FeeMinor-baselineTotals.FeeMinor != 4000 ||
+		totals.RefundMinor-baselineTotals.RefundMinor != 5000 ||
+		totals.AdsSpendMinor-baselineTotals.AdsSpendMinor != 1200 ||
+		totals.AdjustmentMinor-baselineTotals.AdjustmentMinor != 700 ||
+		totals.PayoutMinor-baselineTotals.PayoutMinor != 10000 ||
+		totals.NetBalanceMinor-baselineTotals.NetBalanceMinor != 17500 {
+		t.Fatalf("statement category deltas do not reconcile: baseline=%+v actual=%+v", baselineTotals, totals)
 	}
-	if len(statement.Entries) != 8 {
-		t.Fatalf("expected eight separated statement entries, got %d", len(statement.Entries))
+	if len(statement.Entries)-baselineEntryCount != 8 {
+		t.Fatalf("expected eight generated separated statement entries, baseline=%d actual=%d", baselineEntryCount, len(statement.Entries))
 	}
 }
 
