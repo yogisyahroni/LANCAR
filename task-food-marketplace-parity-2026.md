@@ -1905,13 +1905,13 @@ A task is complete only when applicable boxes below are true:
 - `docs/developer/sandbox.md`
 
 **Checklist**
-- [ ] External clients use scoped credentials/OAuth-equivalent, not internal API keys.
-- [ ] Public API versioning/backward compatibility policy documented.
-- [ ] Quote/create/get/cancel/track operations use idempotency and ownership scopes.
-- [ ] Webhooks are signed, replay-protected, retryable and have delivery logs.
-- [ ] Sandbox/test environment uses non-financial/provider-safe behavior.
-- [ ] Rate limits/quotas and abuse controls per client.
-- [ ] Developer API cannot bypass normal pricing/payment/risk/state invariants.
+- [x] External clients use scoped credentials/OAuth-equivalent, not internal API keys. Evidence: `docs/task-evidence/GLOB-2026-011.md`
+- [x] Public API versioning/backward compatibility policy documented. Evidence: `docs/task-evidence/GLOB-2026-011.md`
+- [x] Quote/create/get/cancel/track operations use idempotency and ownership scopes. Evidence: `docs/task-evidence/GLOB-2026-011.md`
+- [x] Webhooks are signed, replay-protected, retryable and have delivery logs. Evidence: `docs/task-evidence/GLOB-2026-011.md`
+- [x] Sandbox/test environment uses non-financial/provider-safe behavior. Evidence: `docs/task-evidence/GLOB-2026-011.md`
+- [x] Rate limits/quotas and abuse controls per client. Evidence: `docs/task-evidence/GLOB-2026-011.md`
+- [x] Developer API cannot bypass normal pricing/payment/risk/state invariants. Evidence: `docs/task-evidence/GLOB-2026-011.md`
 
 ---
 
