@@ -107,6 +107,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       customer_notes,
       price_breakdown,
       service_code,
+      size_tier,
       promo_code,
       voucher_code, // FB-078: kode voucher diskon (opsional, terpisah dari promo)
       logistics_provider,
@@ -176,7 +177,10 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       }
     }
 
-    const normalizedPackages = normalizePackageInputs(raw_packages, package_details || {});
+    const normalizedPackages = normalizePackageInputs(raw_packages, {
+      ...(package_details || {}),
+      size_tier: package_details?.size_tier || size_tier,
+    });
     validatePackagePolicy(service, normalizedPackages);
     const packageSummary = summarizePackages(service, normalizedPackages);
     const selectedTier = resolveSizeTier(service, package_details?.size_tier || normalizedPackages[0]?.size_tier || undefined);
@@ -550,7 +554,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
         $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, NOW()
-      ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
+      ) RETURNING id, order_number, status, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
     // FK orders_preferred_courier_id_fkey → users(id), TAPI app kirim

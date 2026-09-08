@@ -8,6 +8,10 @@ ALTER TABLE order_events ADD COLUMN IF NOT EXISTS version bigint NOT NULL DEFAUL
 ALTER TABLE order_events ADD COLUMN IF NOT EXISTS correlation_id uuid;
 
 -- Backfill existing rows with ascending versions per order
+-- Drop a partially-created index before rewriting version values. This keeps
+-- retries safe when a previous run committed the DDL but not the goose row.
+DROP INDEX IF EXISTS idx_order_events_order_version;
+
 UPDATE order_events oe
 SET version = sub.seq
 FROM (

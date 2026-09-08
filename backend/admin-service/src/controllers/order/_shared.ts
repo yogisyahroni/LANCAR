@@ -623,7 +623,9 @@ export const normalizePackageInputs = (rawPackages: any, legacyPackageDetails: a
       description: sanitizePackageString(item?.description || item?.item_description || legacyPackageDetails?.description, 'Paket'),
       category: sanitizePackageString(item?.category || item?.item_category || legacyPackageDetails?.category, 'other'),
       quantity: Math.min(100, Math.max(1, Math.trunc(toNumber(item?.quantity ?? legacyPackageDetails?.quantity, 1)))),
-      size_tier: item?.size_tier ? sanitizePackageString(item.size_tier).slice(0, 50) : null,
+      size_tier: item?.size_tier
+        ? sanitizePackageString(item.size_tier).slice(0, 50)
+        : (legacyPackageDetails?.size_tier ? sanitizePackageString(legacyPackageDetails.size_tier).slice(0, 50) : null),
       weight_kg: Math.max(0, toNumber(item?.weight_kg ?? legacyPackageDetails?.weight_kg, 0)),
       length_cm: Math.max(0, toNumber(item?.length_cm ?? dimensions.length ?? legacyPackageDetails?.length_cm, 0)),
       width_cm: Math.max(0, toNumber(item?.width_cm ?? dimensions.width ?? legacyPackageDetails?.width_cm, 0)),
@@ -886,15 +888,29 @@ export const calculateCustomerPriceBreakdown = async ({
   }: CustomerPriceCalculationInput) => {
   const quoteId = crypto.randomUUID();
   const quoteExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const normalizeFingerprintDimensions = (value: unknown) => {
+    const candidate = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+    const normalize = (dimension: unknown) => {
+      const numeric = Number(dimension);
+      return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+    };
+    return {
+      length: normalize(candidate.length),
+      width: normalize(candidate.width),
+      height: normalize(candidate.height),
+    };
+  };
   const quoteInputFingerprint = (normalizedPackages: NormalizedOrderPackage[]) => crypto
     .createHash('sha256')
     .update(JSON.stringify({
       service_code: service.code,
       pickup: pickupPoint,
       dropoff: dropoffPoint,
-      dimensions: dimensions || null,
+      dimensions: normalizeFingerprintDimensions(dimensions),
       weight_kg: weightKg || null,
-      packages: normalizedPackages,
+      // Package provenance (`packages_array` vs legacy form fields) is not
+      // business input and must not invalidate an otherwise identical quote.
+      packages: normalizedPackages.map(({ metadata: _metadata, ...pkg }) => pkg),
       has_insurance: Boolean(hasInsurance),
       item_value: toNumber(itemValue),
       size_tier: sizeTier || null,

@@ -1459,9 +1459,9 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Pickup/dropoff/capability/quote/requote/proof/transit/unloading/cancel/damage evidence. (2026-09-07 — TOW-2026-001..006 prerequisite chain and targeted tests complete; evidence: `docs/task-evidence/QA-2026-005.md`)
 
 ## QA-2026-006 — Paket Web E2E [P0]
-- [ ] Create→quote→payment→history→tracking→completion.
-- [ ] Refresh/back/retry idempotency.
-- [ ] Failed delivery support path.
+- [x] Create→quote→payment→history→tracking→completion. (2026-09-08 — local Chromium quote/create/history/detail/back journey plus payment, realtime tracking, proof/completion and server-authoritative lifecycle tests; evidence: `docs/task-evidence/QA-2026-006.md`)
+- [x] Refresh/back/retry idempotency. (2026-09-08 — browser back navigation and frontend order/payment replay/idempotency tests; evidence: `docs/task-evidence/QA-2026-006.md`)
+- [x] Failed delivery support path. (2026-09-08 — delivery recovery and courier support routing tests; evidence: `docs/task-evidence/QA-2026-006.md`)
 
 ## QA-2026-007 — Concurrency/replay suite [P0]
 

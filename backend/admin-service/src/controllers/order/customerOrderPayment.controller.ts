@@ -648,7 +648,10 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       service,
       pickupPoint,
       dropoffPoint,
-      dimensions,
+      // Keep the quote fingerprint identical to the create-order path. The
+      // web form sends dimensions inside package_details, not as a legacy
+      // top-level field.
+      dimensions: package_details?.dimensions || dimensions,
       weightKg: weight_kg,
       packages: normalizedPackages,
       hasInsurance: has_insurance,
@@ -797,4 +800,3 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
     });
   }
 };
-
