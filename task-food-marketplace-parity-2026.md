@@ -5629,12 +5629,12 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MERCH-2026-010 — Merchant lifecycle E2E release gate [P0/P1]
 
 **Mandatory scenarios**
-- [ ] Onboard → verify → branch setup → catalog → open → receive order → prepare → settle.
-- [ ] Busy/Pause/Search/Ads eligibility consistent.
-- [ ] Staff unauthorized finance action rejected.
-- [ ] Catalog event updates Search without bypassing checkout truth.
-- [ ] Settlement/refund/Ads charges reconcile.
-- [ ] Suspension safely handles active orders and appeal.
+- [x] Onboard → verify → branch setup → catalog → open → receive order → prepare → settle.
+- [x] Busy/Pause/Search/Ads eligibility consistent.
+- [x] Staff unauthorized finance action rejected.
+- [x] Catalog event updates Search without bypassing checkout truth.
+- [x] Settlement/refund/Ads charges reconcile.
+- [x] Suspension safely handles active orders and appeal.
 
 ---
 
