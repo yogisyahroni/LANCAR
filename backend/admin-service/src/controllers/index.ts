@@ -43,6 +43,7 @@ export * from './analytics.controller';
 export * from './marketplaceFairness.controller';
 export * from './economicPolicy.controller';
 export * from './pricingExperiment.controller';
+export * from './experiments.controller';
 
 // Notifications (Templates)
 export * from './notifications.controller';

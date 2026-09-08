@@ -9,6 +9,7 @@ import (
 
 	"context"
 	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/experiment"
 	"tembus/order-service/internal/featureflags"
 	"tembus/order-service/internal/handler"
 	"tembus/order-service/internal/infrastructure"
@@ -262,6 +263,7 @@ func main() {
 	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo, ledgerRepo, taxSvc)
 	orderSvc.SetMapsRepository(mapsRepo)
 	orderSvc.SetRiskService(service.NewMarketplaceRiskService(configRepo, repository.NewPostgresRiskRepository(db), nil, nil))
+	experimentSvc := experiment.NewService(experiment.NewRepository(db), os.Getenv("EXPERIMENT_ASSIGNMENT_SECRET"))
 	if canonicalPublisher, ok := datalakePub.(domain.CanonicalEventPublisher); ok {
 		if configurable, ok := orderSvc.(interface{ SetCanonicalEventPublisher(domain.CanonicalEventPublisher) }); ok {
 			configurable.SetCanonicalEventPublisher(canonicalPublisher)
@@ -348,6 +350,7 @@ func main() {
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
+	experimentHandler := handler.NewExperimentHandler(experimentSvc)
 	orderHandler.SetHandoffService(handoffSvc)
 	if foodQuoteSvc, ok := orderSvc.(domain.FoodQuoteService); ok {
 		orderHandler.SetFoodQuoteService(foodQuoteSvc)
@@ -523,6 +526,11 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/food", middleware.BaseChain(middleware.AuthMiddleware(
 		middleware.RequireIdempotencyKey(writeDB, "food_order.create", middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateFoodOrderRequest{})(orderHandler.CreateFoodOrder))),
 	)))
+
+	// GLOB-2026-008: server-authoritative experiment assignment and explicit
+	// exposure. Treatment exposure is durable in the transactional outbox.
+	mux.HandleFunc("/api/v1/experiments/{key}/assignment", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(experimentHandler.Assign))))
+	mux.HandleFunc("/api/v1/experiments/{key}/exposure", middleware.BaseChain(middleware.AuthMiddleware(middleware.RequireIdempotencyKey(writeDB, "experiment.exposure", middleware.LimitByIP(rdb)(experimentHandler.RecordExposure)))))
 
 	// Food delivery — browse merchant (FOOD-BIKE-055/056)
 	mux.HandleFunc("/api/v1/food/merchants", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFoodMerchants)))

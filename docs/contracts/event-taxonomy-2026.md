@@ -51,6 +51,7 @@ the migration window. New consumers must use the canonical names.
 | `model.unavailable.shown` | 1 | model and coarse route distance | product availability analysis |
 | `dispatch.decision` | 1 | candidate hash, score breakdown, ETA, model/rule version and fallback state | dispatch audit and experiment analysis |
 | `risk.decision` | 1 | decision id, operation, market, entity type, decision, coarse score, reason codes, policy/failure mode and subject hash | risk audit and governed trust/safety analysis |
+| `experiment.exposure` | 1 | experiment key/namespace, treatment variant, exposure type/surface and derived assignment key | experiment exposure and guardrail analysis |
 
 An event schema change increments `schema_version`. Version 1 consumers must
 continue to parse additive changes; removals or semantic changes require a new

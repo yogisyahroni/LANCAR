@@ -54,6 +54,7 @@ import CustomReports from './pages/CustomReports'
 import CampaignCalendar from './pages/CampaignCalendar'
 import CourierRetention from './pages/CourierRetention'
 import RiskReview from './pages/RiskReview'
+import Experiments from './pages/Experiments'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -409,6 +410,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/experiments" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><Experiments /></ProtectedRoute>} />
 
           <Route 
             path="/audit-logs" 

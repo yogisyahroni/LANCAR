@@ -224,6 +224,11 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
       prefix('/api/v1/insurance')(method, path),
   },
   {
+    id: 'experiment-assignment-api',
+    requirement: 'jwt',
+    matches: prefix('/api/v1/experiments'),
+  },
+  {
     id: 'routing-api',
     requirement: 'jwt',
     matches: prefix('/api/v1/routing'),

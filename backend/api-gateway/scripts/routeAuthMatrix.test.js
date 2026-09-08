@@ -34,6 +34,8 @@ assertPolicy('GET', '/api/v1/orders/detail', 'jwt', 'order-domain-api');
 assertPolicy('POST', '/api/v1/orders/status', 'jwt', 'order-domain-api');
 assertPolicy('GET', '/api/v1/couriers/me', 'jwt', 'order-domain-api');
 assertPolicy('POST', '/api/v1/tracking/sync', 'jwt', 'order-domain-api');
+assertPolicy('POST', '/api/v1/experiments/food-home-layout-v1/assignment', 'jwt', 'experiment-assignment-api');
+assertPolicy('POST', '/api/v1/experiments/food-home-layout-v1/exposure', 'jwt', 'experiment-assignment-api');
 assertPolicy('POST', '/api/v1/routing/plan', 'jwt', 'routing-api');
 assertPolicy('GET', '/api/v1/wallet/balance', 'jwt', 'wallet-api');
 assertPolicy('GET', '/docs/auth', 'ops-protected', 'swagger-docs');

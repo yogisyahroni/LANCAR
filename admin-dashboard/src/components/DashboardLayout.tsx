@@ -39,7 +39,8 @@ import {
   Link as LinkIcon,
   Megaphone,
   Calendar,
-  Globe2
+  Globe2,
+  Beaker
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -224,6 +225,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Globe2, label: "Market & Localization", path: "/courier-market-config", allowedRoles: ['super_admin', 'ops_admin', 'ops_security', 'finance_admin'] },
         { icon: ClipboardCheck, label: "Courier Retention", path: "/courier-retention", allowedRoles: ['super_admin', 'admin', 'ops_admin', 'ops_security'] },
         { icon: ShieldAlert, label: "Risk Review", path: "/risk-reviews", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
+        { icon: Beaker, label: "Experiments", path: "/experiments", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
       ]
     },
     {

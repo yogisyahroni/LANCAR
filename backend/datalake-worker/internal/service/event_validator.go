@@ -37,6 +37,7 @@ var EventSchemaRegistry = map[string]EventSchema{
 	"model.unavailable.shown":          {EventType: "model.unavailable.shown", SupportedVersions: []int{1}, BackwardCompatible: true},
 	"dispatch.decision":                {EventType: "dispatch.decision", SupportedVersions: []int{1}, BackwardCompatible: true},
 	"risk.decision":                    {EventType: "risk.decision", SupportedVersions: []int{1}, BackwardCompatible: true},
+	"experiment.exposure":              {EventType: "experiment.exposure", SupportedVersions: []int{1}, BackwardCompatible: true},
 }
 
 var (
