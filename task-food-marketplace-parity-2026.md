@@ -1789,12 +1789,12 @@ A task is complete only when applicable boxes below are true:
 - `backend/marketplace-intelligence-service/internal/service/dispatch_service_test.go`
 
 **Checklist**
-- [ ] Dispatch candidate scoring can consider ETA, distance, vehicle/capability, workload, acceptance probability, completion probability and marketplace constraints.
-- [ ] Food matching can combine merchant prep readiness, courier arrival prediction, waiting risk and batching compatibility.
-- [ ] ETA model separates prediction from authoritative order state and exposes confidence/source.
-- [ ] Model/rule version is logged per decision for audit and experiment analysis.
-- [ ] Cold-start/rule-based fallback exists when ML service is unavailable.
-- [ ] Intelligence service failure cannot corrupt order state; safe deterministic fallback exists.
+- [x] Dispatch candidate scoring can consider ETA, distance, vehicle/capability, workload, acceptance probability, completion probability and marketplace constraints.
+- [x] Food matching can combine merchant prep readiness, courier arrival prediction, waiting risk and batching compatibility.
+- [x] ETA model separates prediction from authoritative order state and exposes confidence/source.
+- [x] Model/rule version is logged per decision for audit and experiment analysis.
+- [x] Cold-start/rule-based fallback exists when ML service is unavailable.
+- [x] Intelligence service failure cannot corrupt order state; safe deterministic fallback exists.
 
 ---
 
