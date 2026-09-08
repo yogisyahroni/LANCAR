@@ -1833,13 +1833,13 @@ A task is complete only when applicable boxes below are true:
 - `database/migrations/<timestamp>_add_experiments_and_assignments.sql`
 
 **Checklist**
-- [ ] Deterministic user/entity assignment with stable bucketing.
-- [ ] Target by market, city, app version, service, user cohort and safe product attributes.
-- [ ] Mutually-exclusive experiment namespaces supported where needed.
-- [ ] Exposure event is recorded only when user actually sees/uses treatment.
-- [ ] Guardrail metrics include crash/error, cancellation, refund, ETA/SLA and support contact—not conversion alone.
-- [ ] Kill switch can immediately disable a treatment.
-- [ ] Experiment config cannot change financial truth or bypass server validation.
+- [x] Deterministic user/entity assignment with stable bucketing.
+- [x] Target by market, city, app version, service, user cohort and safe product attributes.
+- [x] Mutually-exclusive experiment namespaces supported where needed.
+- [x] Exposure event is recorded only when user actually sees/uses treatment.
+- [x] Guardrail metrics include crash/error, cancellation, refund, ETA/SLA and support contact—not conversion alone.
+- [x] Kill switch can immediately disable a treatment.
+- [x] Experiment config cannot change financial truth or bypass server validation.
 
 ---
 
