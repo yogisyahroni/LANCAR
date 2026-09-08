@@ -57,13 +57,13 @@ type PartialRejectResult struct {
 
 // MerchantService — interface layanan merchant (FOOD-BIKE-017).
 type MerchantService interface {
-	// Register mendaftarkan merchant baru (status pending) + dokumen verifikasi.
+	// Register mendaftarkan merchant baru (status SUBMITTED) + dokumen KYB.
 	Register(ctx context.Context, userID string, req RegisterMerchantRequest) (*Merchant, error)
 	// GetProfile ambil profil merchant milik user (nil jika belum daftar).
 	GetProfile(ctx context.Context, userID string) (*Merchant, error)
 	// UpdateProfile update profil merchant milik user.
 	UpdateProfile(ctx context.Context, userID string, req UpdateMerchantRequest) (*Merchant, error)
-	// ToggleOpen buka/tutup merchant (hanya jika approved).
+	// ToggleOpen buka/tutup merchant (hanya jika onboarding ACTIVE).
 	ToggleOpen(ctx context.Context, userID string, isOpen bool) (*Merchant, error)
 	// Pause (FB-107): pause sementara sampai `until` — tidak mengubah is_open.
 	Pause(ctx context.Context, userID string, until time.Time) (*Merchant, error)

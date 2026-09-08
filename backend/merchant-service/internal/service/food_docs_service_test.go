@@ -34,6 +34,10 @@ type foodDocsRepo struct {
 func (r *foodDocsRepo) Create(ctx context.Context, m *domain.Merchant, docs []domain.MerchantDocument) error {
 	return nil
 }
+func (r *foodDocsRepo) Resubmit(ctx context.Context, m *domain.Merchant, docs []domain.MerchantDocument) error {
+	r.merchant = m
+	return nil
+}
 func (r *foodDocsRepo) GetByID(ctx context.Context, id string) (*domain.Merchant, error) {
 	return r.merchant, nil
 }
@@ -285,6 +289,20 @@ func TestToggleOpen_BelumApproved_Ditolak(t *testing.T) {
 	_, err := svc.ToggleOpen(context.Background(), "user-1", true)
 	if err == nil {
 		t.Fatal("buka toko sebelum approved harus ditolak")
+	}
+}
+
+func TestToggleOpen_SuspendedLifecycle_DitolakMeskiLegacyApproved(t *testing.T) {
+	repo := &foodDocsRepo{merchant: &domain.Merchant{
+		ID:                 "merchant-1",
+		UserID:             "user-1",
+		VerificationStatus: "approved",
+		OnboardingStatus:   "SUSPENDED",
+	}}
+	svc := newFoodDocsService(repo)
+
+	if _, err := svc.ToggleOpen(context.Background(), "user-1", true); err == nil {
+		t.Fatal("merchant suspended tidak boleh self-activate toko")
 	}
 }
 

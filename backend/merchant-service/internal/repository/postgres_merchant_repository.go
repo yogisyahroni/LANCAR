@@ -50,12 +50,19 @@ func (r *postgresMerchantRepository) Create(ctx context.Context, m *domain.Merch
 	bpomExp := nullableDate(m.BpomExpiryDate)
 
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO merchants (id, user_id, nama_toko, alamat, lokasi, jam_buka, jam_tutup, verification_status,
-			halal_cert_number, halal_expiry_date, spp_irt_number, spp_irt_expiry_date, bpom_number, bpom_expiry_date)
-		VALUES ($1, $2, $3, $4, $5::geography, $6, $7, 'pending',
-			$8, $9::date, $10, $11::date, $12, $13::date)
+		INSERT INTO merchants (
+			id, user_id, nama_toko, alamat, lokasi, jam_buka, jam_tutup,
+			verification_status, onboarding_status, market_code, business_type, onboarding_submitted_at,
+			halal_cert_number, halal_expiry_date, spp_irt_number, spp_irt_expiry_date, bpom_number, bpom_expiry_date
+		)
+		VALUES (
+			$1, $2, $3, $4, $5::geography, $6, $7,
+			'pending', $8::text, $9::text, $10::text, NOW(),
+			$11, $12::date, $13, $14::date, $15, $16::date
+		)
 		RETURNING created_at, updated_at`,
 		m.ID, m.UserID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup,
+		m.OnboardingStatus, m.MarketCode, m.BusinessType,
 		halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp,
 	).Scan(&m.CreatedAt, &m.UpdatedAt)
 	if err != nil {
@@ -73,6 +80,108 @@ func (r *postgresMerchantRepository) Create(ctx context.Context, m *domain.Merch
 		}
 	}
 
+	registrationReference := sql.NullString{}
+	for _, doc := range docs {
+		if doc.DocType == "nib" {
+			registrationReference = sql.NullString{String: "merchant_document:nib", Valid: true}
+			break
+		}
+	}
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO merchant_legal_profiles (
+			merchant_id, legal_entity_type, legal_name, registration_reference,
+			tax_identifier, owner_user_id, operator_user_id, market_code, payout_account_reference
+		) VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8)`,
+		m.ID, m.BusinessType, m.NamaToko, registrationReference, m.NPWP, m.UserID,
+		m.MarketCode, "merchant_bank_account:"+m.ID,
+	); err != nil {
+		return fmt.Errorf("insert merchant legal profile: %w", err)
+	}
+
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO merchant_onboarding_reviews (merchant_id, from_status, to_status, actor_id, metadata)
+		VALUES ($1, 'DRAFT', 'SUBMITTED', $2, jsonb_build_object('source', 'merchant_registration'))`,
+		m.ID, m.UserID,
+	); err != nil {
+		return fmt.Errorf("insert merchant onboarding submission audit: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func (r *postgresMerchantRepository) Resubmit(ctx context.Context, m *domain.Merchant, docs []domain.MerchantDocument) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin onboarding resubmission tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var lokasi sql.NullString
+	if m.LokasiLat != nil && m.LokasiLng != nil {
+		lokasi = sql.NullString{String: fmt.Sprintf("POINT(%v %v)", *m.LokasiLng, *m.LokasiLat), Valid: true}
+	}
+	var jamBuka, jamTutup sql.NullString
+	if m.JamBuka != nil {
+		jamBuka = sql.NullString{String: *m.JamBuka, Valid: true}
+	}
+	if m.JamTutup != nil {
+		jamTutup = sql.NullString{String: *m.JamTutup, Valid: true}
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE merchants
+		   SET nama_toko = $2::text,
+		       alamat = $3::text,
+		       lokasi = $4::geography,
+		       jam_buka = $5::time,
+		       jam_tutup = $6::time,
+		       market_code = $7::text,
+		       business_type = $8::text,
+		       updated_at = NOW()
+		 WHERE id = $1::uuid AND user_id = $9::uuid`,
+		m.ID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup, m.MarketCode, m.BusinessType, m.UserID,
+	); err != nil {
+		return fmt.Errorf("update merchant onboarding facts: %w", err)
+	}
+
+	for _, doc := range docs {
+		if _, err = tx.ExecContext(ctx, `DELETE FROM merchant_documents WHERE merchant_id = $1::uuid AND doc_type = $2::text`, m.ID, doc.DocType); err != nil {
+			return fmt.Errorf("delete previous onboarding document %s: %w", doc.DocType, err)
+		}
+		if _, err = tx.ExecContext(ctx, `INSERT INTO merchant_documents (merchant_id, doc_type, file_url) VALUES ($1::uuid, $2::text, $3::text)`, m.ID, doc.DocType, doc.FileURL); err != nil {
+			return fmt.Errorf("insert resubmitted onboarding document %s: %w", doc.DocType, err)
+		}
+	}
+
+	registrationReference := sql.NullString{}
+	for _, doc := range docs {
+		if doc.DocType == "nib" {
+			registrationReference = sql.NullString{String: "merchant_document:nib", Valid: true}
+			break
+		}
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE merchant_legal_profiles
+		   SET legal_entity_type = $2::text,
+		       legal_name = $3::text,
+		       registration_reference = $4,
+		       tax_identifier = $5,
+		       owner_user_id = $6::uuid,
+		       operator_user_id = $6::uuid,
+		       market_code = $7::text,
+		       payout_account_reference = $8::text,
+		       updated_at = NOW()
+		 WHERE merchant_id = $1::uuid`,
+		m.ID, m.BusinessType, m.NamaToko, registrationReference, m.NPWP, m.UserID, m.MarketCode, "merchant_bank_account:"+m.ID,
+	); err != nil {
+		return fmt.Errorf("update merchant legal profile: %w", err)
+	}
+
+	if _, err = tx.ExecContext(ctx, `
+		SELECT transition_merchant_onboarding($1::uuid, 'SUBMITTED', $2::uuid, NULL, jsonb_build_object('source', 'merchant_resubmission'))`,
+		m.ID, m.UserID,
+	); err != nil {
+		return fmt.Errorf("transition merchant onboarding to submitted: %w", err)
+	}
 	return tx.Commit()
 }
 
@@ -90,6 +199,7 @@ const merchantColumns = `m.id, m.user_id,
 	m.bank_name, m.bank_account_number, m.bank_account_holder, m.bank_account_verified,
 	m.business_type,
 	m.payout_schedule, m.npwp,
+	m.onboarding_status, m.market_code,
 	m.created_at, m.updated_at`
 
 func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error) {
@@ -117,6 +227,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&bankName, &bankAccountNumber, &bankAccountHolder, &m.BankAccountVerified,
 		&businessType,
 		&payoutSchedule, &npwp,
+		&m.OnboardingStatus, &m.MarketCode,
 		&m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
@@ -281,18 +392,7 @@ func (r *postgresMerchantRepository) UpdateBankAccount(ctx context.Context, merc
 }
 
 func (r *postgresMerchantRepository) UpdateVerification(ctx context.Context, id, status string) error {
-	res, err := r.db.ExecContext(ctx, `
-		UPDATE merchants
-		SET verification_status = $2, updated_at = NOW()
-		WHERE id = $1`, id, status)
-	if err != nil {
-		return err
-	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+	return fmt.Errorf("merchant verification status %q must transition through admin onboarding review", status)
 }
 
 func (r *postgresMerchantRepository) ToggleOpen(ctx context.Context, id string, isOpen bool) error {

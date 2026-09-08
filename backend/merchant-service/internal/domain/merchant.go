@@ -8,8 +8,8 @@ import (
 )
 
 // Merchant — entitas merchant (FOOD-BIKE-003/015).
-// verification_status: pending | approved | rejected (FOOD-BIKE-046).
-// Merchant baru default pending, tidak bisa terima order sampai approved.
+// OnboardingStatus is the canonical MERCH-2026-001 lifecycle. The legacy
+// verification_status projection remains for older consumers.
 type Merchant struct {
 	ID         string   `json:"id"`
 	UserID     string   `json:"user_id"`
@@ -35,6 +35,10 @@ type Merchant struct {
 	// staff; 'perusahaan' = WAJIB punya staff management (merchant_staff).
 	BusinessType       string `json:"business_type"`
 	VerificationStatus string `json:"verification_status"`
+	// MERCH-2026-001: canonical onboarding lifecycle is server controlled.
+	// verification_status remains a legacy compatibility projection.
+	OnboardingStatus string `json:"onboarding_status"`
+	MarketCode       string `json:"market_code"`
 	// Rating restoran (FOOD-BIKE-059/060): di-update order-service tiap
 	// customer submit rating setelah order delivered.
 	AvgRating   float64 `json:"avg_rating"`
@@ -141,9 +145,12 @@ type MerchantOperatingHoursResponse struct {
 
 // MerchantRepository — interface akses data merchant.
 type MerchantRepository interface {
-	// Create membuat merchant baru dengan status pending + dokumen verifikasi
+	// Create membuat merchant baru dengan status SUBMITTED + dokumen KYB
 	// dalam SATU transaksi.
 	Create(ctx context.Context, m *Merchant, docs []MerchantDocument) error
+	// Resubmit replaces current onboarding facts/documents and transitions only
+	// DRAFT/REJECTED applications back to SUBMITTED through the DB lifecycle.
+	Resubmit(ctx context.Context, m *Merchant, docs []MerchantDocument) error
 	// GetByID ambil merchant by id.
 	GetByID(ctx context.Context, id string) (*Merchant, error)
 	// GetByUserID ambil merchant milik user (untuk profil/setting).

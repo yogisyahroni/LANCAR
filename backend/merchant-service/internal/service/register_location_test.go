@@ -79,3 +79,24 @@ func TestRegisterRequiresLocation(t *testing.T) {
 		}
 	})
 }
+
+func TestRegisterRejectedMerchantResubmitsThroughLifecycle(t *testing.T) {
+	repo := &foodDocsRepo{merchant: &domain.Merchant{
+		ID:                 "merchant-rejected-1",
+		UserID:             "user-1",
+		VerificationStatus: "rejected",
+		OnboardingStatus:   "REJECTED",
+	}}
+	svc := newFoodDocsService(repo)
+
+	merchant, err := svc.Register(context.Background(), "user-1", validRegisterReq())
+	if err != nil {
+		t.Fatalf("resubmit merchant rejected: %v", err)
+	}
+	if merchant.ID != "merchant-rejected-1" {
+		t.Fatalf("resubmission must keep merchant id, got %q", merchant.ID)
+	}
+	if merchant.OnboardingStatus != "SUBMITTED" {
+		t.Fatalf("resubmission onboarding status = %q, want SUBMITTED", merchant.OnboardingStatus)
+	}
+}

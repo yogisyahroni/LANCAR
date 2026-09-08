@@ -3,8 +3,11 @@ package domain
 // RegisterMerchantRequest — body pendaftaran merchant (FOOD-BIKE-045).
 // NIB/izin usaha opsional (banyak UMKM kuliner belum punya).
 type RegisterMerchantRequest struct {
-	NamaToko      string   `json:"nama_toko"`
-	Alamat        string   `json:"alamat"`
+	NamaToko string `json:"nama_toko"`
+	Alamat   string `json:"alamat"`
+	// Market is explicit so the server can apply the matching KYB policy.
+	// Empty keeps the existing Indonesia/Jakarta default for legacy clients.
+	MarketCode    string   `json:"market_code,omitempty"`
 	LokasiLat     *float64 `json:"lokasi_lat,omitempty"`
 	LokasiLng     *float64 `json:"lokasi_lng,omitempty"`
 	JamBuka       *string  `json:"jam_buka,omitempty"`

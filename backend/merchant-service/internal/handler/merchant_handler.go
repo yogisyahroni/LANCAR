@@ -56,7 +56,7 @@ func (h *MerchantHandler) respondJSON(w http.ResponseWriter, status int, v inter
 
 // RegisterMerchant godoc
 // @Summary Daftarkan merchant baru
-// @Description Mendaftarkan merchant (status pending) + dokumen verifikasi. Wajib approved sebelum terima order.
+// @Description Mendaftarkan merchant (status SUBMITTED) + dokumen KYB. Wajib ACTIVE melalui review admin sebelum operasi.
 // @Tags merchant
 // @Accept json
 // @Produce json

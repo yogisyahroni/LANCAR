@@ -37,11 +37,23 @@ func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemReposito
 func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req domain.RegisterMerchantRequest) (*domain.Merchant, error) {
 	req.NamaToko = strings.TrimSpace(req.NamaToko)
 	req.Alamat = strings.TrimSpace(req.Alamat)
+	req.MarketCode = strings.ToUpper(strings.TrimSpace(req.MarketCode))
+	if req.MarketCode == "" {
+		req.MarketCode = "ID-JK"
+	}
 	if req.NamaToko == "" {
 		return nil, errors.New("nama_toko wajib diisi")
 	}
 	if req.Alamat == "" {
 		return nil, errors.New("alamat wajib diisi")
+	}
+	if len(req.MarketCode) > 32 {
+		return nil, errors.New("market_code maksimal 32 karakter")
+	}
+	for _, character := range req.MarketCode {
+		if !(character >= 'A' && character <= 'Z') && !(character >= '0' && character <= '9') && character != '-' && character != '_' {
+			return nil, errors.New("market_code hanya boleh huruf, angka, tanda hubung, atau underscore")
+		}
 	}
 	if req.KtpPemilikURL == "" || req.FotoTokoURL == "" || req.RekeningURL == "" {
 		return nil, errors.New("dokumen wajib: ktp_pemilik_url, foto_tempat_usaha_url, rekening_bank_url")
@@ -67,9 +79,6 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 	if err != nil {
 		return nil, err
 	}
-	if existing != nil {
-		return nil, errors.New("merchant sudah terdaftar")
-	}
 
 	m := &domain.Merchant{
 		ID:                 uuid.New().String(),
@@ -77,6 +86,8 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 		NamaToko:           req.NamaToko,
 		Alamat:             req.Alamat,
 		VerificationStatus: "pending", // default — wajib admin approve dulu (FOOD-BIKE-046)
+		OnboardingStatus:   "SUBMITTED",
+		MarketCode:         req.MarketCode,
 		JamBuka:            req.JamBuka,
 		JamTutup:           req.JamTutup,
 		BusinessType:       bt, // X1: 'perorangan'|'perusahaan'
@@ -115,6 +126,23 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 	}
 	docs = append(docs, foodDocs...)
 
+	if existing != nil {
+		// Registration requests do not carry the sensitive tax identifier; keep
+		// the existing legal-profile value during a rejected-application retry.
+		m.NPWP = existing.NPWP
+		currentStatus := existing.OnboardingStatus
+		if currentStatus == "" && existing.VerificationStatus == "rejected" {
+			currentStatus = "REJECTED"
+		}
+		if currentStatus != "DRAFT" && currentStatus != "REJECTED" {
+			return nil, errors.New("merchant sudah terdaftar dan tidak dapat diajukan ulang pada status saat ini")
+		}
+		m.ID = existing.ID
+		if err := s.merchantRepo.Resubmit(ctx, m, docs); err != nil {
+			return nil, err
+		}
+		return s.merchantRepo.GetByID(ctx, m.ID)
+	}
 	if err := s.merchantRepo.Create(ctx, m, docs); err != nil {
 		return nil, err
 	}
@@ -291,12 +319,22 @@ func validClock(value string) bool {
 	return err == nil
 }
 
+// merchantOnboardingActive prefers the canonical lifecycle. The legacy
+// verification projection remains only for fixtures and databases that have
+// not yet applied the MERCH-2026-001 migration.
+func merchantOnboardingActive(m *domain.Merchant) bool {
+	if m.OnboardingStatus != "" {
+		return m.OnboardingStatus == "ACTIVE"
+	}
+	return m.VerificationStatus == "approved"
+}
+
 func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isOpen bool) (*domain.Merchant, error) {
 	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	if m.VerificationStatus != "approved" {
+	if !merchantOnboardingActive(m) {
 		return nil, errors.New("merchant belum disetujui — tidak bisa buka toko")
 	}
 	// ADR 003: dokumen pangan (halal/SPP-IRT/BPOM) TIDAK lagi jadi gate buka
@@ -315,7 +353,7 @@ func (s *merchantServiceImpl) Pause(ctx context.Context, userID string, until ti
 	if err != nil {
 		return nil, err
 	}
-	if m.VerificationStatus != "approved" {
+	if !merchantOnboardingActive(m) {
 		return nil, errors.New("merchant belum disetujui")
 	}
 	if until.Before(time.Now()) {
@@ -346,7 +384,7 @@ func (s *merchantServiceImpl) Busy(ctx context.Context, userID string, until tim
 	if err != nil {
 		return nil, err
 	}
-	if m.VerificationStatus != "approved" {
+	if !merchantOnboardingActive(m) {
 		return nil, errors.New("merchant belum disetujui")
 	}
 	if until.Before(time.Now()) {

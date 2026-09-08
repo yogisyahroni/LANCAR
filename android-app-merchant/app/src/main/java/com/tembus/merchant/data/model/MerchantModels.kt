@@ -25,6 +25,10 @@ data class Merchant(
     @SerializedName("busy_extra_prep_minutes") val busyExtraPrepMinutes: Int = 0,
     @SerializedName("completion_rate_pct") val completionRatePct: Double = 0.0,
     @SerializedName("verification_status") val verificationStatus: String = "pending",
+    // MERCH-2026-001: canonical lifecycle comes from the server. The legacy
+    // verification field stays for backward-compatible display only.
+    @SerializedName("onboarding_status") val onboardingStatus: String = "",
+    @SerializedName("market_code") val marketCode: String = "ID-JK",
     // Rating restoran — di-update order-service tiap customer submit rating (FOOD-BIKE-059/060).
     @SerializedName("avg_rating") val avgRating: Double = 0.0,
     @SerializedName("rating_count") val ratingCount: Int = 0,
@@ -49,7 +53,7 @@ data class Merchant(
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null
 ) {
-    val isApproved: Boolean get() = verificationStatus == "approved"
+    val isApproved: Boolean get() = onboardingStatus == "ACTIVE" || (onboardingStatus.isBlank() && verificationStatus == "approved")
     val isRejected: Boolean get() = verificationStatus == "rejected"
 
     /** ADR 003: status halal untuk UI merchant (pilih di form dokumen pangan). */

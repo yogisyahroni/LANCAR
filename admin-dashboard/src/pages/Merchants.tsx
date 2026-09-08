@@ -26,10 +26,15 @@ const resolveUploadUrl = (fileUrl?: string) => {
 }
 
 const formatIDR = (v: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
+const idempotencyKey = (scope: string) => `merchant-onboarding-${scope}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+const lifecycleLabel = (status?: string) => ({
+  DRAFT: 'Draft', SUBMITTED: 'Diajukan', VERIFYING: 'Sedang diverifikasi',
+  ACTIVE: 'Aktif', REJECTED: 'Ditolak', SUSPENDED: 'Disuspend',
+}[String(status || '').toUpperCase()] || status || '—')
 
 export default function Merchants() {
   const queryClient = useQueryClient()
-  const [status, setStatus] = useState('pending')
+  const [status, setStatus] = useState('SUBMITTED')
   const [selected, setSelected] = useState<any>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [showReject, setShowReject] = useState(false)
@@ -59,7 +64,7 @@ export default function Merchants() {
 
   const approve = useMutation({
     mutationFn: async (id: string) => {
-      const res = await api.post(`/admin/merchants/${id}/approve`)
+      const res = await api.post(`/admin/merchants/${id}/approve`, {}, { headers: { 'X-Idempotency-Key': idempotencyKey(`activate-${id}`) } })
       return res.data
     },
     onSuccess: () => {
@@ -72,7 +77,7 @@ export default function Merchants() {
 
   const reject = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      const res = await api.post(`/admin/merchants/${id}/reject`, { reason })
+      const res = await api.post(`/admin/merchants/${id}/reject`, { reason }, { headers: { 'X-Idempotency-Key': idempotencyKey(`reject-${id}`) } })
       return res.data
     },
     onSuccess: () => {
@@ -81,6 +86,34 @@ export default function Merchants() {
       setShowReject(false)
       setRejectReason('')
       toast.success('Merchant ditolak')
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || error.message)
+  })
+
+  const startVerification = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post(`/admin/merchants/${id}/start-verification`, {}, { headers: { 'X-Idempotency-Key': idempotencyKey(`verify-${id}`) } })
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-merchants'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-merchant-detail'] })
+      setSelected(null)
+      toast.success('Review verifikasi dimulai')
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || error.message)
+  })
+
+  const suspend = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const res = await api.post(`/admin/merchants/${id}/suspend`, { reason }, { headers: { 'X-Idempotency-Key': idempotencyKey(`suspend-${id}`) } })
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-merchants'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-merchant-detail'] })
+      setSelected(null)
+      toast.success('Merchant disuspend dan toko ditutup')
     },
     onError: (error: any) => toast.error(error.response?.data?.error || error.message)
   })
@@ -96,6 +129,7 @@ export default function Merchants() {
       )
     : merchants
   const active = selected || merchants[0]
+  const merchantDetail = detail?.merchant || active
   const documents = active ? (detail?.documents || []) : []
   const menuItems = active ? (detail?.menu_items || []) : []
   const hasMenu = Array.isArray(menuItems) && menuItems.length > 0
@@ -110,17 +144,17 @@ export default function Merchants() {
           </p>
         </div>
         <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
-          {['pending', 'approved', 'rejected', 'all'].map((item) => (
+          {['SUBMITTED', 'VERIFYING', 'ACTIVE', 'REJECTED', 'SUSPENDED', 'all'].map((item) => (
             <button
               key={item}
               type="button"
               onClick={() => { setStatus(item); setSelected(null) }}
               className={cn(
-                'rounded-xl px-4 py-2 text-sm font-bold capitalize transition',
+                'rounded-xl px-3 py-2 text-sm font-bold transition',
                 status === item ? 'bg-primary text-white' : 'text-zinc-400 hover:text-white'
               )}
             >
-              {item}
+              {item === 'all' ? 'Semua' : lifecycleLabel(item)}
             </button>
           ))}
         </div>
@@ -189,14 +223,14 @@ export default function Merchants() {
                     <p className="font-bold text-zinc-100">{item.nama_toko}</p>
                     <p className="mt-1 text-xs text-zinc-500">{item.phone || item.email || '—'}</p>
                   </div>
-                  {item.verification_status === 'approved'
+                  {item.onboarding_status === 'ACTIVE'
                     ? <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                    : item.verification_status === 'rejected'
+                    : item.onboarding_status === 'REJECTED' || item.onboarding_status === 'SUSPENDED'
                       ? <XCircle className="h-5 w-5 text-red-400" />
                       : <AlertTriangle className="h-5 w-5 text-amber-300" />}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase">
-                  <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.verification_status}</span>
+                  <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{lifecycleLabel(item.onboarding_status)}</span>
                   <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.is_open ? 'Buka' : 'Tutup'}</span>
                   {/* ADR 003: status halal */}
                   <span className={cn(
@@ -231,6 +265,9 @@ export default function Merchants() {
                     <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">
                       Completion {active.completion_rate_pct ?? 0}%
                     </span>
+                    <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">
+                      {lifecycleLabel(active.onboarding_status)} · {active.market_code || 'ID-JK'}
+                    </span>
                     {/* ADR 003: status halal merchant */}
                     <span className={cn(
                       'rounded-full px-2 py-1 font-bold',
@@ -252,15 +289,15 @@ export default function Merchants() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  {active.verification_status === 'pending' && (
+                  {active.onboarding_status === 'SUBMITTED' && (
                     <>
                       <button
                         type="button"
-                        onClick={() => approve.mutate(active.id)}
-                        disabled={approve.isPending}
-                        className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                        onClick={() => startVerification.mutate(active.id)}
+                        disabled={startVerification.isPending}
+                        className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white transition hover:bg-primary/80 disabled:opacity-50"
                       >
-                        {approve.isPending ? 'Menyetujui...' : 'Setujui'}
+                        {startVerification.isPending ? 'Memulai...' : 'Mulai verifikasi'}
                       </button>
                       <button
                         type="button"
@@ -271,12 +308,44 @@ export default function Merchants() {
                       </button>
                     </>
                   )}
-                  {active.verification_status !== 'pending' && (
+                  {active.onboarding_status === 'VERIFYING' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => approve.mutate(active.id)}
+                        disabled={approve.isPending}
+                        className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                      >
+                        {approve.isPending ? 'Mengaktifkan...' : 'Aktifkan'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowReject(true); setRejectReason('') }}
+                        className="rounded-xl bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300 transition hover:bg-red-500/20"
+                      >
+                        Tolak
+                      </button>
+                    </>
+                  )}
+                  {active.onboarding_status === 'ACTIVE' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const reason = window.prompt('Alasan suspend merchant:')?.trim()
+                        if (reason) suspend.mutate({ id: active.id, reason })
+                      }}
+                      disabled={suspend.isPending}
+                      className="rounded-xl bg-amber-500/10 px-4 py-2 text-sm font-bold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-50"
+                    >
+                      {suspend.isPending ? 'Memproses...' : 'Suspend'}
+                    </button>
+                  )}
+                  {['DRAFT', 'REJECTED', 'SUSPENDED'].includes(active.onboarding_status) && (
                     <span className={cn(
                       'rounded-xl px-4 py-2 text-sm font-bold',
-                      active.verification_status === 'approved' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
+                      active.onboarding_status === 'REJECTED' ? 'bg-red-500/10 text-red-300' : 'bg-amber-500/10 text-amber-300'
                     )}>
-                      {active.verification_status === 'approved' ? '✓ Disetujui' : '✗ Ditolak'}
+                      {lifecycleLabel(active.onboarding_status)}
                     </span>
                   )}
                 </div>
@@ -311,6 +380,44 @@ export default function Merchants() {
                   </div>
                 </div>
               )}
+
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Requirement verifikasi market</p>
+                {(detail?.verification_requirements || []).length === 0 ? (
+                  <p className="mt-2 text-sm text-amber-300">Tidak ada requirement aktif untuk market ini; aktivasi akan ditolak aman.</p>
+                ) : (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(detail?.verification_requirements || []).map((requirement: any) => (
+                      <span key={requirement.id} className={cn(
+                        'rounded-full border px-3 py-1 text-xs font-semibold',
+                        requirement.document_present ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                      )}>
+                        {docTypeLabels[requirement.document_type] || requirement.document_type}: {requirement.document_present ? 'ada' : 'belum ada'}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-zinc-950/50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Profil legal & payout</p>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Badan usaha</dt><dd className="text-right text-zinc-200">{merchantDetail?.legal_entity_type || merchantDetail?.business_type || '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Nama legal</dt><dd className="text-right text-zinc-200">{merchantDetail?.legal_name || merchantDetail?.nama_toko || '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Payout reference</dt><dd className="max-w-[65%] truncate text-right text-zinc-200">{merchantDetail?.payout_account_reference || '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Bank</dt><dd className="text-right text-zinc-200">{merchantDetail?.bank_name || '—'}{merchantDetail?.bank_account_verified ? ' · terverifikasi' : ''}</dd></div>
+                  </dl>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-zinc-950/50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Commercial terms food</p>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Contract version</dt><dd className="text-right text-zinc-200">{merchantDetail?.commercial_contract_version || 'Belum ada contract approved'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Effective from</dt><dd className="text-right text-zinc-200">{merchantDetail?.commercial_contract_effective_from ? new Date(merchantDetail.commercial_contract_effective_from).toLocaleString('id-ID') : '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-zinc-500">Market</dt><dd className="text-right text-zinc-200">{merchantDetail?.market_code || '—'}</dd></div>
+                  </dl>
+                </div>
+              </div>
 
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.25em] text-zinc-500">Dokumen Verifikasi</p>
