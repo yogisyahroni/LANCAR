@@ -36,6 +36,7 @@ var EventSchemaRegistry = map[string]EventSchema{
 	"merchant.operating_state.changed": {EventType: "merchant.operating_state.changed", SupportedVersions: []int{1}, BackwardCompatible: true},
 	"model.unavailable.shown":          {EventType: "model.unavailable.shown", SupportedVersions: []int{1}, BackwardCompatible: true},
 	"dispatch.decision":                {EventType: "dispatch.decision", SupportedVersions: []int{1}, BackwardCompatible: true},
+	"risk.decision":                    {EventType: "risk.decision", SupportedVersions: []int{1}, BackwardCompatible: true},
 }
 
 var (

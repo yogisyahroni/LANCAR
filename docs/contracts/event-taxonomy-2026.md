@@ -50,6 +50,7 @@ the migration window. New consumers must use the canonical names.
 | `merchant.operating_state.changed` | 1 | merchant entity and state version | active merchant projection |
 | `model.unavailable.shown` | 1 | model and coarse route distance | product availability analysis |
 | `dispatch.decision` | 1 | candidate hash, score breakdown, ETA, model/rule version and fallback state | dispatch audit and experiment analysis |
+| `risk.decision` | 1 | decision id, operation, market, entity type, decision, coarse score, reason codes, policy/failure mode and subject hash | risk audit and governed trust/safety analysis |
 
 An event schema change increments `schema_version`. Version 1 consumers must
 continue to parse additive changes; removals or semantic changes require a new

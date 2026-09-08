@@ -23,6 +23,9 @@ adminRoutes.use('/admin', requireAuth, requireRole(['super_admin', 'ops_security
 const BROADCAST_ROLES = ['super_admin', 'admin', 'ops_admin'];
 
 adminRoutes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
+adminRoutes.get('/admin/risk/reviews', requireRole(['super_admin', 'ops_security', 'ops_admin']), (req, res) => controllers.listRiskReviews(req, res));
+adminRoutes.get('/admin/risk/reviews/:id', requireRole(['super_admin', 'ops_security', 'ops_admin']), (req, res) => controllers.getRiskReview(req, res));
+adminRoutes.post('/admin/risk/reviews/:id/resolve', requireRole(['super_admin', 'ops_security', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.risk_review.resolve'), (req, res) => controllers.resolveRiskReview(req, res));
 adminRoutes.get('/admin/courier-safety-events', (req, res) => controllers.listAdminCourierSafetyEvents(req, res));
 adminRoutes.patch('/admin/courier-safety-events/:id', requireRole(['super_admin', 'ops_security', 'ops_admin']), requireIdempotencyKey('admin.courier_safety_event.update'), (req, res) => controllers.updateAdminCourierSafetyEvent(req, res));
 adminRoutes.get('/admin/courier-support/queue', requireRole(['super_admin', 'ops_security', 'ops_admin', 'cs_agent']), (req, res) => controllers.listAdminCourierSupportQueue(req, res));

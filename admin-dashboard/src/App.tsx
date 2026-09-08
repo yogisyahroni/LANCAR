@@ -53,6 +53,7 @@ import MerchantSettlements from './pages/MerchantSettlements'
 import CustomReports from './pages/CustomReports'
 import CampaignCalendar from './pages/CampaignCalendar'
 import CourierRetention from './pages/CourierRetention'
+import RiskReview from './pages/RiskReview'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -220,6 +221,7 @@ function App() {
           />
           <Route path="/courier-market-config" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security', 'finance_admin']}><CourierMarketConfig /></ProtectedRoute>} />
           <Route path="/courier-retention" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'ops_admin', 'ops_security']}><CourierRetention /></ProtectedRoute>} />
+          <Route path="/risk-reviews" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><RiskReview /></ProtectedRoute>} />
           <Route 
             path="/pricing" 
             element={

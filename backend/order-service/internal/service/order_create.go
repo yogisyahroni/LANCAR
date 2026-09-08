@@ -229,6 +229,13 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		voucherUsage = vres
 	}
 
+	// GLOB-2026-007: evaluate the central risk checkpoint after all
+	// server-side quote/voucher validation and before order persistence.
+	riskDecision, riskErr := s.evaluateRiskCheckpoint(ctx, domain.RiskOperationOrderCreate, order, userID, "order-create:"+order.ID, nil)
+	if err := riskCheckpointError(riskDecision, riskErr); err != nil {
+		return nil, err
+	}
+
 	// 6. Save to DB
 	if err := s.orderRepo.Create(ctx, order); err != nil {
 		return nil, fmt.Errorf("failed to save order: %w", err)
@@ -330,6 +337,17 @@ func (s *orderServiceImpl) CreateInternalAggregatorOrder(ctx context.Context, us
 		order.PPNIDR = taxSnapshot.PPNIDR
 		order.TaxInvoiceRequired = taxSnapshot.TaxInvoiceRequired
 		order.TaxInvoiceStatus = taxSnapshot.TaxInvoiceStatus
+	}
+
+	riskDecision, riskErr := s.evaluateRiskCheckpoint(ctx, domain.RiskOperationOrderCreate, order, userID, "aggregator-order-create:"+order.ID, []domain.RiskSignal{{
+		Category:   domain.RiskSignalProvider,
+		Code:       "provider.selected",
+		Score:      0,
+		Source:     "order-service.provider",
+		ObservedAt: time.Now().UTC(),
+	}})
+	if err := riskCheckpointError(riskDecision, riskErr); err != nil {
+		return nil, err
 	}
 
 	if err := s.orderRepo.Create(ctx, order); err != nil {

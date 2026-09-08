@@ -313,6 +313,9 @@ type OrderService interface {
 	// SetMapsRepository injects the route provider used for non-authoritative
 	// dispatch ETA prediction.
 	SetMapsRepository(mr MapsRepository)
+	// SetRiskService injects the central fraud/risk decision boundary used by
+	// transactional checkpoints such as order creation and dispatch acceptance.
+	SetRiskService(rs RiskService)
 	// SetVoucherService inject voucher service untuk apply voucher (FB-078)
 	SetVoucherService(vs VoucherService)
 	// SetTipService inject tip service untuk refund tip saat order batal (FB-083)

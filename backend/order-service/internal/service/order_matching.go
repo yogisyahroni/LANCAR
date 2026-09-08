@@ -27,6 +27,18 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 	if order == nil {
 		return errors.New("order not found")
 	}
+	if s.riskService != nil {
+		riskDecision, riskErr := s.evaluateRiskCheckpoint(ctx, domain.RiskOperationDispatchAccept, order, courierID, "dispatch-accept:"+order.ID+":"+courierID, []domain.RiskSignal{{
+			Category:   domain.RiskSignalHandoff,
+			Code:       "handoff.courier_candidate",
+			Score:      0,
+			Source:     "order-service.dispatch_accept",
+			ObservedAt: time.Now().UTC(),
+		}})
+		if err := riskCheckpointError(riskDecision, riskErr); err != nil {
+			return err
+		}
+	}
 
 	// Only allow acceptance if searching (initial match) or failed_delivery (retry)
 	if order.Status != domain.StatusSearching && order.Status != domain.StatusFailedDelivery {
@@ -695,6 +707,12 @@ func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) er
 	}
 	if order == nil {
 		return fmt.Errorf("order %s not found", orderID)
+	}
+	if s.riskService != nil {
+		riskDecision, riskErr := s.evaluateRiskCheckpoint(ctx, domain.RiskOperationDispatchAccept, order, order.CustomerID, "dispatch-start:"+order.ID, nil)
+		if err := riskCheckpointError(riskDecision, riskErr); err != nil {
+			return err
+		}
 	}
 
 	// 2. Validate state (should be pending_assignment after payment confirmation).

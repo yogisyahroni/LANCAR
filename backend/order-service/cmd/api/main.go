@@ -261,6 +261,7 @@ func main() {
 	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
 	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo, ledgerRepo, taxSvc)
 	orderSvc.SetMapsRepository(mapsRepo)
+	orderSvc.SetRiskService(service.NewMarketplaceRiskService(configRepo, repository.NewPostgresRiskRepository(db), nil, nil))
 	if canonicalPublisher, ok := datalakePub.(domain.CanonicalEventPublisher); ok {
 		if configurable, ok := orderSvc.(interface{ SetCanonicalEventPublisher(domain.CanonicalEventPublisher) }); ok {
 			configurable.SetCanonicalEventPublisher(canonicalPublisher)

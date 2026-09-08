@@ -102,6 +102,7 @@ export * as costIntelligence from './costIntelligence.controller';
 export * as merchantSettlement from './merchantSettlement.controller';
 export * from './merchantCommissionContracts.controller';
 export * from './customerFeeCredits.controller';
+export * from './riskReview.controller';
 
 // Broadcast Center
 export * as broadcast from './broadcast.controller';

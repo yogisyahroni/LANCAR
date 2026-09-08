@@ -30,6 +30,7 @@ type orderServiceImpl struct {
 	foodRepo                domain.FoodRepository
 	mapsRepo                domain.MapsRepository
 	marketplaceIntelligence *MarketplaceIntelligence
+	riskService             domain.RiskService
 	membershipRepo          domain.FoodMembershipRepository
 	settlementSvc           domain.MerchantSettlementService
 	pointsSvc               domain.DriverPointsService
@@ -46,6 +47,9 @@ func (s *orderServiceImpl) SetCanonicalEventPublisher(publisher domain.Canonical
 		s.marketplaceIntelligence = NewMarketplaceIntelligence(s.configRepo, publisher, nil)
 	} else {
 		s.marketplaceIntelligence.SetCanonicalEventPublisher(publisher)
+	}
+	if risk, ok := s.riskService.(*MarketplaceRiskService); ok {
+		risk.SetCanonicalEventPublisher(publisher)
 	}
 }
 
@@ -128,6 +132,14 @@ func (s *orderServiceImpl) SetMapsRepository(mr domain.MapsRepository) {
 func (s *orderServiceImpl) SetMarketplaceIntelligence(mi *MarketplaceIntelligence) {
 	if mi != nil {
 		s.marketplaceIntelligence = mi
+	}
+}
+
+// SetRiskService injects the canonical risk boundary. The service is
+// optional for lightweight legacy tests, but production wiring always sets it.
+func (s *orderServiceImpl) SetRiskService(rs domain.RiskService) {
+	if rs != nil {
+		s.riskService = rs
 	}
 }
 

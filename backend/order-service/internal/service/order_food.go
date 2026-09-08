@@ -422,6 +422,13 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		UpdatedAt:            now,
 	}
 
+	// GLOB-2026-007: evaluate after authoritative menu/price validation and
+	// before the order/items transaction is committed.
+	riskDecision, riskErr := s.evaluateRiskCheckpointForMarket(ctx, domain.RiskOperationFoodOrderCreate, order, req.Market, userID, "food-order-create:"+order.ID, nil)
+	if err := riskCheckpointError(riskDecision, riskErr); err != nil {
+		return nil, err
+	}
+
 	// 8. Simpan order + items dalam SATU transaksi
 	if err := s.foodRepo.CreateFoodOrderWithItems(ctx, order, orderItems); err != nil {
 		return nil, err
