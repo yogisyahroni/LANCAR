@@ -468,7 +468,7 @@ func (s *merchantSettlementService) disburseToMerchant(ctx context.Context, sett
 		return s.markFailed(ctx, settlement, fmt.Sprintf("invalid merchant_id: %s", settlement.MerchantID), maxRetry, retryDelayHours)
 	}
 
-	// 1. Ambil info bank merchant dari users table
+	// 1. Ambil info rekening dan konteks market merchant dari merchants table.
 	bankInfo, err := s.repo.GetMerchantBankInfo(ctx, merchantUUID)
 	if err != nil {
 		return s.markFailed(ctx, settlement, fmt.Sprintf("failed to get merchant bank info: %v", err), maxRetry, retryDelayHours)
@@ -478,6 +478,21 @@ func (s *merchantSettlementService) disburseToMerchant(ctx context.Context, sett
 	if !bankInfo.BankVerified {
 		return s.markFailed(ctx, settlement,
 			"merchant bank account not verified by admin — disbursement blocked",
+			maxRetry, retryDelayHours)
+	}
+	if bankInfo.BankAccountCooldownUntil != nil && time.Now().Before(*bankInfo.BankAccountCooldownUntil) {
+		return s.markFailed(ctx, settlement,
+			fmt.Sprintf("merchant bank account cooldown active until %s — disbursement blocked", bankInfo.BankAccountCooldownUntil.UTC().Format(time.RFC3339)),
+			maxRetry, retryDelayHours)
+	}
+	if settlement.CurrencyCode != "" && (settlement.CurrencyCode != bankInfo.CurrencyCode || settlement.MarketCode != bankInfo.MarketCode) {
+		return s.markFailed(ctx, settlement,
+			"merchant payout market/currency does not match verified payout account context",
+			maxRetry, retryDelayHours)
+	}
+	if settlement.CurrencyCode != "" && !strings.EqualFold(settlement.CurrencyCode, "IDR") {
+		return s.markFailed(ctx, settlement,
+			"merchant payout currency is not supported by the configured payout gateway",
 			maxRetry, retryDelayHours)
 	}
 	if bankInfo.BankCode == nil || *bankInfo.BankCode == "" ||
@@ -762,8 +777,8 @@ func (s *merchantSettlementService) deductOutstandingCancellationFees(ctx contex
 			*netPayout -= f.AmountIDR
 			totalDeducted += f.AmountIDR
 			slog.InfoContext(ctx, "merchant_settlement: cancellation fee deducted",
-					"fee_id", f.ID, "order_id", f.OrderID, "settlement_id", settlementID,
-					"amount_idr", f.AmountIDR)
+				"fee_id", f.ID, "order_id", f.OrderID, "settlement_id", settlementID,
+				"amount_idr", f.AmountIDR)
 		}
 		// fee > payout → tidak cukup, carry forward (tidak dipotong sebagian)
 	}

@@ -188,6 +188,29 @@ func (s *merchantServiceImpl) ListWithdrawals(ctx context.Context, userID string
 	return s.reportRepo.ListWithdrawals(ctx, m.ID, limit)
 }
 
+// GetFinanceStatement exposes the append-only, category-separated statement
+// for the authenticated merchant owner/staff scope.
+func (s *merchantServiceImpl) GetFinanceStatement(ctx context.Context, userID string, limit int) (*domain.MerchantFinanceStatement, error) {
+	if s.reportRepo == nil {
+		return nil, errors.New("report repository not wired")
+	}
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m == nil {
+		return nil, errors.New("merchant belum terdaftar")
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	financeRepo, ok := s.reportRepo.(domain.MerchantFinanceRepository)
+	if !ok {
+		return nil, errors.New("finance statement repository not wired")
+	}
+	return financeRepo.FinanceStatement(ctx, m.ID, limit)
+}
+
 // GetCustomerReviews — review customer dari merchant_ratings, bukan data statis.
 func (s *merchantServiceImpl) GetCustomerReviews(ctx context.Context, userID string, page, pageSize int) (*domain.MerchantReviewsResponse, error) {
 	if s.reportRepo == nil || s.merchantRepo == nil {

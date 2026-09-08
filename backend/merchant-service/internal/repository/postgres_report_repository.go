@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"tembus/merchant-service/internal/domain"
 
@@ -372,6 +373,178 @@ func (r *postgresReportRepository) ListWithdrawals(ctx context.Context, merchant
 		return nil, fmt.Errorf("withdrawals rows: %w", err)
 	}
 	return records, nil
+}
+
+// FinanceStatement returns the category-separated merchant statement. The
+// query reads the append-only statement projection; source workflow status is
+// joined only for display and never used to rewrite a financial fact.
+func (r *postgresReportRepository) FinanceStatement(ctx context.Context, merchantID string, limit int) (*domain.MerchantFinanceStatement, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 500 {
+		limit = 500
+	}
+
+	var currentMarket, currentCurrency, currentTimezone, currentLocale string
+	var currentMinorUnit int
+	if err := r.readDB.QueryRowContext(ctx, `
+		SELECT market_code, currency_code, currency_minor_unit, timezone, display_locale
+		FROM merchant_financial_context($1)`, merchantID).Scan(
+		&currentMarket, &currentCurrency, &currentMinorUnit, &currentTimezone, &currentLocale); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("merchant market financial configuration missing")
+		}
+		return nil, fmt.Errorf("merchant finance context: %w", err)
+	}
+
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT mse.id::text, mse.market_code, mse.currency_code, mse.currency_minor_unit,
+		       mse.entry_type, mse.direction, mse.amount_minor, mse.affects_balance,
+		       mse.source_type, mse.source_id,
+		       mse.order_id::text, mse.settlement_id::text, mse.refund_id::text,
+		       mse.withdrawal_id::text,
+		       COALESCE(ms.status, rf.status, wr.status, '')::text,
+		       TO_CHAR(mse.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       mse.description
+		FROM merchant_statement_entries mse
+		LEFT JOIN merchant_settlements ms ON ms.id = mse.settlement_id
+		LEFT JOIN refunds rf ON rf.id = mse.refund_id
+		LEFT JOIN merchant_withdrawal_requests wr ON wr.id = mse.withdrawal_id
+		WHERE mse.merchant_id = $1
+		ORDER BY mse.occurred_at DESC, mse.created_at DESC
+		LIMIT $2`, merchantID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("merchant finance statement query: %w", err)
+	}
+	defer rows.Close()
+
+	statement := &domain.MerchantFinanceStatement{
+		Entries:       []*domain.MerchantStatementEntry{},
+		Totals:        []*domain.MerchantStatementTotals{},
+		Discrepancies: []*domain.MerchantSettlementDiscrepancy{},
+		GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
+	}
+	buckets := make(map[string]*domain.MerchantStatementTotals)
+	for rows.Next() {
+		var entry domain.MerchantStatementEntry
+		var orderID, settlementID, refundID, withdrawalID, status sql.NullString
+		if err := rows.Scan(
+			&entry.ID, &entry.MarketCode, &entry.CurrencyCode, &entry.CurrencyMinorUnit,
+			&entry.EntryType, &entry.Direction, &entry.AmountMinor, &entry.AffectsBalance,
+			&entry.SourceType, &entry.SourceID,
+			&orderID, &settlementID, &refundID, &withdrawalID, &status,
+			&entry.OccurredAt, &entry.Description,
+		); err != nil {
+			return nil, fmt.Errorf("scan merchant finance statement: %w", err)
+		}
+		if orderID.Valid {
+			entry.OrderID = orderID.String
+		}
+		if settlementID.Valid {
+			entry.SettlementID = settlementID.String
+		}
+		if refundID.Valid {
+			entry.RefundID = refundID.String
+		}
+		if withdrawalID.Valid {
+			entry.WithdrawalID = withdrawalID.String
+		}
+		if status.Valid {
+			entry.Status = status.String
+		}
+		if entry.Direction == "credit" {
+			entry.SignedAmountMinor = entry.AmountMinor
+		} else {
+			entry.SignedAmountMinor = -entry.AmountMinor
+		}
+		statement.Entries = append(statement.Entries, &entry)
+
+		key := entry.MarketCode + ":" + entry.CurrencyCode
+		totals := buckets[key]
+		if totals == nil {
+			totals = &domain.MerchantStatementTotals{
+				MarketCode: entry.MarketCode, CurrencyCode: entry.CurrencyCode,
+				CurrencyMinorUnit: entry.CurrencyMinorUnit,
+			}
+			buckets[key] = totals
+		}
+		switch entry.EntryType {
+		case "sale":
+			totals.SalesMinor += entry.AmountMinor
+		case "commission":
+			totals.CommissionMinor += entry.AmountMinor
+		case "tax":
+			totals.TaxMinor += entry.AmountMinor
+		case "promo_subsidy":
+			totals.PromoSubsidyMinor += entry.AmountMinor
+		case "refund":
+			totals.RefundMinor += entry.AmountMinor
+		case "fee":
+			totals.FeeMinor += entry.AmountMinor
+		case "ads_spend":
+			totals.AdsSpendMinor += entry.AmountMinor
+		case "adjustment":
+			totals.AdjustmentMinor += entry.SignedAmountMinor
+		case "payout":
+			totals.PayoutMinor += entry.AmountMinor
+		}
+		if entry.AffectsBalance {
+			totals.NetBalanceMinor += entry.SignedAmountMinor
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("merchant finance statement rows: %w", err)
+	}
+	for _, totals := range buckets {
+		statement.Totals = append(statement.Totals, totals)
+	}
+	// There is normally one bucket for a merchant, but returning a list keeps
+	// historical statements safe when a merchant changes market/currency.
+	if len(statement.Totals) == 0 {
+		statement.Totals = append(statement.Totals, &domain.MerchantStatementTotals{
+			MarketCode: currentMarket, CurrencyCode: currentCurrency,
+			CurrencyMinorUnit: currentMinorUnit,
+		})
+	}
+
+	discrepancyRows, err := r.readDB.QueryContext(ctx, `
+		SELECT fre.id::text, fre.reference_type, fre.reference_id,
+		       COALESCE(fre.market_code, $2), COALESCE(fre.currency_code, $3),
+		       COALESCE(fre.currency_minor_unit, $4),
+		       COALESCE(fre.expected_minor, fre.expected_idr),
+		       COALESCE(fre.actual_minor, fre.actual_idr),
+		       COALESCE(fre.difference_minor, fre.difference_idr),
+		       fre.reason, fre.status,
+		       TO_CHAR(fre.first_seen_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       TO_CHAR(fre.last_seen_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM finance_reconciliation_exceptions fre
+		LEFT JOIN orders o ON fre.reference_type = 'order' AND o.id::text = fre.reference_id
+		LEFT JOIN merchant_settlements ms ON fre.reference_type = 'merchant_settlement' AND ms.id::text = fre.reference_id
+		WHERE fre.status IN ('open', 'under_review')
+		  AND COALESCE(fre.merchant_id, o.merchant_id, ms.merchant_id) = $1
+		ORDER BY fre.last_seen_at DESC
+		LIMIT $5`, merchantID, currentMarket, currentCurrency, currentMinorUnit, limit)
+	if err != nil {
+		return nil, fmt.Errorf("merchant finance discrepancy queue: %w", err)
+	}
+	defer discrepancyRows.Close()
+	for discrepancyRows.Next() {
+		var discrepancy domain.MerchantSettlementDiscrepancy
+		if err := discrepancyRows.Scan(
+			&discrepancy.ID, &discrepancy.ReferenceType, &discrepancy.ReferenceID,
+			&discrepancy.MarketCode, &discrepancy.CurrencyCode, &discrepancy.CurrencyMinorUnit,
+			&discrepancy.ExpectedMinor, &discrepancy.ActualMinor, &discrepancy.DifferenceMinor,
+			&discrepancy.Reason, &discrepancy.Status, &discrepancy.FirstSeenAt, &discrepancy.LastSeenAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan merchant finance discrepancy: %w", err)
+		}
+		statement.Discrepancies = append(statement.Discrepancies, &discrepancy)
+	}
+	if err := discrepancyRows.Err(); err != nil {
+		return nil, fmt.Errorf("merchant finance discrepancy rows: %w", err)
+	}
+	return statement, nil
 }
 
 // Reviews mengambil review merchant dari merchant_ratings. Query hanya join

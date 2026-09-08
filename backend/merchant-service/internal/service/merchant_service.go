@@ -631,7 +631,8 @@ func (s *merchantServiceImpl) UpdateBankAccount(ctx context.Context, userID stri
 	}
 	// Rekening berubah? Kalau sama persis, jangan reset verifikasi.
 	changed := m.BankName == nil || m.BankAccountNumber == nil ||
-		bankName != *ptrOr(m.BankName, "") || accountNumber != *ptrOr(m.BankAccountNumber, "")
+		bankName != *ptrOr(m.BankName, "") || accountNumber != *ptrOr(m.BankAccountNumber, "") ||
+		accountHolder != *ptrOr(m.BankAccountHolder, "")
 	if err := s.merchantRepo.UpdateBankAccount(ctx, m.ID, domain.UpdateBankAccountRequest{
 		BankName:          bankName,
 		BankAccountNumber: accountNumber,

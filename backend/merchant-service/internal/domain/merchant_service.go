@@ -130,6 +130,9 @@ type MerchantService interface {
 	RequestWithdrawal(ctx context.Context, userID string, input CreateMerchantWithdrawalInput) (*MerchantWithdrawalRecord, int64, error)
 	// ListWithdrawals riwayat permintaan pencairan merchant (M7).
 	ListWithdrawals(ctx context.Context, userID string, limit int) ([]*MerchantWithdrawalRecord, error)
+	// GetFinanceStatement returns the immutable, category-separated merchant
+	// statement and merchant-scoped reconciliation queue.
+	GetFinanceStatement(ctx context.Context, userID string, limit int) (*MerchantFinanceStatement, error)
 	// GetCustomerReviews mengambil ringkasan + review customer dari merchant_ratings.
 	GetCustomerReviews(ctx context.Context, userID string, page, pageSize int) (*MerchantReviewsResponse, error)
 	// ReplyToCustomerReview membuat atau mengubah tanggapan merchant pada review miliknya.

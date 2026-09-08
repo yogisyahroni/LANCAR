@@ -74,6 +74,9 @@ func (r *merchantSettlementRepository) GetByID(ctx context.Context, id uuid.UUID
 		SELECT id, payment_link_id, merchant_id, order_id,
 		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
 		       merchant_promo_discount_idr, net_payout_idr,
+		       market_code, currency_code, currency_minor_unit,
+		       gross_item_price_minor, merchant_fee_minor, disbursement_fee_minor,
+		       merchant_promo_discount_minor, net_payout_minor,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -88,6 +91,9 @@ func (r *merchantSettlementRepository) GetByIdempotencyKey(ctx context.Context, 
 		SELECT id, payment_link_id, merchant_id, order_id,
 		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
 		       merchant_promo_discount_idr, net_payout_idr,
+		       market_code, currency_code, currency_minor_unit,
+		       gross_item_price_minor, merchant_fee_minor, disbursement_fee_minor,
+		       merchant_promo_discount_minor, net_payout_minor,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -109,6 +115,9 @@ func (r *merchantSettlementRepository) GetPendingHoldingReleased(ctx context.Con
 		SELECT id, payment_link_id, merchant_id, order_id,
 		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
 		       merchant_promo_discount_idr, net_payout_idr,
+		       market_code, currency_code, currency_minor_unit,
+		       gross_item_price_minor, merchant_fee_minor, disbursement_fee_minor,
+		       merchant_promo_discount_minor, net_payout_minor,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -183,9 +192,12 @@ func (r *merchantSettlementRepository) RequeueForRetry(ctx context.Context, id u
 
 func (r *merchantSettlementRepository) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MerchantSettlement, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, payment_link_id, merchant_id, order_id,
-		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
+			SELECT id, payment_link_id, merchant_id, order_id,
+			       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
 		       merchant_promo_discount_idr, net_payout_idr,
+		       market_code, currency_code, currency_minor_unit,
+		       gross_item_price_minor, merchant_fee_minor, disbursement_fee_minor,
+		       merchant_promo_discount_minor, net_payout_minor,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -210,7 +222,10 @@ func (r *merchantSettlementRepository) ListAll(ctx context.Context, status strin
 			SELECT id, payment_link_id, merchant_id, order_id,
 			       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
 		       merchant_promo_discount_idr, net_payout_idr,
-			       status, idempotency_key,
+		       market_code, currency_code, currency_minor_unit,
+		       gross_item_price_minor, merchant_fee_minor, disbursement_fee_minor,
+		       merchant_promo_discount_minor, net_payout_minor,
+		       status, idempotency_key,
 			       pod_confirmed_at, holding_release_at, settled_at,
 			       disbursement_ref, failure_reason, retry_count,
 			       metadata, created_by_admin_id, created_at, updated_at
@@ -223,7 +238,10 @@ func (r *merchantSettlementRepository) ListAll(ctx context.Context, status strin
 			SELECT id, payment_link_id, merchant_id, order_id,
 			       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr,
 		       merchant_promo_discount_idr, net_payout_idr,
-			       status, idempotency_key,
+		       market_code, currency_code, currency_minor_unit,
+		       gross_item_price_minor, merchant_fee_minor, disbursement_fee_minor,
+		       merchant_promo_discount_minor, net_payout_minor,
+		       status, idempotency_key,
 			       pod_confirmed_at, holding_release_at, settled_at,
 			       disbursement_ref, failure_reason, retry_count,
 			       metadata, created_by_admin_id, created_at, updated_at
@@ -242,23 +260,41 @@ func (r *merchantSettlementRepository) ListAll(ctx context.Context, status strin
 
 func (r *merchantSettlementRepository) GetMerchantBankInfo(ctx context.Context, merchantID uuid.UUID) (*domain.MerchantBankInfo, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, bank_code, bank_account_number, bank_account_name, bank_verified
-		FROM users
-		WHERE id = $1`, merchantID)
+		SELECT m.user_id,
+		       m.bank_name, m.bank_account_number, m.bank_account_holder,
+		       m.bank_account_verified, m.bank_account_cooldown_until,
+		       lower(c.market_code), c.currency_code, c.currency_minor_unit
+		FROM merchants m
+		JOIN courier_market_configs c ON c.is_active
+		  AND (
+		    lower(c.market_code) = lower(m.market_code)
+		    OR c.metadata->'legacy_zone_market_codes' @> to_jsonb(ARRAY[upper(m.market_code)])
+		  )
+		WHERE m.id = $1
+		ORDER BY CASE WHEN lower(c.market_code) = lower(m.market_code) THEN 0 ELSE 1 END
+		LIMIT 1`, merchantID)
 
 	info := &domain.MerchantBankInfo{}
+	var cooldownUntil sql.NullTime
 	err := row.Scan(
 		&info.UserID,
 		&info.BankCode,
 		&info.BankAccountNumber,
 		&info.BankAccountName,
 		&info.BankVerified,
+		&cooldownUntil,
+		&info.MarketCode,
+		&info.CurrencyCode,
+		&info.CurrencyMinorUnit,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("merchant %s not found", merchantID)
+		return nil, fmt.Errorf("merchant %s not found or market financial configuration missing", merchantID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get merchant bank info: %w", err)
+	}
+	if cooldownUntil.Valid {
+		info.BankAccountCooldownUntil = &cooldownUntil.Time
 	}
 	return info, nil
 }
@@ -442,6 +478,9 @@ func (r *merchantSettlementRepository) scanOne(row *sql.Row) (*domain.MerchantSe
 		&s.ID, &paymentLinkID, &s.MerchantID, &s.OrderID,
 		&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.DisbursementFeeIDR,
 		&s.MerchantPromoDiscountIDR, &s.NetPayoutIDR,
+		&s.MarketCode, &s.CurrencyCode, &s.CurrencyMinorUnit,
+		&s.GrossItemPriceMinor, &s.MerchantFeeMinor, &s.DisbursementFeeMinor,
+		&s.MerchantPromoDiscountMinor, &s.NetPayoutMinor,
 		&s.Status, &s.IdempotencyKey,
 		&podConfirmedAt, &holdingReleaseAt, &settledAt,
 		&disbRef, &failReason, &s.RetryCount,
@@ -491,6 +530,9 @@ func (r *merchantSettlementRepository) scanMany(rows *sql.Rows) ([]*domain.Merch
 			&s.ID, &paymentLinkID, &s.MerchantID, &s.OrderID,
 			&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.DisbursementFeeIDR,
 			&s.MerchantPromoDiscountIDR, &s.NetPayoutIDR,
+			&s.MarketCode, &s.CurrencyCode, &s.CurrencyMinorUnit,
+			&s.GrossItemPriceMinor, &s.MerchantFeeMinor, &s.DisbursementFeeMinor,
+			&s.MerchantPromoDiscountMinor, &s.NetPayoutMinor,
 			&s.Status, &s.IdempotencyKey,
 			&podConfirmedAt, &holdingReleaseAt, &settledAt,
 			&disbRef, &failReason, &s.RetryCount,

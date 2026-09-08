@@ -202,6 +202,7 @@ const merchantColumns = `m.id, m.user_id,
 	m.bpom_number, to_char(m.bpom_expiry_date, 'YYYY-MM-DD'),
 	m.halal_status,
 	m.bank_name, m.bank_account_number, m.bank_account_holder, m.bank_account_verified,
+	m.bank_account_changed_at, m.bank_account_cooldown_until, m.bank_account_version,
 	m.business_type,
 	m.payout_schedule, m.npwp,
 	m.onboarding_status, m.market_code,
@@ -218,6 +219,8 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp sql.NullString
 	var halalStatus sql.NullString
 	var bankName, bankAccountNumber, bankAccountHolder sql.NullString
+	var bankAccountChangedAt, bankAccountCooldownUntil sql.NullTime
+	var bankAccountVersion sql.NullInt64
 	var businessType sql.NullString
 	var payoutSchedule sql.NullString
 	var npwp sql.NullString
@@ -235,6 +238,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&halalNo, &halalExp, &sppNo, &sppExp, &bpomNo, &bpomExp,
 		&halalStatus,
 		&bankName, &bankAccountNumber, &bankAccountHolder, &m.BankAccountVerified,
+		&bankAccountChangedAt, &bankAccountCooldownUntil, &bankAccountVersion,
 		&businessType,
 		&payoutSchedule, &npwp,
 		&m.OnboardingStatus, &m.MarketCode,
@@ -278,6 +282,15 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	}
 	if ratingCount.Valid {
 		m.RatingCount = int(ratingCount.Int64)
+	}
+	if bankAccountChangedAt.Valid {
+		m.BankAccountChangedAt = &bankAccountChangedAt.Time
+	}
+	if bankAccountCooldownUntil.Valid {
+		m.BankAccountCooldownUntil = &bankAccountCooldownUntil.Time
+	}
+	if bankAccountVersion.Valid {
+		m.BankAccountVersion = bankAccountVersion.Int64
 	}
 	if lat.Valid {
 		m.LokasiLat = &lat.Float64

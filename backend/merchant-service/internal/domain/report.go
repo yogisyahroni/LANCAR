@@ -215,3 +215,77 @@ type CreateMerchantWithdrawalInput struct {
 	IdempotencyKey    string `json:"idempotency_key"`
 	ApprovalID        string `json:"approval_id,omitempty"`
 }
+
+// MerchantStatementEntry is an immutable merchant-facing financial fact. All
+// amounts are minor units and carry their market/currency context explicitly.
+type MerchantStatementEntry struct {
+	ID                string `json:"id"`
+	MarketCode        string `json:"market_code"`
+	CurrencyCode      string `json:"currency_code"`
+	CurrencyMinorUnit int    `json:"currency_minor_unit"`
+	EntryType         string `json:"entry_type"`
+	Direction         string `json:"direction"`
+	AmountMinor       int64  `json:"amount_minor"`
+	SignedAmountMinor int64  `json:"signed_amount_minor"`
+	AffectsBalance    bool   `json:"affects_balance"`
+	SourceType        string `json:"source_type"`
+	SourceID          string `json:"source_id"`
+	OrderID           string `json:"order_id,omitempty"`
+	SettlementID      string `json:"settlement_id,omitempty"`
+	RefundID          string `json:"refund_id,omitempty"`
+	WithdrawalID      string `json:"withdrawal_id,omitempty"`
+	Status            string `json:"status,omitempty"`
+	OccurredAt        string `json:"occurred_at"`
+	Description       string `json:"description"`
+}
+
+// MerchantStatementTotals keeps categories separate and never adds amounts
+// from different currencies together. Debit categories are positive display
+// totals; NetBalanceMinor is the signed balance effect.
+type MerchantStatementTotals struct {
+	MarketCode        string `json:"market_code"`
+	CurrencyCode      string `json:"currency_code"`
+	CurrencyMinorUnit int    `json:"currency_minor_unit"`
+	SalesMinor        int64  `json:"sales_minor"`
+	CommissionMinor   int64  `json:"commission_minor"`
+	TaxMinor          int64  `json:"tax_minor"`
+	PromoSubsidyMinor int64  `json:"promo_subsidy_minor"`
+	RefundMinor       int64  `json:"refund_minor"`
+	FeeMinor          int64  `json:"fee_minor"`
+	AdsSpendMinor     int64  `json:"ads_spend_minor"`
+	AdjustmentMinor   int64  `json:"adjustment_minor"`
+	PayoutMinor       int64  `json:"payout_minor"`
+	NetBalanceMinor   int64  `json:"net_balance_minor"`
+}
+
+// MerchantSettlementDiscrepancy is a row from the canonical global finance
+// exception queue, scoped to the merchant without duplicating that queue.
+type MerchantSettlementDiscrepancy struct {
+	ID                string `json:"id"`
+	ReferenceType     string `json:"reference_type"`
+	ReferenceID       string `json:"reference_id"`
+	MarketCode        string `json:"market_code"`
+	CurrencyCode      string `json:"currency_code"`
+	CurrencyMinorUnit int    `json:"currency_minor_unit"`
+	ExpectedMinor     int64  `json:"expected_minor"`
+	ActualMinor       int64  `json:"actual_minor"`
+	DifferenceMinor   int64  `json:"difference_minor"`
+	Reason            string `json:"reason"`
+	Status            string `json:"status"`
+	FirstSeenAt       string `json:"first_seen_at"`
+	LastSeenAt        string `json:"last_seen_at"`
+}
+
+type MerchantFinanceStatement struct {
+	Entries       []*MerchantStatementEntry        `json:"entries"`
+	Totals        []*MerchantStatementTotals       `json:"totals"`
+	Discrepancies []*MerchantSettlementDiscrepancy `json:"discrepancies"`
+	GeneratedAt   string                           `json:"generated_at"`
+}
+
+// MerchantFinanceRepository is an optional extension of the existing report
+// repository. Keeping it separate avoids forcing legacy report test doubles to
+// implement finance persistence they do not use.
+type MerchantFinanceRepository interface {
+	FinanceStatement(ctx context.Context, merchantID string, limit int) (*MerchantFinanceStatement, error)
+}

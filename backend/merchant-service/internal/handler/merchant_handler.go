@@ -75,7 +75,7 @@ func merchantPermissionForRequest(r *http.Request) int {
 		}
 		return domain.PermViewStore
 	}
-	if strings.Contains(path, "/report") || strings.Contains(path, "/settlement") || strings.Contains(path, "/review") || strings.Contains(path, "/withdrawal") {
+	if strings.Contains(path, "/report") || strings.Contains(path, "/settlement") || strings.Contains(path, "/review") || strings.Contains(path, "/withdrawal") || strings.Contains(path, "/finance-statement") {
 		return domain.PermViewReports
 	}
 	return 0
@@ -1078,6 +1078,32 @@ func (h *MerchantHandler) GetSettlements(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	h.respondJSON(w, http.StatusOK, summary)
+}
+
+// GetFinanceStatement godoc
+// @Summary Merchant finance statement
+// @Description Statement immutable dengan komponen sales, komisi, pajak, promo, refund, Ads, adjustment, fee, dan payout terpisah; termasuk queue discrepancy merchant.
+// @Tags merchant
+// @Produce json
+// @Param limit query int false "Jumlah baris maksimum (default 100, maksimum 500)"
+// @Success 200 {object} domain.MerchantFinanceStatement
+// @Router /merchant/finance-statement [get]
+func (h *MerchantHandler) GetFinanceStatement(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	statement, err := h.svc.GetFinanceStatement(r.Context(), userID, limit)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, statement)
 }
 
 // GetCustomerReviews godoc

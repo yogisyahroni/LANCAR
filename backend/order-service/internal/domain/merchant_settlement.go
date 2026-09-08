@@ -31,9 +31,17 @@ type MerchantSettlement struct {
 	DisbursementFeeIDR int64     `json:"disbursement_fee_idr"`
 	// MerchantPromoDiscountIDR (FB-101): potongan promo merchant (dibiayai
 	// merchant) — mengurangi payout merchant, BUKAN komisi PT.
-	MerchantPromoDiscountIDR int64            `json:"merchant_promo_discount_idr"`
-	NetPayoutIDR             int64            `json:"net_payout_idr"`
-	Status                   SettlementStatus `json:"status"`
+	MerchantPromoDiscountIDR   int64            `json:"merchant_promo_discount_idr"`
+	NetPayoutIDR               int64            `json:"net_payout_idr"`
+	MarketCode                 string           `json:"market_code"`
+	CurrencyCode               string           `json:"currency_code"`
+	CurrencyMinorUnit          int              `json:"currency_minor_unit"`
+	GrossItemPriceMinor        int64            `json:"gross_item_price_minor"`
+	MerchantFeeMinor           int64            `json:"merchant_fee_minor"`
+	DisbursementFeeMinor       int64            `json:"disbursement_fee_minor"`
+	MerchantPromoDiscountMinor int64            `json:"merchant_promo_discount_minor"`
+	NetPayoutMinor             int64            `json:"net_payout_minor"`
+	Status                     SettlementStatus `json:"status"`
 	// IdempotencyKey = "settle-" + payment_link_id (satu PL hanya satu settlement)
 	IdempotencyKey   string     `json:"idempotency_key"`
 	PODConfirmedAt   *time.Time `json:"pod_confirmed_at,omitempty"`
@@ -49,14 +57,18 @@ type MerchantSettlement struct {
 	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
-// MerchantBankInfo adalah informasi rekening bank merchant
-// yang diambil dari tabel users saat proses disbursement.
+// MerchantBankInfo adalah informasi rekening dan konteks payout merchant
+// yang diambil dari tabel merchants saat proses disbursement.
 type MerchantBankInfo struct {
-	UserID            uuid.UUID
-	BankCode          *string
-	BankAccountNumber *string
-	BankAccountName   *string
-	BankVerified      bool
+	UserID                   uuid.UUID
+	BankCode                 *string
+	BankAccountNumber        *string
+	BankAccountName          *string
+	BankVerified             bool
+	BankAccountCooldownUntil *time.Time
+	MarketCode               string
+	CurrencyCode             string
+	CurrencyMinorUnit        int
 }
 
 // MerchantSettlementRepository mendefinisikan kontrak akses data untuk merchant_settlements.

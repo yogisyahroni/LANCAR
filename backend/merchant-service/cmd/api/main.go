@@ -262,6 +262,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/reports", middleware.BaseChain(h.GetSalesReport))
 	mux.HandleFunc("/api/v1/merchant/reports/export", middleware.BaseChain(h.ExportSalesReport))
 	mux.HandleFunc("/api/v1/merchant/settlements", middleware.BaseChain(h.GetSettlements))
+	mux.HandleFunc("/api/v1/merchant/finance-statement", middleware.BaseChain(h.GetFinanceStatement))
 	mux.HandleFunc("/api/v1/merchant/reviews", middleware.BaseChain(h.GetCustomerReviews))
 	mux.HandleFunc("/api/v1/merchant/reviews/{id}/reply", middleware.BaseChain(h.ReplyToCustomerReview))
 	mux.HandleFunc("/api/v1/merchant/withdraw", middleware.BaseChain(h.RequestWithdrawal))

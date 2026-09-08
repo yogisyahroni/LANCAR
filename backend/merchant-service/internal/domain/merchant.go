@@ -67,14 +67,17 @@ type Merchant struct {
 	HalalStatus string `json:"halal_status"`
 	// Rekening bank untuk payout (FB-114) — di-update dari app; verifikasi
 	// ulang oleh admin saat rekening berubah.
-	BankName            *string   `json:"bank_name,omitempty"`
-	BankAccountNumber   *string   `json:"bank_account_number,omitempty"`
-	BankAccountHolder   *string   `json:"bank_account_holder,omitempty"`
-	BankAccountVerified bool      `json:"bank_account_verified"`
-	PayoutSchedule      string    `json:"payout_schedule"`
-	NPWP                *string   `json:"npwp,omitempty"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	BankName                 *string    `json:"bank_name,omitempty"`
+	BankAccountNumber        *string    `json:"bank_account_number,omitempty"`
+	BankAccountHolder        *string    `json:"bank_account_holder,omitempty"`
+	BankAccountVerified      bool       `json:"bank_account_verified"`
+	BankAccountChangedAt     *time.Time `json:"bank_account_changed_at,omitempty"`
+	BankAccountCooldownUntil *time.Time `json:"bank_account_cooldown_until,omitempty"`
+	BankAccountVersion       int64      `json:"bank_account_version"`
+	PayoutSchedule           string     `json:"payout_schedule"`
+	NPWP                     *string    `json:"npwp,omitempty"`
+	CreatedAt                time.Time  `json:"created_at"`
+	UpdatedAt                time.Time  `json:"updated_at"`
 }
 
 const (
