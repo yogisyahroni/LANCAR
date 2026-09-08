@@ -253,7 +253,7 @@ jobs:
     name: Observability Guard
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [frontend, maps-runtime-guard, admin-service, auth-service, routing-service, migration-test]
+    needs: [frontend, maps-runtime-guard, admin-service, auth-service, routing-service, migration-test, regional-resilience]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -269,6 +269,20 @@ jobs:
             validate --config=/etc/otelcol/config.yml
       - name: Docker Compose observability config check
         run: GRAFANA_ADMIN_PASSWORD=ci-only-observability-password docker compose config --quiet
+
+  regional-resilience:
+    name: Regional Resilience Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate region and residency catalog
+        run: python scripts/region_failover_drill.py --validate
+      - name: Run deterministic failover and replay drill
+        run: python scripts/region_failover_drill.py --drill
 
   security:
     name: Security Scan

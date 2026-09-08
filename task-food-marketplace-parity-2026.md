@@ -1736,14 +1736,14 @@ A task is complete only when applicable boxes below are true:
 - `docs/runbooks/data-residency.md`
 
 **Checklist**
-- [ ] Define region affinity for user/order/provider data.
-- [ ] Define which datasets may replicate cross-region and which must remain resident.
-- [ ] Define RPO/RTO per domain instead of one global number.
-- [ ] Global routing can stop sending traffic to an unhealthy region.
-- [ ] Queue/event replication semantics are documented for failover and replay.
-- [ ] Regional outage can degrade non-critical features while preserving safe order/payment state.
-- [ ] Disaster recovery drill is exercised, measured and audited.
-- [ ] Failover does not duplicate order, payment, payout, AWB or carrier mutation.
+- [x] Define region affinity for user/order/provider data.
+- [x] Define which datasets may replicate cross-region and which must remain resident.
+- [x] Define RPO/RTO per domain instead of one global number.
+- [x] Global routing can stop sending traffic to an unhealthy region.
+- [x] Queue/event replication semantics are documented for failover and replay.
+- [x] Regional outage can degrade non-critical features while preserving safe order/payment state.
+- [x] Disaster recovery drill is exercised, measured and audited.
+- [x] Failover does not duplicate order, payment, payout, AWB or carrier mutation.
 
 ---
 

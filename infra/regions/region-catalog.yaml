@@ -1,0 +1,176 @@
+{
+  "schema_version": "2026.09.08",
+  "format": "yaml-json-subset",
+  "description": "LANCAR region, residency, routing and recovery contract. URLs are environment references, never credentials.",
+  "routing": {
+    "health_path": "/health",
+    "transactional_readiness_path": "/ready",
+    "unhealthy_statuses": ["unknown", "unhealthy", "degraded", "draining"],
+    "health_failure_threshold": 3,
+    "health_recovery_threshold": 2,
+    "cooldown_seconds": 30,
+    "fail_closed_write_domains": ["identity", "orders", "payments", "payouts", "provider_mutations"],
+    "operator_approval_required_for_promotion": true
+  },
+  "regions": [
+    {
+      "id": "id-jk-primary",
+      "market_codes": ["id-jk"],
+      "role": "primary",
+      "lifecycle": "active",
+      "priority": 100,
+      "api_base_url_env": "REGION_ID_JK_PRIMARY_API_URL",
+      "transactional_writes": true,
+      "data_plane": "id-jk-primary"
+    },
+    {
+      "id": "id-jk-secondary",
+      "market_codes": ["id-jk"],
+      "role": "standby",
+      "lifecycle": "standby",
+      "priority": 90,
+      "api_base_url_env": "REGION_ID_JK_SECONDARY_API_URL",
+      "transactional_writes": false,
+      "data_plane": "id-jk-secondary"
+    }
+  ],
+  "datasets": [
+    {
+      "domain": "identity",
+      "data_class": "restricted",
+      "affinity": "user_home_region",
+      "replication": "encrypted_status_metadata_only",
+      "resident_fields": ["phone_number", "email", "verification_artifacts", "consent_purpose_context"],
+      "cross_region_fields": ["pseudonymous_user_id", "account_status", "record_version"],
+      "rpo_minutes": 5,
+      "rto_minutes": 30,
+      "write_mode": "single_primary"
+    },
+    {
+      "domain": "market_configuration",
+      "data_class": "internal",
+      "affinity": "global_control_plane",
+      "replication": "encrypted_full_append_only",
+      "resident_fields": [],
+      "cross_region_fields": ["approved_public_policy_projection", "config_version", "rollback_version"],
+      "rpo_minutes": 5,
+      "rto_minutes": 30,
+      "write_mode": "single_primary"
+    },
+    {
+      "domain": "orders",
+      "data_class": "confidential",
+      "affinity": "market_home_region",
+      "replication": "synchronous_transactional_commit",
+      "resident_fields": ["customer_contact", "pickup_address", "dropoff_address", "order_payload"],
+      "cross_region_fields": ["order_id", "market_code", "state_version", "correlation_id"],
+      "rpo_minutes": 0,
+      "rto_minutes": 60,
+      "write_mode": "single_primary"
+    },
+    {
+      "domain": "payments",
+      "data_class": "restricted",
+      "affinity": "market_home_region",
+      "replication": "synchronous_transactional_commit",
+      "resident_fields": ["payment_method_details", "provider_payload", "customer_financial_context"],
+      "cross_region_fields": ["payment_id", "order_id", "state_version", "provider_event_id"],
+      "rpo_minutes": 0,
+      "rto_minutes": 60,
+      "write_mode": "single_primary"
+    },
+    {
+      "domain": "payouts",
+      "data_class": "restricted",
+      "affinity": "market_home_region",
+      "replication": "synchronous_transactional_commit",
+      "resident_fields": ["beneficiary_details", "bank_account_fingerprint", "provider_payload"],
+      "cross_region_fields": ["payout_id", "order_id", "state_version", "provider_reference"],
+      "rpo_minutes": 0,
+      "rto_minutes": 120,
+      "write_mode": "single_primary"
+    },
+    {
+      "domain": "provider_mutations",
+      "data_class": "confidential",
+      "affinity": "provider_home_region",
+      "replication": "encrypted_event_metadata_only",
+      "resident_fields": ["provider_credentials", "native_provider_payload"],
+      "cross_region_fields": ["provider_event_id", "provider_code", "awb_hash", "mutation_state_version"],
+      "rpo_minutes": 5,
+      "rto_minutes": 60,
+      "write_mode": "single_primary"
+    },
+    {
+      "domain": "event_outbox",
+      "data_class": "internal",
+      "affinity": "source_region",
+      "replication": "ordered_append_only_replay",
+      "resident_fields": ["payload"],
+      "cross_region_fields": ["event_id", "aggregate_type", "aggregate_id", "event_type", "event_version", "source_region"],
+      "rpo_minutes": 1,
+      "rto_minutes": 30,
+      "write_mode": "single_primary"
+    },
+    {
+      "domain": "public_catalog",
+      "data_class": "public_projection",
+      "affinity": "market_home_region",
+      "replication": "encrypted_read_only_projection",
+      "resident_fields": [],
+      "cross_region_fields": ["approved_catalog", "market_code", "catalog_version"],
+      "rpo_minutes": 15,
+      "rto_minutes": 60,
+      "write_mode": "single_primary"
+    },
+    {
+      "domain": "observability",
+      "data_class": "internal_redacted",
+      "affinity": "global_redacted_telemetry",
+      "replication": "encrypted_aggregated_only",
+      "resident_fields": ["raw_sensitive_payloads"],
+      "cross_region_fields": ["metric", "redacted_log", "trace_id", "region_id"],
+      "rpo_minutes": 15,
+      "rto_minutes": 30,
+      "write_mode": "append_only"
+    }
+  ],
+  "operations": {
+    "transactional_write": {
+      "primary_unhealthy": "reject_and_escalate",
+      "fallback_region": "none",
+      "requires_idempotency_key": true,
+      "reason_code": "REGION_PRIMARY_UNAVAILABLE"
+    },
+    "transactional_read": {
+      "primary_unhealthy": "route_only_to_approved_promoted_region",
+      "allow_stale": false,
+      "reason_code": "REGION_READ_NOT_READY"
+    },
+    "non_critical_read": {
+      "primary_unhealthy": "route_to_healthy_projection",
+      "max_staleness_seconds": 60,
+      "reason_code": "REGION_DEGRADED_READ_ONLY"
+    },
+    "notification_delivery": {
+      "primary_unhealthy": "queue_for_replay",
+      "client_success_without_provider_ack": false,
+      "reason_code": "NOTIFICATION_DEFERRED"
+    }
+  },
+  "event_replay": {
+    "identity_fields": ["event_id", "aggregate_type", "aggregate_id", "event_version"],
+    "dedupe_key": "source_region:event_id",
+    "ordering_key": "aggregate_type:aggregate_id",
+    "side_effect_policy": "consumer_idempotency_required",
+    "dead_letter_after_attempts": 8,
+    "provider_mutation_policy": "provider_event_id_and_operation_key_must_be_unique"
+  },
+  "backup_recovery": {
+    "database_backup_script": "deploy/scripts/backup.sh",
+    "backup_encryption_required": true,
+    "remote_copy_required": true,
+    "restore_validation": ["schema_version", "row_counts_by_domain", "append_only_event_integrity", "idempotency_uniqueness"],
+    "promotion_requires": ["replication_watermark", "operator_approval", "write_fence_on_old_primary", "smoke_pass"]
+  }
+}
