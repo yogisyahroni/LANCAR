@@ -5537,11 +5537,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MERCH-2026-002 — Branch + staff/device RBAC [P0/P1]
 
 **Checklist**
-- [ ] Merchant account can own multiple branches.
-- [ ] Staff roles: owner/manager/kitchen/cashier/marketing/finance as appropriate.
-- [ ] Branch/device session permissions server enforced.
-- [ ] Staff removal/revocation propagates promptly.
-- [ ] High-risk bank/payout/config changes require stronger authentication/approval.
+- [x] Merchant account can own multiple branches.
+- [x] Staff roles: owner/manager/kitchen/cashier/marketing/finance as appropriate.
+- [x] Branch/device session permissions server enforced.
+- [x] Staff removal/revocation propagates promptly.
+- [x] High-risk bank/payout/config changes require stronger authentication/approval.
 
 ---
 
