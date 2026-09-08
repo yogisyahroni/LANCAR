@@ -28,6 +28,7 @@ import { notificationRoutes } from './routes/notification.routes';
 import { orderRoutes } from './routes/order.routes';
 import { adminRoutes } from './routes/admin.routes';
 import { publicRoutes } from './routes/public.routes';
+import { supportRoutes } from './routes/support.routes';
 
 routes.use(authRoutes);
 routes.use(courierRoutes);
@@ -35,6 +36,7 @@ routes.use(notificationRoutes);
 routes.use(orderRoutes);
 routes.use(adminRoutes);
 routes.use(publicRoutes);
+routes.use(supportRoutes);
 
 routes.get('/api/admin/courier/leaderboard', requireAuth, async (req, res) => {
     try {

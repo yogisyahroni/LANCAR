@@ -105,6 +105,9 @@ export * from './merchantCommissionContracts.controller';
 export * from './customerFeeCredits.controller';
 export * from './riskReview.controller';
 
+// First-class customer / merchant / courier support cases
+export * from './supportCases.controller';
+
 // Broadcast Center
 export * as broadcast from './broadcast.controller';
 

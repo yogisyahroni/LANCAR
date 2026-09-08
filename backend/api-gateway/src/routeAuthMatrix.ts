@@ -164,6 +164,11 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: prefix('/api/v1/compliance'),
   },
   {
+    id: 'support-case-api',
+    requirement: 'web-session-or-jwt',
+    matches: prefix('/api/v1/support'),
+  },
+  {
     id: 'maps-public-runtime',
     requirement: 'public',
     publicReason: 'Customer and courier clients need maps runtime config before order placement.',

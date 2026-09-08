@@ -22,6 +22,7 @@ import PricingConfig from './pages/PricingConfig'
 import EconomicsControlPlane from './pages/EconomicsControlPlane'
 import SettlementConfig from './pages/SettlementConfig'
 import Disputes from './pages/Disputes'
+import Cases from './pages/Cases'
 import Customers from './pages/Customers'
 import Analytics from './pages/Analytics'
 import Zones from './pages/Zones'
@@ -246,6 +247,14 @@ function App() {
                 <Disputes />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/cases"
+            element={
+              <ProtectedRoute>
+                <Cases />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/customers" 

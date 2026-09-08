@@ -207,6 +207,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: AlertTriangle, label: "Exception Queue", path: "/orders/exceptions" },
         { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },
         { icon: AlertTriangle, label: "Disputes", path: "/disputes" },
+        { icon: ShieldCheck, label: "Support Cases", path: "/cases" },
       ]
     },
     {

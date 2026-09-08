@@ -257,6 +257,11 @@ const directProxyPolicies: DirectProxyPolicy[] = [
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: false,
   },
   {
+    matches: (path) => path.startsWith('/api/v1/support'),
+    serviceName: 'admin-service', breaker: adminBreaker,
+    bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
+  },
+  {
     matches: (path) => path.startsWith('/api/v1/auth/web') || path.startsWith('/api/v1/auth/courier') || path.startsWith('/api/v1/auth/merchant'),
     serviceName: 'admin-service', breaker: adminBreaker,
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: true,
@@ -1208,6 +1213,31 @@ app.use(createProxyMiddleware({
       }
     }
   }
+}));
+
+// First-class support cases are owned by admin-service. Keep the route
+// separate from customer order APIs so customer, merchant and courier callers
+// share one audited case boundary without duplicating domain state.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/support',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('support_cases', req, ADMIN_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(adminBreaker);
+    },
+    error: (err: Error, req: any, res: any) => {
+      recordBreakerFailure(adminBreaker);
+      logProxyError('support_cases', ADMIN_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(503).json(upstreamUnavailableBody('Support service is currently unavailable'));
+      }
+    },
+  },
 }));
 
 // Customer Mobile Portal Routes (JWT-authenticated, backed by Admin Service aggregates)
