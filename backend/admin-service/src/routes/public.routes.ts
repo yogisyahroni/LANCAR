@@ -80,6 +80,7 @@ publicRoutes.get('/health', (req, res) => controllers.getSystemHealth(req, res))
 publicRoutes.get('/api/v1/system/latest-version', (req, res) => controllers.getLatestVersion(req, res));
 publicRoutes.get('/api/v1/system/on-demand-readiness', (req, res) => controllers.getOnDemandReadiness(req, res));
 publicRoutes.get('/api/v1/config/runtime', (req, res) => controllers.getPublicRuntimeConfigs(req, res));
+publicRoutes.get('/api/v1/markets/config', publicEndpointRateLimiter, (req, res) => controllers.getPublicMarketConfiguration(req, res));
 publicRoutes.get('/api/v1/maps/config', (req, res) => controllers.getPublicMapsProviderRuntimeConfig(req, res));
 publicRoutes.get('/api/v1/maps/tiles/:z/:x/:y.png', (req, res) => controllers.getPublicOpenStreetMapTile(req, res));
 publicRoutes.get('/api/v1/maps/route', (req, res) => controllers.getPublicMapsRoutePreview(req, res));

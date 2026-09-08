@@ -227,7 +227,7 @@ const directProxyPolicies: DirectProxyPolicy[] = [
   // These proxy blocks already signal breaker failures in their own callbacks;
   // this policy adds the missing open gate and bounded concurrency only.
   {
-    matches: (path) => path.startsWith('/api/v1/system/') || path.startsWith('/api/v1/config/'),
+    matches: (path) => path.startsWith('/api/v1/system/') || path.startsWith('/api/v1/config/') || path.startsWith('/api/v1/markets/'),
     serviceName: 'admin-service', breaker: adminBreaker,
     bulkhead: new Bulkhead(resolveBulkheadLimit('admin-service')), observeResponse: false,
   },
@@ -881,6 +881,26 @@ app.use(createProxyMiddleware({
       }
     }
   }
+}));
+
+// Public market configuration is read-only and explicitly routed to the
+// admin/configuration owner.  It must not fall through to a transactional
+// service or inherit an Indonesia market default.
+app.use('/api/v1/markets', publicSystemLimiter);
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string, req: Request) =>
+    req.method === 'GET' && pathname.startsWith('/api/v1/markets/'),
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('market_config', req, ADMIN_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(adminBreaker);
+    },
+  },
 }));
 
 // Orders Service

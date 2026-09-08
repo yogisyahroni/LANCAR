@@ -147,6 +147,12 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: exact('/api/v1/config/runtime', ['GET']),
   },
   {
+    id: 'market-config-public-runtime',
+    requirement: 'public',
+    publicReason: 'Market configuration is a read-only capability resolver needed before authentication and transaction setup.',
+    matches: exact('/api/v1/markets/config', ['GET']),
+  },
+  {
     id: 'maps-public-runtime',
     requirement: 'public',
     publicReason: 'Customer and courier clients need maps runtime config before order placement.',

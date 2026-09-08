@@ -283,6 +283,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: FileText, label: "Perjanjian Hukum", path: "/agreements" },
         { icon: History, label: "Audit Logs", path: "/audit-logs", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
         { icon: Settings, label: "Settings", path: "/settings", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
+        { icon: Globe2, label: "Market Configuration", path: "/market-configuration", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
       ]
     }
   ]

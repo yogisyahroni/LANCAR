@@ -1653,13 +1653,13 @@ A task is complete only when applicable boxes below are true:
 - `docs/contracts/market-configuration-2026.md`
 
 **Checklist**
-- [ ] Every market has canonical ISO country/region code, currency, default locale, timezone, measurement system, phone/address rules and launch state.
-- [ ] Service availability is config-as-data per market/city; do not fork code for a country.
-- [ ] Payment methods, logistics providers, map providers, tax policy references, insurance policy references and service hours are market scoped.
-- [ ] Legal/privacy/terms document version and effective date are market scoped and auditable.
-- [ ] Market config has version, effective-from, rollback version, actor and approval audit.
-- [ ] Clients receive only public market config; credentials/secrets remain server-side.
-- [ ] Unknown market or incomplete config fails closed for transactional features rather than falling back to Indonesia assumptions.
+- [x] Every market has canonical ISO country/region code, currency, default locale, timezone, measurement system, phone/address rules and launch state. *(2026-09-08 — proven by market config schema/API/UI and seeded `id-jk`; evidence: `docs/task-evidence/GLOB-2026-001.md`.)*
+- [x] Service availability is config-as-data per market/city; do not fork code for a country. *(2026-09-08 — proven by `market_service_availability` and public resolver; evidence: `docs/task-evidence/GLOB-2026-001.md`.)*
+- [x] Payment methods, logistics providers, map providers, tax policy references, insurance policy references and service hours are market scoped. *(2026-09-08 — proven by market-scoped JSONB capability/policy fields and readiness checks; evidence: `docs/task-evidence/GLOB-2026-001.md`.)*
+- [x] Legal/privacy/terms document version and effective date are market scoped and auditable. *(2026-09-08 — proven by legal document table and append-only market audit events; evidence: `docs/task-evidence/GLOB-2026-001.md`.)*
+- [x] Market config has version, effective-from, rollback version, actor and approval audit. *(2026-09-08 — proven by versioned update/approval flow, effective scheduling, actor fields, and audit trigger; evidence: `docs/task-evidence/GLOB-2026-001.md`.)*
+- [x] Clients receive only public market config; credentials/secrets remain server-side. *(2026-09-08 — proven by public allowlist response, secret-reference schema rejection, and auth-separated admin routes; evidence: `docs/task-evidence/GLOB-2026-001.md`.)*
+- [x] Unknown market or incomplete config fails closed for transactional features rather than falling back to Indonesia assumptions. *(2026-09-08 — proven by readiness function/public resolver and gateway smoke for missing/unknown market; evidence: `docs/task-evidence/GLOB-2026-001.md`.)*
 
 ---
 

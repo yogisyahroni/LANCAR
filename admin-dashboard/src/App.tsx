@@ -38,6 +38,7 @@ import TariffEngine from './pages/TariffEngine'
 import CostIntelligence from './pages/CostIntelligence'
 import Settings from './pages/Settings'
 import MapsRuntime from './pages/MapsRuntime'
+import MarketConfiguration from './pages/MarketConfiguration'
 import AuditLogs from './pages/AuditLogs'
 import Agreements from './pages/Agreements'
 import WarehouseOperations from './pages/WarehouseOperations'
@@ -452,6 +453,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['super_admin', 'ops_security']}>
                 <MapsRuntime />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/market-configuration"
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}>
+                <MarketConfiguration />
               </ProtectedRoute>
             }
           />
