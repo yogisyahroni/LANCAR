@@ -606,6 +606,40 @@ services:
       - tembus-net
 
   # ─────────────────────────────────────────────
+  # DEVELOPER PLATFORM — Go (Scoped External API + Webhooks)
+  # ─────────────────────────────────────────────
+  developer-platform-service:
+    build:
+      context: ./backend/developer-platform-service
+      dockerfile: Dockerfile
+    container_name: tembus-developer-platform
+    restart: unless-stopped
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      order-service:
+        condition: service_started
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/tembus_session?sslmode=disable&search_path=public"
+      DEVELOPER_PLATFORM_PORT: 8090
+      DEVELOPER_ENVIRONMENT: ${DEVELOPER_ENVIRONMENT:-development}
+      ORDER_SERVICE_URL: "http://order-service:8083"
+      JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-tembus_internal_key_secure}
+      DEVELOPER_WEBHOOK_ENCRYPTION_KEY: ${DEVELOPER_WEBHOOK_ENCRYPTION_KEY:-developer-platform-local-key-32b}
+      DEVELOPER_WEBHOOK_WORKER_INTERVAL: ${DEVELOPER_WEBHOOK_WORKER_INTERVAL:-5s}
+    ports:
+      - "${DEVELOPER_PLATFORM_HOST_PORT:-18090}:8090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8090/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - tembus-net
+
+  # ─────────────────────────────────────────────
   # PAYMENT SERVICE — Go (Wallet & Fees)
   # ─────────────────────────────────────────────
   payment-service:
@@ -674,6 +708,8 @@ services:
         condition: service_started
       payment-service:
         condition: service_started
+      developer-platform-service:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
@@ -682,6 +718,7 @@ services:
       ADMIN_SERVICE_URL: "http://admin-service:3000"
       ROUTING_SERVICE_URL: "http://routing-service:8082"
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
+      DEVELOPER_PLATFORM_SERVICE_URL: "http://developer-platform-service:8090"
       # Always use the compose-network Redis hostname. The root .env may carry
       # localhost for host-side tools, which is unreachable from this container.
       REDIS_URL: "redis://redis:6379"

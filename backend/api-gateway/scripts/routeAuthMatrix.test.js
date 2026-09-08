@@ -24,6 +24,8 @@ assertPolicy('GET', '/api/v1/maps/config', 'public', 'maps-public-runtime');
 assertPolicy('GET', '/track/scoped-token-value', 'public', 'public-trip-share');
 assertPolicy('POST', '/api/v1/public/location-requests/token-1', 'public', 'customer-public-handoff');
 assertPolicy('POST', '/api/v1/pricing/estimate', 'public', 'pricing-estimate-public');
+assertPolicy('POST', '/api/v1/developer/v1/orders', 'developer-api', 'developer-api-credential');
+assertPolicy('GET', '/api/v1/developer/v1/orders/order-1', 'developer-api', 'developer-api-credential');
 assertPolicy('GET', '/api/v1/auth/web/delivery-services', 'public', 'web-auth-public');
 assertPolicy('GET', '/api/v1/auth/web/orders', 'web-session-or-jwt', 'web-session-routes');
 assertPolicy('POST', '/api/v1/auth/web/orders', 'web-session-or-jwt', 'web-session-routes');
@@ -126,6 +128,10 @@ assert.strictEqual(result.jwtCalled, false);
 assert.strictEqual(result.nextCalled, true);
 
 result = invokeGuard({ method: 'GET', path: '/api/v1/system/latest-version' });
+assert.strictEqual(result.jwtCalled, false);
+assert.strictEqual(result.nextCalled, true);
+
+result = invokeGuard({ method: 'POST', path: '/api/v1/developer/v1/orders' });
 assert.strictEqual(result.jwtCalled, false);
 assert.strictEqual(result.nextCalled, true);
 

@@ -1,0 +1,229 @@
+openapi: 3.0.3
+info:
+  title: Lancar Developer API
+  version: 1.0.0
+  description: >-
+    Versioned external API for approved marketplace clients. Requests are
+    authenticated with a client-scoped Lancar credential and execute through
+    the same quote, order, payment, risk, and state-machine boundaries as the
+    first-party applications.
+servers:
+  - url: https://api.bawain.my.id/api/v1/developer/v1
+    description: Production
+  - url: https://staging-api.bawain.my.id/api/v1/developer/v1
+    description: Staging
+security:
+  - DeveloperCredential: []
+paths:
+  /quotes:
+    post:
+      operationId: createQuote
+      summary: Create a delivery quote
+      security:
+        - DeveloperCredential: [quotes:read]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+      responses:
+        '200': { description: Canonical quote response from the order service }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /orders:
+    post:
+      operationId: createOrder
+      summary: Create an order
+      security:
+        - DeveloperCredential: [orders:write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201': { description: Order created }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: Idempotency conflict or request in progress }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /orders/{order_id}:
+    get:
+      operationId: getOrder
+      summary: Get an order owned by the credential
+      security:
+        - DeveloperCredential: [orders:read]
+      parameters:
+        - $ref: '#/components/parameters/OrderID'
+      responses:
+        '200': { description: Canonical order response }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /orders/{order_id}/cancel:
+    post:
+      operationId: cancelOrder
+      summary: Request cancellation through the canonical order state machine
+      security:
+        - DeveloperCredential: [orders:cancel]
+      parameters:
+        - $ref: '#/components/parameters/OrderID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        '200': { description: Cancellation accepted }
+        '409': { description: Invalid state transition or idempotency conflict }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /orders/{order_id}/track:
+    get:
+      operationId: trackOrder
+      summary: Get tracking for an order owned by the credential
+      security:
+        - DeveloperCredential: [tracking:read]
+      parameters:
+        - $ref: '#/components/parameters/OrderID'
+      responses:
+        '200': { description: Canonical tracking projection }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /webhooks:
+    get:
+      operationId: listWebhooks
+      summary: List webhook subscriptions
+      security:
+        - DeveloperCredential: [webhooks:read]
+      responses:
+        '200': { description: Client-owned subscriptions }
+    post:
+      operationId: createWebhook
+      summary: Create a signed webhook subscription
+      security:
+        - DeveloperCredential: [webhooks:write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookSubscriptionRequest'
+      responses:
+        '201': { description: Subscription and one-time signing secret }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /webhooks/{webhook_id}:
+    delete:
+      operationId: revokeWebhook
+      summary: Revoke a webhook subscription
+      security:
+        - DeveloperCredential: [webhooks:write]
+      parameters:
+        - $ref: '#/components/parameters/WebhookID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200': { description: Subscription revoked }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /webhooks/{webhook_id}/deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      summary: Inspect delivery attempts for a client-owned webhook
+      security:
+        - DeveloperCredential: [webhooks:read]
+      parameters:
+        - $ref: '#/components/parameters/WebhookID'
+      responses:
+        '200': { description: Delivery log without payload or secret material }
+
+components:
+  securitySchemes:
+    DeveloperCredential:
+      type: http
+      scheme: bearer
+      bearerFormat: LCR scoped client credential
+      description: >-
+        Use the API key returned by the approved internal provisioning flow.
+        Internal service keys are not accepted on this public surface.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 12, maxLength: 160 }
+    OrderID:
+      name: order_id
+      in: path
+      required: true
+      schema: { type: string, maxLength: 80 }
+    WebhookID:
+      name: webhook_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    QuoteRequest:
+      type: object
+      required: [models, weight]
+      properties:
+        pickup_lat: { type: number, format: double }
+        pickup_lng: { type: number, format: double }
+        dropoff_lat: { type: number, format: double }
+        dropoff_lng: { type: number, format: double }
+        length: { type: number, format: double }
+        width: { type: number, format: double }
+        height: { type: number, format: double }
+        weight: { type: number, format: double, exclusiveMinimum: 0 }
+        models: { type: array, minItems: 1, items: { type: string } }
+    CreateOrderRequest:
+      type: object
+      required: [estimate_id, item_description]
+      properties:
+        estimate_id: { type: string }
+        item_description: { type: string, minLength: 5 }
+        pickup_address: { type: string }
+        dropoff_address: { type: string }
+        model: { type: string }
+    WebhookSubscriptionRequest:
+      type: object
+      required: [endpoint_url, events]
+      properties:
+        endpoint_url: { type: string, format: uri }
+        events:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items: { type: string }
+    Error:
+      type: object
+      required: [status, code, message]
+      properties:
+        status: { type: string, example: error }
+        code: { type: string }
+        message: { type: string }
+  responses:
+    BadRequest:
+      description: Invalid request
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Invalid or expired developer credential
+    NotFound:
+      description: Resource not found or not owned by this credential
+    RateLimited:
+      description: Client quota exceeded

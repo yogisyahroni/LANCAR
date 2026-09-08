@@ -197,6 +197,7 @@ const adminBreaker = createServiceBreaker('admin-service');
 const paymentBreaker = createServiceBreaker('payment-service');
 const merchantBreaker = createServiceBreaker('merchant-service'); // FOOD-BIKE-019
 const routingBreaker = createServiceBreaker('routing-service');
+const developerPlatformBreaker = createServiceBreaker('developer-platform-service');
 const customerMobileBreaker = createServiceBreaker('customer-mobile', customerProxyBreakerOptions);
 
 const authBulkhead = new Bulkhead(resolveBulkheadLimit('auth-service'));
@@ -205,6 +206,7 @@ const adminBulkhead = new Bulkhead(resolveBulkheadLimit('admin-service'));
 const paymentBulkhead = new Bulkhead(resolveBulkheadLimit('payment-service'));
 const merchantBulkhead = new Bulkhead(resolveBulkheadLimit('merchant-service'));
 const routingBulkhead = new Bulkhead(resolveBulkheadLimit('routing-service'));
+const developerPlatformBulkhead = new Bulkhead(resolveBulkheadLimit('developer-platform-service'));
 const customerMobileBulkhead = new Bulkhead(resolveBulkheadLimit('customer-mobile'));
 const customerMobileInFlight = new WeakSet<object>();
 
@@ -226,6 +228,11 @@ const isOrderAdminProxyPath = (path: string) =>
 const directProxyPolicies: DirectProxyPolicy[] = [
   // These proxy blocks already signal breaker failures in their own callbacks;
   // this policy adds the missing open gate and bounded concurrency only.
+  {
+    matches: (path) => path.startsWith('/api/v1/developer'),
+    serviceName: 'developer-platform-service', breaker: developerPlatformBreaker,
+    bulkhead: developerPlatformBulkhead, observeResponse: true,
+  },
   {
     matches: (path) => path.startsWith('/api/v1/system/') || path.startsWith('/api/v1/config/') || path.startsWith('/api/v1/markets/'),
     serviceName: 'admin-service', breaker: adminBreaker,
@@ -519,12 +526,14 @@ const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost
 const MERCHANT_SERVICE_URL = process.env.MERCHANT_SERVICE_URL || 'http://localhost:8085'; // FOOD-BIKE-019
 const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3000';
 const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://localhost:8082';
+const DEVELOPER_PLATFORM_SERVICE_URL = process.env.DEVELOPER_PLATFORM_SERVICE_URL || 'http://localhost:8090';
 
 logger.logger.info({
   event: 'gateway_upstream_configured',
   auth_service_configured: Boolean(AUTH_SERVICE_URL),
   admin_service_configured: Boolean(ADMIN_SERVICE_URL),
   order_service_configured: Boolean(ORDER_SERVICE_URL),
+  developer_platform_service_configured: Boolean(DEVELOPER_PLATFORM_SERVICE_URL),
 }, 'Gateway upstream services configured');
 
 const phoneRegex = /^(08|628|\+628)[0-9]{8,11}$/;
@@ -798,6 +807,35 @@ app.post(
 );
 
 // --- PROXY ROUTES (Pass-through) ---
+
+// External developer API. The gateway only supplies routing, common security
+// headers, and resilience; API-key scope, ownership, quota, and sandbox/live
+// semantics are enforced by developer-platform-service.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/developer',
+  target: DEVELOPER_PLATFORM_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('developer_platform', req, DEVELOPER_PLATFORM_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(developerPlatformBreaker);
+    },
+    error: (err: Error, req: any, res: any) => {
+      recordBreakerFailure(developerPlatformBreaker);
+      logProxyError('developer_platform', DEVELOPER_PLATFORM_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Developer platform is currently unavailable',
+        });
+      }
+    },
+  },
+}));
 
 // Auth Service - Web/Admin Auth Routes (High Priority)
 app.use(createProxyMiddleware({

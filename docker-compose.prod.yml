@@ -384,6 +384,37 @@ services:
     networks:
       - tembus-private
 
+  developer-platform-service:
+    <<: *app-security
+    image: ${DEVELOPER_PLATFORM_IMAGE:-tembus/developer-platform-service:production}
+    build:
+      context: ./backend/developer-platform-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DEVELOPER_DATABASE_URL:-${DATABASE_URL:?DATABASE_URL is required}}
+      DEVELOPER_PLATFORM_PORT: 8090
+      DEVELOPER_ENVIRONMENT: production
+      ORDER_SERVICE_URL: http://order-service:8083
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY is required}
+      DEVELOPER_WEBHOOK_ENCRYPTION_KEY: ${DEVELOPER_WEBHOOK_ENCRYPTION_KEY:?DEVELOPER_WEBHOOK_ENCRYPTION_KEY is required}
+      DEVELOPER_WEBHOOK_WORKER_INTERVAL: ${DEVELOPER_WEBHOOK_WORKER_INTERVAL:-5s}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8090/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - tembus-private
+
   admin-service:
     <<: *app-security
     image: ${ADMIN_SERVICE_IMAGE:-tembus/admin-service:production}
@@ -400,6 +431,8 @@ services:
         condition: service_healthy
       payment-service:
         condition: service_healthy
+      developer-platform-service:
+        condition: service_healthy
     environment:
       <<: *app-env
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
@@ -414,6 +447,7 @@ services:
       SEED_DB: "false"
       SOCKET_REDIS_ADAPTER_ENABLED: "true"
       PAYMENT_SERVICE_URL: http://payment-service:8084
+      DEVELOPER_PLATFORM_SERVICE_URL: http://developer-platform-service:8090
       ORDER_SERVICE_URL: http://order-service:8083
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY is required}
       SUPPORT_FINANCIAL_MARKETS: ${SUPPORT_FINANCIAL_MARKETS:-id-jk,id-sby,id-bdg}

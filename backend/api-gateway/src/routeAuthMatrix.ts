@@ -4,6 +4,7 @@ export type GatewayRouteAuthRequirement =
   | 'public'
   | 'ops-protected'
   | 'jwt'
+  | 'developer-api'
   | 'web-session-or-jwt'
   | 'admin-session-or-jwt';
 
@@ -193,6 +194,12 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: exact('/api/v1/pricing/estimate', ['POST']),
   },
   {
+    id: 'developer-api-credential',
+    requirement: 'developer-api',
+    publicReason: 'The developer platform validates the client-scoped credential and quota downstream.',
+    matches: prefix('/api/v1/developer'),
+  },
+  {
     id: 'admin-management',
     requirement: 'admin-session-or-jwt',
     matches: prefix('/api/v1/admin'),
@@ -315,7 +322,7 @@ export const createGatewayAuthMatrixMiddleware = (authenticateJwt: JwtAuthentica
   const policy = resolveGatewayRoutePolicy(req.method, req.path);
   res.locals.gatewayRoutePolicy = policy.id;
 
-  if (policy.requirement === 'public' || policy.requirement === 'ops-protected') {
+  if (policy.requirement === 'public' || policy.requirement === 'ops-protected' || policy.requirement === 'developer-api') {
     return next();
   }
 

@@ -235,6 +235,34 @@ jobs:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
+  developer-platform-service:
+    name: Developer Platform Service Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache-dependency-path: backend/developer-platform-service/go.sum
+      - name: Verify modules are tidy
+        working-directory: ./backend/developer-platform-service
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+          go mod verify
+      - name: Run golangci-lint
+        working-directory: ./backend/developer-platform-service
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run ./... --timeout=5m
+      - name: Run tests with race detector
+        working-directory: ./backend/developer-platform-service
+        run: go test -v -race -timeout 5m ./...
+      - name: Build service
+        working-directory: ./backend/developer-platform-service
+        run: go build ./cmd/api
+
   migration-test:
     name: Migration Test
     runs-on: ubuntu-latest
@@ -275,7 +303,7 @@ jobs:
     name: Observability Guard
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [frontend, maps-runtime-guard, admin-service, auth-service, datalake-worker, routing-service, migration-test, regional-resilience]
+    needs: [frontend, maps-runtime-guard, admin-service, auth-service, datalake-worker, routing-service, developer-platform-service, migration-test, regional-resilience]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -347,6 +375,11 @@ jobs:
           cd backend/routing-service
           go mod tidy
           govulncheck ./...
+      - name: govulncheck (developer-platform-service)
+        run: |
+          cd backend/developer-platform-service
+          go mod tidy
+          govulncheck ./...
       - name: gosec (auth-service)
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
@@ -355,6 +388,10 @@ jobs:
       - name: gosec (routing-service)
         run: |
           cd backend/routing-service
+          gosec -severity high -confidence high ./...
+      - name: gosec (developer-platform-service)
+        run: |
+          cd backend/developer-platform-service
           gosec -severity high -confidence high ./...
       - name: Gitleaks (secret scanning)
         uses: gitleaks/gitleaks-action@v2
@@ -379,6 +416,7 @@ jobs:
           - { image: order-service, context: ./backend/order-service }
           - { image: datalake-worker, context: ./backend/datalake-worker }
           - { image: payment-service, context: ./backend/payment-service }
+          - { image: developer-platform-service, context: ./backend/developer-platform-service }
           - { image: api-gateway, context: ./backend/api-gateway }
           - { image: frontend, context: ./frontend }
           - { image: admin-dashboard, context: ./admin-dashboard }
@@ -514,6 +552,17 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/payment-service:staging
             ghcr.io/${{ env.REPO_LOWER }}/payment-service:staging-${{ github.sha }}
+      - name: Build and Push Developer Platform Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/developer-platform-service
+          pull: true
+          push: true
+          cache-from: type=gha,scope=developer-platform-v1
+          cache-to: type=gha,mode=max,scope=developer-platform-v1
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/developer-platform-service:staging
+            ghcr.io/${{ env.REPO_LOWER }}/developer-platform-service:staging-${{ github.sha }}
       - name: Build and Push API Gateway
         uses: docker/build-push-action@v5
         with:
@@ -606,13 +655,14 @@ jobs:
           docker pull ghcr.io/${REPO_LOWER_LC}/order-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/datalake-worker:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/developer-platform-service:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/frontend:${SHA}
           docker pull ghcr.io/${REPO_LOWER_LC}/admin-dashboard:${SHA}
           docker-compose up -d traefik
           export CURRENT_SHA="${SHA}"
           export REPO="${REPO_LOWER_LC}"
-          for svc in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
+          for svc in auth-service routing-service admin-service order-service datalake-worker payment-service developer-platform-service api-gateway frontend admin-dashboard; do
             OLD_CONTAINER=\$(docker-compose ps -q \${svc} | head -n 1 || true)
             docker-compose up -d --no-deps --scale \${svc}=2 --no-recreate \${svc} || true
             sleep 30
