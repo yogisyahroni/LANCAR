@@ -36,7 +36,10 @@ func (s *foodGroupService) CreateFoodGroup(ctx context.Context, userID string, r
 		if err != nil {
 			return nil, fmt.Errorf("validate group merchant: %w", err)
 		}
-		if merchant == nil || !merchant.IsOpen {
+		if merchant == nil {
+			return nil, fmt.Errorf("merchant is not available")
+		}
+		if err := validateFoodMerchantOperatingState(merchant); err != nil {
 			return nil, fmt.Errorf("merchant is not available")
 		}
 	}

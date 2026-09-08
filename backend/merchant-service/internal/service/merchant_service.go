@@ -64,6 +64,11 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 	if len(req.MarketCode) > 32 {
 		return nil, errors.New("market_code maksimal 32 karakter")
 	}
+	if timezone := strings.TrimSpace(req.OperatingTimezone); timezone != "" {
+		if _, err := time.LoadLocation(timezone); err != nil {
+			return nil, errors.New("operating_timezone tidak valid")
+		}
+	}
 	for _, character := range req.MarketCode {
 		if !(character >= 'A' && character <= 'Z') && !(character >= '0' && character <= '9') && character != '-' && character != '_' {
 			return nil, errors.New("market_code hanya boleh huruf, angka, tanda hubung, atau underscore")
@@ -104,6 +109,7 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 		MarketCode:         req.MarketCode,
 		JamBuka:            req.JamBuka,
 		JamTutup:           req.JamTutup,
+		OperatingTimezone:  strings.TrimSpace(req.OperatingTimezone),
 		BusinessType:       bt, // X1: 'perorangan'|'perusahaan'
 	}
 	if req.LokasiLat != nil {
@@ -197,6 +203,16 @@ func (s *merchantServiceImpl) UpdateProfile(ctx context.Context, userID string, 
 	}
 	if req.JamTutup != nil {
 		m.JamTutup = req.JamTutup
+	}
+	if req.OperatingTimezone != nil {
+		tz := strings.TrimSpace(*req.OperatingTimezone)
+		if tz == "" {
+			return nil, errors.New("operating_timezone tidak boleh kosong")
+		}
+		if _, err := time.LoadLocation(tz); err != nil {
+			return nil, errors.New("operating_timezone tidak valid")
+		}
+		m.OperatingTimezone = tz
 	}
 	// FB-109: minimum subtotal order — 0 = tanpa batas minimum.
 	if req.MinOrderIDR != nil {
@@ -425,6 +441,66 @@ func (s *merchantServiceImpl) Busy(ctx context.Context, userID string, until tim
 		return nil, err
 	}
 	return s.merchantRepo.GetByID(ctx, m.ID)
+}
+
+// OverrideOperatingState applies an audited admin/support state override.
+// Merchant self-service pause/busy remain separate so their operational
+// semantics cannot be accidentally replaced by an administrative closure.
+func (s *merchantServiceImpl) OverrideOperatingState(ctx context.Context, actorID, actorRole, merchantID string, req domain.MerchantOperatingStateOverrideRequest) (*domain.Merchant, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return nil, errors.New("actor id tidak valid")
+	}
+	if _, err := uuid.Parse(merchantID); err != nil {
+		return nil, errors.New("merchant id tidak valid")
+	}
+	actorRole = strings.ToLower(strings.TrimSpace(actorRole))
+	if !validOperatingStateOverrideRole(actorRole) {
+		return nil, errors.New("role tidak berwenang mengubah operating state")
+	}
+	req.State = strings.ToLower(strings.TrimSpace(req.State))
+	req.Reason = strings.TrimSpace(req.Reason)
+	if !validOperatingStateOverrideState(req.State) {
+		return nil, errors.New("state override tidak valid (open|closed|temp_closed|holiday)")
+	}
+	if len(req.Reason) < 1 || len(req.Reason) > 500 {
+		return nil, errors.New("reason wajib 1-500 karakter")
+	}
+	if req.State == domain.OperatingStateTempClosed {
+		if req.Until == nil || !req.Until.After(time.Now()) {
+			return nil, errors.New("until wajib di masa depan untuk temp_closed")
+		}
+	} else if req.State != domain.OperatingStateHoliday && req.Until != nil {
+		return nil, errors.New("until hanya boleh diisi untuk temp_closed atau holiday")
+	}
+	if req.State == domain.OperatingStateHoliday && req.Until != nil && !req.Until.After(time.Now()) {
+		return nil, errors.New("until holiday harus di masa depan")
+	}
+	repo, ok := s.merchantRepo.(domain.MerchantOperatingStateRepository)
+	if !ok {
+		return nil, errors.New("konfigurasi operating state belum tersedia")
+	}
+	if err := repo.SetOperatingStateOverride(ctx, merchantID, actorID, actorRole, req); err != nil {
+		return nil, err
+	}
+	return s.merchantRepo.GetByID(ctx, merchantID)
+}
+
+func validOperatingStateOverrideRole(role string) bool {
+	switch role {
+	case "super_admin", "admin", "ops_admin", "ops_security", "cs_agent", "customer_support", "manager":
+		return true
+	default:
+		return false
+	}
+}
+
+func validOperatingStateOverrideState(state string) bool {
+	switch state {
+	case domain.OperatingStateOpen, domain.OperatingStateClosed, domain.OperatingStateTempClosed, domain.OperatingStateHoliday:
+		return true
+	default:
+		return false
+	}
 }
 
 // UpdateFoodDocs — FB-092 + ADR 003: update nomor + masa berlaku dokumen

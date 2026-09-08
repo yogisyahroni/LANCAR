@@ -66,3 +66,13 @@ func TestExpectedOpen(t *testing.T) {
 		})
 	}
 }
+
+func TestMerchantOperatingLocationFallsBackToJakarta(t *testing.T) {
+	location := merchantOperatingLocation("Asia/Tokyo")
+	if location.String() != "Asia/Tokyo" {
+		t.Fatalf("location = %q, want Asia/Tokyo", location.String())
+	}
+	if fallback := merchantOperatingLocation("not/a-timezone"); fallback.String() != "Asia/Jakarta" && fallback.String() != "WIB" {
+		t.Fatalf("fallback location = %q, want Jakarta/WIB", fallback.String())
+	}
+}

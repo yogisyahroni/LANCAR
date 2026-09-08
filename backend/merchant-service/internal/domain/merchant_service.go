@@ -71,6 +71,9 @@ type MerchantService interface {
 	Resume(ctx context.Context, userID string) (*Merchant, error)
 	// Busy: tetap menerima order dengan tambahan waktu prep sampai `until`.
 	Busy(ctx context.Context, userID string, until time.Time, extraPrepMinutes int) (*Merchant, error)
+	// OverrideOperatingState is an audited admin/support override for temporary
+	// closure or explicit open/closed state.
+	OverrideOperatingState(ctx context.Context, actorID, actorRole, merchantID string, req MerchantOperatingStateOverrideRequest) (*Merchant, error)
 	// UpdateFoodDocs update dokumen pangan (FB-092): nomor sertifikat halal
 	// BPJPH, SPP-IRT, izin edar BPOM + masa berlaku. Buka toko ditolak
 	// kalau belum lengkap / expired.

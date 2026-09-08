@@ -44,8 +44,8 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if merchant.VerificationStatus != "approved" {
 		return nil, domain.NewUserFacingError("merchant belum terverifikasi")
 	}
-	if !merchant.IsOpen {
-		return nil, domain.NewUserFacingError("merchant tutup")
+	if err := validateFoodMerchantOperatingState(merchant); err != nil {
+		return nil, err
 	}
 	if foodLastOrderClosed(merchant, time.Now()) {
 		return nil, domain.NewUserFacingError("batas waktu pemesanan merchant sudah lewat — pilih waktu atau merchant lain")
@@ -57,7 +57,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		return nil, domain.NewUserFacingError("merchant belum melengkapi lokasi toko")
 	}
 	if req.IsScheduled {
-		if err := validateScheduledAt(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup, time.Now()); err != nil {
+		if err := validateScheduledAtForMerchant(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup, merchant.OperatingTimezone, time.Now()); err != nil {
 			return nil, domain.NewUserFacingError(err.Error())
 		}
 	}
@@ -350,8 +350,7 @@ func foodLastOrderClosed(merchant *domain.FoodMerchantInfo, now time.Time) bool 
 	if err != nil {
 		return false
 	}
-	jakarta := time.FixedZone("WIB", 7*60*60)
-	now = now.In(jakarta)
+	now = now.In(foodMerchantTimezone(merchant.OperatingTimezone))
 	currentMinutes := now.Hour()*60 + now.Minute()
 	closeMinutes := closeAt.Hour()*60 + closeAt.Minute()
 	remaining := closeMinutes - currentMinutes
@@ -359,6 +358,31 @@ func foodLastOrderClosed(merchant *domain.FoodMerchantInfo, now time.Time) bool 
 		remaining += 24 * 60
 	}
 	return remaining <= merchant.LastOrderMinutesBeforeClose
+}
+
+func validateFoodMerchantOperatingState(merchant *domain.FoodMerchantInfo) error {
+	if merchant == nil {
+		return domain.NewUserFacingError("merchant tidak ditemukan")
+	}
+	switch merchant.OperatingState {
+	case "", "open":
+		if !merchant.IsOpen {
+			return domain.NewUserFacingError("merchant tutup")
+		}
+	case "busy":
+		// Busy remains orderable; the stored extra prep is added to ETA below.
+	case "paused":
+		return domain.NewUserFacingError("merchant sedang pause — coba lagi nanti")
+	case "temp_closed":
+		return domain.NewUserFacingError("merchant sedang ditutup sementara — coba lagi nanti")
+	case "holiday":
+		return domain.NewUserFacingError("merchant sedang libur — coba lagi nanti")
+	case "closed":
+		return domain.NewUserFacingError("merchant tutup")
+	default:
+		return domain.NewUserFacingError("status operasional merchant tidak tersedia")
+	}
+	return nil
 }
 
 func validateFoodInventory(item domain.FoodMenuItemInfo, quantity int, now time.Time) error {

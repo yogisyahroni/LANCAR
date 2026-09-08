@@ -22,6 +22,16 @@ type Merchant struct {
 	JamBuka    *string  `json:"jam_buka,omitempty"`
 	JamTutup   *string  `json:"jam_tutup,omitempty"`
 	IsOpen     bool     `json:"is_open"`
+	// MERCH-2026-004: canonical operating state. IsOpen remains a legacy
+	// projection for existing consumers; state carries busy/pause/holiday and
+	// temporary-closure semantics explicitly.
+	OperatingState          string     `json:"operating_state"`
+	OperatingStateReason    *string    `json:"operating_state_reason,omitempty"`
+	OperatingStateUntil     *time.Time `json:"operating_state_until,omitempty"`
+	OperatingStateUpdatedBy *string    `json:"operating_state_updated_by,omitempty"`
+	OperatingStateSource    string     `json:"operating_state_source"`
+	OperatingStateVersion   int64      `json:"operating_state_version"`
+	OperatingTimezone       string     `json:"operating_timezone"`
 	// FB-107: pause sementara sampai jam ini (NULL = tidak pause). Auto
 	// un-pause ketika waktu habis — tidak mengubah is_open / jam operasional.
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
@@ -65,6 +75,32 @@ type Merchant struct {
 	NPWP                *string   `json:"npwp,omitempty"`
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
+}
+
+const (
+	OperatingStateOpen        = "open"
+	OperatingStateClosed      = "closed"
+	OperatingStateBusy        = "busy"
+	OperatingStatePaused      = "paused"
+	OperatingStateTempClosed  = "temp_closed"
+	OperatingStateHoliday     = "holiday"
+	OperatingStateSourceHours = "schedule"
+)
+
+// MerchantOperatingStateOverrideRequest is the admin/support override
+// contract. A reason is always required so the state change can be audited.
+type MerchantOperatingStateOverrideRequest struct {
+	State  string     `json:"state"`
+	Until  *time.Time `json:"until,omitempty"`
+	Reason string     `json:"reason"`
+}
+
+// MerchantOperatingStateRepository is an optional capability implemented by
+// the PostgreSQL merchant repository. Keeping it separate preserves legacy
+// repository test doubles while making production state transitions atomic.
+type MerchantOperatingStateRepository interface {
+	SetOperatingStateOverride(ctx context.Context, merchantID, actorID, actorRole string, req MerchantOperatingStateOverrideRequest) error
+	SetScheduledOperatingState(ctx context.Context, merchantID, state, reason string) error
 }
 
 // HalalStatusValue — status halal merchant (ADR 003, model Grab/GoFood):

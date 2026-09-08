@@ -7,14 +7,15 @@ type RegisterMerchantRequest struct {
 	Alamat   string `json:"alamat"`
 	// Market is explicit so the server can apply the matching KYB policy.
 	// Empty keeps the existing Indonesia/Jakarta default for legacy clients.
-	MarketCode    string   `json:"market_code,omitempty"`
-	LokasiLat     *float64 `json:"lokasi_lat,omitempty"`
-	LokasiLng     *float64 `json:"lokasi_lng,omitempty"`
-	JamBuka       *string  `json:"jam_buka,omitempty"`
-	JamTutup      *string  `json:"jam_tutup,omitempty"`
-	KtpPemilikURL string   `json:"ktp_pemilik_url"`
-	FotoTokoURL   string   `json:"foto_tempat_usaha_url"`
-	RekeningURL   string   `json:"rekening_bank_url"`
+	MarketCode        string   `json:"market_code,omitempty"`
+	LokasiLat         *float64 `json:"lokasi_lat,omitempty"`
+	LokasiLng         *float64 `json:"lokasi_lng,omitempty"`
+	JamBuka           *string  `json:"jam_buka,omitempty"`
+	JamTutup          *string  `json:"jam_tutup,omitempty"`
+	OperatingTimezone string   `json:"operating_timezone,omitempty"`
+	KtpPemilikURL     string   `json:"ktp_pemilik_url"`
+	FotoTokoURL       string   `json:"foto_tempat_usaha_url"`
+	RekeningURL       string   `json:"rekening_bank_url"`
 	// NIB opsional
 	NibURL *string `json:"nib_url,omitempty"`
 	// Staffing (X1): jenis usaha. Diperlukan untuk conditional staff management.
@@ -58,12 +59,13 @@ type UpdateFoodDocsRequest struct {
 
 // UpdateMerchantRequest — update profil merchant (nama, alamat, lokasi, jam).
 type UpdateMerchantRequest struct {
-	NamaToko  *string  `json:"nama_toko,omitempty"`
-	Alamat    *string  `json:"alamat,omitempty"`
-	LokasiLat *float64 `json:"lokasi_lat,omitempty"`
-	LokasiLng *float64 `json:"lokasi_lng,omitempty"`
-	JamBuka   *string  `json:"jam_buka,omitempty"`
-	JamTutup  *string  `json:"jam_tutup,omitempty"`
+	NamaToko          *string  `json:"nama_toko,omitempty"`
+	Alamat            *string  `json:"alamat,omitempty"`
+	LokasiLat         *float64 `json:"lokasi_lat,omitempty"`
+	LokasiLng         *float64 `json:"lokasi_lng,omitempty"`
+	JamBuka           *string  `json:"jam_buka,omitempty"`
+	JamTutup          *string  `json:"jam_tutup,omitempty"`
+	OperatingTimezone *string  `json:"operating_timezone,omitempty"`
 	// FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
 	MinOrderIDR    *int64  `json:"min_order_idr,omitempty"`
 	PayoutSchedule *string `json:"payout_schedule,omitempty"`

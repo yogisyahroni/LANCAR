@@ -221,6 +221,15 @@ func inJakarta(t time.Time) time.Time {
 	return t.In(jakartaLoc)
 }
 
+func foodMerchantTimezone(timezone string) *time.Location {
+	if timezone != "" {
+		if location, err := time.LoadLocation(timezone); err == nil {
+			return location
+		}
+	}
+	return jakartaLoc
+}
+
 // validateScheduledAt — FB-123: aturan pesanan terjadwal yang dipakai
 // CreateFoodOrder: wajib ada waktu, min lead 30 menit, same-day only,
 // dalam jam operasional merchant (jam_buka/jam_tutup TIME "HH:MM[:SS]").
@@ -228,6 +237,14 @@ func inJakarta(t time.Time) time.Time {
 // AUDIT-FIX M3: dukung jam operasional lintas tengah malam (buka 18:00–02:00).
 // Pure function (terima `now` eksplisit) — testable & tidak time-dependent.
 func validateScheduledAt(sa *time.Time, jamBuka, jamTutup *string, now time.Time) error {
+	return validateScheduledAtInLocation(sa, jamBuka, jamTutup, now, time.FixedZone("WIB", 7*60*60))
+}
+
+func validateScheduledAtForMerchant(sa *time.Time, jamBuka, jamTutup *string, timezone string, now time.Time) error {
+	return validateScheduledAtInLocation(sa, jamBuka, jamTutup, now, foodMerchantTimezone(timezone))
+}
+
+func validateScheduledAtInLocation(sa *time.Time, jamBuka, jamTutup *string, now time.Time, location *time.Location) error {
 	if sa == nil {
 		return fmt.Errorf("waktu jadwal wajib diisi (scheduled_at)")
 	}
@@ -235,8 +252,8 @@ func validateScheduledAt(sa *time.Time, jamBuka, jamTutup *string, now time.Time
 		return fmt.Errorf("waktu jadwal minimal 30 menit dari sekarang")
 	}
 	// Same-day only (V1): tanggal harus sama dengan hari ini (zona WIB).
-	saJkt := inJakarta(*sa)
-	nowJkt := inJakarta(now)
+	saJkt := sa.In(location)
+	nowJkt := now.In(location)
 	y1, m1, d1 := saJkt.Date()
 	y2, m2, d2 := nowJkt.Date()
 	if y1 != y2 || m1 != m2 || d1 != d2 {

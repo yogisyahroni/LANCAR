@@ -34,6 +34,10 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			nama_toko,
 			alamat,
 			is_open,
+			operating_state,
+			operating_state_reason,
+			operating_state_until,
+			operating_timezone,
 			verification_status,
 			paused_until,
 			busy_until,
@@ -43,23 +47,24 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			COALESCE(ST_X(lokasi::geometry), 0),
 			COALESCE((SELECT TO_CHAR(h.opens_at, 'HH24:MI') FROM merchant_operating_hours h
 				WHERE h.merchant_id = merchants.id
-				  AND h.weekday = EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Jakarta'))::smallint), jam_buka::text),
+			  AND h.weekday = EXTRACT(DOW FROM timezone(COALESCE(NULLIF(operating_timezone, ''), 'Asia/Jakarta'), NOW()))::smallint), jam_buka::text),
 			COALESCE((SELECT TO_CHAR(h.closes_at, 'HH24:MI') FROM merchant_operating_hours h
 				WHERE h.merchant_id = merchants.id
-				  AND h.weekday = EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Jakarta'))::smallint), jam_tutup::text),
+			  AND h.weekday = EXTRACT(DOW FROM timezone(COALESCE(NULLIF(operating_timezone, ''), 'Asia/Jakarta'), NOW()))::smallint), jam_tutup::text),
 			COALESCE((SELECT h.last_order_minutes_before_close FROM merchant_operating_hours h
 				WHERE h.merchant_id = merchants.id
-				  AND h.weekday = EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Jakarta'))::smallint), 0),
+			  AND h.weekday = EXTRACT(DOW FROM timezone(COALESCE(NULLIF(operating_timezone, ''), 'Asia/Jakarta'), NOW()))::smallint), 0),
 			halal_status
 			FROM merchants
 			WHERE id = $1`
 
 	m := &domain.FoodMerchantInfo{}
-	var jamBuka, jamTutup, halalStatus sql.NullString
+	var operatingState, operatingStateReason, operatingTimezone, jamBuka, jamTutup, halalStatus sql.NullString
+	var operatingStateUntil sql.NullTime
 	var pausedUntil sql.NullTime
 	var busyUntil sql.NullTime
 	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
-		&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
+		&m.ID, &m.Name, &m.Address, &m.IsOpen, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingTimezone, &m.VerificationStatus,
 		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &m.LastOrderMinutesBeforeClose, &halalStatus,
 	)
 	if err != nil {
@@ -73,6 +78,18 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	}
 	if busyUntil.Valid {
 		m.BusyUntil = &busyUntil.Time
+	}
+	if operatingState.Valid {
+		m.OperatingState = operatingState.String
+	}
+	if operatingStateReason.Valid {
+		m.OperatingStateReason = &operatingStateReason.String
+	}
+	if operatingStateUntil.Valid {
+		m.OperatingStateUntil = &operatingStateUntil.Time
+	}
+	if operatingTimezone.Valid {
+		m.OperatingTimezone = operatingTimezone.String
 	}
 	if jamBuka.Valid {
 		m.JamBuka = &jamBuka.String
@@ -571,7 +588,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 	if search == "" {
 		rows, err = r.readDB.QueryContext(ctx, `
 			SELECT
-				m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
+				m.id::text, m.nama_toko, m.alamat, m.is_open, m.operating_state, m.operating_state_reason, m.operating_state_until, m.operating_timezone, m.verification_status,
 				COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
 				m.jam_buka::text, m.jam_tutup::text, m.halal_status,
 				COALESCE(sponsored.id::text, ''), (sponsored.id IS NOT NULL),
@@ -590,7 +607,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 				LIMIT 1
 			) sponsored ON TRUE
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
-			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
+			WHERE m.is_open = TRUE AND m.operating_state IN ('open', 'busy') AND m.verification_status = 'approved'
 			  AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
 			  `+halalClause+`
 			GROUP BY m.id, sponsored.id
@@ -601,7 +618,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 	} else {
 		rows, err = r.readDB.QueryContext(ctx, `
 			SELECT
-				m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
+				m.id::text, m.nama_toko, m.alamat, m.is_open, m.operating_state, m.operating_state_reason, m.operating_state_until, m.operating_timezone, m.verification_status,
 				COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
 				m.jam_buka::text, m.jam_tutup::text, m.halal_status,
 				COALESCE(sponsored.id::text, ''), (sponsored.id IS NOT NULL),
@@ -620,7 +637,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 				LIMIT 1
 			) sponsored ON TRUE
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
-			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
+			WHERE m.is_open = TRUE AND m.operating_state IN ('open', 'busy') AND m.verification_status = 'approved'
 			AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
 			  `+halalClause+`
 			  AND (
@@ -647,17 +664,30 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 	out := []domain.FoodMerchantInfo{}
 	for rows.Next() {
 		var m domain.FoodMerchantInfo
-		var jamBuka, jamTutup, halalStatus sql.NullString
+		var operatingState, operatingStateReason, operatingTimezone, jamBuka, jamTutup, halalStatus sql.NullString
+		var operatingStateUntil sql.NullTime
 		var sponsoredCampaignID string
 		var isSponsored bool
 		if err := rows.Scan(
-			&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
+			&m.ID, &m.Name, &m.Address, &m.IsOpen, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingTimezone, &m.VerificationStatus,
 			&m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus, &sponsoredCampaignID, &isSponsored, &m.DistanceKM, &m.AvgRating, &m.RatingCount,
 		); err != nil {
 			return nil, err
 		}
 		if jamBuka.Valid {
 			m.JamBuka = &jamBuka.String
+		}
+		if operatingState.Valid {
+			m.OperatingState = operatingState.String
+		}
+		if operatingStateReason.Valid {
+			m.OperatingStateReason = &operatingStateReason.String
+		}
+		if operatingStateUntil.Valid {
+			m.OperatingStateUntil = &operatingStateUntil.Time
+		}
+		if operatingTimezone.Valid {
+			m.OperatingTimezone = operatingTimezone.String
 		}
 		if jamTutup.Valid {
 			m.JamTutup = &jamTutup.String
@@ -1088,7 +1118,7 @@ func (r *foodRepo) RemoveFavoriteMerchant(ctx context.Context, customerID, merch
 func (r *foodRepo) ListFavoriteMerchants(ctx context.Context, customerID string) ([]domain.FoodMerchantInfo, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT
-			m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
+			m.id::text, m.nama_toko, m.alamat, m.is_open, m.operating_state, m.operating_state_reason, m.operating_state_until, m.operating_timezone, m.verification_status,
 			COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
 			m.jam_buka::text, m.jam_tutup::text, m.halal_status,
 			ROUND(CAST(ST_Distance(m.lokasi, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) / 1000 AS NUMERIC), 2)::float AS distance_km,
@@ -1110,9 +1140,10 @@ func (r *foodRepo) ListFavoriteMerchants(ctx context.Context, customerID string)
 	out := []domain.FoodMerchantInfo{}
 	for rows.Next() {
 		var m domain.FoodMerchantInfo
-		var jamBuka, jamTutup, halalStatus sql.NullString
+		var operatingState, operatingStateReason, operatingTimezone, jamBuka, jamTutup, halalStatus sql.NullString
+		var operatingStateUntil sql.NullTime
 		if err := rows.Scan(
-			&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
+			&m.ID, &m.Name, &m.Address, &m.IsOpen, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingTimezone, &m.VerificationStatus,
 			&m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus, &m.DistanceKM, &m.AvgRating, &m.RatingCount,
 		); err != nil {
 			return nil, err
@@ -1122,6 +1153,18 @@ func (r *foodRepo) ListFavoriteMerchants(ctx context.Context, customerID string)
 		}
 		if jamTutup.Valid {
 			m.JamTutup = &jamTutup.String
+		}
+		if operatingState.Valid {
+			m.OperatingState = operatingState.String
+		}
+		if operatingStateReason.Valid {
+			m.OperatingStateReason = &operatingStateReason.String
+		}
+		if operatingStateUntil.Valid {
+			m.OperatingStateUntil = &operatingStateUntil.Time
+		}
+		if operatingTimezone.Valid {
+			m.OperatingTimezone = operatingTimezone.String
 		}
 		if halalStatus.Valid {
 			m.HalalStatus = halalStatus.String

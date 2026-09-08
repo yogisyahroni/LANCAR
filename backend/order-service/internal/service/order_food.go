@@ -35,8 +35,8 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	if merchant.VerificationStatus != "approved" {
 		return nil, domain.NewUserFacingError("merchant belum terverifikasi")
 	}
-	if !merchant.IsOpen {
-		return nil, domain.NewUserFacingError("merchant tutup")
+	if err := validateFoodMerchantOperatingState(merchant); err != nil {
+		return nil, err
 	}
 	// FB-107: merchant sedang pause sementara — tolak order baru sampai
 	// paused_until lewat (auto un-pause, tidak butuh aksi merchant).
@@ -62,7 +62,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	// 'scheduled' terjadi di payment callback (payment_service.go).
 	var scheduledAt *time.Time
 	if req.IsScheduled {
-		if errV := validateScheduledAt(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup, time.Now()); errV != nil {
+		if errV := validateScheduledAtForMerchant(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup, merchant.OperatingTimezone, time.Now()); errV != nil {
 			// UAT-C-033/034/035: pesan validasi jadwal tampil ke customer.
 			return nil, domain.NewUserFacingError(errV.Error())
 		}
@@ -651,14 +651,17 @@ func (s *orderServiceImpl) ProcessScheduledOrderActivation(ctx context.Context) 
 		}
 		valid := merchant != nil &&
 			merchant.VerificationStatus == "approved" &&
-			merchant.IsOpen &&
-			(merchant.PausedUntil == nil || merchant.PausedUntil.Before(now))
-		// Jam operasional saat aktivasi (zona WIB — AUDIT-FIX M1).
+			validateFoodMerchantOperatingState(merchant) == nil
+		// Jam operasional saat aktivasi (timezone merchant).
 		// M2: kalau belum jam buka → JANGAN cancel, tunggu tick berikutnya
 		// (merchant baru is_open pagi hari; auto-cancel prematur merugikan).
 		// M3: dukung rentang lintas tengah malam.
 		// m3: aktivasi tepat jam tutup (nowMin == closeMin) dianggap TUTUP.
-		nowJkt := inJakarta(now)
+		activationLocation := jakartaLoc
+		if merchant != nil {
+			activationLocation = foodMerchantTimezone(merchant.OperatingTimezone)
+		}
+		nowJkt := now.In(activationLocation)
 		nowMin := nowJkt.Hour()*60 + nowJkt.Minute()
 		if valid && merchant.JamBuka != nil && merchant.JamTutup != nil {
 			openH, openM, errO := parseHHMM(*merchant.JamBuka)

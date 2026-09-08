@@ -53,17 +53,20 @@ func (r *postgresMerchantRepository) Create(ctx context.Context, m *domain.Merch
 		INSERT INTO merchants (
 			id, user_id, nama_toko, alamat, lokasi, jam_buka, jam_tutup,
 			verification_status, onboarding_status, market_code, business_type, onboarding_submitted_at,
-			halal_cert_number, halal_expiry_date, spp_irt_number, spp_irt_expiry_date, bpom_number, bpom_expiry_date
+			halal_cert_number, halal_expiry_date, spp_irt_number, spp_irt_expiry_date, bpom_number, bpom_expiry_date,
+			operating_timezone
 		)
 		VALUES (
 			$1, $2, $3, $4, $5::geography, $6, $7,
 			'pending', $8::text, $9::text, $10::text, NOW(),
-			$11, $12::date, $13, $14::date, $15, $16::date
+			$11, $12::date, $13, $14::date, $15, $16::date,
+			COALESCE(NULLIF($17, ''), 'Asia/Jakarta')
 		)
 		RETURNING created_at, updated_at`,
 		m.ID, m.UserID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup,
 		m.OnboardingStatus, m.MarketCode, m.BusinessType,
 		halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp,
+		m.OperatingTimezone,
 	).Scan(&m.CreatedAt, &m.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("insert merchant: %w", err)
@@ -190,7 +193,9 @@ const merchantColumns = `m.id, m.user_id,
 	m.nama_toko, m.alamat,
 	ST_Y(m.lokasi::geometry), ST_X(m.lokasi::geometry),
 	to_char(m.jam_buka, 'HH24:MI'), to_char(m.jam_tutup, 'HH24:MI'),
-	m.is_open, m.paused_until, m.busy_until, m.busy_extra_prep_minutes, m.min_order_idr, m.completion_rate_pct, m.verification_status,
+	m.is_open, m.operating_state, m.operating_state_reason, m.operating_state_until, m.operating_state_updated_by,
+	m.operating_state_source, m.operating_state_version, m.operating_timezone,
+	m.paused_until, m.busy_until, m.busy_extra_prep_minutes, m.min_order_idr, m.completion_rate_pct, m.verification_status,
 	m.avg_rating, m.rating_count,
 	m.halal_cert_number, to_char(m.halal_expiry_date, 'YYYY-MM-DD'),
 	m.spp_irt_number, to_char(m.spp_irt_expiry_date, 'YYYY-MM-DD'),
@@ -216,11 +221,16 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var businessType sql.NullString
 	var payoutSchedule sql.NullString
 	var npwp sql.NullString
+	var operatingState, operatingStateReason, operatingStateUpdatedBy, operatingStateSource, operatingTimezone sql.NullString
+	var operatingStateUntil sql.NullTime
+	var operatingStateVersion sql.NullInt64
 	err := row.Scan(
 		&m.ID, &m.UserID, &m.OwnerEmail, &m.OwnerPhone, &m.NamaToko, &m.Alamat,
 		&lat, &lng,
 		&jamBuka, &jamTutup,
-		&m.IsOpen, &pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.CompletionRatePct, &m.VerificationStatus,
+		&m.IsOpen, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingStateUpdatedBy,
+		&operatingStateSource, &operatingStateVersion, &operatingTimezone,
+		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.CompletionRatePct, &m.VerificationStatus,
 		&avgRating, &ratingCount,
 		&halalNo, &halalExp, &sppNo, &sppExp, &bpomNo, &bpomExp,
 		&halalStatus,
@@ -241,6 +251,27 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	}
 	if busyUntil.Valid {
 		m.BusyUntil = &busyUntil.Time
+	}
+	if operatingState.Valid {
+		m.OperatingState = operatingState.String
+	}
+	if operatingStateReason.Valid {
+		m.OperatingStateReason = &operatingStateReason.String
+	}
+	if operatingStateUntil.Valid {
+		m.OperatingStateUntil = &operatingStateUntil.Time
+	}
+	if operatingStateUpdatedBy.Valid {
+		m.OperatingStateUpdatedBy = &operatingStateUpdatedBy.String
+	}
+	if operatingStateSource.Valid {
+		m.OperatingStateSource = operatingStateSource.String
+	}
+	if operatingStateVersion.Valid {
+		m.OperatingStateVersion = operatingStateVersion.Int64
+	}
+	if operatingTimezone.Valid {
+		m.OperatingTimezone = operatingTimezone.String
 	}
 	if avgRating.Valid {
 		m.AvgRating = avgRating.Float64
@@ -351,9 +382,10 @@ func (r *postgresMerchantRepository) Update(ctx context.Context, m *domain.Merch
 			min_order_idr = $7, -- FB-109 (0 = tanpa minimum)
 			payout_schedule = COALESCE(NULLIF($8, ''), payout_schedule),
 			npwp = CASE WHEN $9::text IS NULL THEN npwp ELSE NULLIF($9, '') END,
+			operating_timezone = COALESCE(NULLIF($10, ''), operating_timezone),
 			updated_at = NOW()
 		WHERE id = $1`,
-		m.ID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup, m.MinOrderIDR, m.PayoutSchedule, m.NPWP,
+		m.ID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup, m.MinOrderIDR, m.PayoutSchedule, m.NPWP, m.OperatingTimezone,
 	)
 	return err
 }
@@ -397,7 +429,19 @@ func (r *postgresMerchantRepository) UpdateVerification(ctx context.Context, id,
 
 func (r *postgresMerchantRepository) ToggleOpen(ctx context.Context, id string, isOpen bool) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE merchants SET is_open = $2, updated_at = NOW() WHERE id = $1`, id, isOpen)
+		UPDATE merchants SET
+			is_open = $2,
+			paused_until = NULL,
+			busy_until = NULL,
+			busy_extra_prep_minutes = 0,
+			operating_state = CASE WHEN $2 THEN 'open' ELSE 'closed' END,
+			operating_state_reason = NULL,
+			operating_state_until = NULL,
+			operating_state_updated_by = NULL,
+			operating_state_source = 'merchant',
+			operating_state_version = operating_state_version + 1,
+			updated_at = NOW()
+		WHERE id = $1`, id, isOpen)
 	return err
 }
 
@@ -407,7 +451,20 @@ func (r *postgresMerchantRepository) ToggleOpen(ctx context.Context, id string, 
 // validasi order, jadi merchant pause otomatis tidak terima order baru.
 func (r *postgresMerchantRepository) SetPaused(ctx context.Context, id string, until *time.Time) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE merchants SET paused_until = $2, updated_at = NOW() WHERE id = $1`,
+		UPDATE merchants SET
+			paused_until = $2,
+			busy_until = NULL,
+			busy_extra_prep_minutes = 0,
+			operating_state = CASE WHEN $2::timestamptz IS NULL
+				THEN CASE WHEN is_open THEN 'open' ELSE 'closed' END
+				ELSE 'paused' END,
+			operating_state_reason = CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE 'merchant_pause' END,
+			operating_state_until = $2,
+			operating_state_updated_by = NULL,
+			operating_state_source = 'merchant',
+			operating_state_version = operating_state_version + 1,
+			updated_at = NOW()
+		WHERE id = $1`,
 		id, until)
 	return err
 }
@@ -417,9 +474,92 @@ func (r *postgresMerchantRepository) SetPaused(ctx context.Context, id string, u
 func (r *postgresMerchantRepository) SetBusy(ctx context.Context, id string, until *time.Time, extraPrepMinutes int) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE merchants
-		SET busy_until = $2, busy_extra_prep_minutes = $3, updated_at = NOW()
+		SET busy_until = $2,
+			busy_extra_prep_minutes = $3,
+			paused_until = NULL,
+			operating_state = CASE WHEN $2::timestamptz IS NULL
+				THEN CASE WHEN is_open THEN 'open' ELSE 'closed' END
+				ELSE 'busy' END,
+			operating_state_reason = CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE 'merchant_busy' END,
+			operating_state_until = $2,
+			operating_state_updated_by = NULL,
+			operating_state_source = 'merchant',
+			operating_state_version = operating_state_version + 1,
+			updated_at = NOW()
 		WHERE id = $1`, id, until, extraPrepMinutes)
 	return err
+}
+
+// SetScheduledOperatingState applies the timezone-resolved schedule projection
+// without overriding an active pause, busy window, or temporary closure.
+func (r *postgresMerchantRepository) SetScheduledOperatingState(ctx context.Context, merchantID, state, reason string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE merchants
+		SET is_open = ($2 IN ('open', 'busy')),
+			operating_state = $2,
+			operating_state_reason = NULLIF($3, ''),
+			operating_state_until = NULL,
+			operating_state_updated_by = NULL,
+			operating_state_source = 'schedule',
+			operating_state_version = operating_state_version + 1,
+			updated_at = NOW()
+		WHERE id = $1
+		  AND (
+			operating_state NOT IN ('paused', 'busy', 'temp_closed')
+			OR operating_state_until IS NULL
+			OR operating_state_until <= NOW()
+		  )
+		  AND (operating_state_source <> 'admin_override'
+			OR (operating_state_until IS NOT NULL AND operating_state_until <= NOW()))
+		  AND (operating_state IS DISTINCT FROM $2 OR operating_state_source IS DISTINCT FROM 'schedule')`,
+		merchantID, state, reason)
+	return err
+}
+
+// SetOperatingStateOverride changes an operating state and its audit record in
+// one transaction. It is intentionally separate from owner self-service APIs.
+func (r *postgresMerchantRepository) SetOperatingStateOverride(ctx context.Context, merchantID, actorID, actorRole string, req domain.MerchantOperatingStateOverrideRequest) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var previousState string
+	if err := tx.QueryRowContext(ctx, `
+		SELECT operating_state FROM merchants WHERE id = $1 FOR UPDATE`, merchantID).Scan(&previousState); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("merchant tidak ditemukan")
+		}
+		return err
+	}
+	isOpen := req.State == domain.OperatingStateOpen || req.State == domain.OperatingStateBusy
+	var stateVersion int64
+	if err := tx.QueryRowContext(ctx, `
+		UPDATE merchants SET
+			is_open = $2,
+			paused_until = NULL,
+			busy_until = NULL,
+			busy_extra_prep_minutes = 0,
+			operating_state = $3,
+			operating_state_reason = $4,
+			operating_state_until = $5,
+			operating_state_updated_by = $6::uuid,
+			operating_state_source = 'admin_override',
+			operating_state_version = operating_state_version + 1,
+			updated_at = NOW()
+		WHERE id = $1
+		RETURNING operating_state_version`, merchantID, isOpen, req.State, req.Reason, req.Until, actorID).Scan(&stateVersion); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO merchant_operating_state_events
+			(merchant_id, previous_state, state, reason, effective_until, actor_id, actor_role, source, state_version)
+		VALUES ($1, $2, $3, $4, $5, $6::uuid, $7, 'admin_override', $8)`,
+		merchantID, previousState, req.State, req.Reason, req.Until, actorID, actorRole, stateVersion); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *postgresMerchantRepository) ListByVerificationStatus(ctx context.Context, status string, limit, offset int) ([]*domain.Merchant, error) {
@@ -575,13 +715,14 @@ func (r *postgresMerchantRepository) SetHalalStatus(ctx context.Context, id, sta
 	return err
 }
 
-// ListForOperatingHoursSync — FB-095: merchant approved dengan jam_buka/jam_tutup
-// terisi → kandidat auto-toggle is_open sesuai jam operasional oleh worker.
+// ListForOperatingHoursSync — FB-095: merchant approved dengan jadwal legacy
+// atau jadwal per-hari → kandidat sinkronisasi canonical operating_state.
 func (r *postgresMerchantRepository) ListForOperatingHoursSync(ctx context.Context) ([]*domain.Merchant, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT `+merchantColumns+` FROM merchants m JOIN users u ON u.id = m.user_id
 		WHERE m.verification_status = 'approved'
-		  AND m.jam_buka IS NOT NULL AND m.jam_tutup IS NOT NULL`)
+		  AND (m.jam_buka IS NOT NULL AND m.jam_tutup IS NOT NULL
+		       OR EXISTS (SELECT 1 FROM merchant_operating_hours h WHERE h.merchant_id = m.id))`)
 	if err != nil {
 		return nil, err
 	}

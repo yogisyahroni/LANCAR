@@ -15,8 +15,9 @@ import (
 // Aturan:
 //   - Hanya merchant verification_status = 'approved' (pending tidak pernah
 //     di-auto-buka).
-//   - Auto-BUKA hanya kalau gate KYC dokumen pangan lolos (FB-092) — worker
-//     tidak boleh membuka toko yang belum lengkap/expired sertifikatnya.
+//   - Auto-BUKA/TUTUP memproyeksikan jadwal ke canonical operating_state;
+//     pause, busy, temporary closure, dan admin override yang masih aktif
+//     tidak ditimpa oleh worker.
 //   - Jam lintas tengah malam (tutup < buka, mis. 21:00–02:00) didukung.
 //   - Interval 5 menit: perubahan jam terdeteksi paling lambat 5 menit.
 type OperatingHoursWorker struct {
@@ -84,11 +85,14 @@ func (w *OperatingHoursWorker) runOnce() {
 		return
 	}
 
-	jakarta, err := time.LoadLocation("Asia/Jakarta")
-	if err != nil {
-		jakarta = time.FixedZone("WIB", 7*60*60)
+	nowByMerchant := make(map[string]time.Time, len(merchants))
+	dateGroups := make(map[string]struct{})
+	for _, merchant := range merchants {
+		location := merchantOperatingLocation(merchant.OperatingTimezone)
+		localNow := time.Now().In(location)
+		nowByMerchant[merchant.ID] = localNow
+		dateGroups[localNow.Format("2006-01-02")] = struct{}{}
 	}
-	now := time.Now().In(jakarta)
 	merchantIDs := make([]string, 0, len(merchants))
 	for _, merchant := range merchants {
 		merchantIDs = append(merchantIDs, merchant.ID)
@@ -98,43 +102,81 @@ func (w *OperatingHoursWorker) runOnce() {
 		log.Printf("[OperatingHoursWorker] gagal query jadwal mingguan: %v", err)
 		return
 	}
-	closures, err := w.repo.ListSpecialClosuresOn(ctx, merchantIDs, now.Format("2006-01-02"))
-	if err != nil {
-		log.Printf("[OperatingHoursWorker] gagal query penutupan khusus: %v", err)
-		return
+	closures := make(map[string]bool)
+	for date := range dateGroups {
+		dateClosures, closureErr := w.repo.ListSpecialClosuresOn(ctx, merchantIDs, date)
+		if closureErr != nil {
+			log.Printf("[OperatingHoursWorker] gagal query penutupan khusus: %v", closureErr)
+			return
+		}
+		for merchantID, closed := range dateClosures {
+			closures[merchantID] = closed
+		}
 	}
 	var opened, closed int
 	for _, m := range merchants {
-		if m.JamBuka == nil || m.JamTutup == nil {
+		now, hasNow := nowByMerchant[m.ID]
+		if !hasNow {
 			continue
 		}
-		open := expectedOpen(*m.JamBuka, *m.JamTutup, now)
+		open := false
+		if m.JamBuka != nil && m.JamTutup != nil {
+			open = expectedOpen(*m.JamBuka, *m.JamTutup, now)
+		}
+		reason := "outside_operating_hours"
 		if closure := closures[m.ID]; closure {
 			open = false
+			reason = "special_closure"
 		} else if schedule, exists := schedules[m.ID]; exists {
 			open = expectedOpenForSchedule(schedule, now)
+			reason = "weekly_schedule"
 		}
-		if open && !m.IsOpen {
-			// ADR 003: dokumen pangan BUKAN lagi gate buka toko — semua status
-			// halal boleh auto-buka (label & filter di sisi customer).
+		targetState := domain.OperatingStateClosed
+		if closure := closures[m.ID]; closure {
+			targetState = domain.OperatingStateHoliday
+		} else if open {
+			targetState = domain.OperatingStateOpen
+		}
+		if stateRepo, ok := w.repo.(domain.MerchantOperatingStateRepository); ok {
+			if err := stateRepo.SetScheduledOperatingState(ctx, m.ID, targetState, reason); err != nil {
+				log.Printf("[OperatingHoursWorker] gagal sinkronisasi state merchant %s: %v", m.ID, err)
+				continue
+			}
+		} else if open && !m.IsOpen {
+			// Compatibility fallback for legacy repository test doubles.
 			if err := w.repo.ToggleOpen(ctx, m.ID, true); err != nil {
 				log.Printf("[OperatingHoursWorker] gagal auto-buka merchant %s: %v", m.ID, err)
 				continue
 			}
-			opened++
-			log.Printf("[OperatingHoursWorker] auto-buka toko merchant %s (%s) — jam operasional", m.ID, m.NamaToko)
 		} else if !open && m.IsOpen {
 			if err := w.repo.ToggleOpen(ctx, m.ID, false); err != nil {
 				log.Printf("[OperatingHoursWorker] gagal auto-tutup merchant %s: %v", m.ID, err)
 				continue
 			}
+		}
+		if open {
+			opened++
+			log.Printf("[OperatingHoursWorker] auto-buka/sinkronisasi state merchant %s (%s) — %s", m.ID, m.NamaToko, reason)
+		} else {
 			closed++
-			log.Printf("[OperatingHoursWorker] auto-tutup toko merchant %s (%s) — di luar jam operasional", m.ID, m.NamaToko)
+			log.Printf("[OperatingHoursWorker] auto-tutup/sinkronisasi state merchant %s (%s) — %s", m.ID, m.NamaToko, reason)
 		}
 	}
 	if opened > 0 || closed > 0 {
 		log.Printf("[OperatingHoursWorker] %d toko dibuka, %d toko ditutup otomatis", opened, closed)
 	}
+}
+
+func merchantOperatingLocation(timezone string) *time.Location {
+	if timezone != "" {
+		if location, err := time.LoadLocation(timezone); err == nil {
+			return location
+		}
+	}
+	if jakarta, err := time.LoadLocation("Asia/Jakarta"); err == nil {
+		return jakarta
+	}
+	return time.FixedZone("WIB", 7*60*60)
 }
 
 func expectedOpenForSchedule(hours []domain.MerchantOperatingHour, now time.Time) bool {

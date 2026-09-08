@@ -144,16 +144,20 @@ type FoodOrderItemVariant struct {
 }
 
 type FoodMerchantInfo struct {
-	ID                          string  `json:"id"`
-	Name                        string  `json:"name"`
-	Address                     string  `json:"address"`
-	IsOpen                      bool    `json:"is_open"`
-	VerificationStatus          string  `json:"verification_status"`
-	Lat                         float64 `json:"lat"`
-	Lng                         float64 `json:"lng"`
-	JamBuka                     *string `json:"jam_buka,omitempty"`
-	JamTutup                    *string `json:"jam_tutup,omitempty"`
-	LastOrderMinutesBeforeClose int     `json:"last_order_minutes_before_close"`
+	ID                          string     `json:"id"`
+	Name                        string     `json:"name"`
+	Address                     string     `json:"address"`
+	IsOpen                      bool       `json:"is_open"`
+	OperatingState              string     `json:"operating_state"`
+	OperatingStateReason        *string    `json:"operating_state_reason,omitempty"`
+	OperatingStateUntil         *time.Time `json:"operating_state_until,omitempty"`
+	OperatingTimezone           string     `json:"operating_timezone"`
+	VerificationStatus          string     `json:"verification_status"`
+	Lat                         float64    `json:"lat"`
+	Lng                         float64    `json:"lng"`
+	JamBuka                     *string    `json:"jam_buka,omitempty"`
+	JamTutup                    *string    `json:"jam_tutup,omitempty"`
+	LastOrderMinutesBeforeClose int        `json:"last_order_minutes_before_close"`
 	// FB-107: pause sementara — merchant tidak terima order baru selama
 	// PausedUntil > NOW(). NULL = tidak pause.
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
@@ -174,6 +178,15 @@ type FoodMerchantInfo struct {
 	HalalStatus string             `json:"halal_status"`
 	MenuItems   []FoodMenuItemInfo `json:"menu_items,omitempty"`
 }
+
+const (
+	OperatingStateOpen       = "open"
+	OperatingStateClosed     = "closed"
+	OperatingStateBusy       = "busy"
+	OperatingStatePaused     = "paused"
+	OperatingStateTempClosed = "temp_closed"
+	OperatingStateHoliday    = "holiday"
+)
 
 type FoodMenuItemInfo struct {
 	ID                string     `json:"id"`

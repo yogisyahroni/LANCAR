@@ -151,6 +151,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/pause", middleware.BaseChain(h.Pause))
 	mux.HandleFunc("/api/v1/merchant/resume", middleware.BaseChain(h.Resume))
 	mux.HandleFunc("/api/v1/merchant/busy", middleware.BaseChain(h.Busy))
+	mux.HandleFunc("/api/v1/merchant/operating-state/{id}/override", middleware.BaseChain(h.OverrideOperatingState))
 	mux.HandleFunc("/api/v1/merchant/food-docs", middleware.BaseChain(h.UpdateFoodDocs))
 	mux.HandleFunc("/api/v1/merchant/operating-hours", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {

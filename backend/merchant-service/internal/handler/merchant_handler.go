@@ -364,6 +364,46 @@ func (h *MerchantHandler) Busy(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, m)
 }
 
+// OverrideOperatingState changes a merchant's canonical operating state from
+// an authenticated admin/support workflow. The service persists the audit
+// record and emits the state-change outbox event atomically.
+func (h *MerchantHandler) OverrideOperatingState(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	role := strings.ToLower(strings.TrimSpace(r.Header.Get("X-User-Role")))
+	if !isOperatingStateOverrideRole(role) {
+		h.respondError(w, http.StatusForbidden, "role tidak berwenang mengubah operating state")
+		return
+	}
+	if !requireStepUp(r) {
+		h.respondError(w, http.StatusUnauthorized, "step-up authentication (TOTP) wajib untuk operating state override")
+		return
+	}
+	var req domain.MerchantOperatingStateOverrideRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body; until harus RFC3339")
+		return
+	}
+	merchantID := r.PathValue("id")
+	m, err := h.svc.OverrideOperatingState(r.Context(), actorID, role, merchantID, req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, m)
+}
+
+func isOperatingStateOverrideRole(role string) bool {
+	switch role {
+	case "super_admin", "admin", "ops_admin", "ops_security", "cs_agent", "customer_support", "manager":
+		return true
+	default:
+		return false
+	}
+}
+
 // UpdateFoodDocs godoc
 // @Summary Update dokumen pangan (FB-092): sertifikat halal BPJPH, SPP-IRT,
 // izin edar BPOM + masa berlaku. Patch: hanya field yang diisi yang diperbarui.
