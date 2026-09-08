@@ -31,6 +31,20 @@ func foodQuoteInputFingerprint(req domain.CreateFoodOrderRequest) string {
 }
 
 func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req domain.CreateFoodOrderRequest) (*domain.FoodQuoteResponse, error) {
+	currency := strings.ToUpper(strings.TrimSpace(req.Currency))
+	if currency == "" {
+		currency = "IDR"
+	}
+	currency, currencyMinorUnit, err := domain.NormalizeCurrency(currency)
+	if err != nil {
+		return nil, domain.NewUserFacingError(fmt.Sprintf("mata uang pesanan tidak didukung: %v", err))
+	}
+	if req.CurrencyMinorUnit != 0 && req.CurrencyMinorUnit != currencyMinorUnit {
+		return nil, domain.NewUserFacingError(fmt.Sprintf("minor unit mata uang %s tidak sesuai", currency))
+	}
+	if currency != "IDR" {
+		return nil, domain.NewUserFacingError(fmt.Sprintf("pricing makanan untuk %s belum tersedia karena konfigurasi harga multi-mata-uang belum aktif", currency))
+	}
 	if s.foodRepo == nil || s.redisRepo == nil {
 		return nil, fmt.Errorf("food quote dependencies not wired")
 	}
@@ -188,7 +202,10 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		decision = applyPricingExperiment(experiment, experimentAssignment, decision)
 	}
 	baseDeliveryFee := deliveryFee
-	dynamicAdjustment := dynamicPriceAdjustment(baseDeliveryFee, decision.Multiplier)
+	dynamicAdjustment, err := dynamicPriceAdjustment(baseDeliveryFee, decision.Multiplier)
+	if err != nil {
+		return nil, err
+	}
 	grossDeliveryFee := baseDeliveryFee + dynamicAdjustment
 	deliveryFee = grossDeliveryFee
 	membershipSubsidy := int64(0)
@@ -207,7 +224,11 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if platformPct <= 0 {
 		platformPct = 10
 	}
-	platformFee := int64(math.Round(float64(subtotal) * platformPct / 100))
+	platformFeeMoney, err := domain.LegacyIDR(subtotal).MultiplyPercent(platformPct)
+	if err != nil {
+		return nil, fmt.Errorf("calculate food platform fee: %w", err)
+	}
+	platformFee := platformFeeMoney.AmountMinor
 	if s.taxSvc == nil {
 		return nil, fmt.Errorf("food tax service not wired")
 	}
@@ -215,7 +236,10 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if err != nil {
 		return nil, fmt.Errorf("calculate food tax: %w", err)
 	}
-	taxIDR := taxSnapshot.PPNIDR
+	taxIDR := taxSnapshot.PPNMinor
+	if taxIDR == 0 && taxSnapshot.Currency == "IDR" {
+		taxIDR = taxSnapshot.PPNIDR
+	}
 	total := subtotal + deliveryFee + platformFee + taxIDR
 	discount := int64(0)
 	if strings.TrimSpace(req.VoucherCode) != "" {
@@ -251,7 +275,11 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if merchantCommissionPercent < 0 || merchantCommissionPercent > 100 {
 		return nil, fmt.Errorf("invalid merchant commission policy percent %.3f", merchantCommissionPercent)
 	}
-	merchantCommission := int64(math.Round(float64(subtotal) * merchantCommissionPercent / 100))
+	merchantCommissionMoney, err := domain.LegacyIDR(subtotal).MultiplyPercent(merchantCommissionPercent)
+	if err != nil {
+		return nil, fmt.Errorf("calculate merchant commission: %w", err)
+	}
+	merchantCommission := merchantCommissionMoney.AmountMinor
 	courierPayoutPercent := product.CourierPayoutPercent
 	if courierPayoutPercent <= 0 {
 		courierPayoutPercent = s.configRepo.GetFloatConfig(ctx, "courier_payout_percent", 80)
@@ -259,7 +287,11 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if courierPayoutPercent < 0 || courierPayoutPercent > 100 {
 		return nil, fmt.Errorf("invalid courier payout policy percent %.3f", courierPayoutPercent)
 	}
-	courierEarning := int64(math.Round(float64(grossDeliveryFee) * courierPayoutPercent / 100))
+	courierEarningMoney, err := domain.LegacyIDR(grossDeliveryFee).MultiplyPercent(courierPayoutPercent)
+	if err != nil {
+		return nil, fmt.Errorf("calculate food courier earning: %w", err)
+	}
+	courierEarning := courierEarningMoney.AmountMinor
 	components := []domain.PricingComponent{
 		pricingComponent("item_subtotal", domain.PricingComponentCustomerCharge, subtotal, true),
 		pricingComponent("delivery_fee", domain.PricingComponentCustomerCharge, baseDeliveryFee, true),
@@ -286,7 +318,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	pickupTravelMinutes := int(math.Ceil(distanceKM / etaSpeed * 60))
 	quote := &domain.FoodQuoteResponse{
 		QuoteID: uuid.New().String(), InputFingerprint: foodQuoteInputFingerprint(req),
-		MerchantID: req.MerchantID, Items: quoteItems, SubtotalIDR: subtotal,
+		MerchantID: req.MerchantID, Currency: currency, CurrencyMinorUnit: currencyMinorUnit, Items: quoteItems, SubtotalIDR: subtotal,
 		DeliveryFeeIDR: deliveryFee, PlatformFeeIDR: platformFee, TaxIDR: taxIDR, DiscountIDR: discount, MembershipSubsidyIDR: membershipSubsidy,
 		TotalPriceIDR: total, DistanceKM: distanceKM,
 		ETAMinutes: prepMinutes + pickupTravelMinutes,
@@ -312,7 +344,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	}
 	stored := &domain.PricingEstimateResponse{
 		EstimateID: quote.QuoteID, QuoteID: quote.QuoteID, InputFingerprint: quote.InputFingerprint,
-		ServiceCategory: "food", Currency: "IDR", TotalPriceIDR: total, ExpiresAt: quote.ExpiresAt,
+		ServiceCategory: "food", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, TotalPriceIDR: total, TotalPriceMinor: total, ExpiresAt: quote.ExpiresAt,
 		Market:     market,
 		ETAMinutes: quote.ETAMinutes, PrepMinutes: quote.PrepMinutes,
 		PickupTravelMinutes: quote.PickupTravelMinutes, TrafficMinutes: quote.TrafficMinutes,
@@ -339,6 +371,7 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 			"platform_amount_idr": breakdown.PlatformAmountIDR, "total_price_idr": total,
 		},
 	}
+	stored.ApplyMoneyContract()
 	stored.SnapshotHash = domain.QuoteSnapshotHash(*stored)
 	quote.SnapshotHash = domain.FoodQuoteSnapshotHash(*quote)
 	log.Printf("[FoodPricingQuote] quote_id=%s policy_version=%s service=%s market=%s trigger_context=%v", quote.QuoteID, pricingRuleVersion, product.Code, market, decision.TriggerContext)

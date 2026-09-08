@@ -61,10 +61,23 @@ type Order struct {
 	ItemCategory    string      `json:"item_category,omitempty" db:"-"`
 	ItemImageURL    string      `json:"item_image_url,omitempty"`
 	// FB-121: catatan keseluruhan order (ditulis customer saat checkout).
-	OrderNotes         string  `json:"order_notes,omitempty"`
-	DistanceKM         float64 `json:"distance_km"`
-	IncludedDistanceKM float64 `json:"included_distance_km"`
-	DistanceFeeIDR     int64   `json:"distance_fee_idr"`
+	OrderNotes               string  `json:"order_notes,omitempty"`
+	DistanceKM               float64 `json:"distance_km"`
+	IncludedDistanceKM       float64 `json:"included_distance_km"`
+	Currency                 string  `json:"currency" db:"currency_code"`
+	CurrencyMinorUnit        int     `json:"currency_minor_unit" db:"currency_minor_unit"`
+	BasePriceMinor           int64   `json:"base_price_minor" db:"base_price_minor"`
+	DistanceFeeMinor         int64   `json:"distance_fee_minor" db:"distance_fee_minor"`
+	VolumetricSurchargeMinor int64   `json:"volumetric_surcharge_minor" db:"volumetric_surcharge_minor"`
+	DynamicPriceMinor        int64   `json:"dynamic_price_minor" db:"dynamic_price_minor"`
+	DiscountMinor            int64   `json:"discount_minor" db:"discount_minor"`
+	InsurancePremiumMinor    int64   `json:"insurance_premium_minor" db:"insurance_premium_minor"`
+	PlatformFeeMinor         int64   `json:"platform_fee_minor" db:"platform_fee_minor"`
+	PromoSubsidyMinor        int64   `json:"promo_subsidy_minor" db:"promo_subsidy_minor"`
+	TotalPriceMinor          int64   `json:"total_price_minor" db:"total_price_minor"`
+	DPPMinor                 int64   `json:"dpp_minor,omitempty" db:"dpp_minor"`
+	PPNMinor                 int64   `json:"ppn_minor,omitempty" db:"ppn_minor"`
+	DistanceFeeIDR           int64   `json:"distance_fee_idr"`
 	// FB-123: order food terjadwal — scheduled_at kapan order mulai diproses
 	// merchant (aktivasi → pending_merchant). NULL = pesan langsung.
 	// IsScheduled = turunan dari scheduled_at (computed saat scan).
@@ -84,6 +97,8 @@ type Order struct {
 	PricingSnapshot        string       `json:"pricing_snapshot,omitempty"`
 	TotalPriceIDR          int64        `json:"total_price_idr"`
 	TaxRuleCode            string       `json:"tax_rule_code,omitempty"`
+	TaxRuleVersion         string       `json:"tax_rule_version,omitempty" db:"tax_rule_version"`
+	TaxJurisdiction        string       `json:"tax_jurisdiction,omitempty" db:"tax_jurisdiction"`
 	PPNRateEffectivePct    float64      `json:"ppn_rate_effective_pct,omitempty"`
 	PPNRateStatutoryPct    float64      `json:"ppn_rate_statutory_pct,omitempty"`
 	DPPIDR                 int64        `json:"dpp_idr,omitempty"`

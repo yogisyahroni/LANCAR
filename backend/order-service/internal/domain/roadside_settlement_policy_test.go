@@ -13,8 +13,8 @@ func TestRoadsidePercentExactAndBounded(t *testing.T) {
 		want   int64
 		bad    bool
 	}{
-		{120000, 2.9, 3480, false}, {1, 99.99, 0, false}, {math.MaxInt64, 100, math.MaxInt64, false},
-		{math.MaxInt64, 0.1, 9223372036854775, false}, {-1, 10, 0, true}, {100, -1, 0, true},
+		{120000, 2.9, 3480, false}, {1, 99.99, 1, false}, {math.MaxInt64, 100, math.MaxInt64, false},
+		{math.MaxInt64, 0.1, 9223372036854776, false}, {-1, 10, 0, true}, {100, -1, 0, true},
 		{100, 101, 0, true}, {100, math.NaN(), 0, true}, {100, math.Inf(1), 0, true},
 	}
 	for _, tc := range cases {

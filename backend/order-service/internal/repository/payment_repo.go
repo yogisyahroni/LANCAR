@@ -105,21 +105,26 @@ func NewPostgresPaymentRepo(db *sqlx.DB) *PostgresPaymentRepo {
 }
 
 func (r *PostgresPaymentRepo) Create(ctx context.Context, p *domain.Payment) error {
+	p.ApplyMoneyContract()
 	query := `
 		INSERT INTO payments (
 			id, order_id, payment_number, provider, method, status, purpose, service_adjustment_id,
+			currency_code, currency_minor_unit, amount_minor, mdr_amount_minor, ppn_amount_minor,
+			weather_reserve_minor, insurance_reserve_minor, net_operational_minor,
 			amount_idr, mdr_amount_idr, ppn_amount_idr, weather_reserve_idr,
 			insurance_reserve_idr, net_operational_idr, provider_reference,
 			qr_code_url, qr_code_string, expires_at, created_at, updated_at,
 			tax_rule_code, ppn_rate_effective_pct, ppn_rate_statutory_pct, dpp_idr,
-			tax_invoice_required, tax_invoice_status
+			tax_invoice_required, tax_invoice_status, tax_rule_version, tax_jurisdiction
 		) VALUES (
 			:id, :order_id, :payment_number, :provider, :method, :status, COALESCE(NULLIF(:purpose, ''), 'order'), :service_adjustment_id,
+			:currency, :currency_minor_unit, :amount_minor, :mdr_amount_minor, :ppn_amount_minor,
+			:weather_reserve_minor, :insurance_reserve_minor, :net_operational_minor,
 			:amount_idr, :mdr_amount_idr, :ppn_amount_idr, :weather_reserve_idr,
 			:insurance_reserve_idr, :net_operational_idr, :provider_reference,
 			:qr_code_url, :qr_code_string, :expires_at, :created_at, :updated_at,
 			:tax_rule_code, :ppn_rate_effective_pct, :ppn_rate_statutory_pct, :dpp_idr,
-			:tax_invoice_required, :tax_invoice_status
+			:tax_invoice_required, :tax_invoice_status, :tax_rule_version, :tax_jurisdiction
 		)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, p)
@@ -132,14 +137,17 @@ func (r *PostgresPaymentRepo) Create(ctx context.Context, p *domain.Payment) err
 // paymentColumns — SELECT kolom eksplisit payments dengan COALESCE untuk
 // kolom nullable yang di-scan ke tipe non-pointer di domain.Payment.
 // (UAT F8-AN-070: SELECT * gagal "converting NULL to float64" dkk.)
-const paymentColumns = `id, order_id, payment_number, provider, method, status, purpose, service_adjustment_id, amount_idr,
+const paymentColumns = `id, order_id, payment_number, provider, method, status, purpose, service_adjustment_id,
+	currency_code, currency_minor_unit, amount_minor, mdr_amount_minor, ppn_amount_minor,
+	weather_reserve_minor, insurance_reserve_minor, net_operational_minor, amount_idr,
 	mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, COALESCE(insurance_reserve_idr, 0) AS insurance_reserve_idr,
 	net_operational_idr, provider_reference, qr_code_url, qr_code_string,
 	COALESCE(webhook_payload, '{}'::jsonb) AS webhook_payload, expires_at, paid_at, created_at, updated_at,
 	snap_token, redirect_url, client_key, snap_js_url, batch_id,
 	provider_verified_at, tax_rule_code, COALESCE(ppn_rate_effective_pct, 0) AS ppn_rate_effective_pct,
 	COALESCE(ppn_rate_statutory_pct, 0) AS ppn_rate_statutory_pct,
-	COALESCE(dpp_idr, 0) AS dpp_idr, COALESCE(tax_invoice_required, false) AS tax_invoice_required, tax_invoice_status`
+	COALESCE(dpp_idr, 0) AS dpp_idr, COALESCE(tax_invoice_required, false) AS tax_invoice_required, tax_invoice_status,
+	tax_rule_version, tax_jurisdiction`
 
 func (r *PostgresPaymentRepo) GetByID(ctx context.Context, id string) (*domain.Payment, error) {
 	var p domain.Payment
@@ -202,7 +210,7 @@ func (r *PostgresPaymentRepo) UpdateStatus(ctx context.Context, id string, statu
 // ApplyVerifiedPayment serializes a signed provider event with the order row.
 // The caller must verify signature, amount, fraud status and transaction identity.
 func (r *PostgresPaymentRepo) ApplyVerifiedPayment(ctx context.Context, notice domain.VerifiedPaymentUpdate) (*domain.Payment, error) {
-	if notice.PaymentID == "" || notice.PaymentNumber == "" || notice.ProviderReference == "" || notice.AmountIDR <= 0 || len(notice.Payload) == 0 {
+	if notice.PaymentID == "" || notice.PaymentNumber == "" || notice.ProviderReference == "" || (notice.AmountIDR <= 0 && notice.AmountMinor <= 0) || len(notice.Payload) == 0 {
 		return nil, fmt.Errorf("invalid verified payment notice")
 	}
 	tx, err := r.db.BeginTxx(ctx, nil)
@@ -218,7 +226,16 @@ func (r *PostgresPaymentRepo) ApplyVerifiedPayment(ctx context.Context, notice d
 	if err = tx.GetContext(ctx, &p, `SELECT `+paymentColumns+` FROM payments WHERE id=$1 FOR UPDATE`, notice.PaymentID); err != nil {
 		return nil, err
 	}
-	if p.OrderID != orderID || p.Purpose != "order" || p.PaymentNumber != notice.PaymentNumber || int64(p.AmountIDR) != notice.AmountIDR || (p.ProviderReference != nil && *p.ProviderReference != notice.ProviderReference) {
+	if notice.Currency == "" {
+		notice.Currency = p.Currency
+	}
+	if notice.AmountMinor == 0 {
+		notice.AmountMinor = notice.AmountIDR
+	}
+	if p.OrderID != orderID || p.Purpose != "order" || p.PaymentNumber != notice.PaymentNumber ||
+		(p.Currency != "" && p.Currency != notice.Currency) ||
+		((p.AmountMinor != 0 && p.AmountMinor != notice.AmountMinor) || (p.AmountMinor == 0 && int64(p.AmountIDR) != notice.AmountIDR)) ||
+		(p.ProviderReference != nil && *p.ProviderReference != notice.ProviderReference) {
 		return nil, fmt.Errorf("payment provider identity or amount mismatch")
 	}
 	if p.Status == domain.PaymentStatusPaid || p.Status == domain.PaymentStatusSettled {

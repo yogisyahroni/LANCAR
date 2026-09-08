@@ -67,7 +67,11 @@ func (s *insuranceService) CalculateOrderPremium(ctx context.Context, declaredVa
 	premiumRate := s.configRepo.GetFloatConfig(ctx, "insurance_premium_rate", 0.002)
 	minPremium := s.configRepo.GetIntConfig(ctx, "insurance_min_premium", 1000)
 
-	premium := int(float64(declaredValue) * premiumRate)
+	premiumMoney, err := domain.LegacyIDR(int64(declaredValue)).MultiplyFloatRate(premiumRate)
+	premium := 0
+	if err == nil {
+		premium = int(premiumMoney.AmountMinor)
+	}
 	if premium < minPremium {
 		premium = minPremium
 	}

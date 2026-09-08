@@ -6,20 +6,22 @@ import (
 )
 
 type PricingEstimateRequest struct {
-	PickupLat    float64      `json:"pickup_lat" validate:"required"`
-	PickupLng    float64      `json:"pickup_lng" validate:"required"`
-	DropoffLat   float64      `json:"dropoff_lat" validate:"required"`
-	DropoffLng   float64      `json:"dropoff_lng" validate:"required"`
-	Length       float64      `json:"length" validate:"required"`
-	Width        float64      `json:"width" validate:"required"`
-	Height       float64      `json:"height" validate:"required"`
-	Weight       float64      `json:"weight" validate:"required"`
-	Models       []string     `json:"models" validate:"required"` // Requested delivery models
-	IsARCore     bool         `json:"is_arcore"`
-	IsVolumetric bool         `json:"is_volumetric"`
-	PromoCode    string       `json:"promo_code,omitempty"`
-	Market       string       `json:"market,omitempty"`
-	PackageFacts PackageFacts `json:"package_facts,omitempty"`
+	PickupLat         float64      `json:"pickup_lat" validate:"required"`
+	PickupLng         float64      `json:"pickup_lng" validate:"required"`
+	DropoffLat        float64      `json:"dropoff_lat" validate:"required"`
+	DropoffLng        float64      `json:"dropoff_lng" validate:"required"`
+	Length            float64      `json:"length" validate:"required"`
+	Width             float64      `json:"width" validate:"required"`
+	Height            float64      `json:"height" validate:"required"`
+	Weight            float64      `json:"weight" validate:"required"`
+	Models            []string     `json:"models" validate:"required"` // Requested delivery models
+	IsARCore          bool         `json:"is_arcore"`
+	IsVolumetric      bool         `json:"is_volumetric"`
+	PromoCode         string       `json:"promo_code,omitempty"`
+	Market            string       `json:"market,omitempty"`
+	Currency          string       `json:"currency,omitempty"`
+	CurrencyMinorUnit int          `json:"currency_minor_unit,omitempty"`
+	PackageFacts      PackageFacts `json:"package_facts,omitempty"`
 }
 
 type PackageFacts struct {
@@ -48,6 +50,7 @@ type PricingEstimateResponse struct {
 	ExperimentQuoteWindowExpiresAt *time.Time        `json:"experiment_quote_window_expires_at,omitempty"`
 	ServiceCategory                string            `json:"service_category"`
 	Currency                       string            `json:"currency"`
+	CurrencyMinorUnit              int               `json:"currency_minor_unit"`
 	ETASource                      string            `json:"eta_source"`
 	ETAMinutes                     int               `json:"eta_minutes,omitempty"`
 	PrepMinutes                    int               `json:"prep_minutes,omitempty"`
@@ -58,6 +61,15 @@ type PricingEstimateResponse struct {
 	Confidence                     string            `json:"confidence,omitempty"`
 	PricingRuleVersion             string            `json:"pricing_rule_version"`
 	PriceComponents                map[string]int64  `json:"price_components"`
+	PriceComponentsMinor           map[string]int64  `json:"price_components_minor"`
+	BasePriceMinor                 int64             `json:"base_price_minor"`
+	DistanceFeeMinor               int64             `json:"distance_fee_minor"`
+	VolumetricSurchargeMinor       int64             `json:"volumetric_surcharge_minor"`
+	DynamicPriceMinor              int64             `json:"dynamic_price_minor"`
+	DiscountMinor                  int64             `json:"discount_minor"`
+	InsuranceFeeMinor              int64             `json:"insurance_fee_minor"`
+	PlatformFeeMinor               int64             `json:"platform_fee_minor"`
+	PromoSubsidyMinor              int64             `json:"promo_subsidy_minor"`
 	Market                         string            `json:"market,omitempty"`
 	PricingBreakdown               *PricingBreakdown `json:"pricing_breakdown,omitempty"`
 	PickupAddress                  string            `json:"pickup_address"`
@@ -85,10 +97,11 @@ type PricingEstimateResponse struct {
 	// PlatformFeeIDR adalah biaya layanan operasional.
 	// Dikonfigurasi dari tabel delivery_service_products (platform_fee_idr, platform_fee_pct).
 	// Tidak diekspos sebagai line-item ke customer — sudah tercakup dalam TotalPriceIDR.
-	PlatformFeeIDR int64     `json:"platform_fee_idr"`
-	PlatformFeePct float64   `json:"platform_fee_pct"`
-	TotalPriceIDR  int64     `json:"total_price_idr"`
-	ExpiresAt      time.Time `json:"expires_at"`
+	PlatformFeeIDR  int64     `json:"platform_fee_idr"`
+	PlatformFeePct  float64   `json:"platform_fee_pct"`
+	TotalPriceIDR   int64     `json:"total_price_idr"`
+	TotalPriceMinor int64     `json:"total_price_minor"`
+	ExpiresAt       time.Time `json:"expires_at"`
 
 	// Original coords for order creation
 	PickupLat    float64      `json:"pickup_lat"`

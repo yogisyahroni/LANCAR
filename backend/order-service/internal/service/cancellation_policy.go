@@ -10,10 +10,12 @@ import (
 // CancellationDecision is the market/service policy snapshot used by both
 // refund calculation and the customer-facing cancellation breakdown.
 type CancellationDecision struct {
-	PolicyVersion      string
-	RefundRatio        float64
-	WithholdServiceFee bool
-	FeeReason          string
+	PolicyVersion          string
+	RefundRatio            float64
+	RefundRatioNumerator   int64
+	RefundRatioDenominator int64
+	WithholdServiceFee     bool
+	FeeReason              string
 }
 
 const (
@@ -45,26 +47,26 @@ func cancellationDecision(order *domain.Order, status domain.OrderStatus, courie
 		case domain.StatusPendingPayment, domain.StatusPendingMerchant, domain.StatusPreparing,
 			domain.StatusReadyForPickup, domain.StatusPending, domain.StatusPendingAssignment,
 			domain.StatusNoCourierFound, domain.StatusScheduled:
-			return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 1, FeeReason: "Belum ada biaya operasional kurir yang timbul."}
+			return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 1, RefundRatioNumerator: 1, RefundRatioDenominator: 1, FeeReason: "Belum ada biaya operasional kurir yang timbul."}
 		case domain.StatusSearching:
 			if courierAssigned {
-				return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 1, WithholdServiceFee: true, FeeReason: "Kurir sudah ditugaskan sehingga biaya layanan kurir telah timbul."}
+				return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 1, RefundRatioNumerator: 1, RefundRatioDenominator: 1, WithholdServiceFee: true, FeeReason: "Kurir sudah ditugaskan sehingga biaya layanan kurir telah timbul."}
 			}
-			return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 1, FeeReason: "Belum ada kurir yang ditugaskan."}
+			return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 1, RefundRatioNumerator: 1, RefundRatioDenominator: 1, FeeReason: "Belum ada kurir yang ditugaskan."}
 		case domain.StatusAccepted, domain.StatusPickingUp:
-			return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 1, WithholdServiceFee: true, FeeReason: "Kurir sudah menerima/menjemput pesanan sehingga biaya layanan telah timbul."}
+			return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 1, RefundRatioNumerator: 1, RefundRatioDenominator: 1, WithholdServiceFee: true, FeeReason: "Kurir sudah menerima/menjemput pesanan sehingga biaya layanan telah timbul."}
 		default:
-			return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 0, FeeReason: "Pesanan sudah melewati batas pembatalan customer."}
+			return CancellationDecision{PolicyVersion: policyVersion, RefundRatio: 0, RefundRatioNumerator: 0, RefundRatioDenominator: 1, FeeReason: "Pesanan sudah melewati batas pembatalan customer."}
 		}
 	}
 
 	switch status {
 	case domain.StatusPendingPayment, domain.StatusPending, domain.StatusPendingAssignment,
 		domain.StatusSearching, domain.StatusNoCourierFound, domain.StatusCancelled:
-		return CancellationDecision{PolicyVersion: parcelCancellationPolicyGlobal, RefundRatio: 1, FeeReason: "Belum ada biaya operasional pengantaran yang timbul."}
+		return CancellationDecision{PolicyVersion: parcelCancellationPolicyGlobal, RefundRatio: 1, RefundRatioNumerator: 1, RefundRatioDenominator: 1, FeeReason: "Belum ada biaya operasional pengantaran yang timbul."}
 	case domain.StatusAccepted, domain.StatusPickingUp:
-		return CancellationDecision{PolicyVersion: parcelCancellationPolicyGlobal, RefundRatio: 0.8, FeeReason: "Sebagian biaya operasional pengantaran telah timbul."}
+		return CancellationDecision{PolicyVersion: parcelCancellationPolicyGlobal, RefundRatio: 0.8, RefundRatioNumerator: 4, RefundRatioDenominator: 5, FeeReason: "Sebagian biaya operasional pengantaran telah timbul."}
 	default:
-		return CancellationDecision{PolicyVersion: parcelCancellationPolicyGlobal, RefundRatio: 0, FeeReason: "Pesanan sudah melewati batas pembatalan customer."}
+		return CancellationDecision{PolicyVersion: parcelCancellationPolicyGlobal, RefundRatio: 0, RefundRatioNumerator: 0, RefundRatioDenominator: 1, FeeReason: "Pesanan sudah melewati batas pembatalan customer."}
 	}
 }

@@ -142,7 +142,12 @@ func (s *voucherServiceImpl) validateRules(ctx context.Context, v *domain.Vouche
 	var discount int64
 	switch v.Type {
 	case "percentage":
-		discount = baseIDR * int64(v.Value) / 100
+		discountMoney, moneyErr := domain.LegacyIDR(baseIDR).MultiplyPercent(float64(v.Value))
+		if moneyErr != nil {
+			res.Error = "Konfigurasi diskon voucher tidak valid"
+			return res, nil
+		}
+		discount = discountMoney.AmountMinor
 		if v.MaxDiscountIDR != nil && discount > int64(*v.MaxDiscountIDR) {
 			discount = int64(*v.MaxDiscountIDR)
 		}

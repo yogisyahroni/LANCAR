@@ -21,15 +21,23 @@ type RefundRecord struct {
 	OrderID                   uuid.UUID       `json:"order_id" db:"order_id"`
 	UserID                    *string         `json:"user_id,omitempty" db:"user_id"`
 	PaymentID                 *string         `json:"payment_id,omitempty" db:"payment_id"`
+	Currency                  string          `json:"currency" db:"currency_code"`
+	CurrencyMinorUnit         int             `json:"currency_minor_unit" db:"currency_minor_unit"`
+	AmountMinor               int64           `json:"amount_minor" db:"amount_minor"`
 	AmountIDR                 int             `json:"amount_idr" db:"amount_idr"`
 	Reason                    string          `json:"reason" db:"reason"`
 	Status                    RefundStatus    `json:"status" db:"status"`
 	RefundPercentage          int             `json:"refund_percentage" db:"refund_percentage"`
 	TaxReversalIDR            int64           `json:"tax_reversal_idr" db:"tax_reversal_idr"`
+	TaxReversalMinor          int64           `json:"tax_reversal_minor" db:"tax_reversal_minor"`
 	PlatformFeeReversalIDR    int64           `json:"platform_fee_reversal_idr" db:"platform_fee_reversal_idr"`
+	PlatformFeeReversalMinor  int64           `json:"platform_fee_reversal_minor" db:"platform_fee_reversal_minor"`
 	CancellationPolicyVersion string          `json:"cancellation_policy_version,omitempty" db:"cancellation_policy_version"`
 	CancellationFeeIDR        int64           `json:"cancellation_fee_idr" db:"cancellation_fee_idr"`
+	CancellationFeeMinor      int64           `json:"cancellation_fee_minor" db:"cancellation_fee_minor"`
 	CancellationFeeBreakdown  json.RawMessage `json:"cancellation_fee_breakdown,omitempty" db:"cancellation_fee_breakdown"`
+	TaxRuleVersion            string          `json:"tax_rule_version,omitempty" db:"tax_rule_version"`
+	TaxJurisdiction           string          `json:"tax_jurisdiction,omitempty" db:"tax_jurisdiction"`
 	LedgerJournalID           *uuid.UUID      `json:"ledger_journal_id,omitempty" db:"ledger_journal_id"`
 	GatewayRef                *string         `json:"gateway_ref,omitempty" db:"gateway_ref"`
 	FailureReason             *string         `json:"failure_reason,omitempty" db:"failure_reason"`
@@ -46,6 +54,13 @@ type RefundRepository interface {
 
 type RefundGateway interface {
 	ProcessRefund(ctx context.Context, orderID string, paymentRef string, amount int, reason string) (string, error)
+}
+
+// MoneyRefundGateway is the currency-aware provider extension. Legacy refund
+// adapters remain usable for IDR only; non-IDR refunds must not reinterpret a
+// minor-unit amount as an IDR integer.
+type MoneyRefundGateway interface {
+	ProcessRefundMoney(ctx context.Context, orderID string, paymentRef string, amount Money, reason string) (string, error)
 }
 
 // RefundOptions — parameter tambahan kalkulasi refund (FB-079).

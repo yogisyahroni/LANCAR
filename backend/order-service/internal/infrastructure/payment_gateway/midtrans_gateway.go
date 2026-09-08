@@ -76,6 +76,9 @@ func (g *MidtransGateway) GenerateQRIS(ctx context.Context, req domain.PaymentGa
 	if req.AmountIDR <= 0 {
 		return domain.PaymentGatewayResponse{}, fmt.Errorf("payment amount must be greater than zero")
 	}
+	if req.Currency != "" && req.Currency != "IDR" {
+		return domain.PaymentGatewayResponse{}, fmt.Errorf("midtrans adapter only supports IDR; refusing currency reinterpretation")
+	}
 
 	payload := map[string]any{
 		"payment_type": "qris",
@@ -153,6 +156,9 @@ func (g *MidtransGateway) GenerateSnap(ctx context.Context, req domain.SnapReque
 	}
 	if req.AmountIDR <= 0 {
 		return domain.SnapResponse{}, fmt.Errorf("payment amount must be greater than zero")
+	}
+	if req.Currency != "" && req.Currency != "IDR" {
+		return domain.SnapResponse{}, fmt.Errorf("midtrans adapter only supports IDR; refusing currency reinterpretation")
 	}
 
 	payload := map[string]any{

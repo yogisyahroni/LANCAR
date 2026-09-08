@@ -58,7 +58,7 @@ func (s *driverPointsService) AddPoints(ctx context.Context, driverUserID uuid.U
 	daily, _ := s.repo.GetDailyPoints(ctx, driverProfileID, now)
 	points := pointsPerOrder
 	if daily != nil && daily.GhostPenalties == 0 {
-		points = int(float64(points) * defaultCleanDayMultiplier)
+		points *= int(defaultCleanDayMultiplier)
 	}
 
 	if err := s.repo.UpsertDailyPoints(ctx, driverProfileID, now, points, 1, 0); err != nil {
@@ -105,7 +105,11 @@ func (s *driverPointsService) CloseWeekly(ctx context.Context, periodStart, peri
 	}
 
 	for _, r := range rows {
-		bonus := int64(float64(r.Points) / float64(totalPoints) * float64(poolIDR))
+		bonus, bonusErr := domain.ScaleAmount(poolIDR, int64(r.Points), int64(totalPoints))
+		if bonusErr != nil {
+			slog.Error("driver_points_bonus_calculation_failed", "driver_id", r.DriverID, "error", bonusErr)
+			continue
+		}
 		if bonus < minBonusPayoutIDR {
 			slog.Info("driver_points_bonus_skipped_below_min", "driver_id", r.DriverID, "bonus", bonus)
 			continue

@@ -83,7 +83,9 @@ data class CustomerPriceEstimateRequest(
     @SerialName("material_codes") val materialCodes: List<String> = emptyList(),
     @SerialName("package_details") val packageDetails: PackageDetailsPayload? = null,
     @SerialName("recipient_name") val recipientName: String? = null,
-    @SerialName("recipient_phone") val recipientPhone: String? = null
+    @SerialName("recipient_phone") val recipientPhone: String? = null,
+    @SerialName("currency") val currency: String? = null,
+    @SerialName("currency_minor_unit") val currencyMinorUnit: Int? = null
 )
 
 @Serializable
@@ -117,9 +119,11 @@ data class PriceBreakdown(
     @SerialName("snapshot_hash") val snapshotHash: String? = null,
     @SerialName("expires_at") val expiresAt: String? = null,
     @SerialName("currency") val currency: String = "IDR",
+    @SerialName("currency_minor_unit") val currencyMinorUnit: Int = 0,
     @SerialName("eta_source") val etaSource: String? = null,
     @SerialName("pricing_rule_version") val pricingRuleVersion: String? = null,
     @SerialName("price_components") val priceComponents: Map<String, Long> = emptyMap(),
+    @SerialName("price_components_minor") val priceComponentsMinor: Map<String, Long> = emptyMap(),
     @SerialName("service_code") val serviceCode: String = "",
     @SerialName("service_name") val serviceName: String = "",
     @SerialName("service_snapshot") val serviceSnapshot: DeliveryServiceProduct? = null,
@@ -127,12 +131,16 @@ data class PriceBreakdown(
     @SerialName("distance_km") val distanceKm: Double = 0.0,
     @SerialName("route_snapshot") val routeSnapshot: RouteSnapshot? = null,
     @SerialName("base_price_idr") val basePriceIdr: Long = 0,
+    @SerialName("base_price_minor") val basePriceMinor: Long = 0,
     @SerialName("actual_weight_kg") val actualWeightKg: Double = 0.0,
     @SerialName("dimensional_weight_kg") val dimensionalWeightKg: Double = 0.0,
     @SerialName("chargeable_weight_kg") val chargeableWeightKg: Double = 0.0,
     @SerialName("volumetric_surcharge_idr") val volumetricSurchargeIdr: Long = 0,
+    @SerialName("volumetric_surcharge_minor") val volumetricSurchargeMinor: Long = 0,
     @SerialName("insurance_premium_idr") val insurancePremiumIdr: Long = 0,
+    @SerialName("insurance_fee_minor") val insuranceFeeMinor: Long = 0,
     @SerialName("dynamic_price_idr") val dynamicPriceIdr: Long = 0,
+    @SerialName("dynamic_price_minor") val dynamicPriceMinor: Long = 0,
     @SerialName("platform_fee_idr") val platformFeeIdr: Long = 0,
     @SerialName("material_cost_idr") val materialCostIdr: Long = 0,
     @SerialName("toll_cost_idr") val tollCostIdr: Long = 0,
@@ -141,6 +149,7 @@ data class PriceBreakdown(
     @SerialName("delivery_model") val deliveryModel: String = "p2p",
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
     @SerialName("total_price_idr") val totalPriceIdr: Long = 0,
+    @SerialName("total_price_minor") val totalPriceMinor: Long = 0,
     @SerialName("package_facts") val packageFacts: PackageFactsSnapshot? = null,
     @SerialName("packages") val packages: List<PackageFact> = emptyList()
 )
@@ -218,6 +227,9 @@ data class CustomerOrderCreateRequest(
     @SerialName("preferred_courier_id") val preferredCourierId: String? = null,
     @SerialName("material_codes") val materialCodes: List<String> = emptyList(),
     @SerialName("quote_total_price_idr") val quoteTotalPriceIdr: Long? = null,
+    @SerialName("quote_total_price_minor") val quoteTotalPriceMinor: Long? = null,
+    @SerialName("currency") val currency: String? = null,
+    @SerialName("currency_minor_unit") val currencyMinorUnit: Int? = null,
     @SerialName("quote_id") val quoteId: String? = null,
     @SerialName("quote_input_fingerprint") val quoteInputFingerprint: String? = null,
     @SerialName("quote_snapshot_hash") val quoteSnapshotHash: String? = null,
@@ -350,6 +362,9 @@ data class CreatedCustomerOrder(
     @SerialName("id") val id: String,
     @SerialName("order_number") val orderNumber: String = "",
     @SerialName("total_price_idr") val totalPriceIdr: Long = 0,
+    @SerialName("currency") val currency: String = "IDR",
+    @SerialName("currency_minor_unit") val currencyMinorUnit: Int = 0,
+    @SerialName("total_price_minor") val totalPriceMinor: Long = 0,
     @SerialName("route_snapshot") val routeSnapshot: RouteSnapshot? = null
 )
 
@@ -363,6 +378,9 @@ data class CustomerPaymentSetup(
     @SerialName("order_status") val orderStatus: String = "",
     @SerialName("active_payment_provider") val activePaymentProvider: String? = null,
     @SerialName("amount_idr") val amountIdr: Long = 0L,
+    @SerialName("currency") val currency: String = "IDR",
+    @SerialName("currency_minor_unit") val currencyMinorUnit: Int = 0,
+    @SerialName("amount_minor") val amountMinor: Long = 0L,
     @SerialName("wallet_balance_idr") val walletBalanceIdr: Long = 0L,
     // FOOD-BIKE-076: breakdown multi-item (null untuk order non-food)
     @SerialName("items") val items: List<FoodPaymentItem>? = null,

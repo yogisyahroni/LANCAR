@@ -30,18 +30,20 @@ const (
 type CreateFoodOrderRequest struct {
 	// FOOD-2026-010: Customer Pickup/self-pickup — "pickup" = self-pickup (tanpa courier).
 	// Default "delivery" untuk backward kompatibel.
-	DeliveryMethod string                 `json:"delivery_method,omitempty" validate:"omitempty,oneof=delivery pickup"`
-	MerchantID     string                 `json:"merchant_id" validate:"required"`
-	Items          []FoodOrderItemRequest `json:"items" validate:"required,min=1,dive"`
-	DropoffAddress string                 `json:"dropoff_address" validate:"required"`
-	DropoffCity    string                 `json:"dropoff_city,omitempty"`
-	DropoffZipCode string                 `json:"dropoff_zip_code,omitempty"`
-	Market         string                 `json:"market,omitempty"`
-	DropoffLat     float64                `json:"dropoff_lat" validate:"required"`
-	DropoffLng     float64                `json:"dropoff_lng" validate:"required"`
-	ReceiverName   string                 `json:"receiver_name,omitempty"`
-	ReceiverPhone  string                 `json:"receiver_phone,omitempty"`
-	IsScheduled    bool                   `json:"is_scheduled"`
+	DeliveryMethod    string                 `json:"delivery_method,omitempty" validate:"omitempty,oneof=delivery pickup"`
+	MerchantID        string                 `json:"merchant_id" validate:"required"`
+	Items             []FoodOrderItemRequest `json:"items" validate:"required,min=1,dive"`
+	DropoffAddress    string                 `json:"dropoff_address" validate:"required"`
+	DropoffCity       string                 `json:"dropoff_city,omitempty"`
+	DropoffZipCode    string                 `json:"dropoff_zip_code,omitempty"`
+	Market            string                 `json:"market,omitempty"`
+	Currency          string                 `json:"currency,omitempty"`
+	CurrencyMinorUnit int                    `json:"currency_minor_unit,omitempty"`
+	DropoffLat        float64                `json:"dropoff_lat" validate:"required"`
+	DropoffLng        float64                `json:"dropoff_lng" validate:"required"`
+	ReceiverName      string                 `json:"receiver_name,omitempty"`
+	ReceiverPhone     string                 `json:"receiver_phone,omitempty"`
+	IsScheduled       bool                   `json:"is_scheduled"`
 	// FB-123: waktu mulai diproses (aktivasi → pending_merchant). Wajib diisi
 	// kalau IsScheduled. Same-day only, minimal now+30 menit, dalam jam
 	// operasional merchant.
@@ -89,6 +91,8 @@ type FoodQuoteResponse struct {
 	InputFingerprint     string          `json:"input_fingerprint"`
 	SnapshotHash         string          `json:"snapshot_hash"`
 	MerchantID           string          `json:"merchant_id"`
+	Currency             string          `json:"currency"`
+	CurrencyMinorUnit    int             `json:"currency_minor_unit"`
 	Items                []FoodQuoteItem `json:"items"`
 	SubtotalIDR          int64           `json:"subtotal_idr"`
 	DeliveryFeeIDR       int64           `json:"delivery_fee_idr"`
@@ -97,6 +101,7 @@ type FoodQuoteResponse struct {
 	DiscountIDR          int64           `json:"discount_idr"`
 	MembershipSubsidyIDR int64           `json:"membership_subsidy_idr,omitempty"`
 	TotalPriceIDR        int64           `json:"total_price_idr"`
+	TotalPriceMinor      int64           `json:"total_price_minor"`
 	DistanceKM           float64         `json:"distance_km"`
 	DynamicPriceIDR      int64           `json:"dynamic_price_idr,omitempty"`
 	SurgeFeeIDR          int64           `json:"surge_fee_idr,omitempty"`

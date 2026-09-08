@@ -119,30 +119,93 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 		return nil, fmt.Errorf("order is not in pending_payment status: %s", order.Status)
 	}
 
-	// 2. Fund splitting logic
-	amount := int(order.TotalPriceIDR)
+	// 2. Fund splitting logic. The minor-unit amount and currency are
+	// authoritative; *_idr is retained only for legacy provider adapters.
+	order.ApplyMoneyContract()
+	currency := order.Currency
+	amountMinor := order.TotalPriceMinor
+	orderMoney, err := domain.NewMoney(currency, amountMinor)
+	if err != nil {
+		return nil, fmt.Errorf("order money is invalid: %w", err)
+	}
+	if amountMinor <= 0 {
+		return nil, fmt.Errorf("order money amount must be greater than zero")
+	}
 	// MDR 0.7% for QRIS
 	mdrRate := s.configRepo.GetFloatConfig(ctx, "payment_mdr_rate", 0.007)
-	mdr := int(float64(amount) * mdrRate)
+	mdrMoney, err := orderMoney.MultiplyFloatRate(mdrRate)
+	if err != nil {
+		return nil, fmt.Errorf("calculate payment MDR: %w", err)
+	}
+	mdr := int(mdrMoney.AmountMinor)
 
-	// PPN calculated dynamically via tax engine
-	taxSnapshot, _ := s.taxService.CalculatePaymentMDRTax(ctx, int64(mdr))
-	ppn := int(taxSnapshot.PPNIDR)
-
-	weatherReserve := s.configRepo.GetIntConfig(ctx, "weather_reserve_idr", 0)
-	insuranceReserve := s.configRepo.GetIntConfig(ctx, "insurance_fee_idr", 0)
+	// PPN calculated dynamically via the money-aware tax engine where
+	// available. Non-IDR payments fail closed if the tax engine is legacy.
+	jurisdiction := "ID"
+	if s.configRepo != nil {
+		jurisdiction = s.configRepo.GetStringConfig(ctx, "tax_jurisdiction", "ID")
+	}
+	var taxSnapshot domain.TaxSnapshot
+	if moneyTax, ok := s.taxService.(domain.MoneyTaxService); ok {
+		taxSnapshot, err = moneyTax.CalculatePaymentMDRTaxMoney(ctx, mdrMoney, jurisdiction)
+	} else if currency == "IDR" {
+		taxSnapshot, err = s.taxService.CalculatePaymentMDRTax(ctx, int64(mdr))
+	} else {
+		err = fmt.Errorf("non-IDR payment requires a money-aware tax engine")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("calculate payment tax: %w", err)
+	}
+	ppnMinor := taxSnapshot.PPNMinor
+	if currency == "IDR" && ppnMinor == 0 {
+		// Legacy TaxService implementations populated only PPNIDR. Keep those
+		// adapters correct while the canonical tax contract rolls out.
+		ppnMinor = taxSnapshot.PPNIDR
+	}
+	ppnMoney, err := domain.NewMoney(currency, ppnMinor)
+	if err != nil {
+		return nil, fmt.Errorf("tax snapshot currency is invalid: %w", err)
+	}
+	weatherReserve := 0
+	insuranceReserve := 0
+	if currency == "IDR" {
+		weatherReserve = s.configRepo.GetIntConfig(ctx, "weather_reserve_idr", 0)
+		insuranceReserve = s.configRepo.GetIntConfig(ctx, "insurance_fee_idr", 0)
+	}
 
 	// netOp adalah amount yang masuk ke operasional setelah dikurangi biaya gateway (MDR + PPN).
 	// Komponen reserve dipisahkan pencatatannya agar net_operational riil
-	netOp := amount - mdr - ppn - weatherReserve - insuranceReserve
+	netMoney, err := orderMoney.Sub(mdrMoney)
+	if err == nil {
+		netMoney, err = netMoney.Sub(ppnMoney)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("calculate operational amount: %w", err)
+	}
+	if netMoney.AmountMinor < 0 {
+		return nil, fmt.Errorf("operational amount cannot be negative")
+	}
+	netOp := int(netMoney.AmountMinor) - weatherReserve - insuranceReserve
+	if netOp < 0 {
+		return nil, fmt.Errorf("operational amount cannot be negative after reserves")
+	}
 
 	paymentNumber := generatePaymentNumber()
+	legacyAmount := func(amount int64) int {
+		if currency == "IDR" {
+			return int(amount)
+		}
+		return 0
+	}
 
 	// 3. Request Gateway QRIS
 	gwReq := domain.PaymentGatewayRequest{
-		OrderID:       order.ID,
-		PaymentNumber: paymentNumber,
-		AmountIDR:     amount,
+		OrderID:           order.ID,
+		PaymentNumber:     paymentNumber,
+		AmountIDR:         legacyAmount(orderMoney.AmountMinor),
+		AmountMinor:       orderMoney.AmountMinor,
+		Currency:          orderMoney.Currency,
+		CurrencyMinorUnit: orderMoney.MinorUnit,
 	}
 	gwResp, err := s.paymentGateway.GenerateQRIS(ctx, gwReq)
 	if err != nil {
@@ -151,30 +214,40 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 
 	// 4. Save to DB
 	p := &domain.Payment{
-		ID:                  uuid.NewString(),
-		OrderID:             order.ID,
-		PaymentNumber:       paymentNumber,
-		Provider:            domain.ProviderMidtrans,
-		Method:              "qris",
-		Status:              domain.PaymentStatusPending,
-		AmountIDR:           amount,
-		MDRAmountIDR:        mdr,
-		PPNAmountIDR:        ppn,
-		WeatherReserveIDR:   weatherReserve,
-		InsuranceReserveIDR: insuranceReserve,
-		NetOperationalIDR:   netOp,
-		TaxRuleCode:         &taxSnapshot.TaxRuleCode,
-		PPNRateEffectivePct: taxSnapshot.PPNRateEffectivePct,
-		PPNRateStatutoryPct: taxSnapshot.PPNRateStatutoryPct,
-		DPPIDR:              int(taxSnapshot.DPPIDR),
-		TaxInvoiceRequired:  taxSnapshot.TaxInvoiceRequired,
-		TaxInvoiceStatus:    &taxSnapshot.TaxInvoiceStatus,
-		ProviderReference:   &gwResp.ProviderReference,
-		QRCodeURL:           &gwResp.QRCodeURL,
-		QRCodeString:        &gwResp.QRCodeString,
-		ExpiresAt:           time.Now().Add(15 * time.Minute),
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
+		ID:                    uuid.NewString(),
+		OrderID:               order.ID,
+		PaymentNumber:         paymentNumber,
+		Provider:              domain.ProviderMidtrans,
+		Method:                "qris",
+		Status:                domain.PaymentStatusPending,
+		Currency:              currency,
+		CurrencyMinorUnit:     orderMoney.MinorUnit,
+		AmountMinor:           orderMoney.AmountMinor,
+		MDRAmountMinor:        mdrMoney.AmountMinor,
+		PPNAmountMinor:        ppnMoney.AmountMinor,
+		WeatherReserveMinor:   int64(weatherReserve),
+		InsuranceReserveMinor: int64(insuranceReserve),
+		NetOperationalMinor:   int64(netOp),
+		AmountIDR:             legacyAmount(orderMoney.AmountMinor),
+		MDRAmountIDR:          legacyAmount(mdrMoney.AmountMinor),
+		PPNAmountIDR:          legacyAmount(ppnMoney.AmountMinor),
+		WeatherReserveIDR:     legacyAmount(int64(weatherReserve)),
+		InsuranceReserveIDR:   legacyAmount(int64(insuranceReserve)),
+		NetOperationalIDR:     legacyAmount(int64(netOp)),
+		TaxRuleCode:           &taxSnapshot.TaxRuleCode,
+		TaxRuleVersion:        &taxSnapshot.TaxRuleVersion,
+		TaxJurisdiction:       &taxSnapshot.TaxJurisdiction,
+		PPNRateEffectivePct:   taxSnapshot.PPNRateEffectivePct,
+		PPNRateStatutoryPct:   taxSnapshot.PPNRateStatutoryPct,
+		DPPIDR:                int(taxSnapshot.DPPIDR),
+		TaxInvoiceRequired:    taxSnapshot.TaxInvoiceRequired,
+		TaxInvoiceStatus:      &taxSnapshot.TaxInvoiceStatus,
+		ProviderReference:     &gwResp.ProviderReference,
+		QRCodeURL:             &gwResp.QRCodeURL,
+		QRCodeString:          &gwResp.QRCodeString,
+		ExpiresAt:             time.Now().Add(15 * time.Minute),
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
 	}
 
 	if err := s.paymentRepo.Create(ctx, p); err != nil {
@@ -197,7 +270,10 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 	if err != nil {
 		return fmt.Errorf("resolve provider payment number: %w", err)
 	}
-	if payment == nil || payment.PaymentNumber != notice.PaymentNumber || int64(payment.AmountIDR) != notice.AmountIDR || (payment.ProviderReference != nil && *payment.ProviderReference != notice.ProviderReference) {
+	if payment == nil || payment.PaymentNumber != notice.PaymentNumber ||
+		(payment.Currency != "" && payment.Currency != notice.Currency) ||
+		((payment.AmountMinor != 0 && payment.AmountMinor != notice.AmountMinor) || (payment.AmountMinor == 0 && int64(payment.AmountIDR) != notice.AmountIDR)) ||
+		(payment.ProviderReference != nil && *payment.ProviderReference != notice.ProviderReference) {
 		return fmt.Errorf("provider payment identity or amount mismatch")
 	}
 	// The gateway uses payment_number, never the internal order UUID, as order_id.
@@ -245,7 +321,7 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 		return fail("verified_writer_unavailable", fmt.Errorf("verified payment writer unavailable"))
 	}
 	previousStatus := payment.Status
-	payment, err = writer.ApplyVerifiedPayment(ctx, domain.VerifiedPaymentUpdate{PaymentID: payment.ID, PaymentNumber: notice.PaymentNumber, ProviderReference: notice.ProviderReference, AmountIDR: notice.AmountIDR, Status: notice.Status, Payload: payload})
+	payment, err = writer.ApplyVerifiedPayment(ctx, domain.VerifiedPaymentUpdate{PaymentID: payment.ID, PaymentNumber: notice.PaymentNumber, ProviderReference: notice.ProviderReference, AmountIDR: notice.AmountIDR, AmountMinor: notice.AmountMinor, Currency: notice.Currency, Status: notice.Status, Payload: payload})
 	if err != nil {
 		return fail("payment_update_failed", err)
 	}

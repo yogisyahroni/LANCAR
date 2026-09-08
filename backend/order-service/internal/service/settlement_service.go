@@ -28,12 +28,24 @@ func (s *settlementServiceImpl) CalculateSettlement(
 	}
 
 	// MDR and PPN are paid by customer, deducted from gross
-	mdrAmount := int64(float64(grossTotal) * config.MDRPct / 100.0)
-	taxAmount := int64(float64(grossTotal) * config.TaxPct / 100.0)
+	mdrMoney, err := domain.LegacyIDR(grossTotal).MultiplyPercent(config.MDRPct)
+	if err != nil {
+		return nil, fmt.Errorf("calculate settlement MDR: %w", err)
+	}
+	mdrAmount := mdrMoney.AmountMinor
+	taxMoney, err := domain.LegacyIDR(grossTotal).MultiplyPercent(config.TaxPct)
+	if err != nil {
+		return nil, fmt.Errorf("calculate settlement tax: %w", err)
+	}
+	taxAmount := taxMoney.AmountMinor
 	operationalPool := grossTotal - mdrAmount - taxAmount - insuranceFee
 
 	// Per-km revenue = BaseFare + (PerKM * Distance)
-	perKMRevenue := int64(float64(perKMRate) * distanceKM)
+	perKMMoney, err := domain.LegacyIDR(perKMRate).MultiplyFloatRate(distanceKM)
+	if err != nil {
+		return nil, fmt.Errorf("calculate settlement distance revenue: %w", err)
+	}
+	perKMRevenue := perKMMoney.AmountMinor
 	baseFareRevenue := baseFare
 	totalTravelRevenue := baseFareRevenue + perKMRevenue
 
@@ -42,11 +54,19 @@ func (s *settlementServiceImpl) CalculateSettlement(
 	switch config.CommissionBasis {
 	case domain.SettlementBasisPool:
 		// Model A: Commission from entire pool
-		platformCommission = int64(float64(operationalPool) * config.PlatformCommissionPct / 100.0)
+		commissionMoney, commissionErr := domain.LegacyIDR(operationalPool).MultiplyPercent(config.PlatformCommissionPct)
+		if commissionErr != nil {
+			return nil, fmt.Errorf("calculate pool commission: %w", commissionErr)
+		}
+		platformCommission = commissionMoney.AmountMinor
 
 	case domain.SettlementBasisPerKM:
 		// Model B: Commission only from travel revenue (BaseFare + PerKM)
-		platformCommission = int64(float64(totalTravelRevenue) * config.PlatformCommissionPct / 100.0)
+		commissionMoney, commissionErr := domain.LegacyIDR(totalTravelRevenue).MultiplyPercent(config.PlatformCommissionPct)
+		if commissionErr != nil {
+			return nil, fmt.Errorf("calculate travel commission: %w", commissionErr)
+		}
+		platformCommission = commissionMoney.AmountMinor
 
 	default:
 		return nil, fmt.Errorf("unknown commission basis: %s", config.CommissionBasis)
@@ -55,12 +75,20 @@ func (s *settlementServiceImpl) CalculateSettlement(
 	// Courier earnings
 	courierPerKMEarning := perKMRevenue
 	if config.CommissionBasis == domain.SettlementBasisPerKM {
-		courierPerKMEarning = perKMRevenue - int64(float64(perKMRevenue)*config.PlatformCommissionPct/100.0)
+		commissionMoney, commissionErr := domain.LegacyIDR(perKMRevenue).MultiplyPercent(config.PlatformCommissionPct)
+		if commissionErr != nil {
+			return nil, fmt.Errorf("calculate courier distance commission: %w", commissionErr)
+		}
+		courierPerKMEarning = perKMRevenue - commissionMoney.AmountMinor
 	}
 
 	courierBaseFee := baseFareRevenue
 	if !config.CourierKeepsBaseFee && config.CommissionBasis == domain.SettlementBasisPerKM {
-		courierBaseFee = baseFareRevenue - int64(float64(baseFareRevenue)*config.PlatformCommissionPct/100.0)
+		commissionMoney, commissionErr := domain.LegacyIDR(baseFareRevenue).MultiplyPercent(config.PlatformCommissionPct)
+		if commissionErr != nil {
+			return nil, fmt.Errorf("calculate courier base commission: %w", commissionErr)
+		}
+		courierBaseFee = baseFareRevenue - commissionMoney.AmountMinor
 	}
 
 	courierToll := int64(0)
@@ -71,23 +99,25 @@ func (s *settlementServiceImpl) CalculateSettlement(
 	netEarnings := operationalPool - platformCommission
 
 	return &domain.SettlementResult{
-		GrossTotal:              grossTotal,
-		MDRAmount:               mdrAmount,
-		TaxAmount:               taxAmount,
-		InsuranceFee:            insuranceFee,
-		OperationalPool:         operationalPool,
-		CommissionBasis:         string(config.CommissionBasis),
-		PerKMRevenue:            perKMRevenue,
-		BaseFareRevenue:         baseFareRevenue,
-		PlatformCommissionPct:   config.PlatformCommissionPct,
-		PlatformCommissionAmt:   platformCommission,
-		CourierServiceFee:       courierServicePrice,
-		CourierBaseFee:          courierBaseFee,
-		CourierTollReimburse:    courierToll,
-		CourierPerKMEarning:     courierPerKMEarning,
-		EstimatedNetEarnings:    netEarnings,
-		SettlementModel:         string(config.CommissionBasis),
-		AppliesToService:        []string{serviceCode},
+		Currency:              "IDR",
+		CurrencyMinorUnit:     0,
+		GrossTotal:            grossTotal,
+		MDRAmount:             mdrAmount,
+		TaxAmount:             taxAmount,
+		InsuranceFee:          insuranceFee,
+		OperationalPool:       operationalPool,
+		CommissionBasis:       string(config.CommissionBasis),
+		PerKMRevenue:          perKMRevenue,
+		BaseFareRevenue:       baseFareRevenue,
+		PlatformCommissionPct: config.PlatformCommissionPct,
+		PlatformCommissionAmt: platformCommission,
+		CourierServiceFee:     courierServicePrice,
+		CourierBaseFee:        courierBaseFee,
+		CourierTollReimburse:  courierToll,
+		CourierPerKMEarning:   courierPerKMEarning,
+		EstimatedNetEarnings:  netEarnings,
+		SettlementModel:       string(config.CommissionBasis),
+		AppliesToService:      []string{serviceCode},
 	}, nil
 }
 

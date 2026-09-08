@@ -6,7 +6,6 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -53,17 +52,7 @@ func (s *taxService) CalculateOrderTax(ctx context.Context, totalGMVIDR int64, p
 		}
 	}
 
-	ppnIDR := int64(math.Round(float64(dppIDR) * (rule.EffectiveRatePct / 100.0)))
-
-	return domain.TaxSnapshot{
-		TaxRuleCode:          rule.Code,
-		PPNRateEffectivePct:  rule.EffectiveRatePct,
-		PPNRateStatutoryPct:  rule.StatutoryRatePct,
-		DPPIDR:               dppIDR,
-		PPNIDR:               ppnIDR,
-		TaxInvoiceRequired:   rule.InvoiceRequired,
-		TaxInvoiceStatus:     "unissued",
-	}, nil
+	return domain.CalculateTaxSnapshot(*rule, domain.LegacyIDR(dppIDR), s.taxJurisdiction(ctx))
 }
 
 // CalculatePaymentMDRTax calculates PPN on the Payment Gateway MDR fee.
@@ -74,17 +63,61 @@ func (s *taxService) CalculatePaymentMDRTax(ctx context.Context, mdrAmountIDR in
 		return domain.TaxSnapshot{}, fmt.Errorf("tax rule configuration is missing for MDR tax calculation: %w", err)
 	}
 
-	ppnIDR := int64(math.Round(float64(mdrAmountIDR) * (rule.EffectiveRatePct / 100.0)))
+	return domain.CalculateTaxSnapshot(*rule, domain.LegacyIDR(mdrAmountIDR), s.taxJurisdiction(ctx))
+}
 
-	return domain.TaxSnapshot{
-		TaxRuleCode:          rule.Code,
-		PPNRateEffectivePct:  rule.EffectiveRatePct,
-		PPNRateStatutoryPct:  rule.StatutoryRatePct,
-		DPPIDR:               mdrAmountIDR,
-		PPNIDR:               ppnIDR,
-		TaxInvoiceRequired:   rule.InvoiceRequired,
-		TaxInvoiceStatus:     "unissued",
-	}, nil
+func (s *taxService) taxJurisdiction(ctx context.Context) string {
+	if s.configRepo == nil {
+		return "ID"
+	}
+	return s.configRepo.GetStringConfig(ctx, "tax_jurisdiction", "ID")
+}
+
+func (s *taxService) CalculateOrderTaxMoney(ctx context.Context, total, platformFee domain.Money, isAggregator bool, jurisdiction string) (domain.TaxSnapshot, error) {
+	if err := total.Validate(); err != nil {
+		return domain.TaxSnapshot{}, err
+	}
+	if err := platformFee.Validate(); err != nil {
+		return domain.TaxSnapshot{}, err
+	}
+	if total.Currency != platformFee.Currency {
+		return domain.TaxSnapshot{}, fmt.Errorf("tax inputs must use one currency")
+	}
+	rule, err := s.taxRepo.GetDefaultPPNRule(ctx)
+	if err != nil {
+		return domain.TaxSnapshot{}, fmt.Errorf("tax rule configuration is missing, cannot calculate tax dynamically: %w", err)
+	}
+	var taxable domain.Money
+	switch rule.DPPFormula {
+	case "FULL":
+		taxable = total
+	case "SERVICE_FEE_ONLY", "COMMISSION_ONLY":
+		taxable = platformFee
+	default:
+		if isAggregator {
+			taxable = total
+		} else {
+			taxable = platformFee
+		}
+	}
+	if jurisdiction == "" {
+		jurisdiction = s.taxJurisdiction(ctx)
+	}
+	return domain.CalculateTaxSnapshot(*rule, taxable, jurisdiction)
+}
+
+func (s *taxService) CalculatePaymentMDRTaxMoney(ctx context.Context, mdr domain.Money, jurisdiction string) (domain.TaxSnapshot, error) {
+	if err := mdr.Validate(); err != nil {
+		return domain.TaxSnapshot{}, err
+	}
+	rule, err := s.taxRepo.GetDefaultPPNRule(ctx)
+	if err != nil {
+		return domain.TaxSnapshot{}, fmt.Errorf("tax rule configuration is missing for MDR tax calculation: %w", err)
+	}
+	if jurisdiction == "" {
+		jurisdiction = s.taxJurisdiction(ctx)
+	}
+	return domain.CalculateTaxSnapshot(*rule, mdr, jurisdiction)
 }
 
 func (s *taxService) GenerateEFakturExport(ctx context.Context, period string, requestedBy string) (*domain.TaxEFakturExport, error) {
@@ -142,7 +175,7 @@ func (s *taxService) GenerateEFakturExport(ctx context.Context, period string, r
 	hash.Write([]byte(fmt.Sprintf("%v\n", headerFK)))
 	hash.Write([]byte(fmt.Sprintf("%v\n", headerOF)))
 
-	masaPajak := period[5:7] // MM
+	masaPajak := period[5:7]  // MM
 	tahunPajak := period[0:4] // YYYY
 
 	for _, d := range details {
@@ -185,14 +218,14 @@ func (s *taxService) GenerateEFakturExport(ctx context.Context, period string, r
 			"OF",
 			"JASA-LOGISTIK", // KODE_OBJEK
 			"Layanan Pengiriman / Transaksi " + d.ReferenceNumber, // NAMA
-			fmt.Sprintf("%d", d.DPP), // HARGA_SATUAN
-			"1", // JUMLAH_BARANG
-			fmt.Sprintf("%d", d.DPP), // HARGA_TOTAL
-			"0", // DISKON
-			fmt.Sprintf("%d", d.DPP), // DPP
-			fmt.Sprintf("%d", d.PPN), // PPN
-			"0", // TARIF_PPNBM
-			"0", // PPNBM
+			fmt.Sprintf("%d", d.DPP),                              // HARGA_SATUAN
+			"1",                                                   // JUMLAH_BARANG
+			fmt.Sprintf("%d", d.DPP),                              // HARGA_TOTAL
+			"0",                                                   // DISKON
+			fmt.Sprintf("%d", d.DPP),                              // DPP
+			fmt.Sprintf("%d", d.PPN),                              // PPN
+			"0",                                                   // TARIF_PPNBM
+			"0",                                                   // PPNBM
 		}
 
 		if err := writer.Write(rowOF); err != nil {

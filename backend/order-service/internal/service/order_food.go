@@ -243,7 +243,10 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		}
 	}
 	baseDeliveryFee := deliveryFee
-	dynamicAdjustment := dynamicPriceAdjustment(baseDeliveryFee, decision.Multiplier)
+	dynamicAdjustment, err := dynamicPriceAdjustment(baseDeliveryFee, decision.Multiplier)
+	if err != nil {
+		return nil, err
+	}
 	deliveryFee = baseDeliveryFee + dynamicAdjustment
 	membershipSubsidy := int64(0)
 	membershipID := ""
@@ -263,7 +266,11 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	if platformFeePct <= 0 {
 		platformFeePct = 10
 	}
-	platformFee := int64(math.Round(float64(subtotal) * platformFeePct / 100))
+	platformFeeMoney, err := domain.LegacyIDR(subtotal).MultiplyPercent(platformFeePct)
+	if err != nil {
+		return nil, fmt.Errorf("calculate food platform fee: %w", err)
+	}
+	platformFee := platformFeeMoney.AmountMinor
 	if s.taxSvc == nil {
 		return nil, fmt.Errorf("food tax service not wired")
 	}
@@ -271,7 +278,11 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	if err != nil {
 		return nil, fmt.Errorf("calculate food tax: %w", err)
 	}
-	total := subtotal + deliveryFee + platformFee + taxSnapshot.PPNIDR
+	taxMinor := taxSnapshot.PPNMinor
+	if taxMinor == 0 && taxSnapshot.Currency == "IDR" {
+		taxMinor = taxSnapshot.PPNIDR
+	}
+	total := subtotal + deliveryFee + platformFee + taxMinor
 
 	// 6b. FB-078: apply voucher diskon (kalau ada) — zero-trust server-side.
 	// Base diskon = subtotal + deliveryFee (platform fee tidak boleh kena diskon).
@@ -362,6 +373,14 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		ItemDescription:      "Pesanan makanan",
 		DistanceKM:           distanceKM,
 		IncludedDistanceKM:   svc.IncludedDistanceKM,
+		Currency:             foodQuote.Currency,
+		CurrencyMinorUnit:    foodQuote.CurrencyMinorUnit,
+		BasePriceMinor:       subtotal,
+		DistanceFeeMinor:     deliveryFee,
+		DynamicPriceMinor:    subtotal,
+		DiscountMinor:        voucherDiscount,
+		PlatformFeeMinor:     platformFee,
+		TotalPriceMinor:      foodQuote.TotalPriceMinor,
 		DistanceFeeIDR:       deliveryFee,
 		BasePriceIDR:         subtotal,
 		DynamicPriceIDR:      subtotal,
@@ -375,6 +394,10 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		PPNRateStatutoryPct:  taxSnapshot.PPNRateStatutoryPct,
 		DPPIDR:               taxSnapshot.DPPIDR,
 		PPNIDR:               taxSnapshot.PPNIDR,
+		DPPMinor:             taxSnapshot.DPPMinor,
+		PPNMinor:             taxSnapshot.PPNMinor,
+		TaxRuleVersion:       taxSnapshot.TaxRuleVersion,
+		TaxJurisdiction:      taxSnapshot.TaxJurisdiction,
 		PlatformFeeIDR:       platformFee,
 		PlatformFeePct:       platformFeePct,
 		HandoverToken:        handoverToken,

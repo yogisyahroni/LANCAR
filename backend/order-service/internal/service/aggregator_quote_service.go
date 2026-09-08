@@ -82,8 +82,10 @@ func (s *paymentLinkServiceImpl) Quote(ctx context.Context, req domain.CheckTari
 			continue
 		}
 
-		tariffNet := int64(float64(carrierService.TariffGross) * (1.0 - (discountPct / 100.0)))
-		customerTariff := int64(float64(tariffNet) * (1.0 + (markupPct / 100.0)))
+		tariffNet, customerTariff, policyErr := applyProviderTariffPolicy(carrierService.TariffGross, discountPct, markupPct)
+		if policyErr != nil {
+			return nil, fmt.Errorf("calculate provider tariff policy: %w", policyErr)
+		}
 		if tariffNet <= 0 || customerTariff <= 0 {
 			continue
 		}

@@ -177,7 +177,11 @@ func (s *aggregatorFinanceService) SubmitClaim(ctx context.Context, claim *domai
 		// Calculate dynamic compensation based on policy
 		baseAmt := policy.FeeAmountIDR
 		if policy.FeePctOrder > 0 {
-			baseAmt += int64(float64(claim.ClaimAmountIDR) * (policy.FeePctOrder / 100.0))
+			fee, feeErr := domain.RoadsidePercent(claim.ClaimAmountIDR, policy.FeePctOrder)
+			if feeErr != nil {
+				return nil, fmt.Errorf("calculate claim policy fee: %w", feeErr)
+			}
+			baseAmt += fee
 		}
 		if policy.FeeBorneBy == "PROVIDER" {
 			claim.ProviderPayoutIDR = baseAmt

@@ -169,22 +169,41 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 
 	// 3. FIN-003 & FIN-005: Create Ledger Journal if Delivered (Revenue Recognition)
 	if targetStatus == domain.StatusDelivered {
+		order.ApplyMoneyContract()
 		// Calculate courier earnings based on order BasePrice + Volumetric + Dynamic
-		grossTariff := order.BasePriceIDR + order.VolumetricSurchargeIDR + order.DynamicPriceIDR
+		grossTariff := order.BasePriceMinor + order.VolumetricSurchargeMinor + order.DynamicPriceMinor
 
 		// 80% to courier (example, should be from config but we'll use standard model)
 		// For simplicity we just use 80% of grossTariff for courier payable
-		courierPayable := int64(float64(grossTariff) * 0.8)
+		currency := order.Currency
+		if currency == "" {
+			currency = "IDR"
+		}
+		grossMoney, moneyErr := domain.NewMoney(currency, grossTariff)
+		if moneyErr != nil {
+			return fmt.Errorf("validate order delivery currency: %w", moneyErr)
+		}
+		if grossMoney.MinorUnit != order.CurrencyMinorUnit {
+			return fmt.Errorf("order delivery currency minor unit mismatch: got %d, want %d", order.CurrencyMinorUnit, grossMoney.MinorUnit)
+		}
+		courierMoney, moneyErr := grossMoney.MultiplyPercent(80)
+		if moneyErr != nil {
+			return fmt.Errorf("calculate courier payable: %w", moneyErr)
+		}
+		courierPayable := courierMoney.AmountMinor
+		currencyMinorUnit := order.CurrencyMinorUnit
 
 		journal := &domain.LedgerJournal{
-			JournalType:    "order_delivered",
-			ReferenceType:  "order",
-			ReferenceID:    order.ID,
-			IdempotencyKey: fmt.Sprintf("LEDGER-DELIVERED-%s", order.ID),
-			Reason:         "Revenue recognition and courier payout accrual on delivery",
-			Metadata:       map[string]any{"courier_id": order.CourierID},
-			CreatedBy:      scannedBy,
-			ActorRole:      "courier",
+			JournalType:       "order_delivered",
+			ReferenceType:     "order",
+			ReferenceID:       order.ID,
+			IdempotencyKey:    fmt.Sprintf("LEDGER-DELIVERED-%s", order.ID),
+			Reason:            "Revenue recognition and courier payout accrual on delivery",
+			Metadata:          map[string]any{"courier_id": order.CourierID},
+			CreatedBy:         scannedBy,
+			ActorRole:         "courier",
+			Currency:          currency,
+			CurrencyMinorUnit: currencyMinorUnit,
 		}
 		// FB-088: catat batch_id di metadata untuk rekonsiliasi earnings
 		// (order batch food: payout tetap per-order saat tiap delivery —
@@ -195,19 +214,19 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 
 		entries := []domain.LedgerEntry{
 			// Revenue Recognition (Realized)
-			{AccountName: "unearned_revenue", DebitIDR: grossTariff, CreditIDR: 0},
-			{AccountName: "delivery_revenue", DebitIDR: 0, CreditIDR: grossTariff},
+			{AccountName: "unearned_revenue", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, DebitMinor: grossTariff, DebitIDR: legacyLedgerIDR(currency, grossTariff)},
+			{AccountName: "delivery_revenue", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, CreditMinor: grossTariff, CreditIDR: legacyLedgerIDR(currency, grossTariff)},
 
 			// Courier Payable Accrual
-			{AccountName: "courier_payout_expense", DebitIDR: courierPayable, CreditIDR: 0},
-			{AccountName: "courier_payable", DebitIDR: 0, CreditIDR: courierPayable},
+			{AccountName: "courier_payout_expense", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, DebitMinor: courierPayable, DebitIDR: legacyLedgerIDR(currency, courierPayable)},
+			{AccountName: "courier_payable", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, CreditMinor: courierPayable, CreditIDR: legacyLedgerIDR(currency, courierPayable)},
 		}
 
-		// If promo applied (we assume TotalPriceIDR < grossTariff indicates promo)
-		promoDiscount := grossTariff - order.TotalPriceIDR
+		// If promo applied (we assume TotalPriceMinor < grossTariff indicates promo)
+		promoDiscount := grossTariff - order.TotalPriceMinor
 		if promoDiscount > 0 {
-			entries = append(entries, domain.LedgerEntry{AccountName: "promo_subsidy_expense", DebitIDR: promoDiscount, CreditIDR: 0})
-			entries = append(entries, domain.LedgerEntry{AccountName: "unearned_revenue", DebitIDR: 0, CreditIDR: promoDiscount})
+			entries = append(entries, domain.LedgerEntry{AccountName: "promo_subsidy_expense", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, DebitMinor: promoDiscount, DebitIDR: legacyLedgerIDR(currency, promoDiscount)})
+			entries = append(entries, domain.LedgerEntry{AccountName: "unearned_revenue", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, CreditMinor: promoDiscount, CreditIDR: legacyLedgerIDR(currency, promoDiscount)})
 		}
 
 		if err = s.ledgerRepo.CreateJournalWithEntries(ctx, journal, entries); err != nil {

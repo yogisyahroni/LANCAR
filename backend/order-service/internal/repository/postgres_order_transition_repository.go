@@ -22,11 +22,24 @@ type lockedOrderTransition struct {
 	ServiceSubType    string
 	LogisticsProvider string
 	StateVersion      int64
+	Currency          string
+	CurrencyMinorUnit int
+	BasePriceMinor    int64
+	VolumetricMinor   int64
+	DynamicPriceMinor int64
+	TotalPriceMinor   int64
 	BasePriceIDR      int64
 	VolumetricIDR     int64
 	DynamicPriceIDR   int64
 	TotalPriceIDR     int64
 	BatchID           sql.NullString
+}
+
+func legacyLedgerAmount(currency string, amount int64) int64 {
+	if currency == "IDR" {
+		return amount
+	}
+	return 0
 }
 
 // TransitionOrder is the only repository write path that combines an order
@@ -66,7 +79,10 @@ func (r *postgresRepo) TransitionOrder(ctx context.Context, request domain.Order
 		SELECT id::text, COALESCE(customer_id::text, ''), status,
 		       COALESCE(service_category, ''), COALESCE(model, ''),
 		       COALESCE(service_sub_type, ''), COALESCE(logistics_provider, ''),
-		       COALESCE(state_version, 1), COALESCE(base_price_idr, 0),
+		       COALESCE(state_version, 1), COALESCE(currency_code, 'IDR'), COALESCE(currency_minor_unit, 0),
+		       COALESCE(base_price_minor, 0), COALESCE(volumetric_surcharge_minor, 0),
+		       COALESCE(dynamic_price_minor, 0), COALESCE(total_price_minor, 0),
+		       COALESCE(base_price_idr, 0),
 		       COALESCE(volumetric_surcharge_idr, 0), COALESCE(dynamic_price_idr, 0),
 		       COALESCE(total_price_idr, 0), batch_id::text
 		  FROM orders
@@ -74,7 +90,9 @@ func (r *postgresRepo) TransitionOrder(ctx context.Context, request domain.Order
 		 FOR UPDATE`, request.OrderID).Scan(
 		&order.ID, &order.CustomerID, &order.Status, &order.ServiceCategory,
 		&order.Model, &order.ServiceSubType, &order.LogisticsProvider,
-		&order.StateVersion, &order.BasePriceIDR, &order.VolumetricIDR,
+		&order.StateVersion, &order.Currency, &order.CurrencyMinorUnit,
+		&order.BasePriceMinor, &order.VolumetricMinor, &order.DynamicPriceMinor, &order.TotalPriceMinor,
+		&order.BasePriceIDR, &order.VolumetricIDR,
 		&order.DynamicPriceIDR, &order.TotalPriceIDR, &order.BatchID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -347,28 +365,57 @@ func insertTransitionProof(ctx context.Context, tx *sql.Tx, orderID string, requ
 }
 
 func insertDeliveryLedger(ctx context.Context, tx *sql.Tx, order lockedOrderTransition, request domain.OrderTransitionRequest) (uuid.UUID, error) {
-	gross := order.BasePriceIDR + order.VolumetricIDR + order.DynamicPriceIDR
+	currency := strings.ToUpper(strings.TrimSpace(order.Currency))
+	if currency == "" {
+		currency = "IDR"
+	}
+	currencyMinorUnit := order.CurrencyMinorUnit
+	if currency == "IDR" {
+		currencyMinorUnit = 0
+	}
+	gross := order.BasePriceMinor + order.VolumetricMinor + order.DynamicPriceMinor
+	if gross <= 0 {
+		gross = order.BasePriceIDR + order.VolumetricIDR + order.DynamicPriceIDR
+	}
+	if gross <= 0 {
+		gross = order.TotalPriceMinor
+	}
 	if gross <= 0 {
 		gross = order.TotalPriceIDR
 	}
 	if gross <= 0 {
 		return uuid.Nil, domain.ErrTransitionLedgerRequired
 	}
-	courierPayable := int64(float64(gross) * 0.8)
-	promoDiscount := gross - order.TotalPriceIDR
+	courierMoney, err := domain.NewMoney(currency, gross)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("validate delivery ledger currency: %w", err)
+	}
+	if courierMoney.MinorUnit != currencyMinorUnit {
+		return uuid.Nil, fmt.Errorf("delivery ledger currency minor unit mismatch: got %d, want %d", currencyMinorUnit, courierMoney.MinorUnit)
+	}
+	courierMoney, err = courierMoney.MultiplyPercent(80)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("calculate delivery courier payable: %w", err)
+	}
+	courierPayable := courierMoney.AmountMinor
+	totalPrice := order.TotalPriceMinor
+	if totalPrice <= 0 {
+		totalPrice = order.TotalPriceIDR
+	}
+	promoDiscount := gross - totalPrice
 	if promoDiscount < 0 {
 		promoDiscount = 0
 	}
 	entries := []domain.LedgerEntry{
-		{AccountName: "unearned_revenue", DebitIDR: gross},
-		{AccountName: "delivery_revenue", CreditIDR: gross},
-		{AccountName: "courier_payout_expense", DebitIDR: courierPayable},
-		{AccountName: "courier_payable", CreditIDR: courierPayable},
+		{AccountName: "unearned_revenue", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, DebitMinor: gross, DebitIDR: legacyLedgerAmount(currency, gross)},
+		{AccountName: "delivery_revenue", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, CreditMinor: gross, CreditIDR: legacyLedgerAmount(currency, gross)},
+		{AccountName: "courier_payout_expense", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, DebitMinor: courierPayable, DebitIDR: legacyLedgerAmount(currency, courierPayable)},
+		{AccountName: "courier_payable", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, CreditMinor: courierPayable, CreditIDR: legacyLedgerAmount(currency, courierPayable)},
 	}
 	if promoDiscount > 0 {
 		entries = append(entries,
-			domain.LedgerEntry{AccountName: "promo_subsidy_expense", DebitIDR: promoDiscount},
-			domain.LedgerEntry{AccountName: "unearned_revenue", CreditIDR: promoDiscount})
+			domain.LedgerEntry{AccountName: "promo_subsidy_expense", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, DebitMinor: promoDiscount, DebitIDR: legacyLedgerAmount(currency, promoDiscount)},
+			domain.LedgerEntry{AccountName: "unearned_revenue", Currency: currency, CurrencyMinorUnit: currencyMinorUnit, CreditMinor: promoDiscount, CreditIDR: legacyLedgerAmount(currency, promoDiscount)})
 	}
 	if err := domain.ValidateLedgerEntries(entries); err != nil {
 		return uuid.Nil, fmt.Errorf("validate delivery ledger: %w", err)
@@ -376,7 +423,7 @@ func insertDeliveryLedger(ctx context.Context, tx *sql.Tx, order lockedOrderTran
 
 	key := "LEDGER-DELIVERED-" + order.ID
 	var journalID uuid.UUID
-	err := tx.QueryRowContext(ctx, `SELECT id FROM ledger_journals WHERE idempotency_key = $1 FOR UPDATE`, key).Scan(&journalID)
+	err = tx.QueryRowContext(ctx, `SELECT id FROM ledger_journals WHERE idempotency_key = $1 FOR UPDATE`, key).Scan(&journalID)
 	if errors.Is(err, sql.ErrNoRows) {
 		metadata, _ := json.Marshal(map[string]any{
 			"order_id":                   order.ID,
@@ -385,16 +432,16 @@ func insertDeliveryLedger(ctx context.Context, tx *sql.Tx, order lockedOrderTran
 		})
 		err = tx.QueryRowContext(ctx, `
 			INSERT INTO ledger_journals
-				(journal_type, reference_type, reference_id, idempotency_key, reason, metadata, created_by, actor_role)
-			VALUES ('order_delivered', 'order', $1, $2, $3, $4, $5, $6)
-			RETURNING id`, order.ID, key, "Revenue recognition and courier payout accrual on delivery", metadata, request.ActorID, string(request.Actor)).Scan(&journalID)
+				(journal_type, reference_type, reference_id, idempotency_key, reason, metadata, created_by, actor_role, currency_code, currency_minor_unit)
+			VALUES ('order_delivered', 'order', $1, $2, $3, $4, $5, $6, $7, $8)
+			RETURNING id`, order.ID, key, "Revenue recognition and courier payout accrual on delivery", metadata, request.ActorID, string(request.Actor), currency, currencyMinorUnit).Scan(&journalID)
 		if err != nil {
 			return uuid.Nil, fmt.Errorf("write delivery ledger journal: %w", err)
 		}
 		for _, entry := range entries {
 			if _, err := tx.ExecContext(ctx, `
-				INSERT INTO ledger_entries (journal_id, account_name, debit_idr, credit_idr)
-				VALUES ($1, $2, $3, $4)`, journalID, entry.AccountName, entry.DebitIDR, entry.CreditIDR); err != nil {
+				INSERT INTO ledger_entries (journal_id, account_name, currency_code, currency_minor_unit, debit_minor, credit_minor, debit_idr, credit_idr)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, journalID, entry.AccountName, entry.Currency, entry.CurrencyMinorUnit, entry.DebitMinor, entry.CreditMinor, entry.DebitIDR, entry.CreditIDR); err != nil {
 				return uuid.Nil, fmt.Errorf("write delivery ledger entry: %w", err)
 			}
 		}

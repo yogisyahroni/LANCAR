@@ -41,17 +41,25 @@ interface OrderSummaryProps {
   routeError?: string | null;
   pricing: {
     distance_km: number;
+    currency?: string;
+    currency_minor_unit?: number;
     base_price_idr: number;
+    base_price_minor?: number;
     actual_weight_kg?: number;
     dimensional_weight_kg?: number;
     chargeable_weight_kg?: number;
     volumetric_surcharge_idr: number;
+    volumetric_surcharge_minor?: number;
     insurance_premium_idr: number;
+    insurance_fee_minor?: number;
     dynamic_price_idr?: number;
+    dynamic_price_minor?: number;
+    price_components_minor?: Record<string, number>;
     delivery_model?: "p2p";
     eta_minutes?: number;
     route_snapshot?: RouteSnapshot | null;
     total_price_idr: number;
+    total_price_minor?: number;
     package_facts?: {
       quantity?: number;
       category?: string;
@@ -70,6 +78,9 @@ interface OrderSummaryProps {
     eligible: boolean;
     reason?: string | null;
     discount_idr?: number;
+    discount_minor?: number;
+    currency?: string;
+    currency_minor_unit?: number;
     campaign?: {
       id?: string;
       code?: string;
@@ -101,6 +112,17 @@ const modelLabel: Record<string, string> = {
 };
 
 const apiBaseUrl = customerApiUrl;
+
+function formatMoney(amountMinor: number, currency = "IDR", minorUnit = 0): string {
+  const safeCurrency = /^[A-Z]{3}$/.test(currency) ? currency : "IDR";
+  const safeMinorUnit = Number.isInteger(minorUnit) && minorUnit >= 0 && minorUnit <= 3 ? minorUnit : 0;
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: safeCurrency,
+    minimumFractionDigits: safeMinorUnit,
+    maximumFractionDigits: safeMinorUnit
+  }).format(amountMinor / 10 ** safeMinorUnit);
+}
 
 const buildRouteTileUrl = (
   provider: RouteTileProvider,
@@ -376,9 +398,19 @@ export function OrderSummary({
   onValidatePromo
 }: OrderSummaryProps) {
   const [mapsRuntimeConfig, setMapsRuntimeConfig] = useState<PublicMapsRuntimeConfig | null>(null);
-  const surgeAmount = pricing?.dynamic_price_idr || 0;
-  const promoDiscountIdr = promoQuote?.eligible ? Math.max(0, Number(promoQuote.discount_idr || 0)) : 0;
-  const payableTotalIdr = pricing ? Math.max(0, pricing.total_price_idr - promoDiscountIdr) : 0;
+  const currency = pricing?.currency || "IDR";
+  const currencyMinorUnit = pricing?.currency_minor_unit ?? 0;
+  const minor = (direct: number | undefined, componentKey: string, legacy: number) =>
+    direct ?? pricing?.price_components_minor?.[componentKey] ?? legacy;
+  const basePriceMinor = minor(pricing?.base_price_minor, "base_fare_idr", pricing?.base_price_idr || 0);
+  const volumetricSurchargeMinor = minor(pricing?.volumetric_surcharge_minor, "weight_surcharge_idr", pricing?.volumetric_surcharge_idr || 0);
+  const insuranceFeeMinor = minor(pricing?.insurance_fee_minor, "insurance_fee_idr", pricing?.insurance_premium_idr || 0);
+  const surgeAmountMinor = minor(pricing?.dynamic_price_minor, "dynamic_price_idr", pricing?.dynamic_price_idr || 0);
+  const promoDiscountMinor = promoQuote?.eligible
+    ? Math.max(0, Number(promoQuote.discount_minor ?? promoQuote.discount_idr ?? 0))
+    : 0;
+  const totalPriceMinor = pricing?.total_price_minor ?? pricing?.total_price_idr ?? 0;
+  const payableTotalMinor = pricing ? Math.max(0, totalPriceMinor - promoDiscountMinor) : 0;
   const promoRequiresValidation = promoCode.trim().length > 0 && !promoQuote?.eligible;
   const submitDisabled = !isValid || isLoading || !pricing || isPromoChecking;
   const routeSnapshot = pricing?.route_snapshot || routePreview || null;
@@ -429,7 +461,7 @@ export function OrderSummary({
             {isLoading ? (
               <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
             ) : pricing ? (
-              `Rp ${pricing.base_price_idr.toLocaleString('id-ID')}`
+              formatMoney(basePriceMinor, currency, currencyMinorUnit)
             ) : (
               "-"
             )}
@@ -447,7 +479,7 @@ export function OrderSummary({
             {isLoading ? (
               <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
             ) : pricing ? (
-              pricing.volumetric_surcharge_idr > 0 ? `Rp ${pricing.volumetric_surcharge_idr.toLocaleString('id-ID')}` : "Gratis"
+              volumetricSurchargeMinor > 0 ? formatMoney(volumetricSurchargeMinor, currency, currencyMinorUnit) : "Gratis"
             ) : (
               "-"
             )}
@@ -466,7 +498,7 @@ export function OrderSummary({
             {isLoading ? (
               <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
             ) : pricing ? (
-              pricing.insurance_premium_idr > 0 ? `Rp ${pricing.insurance_premium_idr.toLocaleString('id-ID')}` : "-"
+              insuranceFeeMinor > 0 ? formatMoney(insuranceFeeMinor, currency, currencyMinorUnit) : "-"
             ) : (
               "-"
             )}
@@ -484,8 +516,8 @@ export function OrderSummary({
           <span className="font-medium text-foreground">
             {isLoading ? (
               <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
-            ) : pricing && surgeAmount > 0 ? (
-              `Rp ${surgeAmount.toLocaleString('id-ID')}`
+            ) : pricing && surgeAmountMinor > 0 ? (
+              formatMoney(surgeAmountMinor, currency, currencyMinorUnit)
             ) : (
               "-"
             )}
@@ -522,7 +554,7 @@ export function OrderSummary({
           </div>
           {promoQuote?.eligible && (
             <div className="mt-3 rounded-lg border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-2 text-xs text-brand-emerald-100">
-              Promo aktif: hemat Rp {promoDiscountIdr.toLocaleString("id-ID")}
+              Promo aktif: hemat {formatMoney(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit)}
             </div>
           )}
           {promoError && (
@@ -552,14 +584,14 @@ export function OrderSummary({
           )}
         </div>
 
-        {promoDiscountIdr > 0 && (
+        {promoDiscountMinor > 0 && (
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-brand-emerald-300">
               <BadgePercent className="h-4 w-4" />
               <span>Potongan Promo</span>
             </div>
             <span className="font-semibold text-brand-emerald-300">
-              - Rp {promoDiscountIdr.toLocaleString("id-ID")}
+              - {formatMoney(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit)}
             </span>
           </div>
         )}
@@ -604,7 +636,7 @@ export function OrderSummary({
               <span className="text-muted-foreground">Kategori</span><span className="truncate text-right font-semibold">{pricing.package_facts.category || '-'}</span>
               <span className="text-muted-foreground">Berat aktual</span><span className="text-right font-semibold">{pricing.actual_weight_kg ?? 0} kg</span>
               <span className="text-muted-foreground">Berat volumetrik</span><span className="text-right font-semibold">{pricing.dimensional_weight_kg ?? 0} kg</span>
-              <span className="text-muted-foreground">Nilai barang</span><span className="text-right font-semibold">Rp {Number(pricing.package_facts.item_value_idr || 0).toLocaleString('id-ID')}</span>
+              <span className="text-muted-foreground">Nilai barang</span><span className="text-right font-semibold">{formatMoney(Number(pricing.package_facts.item_value_idr || 0), "IDR", 0)}</span>
               <span className="text-muted-foreground">Penanganan</span><span className="text-right font-semibold">{pricing.package_facts.fragile ? 'Rapuh' : 'Standar'}</span>
               <span className="text-muted-foreground">Kode terima</span><span className="text-right font-semibold">{pricing.package_facts.delivery_code_policy === 'required' ? 'Wajib' : 'Opsional'}</span>
             </div>
@@ -650,7 +682,7 @@ export function OrderSummary({
         )}
       </div>
 
-      {mode === 'instan' && surgeAmount > 0 && (
+      {mode === 'instan' && surgeAmountMinor > 0 && (
         <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
           <div className="flex items-center gap-2 font-semibold">
             <Zap className="h-4 w-4" />
@@ -670,9 +702,9 @@ export function OrderSummary({
             {isLoading ? (
               <span className="inline-block h-8 w-24 animate-pulse rounded bg-brand-emerald-500/20"></span>
             ) : pricing ? (
-              `Rp ${payableTotalIdr.toLocaleString('id-ID')}`
+              formatMoney(payableTotalMinor, currency, currencyMinorUnit)
             ) : (
-              "Rp 0"
+              formatMoney(0, currency, currencyMinorUnit)
             )}
           </span>
         </div>

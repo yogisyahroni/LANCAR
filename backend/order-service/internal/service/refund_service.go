@@ -93,6 +93,19 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		log.Printf("Payment for order %s is not paid (%s), no refund needed", orderID, payment.Status)
 		return nil, nil // Payment not settled, maybe just cancel the payment instead
 	}
+	order.ApplyMoneyContract()
+	payment.ApplyMoneyContract()
+	legacyAmount := func(amount int64) int64 {
+		if payment.Currency == "IDR" {
+			return amount
+		}
+		return 0
+	}
+	refundNumerator := decision.RefundRatioNumerator
+	refundDenominator := decision.RefundRatioDenominator
+	if refundDenominator == 0 {
+		return nil, fmt.Errorf("cancellation policy has no exact refund ratio")
+	}
 
 	// C1-AUDIT-FIX: idempotensi refund — kalau refund aktif (pending/processed)
 	// sudah ada untuk order ini, jangan buat duplikat. (Jaring pengaman DB:
@@ -112,45 +125,61 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		}
 	}
 
-	refundAmount := int(float64(payment.AmountIDR) * refundRatio)
-	platformFeeReversal := int64(float64(order.PlatformFeeIDR) * refundRatio)
+	refundAmountMinor, err := domain.ScaleAmount(payment.AmountMinor, refundNumerator, refundDenominator)
+	if err != nil {
+		return nil, fmt.Errorf("calculate refund amount: %w", err)
+	}
+	platformFeeReversalMinor, err := domain.ScaleAmount(order.PlatformFeeMinor, refundNumerator, refundDenominator)
+	if err != nil {
+		return nil, fmt.Errorf("calculate platform fee reversal: %w", err)
+	}
 	if withholdServiceFee {
 		// FB-079: biaya layanan (platform fee) ditahan sebagai cancellation fee,
 		// sisanya (makanan + ongkir) direfund ke customer.
-		refundAmount -= int(order.PlatformFeeIDR)
-		platformFeeReversal = 0
+		refundAmountMinor -= order.PlatformFeeMinor
+		platformFeeReversalMinor = 0
 	}
-	if refundAmount < 0 {
-		refundAmount = 0
+	if refundAmountMinor < 0 {
+		refundAmountMinor = 0
 	}
 	if opts.ChargeCancellationFeeTo == "merchant" {
 		// FB-082: kesalahan merchant (reject/timeout) — customer refund 100%,
 		// fee TIDAK direversal (platform tidak rugi): menjadi piutang merchant
 		// yang dipotong dari settlement berikutnya.
-		refundAmount = int(payment.AmountIDR)
-		platformFeeReversal = 0
+		refundAmountMinor = payment.AmountMinor
+		platformFeeReversalMinor = 0
 	}
-	if refundAmount <= 0 {
+	if refundAmountMinor <= 0 {
 		return nil, nil
 	}
-
 	// Ratio aktual dihitung ulang agar RefundPercentage / TaxReversal konsisten
 	// dengan jumlah yang benar-benar direfund (fee case ≠ ratio 100%).
-	actualRatio := float64(refundAmount) / float64(payment.AmountIDR)
-	refundPercentage := int(actualRatio*100 + 0.5)
-	taxReversal := int64(float64(order.PPNIDR) * actualRatio)
-	cancellationFeeIDR := int64(payment.AmountIDR - refundAmount)
-	if cancellationFeeIDR < 0 {
-		cancellationFeeIDR = 0
+	refundPercentage64, err := domain.ScaleAmount(100, refundAmountMinor, payment.AmountMinor)
+	if err != nil {
+		return nil, fmt.Errorf("calculate refund percentage: %w", err)
 	}
+	taxReversalMinor, err := domain.ScaleAmount(order.PPNMinor, refundAmountMinor, payment.AmountMinor)
+	if err != nil {
+		return nil, fmt.Errorf("calculate tax reversal: %w", err)
+	}
+	cancellationFeeMinor := payment.AmountMinor - refundAmountMinor
+	if cancellationFeeMinor < 0 {
+		cancellationFeeMinor = 0
+	}
+	refundAmount := int(legacyAmount(refundAmountMinor))
+	platformFeeReversal := legacyAmount(platformFeeReversalMinor)
+	taxReversal := legacyAmount(taxReversalMinor)
+	cancellationFeeIDR := legacyAmount(cancellationFeeMinor)
+	refundPercentage := int(refundPercentage64)
 	feeBreakdown, _ := json.Marshal(map[string]any{
-		"payment_amount_idr": payment.AmountIDR,
-		"refund_amount_idr":  refundAmount,
-		"service_fee_idr":    cancellationFeeIDR,
-		"fee_reason":         decision.FeeReason,
-		"original_status":    statusAtCancel,
-		"courier_assigned":   courierAssigned,
-		"market":             cancellationMarket(order.PricingSnapshot),
+		"currency":             payment.Currency,
+		"payment_amount_minor": payment.AmountMinor,
+		"refund_amount_minor":  refundAmountMinor,
+		"service_fee_minor":    cancellationFeeMinor,
+		"fee_reason":           decision.FeeReason,
+		"original_status":      statusAtCancel,
+		"courier_assigned":     courierAssigned,
+		"market":               cancellationMarket(order.PricingSnapshot),
 	})
 
 	now := time.Now()
@@ -158,12 +187,12 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 
 	// FB-082: kesalahan merchant → catat piutang cancellation fee (dipotong
 	// dari settlement merchant berikutnya). Idempotent via UNIQUE(order_id).
-	if opts.ChargeCancellationFeeTo == "merchant" && s.cancelFeeRepo != nil && order.MerchantID != nil && order.PlatformFeeIDR > 0 {
+	if opts.ChargeCancellationFeeTo == "merchant" && payment.Currency == "IDR" && s.cancelFeeRepo != nil && order.MerchantID != nil && order.PlatformFeeMinor > 0 {
 		fee := &domain.MerchantCancellationFee{
 			ID:         uuid.New(),
 			MerchantID: *order.MerchantID,
 			OrderID:    order.ID,
-			AmountIDR:  order.PlatformFeeIDR,
+			AmountIDR:  order.PlatformFeeMinor,
 			Reason:     cancelReason,
 			Status:     domain.CancellationFeePending,
 			CreatedAt:  now,
@@ -175,26 +204,29 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 
 	var journalIDPtr *uuid.UUID
 	if s.ledgerRepo != nil {
-		retainedAmount := int64(payment.AmountIDR - refundAmount)
+		retainedAmount := payment.AmountMinor - refundAmountMinor
 		entries := []domain.LedgerEntry{
-			{ID: uuid.New(), AccountName: "escrow_holding", DebitIDR: int64(payment.AmountIDR), CreditIDR: 0, CreatedAt: now},
-			{ID: uuid.New(), AccountName: "customer_refund_payable", DebitIDR: 0, CreditIDR: int64(refundAmount), CreatedAt: now},
+			{ID: uuid.New(), AccountName: "escrow_holding", Currency: payment.Currency, CurrencyMinorUnit: payment.CurrencyMinorUnit, DebitMinor: payment.AmountMinor, DebitIDR: legacyAmount(payment.AmountMinor), CreatedAt: now},
+			{ID: uuid.New(), AccountName: "customer_refund_payable", Currency: payment.Currency, CurrencyMinorUnit: payment.CurrencyMinorUnit, CreditMinor: refundAmountMinor, CreditIDR: legacyAmount(refundAmountMinor), CreatedAt: now},
 		}
 		if retainedAmount > 0 {
 			entries = append(entries, domain.LedgerEntry{
-				ID:          uuid.New(),
-				AccountName: "cancellation_fee_revenue",
-				DebitIDR:    0,
-				CreditIDR:   retainedAmount,
-				CreatedAt:   now,
+				ID:                uuid.New(),
+				AccountName:       "cancellation_fee_revenue",
+				DebitIDR:          0,
+				Currency:          payment.Currency,
+				CurrencyMinorUnit: payment.CurrencyMinorUnit,
+				CreditMinor:       retainedAmount,
+				CreditIDR:         legacyAmount(retainedAmount),
+				CreatedAt:         now,
 			})
 		}
 		if opts.ChargeCancellationFeeTo == "merchant" {
 			// Double-entry seimbang: piutang dari merchant (debit) = fee,
 			// pendapatan platform (credit) = fee. Balance tetap terjaga.
 			entries = append(entries,
-				domain.LedgerEntry{ID: uuid.New(), AccountName: "merchant_cancellation_fee_receivable", DebitIDR: order.PlatformFeeIDR, CreditIDR: 0, CreatedAt: now},
-				domain.LedgerEntry{ID: uuid.New(), AccountName: "platform_fee_revenue", DebitIDR: 0, CreditIDR: order.PlatformFeeIDR, CreatedAt: now},
+				domain.LedgerEntry{ID: uuid.New(), AccountName: "merchant_cancellation_fee_receivable", Currency: payment.Currency, CurrencyMinorUnit: payment.CurrencyMinorUnit, DebitMinor: order.PlatformFeeMinor, DebitIDR: legacyAmount(order.PlatformFeeMinor), CreatedAt: now},
+				domain.LedgerEntry{ID: uuid.New(), AccountName: "platform_fee_revenue", Currency: payment.Currency, CurrencyMinorUnit: payment.CurrencyMinorUnit, CreditMinor: order.PlatformFeeMinor, CreditIDR: legacyAmount(order.PlatformFeeMinor), CreatedAt: now},
 			)
 		}
 
@@ -214,10 +246,14 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 				"cancellation_policy_version": decision.PolicyVersion,
 				"cancellation_fee_idr":        cancellationFeeIDR,
 				"cancellation_fee_breakdown":  json.RawMessage(feeBreakdown),
+				"currency":                    payment.Currency,
+				"refund_amount_minor":         refundAmountMinor,
 			},
-			CreatedBy: "system",
-			ActorRole: "system",
-			CreatedAt: now,
+			CreatedBy:         "system",
+			ActorRole:         "system",
+			Currency:          payment.Currency,
+			CurrencyMinorUnit: payment.CurrencyMinorUnit,
+			CreatedAt:         now,
 		}
 
 		jid, errLedger := s.ledgerRepo.CreateJournalReturningID(ctx, journal, entries)
@@ -233,15 +269,23 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		OrderID:                   orderID,
 		UserID:                    &order.CustomerID,
 		PaymentID:                 &payment.ID,
+		Currency:                  payment.Currency,
+		CurrencyMinorUnit:         payment.CurrencyMinorUnit,
+		AmountMinor:               refundAmountMinor,
 		AmountIDR:                 refundAmount,
 		Reason:                    cancelReason,
 		Status:                    domain.RefundStatusPending,
 		RefundPercentage:          refundPercentage,
 		TaxReversalIDR:            taxReversal,
+		TaxReversalMinor:          taxReversalMinor,
 		PlatformFeeReversalIDR:    platformFeeReversal,
+		PlatformFeeReversalMinor:  platformFeeReversalMinor,
 		CancellationPolicyVersion: decision.PolicyVersion,
 		CancellationFeeIDR:        cancellationFeeIDR,
+		CancellationFeeMinor:      cancellationFeeMinor,
 		CancellationFeeBreakdown:  feeBreakdown,
+		TaxRuleVersion:            order.TaxRuleVersion,
+		TaxJurisdiction:           order.TaxJurisdiction,
 		LedgerJournalID:           journalIDPtr,
 		CreatedAt:                 now,
 		UpdatedAt:                 now,
@@ -274,8 +318,28 @@ func (s *refundService) ProcessPendingRefunds(ctx context.Context) error {
 		if payment.ProviderReference != nil {
 			paymentRef = *payment.ProviderReference
 		}
-
-		ref, gatewayErr := s.gateway.ProcessRefund(ctx, r.OrderID.String(), paymentRef, r.AmountIDR, r.Reason)
+		amountMinor := r.AmountMinor
+		if amountMinor == 0 {
+			amountMinor = int64(r.AmountIDR)
+		}
+		currency := r.Currency
+		if currency == "" {
+			currency = payment.Currency
+		}
+		money, moneyErr := domain.NewMoney(currency, amountMinor)
+		if moneyErr != nil {
+			log.Printf("Skipping refund %s, invalid money context: %v", r.ID, moneyErr)
+			continue
+		}
+		var ref string
+		var gatewayErr error
+		if moneyGateway, ok := s.gateway.(domain.MoneyRefundGateway); ok {
+			ref, gatewayErr = moneyGateway.ProcessRefundMoney(ctx, r.OrderID.String(), paymentRef, money, r.Reason)
+		} else if money.Currency == "IDR" {
+			ref, gatewayErr = s.gateway.ProcessRefund(ctx, r.OrderID.String(), paymentRef, int(money.AmountMinor), r.Reason)
+		} else {
+			gatewayErr = fmt.Errorf("refund provider is not currency-aware for %s", money.Currency)
+		}
 
 		status := domain.RefundStatusProcessed
 		var errReason *string
@@ -328,6 +392,14 @@ func (s *refundService) CalculateItemRefund(ctx context.Context, orderID uuid.UU
 		log.Printf("Payment for order %s is not paid (%s), no partial refund needed", orderID, payment.Status)
 		return nil, nil
 	}
+	order.ApplyMoneyContract()
+	payment.ApplyMoneyContract()
+	legacyAmount := func(amount int64) int64 {
+		if payment.Currency == "IDR" {
+			return amount
+		}
+		return 0
+	}
 
 	// Ambil snapshot item order (harga beku saat order dibuat).
 	if s.foodRepo == nil {
@@ -348,7 +420,7 @@ func (s *refundService) CalculateItemRefund(ctx context.Context, orderID uuid.UU
 		byMenuID[it.MenuItemID] = it
 	}
 
-	var refundAmount int64
+	var refundAmountMinor int64
 	var detail []map[string]any
 	for _, req := range items {
 		it, ok := byMenuID[req.MenuItemID]
@@ -359,7 +431,7 @@ func (s *refundService) CalculateItemRefund(ctx context.Context, orderID uuid.UU
 			return nil, fmt.Errorf("quantity refund (%d) melebihi quantity pesanan (%d) untuk %s", req.Quantity, it.Quantity, it.ItemName)
 		}
 		lineAmount := it.ItemPrice * int64(req.Quantity)
-		refundAmount += lineAmount
+		refundAmountMinor += lineAmount
 		detail = append(detail, map[string]any{
 			"menu_item_id": req.MenuItemID,
 			"item_name":    it.ItemName,
@@ -372,28 +444,32 @@ func (s *refundService) CalculateItemRefund(ctx context.Context, orderID uuid.UU
 
 	if opts.IncludeDeliveryFee {
 		// Kesalahan driver/platform → ongkir ikut direfund.
-		deliveryFee := order.DistanceFeeIDR + order.SurgeFeeIDR
-		refundAmount += deliveryFee
+		deliveryFee := order.DistanceFeeMinor + order.DynamicPriceMinor
+		refundAmountMinor += deliveryFee
 	}
 
-	if refundAmount <= 0 {
+	if refundAmountMinor <= 0 {
 		return nil, nil
 	}
 
 	// Batasi tidak melebihi total pembayaran.
-	if refundAmount > int64(payment.AmountIDR) {
-		refundAmount = int64(payment.AmountIDR)
+	if refundAmountMinor > payment.AmountMinor {
+		refundAmountMinor = payment.AmountMinor
 	}
 
 	now := time.Now()
 	refundID := uuid.New()
-	refundPercentage := int(float64(refundAmount)/float64(payment.AmountIDR)*100 + 0.5)
+	refundPercentage64, err := domain.ScaleAmount(100, refundAmountMinor, payment.AmountMinor)
+	if err != nil {
+		return nil, fmt.Errorf("calculate refund percentage: %w", err)
+	}
+	refundPercentage := int(refundPercentage64)
 
 	var journalIDPtr *uuid.UUID
 	if s.ledgerRepo != nil {
 		entries := []domain.LedgerEntry{
-			{ID: uuid.New(), AccountName: "escrow_holding", DebitIDR: refundAmount, CreditIDR: 0, CreatedAt: now},
-			{ID: uuid.New(), AccountName: "customer_refund_payable", DebitIDR: 0, CreditIDR: refundAmount, CreatedAt: now},
+			{ID: uuid.New(), AccountName: "escrow_holding", Currency: payment.Currency, CurrencyMinorUnit: payment.CurrencyMinorUnit, DebitMinor: refundAmountMinor, DebitIDR: legacyAmount(refundAmountMinor), CreatedAt: now},
+			{ID: uuid.New(), AccountName: "customer_refund_payable", Currency: payment.Currency, CurrencyMinorUnit: payment.CurrencyMinorUnit, CreditMinor: refundAmountMinor, CreditIDR: legacyAmount(refundAmountMinor), CreatedAt: now},
 		}
 		journal := &domain.LedgerJournal{
 			ID:             uuid.New(),
@@ -403,16 +479,20 @@ func (s *refundService) CalculateItemRefund(ctx context.Context, orderID uuid.UU
 			IdempotencyKey: fmt.Sprintf("REFUND-JRN-%s", refundID.String()),
 			Reason:         "Partial item refund",
 			Metadata: map[string]any{
-				"refund_id":         refundID.String(),
-				"refund_percentage": refundPercentage,
-				"items":             detail,
-				"include_delivery":  opts.IncludeDeliveryFee,
-				"delivery_fee_idr":  order.DistanceFeeIDR + order.SurgeFeeIDR,
-				"platform_fee_idr":  order.PlatformFeeIDR,
+				"refund_id":           refundID.String(),
+				"refund_percentage":   refundPercentage,
+				"items":               detail,
+				"include_delivery":    opts.IncludeDeliveryFee,
+				"currency":            payment.Currency,
+				"refund_amount_minor": refundAmountMinor,
+				"delivery_fee_minor":  order.DistanceFeeMinor + order.DynamicPriceMinor,
+				"platform_fee_minor":  order.PlatformFeeMinor,
 			},
-			CreatedBy: "system",
-			ActorRole: "system",
-			CreatedAt: now,
+			CreatedBy:         "system",
+			ActorRole:         "system",
+			Currency:          payment.Currency,
+			CurrencyMinorUnit: payment.CurrencyMinorUnit,
+			CreatedAt:         now,
 		}
 		jid, errLedger := s.ledgerRepo.CreateJournalReturningID(ctx, journal, entries)
 		if errLedger != nil {
@@ -426,12 +506,17 @@ func (s *refundService) CalculateItemRefund(ctx context.Context, orderID uuid.UU
 	record := &domain.RefundRecord{
 		ID:                     refundID,
 		OrderID:                orderID,
-		AmountIDR:              int(refundAmount),
+		Currency:               payment.Currency,
+		CurrencyMinorUnit:      payment.CurrencyMinorUnit,
+		AmountMinor:            refundAmountMinor,
+		AmountIDR:              int(legacyAmount(refundAmountMinor)),
 		Reason:                 reason,
 		Status:                 domain.RefundStatusPending,
 		RefundPercentage:       refundPercentage,
 		TaxReversalIDR:         0,
 		PlatformFeeReversalIDR: 0,
+		TaxRuleVersion:         order.TaxRuleVersion,
+		TaxJurisdiction:        order.TaxJurisdiction,
 		LedgerJournalID:        journalIDPtr,
 		CreatedAt:              now,
 		UpdatedAt:              now,

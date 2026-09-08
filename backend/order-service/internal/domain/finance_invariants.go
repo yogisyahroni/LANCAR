@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"math"
+	"math/big"
 )
 
 // PaymentStatus is deliberately explicit because a paid payment may still be
@@ -82,24 +83,85 @@ func ValidateLedgerEntries(entries []LedgerEntry) error {
 		return fmt.Errorf("ledger journal requires at least one entry")
 	}
 	var debit, credit int64
+	currency := ""
+	minorUnit := 0
 	for _, entry := range entries {
-		if entry.DebitIDR < 0 || entry.CreditIDR < 0 {
+		entryCurrency := entry.Currency
+		if entryCurrency == "" {
+			entryCurrency = "IDR"
+		}
+		code, expectedMinorUnit, err := NormalizeCurrency(entryCurrency)
+		if err != nil {
+			return fmt.Errorf("ledger entry %q has invalid currency: %w", entry.AccountName, err)
+		}
+		if currency == "" {
+			currency, minorUnit = code, expectedMinorUnit
+		} else if currency != code || minorUnit != expectedMinorUnit {
+			return fmt.Errorf("ledger journal cannot mix currencies")
+		}
+		debitAmount, creditAmount := entry.DebitMinor, entry.CreditMinor
+		if code == "IDR" {
+			if debitAmount == 0 {
+				debitAmount = entry.DebitIDR
+			}
+			if creditAmount == 0 {
+				creditAmount = entry.CreditIDR
+			}
+		}
+		if debitAmount < 0 || creditAmount < 0 {
 			return fmt.Errorf("ledger entry %q contains a negative amount", entry.AccountName)
 		}
-		if entry.DebitIDR == 0 && entry.CreditIDR == 0 {
+		if debitAmount == 0 && creditAmount == 0 {
 			return fmt.Errorf("ledger entry %q cannot have zero debit and credit", entry.AccountName)
 		}
-		if entry.DebitIDR > 0 && entry.CreditIDR > 0 {
+		if debitAmount > 0 && creditAmount > 0 {
 			return fmt.Errorf("ledger entry %q cannot contain both debit and credit", entry.AccountName)
 		}
-		if entry.DebitIDR > math.MaxInt64-debit || entry.CreditIDR > math.MaxInt64-credit {
+		if debitAmount > math.MaxInt64-debit || creditAmount > math.MaxInt64-credit {
 			return fmt.Errorf("ledger journal amount overflow")
 		}
-		debit += entry.DebitIDR
-		credit += entry.CreditIDR
+		debit += debitAmount
+		credit += creditAmount
 	}
 	if debit != credit {
 		return fmt.Errorf("unbalanced ledger journal: debit=%d credit=%d", debit, credit)
+	}
+	return nil
+}
+
+// ValidateLedgerJournalMoney adds the journal-level currency invariant to
+// ValidateLedgerEntries. A balanced set of entries is still invalid when it
+// is attached to a journal with a different currency context.
+func ValidateLedgerJournalMoney(journal *LedgerJournal, entries []LedgerEntry) error {
+	if journal == nil {
+		return fmt.Errorf("ledger journal is required")
+	}
+	if err := ValidateLedgerEntries(entries); err != nil {
+		return err
+	}
+	journalCurrency := journal.Currency
+	if journalCurrency == "" {
+		journalCurrency = "IDR"
+	}
+	code, minorUnit, err := NormalizeCurrency(journalCurrency)
+	if err != nil {
+		return fmt.Errorf("ledger journal has invalid currency: %w", err)
+	}
+	if journal.CurrencyMinorUnit != minorUnit {
+		return fmt.Errorf("ledger journal currency metadata mismatch: %s/%d", journal.Currency, journal.CurrencyMinorUnit)
+	}
+	for _, entry := range entries {
+		entryCurrency := entry.Currency
+		if entryCurrency == "" {
+			entryCurrency = "IDR"
+		}
+		entryCode, entryMinorUnit, err := NormalizeCurrency(entryCurrency)
+		if err != nil {
+			return fmt.Errorf("ledger entry %q has invalid currency: %w", entry.AccountName, err)
+		}
+		if entryCode != code || entryMinorUnit != minorUnit {
+			return fmt.Errorf("ledger journal currency %s does not match entry currency %s", code, entryCode)
+		}
 	}
 	return nil
 }
@@ -122,4 +184,46 @@ func NewReconciliationComponent(name string, expected, actual int64) Reconciliat
 		Name: name, ExpectedIDR: expected, ActualIDR: actual,
 		DifferenceIDR: difference, Status: status,
 	}
+}
+
+// ReconciliationMoneyComponent prevents reconciliation from subtracting
+// amounts that happen to have the same numeric value but different currency
+// semantics. Expected and actual values must carry the same ISO-4217 context.
+type ReconciliationMoneyComponent struct {
+	Name            string `json:"name"`
+	Currency        string `json:"currency"`
+	MinorUnit       int    `json:"minor_unit"`
+	ExpectedMinor   int64  `json:"expected_minor"`
+	ActualMinor     int64  `json:"actual_minor"`
+	DifferenceMinor int64  `json:"difference_minor"`
+	Status          string `json:"status"`
+}
+
+func NewMoneyReconciliationComponent(name string, expected, actual Money) (ReconciliationMoneyComponent, error) {
+	if err := expected.Validate(); err != nil {
+		return ReconciliationMoneyComponent{}, fmt.Errorf("invalid expected amount: %w", err)
+	}
+	if err := actual.Validate(); err != nil {
+		return ReconciliationMoneyComponent{}, fmt.Errorf("invalid actual amount: %w", err)
+	}
+	if expected.Currency != actual.Currency || expected.MinorUnit != actual.MinorUnit {
+		return ReconciliationMoneyComponent{}, fmt.Errorf("cannot reconcile %s against %s without explicit FX conversion", expected.Currency, actual.Currency)
+	}
+	difference := new(big.Int).Sub(big.NewInt(actual.AmountMinor), big.NewInt(expected.AmountMinor))
+	if !difference.IsInt64() {
+		return ReconciliationMoneyComponent{}, fmt.Errorf("reconciliation difference overflow")
+	}
+	status := "matched"
+	if difference.Sign() != 0 {
+		status = "mismatched"
+	}
+	return ReconciliationMoneyComponent{
+		Name:            name,
+		Currency:        expected.Currency,
+		MinorUnit:       expected.MinorUnit,
+		ExpectedMinor:   expected.AmountMinor,
+		ActualMinor:     actual.AmountMinor,
+		DifferenceMinor: difference.Int64(),
+		Status:          status,
+	}, nil
 }

@@ -103,10 +103,12 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 			markupPct = 0
 		}
 
-		tariffNett := float64(selectedGross) * (1.0 - (discountPct / 100.0))
-		tariffUser := tariffNett * (1.0 + (markupPct / 100.0))
+		_, tariffUser, policyErr := applyProviderTariffPolicy(selectedGross, discountPct, markupPct)
+		if policyErr != nil {
+			return nil, fmt.Errorf("calculate payment link tariff policy: %w", policyErr)
+		}
 
-		deliveryFee = int64(tariffUser)
+		deliveryFee = tariffUser
 		estimateID = "" // Not using internal pricing EstimateID
 	} else {
 		// Use internal pricing
@@ -353,7 +355,11 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 			_, markupPct, _ := s.orderRepo.GetLogisticsProviderConfig(ctx, link.LogisticsProvider)
 			tariffUser = link.DeliveryFeeAmount
 			// Deduce tariffNet based on tariffUser
-			tariffNet = int64(float64(tariffUser) / (1.0 + (markupPct / 100.0)))
+			tariffNetMoney, policyErr := domain.LegacyIDR(tariffUser).DivideByMarkupPercent(markupPct)
+			if policyErr != nil {
+				return fmt.Errorf("calculate payment link net tariff: %w", policyErr)
+			}
+			tariffNet = tariffNetMoney.AmountMinor
 		}
 
 		orderReq := domain.CreateOrderRequest{
@@ -551,9 +557,11 @@ func (s *paymentLinkServiceImpl) CheckTariff(ctx context.Context, provider, orig
 	discountPct, markupPct, err := s.orderRepo.GetLogisticsProviderConfig(ctx, provider)
 	if err == nil {
 		for i, srv := range resp.Services {
-			tariffNett := float64(srv.TariffGross) * (1.0 - (discountPct / 100.0))
-			tariffUser := tariffNett * (1.0 + (markupPct / 100.0))
-			resp.Services[i].TariffGross = int64(tariffUser) // Modify gross to show to user
+			_, tariffUser, policyErr := applyProviderTariffPolicy(srv.TariffGross, discountPct, markupPct)
+			if policyErr != nil {
+				return nil, fmt.Errorf("calculate tariff policy: %w", policyErr)
+			}
+			resp.Services[i].TariffGross = tariffUser // Modify gross to show to user
 		}
 	}
 

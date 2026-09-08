@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/featureflags"
 	"time"
@@ -55,6 +56,22 @@ func applyRoundingPolicy(amount int64, mode string, precision int64) int64 {
 }
 
 func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
+	currency := strings.ToUpper(strings.TrimSpace(req.Currency))
+	if currency == "" {
+		currency = "IDR"
+	}
+	currency, currencyMinorUnit, err := domain.NormalizeCurrency(currency)
+	if err != nil {
+		return nil, fmt.Errorf("invalid quote currency: %w", err)
+	}
+	if req.CurrencyMinorUnit != 0 && req.CurrencyMinorUnit != currencyMinorUnit {
+		return nil, fmt.Errorf("quote currency minor unit mismatch for %s: got %d, want %d", currency, req.CurrencyMinorUnit, currencyMinorUnit)
+	}
+	// Existing pricing configuration is denominated in IDR. Never label those
+	// integers as another currency until an explicit FX rate is configured.
+	if currency != "IDR" {
+		return nil, fmt.Errorf("pricing for %s is unavailable: currency-aware pricing configuration is not configured", currency)
+	}
 	if !validOrderCoordinate(req.PickupLat, req.PickupLng) || !validOrderCoordinate(req.DropoffLat, req.DropoffLng) {
 		return nil, domain.ErrInvalidCoordinates
 	}
@@ -141,7 +158,11 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 
 	if distKM > serviceProduct.IncludedDistanceKM {
 		chargeableDistance := distKM - serviceProduct.IncludedDistanceKM
-		distanceFare = int64(chargeableDistance * float64(serviceProduct.PerKmIDR))
+		distanceMoney, moneyErr := domain.LegacyIDR(serviceProduct.PerKmIDR).MultiplyFloatRate(chargeableDistance)
+		if moneyErr != nil {
+			return nil, fmt.Errorf("calculate distance fare: %w", moneyErr)
+		}
+		distanceFare = distanceMoney.AmountMinor
 	}
 
 	durationFare := int64(0) // Duration fare can be configured via system_configs if needed in the future
@@ -158,9 +179,17 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		tier2Weight := s.configRepo.GetFloatConfig(ctx, "weight_tier2_threshold_kg", 5.0)
 
 		if effectiveWeight > tier2Weight {
-			weightSurcharge = int64(float64(subtotal) * tier2Surcharge)
+			surcharge, moneyErr := domain.LegacyIDR(subtotal).MultiplyFloatRate(tier2Surcharge)
+			if moneyErr != nil {
+				return nil, fmt.Errorf("calculate tier 2 weight surcharge: %w", moneyErr)
+			}
+			weightSurcharge = surcharge.AmountMinor
 		} else if effectiveWeight > tier1Weight {
-			weightSurcharge = int64(float64(subtotal) * tier1Surcharge)
+			surcharge, moneyErr := domain.LegacyIDR(subtotal).MultiplyFloatRate(tier1Surcharge)
+			if moneyErr != nil {
+				return nil, fmt.Errorf("calculate tier 1 weight surcharge: %w", moneyErr)
+			}
+			weightSurcharge = surcharge.AmountMinor
 		}
 	}
 	subtotal += weightSurcharge
@@ -180,8 +209,11 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	}
 	weatherMultiplier := 1.0
 
-	dynamicPrice := dynamicPriceAdjustment(subtotal, totalMultiplier)
-	priceAfterSurge := int64(float64(subtotal) * totalMultiplier)
+	dynamicPrice, err := dynamicPriceAdjustment(subtotal, totalMultiplier)
+	if err != nil {
+		return nil, err
+	}
+	priceAfterSurge := subtotal + dynamicPrice
 
 	var insuranceFee int64 = 0
 	insuranceEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "package_insurance", false)
@@ -192,7 +224,11 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 
 	// 7. Apply Platform Fee (Biaya Layanan Operasional) with Min Threshold PRC-002
 	fixedPlatformFee := serviceProduct.PlatformFeeIDR
-	pctPlatformFee := int64(float64(priceAfterSurge) * serviceProduct.PlatformFeePct)
+	pctPlatformFeeMoney, err := domain.LegacyIDR(priceAfterSurge).MultiplyFloatRate(serviceProduct.PlatformFeePct)
+	if err != nil {
+		return nil, fmt.Errorf("calculate platform fee percentage: %w", err)
+	}
+	pctPlatformFee := pctPlatformFeeMoney.AmountMinor
 	platformFee := int64(fixedPlatformFee) + pctPlatformFee
 	minPlatformFee := int64(s.configRepo.GetIntConfig(ctx, "min_platform_fee_idr", 1000))
 	if platformFee < minPlatformFee {
@@ -207,7 +243,11 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		maxSubsidy := int64(s.configRepo.GetIntConfig(ctx, "max_discount_subsidy_idr", 25000))
 		// Apply configurable discount if promo code provided
 		discountPct := s.configRepo.GetFloatConfig(ctx, "promo_discount_pct_"+req.PromoCode, 0.10)
-		rawDiscount := int64(float64(priceAfterSurge) * discountPct)
+		rawDiscountMoney, moneyErr := domain.LegacyIDR(priceAfterSurge).MultiplyFloatRate(discountPct)
+		if moneyErr != nil {
+			return nil, fmt.Errorf("calculate promotional discount: %w", moneyErr)
+		}
+		rawDiscount := rawDiscountMoney.AmountMinor
 		if rawDiscount > maxSubsidy {
 			rawDiscount = maxSubsidy
 		}
@@ -240,7 +280,11 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	if transportGross < 0 {
 		transportGross = 0
 	}
-	courierEarning := int64(math.Round(float64(transportGross) * courierPayoutPercent / 100))
+	courierEarningMoney, err := domain.LegacyIDR(transportGross).MultiplyPercent(courierPayoutPercent)
+	if err != nil {
+		return nil, fmt.Errorf("calculate courier earning: %w", err)
+	}
+	courierEarning := courierEarningMoney.AmountMinor
 	components := []domain.PricingComponent{
 		pricingComponent("base_fare", domain.PricingComponentCustomerCharge, baseFare, true),
 		pricingComponent("distance_fee", domain.PricingComponentCustomerCharge, distanceFare, true),
@@ -301,7 +345,8 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		Weight:                 req.Weight,
 		PackageFacts:           req.PackageFacts,
 		ServiceCategory:        domain.CanonicalServiceCategoryForModel(serviceProduct.Code),
-		Currency:               "IDR",
+		Currency:               currency,
+		CurrencyMinorUnit:      currencyMinorUnit,
 		ETASource:              "maps.traffic",
 		PricingRuleVersion:     pricingRuleVersion,
 		Market:                 breakdown.Market,
@@ -321,6 +366,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 			"total_price_idr":      totalPrice,
 		},
 	}
+	resp.ApplyMoneyContract()
 	resp.SnapshotHash = domain.QuoteSnapshotHash(*resp)
 	log.Printf("[PricingQuote] quote_id=%s policy_version=%s service=%s market=%s trigger_context=%v", resp.QuoteID, pricingRuleVersion, serviceProduct.Code, market, decision.TriggerContext)
 
@@ -358,5 +404,9 @@ func (s *pricingServiceImpl) SimulatePrice(ctx context.Context, req *domain.Pric
 func (s *pricingServiceImpl) CalculateMerchantFee(ctx context.Context, itemPrice int64) int64 {
 	// e.g. "merchant_transaction_fee_pct" defaulting to 0.025 (2.5%)
 	feePct := s.configRepo.GetFloatConfig(ctx, "merchant_transaction_fee_pct", 0.025)
-	return int64(float64(itemPrice) * feePct)
+	fee, err := domain.LegacyIDR(itemPrice).MultiplyFloatRate(feePct)
+	if err != nil {
+		return 0
+	}
+	return fee.AmountMinor
 }

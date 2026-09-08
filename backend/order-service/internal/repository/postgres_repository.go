@@ -258,9 +258,29 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 		       delivery_note = NULLIF($2, ''),
 		       gift_mode = $3,
 		       receiver_privacy = NULLIF($4, ''),
-		       group_order_id = NULLIF($5, '')::uuid
-		 WHERE id = $6`,
-		o.Cutlery, o.DeliveryNote, o.GiftMode, o.ReceiverPrivacy, o.GroupOrderID, o.ID)
+		       group_order_id = NULLIF($5, '')::uuid,
+		       currency_code = $6,
+		       currency_minor_unit = $7,
+		       base_price_minor = $8,
+		       distance_fee_minor = $9,
+		       volumetric_surcharge_minor = $10,
+		       dynamic_price_minor = $11,
+		       discount_minor = $12,
+		       insurance_premium_minor = $13,
+		       platform_fee_minor = $14,
+		       promo_subsidy_minor = $15,
+		       total_price_minor = $16,
+		       dpp_minor = $17,
+		       ppn_minor = $18,
+		       tax_rule_version = NULLIF($19, ''),
+		       tax_jurisdiction = NULLIF($20, '')
+		 WHERE id = $21`,
+		o.Cutlery, o.DeliveryNote, o.GiftMode, o.ReceiverPrivacy, o.GroupOrderID,
+		o.Currency, o.CurrencyMinorUnit, o.BasePriceMinor, o.DistanceFeeMinor,
+		o.VolumetricSurchargeMinor, o.DynamicPriceMinor, o.DiscountMinor,
+		o.InsurancePremiumMinor, o.PlatformFeeMinor, o.PromoSubsidyMinor,
+		o.TotalPriceMinor, o.DPPMinor, o.PPNMinor, o.TaxRuleVersion,
+		o.TaxJurisdiction, o.ID)
 	return err
 }
 
@@ -291,7 +311,14 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				COALESCE(o.service_category, ''), COALESCE(o.contract_version, '2026-09-01'), COALESCE(o.quote_id, ''),
 				COALESCE(o.state_version, 1), COALESCE(o.correlation_id::text, ''), COALESCE(o.service_metadata, '{}'::jsonb),
 				COALESCE(m.nama_toko, ''),
-				o.created_at, o.updated_at
+				o.created_at, o.updated_at,
+				COALESCE(o.currency_code, 'IDR'), COALESCE(o.currency_minor_unit, 0),
+				COALESCE(o.base_price_minor, 0), COALESCE(o.distance_fee_minor, 0),
+				COALESCE(o.volumetric_surcharge_minor, 0), COALESCE(o.dynamic_price_minor, 0),
+				COALESCE(o.discount_minor, 0), COALESCE(o.insurance_premium_minor, 0),
+				COALESCE(o.platform_fee_minor, 0), COALESCE(o.promo_subsidy_minor, 0),
+				COALESCE(o.total_price_minor, 0), COALESCE(o.dpp_minor, 0), COALESCE(o.ppn_minor, 0),
+				COALESCE(o.tax_rule_version, ''), COALESCE(o.tax_jurisdiction, '')
 				FROM orders o
 				LEFT JOIN merchants m ON m.id = o.merchant_id
 				WHERE o.id = $1`
@@ -321,6 +348,10 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.ServiceCategory, &o.ContractVersion, &o.QuoteID, &o.StateVersion, &o.CorrelationID, &serviceMetadata,
 		&o.MerchantName,
 		&o.CreatedAt, &o.UpdatedAt,
+		&o.Currency, &o.CurrencyMinorUnit, &o.BasePriceMinor, &o.DistanceFeeMinor,
+		&o.VolumetricSurchargeMinor, &o.DynamicPriceMinor, &o.DiscountMinor, &o.InsurancePremiumMinor,
+		&o.PlatformFeeMinor, &o.PromoSubsidyMinor, &o.TotalPriceMinor, &o.DPPMinor, &o.PPNMinor,
+		&o.TaxRuleVersion, &o.TaxJurisdiction,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -354,7 +385,14 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
 				COALESCE(tax_rule_code, ''), COALESCE(ppn_rate_effective_pct, 0), COALESCE(ppn_rate_statutory_pct, 0), COALESCE(dpp_idr, 0), COALESCE(ppn_idr, 0),
 				COALESCE(tax_invoice_required, false), COALESCE(tax_invoice_status, ''), COALESCE(platform_fee_idr, 0), COALESCE(platform_fee_pct, 0), COALESCE(promo_subsidy_idr, 0),
-				created_at, updated_at
+				created_at, updated_at,
+				COALESCE(currency_code, 'IDR'), COALESCE(currency_minor_unit, 0),
+				COALESCE(base_price_minor, 0), COALESCE(distance_fee_minor, 0),
+				COALESCE(volumetric_surcharge_minor, 0), COALESCE(dynamic_price_minor, 0),
+				COALESCE(discount_minor, 0), COALESCE(insurance_premium_minor, 0),
+				COALESCE(platform_fee_minor, 0), COALESCE(promo_subsidy_minor, 0),
+				COALESCE(total_price_minor, 0), COALESCE(dpp_minor, 0), COALESCE(ppn_minor, 0),
+				COALESCE(tax_rule_version, ''), COALESCE(tax_jurisdiction, '')
 			  FROM orders WHERE order_number = $1`
 
 	o := &domain.Order{}
@@ -370,6 +408,10 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
 		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
 		&o.CreatedAt, &o.UpdatedAt,
+		&o.Currency, &o.CurrencyMinorUnit, &o.BasePriceMinor, &o.DistanceFeeMinor,
+		&o.VolumetricSurchargeMinor, &o.DynamicPriceMinor, &o.DiscountMinor, &o.InsurancePremiumMinor,
+		&o.PlatformFeeMinor, &o.PromoSubsidyMinor, &o.TotalPriceMinor, &o.DPPMinor, &o.PPNMinor,
+		&o.TaxRuleVersion, &o.TaxJurisdiction,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -393,7 +435,14 @@ func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), dispatch_expiry, COALESCE(batch_id::text, ''), COALESCE(sequence_no, 0),
 				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
-				COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
+				COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at,
+				COALESCE(currency_code, 'IDR'), COALESCE(currency_minor_unit, 0),
+				COALESCE(base_price_minor, 0), COALESCE(distance_fee_minor, 0),
+				COALESCE(volumetric_surcharge_minor, 0), COALESCE(dynamic_price_minor, 0),
+				COALESCE(discount_minor, 0), COALESCE(insurance_premium_minor, 0),
+				COALESCE(platform_fee_minor, 0), COALESCE(promo_subsidy_minor, 0),
+				COALESCE(total_price_minor, 0), COALESCE(dpp_minor, 0), COALESCE(ppn_minor, 0),
+				COALESCE(tax_rule_version, ''), COALESCE(tax_jurisdiction, '')
 				FROM orders WHERE awb_number = $1`
 
 	o := &domain.Order{}
@@ -405,6 +454,10 @@ func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order,
 		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
 		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
+		&o.Currency, &o.CurrencyMinorUnit, &o.BasePriceMinor, &o.DistanceFeeMinor,
+		&o.VolumetricSurchargeMinor, &o.DynamicPriceMinor, &o.DiscountMinor, &o.InsurancePremiumMinor,
+		&o.PlatformFeeMinor, &o.PromoSubsidyMinor, &o.TotalPriceMinor, &o.DPPMinor, &o.PPNMinor,
+		&o.TaxRuleVersion, &o.TaxJurisdiction,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -429,7 +482,11 @@ func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*dom
 			distance_km, base_price_idr, volumetric_surcharge_idr,
 			dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no,
 			COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
-			created_at, updated_at
+			created_at, updated_at,
+			currency_code, currency_minor_unit, base_price_minor, distance_fee_minor,
+			volumetric_surcharge_minor, dynamic_price_minor, discount_minor, insurance_premium_minor,
+			platform_fee_minor, promo_subsidy_minor, total_price_minor, dpp_minor, ppn_minor,
+			tax_rule_version, tax_jurisdiction
 		FROM orders
 		WHERE batch_id = $1
 		ORDER BY sequence_no ASC
@@ -451,6 +508,10 @@ func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*dom
 			&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
 			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.CreatedAt, &o.UpdatedAt,
+			&o.Currency, &o.CurrencyMinorUnit, &o.BasePriceMinor, &o.DistanceFeeMinor,
+			&o.VolumetricSurchargeMinor, &o.DynamicPriceMinor, &o.DiscountMinor, &o.InsurancePremiumMinor,
+			&o.PlatformFeeMinor, &o.PromoSubsidyMinor, &o.TotalPriceMinor, &o.DPPMinor, &o.PPNMinor,
+			&o.TaxRuleVersion, &o.TaxJurisdiction,
 		)
 		if err != nil {
 			return nil, err
@@ -473,7 +534,11 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), dispatch_expiry, COALESCE(batch_id::text, ''), COALESCE(sequence_no, 0),
 				COALESCE((SELECT ol.courier_id::text FROM order_legs ol WHERE ol.order_id = orders.id AND ol.leg_number = 1 LIMIT 1), ''),
-				created_at, updated_at
+				created_at, updated_at,
+				currency_code, currency_minor_unit, base_price_minor, distance_fee_minor,
+				volumetric_surcharge_minor, dynamic_price_minor, discount_minor, insurance_premium_minor,
+				platform_fee_minor, promo_subsidy_minor, total_price_minor, dpp_minor, ppn_minor,
+				tax_rule_version, tax_jurisdiction
 				FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, userID)
@@ -493,6 +558,10 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 			&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
 			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &courierID, &o.CreatedAt, &o.UpdatedAt,
+			&o.Currency, &o.CurrencyMinorUnit, &o.BasePriceMinor, &o.DistanceFeeMinor,
+			&o.VolumetricSurchargeMinor, &o.DynamicPriceMinor, &o.DiscountMinor, &o.InsurancePremiumMinor,
+			&o.PlatformFeeMinor, &o.PromoSubsidyMinor, &o.TotalPriceMinor, &o.DPPMinor, &o.PPNMinor,
+			&o.TaxRuleVersion, &o.TaxJurisdiction,
 		)
 		if err != nil {
 			return nil, err

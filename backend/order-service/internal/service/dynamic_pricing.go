@@ -246,8 +246,16 @@ func evaluateDynamicPricing(ctx context.Context, redisRepo domain.RedisRepositor
 	return policy, decision, nil
 }
 
-func dynamicPriceAdjustment(baseFee int64, multiplier float64) int64 {
-	return int64(math.Round(float64(baseFee) * (multiplier - 1)))
+func dynamicPriceAdjustment(baseFee int64, multiplier float64) (int64, error) {
+	surged, err := domain.LegacyIDR(baseFee).MultiplyFloatRate(multiplier)
+	if err != nil {
+		return 0, fmt.Errorf("calculate dynamic price at multiplier %.6f: %w", multiplier, err)
+	}
+	adjustment, err := surged.Sub(domain.LegacyIDR(baseFee))
+	if err != nil {
+		return 0, fmt.Errorf("calculate dynamic price adjustment: %w", err)
+	}
+	return adjustment.AmountMinor, nil
 }
 
 func dynamicPricingQuoteRequiresValidation(quote *domain.PricingEstimateResponse) bool {

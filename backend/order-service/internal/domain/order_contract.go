@@ -216,6 +216,7 @@ func (o *Order) ApplyCanonicalOrderContract() {
 	if o == nil {
 		return
 	}
+	o.ApplyMoneyContract()
 	if o.ContractVersion == "" {
 		o.ContractVersion = CurrentOrderContractVersion
 	}

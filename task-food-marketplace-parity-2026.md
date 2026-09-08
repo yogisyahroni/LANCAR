@@ -1686,13 +1686,13 @@ A task is complete only when applicable boxes below are true:
 - `database/migrations/<timestamp>_add_money_currency_and_tax_context.sql`
 
 **Checklist**
-- [ ] Money uses integer minor units/decimal-safe representation with ISO-4217 currency; never binary float for financial truth.
-- [ ] Quote/order/payment/refund/payout/ledger always carry currency explicitly.
-- [ ] Currency exponent/rounding rules are currency-aware.
-- [ ] Cross-currency flows record source amount, target amount, FX rate source, timestamp, spread/fee and locked rate reference.
-- [ ] Tax calculation is jurisdiction-aware and stores tax rule/version used for the transaction.
-- [ ] Settlement/reconciliation never compare amounts from different currencies without explicit conversion context.
-- [ ] Client formatting uses server amount+currency, not hardcoded `Rp`.
+- [x] Money uses integer minor units/decimal-safe representation with ISO-4217 currency; never binary float for financial truth.
+- [x] Quote/order/payment/refund/payout/ledger always carry currency explicitly.
+- [x] Currency exponent/rounding rules are currency-aware.
+- [x] Cross-currency flows record source amount, target amount, FX rate source, timestamp, spread/fee and locked rate reference.
+- [x] Tax calculation is jurisdiction-aware and stores tax rule/version used for the transaction.
+- [x] Settlement/reconciliation never compare amounts from different currencies without explicit conversion context.
+- [x] Client formatting uses server amount+currency, not hardcoded `Rp`.
 
 ---
 

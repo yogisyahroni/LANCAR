@@ -134,7 +134,9 @@ import com.tembus.customer.ui.a11y.criticalAction
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 import java.text.NumberFormat
+import java.util.Currency
 import java.util.Locale
 
 private val Ink = OnSurface
@@ -248,7 +250,7 @@ internal fun VoucherCard(
                 ) {
                     Text("Diskon", fontSize = 13.sp, color = Success, fontWeight = FontWeight.Bold)
                     Text(
-                        "− Rp ${state.voucherDiscountIdr.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
+                        "− ${formatMoney(state.voucherDiscountIdr.toLong(), "IDR", 0)}",
                         fontSize = 14.sp,
                         color = Success,
                         fontWeight = FontWeight.ExtraBold
@@ -632,7 +634,7 @@ internal fun RecipientCard(
             value = if (state.itemValue == 0L) "" else state.itemValue.toString(),
             onValueChange = onItemValueChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Nilai barang (Rp, opsional)") },
+            label = { Text("Nilai barang (IDR, opsional)") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             shape = RoundedCornerShape(TembusRadius.Input),
@@ -1011,7 +1013,7 @@ internal fun ServiceInlinePreview(
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    if (price != null) formatRupiah(price.totalPriceIdr) else if (isPricingReady) "${state.priceBreakdowns.size} opsi" else "-",
+                    if (price != null) formatPrice(price) else if (isPricingReady) "${state.priceBreakdowns.size} opsi" else "-",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Ink
@@ -1045,9 +1047,9 @@ internal fun SelectedServiceBar(
         !packageReady -> "Pilih ukuran paket"
         state.isCalculatingRoute -> "Menghitung harga..."
         price == null -> "Pilih layanan"
-        currentStep == 1 -> "Lanjut Isi Pengiriman • ${formatRupiah(price.totalPriceIdr)}"
+        currentStep == 1 -> "Lanjut Isi Pengiriman • ${formatPrice(price)}"
         !recipientReady -> "Tambah detail pengiriman"
-        else -> "Review & Bayar • ${formatRupiah(price.totalPriceIdr)}"
+        else -> "Review & Bayar • ${formatPrice(price)}"
     }
     Column(
         modifier = Modifier
@@ -1096,7 +1098,7 @@ internal fun SelectedServiceBar(
                 Text(if (state.services.size > 1) "Pilih" else "Detail", fontWeight = FontWeight.Bold)
             }
             Text(
-                if (price != null) formatRupiah(price.totalPriceIdr) else "-",
+                if (price != null) formatPrice(price) else "-",
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 18.sp,
                 color = Ink
@@ -1250,7 +1252,7 @@ internal fun ServiceRow(
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                price?.let { formatRupiah(it.totalPriceIdr) } ?: "-",
+                price?.let(::formatPrice) ?: "-",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = if (selectable) Ink else Muted
@@ -1324,7 +1326,7 @@ internal fun BookingReviewSheet(
                 Text(service?.name ?: "Layanan", color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
                 Text(price?.let { "Estimasi ${etaLabel(it.etaMinutes)}" } ?: "Hitung harga untuk melihat estimasi", color = Muted, fontSize = 13.sp)
             }
-            Text(formatRupiah(price?.totalPriceIdr ?: 0), color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+            Text(price?.let(::formatPrice) ?: formatMoney(0, "IDR", 0), color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
         }
         Button(
             onClick = {
@@ -1340,7 +1342,7 @@ internal fun BookingReviewSheet(
             colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
         ) {
             Text(
-                if (state.isLoading) "Mengirim order..." else "Kirim ${service?.name ?: "TEMBUS"} • ${formatRupiah(price?.totalPriceIdr ?: 0)}",
+                if (state.isLoading) "Mengirim order..." else "Kirim ${service?.name ?: "TEMBUS"} • ${price?.let(::formatPrice) ?: formatMoney(0, "IDR", 0)}",
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 16.sp
             )
@@ -1965,8 +1967,23 @@ internal fun formatWeightKg(value: Double): String {
     return if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(Locale.US, value)
 }
 
+internal fun formatMoney(valueMinor: Long, currencyCode: String, minorUnit: Int): String {
+    val currency = runCatching { Currency.getInstance(currencyCode.uppercase(Locale.US)) }
+        .getOrElse { Currency.getInstance("IDR") }
+    val safeMinorUnit = minorUnit.coerceIn(0, 3)
+    val formatter = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {
+        this.currency = currency
+        minimumFractionDigits = safeMinorUnit
+        maximumFractionDigits = safeMinorUnit
+    }
+    return formatter.format(BigDecimal.valueOf(valueMinor, safeMinorUnit))
+}
+
+internal fun formatPrice(price: PriceBreakdown): String {
+    val amountMinor = if (price.totalPriceMinor != 0L || price.totalPriceIdr == 0L) price.totalPriceMinor else price.totalPriceIdr
+    return formatMoney(amountMinor, price.currency, price.currencyMinorUnit)
+}
+
 internal fun formatRupiah(value: Long): String {
-    if (value <= 0) return "Rp0"
-    val formatter = NumberFormat.getNumberInstance(Locale.forLanguageTag("id-ID"))
-    return "Rp${formatter.format(value)}"
+    return formatMoney(value, "IDR", 0)
 }

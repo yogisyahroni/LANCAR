@@ -25,13 +25,18 @@ func NewPostgresPayoutRepo(db *sqlx.DB, readDb *sqlx.DB) *PostgresPayoutRepo {
 }
 
 func (r *PostgresPayoutRepo) CreatePayout(ctx context.Context, record *domain.PayoutRecord) error {
+	record.ApplyMoneyContract()
 	query := `
 		INSERT INTO payout_records (
-			id, courier_id, order_leg_id, order_id, type, gross_idr, penalty_idr, 
-			idle_compensation_idr, net_idr, pph21_idr, disbursement_status, 
+			id, courier_id, order_leg_id, order_id, type, currency_code, currency_minor_unit,
+			gross_minor, penalty_minor, idle_compensation_minor, net_minor, pph21_minor,
+			gross_idr, penalty_idr,
+			idle_compensation_idr, net_idr, pph21_idr, disbursement_status,
 			batch_date, created_at, updated_at
 		) VALUES (
-			:id, :courier_id, :order_leg_id, :order_id, :type, :gross_idr, :penalty_idr,
+			:id, :courier_id, :order_leg_id, :order_id, :type, :currency, :currency_minor_unit,
+			:gross_minor, :penalty_minor, :idle_compensation_minor, :net_minor, :pph21_minor,
+			:gross_idr, :penalty_idr,
 			:idle_compensation_idr, :net_idr, :pph21_idr, :disbursement_status,
 			:batch_date, :created_at, :updated_at
 		)
@@ -97,6 +102,17 @@ func (r *PostgresPayoutRepo) GetAllPendingPayouts(ctx context.Context) ([]domain
 func (r *PostgresPayoutRepo) GetEarningsSummary(ctx context.Context, courierID uuid.UUID, from, to time.Time) (*domain.CourierEarningsSummary, error) {
 	query := `
 		SELECT 
+			COALESCE(MAX(currency_code), 'IDR') AS currency,
+			COALESCE(MAX(currency_minor_unit), 0) AS currency_minor_unit,
+			COALESCE(SUM(gross_minor), 0) AS total_gross_minor,
+			COALESCE(SUM(penalty_minor), 0) AS total_penalty_minor,
+			COALESCE(SUM(idle_compensation_minor), 0) AS total_idle_comp_minor,
+			COALESCE(SUM(net_minor), 0) AS total_net_minor,
+			COALESCE(SUM(pph21_minor), 0) AS total_pph21_minor,
+			COALESCE(SUM(net_minor - pph21_minor) FILTER (WHERE disbursement_status = 'completed'), 0) as total_payout_minor,
+			COALESCE(SUM(net_minor - pph21_minor) FILTER (WHERE disbursement_status = 'pending'
+			  AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = COALESCE(payout_records.order_id,(SELECT order_id FROM order_legs WHERE id=payout_records.order_leg_id))
+			    AND (o.service_category='tambal_ban' OR o.service_sub_type LIKE 'tambal_ban_%'))), 0) as pending_payout_minor,
 			COALESCE(SUM(gross_idr), 0) as total_gross_idr,
 			COALESCE(SUM(penalty_idr), 0) as total_penalty_idr,
 			COALESCE(SUM(idle_compensation_idr), 0) as total_idle_comp_idr,

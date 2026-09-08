@@ -56,6 +56,12 @@ type SettlementConfig struct {
 }
 
 type SettlementResult struct {
+	// Currency context applies to every amount below. The legacy settlement
+	// interface is currently IDR-only, so non-IDR settlement must use an
+	// explicit money-aware adapter before it can produce a result.
+	Currency          string `json:"currency"`
+	CurrencyMinorUnit int    `json:"currency_minor_unit"`
+
 	// Gross breakdown
 	GrossTotal      int64 `json:"gross_total"`
 	MDRAmount       int64 `json:"mdr_amount"`

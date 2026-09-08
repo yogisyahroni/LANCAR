@@ -3,7 +3,6 @@ package domain
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"strings"
 )
 
@@ -13,17 +12,11 @@ func RoadsidePercent(amount int64, percent float64) (int64, error) {
 	if amount < 0 || math.IsNaN(percent) || math.IsInf(percent, 0) || percent < 0 || percent > 100 {
 		return 0, fmt.Errorf("%w: invalid settlement percentage", ErrInvalidServiceReport)
 	}
-	rate, ok := new(big.Rat).SetString(strings.TrimSpace(fmt.Sprintf("%.15g", percent)))
-	if !ok {
-		return 0, fmt.Errorf("%w: invalid settlement percentage", ErrInvalidServiceReport)
+	result, err := LegacyIDR(amount).MultiplyPercent(percent)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %v", ErrInvalidServiceReport, err)
 	}
-	value := new(big.Rat).Mul(new(big.Rat).SetInt64(amount), rate)
-	value.Quo(value, big.NewRat(100, 1))
-	n := new(big.Int).Quo(value.Num(), value.Denom())
-	if !n.IsInt64() {
-		return 0, fmt.Errorf("%w: settlement amount overflow", ErrInvalidServiceReport)
-	}
-	return n.Int64(), nil
+	return result.AmountMinor, nil
 }
 
 func ValidateRoadsideSettlementSource(s *RoadsideSettlementSource) error {
@@ -107,6 +100,8 @@ func CalculateRoadsideSettlement(source *RoadsideSettlementSource, config *Settl
 	}
 
 	return &SettlementResult{
+		Currency:              "IDR",
+		CurrencyMinorUnit:     0,
 		GrossTotal:            source.GrossTotalIDR,
 		MDRAmount:             mdrAmount,
 		TaxAmount:             taxAmount,

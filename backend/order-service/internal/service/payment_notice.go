@@ -14,6 +14,8 @@ type verifiedPaymentNotice struct {
 	PaymentNumber     string
 	ProviderReference string
 	AmountIDR         int64
+	AmountMinor       int64
+	Currency          string
 	Status            domain.PaymentStatus
 	TransactionStatus string
 	Payload           []byte
@@ -32,7 +34,11 @@ func parsePaymentNotice(payload []byte) (*verifiedPaymentNotice, error) {
 		return nil, fmt.Errorf("invalid trailing provider payload")
 	}
 	str := func(key string) string { v, _ := data[key].(string); return strings.TrimSpace(v) }
-	n := &verifiedPaymentNotice{PaymentNumber: str("order_id"), ProviderReference: str("transaction_id"), TransactionStatus: str("transaction_status"), Payload: payload}
+	currency := strings.ToUpper(str("currency"))
+	if currency == "" {
+		currency = "IDR"
+	}
+	n := &verifiedPaymentNotice{PaymentNumber: str("order_id"), ProviderReference: str("transaction_id"), Currency: currency, TransactionStatus: str("transaction_status"), Payload: payload}
 	if n.PaymentNumber == "" || n.ProviderReference == "" {
 		return nil, fmt.Errorf("missing payment number or provider transaction")
 	}
@@ -50,6 +56,7 @@ func parsePaymentNotice(payload []byte) (*verifiedPaymentNotice, error) {
 		return nil, fmt.Errorf("invalid provider amount")
 	}
 	n.AmountIDR = amount.Num().Int64()
+	n.AmountMinor = n.AmountIDR
 	code, fraud := str("status_code"), strings.ToLower(str("fraud_status"))
 	switch n.TransactionStatus {
 	case "settlement", "capture":

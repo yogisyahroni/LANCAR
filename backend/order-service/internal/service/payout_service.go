@@ -75,19 +75,26 @@ func (s *payoutService) CalculateOrderLegPayout(ctx context.Context, orderLegID 
 
 	payoutID := uuid.New()
 	record := &domain.PayoutRecord{
-		ID:                  payoutID,
-		CourierID:           courierID,
-		OrderLegID:          &orderLegID,
-		Type:                domain.PayoutTypeLegFee,
-		GrossIDR:            fee,
-		PenaltyIDR:          penalty,
-		IdleCompensationIDR: idleComp,
-		NetIDR:              net,
-		PPh21IDR:            pph21,
-		DisbursementStatus:  domain.PayoutStatusPending,
-		BatchDate:           &batchDate,
-		CreatedAt:           now,
-		UpdatedAt:           now,
+		ID:                    payoutID,
+		CourierID:             courierID,
+		OrderLegID:            &orderLegID,
+		Type:                  domain.PayoutTypeLegFee,
+		Currency:              "IDR",
+		CurrencyMinorUnit:     0,
+		GrossMinor:            int64(fee),
+		PenaltyMinor:          int64(penalty),
+		IdleCompensationMinor: int64(idleComp),
+		NetMinor:              int64(net),
+		PPh21Minor:            int64(pph21),
+		GrossIDR:              fee,
+		PenaltyIDR:            penalty,
+		IdleCompensationIDR:   idleComp,
+		NetIDR:                net,
+		PPh21IDR:              pph21,
+		DisbursementStatus:    domain.PayoutStatusPending,
+		BatchDate:             &batchDate,
+		CreatedAt:             now,
+		UpdatedAt:             now,
 	}
 
 	if err := s.repo.CreatePayout(ctx, record); err != nil {
@@ -102,43 +109,51 @@ func (s *payoutService) CalculateOrderLegPayout(ctx context.Context, orderLegID 
 
 	if s.ledgerRepo != nil {
 		entries := []domain.LedgerEntry{
-			{ID: uuid.New(), AccountName: "delivery_fee_expense", DebitIDR: int64(fee), CreditIDR: 0, CreatedAt: now},
+			{ID: uuid.New(), AccountName: "delivery_fee_expense", Currency: "IDR", CurrencyMinorUnit: 0, DebitMinor: int64(fee), DebitIDR: int64(fee), CreatedAt: now},
 		}
 		if idleComp > 0 {
 			entries = append(entries, domain.LedgerEntry{
-				ID:          uuid.New(),
-				AccountName: "courier_idle_compensation_expense",
-				DebitIDR:    int64(idleComp),
-				CreditIDR:   0,
-				CreatedAt:   now,
+				ID:                uuid.New(),
+				AccountName:       "courier_idle_compensation_expense",
+				Currency:          "IDR",
+				CurrencyMinorUnit: 0,
+				DebitMinor:        int64(idleComp),
+				DebitIDR:          int64(idleComp),
+				CreatedAt:         now,
 			})
 		}
 		if penalty > 0 {
 			entries = append(entries, domain.LedgerEntry{
-				ID:          uuid.New(),
-				AccountName: "courier_penalty_revenue",
-				DebitIDR:    0,
-				CreditIDR:   int64(penalty),
-				CreatedAt:   now,
+				ID:                uuid.New(),
+				AccountName:       "courier_penalty_revenue",
+				Currency:          "IDR",
+				CurrencyMinorUnit: 0,
+				CreditMinor:       int64(penalty),
+				CreditIDR:         int64(penalty),
+				CreatedAt:         now,
 			})
 		}
 		if pph21 > 0 {
 			entries = append(entries, domain.LedgerEntry{
-				ID:          uuid.New(),
-				AccountName: "tax_payable_pph21",
-				DebitIDR:    0,
-				CreditIDR:   int64(pph21),
-				CreatedAt:   now,
+				ID:                uuid.New(),
+				AccountName:       "tax_payable_pph21",
+				Currency:          "IDR",
+				CurrencyMinorUnit: 0,
+				CreditMinor:       int64(pph21),
+				CreditIDR:         int64(pph21),
+				CreatedAt:         now,
 			})
 		}
 		payableAmount := int64(net - pph21)
 		if payableAmount > 0 {
 			entries = append(entries, domain.LedgerEntry{
-				ID:          uuid.New(),
-				AccountName: "courier_payable",
-				DebitIDR:    0,
-				CreditIDR:   payableAmount,
-				CreatedAt:   now,
+				ID:                uuid.New(),
+				AccountName:       "courier_payable",
+				Currency:          "IDR",
+				CurrencyMinorUnit: 0,
+				CreditMinor:       payableAmount,
+				CreditIDR:         payableAmount,
+				CreatedAt:         now,
 			})
 		}
 
@@ -155,6 +170,7 @@ func (s *payoutService) CalculateOrderLegPayout(ctx context.Context, orderLegID 
 			},
 			CreatedBy: "system",
 			ActorRole: "system",
+			Currency:  "IDR", CurrencyMinorUnit: 0,
 			CreatedAt: now,
 		}
 		_ = s.ledgerRepo.CreateJournalWithEntries(ctx, journal, entries)
@@ -178,14 +194,23 @@ func (s *payoutService) TriggerBatchPayout(ctx context.Context) error {
 		return nil
 	}
 
-	// 2. Group by courier for batched disbursement
-	grouped := make(map[uuid.UUID][]domain.PayoutRecord)
-	for _, p := range pending {
-		grouped[p.CourierID] = append(grouped[p.CourierID], p)
+	// 2. Group by courier and currency. Summing records from different
+	// currencies would create a financially meaningless integer.
+	type payoutGroupKey struct {
+		courierID uuid.UUID
+		currency  string
+		minorUnit int
+	}
+	grouped := make(map[payoutGroupKey][]domain.PayoutRecord)
+	for i := range pending {
+		pending[i].ApplyMoneyContract()
+		key := payoutGroupKey{courierID: pending[i].CourierID, currency: pending[i].Currency, minorUnit: pending[i].CurrencyMinorUnit}
+		grouped[key] = append(grouped[key], pending[i])
 	}
 
 	// 3. Process each courier's batch
-	for courierID, records := range grouped {
+	for groupKey, records := range grouped {
+		courierID := groupKey.courierID
 		// 3a. Fetch real bank account info from courier_profiles
 		bankInfo, err := s.relayRepo.GetCourierBankInfo(ctx, courierID)
 		if err != nil {
@@ -202,20 +227,39 @@ func (s *payoutService) TriggerBatchPayout(ctx context.Context) error {
 			continue
 		}
 
-		// 3c. Sum net payout across all records (net minus tax)
-		totalNet := 0
+		// 3c. Sum net payout in the explicit currency context (net minus tax).
+		totalMoney, err := domain.NewMoney(groupKey.currency, 0)
+		if err != nil {
+			return fmt.Errorf("invalid payout currency for courier %s: %w", courierID, err)
+		}
 		for _, r := range records {
-			totalNet += r.NetIDR - r.PPh21IDR
+			line, lineErr := domain.NewMoney(groupKey.currency, r.NetMinor-r.PPh21Minor)
+			if lineErr != nil {
+				return fmt.Errorf("invalid payout amount for courier %s: %w", courierID, lineErr)
+			}
+			totalMoney, err = totalMoney.Add(line)
+			if err != nil {
+				return fmt.Errorf("sum payout for courier %s: %w", courierID, err)
+			}
 		}
 
-		if totalNet <= 0 {
+		if totalMoney.AmountMinor <= 0 {
 			log.Printf("[PayoutService] Courier %s has zero or negative net payout, skipping.", courierID)
 			continue
 		}
 
 		// 3d. Disburse to the courier's real bank account
 		description := fmt.Sprintf("TEMBUS Delivery Payout - Batch %s", time.Now().Format("2006-01-02"))
-		ref, gatewayErr := s.gateway.Disburse(ctx, totalNet, *bankInfo.BankCode, *bankInfo.BankAccountNumber, description)
+		var ref string
+		var gatewayErr error
+		if moneyGateway, ok := s.gateway.(domain.MoneyPayoutGateway); ok {
+			ref, gatewayErr = moneyGateway.DisburseMoney(ctx, totalMoney, *bankInfo.BankCode, *bankInfo.BankAccountNumber, description)
+		} else if totalMoney.Currency == "IDR" {
+			ref, gatewayErr = s.gateway.Disburse(ctx, int(totalMoney.AmountMinor), *bankInfo.BankCode, *bankInfo.BankAccountNumber, description)
+		} else {
+			log.Printf("[PayoutService] WARN: Currency-aware payout gateway is required for %s; leaving courier %s batch pending", totalMoney.Currency, courierID)
+			continue
+		}
 
 		status := domain.PayoutStatusCompleted
 		var errReason *string
@@ -226,12 +270,12 @@ func (s *payoutService) TriggerBatchPayout(ctx context.Context) error {
 			log.Printf("[PayoutService] ERROR: Failed to disburse to courier %s (bank=%s, account=%s): %v",
 				courierID, *bankInfo.BankCode, *bankInfo.BankAccountNumber, gatewayErr)
 		} else {
-			log.Printf("[PayoutService] SUCCESS: Disbursed %d IDR to courier %s (ref=%s)", totalNet, courierID, ref)
+			log.Printf("[PayoutService] SUCCESS: Disbursed %d %s minor units to courier %s (ref=%s)", totalMoney.AmountMinor, totalMoney.Currency, courierID, ref)
 			if s.ledgerRepo != nil {
 				now := time.Now()
 				entries := []domain.LedgerEntry{
-					{ID: uuid.New(), AccountName: "courier_payable", DebitIDR: int64(totalNet), CreditIDR: 0, CreatedAt: now},
-					{ID: uuid.New(), AccountName: "bank_disbursement_account", DebitIDR: 0, CreditIDR: int64(totalNet), CreatedAt: now},
+					{ID: uuid.New(), AccountName: "courier_payable", Currency: totalMoney.Currency, CurrencyMinorUnit: totalMoney.MinorUnit, DebitMinor: totalMoney.AmountMinor, DebitIDR: legacyPayoutIDR(totalMoney), CreatedAt: now},
+					{ID: uuid.New(), AccountName: "bank_disbursement_account", Currency: totalMoney.Currency, CurrencyMinorUnit: totalMoney.MinorUnit, CreditMinor: totalMoney.AmountMinor, CreditIDR: legacyPayoutIDR(totalMoney), CreatedAt: now},
 				}
 				journal := &domain.LedgerJournal{
 					ID:             uuid.New(),
@@ -241,12 +285,14 @@ func (s *payoutService) TriggerBatchPayout(ctx context.Context) error {
 					IdempotencyKey: fmt.Sprintf("PAYOUT-DISB-%s-%s", courierID.String(), time.Now().Format("20060102")),
 					Reason:         "Batch courier payout disbursement",
 					Metadata: map[string]any{
-						"courier_id":  courierID.String(),
-						"gateway_ref": ref,
-						"total_net":   totalNet,
+						"courier_id":      courierID.String(),
+						"gateway_ref":     ref,
+						"total_net_minor": totalMoney.AmountMinor,
+						"currency":        totalMoney.Currency,
 					},
 					CreatedBy: "system",
 					ActorRole: "system",
+					Currency:  totalMoney.Currency, CurrencyMinorUnit: totalMoney.MinorUnit,
 					CreatedAt: now,
 				}
 				_ = s.ledgerRepo.CreateJournalWithEntries(ctx, journal, entries)
@@ -304,5 +350,17 @@ func (s *payoutService) calculatePPh21(ctx context.Context, courierID uuid.UUID,
 		ratePct = s.configRepo.GetFloatConfig(ctx, "PPH21_COURIER_RATE_NON_NPWP", 3.0)
 	}
 
-	return int(float64(amount) * (ratePct / 100.0))
+	tax, err := domain.LegacyIDR(int64(amount)).MultiplyPercent(ratePct)
+	if err != nil {
+		log.Printf("[PayoutService] WARN: Failed to calculate exact PPh21 for courier %s: %v", courierID, err)
+		return 0
+	}
+	return int(tax.AmountMinor)
+}
+
+func legacyPayoutIDR(money domain.Money) int64 {
+	if money.Currency == "IDR" {
+		return money.AmountMinor
+	}
+	return 0
 }

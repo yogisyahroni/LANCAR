@@ -1,5 +1,7 @@
 package service
 
+import "tembus/order-service/internal/domain"
+
 // ── FB-101: potongan promo merchant di settlement ────────────────────────
 // Promo merchant (merchant_promos) DIBIAYAI merchant — diskonnya mengurangi
 // payout merchant (merchant_net), BUKAN komisi PT. Saat settlement food
@@ -85,7 +87,11 @@ func promoDiscountForLine(promo MerchantPromoRule, line PromoItemLine) int64 {
 		if promo.DiscountValue <= 0 || promo.DiscountValue > 100 {
 			return 0
 		}
-		d := line.Subtotal * promo.DiscountValue / 100
+		discountMoney, err := domain.LegacyIDR(line.Subtotal).MultiplyPercent(float64(promo.DiscountValue))
+		if err != nil {
+			return 0
+		}
+		d := discountMoney.AmountMinor
 		if promo.MaxDiscountIDR != nil && *promo.MaxDiscountIDR > 0 && d > *promo.MaxDiscountIDR {
 			d = *promo.MaxDiscountIDR
 		}
