@@ -33,6 +33,15 @@ interface TEMBUSApiService {
     @GET("api/v1/merchant/profile")
     suspend fun getProfile(): Response<Merchant>
 
+    // MERCH-2026-008: policy status, safe active-order state and appeal path.
+    @GET("api/v1/merchant/enforcement")
+    suspend fun getEnforcementStatus(): Response<MerchantEnforcementStatus>
+
+    @POST("api/v1/merchant/enforcement/appeals")
+    suspend fun submitEnforcementAppeal(
+        @Body request: MerchantEnforcementAppealRequest
+    ): Response<MerchantEnforcementAppeal>
+
     // FB-109: update profil (minimal order value, dll).
     @PATCH("api/v1/merchant/profile")
     suspend fun updateProfile(

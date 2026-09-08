@@ -141,6 +141,11 @@ adminRoutes.post('/admin/merchants/:id/start-verification', requireRole(['super_
 adminRoutes.post('/admin/merchants/:id/approve', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.merchant_onboarding.activate'), (req, res) => controllers.approveAdminMerchant(req, res));
 adminRoutes.post('/admin/merchants/:id/reject', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.merchant_onboarding.reject'), (req, res) => controllers.rejectAdminMerchant(req, res));
 adminRoutes.post('/admin/merchants/:id/suspend', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.merchant_onboarding.suspend'), (req, res) => controllers.suspendAdminMerchant(req, res));
+adminRoutes.get('/admin/merchant-enforcement/actions', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMerchantEnforcementActions(req, res));
+adminRoutes.get('/admin/merchants/:id/enforcement-actions', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMerchantEnforcementActions(req, res));
+adminRoutes.post('/admin/merchants/:id/enforcement-actions', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.merchant_enforcement.create'), (req, res) => controllers.createAdminMerchantEnforcementAction(req, res));
+adminRoutes.get('/admin/merchant-enforcement/appeals', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMerchantEnforcementAppeals(req, res));
+adminRoutes.patch('/admin/merchant-enforcement/appeals/:appealId', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.merchant_enforcement.review'), (req, res) => controllers.reviewAdminMerchantEnforcementAppeal(req, res));
 adminRoutes.get('/admin/disputes', (req, res) => controllers.getDisputes(req, res));
 adminRoutes.get('/admin/disputes/stats', (req, res) => controllers.getDisputeStats(req, res));
 adminRoutes.patch('/admin/disputes/:id/status', (req, res) => controllers.updateDisputeStatus(req, res));

@@ -143,6 +143,12 @@ type MerchantService interface {
 	SubmitQualityAppeal(ctx context.Context, userID string, input MerchantQualityAppealRequest) (*MerchantQualityAppeal, error)
 	// ReviewQualityAppeal is restricted to the existing admin/support roles.
 	ReviewQualityAppeal(ctx context.Context, actorID, actorRole, appealID string, input MerchantQualityAppealReviewRequest) (*MerchantQualityAppeal, error)
+	// GetEnforcementStatus returns the merchant-visible policy overlay,
+	// including safe active-order state and appeal history.
+	GetEnforcementStatus(ctx context.Context, userID string) (*MerchantEnforcementStatus, error)
+	// SubmitEnforcementAppeal lets the merchant challenge an active policy
+	// action without changing the action client-side.
+	SubmitEnforcementAppeal(ctx context.Context, userID string, input MerchantEnforcementAppealRequest) (*MerchantEnforcementAppeal, error)
 
 	// Operating hours ZIP: jadwal per hari dan penutupan tanggal khusus.
 	GetOperatingHours(ctx context.Context, userID string) (*MerchantOperatingHoursResponse, error)

@@ -284,6 +284,9 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/quality-score", middleware.BaseChain(h.GetQualityScore))
 	mux.HandleFunc("/api/v1/merchant/quality-score/appeals", middleware.BaseChain(h.SubmitQualityAppeal))
 	mux.HandleFunc("/api/v1/merchant/quality-score/appeals/{id}/review", middleware.BaseChain(h.ReviewQualityAppeal))
+	// MERCH-2026-008: suspension policy visibility and merchant appeal path.
+	mux.HandleFunc("/api/v1/merchant/enforcement", middleware.BaseChain(h.GetEnforcementStatus))
+	mux.HandleFunc("/api/v1/merchant/enforcement/appeals", middleware.BaseChain(h.SubmitEnforcementAppeal))
 	mux.HandleFunc("/api/v1/merchant/reviews", middleware.BaseChain(h.GetCustomerReviews))
 	mux.HandleFunc("/api/v1/merchant/reviews/{id}/reply", middleware.BaseChain(h.ReplyToCustomerReview))
 	mux.HandleFunc("/api/v1/merchant/withdraw", middleware.BaseChain(h.RequestWithdrawal))

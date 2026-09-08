@@ -144,20 +144,23 @@ type FoodOrderItemVariant struct {
 }
 
 type FoodMerchantInfo struct {
-	ID                          string     `json:"id"`
-	Name                        string     `json:"name"`
-	Address                     string     `json:"address"`
-	IsOpen                      bool       `json:"is_open"`
-	OperatingState              string     `json:"operating_state"`
-	OperatingStateReason        *string    `json:"operating_state_reason,omitempty"`
-	OperatingStateUntil         *time.Time `json:"operating_state_until,omitempty"`
-	OperatingTimezone           string     `json:"operating_timezone"`
-	VerificationStatus          string     `json:"verification_status"`
-	Lat                         float64    `json:"lat"`
-	Lng                         float64    `json:"lng"`
-	JamBuka                     *string    `json:"jam_buka,omitempty"`
-	JamTutup                    *string    `json:"jam_tutup,omitempty"`
-	LastOrderMinutesBeforeClose int        `json:"last_order_minutes_before_close"`
+	ID                   string     `json:"id"`
+	Name                 string     `json:"name"`
+	Address              string     `json:"address"`
+	IsOpen               bool       `json:"is_open"`
+	OperatingState       string     `json:"operating_state"`
+	OperatingStateReason *string    `json:"operating_state_reason,omitempty"`
+	OperatingStateUntil  *time.Time `json:"operating_state_until,omitempty"`
+	OperatingTimezone    string     `json:"operating_timezone"`
+	VerificationStatus   string     `json:"verification_status"`
+	// MERCH-2026-008: policy overlay blocks new checkout/discovery while
+	// active orders remain on the canonical fulfillment state machine.
+	EnforcementActive           bool    `json:"enforcement_active"`
+	Lat                         float64 `json:"lat"`
+	Lng                         float64 `json:"lng"`
+	JamBuka                     *string `json:"jam_buka,omitempty"`
+	JamTutup                    *string `json:"jam_tutup,omitempty"`
+	LastOrderMinutesBeforeClose int     `json:"last_order_minutes_before_close"`
 	// FB-107: pause sementara — merchant tidak terima order baru selama
 	// PausedUntil > NOW(). NULL = tidak pause.
 	PausedUntil *time.Time `json:"paused_until,omitempty"`
@@ -191,6 +194,7 @@ const (
 type FoodMenuItemInfo struct {
 	ID                string     `json:"id"`
 	MerchantID        string     `json:"merchant_id"`
+	BranchID          string     `json:"branch_id,omitempty"`
 	Name              string     `json:"name"`
 	Price             int64      `json:"price"`
 	IsAvailable       bool       `json:"is_available"`
@@ -201,6 +205,7 @@ type FoodMenuItemInfo struct {
 	DailySalesLimit   *int       `json:"daily_sales_limit,omitempty"`
 	DailySalesCount   int        `json:"daily_sales_count"`
 	SalesResetAt      *time.Time `json:"sales_limit_reset_at,omitempty"`
+	EnforcementActive bool       `json:"enforcement_active"`
 	// FOOD-BIKE-055/056: field UI tambahan
 	Kategori *string  `json:"kategori,omitempty"`
 	Foto     *string  `json:"foto,omitempty"`

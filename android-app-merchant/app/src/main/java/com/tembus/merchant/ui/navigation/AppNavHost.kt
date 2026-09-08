@@ -32,6 +32,7 @@ import com.tembus.merchant.ui.screens.profile.StoreProfileZipScreen
 import com.tembus.merchant.ui.screens.profile.PaymentSettingsZipScreen
 import com.tembus.merchant.ui.screens.profile.StoreInformationZipScreen
 import com.tembus.merchant.ui.screens.profile.MerchantLanguageScreen
+import com.tembus.merchant.ui.screens.profile.MerchantEnforcementScreen
 import com.tembus.merchant.ui.screens.settlement.SettlementZipScreen
 import com.tembus.merchant.ui.screens.promo.CreatePromoZipScreen
 import com.tembus.merchant.ui.screens.ads.AdsZipScreen
@@ -88,6 +89,7 @@ object MerchantRoutes {
     const val EDIT_PUBLIC_PROFILE = "edit_public_profile"
     const val STORE_INFORMATION = "store_information"
     const val LANGUAGE = "language"
+    const val ENFORCEMENT = "enforcement"
     const val EDIT_MENU = "edit_menu/{menuId}"
     const val ADD_MENU = "add_menu"
     const val STRUK = "struk/{orderId}"
@@ -128,6 +130,7 @@ private object MerchantZipDeepLinks {
     const val OPERATING_HOURS = "tembusmerchant://merchant/profile/hours"
     const val EDIT_PUBLIC_PROFILE = "tembusmerchant://merchant/profile/edit"
     const val STORE_INFORMATION = "tembusmerchant://merchant/profile/information"
+    const val ENFORCEMENT = "tembusmerchant://merchant/profile/enforcement"
     const val EDIT_MENU = "tembusmerchant://merchant/menu/{menuId}/edit"
     const val ADD_MENU = "tembusmerchant://merchant/menu/add"
     const val VARIANTS = "tembusmerchant://merchant/menu/{menuItemId}/variants"
@@ -243,6 +246,9 @@ fun AppNavHost() {
                 onOpenCustomerReviews = {
                     navController.navigate(MerchantRoutes.CUSTOMER_REVIEWS)
                 },
+                onOpenEnforcement = {
+                    navController.navigate(MerchantRoutes.ENFORCEMENT)
+                },
                 onOpenOrderHistory = {
                     navController.navigate(MerchantRoutes.ORDER_HISTORY)
                 },
@@ -331,6 +337,7 @@ fun AppNavHost() {
                 onOpenPaymentSettings = { navController.navigate(MerchantRoutes.PAYMENT_SETTINGS) },
                 onOpenEditPublicProfile = { navController.navigate(MerchantRoutes.EDIT_PUBLIC_PROFILE) },
                 onOpenCustomerReviews = { navController.navigate(MerchantRoutes.CUSTOMER_REVIEWS) },
+                onOpenEnforcement = { navController.navigate(MerchantRoutes.ENFORCEMENT) },
                 onOpenOrderHistory = { navController.navigate(MerchantRoutes.ORDER_HISTORY) },
                 onOpenLanguage = { navController.navigate(MerchantRoutes.LANGUAGE) },
                 onGoToRegistration = { navController.navigate(MerchantRoutes.REGISTRATION) }
@@ -457,6 +464,13 @@ fun AppNavHost() {
 
         composable(MerchantRoutes.LANGUAGE) {
             MerchantLanguageScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = MerchantRoutes.ENFORCEMENT,
+            deepLinks = listOf(navDeepLink { uriPattern = MerchantZipDeepLinks.ENFORCEMENT })
+        ) {
+            MerchantEnforcementScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

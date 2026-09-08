@@ -88,6 +88,14 @@ func (r *postgresMerchantAdsRepository) Create(ctx context.Context, ad *domain.M
 	if err := tx.QueryRowContext(ctx, `SELECT id::text FROM merchants WHERE id = $1 FOR UPDATE`, ad.MerchantID).Scan(&merchantRow); err != nil {
 		return nil, fmt.Errorf("lock merchant balance: %w", err)
 	}
+	var adsEnforcementActive bool
+	if err := tx.QueryRowContext(ctx, `
+		SELECT merchant_enforcement_is_active($1::uuid, NULL, NULL, 'ads')`, ad.MerchantID).Scan(&adsEnforcementActive); err != nil {
+		return nil, fmt.Errorf("check Ads enforcement: %w", err)
+	}
+	if adsEnforcementActive {
+		return nil, errors.New("capability Ads merchant sedang ditangguhkan untuk peninjauan")
+	}
 	var availableBalance int64
 	if err := tx.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount_minor ELSE -amount_minor END), 0)
@@ -223,7 +231,8 @@ func (r *postgresMerchantAdsRepository) SetActive(ctx context.Context, adID, mer
 			paused_at = CASE WHEN $3 = TRUE THEN NULL ELSE NOW() END,
 			updated_at = NOW()
 		WHERE id = $1 AND merchant_id = $2 AND product_type = 'ads'
-		  AND status NOT IN ('expired', 'archived')`, adID, merchantID, active, status)
+		  AND status NOT IN ('expired', 'archived')
+		  AND ($3 = FALSE OR NOT merchant_enforcement_is_active(merchant_id, NULL, NULL, 'ads'))`, adID, merchantID, active, status)
 	if err != nil {
 		return fmt.Errorf("update Ads status: %w", err)
 	}

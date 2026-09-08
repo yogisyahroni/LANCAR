@@ -78,6 +78,12 @@ func merchantPermissionForRequest(r *http.Request) int {
 	if strings.Contains(path, "/report") || strings.Contains(path, "/settlement") || strings.Contains(path, "/review") || strings.Contains(path, "/withdrawal") || strings.Contains(path, "/finance-statement") || strings.Contains(path, "/quality-score") {
 		return domain.PermViewReports
 	}
+	if strings.Contains(path, "/enforcement") {
+		if r.Method == http.MethodGet {
+			return domain.PermViewReports
+		}
+		return domain.PermViewStore
+	}
 	return 0
 }
 
@@ -1154,6 +1160,53 @@ func (h *MerchantHandler) SubmitQualityAppeal(w http.ResponseWriter, r *http.Req
 	}
 	appeal, err := h.svc.SubmitQualityAppeal(r.Context(), userID, input)
 	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusCreated, appeal)
+}
+
+// GetEnforcementStatus returns current merchant/branch/item/Ads policy
+// actions, safe active-order counts and appeal history.
+func (h *MerchantHandler) GetEnforcementStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	status, err := h.svc.GetEnforcementStatus(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, status)
+}
+
+// SubmitEnforcementAppeal records a merchant remediation/appeal request. It
+// never mutates the enforcement action from the client side.
+func (h *MerchantHandler) SubmitEnforcementAppeal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var input domain.MerchantEnforcementAppealRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	appeal, err := h.svc.SubmitEnforcementAppeal(r.Context(), userID, input)
+	if err != nil {
+		if strings.Contains(err.Error(), "sudah ditutup") {
+			h.respondError(w, http.StatusConflict, err.Error())
+			return
+		}
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}

@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Language
@@ -68,6 +69,7 @@ fun StoreProfileZipScreen(
     onOpenPaymentSettings: () -> Unit,
     onOpenEditPublicProfile: () -> Unit,
     onOpenCustomerReviews: () -> Unit,
+    onOpenEnforcement: () -> Unit,
     onOpenOrderHistory: () -> Unit,
     onOpenLanguage: () -> Unit,
     onGoToRegistration: () -> Unit,
@@ -99,6 +101,7 @@ fun StoreProfileZipScreen(
                 onOpenPaymentSettings = onOpenPaymentSettings,
                 onOpenEditPublicProfile = onOpenEditPublicProfile,
                 onOpenCustomerReviews = onOpenCustomerReviews,
+                onOpenEnforcement = onOpenEnforcement,
                 onOpenOrderHistory = onOpenOrderHistory,
                 onOpenLanguage = onOpenLanguage,
                 onLogout = viewModel::logout
@@ -137,6 +140,7 @@ private fun StoreProfileZipContent(
     onOpenPaymentSettings: () -> Unit,
     onOpenEditPublicProfile: () -> Unit,
     onOpenCustomerReviews: () -> Unit,
+    onOpenEnforcement: () -> Unit,
     onOpenOrderHistory: () -> Unit,
     onOpenLanguage: () -> Unit,
     onLogout: () -> Unit
@@ -167,6 +171,14 @@ private fun StoreProfileZipContent(
                 title = stringResource(R.string.merchant_store_information),
                 subtitle = stringResource(R.string.merchant_store_information_subtitle),
                 onClick = onOpenStoreInformation
+            )
+        }
+        item {
+            StoreProfileOption(
+                icon = Icons.Filled.Info,
+                title = "Status kebijakan toko",
+                subtitle = "Lihat peninjauan, order aman, dan ajukan appeal",
+                onClick = onOpenEnforcement
             )
         }
         item {

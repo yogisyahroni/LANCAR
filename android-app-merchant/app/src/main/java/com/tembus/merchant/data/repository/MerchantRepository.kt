@@ -20,6 +20,13 @@ class MerchantRepository(
     suspend fun getProfile(): Result<Merchant> =
         request { api.getProfile() }
 
+    // MERCH-2026-008: server-owned enforcement/appeal lifecycle.
+    suspend fun getEnforcementStatus(): Result<MerchantEnforcementStatus> =
+        request { api.getEnforcementStatus() }
+
+    suspend fun submitEnforcementAppeal(actionId: String, reason: String): Result<MerchantEnforcementAppeal> =
+        request { api.submitEnforcementAppeal(MerchantEnforcementAppealRequest(actionId, reason)) }
+
     // FB-109: update minimal order value.
     suspend fun updateProfile(req: UpdateProfileRequest): Result<Merchant> =
         request { api.updateProfile(req) }

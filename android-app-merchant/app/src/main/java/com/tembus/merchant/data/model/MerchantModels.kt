@@ -63,6 +63,53 @@ data class Merchant(
     val isCorporate: Boolean get() = businessType == "perusahaan"
 }
 
+// MERCH-2026-008: server-authoritative suspension/policy status.
+data class MerchantEnforcementAction(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("merchant_id") val merchantId: String = "",
+    @SerializedName("scope") val scope: String = "",
+    @SerializedName("target_branch_id") val targetBranchId: String? = null,
+    @SerializedName("target_branch_name") val targetBranchName: String = "",
+    @SerializedName("target_menu_item_id") val targetMenuItemId: String? = null,
+    @SerializedName("target_menu_item_name") val targetMenuItemName: String = "",
+    @SerializedName("capability") val capability: String = "",
+    @SerializedName("reason_category") val reasonCategory: String = "",
+    @SerializedName("reason_detail") val reasonDetail: String = "",
+    @SerializedName("merchant_message") val merchantMessage: String = "",
+    @SerializedName("remediation_message") val remediationMessage: String = "",
+    @SerializedName("disclosure_level") val disclosureLevel: String = "",
+    @SerializedName("effective_from") val effectiveFrom: String = "",
+    @SerializedName("effective_until") val effectiveUntil: String? = null,
+    @SerializedName("safe_order_policy") val safeOrderPolicy: String = "",
+    @SerializedName("status") val status: String = "",
+    @SerializedName("active_order_count") val activeOrderCount: Int = 0,
+    @SerializedName("appeal_eligible") val appealEligible: Boolean = false
+)
+
+data class MerchantEnforcementAppeal(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("enforcement_action_id") val enforcementActionId: String = "",
+    @SerializedName("merchant_id") val merchantId: String = "",
+    @SerializedName("reason") val reason: String = "",
+    @SerializedName("status") val status: String = "",
+    @SerializedName("review_note") val reviewNote: String = "",
+    @SerializedName("submitted_at") val submittedAt: String = "",
+    @SerializedName("reviewed_at") val reviewedAt: String? = null
+)
+
+data class MerchantEnforcementStatus(
+    @SerializedName("merchant_id") val merchantId: String = "",
+    @SerializedName("active_actions") val actions: List<MerchantEnforcementAction> = emptyList(),
+    @SerializedName("appeals") val appeals: List<MerchantEnforcementAppeal> = emptyList(),
+    @SerializedName("policy") val policy: Map<String, String> = emptyMap(),
+    @SerializedName("server_authoritative") val serverAuthoritative: Boolean = true
+)
+
+data class MerchantEnforcementAppealRequest(
+    @SerializedName("enforcement_action_id") val enforcementActionId: String,
+    @SerializedName("reason") val reason: String
+)
+
 data class MerchantNotification(
     @SerializedName("id") val id: String = "",
     @SerializedName("title") val title: String = "",

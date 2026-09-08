@@ -70,7 +70,40 @@ func (r *postgresMerchantAccessRepository) CreateBranch(ctx context.Context, bra
 }
 
 func (r *postgresMerchantAccessRepository) UpdateBranch(ctx context.Context, merchantID, branchID string, req domain.UpdateMerchantBranchRequest) error {
-	result, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Branch deactivation must not strand an active food order. The order
+	// service owns fulfillment/cancellation, so this repository only guards
+	// the lifecycle boundary and never mutates the order or its payment.
+	if req.IsActive != nil && !*req.IsActive {
+		var activeOrderCount int
+		if err := tx.QueryRowContext(ctx, `
+			SELECT COUNT(*)::int
+			FROM orders o
+			JOIN food_order_items foi ON foi.order_id = o.id
+			JOIN merchant_menu_items mi ON mi.id = foi.menu_item_id
+			WHERE o.merchant_id = $1
+			  AND mi.branch_id = $2
+			  AND o.service_sub_type = 'food_delivery'
+			  AND o.status IN (
+				'pending_merchant', 'preparing', 'ready_for_pickup', 'searching',
+				'pending_assignment', 'assigned', 'accepted', 'pickup_arrived',
+				'picking_up', 'picked_up', 'inbound_origin', 'outbound_origin',
+				'inbound_destination', 'outbound_destination', 'delivering',
+				'return_to_sender'
+			  )`, merchantID, branchID).Scan(&activeOrderCount); err != nil {
+			return fmt.Errorf("check active branch orders: %w", err)
+		}
+		if activeOrderCount > 0 {
+			return fmt.Errorf("branch memiliki %d pesanan food aktif; selesaikan atau batalkan pesanan secara aman sebelum branch dinonaktifkan", activeOrderCount)
+		}
+	}
+
+	result, err := tx.ExecContext(ctx, `
 		UPDATE merchant_branches
 		SET name = COALESCE(NULLIF($3, ''), name),
 		    address = COALESCE(NULLIF($4, ''), address),
@@ -82,7 +115,7 @@ func (r *postgresMerchantAccessRepository) UpdateBranch(ctx context.Context, mer
 	if count, _ := result.RowsAffected(); count == 0 {
 		return sql.ErrNoRows
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (r *postgresMerchantAccessRepository) ReplaceStaffBranches(ctx context.Context, merchantID, staffID string, branchIDs []string) error {

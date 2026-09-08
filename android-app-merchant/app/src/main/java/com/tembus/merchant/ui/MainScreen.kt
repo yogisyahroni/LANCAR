@@ -46,6 +46,7 @@ fun MainScreen(
     onOpenOperatingHours: () -> Unit,
     onOpenEditPublicProfile: () -> Unit,
     onOpenCustomerReviews: () -> Unit,
+    onOpenEnforcement: () -> Unit,
     onOpenOrderHistory: () -> Unit,
     onOpenLanguage: () -> Unit,
     onOpenCreatePromo: () -> Unit,
@@ -113,6 +114,7 @@ fun MainScreen(
                     onOpenPaymentSettings = onOpenPaymentSettings,
                     onOpenEditPublicProfile = onOpenEditPublicProfile,
                     onOpenCustomerReviews = onOpenCustomerReviews,
+                    onOpenEnforcement = onOpenEnforcement,
                     onOpenOrderHistory = onOpenOrderHistory,
                     onOpenLanguage = onOpenLanguage,
                     onGoToRegistration = onGoToRegistration

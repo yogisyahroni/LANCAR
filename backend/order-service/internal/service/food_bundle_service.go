@@ -38,6 +38,9 @@ func (s *foodBundleService) CreateBundle(ctx context.Context, customerID string,
 			if err != nil || merchant == nil {
 				return nil, fmt.Errorf("merchant %s is unavailable", merchantID)
 			}
+			if merchant.EnforcementActive {
+				return nil, fmt.Errorf("merchant %s is unavailable", merchantID)
+			}
 			if err := validateFoodMerchantOperatingState(merchant); err != nil {
 				return nil, fmt.Errorf("merchant %s is unavailable", merchantID)
 			}

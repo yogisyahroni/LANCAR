@@ -54,7 +54,8 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			COALESCE((SELECT h.last_order_minutes_before_close FROM merchant_operating_hours h
 				WHERE h.merchant_id = merchants.id
 			  AND h.weekday = EXTRACT(DOW FROM timezone(COALESCE(NULLIF(operating_timezone, ''), 'Asia/Jakarta'), NOW()))::smallint), 0),
-			halal_status
+			halal_status,
+			merchant_enforcement_is_active(merchants.id, NULL, NULL, NULL)
 			FROM merchants
 			WHERE id = $1`
 
@@ -65,7 +66,7 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	var busyUntil sql.NullTime
 	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
 		&m.ID, &m.Name, &m.Address, &m.IsOpen, &operatingState, &operatingStateReason, &operatingStateUntil, &operatingTimezone, &m.VerificationStatus,
-		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &m.LastOrderMinutesBeforeClose, &halalStatus,
+		&pausedUntil, &busyUntil, &m.BusyExtraPrepMinutes, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &m.LastOrderMinutesBeforeClose, &halalStatus, &m.EnforcementActive,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -119,8 +120,9 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 
 	query := fmt.Sprintf(`
 		SELECT
-			id::text,
-			merchant_id::text,
+			merchant_menu_items.id::text,
+			merchant_menu_items.merchant_id::text,
+			branch_id::text,
 			nama,
 			harga,
 			is_available,
@@ -146,9 +148,11 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 			stock_quantity,
 			daily_sales_limit,
 			daily_sales_count,
-			sales_limit_reset_at
+			sales_limit_reset_at,
+			merchant_enforcement_is_active(merchant_menu_items.merchant_id, merchant_menu_items.branch_id, merchant_menu_items.id, NULL)
 		FROM merchant_menu_items
-		WHERE id IN (%s)`, strings.Join(placeholders, ", "))
+		JOIN merchant_branches branch ON branch.id = merchant_menu_items.branch_id AND branch.is_active = TRUE
+		WHERE merchant_menu_items.id IN (%s)`, strings.Join(placeholders, ", "))
 
 	rows, err := r.readDB.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -161,7 +165,7 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 		var it domain.FoodMenuItemInfo
 		var status string
 		var scheduleAvailable bool
-		if err := rows.Scan(&it.ID, &it.MerchantID, &it.Name, &it.Price, &it.IsAvailable, &status, &scheduleAvailable, &it.PrepTimeMinutes, &it.StockQuantity, &it.DailySalesLimit, &it.DailySalesCount, &it.SalesResetAt); err != nil {
+		if err := rows.Scan(&it.ID, &it.MerchantID, &it.BranchID, &it.Name, &it.Price, &it.IsAvailable, &status, &scheduleAvailable, &it.PrepTimeMinutes, &it.StockQuantity, &it.DailySalesLimit, &it.DailySalesCount, &it.SalesResetAt, &it.EnforcementActive); err != nil {
 			return nil, err
 		}
 		it.Status = status
@@ -605,6 +609,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 				  AND p.audience_rules->>'placement' = 'food_discovery'
 				  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = m.id::text)
 				  AND merchant_quality_is_eligible(m.id, 'ads')
+				  AND NOT merchant_enforcement_is_active(m.id, NULL, NULL, 'ads')
 				ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC
 				LIMIT 1
 			) sponsored ON TRUE
@@ -612,6 +617,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			WHERE m.is_open = TRUE AND m.operating_state IN ('open', 'busy') AND m.verification_status = 'approved'
 			  AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
 			  AND merchant_quality_is_eligible(m.id, 'search')
+			  AND NOT merchant_enforcement_is_active(m.id, NULL, NULL, NULL)
 			  `+halalClause+`
 			GROUP BY m.id, sponsored.id
 			ORDER BY distance_km ASC
@@ -638,6 +644,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 				  AND p.audience_rules->>'placement' = 'food_discovery'
 				  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = m.id::text)
 				  AND merchant_quality_is_eligible(m.id, 'ads')
+				  AND NOT merchant_enforcement_is_active(m.id, NULL, NULL, 'ads')
 				ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC
 				LIMIT 1
 			) sponsored ON TRUE
@@ -645,6 +652,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			WHERE m.is_open = TRUE AND m.operating_state IN ('open', 'busy') AND m.verification_status = 'approved'
 			AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
 			  AND merchant_quality_is_eligible(m.id, 'search')
+			  AND NOT merchant_enforcement_is_active(m.id, NULL, NULL, NULL)
 			  `+halalClause+`
 			  AND (
 			  m.nama_toko ILIKE '%' || $3 || '%'

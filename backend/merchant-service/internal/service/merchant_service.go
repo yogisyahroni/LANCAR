@@ -30,6 +30,7 @@ type merchantServiceImpl struct {
 	reportRepo     domain.MerchantReportRepository
 	accessRepo     domain.MerchantAccessRepository
 	governanceRepo domain.MenuGovernanceRepository
+	enforcementRepo domain.MerchantEnforcementRepository
 }
 
 func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository, rr domain.MerchantReportRepository, accessRepos ...domain.MerchantAccessRepository) domain.MerchantService {
@@ -37,11 +38,19 @@ func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemReposito
 	if len(accessRepos) > 0 {
 		ar = accessRepos[0]
 	}
-	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, accessRepo: ar}
+	var er domain.MerchantEnforcementRepository
+	if candidate, ok := mr.(domain.MerchantEnforcementRepository); ok {
+		er = candidate
+	}
+	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, accessRepo: ar, enforcementRepo: er}
 }
 
 func NewMerchantServiceWithGovernance(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository, rr domain.MerchantReportRepository, accessRepo domain.MerchantAccessRepository, governanceRepo domain.MenuGovernanceRepository) domain.MerchantService {
-	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, accessRepo: accessRepo, governanceRepo: governanceRepo}
+	var er domain.MerchantEnforcementRepository
+	if candidate, ok := mr.(domain.MerchantEnforcementRepository); ok {
+		er = candidate
+	}
+	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, accessRepo: accessRepo, governanceRepo: governanceRepo, enforcementRepo: er}
 }
 
 // ─────────────────────────────────────────────
@@ -501,6 +510,43 @@ func validOperatingStateOverrideState(state string) bool {
 	default:
 		return false
 	}
+}
+
+// GetEnforcementStatus exposes the policy overlay to the merchant owner. The
+// action itself remains database-authoritative; the app cannot clear or
+// reinterpret a suspension locally.
+func (s *merchantServiceImpl) GetEnforcementStatus(ctx context.Context, userID string) (*domain.MerchantEnforcementStatus, error) {
+	merchant, err := s.requireOwnerMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if s.enforcementRepo == nil {
+		return nil, errors.New("konfigurasi merchant enforcement belum tersedia")
+	}
+	if err := s.enforcementRepo.Refresh(ctx); err != nil {
+		return nil, err
+	}
+	return s.enforcementRepo.GetForMerchant(ctx, merchant.ID)
+}
+
+// SubmitEnforcementAppeal validates the merchant-owned target and records the
+// appeal with an immutable action event in one repository transaction.
+func (s *merchantServiceImpl) SubmitEnforcementAppeal(ctx context.Context, userID string, input domain.MerchantEnforcementAppealRequest) (*domain.MerchantEnforcementAppeal, error) {
+	merchant, err := s.requireOwnerMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if s.enforcementRepo == nil {
+		return nil, errors.New("konfigurasi merchant enforcement belum tersedia")
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(input.EnforcementActionID)); err != nil {
+		return nil, errors.New("enforcement_action_id tidak valid")
+	}
+	input.Reason = strings.TrimSpace(input.Reason)
+	if len([]rune(input.Reason)) < 10 || len([]rune(input.Reason)) > 2000 {
+		return nil, errors.New("reason appeal harus 10-2000 karakter")
+	}
+	return s.enforcementRepo.SubmitAppeal(ctx, merchant.ID, input.EnforcementActionID, input.Reason)
 }
 
 // UpdateFoodDocs — FB-092 + ADR 003: update nomor + masa berlaku dokumen

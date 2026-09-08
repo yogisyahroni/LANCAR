@@ -44,6 +44,9 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 	if merchant.VerificationStatus != "approved" {
 		return nil, domain.NewUserFacingError("merchant belum terverifikasi")
 	}
+	if merchant.EnforcementActive {
+		return nil, domain.NewUserFacingError("merchant sedang dalam peninjauan kebijakan — coba lagi nanti")
+	}
 	if err := validateFoodMerchantOperatingState(merchant); err != nil {
 		return nil, err
 	}
@@ -98,6 +101,9 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		}
 		if item.ScheduleAvailable != nil && !*item.ScheduleAvailable {
 			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item di luar jadwal: %s", item.Name))
+		}
+		if item.EnforcementActive {
+			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item sedang ditangguhkan untuk peninjauan: %s", item.Name))
 		}
 		if err := validateFoodInventory(item, requested.Quantity, time.Now()); err != nil {
 			return nil, domain.NewUserFacingError(err.Error())
