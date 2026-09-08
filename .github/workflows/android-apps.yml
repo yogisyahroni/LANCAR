@@ -26,8 +26,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  mobile-performance-policy:
+    name: Validate mobile performance release policy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run fail-closed percentile gate contract
+        run: python scripts/mobile/test_performance_gate.py
+
   build-android:
     name: Build ${{ matrix.app_name }}
+    needs: mobile-performance-policy
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "percentile_policy": {
+    "latency_ms": "p95",
+    "memory_mb": "p95",
+    "jank_pct": "p95",
+    "network_bytes": "p95",
+    "artifact_size_bytes": "p95"
+  },
+  "required_tiers": ["low", "mid", "high"],
+  "tiers": {
+    "low": {
+      "label": "Low resource proxy",
+      "representative_profile": "1.5 GiB RAM, 2 cores, 1080x2340",
+      "field_follow_up": "Android Go/low-memory physical device"
+    },
+    "mid": {
+      "label": "Mid resource proxy",
+      "representative_profile": "2 GiB RAM, 4 cores, 1080x2400",
+      "field_follow_up": "market-share mid-range Android device"
+    },
+    "high": {
+      "label": "High resource proxy",
+      "representative_profile": "4 GiB RAM, 6 cores, 1440x3120",
+      "field_follow_up": "current flagship Android device"
+    }
+  },
+  "apps": {
+    "courier": {
+      "package": "com.tembus.courier",
+      "activity": "com.tembus.courier/.ui.MainActivity",
+      "surfaces": {
+        "launch": {
+          "cold_start_ms_p95_max": 3500,
+          "warm_start_ms_p95_max": 1500,
+          "memory_pss_mb_p95_max": 512,
+          "janky_frames_pct_p95_max": 8,
+          "network_bytes_p95_max": 3145728,
+          "artifact_size_bytes_p95_max": 314572800
+        }
+      }
+    },
+    "customer": {
+      "package": "com.tembus.customer",
+      "activity": "com.tembus.customer/.ui.MainActivity",
+      "surfaces": {
+        "launch": {
+          "cold_start_ms_p95_max": 3500,
+          "warm_start_ms_p95_max": 1500,
+          "memory_pss_mb_p95_max": 512,
+          "janky_frames_pct_p95_max": 8,
+          "network_bytes_p95_max": 3145728,
+          "artifact_size_bytes_p95_max": 314572800
+        }
+      }
+    },
+    "merchant": {
+      "package": "com.tembus.merchant",
+      "activity": "com.tembus.merchant/.SplashActivity",
+      "surfaces": {
+        "launch": {
+          "cold_start_ms_p95_max": 2500,
+          "warm_start_ms_p95_max": 1200,
+          "memory_pss_mb_p95_max": 384,
+          "janky_frames_pct_p95_max": 8,
+          "network_bytes_p95_max": 2097152,
+          "artifact_size_bytes_p95_max": 209715200
+        }
+      }
+    }
+  }
+}
