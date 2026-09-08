@@ -5526,11 +5526,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MERCH-2026-001 — KYB/onboarding/contract lifecycle [P0/P1]
 
 **Checklist**
-- [ ] Merchant legal profile, owner/operator, market, verification, bank/payout and commercial-contract references structured.
-- [ ] `DRAFT/SUBMITTED/VERIFYING/ACTIVE/REJECTED/SUSPENDED` lifecycle.
-- [ ] Verification requirement market scoped.
-- [ ] Commercial terms have effective version/date.
-- [ ] Activation cannot be self-toggled from Merchant app.
+- [x] Merchant legal profile, owner/operator, market, verification, bank/payout and commercial-contract references structured.
+- [x] `DRAFT/SUBMITTED/VERIFYING/ACTIVE/REJECTED/SUSPENDED` lifecycle.
+- [x] Verification requirement market scoped.
+- [x] Commercial terms have effective version/date.
+- [x] Activation cannot be self-toggled from Merchant app.
 
 ---
 
