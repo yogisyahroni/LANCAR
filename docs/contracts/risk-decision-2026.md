@@ -1,6 +1,6 @@
 # Central risk decision contract — 2026
 
-Contract version: `2026-09-09`  
+Contract version: `2026-09-09`
 Owner: order-service risk module (decision/write authority) and admin-service (manual-review control plane)
 
 ## Boundary
@@ -53,4 +53,3 @@ The decision store keeps only a keyed subject hash and coarse signal snapshot.
 The canonical `risk.decision` event contains no raw user/courier identifier,
 exact GPS, phone, email, payment credential or free-form evidence. The event
 is versioned and validated by the datalake worker.
-

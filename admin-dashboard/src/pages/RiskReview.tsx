@@ -14,7 +14,6 @@ const decisionStyle: Record<string, string> = {
   HOLD: 'border-orange-500/30 bg-orange-500/10 text-orange-300',
   BLOCK: 'border-red-500/30 bg-red-500/10 text-red-300',
 }
-
 const idempotencyKey = (id: string) => `risk-review-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 type RiskReview = {
@@ -136,4 +135,3 @@ export default function RiskReview() {
     </div>
   )
 }
-

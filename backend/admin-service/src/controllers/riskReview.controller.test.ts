@@ -18,7 +18,6 @@ const response = () => ({
   json: jest.fn(),
   status: jest.fn().mockReturnThis(),
 });
-
 describe('central risk review controller', () => {
   beforeEach(() => {
     db.connect.mockReset();
@@ -73,4 +72,3 @@ describe('central risk review controller', () => {
     expect(client.release).toHaveBeenCalled();
   });
 });
-
