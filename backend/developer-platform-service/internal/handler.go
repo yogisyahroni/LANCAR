@@ -507,15 +507,6 @@ func validScopes(scopes []string) bool {
 	return true
 }
 
-func addJSONFlag(body []byte, key string, value any) []byte {
-	var data map[string]any
-	if json.Unmarshal(body, &data) != nil {
-		return body
-	}
-	data[key] = value
-	return mustJSON(data)
-}
-
 func mustJSON(value any) []byte {
 	encoded, _ := json.Marshal(value)
 	return encoded

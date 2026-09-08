@@ -140,10 +140,6 @@ func (s *Store) CreateSubscription(ctx context.Context, clientID, endpoint strin
 	return sub, secret, nil
 }
 
-func subscriptionView(sub Subscription) SubscriptionView {
-	return SubscriptionView{ID: sub.ID, EndpointURL: sub.EndpointURL, Events: sub.Events, Status: sub.Status, CreatedAt: sub.CreatedAt}
-}
-
 func (s *Store) ListSubscriptions(ctx context.Context, clientID string) ([]SubscriptionView, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id::text, endpoint_url, event_types, status, created_at FROM developer_webhook_subscriptions WHERE client_id = $1 ORDER BY created_at DESC`, clientID)
 	if err != nil {
@@ -310,7 +306,7 @@ func (s *Store) SyncOutboxEvents(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var cursorTime time.Time
 	var cursorID string
 	if err := tx.QueryRowContext(ctx, `SELECT last_created_at, last_event_id FROM developer_event_cursors WHERE id = 1 FOR UPDATE`).Scan(&cursorTime, &cursorID); err != nil {
@@ -419,7 +415,7 @@ func (s *Store) ClaimDelivery(ctx context.Context) (*Delivery, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var delivery Delivery
 	err = tx.QueryRowContext(ctx, `
 		SELECT d.id::text, d.subscription_id::text, s.endpoint_url, s.secret_ciphertext, d.payload, d.attempt_count + 1
