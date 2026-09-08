@@ -5570,11 +5570,11 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MERCH-2026-005 — Settlement, finance statement and bank-account lifecycle [P0]
 
 **Checklist**
-- [ ] Order sales, commission, tax, promo subsidy, refund, Ads spend, adjustment and payout separated.
-- [ ] Bank account change protected by auth/risk/cooldown policy as applicable.
-- [ ] Settlement discrepancy queue.
-- [ ] Historical statement immutable; corrections via adjustment entries.
-- [ ] Multi-currency/market support from `GLOB-2026-002`.
+- [x] Order sales, commission, tax, promo subsidy, refund, Ads spend, adjustment and payout separated.
+- [x] Bank account change protected by auth/risk/cooldown policy as applicable.
+- [x] Settlement discrepancy queue.
+- [x] Historical statement immutable; corrections via adjustment entries.
+- [x] Multi-currency/market support from `GLOB-2026-002`.
 
 ---
 
