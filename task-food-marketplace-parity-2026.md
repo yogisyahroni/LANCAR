@@ -5609,10 +5609,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## MERCH-2026-008 — Suspension, policy enforcement and appeal [P0/P1]
 
 **Checklist**
-- [ ] Enforcement scope can be merchant/branch/item/Ads capability.
-- [ ] Active orders have safe fulfillment/cancellation policy before branch deactivation.
-- [ ] Reason/evidence/actor/effective period audited.
-- [ ] Merchant receives remediation/appeal path where appropriate.
+- [x] Enforcement scope can be merchant/branch/item/Ads capability.
+- [x] Active orders have safe fulfillment/cancellation policy before branch deactivation.
+- [x] Reason/evidence/actor/effective period audited.
+- [x] Merchant receives remediation/appeal path where appropriate.
 
 ---
 
