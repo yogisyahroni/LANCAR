@@ -263,6 +263,10 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/reports/export", middleware.BaseChain(h.ExportSalesReport))
 	mux.HandleFunc("/api/v1/merchant/settlements", middleware.BaseChain(h.GetSettlements))
 	mux.HandleFunc("/api/v1/merchant/finance-statement", middleware.BaseChain(h.GetFinanceStatement))
+	// MERCH-2026-006: versioned operational quality score and appeal/review path.
+	mux.HandleFunc("/api/v1/merchant/quality-score", middleware.BaseChain(h.GetQualityScore))
+	mux.HandleFunc("/api/v1/merchant/quality-score/appeals", middleware.BaseChain(h.SubmitQualityAppeal))
+	mux.HandleFunc("/api/v1/merchant/quality-score/appeals/{id}/review", middleware.BaseChain(h.ReviewQualityAppeal))
 	mux.HandleFunc("/api/v1/merchant/reviews", middleware.BaseChain(h.GetCustomerReviews))
 	mux.HandleFunc("/api/v1/merchant/reviews/{id}/reply", middleware.BaseChain(h.ReplyToCustomerReview))
 	mux.HandleFunc("/api/v1/merchant/withdraw", middleware.BaseChain(h.RequestWithdrawal))

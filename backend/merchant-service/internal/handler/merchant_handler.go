@@ -75,7 +75,7 @@ func merchantPermissionForRequest(r *http.Request) int {
 		}
 		return domain.PermViewStore
 	}
-	if strings.Contains(path, "/report") || strings.Contains(path, "/settlement") || strings.Contains(path, "/review") || strings.Contains(path, "/withdrawal") || strings.Contains(path, "/finance-statement") {
+	if strings.Contains(path, "/report") || strings.Contains(path, "/settlement") || strings.Contains(path, "/review") || strings.Contains(path, "/withdrawal") || strings.Contains(path, "/finance-statement") || strings.Contains(path, "/quality-score") {
 		return domain.PermViewReports
 	}
 	return 0
@@ -1104,6 +1104,99 @@ func (h *MerchantHandler) GetFinanceStatement(w http.ResponseWriter, r *http.Req
 		return
 	}
 	h.respondJSON(w, http.StatusOK, statement)
+}
+
+// GetQualityScore godoc
+// @Summary Merchant quality scorecard
+// @Description Score operasional berbobot dari acceptance/timeout, prep, availability, review, refund/cancel, dan policy review.
+// @Tags merchant
+// @Produce json
+// @Success 200 {object} domain.MerchantQualityScore
+// @Router /merchant/quality-score [get]
+func (h *MerchantHandler) GetQualityScore(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	score, err := h.svc.GetQualityScore(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, score)
+}
+
+// SubmitQualityAppeal godoc
+// @Summary Ajukan appeal score quality merchant
+// @Description Merchant mengajukan review atas scorecard dan metric material tertentu.
+// @Tags merchant
+// @Accept json
+// @Produce json
+// @Success 201 {object} domain.MerchantQualityAppeal
+// @Router /merchant/quality-score/appeals [post]
+func (h *MerchantHandler) SubmitQualityAppeal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var input domain.MerchantQualityAppealRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	appeal, err := h.svc.SubmitQualityAppeal(r.Context(), userID, input)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusCreated, appeal)
+}
+
+// ReviewQualityAppeal godoc
+// @Summary Review admin/support untuk appeal quality merchant
+// @Description Keputusan appeal diaudit dengan actor role, review note, dan step-up authentication.
+// @Tags merchant admin
+// @Accept json
+// @Produce json
+// @Success 200 {object} domain.MerchantQualityAppeal
+// @Router /merchant/quality-score/appeals/{id}/review [post]
+func (h *MerchantHandler) ReviewQualityAppeal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	actorID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	role := strings.ToLower(strings.TrimSpace(r.Header.Get("X-User-Role")))
+	if !isOperatingStateOverrideRole(role) {
+		h.respondError(w, http.StatusForbidden, "role tidak berwenang me-review appeal")
+		return
+	}
+	if !requireStepUp(r) {
+		h.respondError(w, http.StatusUnauthorized, "step-up authentication (TOTP) wajib untuk review appeal")
+		return
+	}
+	var input domain.MerchantQualityAppealReviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	appeal, err := h.svc.ReviewQualityAppeal(r.Context(), actorID, role, r.PathValue("id"), input)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, appeal)
 }
 
 // GetCustomerReviews godoc

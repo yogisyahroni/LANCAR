@@ -603,12 +603,14 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 				  AND 'food_delivery' = ANY(p.service_codes)
 				  AND p.audience_rules->>'placement' = 'food_discovery'
 				  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = m.id::text)
+				  AND merchant_quality_is_eligible(m.id, 'ads')
 				ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC
 				LIMIT 1
 			) sponsored ON TRUE
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
 			WHERE m.is_open = TRUE AND m.operating_state IN ('open', 'busy') AND m.verification_status = 'approved'
 			  AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
+			  AND merchant_quality_is_eligible(m.id, 'search')
 			  `+halalClause+`
 			GROUP BY m.id, sponsored.id
 			ORDER BY distance_km ASC
@@ -633,12 +635,14 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 				  AND 'food_delivery' = ANY(p.service_codes)
 				  AND p.audience_rules->>'placement' = 'food_discovery'
 				  AND (p.audience_rules->>'merchant_id' IS NULL OR p.audience_rules->>'merchant_id' = m.id::text)
+				  AND merchant_quality_is_eligible(m.id, 'ads')
 				ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC
 				LIMIT 1
 			) sponsored ON TRUE
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
 			WHERE m.is_open = TRUE AND m.operating_state IN ('open', 'busy') AND m.verification_status = 'approved'
 			AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
+			  AND merchant_quality_is_eligible(m.id, 'search')
 			  `+halalClause+`
 			  AND (
 			  m.nama_toko ILIKE '%' || $3 || '%'

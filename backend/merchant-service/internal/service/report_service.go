@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"tembus/merchant-service/internal/domain"
+
+	"github.com/google/uuid"
 )
 
 // ─────────────────────────────────────────────
@@ -274,6 +276,100 @@ func (s *merchantServiceImpl) ReplyToCustomerReview(ctx context.Context, userID,
 		return nil, errors.New("merchant belum disetujui")
 	}
 	return s.reportRepo.UpsertReviewReply(ctx, m.ID, userID, reviewID, input.Body)
+}
+
+// GetQualityScore calculates and persists an immutable scorecard snapshot from
+// authoritative operational facts. It is intentionally separate from the
+// star-rating report so callers can see every component and its evidence.
+func (s *merchantServiceImpl) GetQualityScore(ctx context.Context, userID string) (*domain.MerchantQualityScore, error) {
+	if s.reportRepo == nil {
+		return nil, errors.New("report repository not wired")
+	}
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m == nil {
+		return nil, errors.New("merchant belum terdaftar")
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	qualityRepo, ok := s.reportRepo.(domain.MerchantQualityRepository)
+	if !ok {
+		return nil, errors.New("quality score repository not wired")
+	}
+	return qualityRepo.QualityScore(ctx, m.ID)
+}
+
+func (s *merchantServiceImpl) SubmitQualityAppeal(ctx context.Context, userID string, input domain.MerchantQualityAppealRequest) (*domain.MerchantQualityAppeal, error) {
+	if s.reportRepo == nil {
+		return nil, errors.New("report repository not wired")
+	}
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m == nil {
+		return nil, errors.New("merchant belum terdaftar")
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	if _, err := uuid.Parse(input.ScorecardID); err != nil {
+		return nil, errors.New("scorecard_id tidak valid")
+	}
+	input.MetricCode = strings.ToLower(strings.TrimSpace(input.MetricCode))
+	if !validQualityAppealMetric(input.MetricCode) {
+		return nil, errors.New("metric_code tidak valid")
+	}
+	input.Reason = strings.TrimSpace(input.Reason)
+	if len(input.Reason) < 10 || len(input.Reason) > 2000 {
+		return nil, errors.New("reason appeal harus 10-2000 karakter")
+	}
+	qualityRepo, ok := s.reportRepo.(domain.MerchantQualityRepository)
+	if !ok {
+		return nil, errors.New("quality score repository not wired")
+	}
+	return qualityRepo.SubmitQualityAppeal(ctx, m.ID, input.ScorecardID, input.MetricCode, input.Reason)
+}
+
+func (s *merchantServiceImpl) ReviewQualityAppeal(ctx context.Context, actorID, actorRole, appealID string, input domain.MerchantQualityAppealReviewRequest) (*domain.MerchantQualityAppeal, error) {
+	if s.reportRepo == nil {
+		return nil, errors.New("report repository not wired")
+	}
+	if _, err := uuid.Parse(actorID); err != nil {
+		return nil, errors.New("actor id tidak valid")
+	}
+	if _, err := uuid.Parse(appealID); err != nil {
+		return nil, errors.New("appeal id tidak valid")
+	}
+	actorRole = strings.ToLower(strings.TrimSpace(actorRole))
+	if !validOperatingStateOverrideRole(actorRole) {
+		return nil, errors.New("role tidak berwenang me-review appeal")
+	}
+	input.Status = strings.ToLower(strings.TrimSpace(input.Status))
+	if input.Status != "in_review" && input.Status != "approved" && input.Status != "rejected" {
+		return nil, errors.New("status review harus in_review, approved, atau rejected")
+	}
+	input.ReviewNote = strings.TrimSpace(input.ReviewNote)
+	if input.Status != "in_review" && (len(input.ReviewNote) < 10 || len(input.ReviewNote) > 2000) {
+		return nil, errors.New("review_note wajib 10-2000 karakter untuk keputusan appeal")
+	}
+	qualityRepo, ok := s.reportRepo.(domain.MerchantQualityRepository)
+	if !ok {
+		return nil, errors.New("quality score repository not wired")
+	}
+	return qualityRepo.ReviewQualityAppeal(ctx, actorID, actorRole, appealID, input.Status, input.ReviewNote)
+}
+
+func validQualityAppealMetric(metric string) bool {
+	switch metric {
+	case "acceptance_timeout", "prep_accuracy", "item_availability", "customer_review", "refund_cancel", "safety_policy", "overall":
+		return true
+	default:
+		return false
+	}
 }
 
 // ExportSalesReportCSV — baris transaksi periode dalam format CSV.

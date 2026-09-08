@@ -137,6 +137,12 @@ type MerchantService interface {
 	GetCustomerReviews(ctx context.Context, userID string, page, pageSize int) (*MerchantReviewsResponse, error)
 	// ReplyToCustomerReview membuat atau mengubah tanggapan merchant pada review miliknya.
 	ReplyToCustomerReview(ctx context.Context, userID, reviewID string, input CreateMerchantReviewReplyInput) (*MerchantReviewReply, error)
+	// GetQualityScore returns a versioned, windowed operational scorecard.
+	GetQualityScore(ctx context.Context, userID string) (*MerchantQualityScore, error)
+	// SubmitQualityAppeal lets the merchant challenge a material score decision.
+	SubmitQualityAppeal(ctx context.Context, userID string, input MerchantQualityAppealRequest) (*MerchantQualityAppeal, error)
+	// ReviewQualityAppeal is restricted to the existing admin/support roles.
+	ReviewQualityAppeal(ctx context.Context, actorID, actorRole, appealID string, input MerchantQualityAppealReviewRequest) (*MerchantQualityAppeal, error)
 
 	// Operating hours ZIP: jadwal per hari dan penutupan tanggal khusus.
 	GetOperatingHours(ctx context.Context, userID string) (*MerchantOperatingHoursResponse, error)
