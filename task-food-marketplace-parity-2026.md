@@ -5500,10 +5500,10 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## COURIER-2026-011 — Multi-market/localization/working eligibility [P1]
 
 **Checklist**
-- [ ] Courier cannot simply switch country/market when regulatory verification differs.
-- [ ] Market-specific vehicle/document/tax/payout requirements configurable.
-- [ ] Currency/timezone/localized earnings statement correct.
-- [ ] Cross-border working eligibility explicitly modeled if ever supported.
+- [x] Courier cannot simply switch country/market when regulatory verification differs.
+- [x] Market-specific vehicle/document/tax/payout requirements configurable.
+- [x] Currency/timezone/localized earnings statement correct.
+- [x] Cross-border working eligibility explicitly modeled if ever supported.
 
 ---
 
