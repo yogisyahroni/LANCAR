@@ -109,7 +109,8 @@ func main() {
 	svc := service.NewMerchantServiceWithGovernance(merchantRepo, menuRepo, orderRepo, reportRepo, accessRepo, menuRepo)
 	staffSvc := service.NewStaffService(merchantRepo, staffRepo, infrastructure.NewStaffNotifier(), accessRepo)
 	accessSvc := service.NewMerchantAccessService(merchantRepo, staffRepo, accessRepo)
-	h := handler.NewMerchantHandler(svc, uploadSvc)
+	integrationRepo := repository.NewPostgresMerchantIntegrationRepository(db)
+	h := handler.NewMerchantHandler(svc, uploadSvc, integrationRepo)
 	staffH := handler.NewStaffHandler(h, staffSvc)
 	accessH := handler.NewMerchantAccessHandler(h, accessSvc)
 
@@ -262,6 +263,7 @@ func main() {
 		}
 		h.EditOrderItems(w, r)
 	}))
+	mux.HandleFunc("/api/v1/merchant/integrations/pos", middleware.BaseChain(h.GetPOSIntegrationStatus))
 
 	// Report penjualan (FB-086)
 	mux.HandleFunc("/api/v1/merchant/reports", middleware.BaseChain(h.GetSalesReport))

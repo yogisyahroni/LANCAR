@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -12,9 +13,11 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 	"tembus/integration-gateway/internal/domain"
 	"tembus/integration-gateway/internal/handler"
 	"tembus/integration-gateway/internal/provider"
+	posrepository "tembus/integration-gateway/internal/repository"
 	trackingworker "tembus/integration-gateway/internal/worker"
 )
 
@@ -65,6 +68,53 @@ func main() {
 	}
 	log.Println("[integration-gateway] Logistics 3PL providers initialized successfully")
 
+	posProviderCode := os.Getenv("POS_PROVIDER_CODE")
+	if posProviderCode == "" {
+		posProviderCode = "generic-pos"
+	}
+	posProviderName := os.Getenv("POS_PROVIDER_NAME")
+	if posProviderName == "" {
+		posProviderName = "Generic POS/KDS"
+	}
+	posAdapter := provider.NewHTTPPOSAdapter(posProviderCode, posProviderName,
+		os.Getenv("POS_PROVIDER_URL"), os.Getenv("POS_PROVIDER_API_KEY"))
+	posRegistry := provider.NewPOSProviderRegistry()
+	posRegistry.Register(domain.POSProviderRegistration{
+		Descriptor: domain.POSProviderDescriptor{
+			Code: posProviderCode, Name: posProviderName,
+			Capabilities: []domain.POSCapability{
+				domain.POSCapabilityOrderReceipt,
+				domain.POSCapabilityCatalogSync,
+				domain.POSCapabilityInventorySync,
+				domain.POSCapabilityHealth,
+			},
+		},
+		Order: posAdapter, Catalog: posAdapter, Inventory: posAdapter, Health: posAdapter,
+	})
+	if err := posRegistry.Validate(); err != nil {
+		log.Fatalf("[integration-gateway] invalid POS provider registry: %v", err)
+	}
+	var posRepo domain.POSRepository
+	var posDB *sql.DB
+	if databaseURL := os.Getenv("DATABASE_URL"); databaseURL != "" {
+		posDB, err = sql.Open("postgres", databaseURL)
+		if err != nil {
+			log.Printf("[integration-gateway] POS state database unavailable: %v", err)
+		} else if err = posDB.Ping(); err != nil {
+			log.Printf("[integration-gateway] POS state database ping failed: %v", err)
+			_ = posDB.Close()
+			posDB = nil
+		} else {
+			posRepo = posrepository.NewPostgresPOSRepository(posDB)
+			log.Println("[integration-gateway] POS delivery state initialized")
+		}
+	} else {
+		log.Println("[integration-gateway] DATABASE_URL is not configured; POS delivery endpoints will fail closed")
+	}
+	if posDB != nil {
+		defer posDB.Close()
+	}
+
 	// ─────────────────────────────────────────────
 	// Handlers & Router Setup
 	// ─────────────────────────────────────────────
@@ -89,6 +139,7 @@ func main() {
 	paymentHandler := handler.NewPaymentHandler()
 	mapsHandler := handler.NewMapsHandler(mapsProv)
 	logisticsHandler := handler.NewLogisticsHandler(logisticsRegistry)
+	posHandler := handler.NewPOSHandler(posRegistry, posRepo)
 	trackingWebhookHandler := handler.NewTrackingWebhookHandler()
 
 	// Routes
@@ -105,6 +156,15 @@ func main() {
 	mux.Handle("/api/internal/logistics/create-order", authMiddleware(http.HandlerFunc(logisticsHandler.CreateOrder)))
 	mux.Handle("/api/internal/logistics/tariff", authMiddleware(http.HandlerFunc(logisticsHandler.CheckTariff)))
 	mux.Handle("/api/internal/logistics/providers", authMiddleware(http.HandlerFunc(logisticsHandler.ListProviders)))
+
+	// POS/KDS integration boundary. The gateway owns delivery/reconciliation
+	// state; order-service remains the only authority that accepts a customer
+	// order into preparing.
+	mux.Handle("/api/internal/pos/orders", authMiddleware(http.HandlerFunc(posHandler.ReceiveOrder)))
+	mux.Handle("/api/internal/pos/catalog", authMiddleware(http.HandlerFunc(posHandler.SyncCatalog)))
+	mux.Handle("/api/internal/pos/inventory", authMiddleware(http.HandlerFunc(posHandler.SyncInventory)))
+	mux.Handle("/api/internal/pos/health", authMiddleware(http.HandlerFunc(posHandler.Health)))
+	mux.Handle("/api/internal/pos/reconciliation", authMiddleware(http.HandlerFunc(posHandler.Reconciliation)))
 
 	// Webhook dari 3PL eksternal (verifikasi signature di dalam handler)
 	mux.HandleFunc("/api/v1/logistics/webhook", trackingWebhookHandler.HandleProviderWebhook)

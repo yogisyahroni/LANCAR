@@ -20,12 +20,17 @@ import (
 // Identity user diambil dari header X-User-ID (di-set API Gateway setelah
 // verifikasi JWT) — pola sama persis dengan payment-service.
 type MerchantHandler struct {
-	svc       domain.MerchantService
-	uploadSvc *service.MenuPhotoStorage
+	svc             domain.MerchantService
+	uploadSvc       *service.MenuPhotoStorage
+	integrationRepo domain.MerchantIntegrationRepository
 }
 
-func NewMerchantHandler(svc domain.MerchantService, uploadSvc *service.MenuPhotoStorage) *MerchantHandler {
-	return &MerchantHandler{svc: svc, uploadSvc: uploadSvc}
+func NewMerchantHandler(svc domain.MerchantService, uploadSvc *service.MenuPhotoStorage, integrationRepos ...domain.MerchantIntegrationRepository) *MerchantHandler {
+	var integrationRepo domain.MerchantIntegrationRepository
+	if len(integrationRepos) > 0 {
+		integrationRepo = integrationRepos[0]
+	}
+	return &MerchantHandler{svc: svc, uploadSvc: uploadSvc, integrationRepo: integrationRepo}
 }
 
 // parseUserID fail-closed: header wajib ada & UUID valid.
@@ -82,6 +87,9 @@ func merchantPermissionForRequest(r *http.Request) int {
 		if r.Method == http.MethodGet {
 			return domain.PermViewReports
 		}
+		return domain.PermViewStore
+	}
+	if strings.Contains(path, "/integrations") {
 		return domain.PermViewStore
 	}
 	return 0
@@ -1002,6 +1010,30 @@ func (h *MerchantHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]interface{}{
 		"orders": orders, "total": total, "page": page, "page_size": pageSize,
 	})
+}
+
+// GetPOSIntegrationStatus returns connector health and unresolved delivery
+// reconciliation for the authenticated merchant. It is deliberately read
+// only: connector status cannot authorize a customer order acceptance.
+func (h *MerchantHandler) GetPOSIntegrationStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	if h.integrationRepo == nil {
+		h.respondError(w, http.StatusServiceUnavailable, "status integrasi POS belum tersedia")
+		return
+	}
+	status, err := h.integrationRepo.GetPOSStatusByOwnerUser(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, status)
 }
 
 // ─────────────────────────────────────────────
