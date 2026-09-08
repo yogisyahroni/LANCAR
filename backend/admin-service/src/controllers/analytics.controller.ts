@@ -3,6 +3,7 @@ import { securityLog } from '../security/logRedaction';
 import { readDb } from '../db';
 import { db } from '../db';
 import { coarsenLocationRow } from '../services/geoPrivacy';
+import { getServiceKpis, parseServiceKpiWindow, SERVICE_KPI_DEFINITIONS } from '../services/serviceKpis';
 
 const parseCount = (value: unknown): number => {
   const parsed = Number(value);
@@ -186,6 +187,28 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
     ]);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const getAnalyticsServiceKPIs = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const window = parseServiceKpiWindow(req.query.range);
+    const services = await getServiceKpis(window);
+    res.json({
+      success: true,
+      data: {
+        window: {
+          range: window.range,
+          from: window.from.toISOString(),
+          to: window.to.toISOString(),
+        },
+        services,
+        definitions: SERVICE_KPI_DEFINITIONS,
+      },
+    });
+  } catch (error) {
+    securityLog.error('Service KPI analytics error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Service KPI analytics unavailable' });
   }
 };
 

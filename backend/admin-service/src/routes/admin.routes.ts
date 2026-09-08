@@ -270,6 +270,7 @@ adminRoutes.put('/admin/pricing', requireRole(['super_admin']), requireTotp, (re
 adminRoutes.get('/admin/sla-configs', (req, res) => controllers.getSLAConfigs(req, res));
 adminRoutes.patch('/admin/sla-configs', requireRole(['super_admin', 'ops_admin']), requireTotp, (req, res) => controllers.updateSLAConfig(req, res));
 adminRoutes.get('/admin/analytics/kpis', (req, res) => controllers.getAnalyticsKPIs(req, res));
+adminRoutes.get('/admin/analytics/service-kpis', (req, res) => controllers.getAnalyticsServiceKPIs(req, res));
 adminRoutes.get('/admin/analytics/sla', (req, res) => controllers.getAnalyticsSLA(req, res));
 adminRoutes.get('/admin/analytics/surge', (req, res) => controllers.getAnalyticsSurge(req, res));
 adminRoutes.get('/admin/analytics/scan-accuracy', (req, res) => controllers.getAnalyticsScanAccuracy(req, res));

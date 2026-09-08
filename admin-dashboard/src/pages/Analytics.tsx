@@ -18,7 +18,8 @@ import {
   Mail,
   X,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Activity
 } from 'lucide-react'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
 import { 
@@ -296,6 +297,28 @@ function ChartSkeleton({ bars = 8 }: { bars?: number }) {
 
 const hasRows = (data: unknown) => Array.isArray(data) && data.length > 0
 
+const serviceKpiLabels: Record<string, string> = {
+  package_on_demand: 'Paket On-Demand',
+  food: 'Food',
+  tambal_ban: 'Tambal Ban',
+  aggregator: 'Aggregator',
+  towing: 'Towing',
+}
+
+const serviceKpiMetricLabel = (key: string) => key
+  .replace(/_pct$/, '')
+  .replace(/_minutes?$/, ' (menit)')
+  .replaceAll('_', ' ')
+  .replace(/\b\w/g, (character) => character.toUpperCase())
+
+const formatServiceKpiMetric = (key: string, value: unknown) => {
+  if (value === null || value === undefined) return 'No data'
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 'No data'
+  const formatted = Number.isInteger(numeric) ? numeric.toLocaleString('id-ID') : numeric.toLocaleString('id-ID', { maximumFractionDigits: 2 })
+  return key.endsWith('_pct') ? `${formatted}%` : formatted
+}
+
 const analyticsQueryOptions = {
   retry: 1,
   staleTime: 30_000,
@@ -312,6 +335,12 @@ export default function Analytics() {
   const { data: kpis, isLoading: kpisLoading, isError: kpisError, error: kpisQueryError, refetch: refetchKpis } = useQuery({
     queryKey: ['analytics', 'kpis', timeRange],
     queryFn: () => api.get(`/admin/analytics/kpis?range=${timeRange}`).then(res => res.data),
+    ...analyticsQueryOptions,
+  })
+
+  const { data: serviceKpiPayload, isLoading: serviceKpisLoading, isError: serviceKpisError, error: serviceKpisQueryError, refetch: refetchServiceKpis } = useQuery({
+    queryKey: ['analytics', 'service-kpis', timeRange],
+    queryFn: () => api.get(`/admin/analytics/service-kpis?range=${timeRange}`).then(res => res.data?.data),
     ...analyticsQueryOptions,
   })
 
@@ -468,6 +497,67 @@ export default function Analytics() {
             </div>
           );
         })}
+      </div>
+
+      <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
+              <Activity className="text-primary-light" size={24} />
+              Service KPI Health
+            </h3>
+            <p className="text-xs text-zinc-500 mt-2">Metrik dihitung dari fakta order, leg, proof, merchant, provider, dan finance pada window yang dipilih.</p>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{serviceKpiPayload?.window?.range || timeRange} • no-data = belum ada fakta</span>
+        </div>
+        {serviceKpisLoading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            {[1, 2, 3, 4, 5].map((item) => <div key={item} className="h-48 rounded-3xl bg-white/5 animate-pulse" />)}
+          </div>
+        ) : serviceKpisError ? (
+          <DataState
+            title="Service KPI gagal dimuat"
+            message={getQueryErrorMessage(serviceKpisQueryError, 'Metrik per layanan belum bisa diambil dari API analytics.')}
+            onRetry={() => refetchServiceKpis()}
+            tone="error"
+          />
+        ) : !hasRows(serviceKpiPayload?.services) ? (
+          <DataState
+            title="Belum ada service KPI"
+            message="API analytics belum mengirim metrik per layanan untuk rentang waktu ini."
+            onRetry={() => refetchServiceKpis()}
+          />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            {serviceKpiPayload.services.map((service: any) => (
+              <div key={service.service_category} className="rounded-3xl border border-white/5 bg-white/[0.02] p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-zinc-100">{serviceKpiLabels[service.service_category] || service.service_category}</p>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-zinc-600">{service.sample_size.toLocaleString('id-ID')} order</p>
+                  </div>
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary-light">Server</span>
+                </div>
+                <div className="space-y-2">
+                  {Object.entries(service.metrics || {}).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between gap-2 border-t border-white/5 pt-2 first:border-t-0 first:pt-0">
+                      <span className="text-[10px] font-bold capitalize text-zinc-500">{serviceKpiMetricLabel(key)}</span>
+                      <span className={cn('text-xs font-black text-right', value === null || value === undefined ? 'text-zinc-700' : 'text-zinc-200')}>
+                        {formatServiceKpiMetric(key, value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {service.provider_mix?.length > 0 && (
+                  <div className="border-t border-white/5 pt-3">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Provider mix</p>
+                    <p className="mt-1 text-[10px] text-zinc-400">{service.provider_mix.map((provider: any) => `${provider.provider} ${provider.share_pct ?? 'No data'}%`).join(' • ')}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

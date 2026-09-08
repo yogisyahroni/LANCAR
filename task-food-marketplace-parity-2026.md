@@ -1408,11 +1408,11 @@ _Implementation is complete and locally verified in commit `6ea78dbf`; authentic
 - [x] Proof/handoff failures. (2026-09-07 — proof/handoff stage classification and failure outcome; evidence: `docs/task-evidence/OBS-2026-001.md`)
 
 ## OBS-2026-002 — Service KPIs [P1]
-- [ ] Paket: match/pickup/delivery SLA, failed delivery, recovery path, POD issue.
-- [ ] Food: merchant response/prep accuracy/wait/handoff/refund.
-- [ ] Tambal: technician ETA/onsite/adjustment/claim.
-- [ ] Aggregator: provider rate success, provider mix, AWB failures, webhook/poll freshness, carrier SLA, return/lost/damaged, COD/claim reconciliation.
-- [ ] Towing: operator match/arrival/loading/transit/adjustment/damage claim.
+- [x] Paket: match/pickup/delivery SLA, failed delivery, recovery path, POD issue. (2026-09-08 — server-derived `/admin/analytics/service-kpis` metrics and coverage; evidence: `docs/task-evidence/OBS-2026-002.md`)
+- [x] Food: merchant response/prep accuracy/wait/handoff/refund. (2026-09-08 — server-derived merchant/order/refund timing and rate metrics; evidence: `docs/task-evidence/OBS-2026-002.md`)
+- [x] Tambal: technician ETA/onsite/adjustment/claim. (2026-09-08 — server-derived leg/report/adjustment/claim metrics; evidence: `docs/task-evidence/OBS-2026-002.md`)
+- [x] Aggregator: provider rate success, provider mix, AWB failures, webhook/poll freshness, carrier SLA, return/lost/damaged, COD/claim reconciliation. (2026-09-08 — server-derived provider/AWB/carrier/exception/reconciliation metrics; evidence: `docs/task-evidence/OBS-2026-002.md`)
+- [x] Towing: operator match/arrival/loading/transit/adjustment/damage claim. (2026-09-08 — server-derived leg/report/adjustment/damage claim metrics; evidence: `docs/task-evidence/OBS-2026-002.md`)
 
 ---
 
