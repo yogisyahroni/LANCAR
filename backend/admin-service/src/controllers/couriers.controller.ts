@@ -121,7 +121,7 @@ const upsertCourierVehicleAndCapabilities = async (
        courier_profile_id, plate_number, vehicle_type, vehicle_category, brand, model,
        production_year, engine_cc, engine_type, max_weight_kg, verification_status,
        approved_by, approved_at, updated_at
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CASE WHEN $11 = 'approved' THEN NOW() ELSE NULL END, NOW())
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::text, $12, CASE WHEN $11::text = 'approved' THEN NOW() ELSE NULL END, NOW())
      ON CONFLICT (courier_profile_id, plate_number) DO UPDATE SET
        vehicle_type = EXCLUDED.vehicle_type,
        vehicle_category = EXCLUDED.vehicle_category,
@@ -167,10 +167,10 @@ const upsertCourierVehicleAndCapabilities = async (
        $1,
        $2,
        dsp.code,
-       $3,
+       $3::text,
        CASE WHEN $4::boolean THEN 'enabled' ELSE 'pending_review' END,
        CASE
-         WHEN $3 = 'on_demand' THEN 'Eligible for on-demand product based on approved vehicle profile.'
+         WHEN $3::text = 'on_demand' THEN 'Eligible for on-demand product based on approved vehicle profile.'
          ELSE 'Eligible for non on-demand operational product based on approved vehicle profile.'
        END,
        COALESCE(dsp.max_weight_kg, CASE WHEN $5 = 'car' THEN 200 ELSE 20 END),
@@ -714,6 +714,7 @@ const getCourierApplications = async (req: Request, res: Response, requestedChan
                 'expires_at', cd.expires_at,
                 'is_verified', cd.is_verified,
                 'rejection_note', cd.rejection_note,
+                'service_scope', cd.service_scope,
                 'storage_access_class', cd.storage_access_class,
                 'retention_until', cd.retention_until,
                 'has_file', (cd.file_url IS NOT NULL AND cd.file_url <> ''),
@@ -1018,6 +1019,17 @@ export const updateCourierDocumentVerification = async (req: Request, res: Respo
   const documentId = String(req.params.documentId);
   const requestedStatus = documentStatusForUpdate(req.body?.document_status || req.body?.status);
   const requestedSource = String(req.body?.verification_source || '').trim().toLowerCase();
+  const hasServiceScope = Object.prototype.hasOwnProperty.call(req.body || {}, 'service_scope')
+    || Object.prototype.hasOwnProperty.call(req.body || {}, 'serviceScope');
+  const requestedServiceScope = hasServiceScope
+    ? (req.body?.service_scope ?? req.body?.serviceScope)
+    : undefined;
+  if (hasServiceScope && (!Array.isArray(requestedServiceScope)
+    || requestedServiceScope.length === 0
+    || requestedServiceScope.some((item: unknown) => typeof item !== 'string' || !item.trim()))) {
+    res.status(400).json({ success: false, error: 'service_scope must be a non-empty array of service codes' });
+    return;
+  }
   const allowedStatuses = COURIER_DOCUMENT_STATUSES.filter((status) =>
     status !== 'expired' && status !== 'retention_expired'
   );
@@ -1068,7 +1080,7 @@ export const updateCourierDocumentVerification = async (req: Request, res: Respo
       [actorId, `Courier document ${requestedStatus}`]
     );
     const existing = await client.query(
-      `SELECT id, document_status, verification_source, expires_at
+      `SELECT id, document_status, verification_source, expires_at, service_scope
        FROM courier_documents
        WHERE id = $1 AND courier_id = $2 AND deleted_at IS NULL
        FOR UPDATE`,
@@ -1090,23 +1102,24 @@ export const updateCourierDocumentVerification = async (req: Request, res: Respo
 
     const updated = await client.query(
       `UPDATE courier_documents
-       SET document_status = $1,
-           verification_source = COALESCE(NULLIF($2, ''), verification_source),
-           document_number = COALESCE(NULLIF($3, ''), document_number),
+       SET document_status = $1::text,
+           verification_source = COALESCE(NULLIF($2::text, ''), verification_source),
+           document_number = COALESCE(NULLIF($3::text, ''), document_number),
            issued_at = CASE WHEN $4::text = '' THEN issued_at ELSE $4::date END,
            expires_at = CASE WHEN $5::text = '__KEEP__' THEN expires_at WHEN $5::text = '' THEN NULL ELSE $5::date END,
-           is_verified = ($1 = 'verified'),
-           verified_at = CASE WHEN $1 = 'verified' THEN NOW() ELSE NULL END,
-           verified_by = CASE WHEN $1 = 'verified' THEN $6 ELSE NULL END,
-           rejection_note = CASE WHEN $1 = 'rejected' THEN NULLIF($7, '') ELSE NULL END,
-           revoked_at = CASE WHEN $1 = 'revoked' THEN NOW() ELSE NULL END,
-           revocation_reason = CASE WHEN $1 = 'revoked' THEN NULLIF($8, '') ELSE NULL END,
+           is_verified = ($1::text = 'verified'),
+           verified_at = CASE WHEN $1::text = 'verified' THEN NOW() ELSE NULL END,
+           verified_by = CASE WHEN $1::text = 'verified' THEN $6::uuid ELSE NULL END,
+           rejection_note = CASE WHEN $1::text = 'rejected' THEN NULLIF($7::text, '') ELSE NULL END,
+           revoked_at = CASE WHEN $1::text = 'revoked' THEN NOW() ELSE NULL END,
+           revocation_reason = CASE WHEN $1::text = 'revoked' THEN NULLIF($8::text, '') ELSE NULL END,
+           service_scope = CASE WHEN $9::boolean THEN $10::text[] ELSE service_scope END,
            updated_at = NOW()
-       WHERE id = $9 AND courier_id = $10 AND deleted_at IS NULL
+       WHERE id = $11 AND courier_id = $12 AND deleted_at IS NULL
        RETURNING id, courier_id, doc_type, document_status, verification_source,
                  document_number, issued_at, expires_at, is_verified, verified_at,
                  verified_by, rejection_note, revoked_at, revocation_reason,
-                 retention_until, updated_at`,
+                 retention_until, service_scope, updated_at`,
       [
         requestedStatus,
         requestedSource || current.verification_source || 'manual_review',
@@ -1116,6 +1129,8 @@ export const updateCourierDocumentVerification = async (req: Request, res: Respo
         actorId,
         String(req.body?.rejection_note || '').trim(),
         String(req.body?.revocation_reason || '').trim(),
+        hasServiceScope,
+        hasServiceScope ? requestedServiceScope.map((item: string) => item.trim().toLowerCase()) : null,
         documentId,
         courierProfileId,
       ]
@@ -1135,6 +1150,13 @@ export const updateCourierDocumentVerification = async (req: Request, res: Respo
     res.json({ success: true, data: updated.rows[0] });
   } catch (error: any) {
     await client.query('ROLLBACK');
+    securityLog.error('Update courier document verification database error:', {
+      message: error?.message,
+      code: error?.code,
+      detail: error?.detail,
+      constraint: error?.constraint,
+      where: error?.where,
+    });
     const isConstraintError = error?.code === '23514';
     res.status(isConstraintError ? 409 : 500).json({
       success: false,
@@ -1388,19 +1410,19 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
 
     await client.query(
       `UPDATE courier_profiles
-       SET onboarding_status = $1,
-           verification_status = $2,
-           is_verified = $3,
-           status = $4,
+       SET onboarding_status = $1::text,
+           verification_status = $2::text,
+           is_verified = $3::boolean,
+           status = $4::text,
            rejection_reason = CASE
-             WHEN $1 IN ('REJECTED', 'NEEDS_UPDATE') THEN COALESCE(NULLIF($5, ''), rejection_reason, 'Perlu perbaikan onboarding')
-             WHEN $1 = 'ACTIVE' THEN NULL
+             WHEN $1::text IN ('REJECTED', 'NEEDS_UPDATE') THEN COALESCE(NULLIF($5::text, ''), rejection_reason, 'Perlu perbaikan onboarding')
+             WHEN $1::text = 'ACTIVE' THEN NULL
              ELSE rejection_reason
            END,
-           reviewed_at = CASE WHEN $1 IN ('ACTIVE', 'REJECTED', 'NEEDS_UPDATE', 'SUSPENDED', 'DEACTIVATED') THEN NOW() ELSE reviewed_at END,
-           reviewed_by = CASE WHEN $1 IN ('ACTIVE', 'REJECTED', 'NEEDS_UPDATE', 'SUSPENDED', 'DEACTIVATED') THEN $6 ELSE reviewed_by END,
+           reviewed_at = CASE WHEN $1::text IN ('ACTIVE', 'REJECTED', 'NEEDS_UPDATE', 'SUSPENDED', 'DEACTIVATED') THEN NOW() ELSE reviewed_at END,
+           reviewed_by = CASE WHEN $1::text IN ('ACTIVE', 'REJECTED', 'NEEDS_UPDATE', 'SUSPENDED', 'DEACTIVATED') THEN $6::uuid ELSE reviewed_by END,
            updated_at = NOW()
-       WHERE id = $7`,
+       WHERE id = $7::uuid`,
       [
         targetState,
         verificationStatusForCourierState(targetState),

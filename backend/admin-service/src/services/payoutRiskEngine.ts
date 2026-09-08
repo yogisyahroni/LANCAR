@@ -85,7 +85,7 @@ export const evaluateCourierPayoutRisk = async (
      JOIN users u ON u.id = pr.courier_id
      LEFT JOIN courier_profiles cp ON cp.user_id = pr.courier_id
      WHERE pr.id = $1
-     FOR UPDATE`,
+     FOR UPDATE OF pr, cpa, u`,
     [payoutRequestId],
   );
 
@@ -375,12 +375,12 @@ export const evaluateCourierPayoutRisk = async (
 
   const updated = await client.query(
     `UPDATE courier_payout_requests
-     SET status = $1,
-         failure_reason = CASE WHEN $1 = 'blocked' THEN $2 ELSE failure_reason END,
+     SET status = $1::text,
+         failure_reason = CASE WHEN $1::text = 'blocked' THEN $2::text ELSE failure_reason END,
          risk_snapshot = risk_snapshot || $3::jsonb,
-         reviewed_at = CASE WHEN $1 IN ('approved_auto', 'manual_review', 'risk_hold', 'blocked') THEN NOW() ELSE reviewed_at END,
+         reviewed_at = CASE WHEN $1::text IN ('approved_auto', 'manual_review', 'risk_hold', 'blocked') THEN NOW() ELSE reviewed_at END,
          updated_at = NOW()
-     WHERE id = $4
+     WHERE id = $4::uuid
      RETURNING *`,
     [
       finalStatus,

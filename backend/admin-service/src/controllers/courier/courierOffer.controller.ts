@@ -398,10 +398,10 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
        WHERE cv.id = $1
          AND cp.user_id = $2
          AND cp.onboarding_status = 'ACTIVE'
-         AND courier_profile_documents_eligible(cp.id)
+         AND courier_profile_documents_eligible_for_service(cp.id, $3)
          AND cv.verification_status = 'approved'
        LIMIT 1`,
-      [selectedVehicleId, req.user.id]
+      [selectedVehicleId, req.user.id, dispatch.service_code]
     );
     if (vehicleBinding.rows.length === 0) {
       await client.query('ROLLBACK');

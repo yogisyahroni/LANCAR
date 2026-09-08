@@ -5510,12 +5510,12 @@ with terminal/exception states such as `FAILED`, `CANCELLED`, `EXPIRED`, `PARTIA
 ## COURIER-2026-012 — Courier lifecycle E2E release gate [P0]
 
 **Mandatory scenarios**
-- [ ] Apply → verify → capability activate → go online → receive eligible offer → complete → earn → withdraw.
-- [ ] Expired document disables only applicable work according to policy.
-- [ ] Wrong vehicle/capability offer rejected server-side.
-- [ ] Offline/restart recovers active job.
-- [ ] Suspension/appeal/reinstatement audited.
-- [ ] Safety incident does not disappear when job state changes.
+- [x] Apply → verify → capability activate → go online → receive eligible offer → complete → earn → withdraw.
+- [x] Expired document disables only applicable work according to policy.
+- [x] Wrong vehicle/capability offer rejected server-side.
+- [x] Offline/restart recovers active job.
+- [x] Suspension/appeal/reinstatement audited.
+- [x] Safety incident does not disappear when job state changes.
 
 ---
 

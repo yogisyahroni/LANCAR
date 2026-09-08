@@ -228,10 +228,10 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
          courier_id, presence_state, presence_reason, heartbeat_at,
          latitude, longitude, last_location_update, last_transition_at, updated_at
        )
-       VALUES ($1, $2, $3, CASE WHEN $2 = 'online' THEN NOW() ELSE NULL END,
-               CASE WHEN $2 = 'online' THEN $4 ELSE NULL END,
-               CASE WHEN $2 = 'online' THEN $5 ELSE NULL END,
-               CASE WHEN $2 = 'online' THEN NOW() ELSE NULL END,
+       VALUES ($1, $2::text, $3, CASE WHEN $2::text = 'online' THEN NOW() ELSE NULL END,
+               CASE WHEN $2::text = 'online' THEN $4::double precision ELSE NULL END,
+               CASE WHEN $2::text = 'online' THEN $5::double precision ELSE NULL END,
+               CASE WHEN $2::text = 'online' THEN NOW() ELSE NULL END,
                NOW(), NOW())
        ON CONFLICT (courier_id) DO UPDATE SET
          presence_state = EXCLUDED.presence_state,
