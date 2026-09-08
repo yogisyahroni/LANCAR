@@ -1812,12 +1812,12 @@ A task is complete only when applicable boxes below are true:
 - `database/migrations/<timestamp>_add_risk_decisions.sql`
 
 **Checklist**
-- [ ] Risk signals can cover account/device/payment/promo/GPS/handoff/refund/claim/provider/collusion patterns.
-- [ ] Standard decisions: `ALLOW`, `CHALLENGE`, `REVIEW`, `HOLD`, `BLOCK` with reason codes.
-- [ ] Transactional service asks risk engine at defined checkpoints rather than scattering fraud if-statements.
-- [ ] Risk timeout has explicit fail-open/fail-closed policy per operation and market.
-- [ ] Manual review records reviewer, evidence, decision and reason.
-- [ ] Sensitive attributes are not used for targeting/decision unless legally justified and explicitly governed.
+- [x] Risk signals can cover account/device/payment/promo/GPS/handoff/refund/claim/provider/collusion patterns.
+- [x] Standard decisions: `ALLOW`, `CHALLENGE`, `REVIEW`, `HOLD`, `BLOCK` with reason codes.
+- [x] Transactional service asks risk engine at defined checkpoints rather than scattering fraud if-statements.
+- [x] Risk timeout has explicit fail-open/fail-closed policy per operation and market.
+- [x] Manual review records reviewer, evidence, decision and reason.
+- [x] Sensitive attributes are not used for targeting/decision unless legally justified and explicitly governed.
 
 ---
 
