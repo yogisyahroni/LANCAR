@@ -93,8 +93,11 @@ func (s *orderServiceImpl) QuoteFood(ctx context.Context, userID string, req dom
 		if item.MerchantID != req.MerchantID {
 			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item bukan milik merchant ini: %s", requested.MenuID))
 		}
-		if !item.IsAvailable {
+		if !item.IsAvailable || (item.Status != "" && item.Status != "active" && item.Status != "scheduled") {
 			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item tidak tersedia: %s", item.Name))
+		}
+		if item.ScheduleAvailable != nil && !*item.ScheduleAvailable {
+			return nil, domain.NewUserFacingError(fmt.Sprintf("menu item di luar jadwal: %s", item.Name))
 		}
 		if err := validateFoodInventory(item, requested.Quantity, time.Now()); err != nil {
 			return nil, domain.NewUserFacingError(err.Error())

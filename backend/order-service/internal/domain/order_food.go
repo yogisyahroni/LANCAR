@@ -176,19 +176,22 @@ type FoodMerchantInfo struct {
 }
 
 type FoodMenuItemInfo struct {
-	ID              string     `json:"id"`
-	MerchantID      string     `json:"merchant_id"`
-	Name            string     `json:"name"`
-	Price           int64      `json:"price"`
-	IsAvailable     bool       `json:"is_available"`
-	PrepTimeMinutes int        `json:"prep_time_minutes"`
-	StockQuantity   *int       `json:"stock_quantity,omitempty"`
-	DailySalesLimit *int       `json:"daily_sales_limit,omitempty"`
-	DailySalesCount int        `json:"daily_sales_count"`
-	SalesResetAt    *time.Time `json:"sales_limit_reset_at,omitempty"`
+	ID                string     `json:"id"`
+	MerchantID        string     `json:"merchant_id"`
+	Name              string     `json:"name"`
+	Price             int64      `json:"price"`
+	IsAvailable       bool       `json:"is_available"`
+	Status            string     `json:"status,omitempty"`
+	ScheduleAvailable *bool      `json:"schedule_available,omitempty"`
+	PrepTimeMinutes   int        `json:"prep_time_minutes"`
+	StockQuantity     *int       `json:"stock_quantity,omitempty"`
+	DailySalesLimit   *int       `json:"daily_sales_limit,omitempty"`
+	DailySalesCount   int        `json:"daily_sales_count"`
+	SalesResetAt      *time.Time `json:"sales_limit_reset_at,omitempty"`
 	// FOOD-BIKE-055/056: field UI tambahan
-	Kategori *string `json:"kategori,omitempty"`
-	Foto     *string `json:"foto,omitempty"`
+	Kategori *string  `json:"kategori,omitempty"`
+	Foto     *string  `json:"foto,omitempty"`
+	Images   []string `json:"images,omitempty"`
 	// FB-108: grup varian menu (Ukuran, Level Pedas, Tambahan, ...).
 	// Kosong [] = item single-variant (perilaku lama).
 	Variants []MenuItemVariant `json:"variants,omitempty"`
@@ -198,6 +201,8 @@ type MenuItemVariant struct {
 	ID         string                  `json:"id"`
 	MenuID     string                  `json:"menu_item_id"`
 	Nama       string                  `json:"nama"`
+	Kind       string                  `json:"kind,omitempty"`
+	Status     string                  `json:"status,omitempty"`
 	IsRequired bool                    `json:"is_required"`
 	MinSelect  int                     `json:"min_select"`
 	MaxSelect  int                     `json:"max_select"`

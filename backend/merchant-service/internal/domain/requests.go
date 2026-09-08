@@ -83,28 +83,66 @@ type CreateMerchantSpecialClosureInput struct {
 
 // CreateMenuItemRequest — body buat/update menu item.
 type CreateMenuItemRequest struct {
-	Nama            string  `json:"nama"`
-	Harga           int64   `json:"harga"`
-	Foto            *string `json:"foto,omitempty"`
-	Deskripsi       *string `json:"deskripsi,omitempty"`
-	Kategori        string  `json:"kategori"`
-	PrepTimeMinutes int     `json:"prep_time_minutes"`
-	IsAvailable     *bool   `json:"is_available,omitempty"`
-	StockQuantity   *int    `json:"stock_quantity,omitempty"`
-	DailySalesLimit *int    `json:"daily_sales_limit,omitempty"`
+	Nama            string                  `json:"nama"`
+	Harga           int64                   `json:"harga"`
+	Foto            *string                 `json:"foto,omitempty"`
+	Deskripsi       *string                 `json:"deskripsi,omitempty"`
+	Kategori        string                  `json:"kategori"`
+	CategoryID      *string                 `json:"category_id,omitempty"`
+	PrepTimeMinutes int                     `json:"prep_time_minutes"`
+	IsAvailable     *bool                   `json:"is_available,omitempty"`
+	Status          string                  `json:"status,omitempty"`
+	Images          []MenuItemImageInput    `json:"images,omitempty"`
+	Schedules       []MenuItemScheduleInput `json:"schedules,omitempty"`
+	StockQuantity   *int                    `json:"stock_quantity,omitempty"`
+	DailySalesLimit *int                    `json:"daily_sales_limit,omitempty"`
 }
 
 // UpdateMenuItemRequest — body update menu item (semua opsional).
 type UpdateMenuItemRequest struct {
-	Nama            *string `json:"nama,omitempty"`
-	Harga           *int64  `json:"harga,omitempty"`
-	Foto            *string `json:"foto,omitempty"`
-	Deskripsi       *string `json:"deskripsi,omitempty"`
-	Kategori        *string `json:"kategori,omitempty"`
-	PrepTimeMinutes *int    `json:"prep_time_minutes,omitempty"`
-	IsAvailable     *bool   `json:"is_available,omitempty"`
-	StockQuantity   *int    `json:"stock_quantity,omitempty"`
-	DailySalesLimit *int    `json:"daily_sales_limit,omitempty"`
+	Nama            *string                  `json:"nama,omitempty"`
+	Harga           *int64                   `json:"harga,omitempty"`
+	Foto            *string                  `json:"foto,omitempty"`
+	Deskripsi       *string                  `json:"deskripsi,omitempty"`
+	Kategori        *string                  `json:"kategori,omitempty"`
+	CategoryID      *string                  `json:"category_id,omitempty"`
+	PrepTimeMinutes *int                     `json:"prep_time_minutes,omitempty"`
+	IsAvailable     *bool                    `json:"is_available,omitempty"`
+	Status          *string                  `json:"status,omitempty"`
+	Images          *[]MenuItemImageInput    `json:"images,omitempty"`
+	Schedules       *[]MenuItemScheduleInput `json:"schedules,omitempty"`
+	StockQuantity   *int                     `json:"stock_quantity,omitempty"`
+	DailySalesLimit *int                     `json:"daily_sales_limit,omitempty"`
+}
+
+type MenuItemImageInput struct {
+	URL       string `json:"url"`
+	AltText   string `json:"alt_text,omitempty"`
+	SortOrder int    `json:"sort_order,omitempty"`
+	IsPrimary bool   `json:"is_primary,omitempty"`
+}
+
+type MenuItemScheduleInput struct {
+	Weekday  int    `json:"weekday"`
+	StartsAt string `json:"starts_at"`
+	EndsAt   string `json:"ends_at"`
+	IsActive *bool  `json:"is_active,omitempty"`
+}
+
+type CreateMenuCategoryRequest struct {
+	Name      string `json:"name"`
+	SortOrder int    `json:"sort_order,omitempty"`
+}
+
+type UpdateMenuCategoryRequest struct {
+	Name      *string `json:"name,omitempty"`
+	SortOrder *int    `json:"sort_order,omitempty"`
+	Status    *string `json:"status,omitempty"`
+}
+
+type ModerateMenuItemRequest struct {
+	Status string `json:"status"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // UpdateMenuInventoryRequest replaces the optional quantity-aware inventory
@@ -134,6 +172,7 @@ type ReplaceMenuItemVariantsRequest struct {
 // ReplaceVariantGroup — satu grup varian lengkap dengan opsi-opsinya.
 type ReplaceVariantGroup struct {
 	Nama       string                 `json:"nama" validate:"required,max=80"`
+	Kind       string                 `json:"kind,omitempty"`
 	IsRequired bool                   `json:"is_required"`
 	MinSelect  int                    `json:"min_select"`
 	MaxSelect  int                    `json:"max_select"`

@@ -3,13 +3,17 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,11 +24,12 @@ import (
 
 // merchantServiceImpl — implementasi domain.MerchantService.
 type merchantServiceImpl struct {
-	merchantRepo domain.MerchantRepository
-	menuRepo     domain.MenuItemRepository
-	orderRepo    domain.MerchantOrderRepository
-	reportRepo   domain.MerchantReportRepository
-	accessRepo   domain.MerchantAccessRepository
+	merchantRepo   domain.MerchantRepository
+	menuRepo       domain.MenuItemRepository
+	orderRepo      domain.MerchantOrderRepository
+	reportRepo     domain.MerchantReportRepository
+	accessRepo     domain.MerchantAccessRepository
+	governanceRepo domain.MenuGovernanceRepository
 }
 
 func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository, rr domain.MerchantReportRepository, accessRepos ...domain.MerchantAccessRepository) domain.MerchantService {
@@ -33,6 +38,10 @@ func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemReposito
 		ar = accessRepos[0]
 	}
 	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, accessRepo: ar}
+}
+
+func NewMerchantServiceWithGovernance(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository, rr domain.MerchantReportRepository, accessRepo domain.MerchantAccessRepository, governanceRepo domain.MenuGovernanceRepository) domain.MerchantService {
+	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr, accessRepo: accessRepo, governanceRepo: governanceRepo}
 }
 
 // ─────────────────────────────────────────────
@@ -737,6 +746,164 @@ func (s *merchantServiceImpl) requireApprovedHighRisk(ctx context.Context, userI
 // Menu
 // ─────────────────────────────────────────────
 
+func (s *merchantServiceImpl) requireMenuGovernance() (domain.MenuGovernanceRepository, error) {
+	if s.governanceRepo == nil {
+		return nil, errors.New("menu governance repository not wired")
+	}
+	return s.governanceRepo, nil
+}
+
+func slugifyMenuCategory(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	var b strings.Builder
+	lastDash := false
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastDash = false
+		} else if !lastDash && b.Len() > 0 {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+func (s *merchantServiceImpl) resolveMenuCategory(ctx context.Context, merchantID, categoryID, name string) (*domain.MenuCategory, error) {
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		// Unit callers using the pre-governance constructor retain the legacy
+		// kategori projection; the production wiring always has this repo.
+		return nil, nil
+	}
+	name = strings.TrimSpace(name)
+	if name == "" && categoryID == "" {
+		name = "Umum"
+	}
+	categories, err := governance.ListCategories(ctx, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	for _, category := range categories {
+		if categoryID != "" && category.ID == categoryID {
+			if category.Status != "active" {
+				return nil, errors.New("kategori sedang diarsipkan")
+			}
+			return category, nil
+		}
+		if categoryID == "" && strings.EqualFold(category.Name, name) {
+			if category.Status != "active" {
+				return nil, errors.New("kategori sedang diarsipkan")
+			}
+			return category, nil
+		}
+	}
+	if categoryID != "" {
+		return nil, errors.New("kategori tidak ditemukan atau bukan milik merchant")
+	}
+	slug := slugifyMenuCategory(name)
+	if slug == "" {
+		return nil, errors.New("kategori tidak valid")
+	}
+	category := &domain.MenuCategory{ID: uuid.New().String(), MerchantID: merchantID, Name: name, Slug: slug}
+	if err := governance.CreateCategory(ctx, category); err != nil {
+		return nil, err
+	}
+	return category, nil
+}
+
+func validateMenuImageInput(input domain.MenuItemImageInput) error {
+	value := strings.TrimSpace(input.URL)
+	if value == "" || len(value) > 2048 {
+		return errors.New("url gambar wajib diisi dan maksimal 2048 karakter")
+	}
+	if strings.HasPrefix(value, "/") {
+		return nil
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return errors.New("url gambar harus berupa http(s) atau path publik")
+	}
+	return nil
+}
+
+func buildMenuImages(inputs []domain.MenuItemImageInput, fallback *string) ([]domain.MenuItemImage, error) {
+	if len(inputs) == 0 && fallback != nil && strings.TrimSpace(*fallback) != "" {
+		inputs = []domain.MenuItemImageInput{{URL: strings.TrimSpace(*fallback), IsPrimary: true}}
+	}
+	images := make([]domain.MenuItemImage, 0, len(inputs))
+	primary := -1
+	for index, input := range inputs {
+		if err := validateMenuImageInput(input); err != nil {
+			return nil, err
+		}
+		if input.IsPrimary {
+			if primary >= 0 {
+				return nil, errors.New("hanya satu gambar menu yang boleh menjadi primary")
+			}
+			primary = index
+		}
+		images = append(images, domain.MenuItemImage{URL: strings.TrimSpace(input.URL), AltText: strings.TrimSpace(input.AltText), SortOrder: index, IsPrimary: input.IsPrimary})
+	}
+	if len(images) > 0 && primary < 0 {
+		images[0].IsPrimary = true
+	}
+	return images, nil
+}
+
+func buildMenuSchedules(inputs []domain.MenuItemScheduleInput) ([]domain.MenuItemSchedule, error) {
+	schedules := make([]domain.MenuItemSchedule, 0, len(inputs))
+	seen := map[string]bool{}
+	for _, input := range inputs {
+		if input.Weekday < 0 || input.Weekday > 6 {
+			return nil, errors.New("weekday jadwal menu harus 0 sampai 6")
+		}
+		start := strings.TrimSpace(input.StartsAt)
+		end := strings.TrimSpace(input.EndsAt)
+		if _, err := time.Parse("15:04", start); err != nil {
+			return nil, errors.New("starts_at jadwal menu harus HH:MM")
+		}
+		if _, err := time.Parse("15:04", end); err != nil || start == end {
+			return nil, errors.New("ends_at jadwal menu harus HH:MM dan berbeda dari starts_at")
+		}
+		active := true
+		if input.IsActive != nil {
+			active = *input.IsActive
+		}
+		key := fmt.Sprintf("%d/%s/%s", input.Weekday, start, end)
+		if seen[key] {
+			return nil, fmt.Errorf("jadwal menu duplikat: %s", key)
+		}
+		seen[key] = true
+		schedules = append(schedules, domain.MenuItemSchedule{Weekday: input.Weekday, StartsAt: start, EndsAt: end, IsActive: active})
+	}
+	return schedules, nil
+}
+
+func validMenuLifecycleStatus(status string) bool {
+	switch status {
+	case domain.MenuItemStatusDraft, domain.MenuItemStatusActive, domain.MenuItemStatusSoldOut,
+		domain.MenuItemStatusScheduled, domain.MenuItemStatusArchived:
+		return true
+	default:
+		return false
+	}
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
+}
+
+func categoryIDPtr(category *domain.MenuCategory) *string {
+	if category == nil {
+		return nil
+	}
+	return &category.ID
+}
+
 func (s *merchantServiceImpl) CreateMenuItem(ctx context.Context, userID string, req domain.CreateMenuItemRequest) (*domain.MenuItem, error) {
 	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
@@ -761,23 +928,39 @@ func (s *merchantServiceImpl) CreateMenuItem(ctx context.Context, userID string,
 	if req.DailySalesLimit != nil && *req.DailySalesLimit < 0 {
 		return nil, errors.New("batas penjualan harian tidak boleh negatif")
 	}
-	available := true
-	if req.IsAvailable != nil {
-		available = *req.IsAvailable
+	category, err := s.resolveMenuCategory(ctx, m.ID, valueOrEmpty(req.CategoryID), req.Kategori)
+	if err != nil {
+		return nil, err
+	}
+	if category != nil {
+		req.Kategori = category.Name
+	}
+	images, err := buildMenuImages(req.Images, req.Foto)
+	if err != nil {
+		return nil, err
+	}
+	schedules, err := buildMenuSchedules(req.Schedules)
+	if err != nil {
+		return nil, err
 	}
 
 	item := &domain.MenuItem{
-		ID:              uuid.New().String(),
-		MerchantID:      m.ID,
-		Nama:            req.Nama,
-		Harga:           req.Harga,
-		Foto:            req.Foto,
-		Deskripsi:       req.Deskripsi,
-		Kategori:        strings.TrimSpace(req.Kategori),
-		PrepTimeMinutes: req.PrepTimeMinutes,
-		IsAvailable:     available,
-		StockQuantity:   req.StockQuantity,
-		DailySalesLimit: req.DailySalesLimit,
+		ID:               uuid.New().String(),
+		MerchantID:       m.ID,
+		Nama:             req.Nama,
+		Harga:            req.Harga,
+		Foto:             req.Foto,
+		Deskripsi:        req.Deskripsi,
+		Kategori:         strings.TrimSpace(req.Kategori),
+		CategoryID:       categoryIDPtr(category),
+		PrepTimeMinutes:  req.PrepTimeMinutes,
+		IsAvailable:      false,
+		Status:           domain.MenuItemStatusModerationPending,
+		ModerationStatus: domain.MenuModerationPending,
+		StockQuantity:    req.StockQuantity,
+		DailySalesLimit:  req.DailySalesLimit,
+		Images:           images,
+		Schedules:        schedules,
 	}
 	if req.DailySalesLimit != nil {
 		resetAt := nextInventoryReset(time.Now())
@@ -785,6 +968,17 @@ func (s *merchantServiceImpl) CreateMenuItem(ctx context.Context, userID string,
 	}
 	if err := s.menuRepo.Create(ctx, item); err != nil {
 		return nil, err
+	}
+	if s.governanceRepo != nil {
+		if err := s.governanceRepo.ReplaceImages(ctx, item.ID, m.ID, images); err != nil {
+			_ = s.menuRepo.Delete(ctx, item.ID, m.ID)
+			return nil, err
+		}
+		if err := s.governanceRepo.ReplaceSchedules(ctx, item.ID, m.ID, schedules); err != nil {
+			_ = s.menuRepo.Delete(ctx, item.ID, m.ID)
+			return nil, err
+		}
+		return s.menuRepo.GetByID(ctx, item.ID)
 	}
 	return item, nil
 }
@@ -818,13 +1012,39 @@ func (s *merchantServiceImpl) UpdateMenuItem(ctx context.Context, userID string,
 		item.Deskripsi = req.Deskripsi
 	}
 	if req.Kategori != nil {
+		category, categoryErr := s.resolveMenuCategory(ctx, m.ID, "", *req.Kategori)
+		if categoryErr != nil {
+			return nil, categoryErr
+		}
 		item.Kategori = *req.Kategori
+		item.CategoryID = categoryIDPtr(category)
+	}
+	if req.CategoryID != nil {
+		category, categoryErr := s.resolveMenuCategory(ctx, m.ID, *req.CategoryID, "")
+		if categoryErr != nil {
+			return nil, categoryErr
+		}
+		item.CategoryID = categoryIDPtr(category)
+		item.Kategori = category.Name
 	}
 	if req.PrepTimeMinutes != nil {
 		item.PrepTimeMinutes = *req.PrepTimeMinutes
 	}
 	if req.IsAvailable != nil {
+		if *req.IsAvailable && item.ModerationStatus != domain.MenuModerationApproved {
+			return nil, errors.New("menu belum lolos moderasi")
+		}
 		item.IsAvailable = *req.IsAvailable
+	}
+	if req.Status != nil {
+		status := strings.TrimSpace(*req.Status)
+		if !validMenuLifecycleStatus(status) {
+			return nil, errors.New("status menu tidak valid")
+		}
+		if (status == domain.MenuItemStatusActive || status == domain.MenuItemStatusScheduled) && item.ModerationStatus != domain.MenuModerationApproved {
+			return nil, errors.New("menu belum lolos moderasi")
+		}
+		item.Status = status
 	}
 	if req.StockQuantity != nil {
 		if *req.StockQuantity < 0 {
@@ -840,9 +1060,37 @@ func (s *merchantServiceImpl) UpdateMenuItem(ctx context.Context, userID string,
 		resetAt := nextInventoryReset(time.Now())
 		item.SalesResetAt = &resetAt
 	}
+	var images []domain.MenuItemImage
+	var schedules []domain.MenuItemSchedule
+	if s.governanceRepo != nil {
+		if req.Images != nil {
+			images, err = buildMenuImages(*req.Images, item.Foto)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if req.Schedules != nil {
+			schedules, err = buildMenuSchedules(*req.Schedules)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	if err := s.menuRepo.Update(ctx, item); err != nil {
 		return nil, err
+	}
+	if s.governanceRepo != nil {
+		if req.Images != nil {
+			if err := s.governanceRepo.ReplaceImages(ctx, item.ID, m.ID, images); err != nil {
+				return nil, err
+			}
+		}
+		if req.Schedules != nil {
+			if err := s.governanceRepo.ReplaceSchedules(ctx, item.ID, m.ID, schedules); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return s.menuRepo.GetByID(ctx, itemID)
 }
@@ -859,6 +1107,16 @@ func (s *merchantServiceImpl) SetMenuItemAvailability(ctx context.Context, userI
 	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
+	}
+	item, err := s.menuRepo.GetByID(ctx, itemID)
+	if err != nil {
+		return nil, err
+	}
+	if item == nil || item.MerchantID != m.ID {
+		return nil, errors.New("menu item tidak ditemukan")
+	}
+	if available && item.ModerationStatus != "" && item.ModerationStatus != domain.MenuModerationApproved {
+		return nil, errors.New("menu belum lolos moderasi")
 	}
 	if err := s.menuRepo.SetAvailability(ctx, itemID, m.ID, available); err != nil {
 		return nil, err
@@ -956,6 +1214,13 @@ func (s *merchantServiceImpl) ReplaceMenuItemVariants(ctx context.Context, userI
 			return nil, fmt.Errorf("nama varian duplikat: %s", name)
 		}
 		seenNames[name] = true
+		kind := strings.TrimSpace(g.Kind)
+		if kind == "" {
+			kind = domain.MenuVariantKindVariant
+		}
+		if kind != domain.MenuVariantKindVariant && kind != domain.MenuVariantKindModifier {
+			return nil, fmt.Errorf("kind varian %q tidak valid", name)
+		}
 		if len(g.Options) == 0 {
 			return nil, fmt.Errorf("varian %q minimal punya 1 opsi", name)
 		}
@@ -1003,6 +1268,7 @@ func (s *merchantServiceImpl) ReplaceMenuItemVariants(ctx context.Context, userI
 		}
 		groups = append(groups, &domain.MenuItemVariant{
 			Nama:       name,
+			Kind:       kind,
 			IsRequired: g.IsRequired,
 			MinSelect:  minSel,
 			MaxSelect:  maxSel,
@@ -1014,6 +1280,353 @@ func (s *merchantServiceImpl) ReplaceMenuItemVariants(ctx context.Context, userI
 		return nil, err
 	}
 	return s.menuRepo.GetVariantsByMenuItem(ctx, itemID, m.ID)
+}
+
+func (s *merchantServiceImpl) CreateMenuCategory(ctx context.Context, userID string, req domain.CreateMenuCategoryRequest) (*domain.MenuCategory, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" || len(name) > 80 {
+		return nil, errors.New("nama kategori wajib diisi dan maksimal 80 karakter")
+	}
+	if req.SortOrder < 0 {
+		return nil, errors.New("sort_order kategori tidak boleh negatif")
+	}
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		return nil, err
+	}
+	category := &domain.MenuCategory{ID: uuid.New().String(), MerchantID: m.ID, Name: name, Slug: slugifyMenuCategory(name), SortOrder: req.SortOrder, Status: "active"}
+	if category.Slug == "" {
+		return nil, errors.New("nama kategori tidak valid")
+	}
+	if err := governance.CreateCategory(ctx, category); err != nil {
+		return nil, err
+	}
+	return category, nil
+}
+
+func (s *merchantServiceImpl) ListMenuCategories(ctx context.Context, userID string) ([]*domain.MenuCategory, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		return nil, err
+	}
+	return governance.ListCategories(ctx, m.ID)
+}
+
+func (s *merchantServiceImpl) UpdateMenuCategory(ctx context.Context, userID, categoryID string, req domain.UpdateMenuCategoryRequest) (*domain.MenuCategory, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := uuid.Parse(categoryID); err != nil {
+		return nil, errors.New("category_id tidak valid")
+	}
+	if req.Name != nil && (strings.TrimSpace(*req.Name) == "" || len(strings.TrimSpace(*req.Name)) > 80) {
+		return nil, errors.New("nama kategori maksimal 80 karakter")
+	}
+	if req.SortOrder != nil && *req.SortOrder < 0 {
+		return nil, errors.New("sort_order kategori tidak boleh negatif")
+	}
+	if req.Status != nil && *req.Status != "active" && *req.Status != "archived" {
+		return nil, errors.New("status kategori tidak valid")
+	}
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		return nil, err
+	}
+	categories, err := governance.ListCategories(ctx, m.ID)
+	if err != nil {
+		return nil, err
+	}
+	var category *domain.MenuCategory
+	for _, existing := range categories {
+		if existing.ID == categoryID {
+			copy := *existing
+			category = &copy
+			break
+		}
+	}
+	if category == nil {
+		return nil, errors.New("kategori tidak ditemukan")
+	}
+	if req.Name != nil {
+		category.Name = strings.TrimSpace(*req.Name)
+		category.Slug = slugifyMenuCategory(category.Name)
+		if category.Slug == "" {
+			return nil, errors.New("nama kategori tidak valid")
+		}
+	}
+	if req.SortOrder != nil {
+		category.SortOrder = *req.SortOrder
+	}
+	if req.Status != nil {
+		category.Status = *req.Status
+	}
+	if err := governance.UpdateCategory(ctx, category); err != nil {
+		return nil, err
+	}
+	return category, nil
+}
+
+func (s *merchantServiceImpl) ModerateMenuItem(ctx context.Context, actorID, actorRole, itemID string, req domain.ModerateMenuItemRequest) (*domain.MenuItem, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return nil, errors.New("actor_id tidak valid")
+	}
+	if _, err := uuid.Parse(itemID); err != nil {
+		return nil, errors.New("menu item id tidak valid")
+	}
+	if actorRole != "super_admin" && actorRole != "ops_admin" && actorRole != "ops_security" && actorRole != "admin" {
+		return nil, errors.New("role tidak berwenang memoderasi menu")
+	}
+	status := strings.ToLower(strings.TrimSpace(req.Status))
+	if status != domain.MenuModerationApproved && status != domain.MenuModerationRejected {
+		return nil, errors.New("status moderasi harus approved atau rejected")
+	}
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		return nil, err
+	}
+	if err := governance.SetModerationStatus(ctx, itemID, status, actorID, actorRole, strings.TrimSpace(req.Reason)); err != nil {
+		return nil, err
+	}
+	return s.menuRepo.GetByID(ctx, itemID)
+}
+
+func (s *merchantServiceImpl) ImportMenuCSV(ctx context.Context, userID, idempotencyKey string, content []byte) (*domain.BulkMenuImportResult, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if len(idempotencyKey) < 12 || len(idempotencyKey) > 200 {
+		return nil, errors.New("Idempotency-Key wajib 12-200 karakter")
+	}
+	if len(content) == 0 || len(content) > 5*1024*1024 {
+		return nil, errors.New("file CSV wajib diisi dan maksimal 5MB")
+	}
+	governance, err := s.requireMenuGovernance()
+	if err != nil {
+		return nil, err
+	}
+	digest := sha256.Sum256(content)
+	requestHash := fmt.Sprintf("%x", digest[:])
+	record, created, err := governance.StartCatalogImport(ctx, m.ID, idempotencyKey, requestHash)
+	if err != nil {
+		return nil, err
+	}
+	if !created {
+		if record.RequestHash != requestHash {
+			return nil, errors.New("Idempotency-Key sudah dipakai untuk payload CSV berbeda")
+		}
+		if record.Status == "completed" || record.Status == "rejected" {
+			return &record.Result, nil
+		}
+		if record.Status == "failed" {
+			return nil, errors.New("import sebelumnya gagal; gunakan Idempotency-Key baru setelah memperbaiki data")
+		}
+		return nil, errors.New("import dengan Idempotency-Key ini masih diproses")
+	}
+
+	result := &domain.BulkMenuImportResult{ImportID: record.ID}
+	reader := csv.NewReader(bytes.NewReader(content))
+	reader.FieldsPerRecord = -1
+	reader.TrimLeadingSpace = true
+	firstLine := strings.SplitN(string(content), "\n", 2)[0]
+	if strings.Count(firstLine, ";") > strings.Count(firstLine, ",") {
+		reader.Comma = ';'
+	}
+	records, err := reader.ReadAll()
+	if err != nil {
+		result.Errors = []domain.CatalogImportRowError{{Row: 1, Message: "CSV tidak valid: " + err.Error()}}
+		_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		return result, nil
+	}
+	if len(records) < 2 {
+		result.Errors = []domain.CatalogImportRowError{{Row: 1, Message: "CSV wajib memiliki header dan minimal satu baris"}}
+		_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		return result, nil
+	}
+	columns := map[string]int{}
+	for index, value := range records[0] {
+		columns[normalizeCSVColumn(value)] = index
+	}
+	nameIndex := firstCSVColumn(columns, "nama", "name", "menu_name")
+	priceIndex := firstCSVColumn(columns, "harga", "price", "harga_idr")
+	categoryIndex := firstCSVColumn(columns, "kategori", "category", "category_name")
+	if nameIndex < 0 || priceIndex < 0 || categoryIndex < 0 {
+		result.Errors = []domain.CatalogImportRowError{{Row: 1, Message: "Header wajib: nama, harga, kategori"}}
+		_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		return result, nil
+	}
+	descriptionIndex := firstCSVColumn(columns, "deskripsi", "description")
+	prepIndex := firstCSVColumn(columns, "prep_time_minutes", "prep_time", "waktu_masak")
+	imageIndex := firstCSVColumn(columns, "image_url", "foto", "image")
+	stockIndex := firstCSVColumn(columns, "stock_quantity", "stock", "stok")
+	limitIndex := firstCSVColumn(columns, "daily_sales_limit", "sales_limit", "batas_penjualan_harian")
+	statusIndex := firstCSVColumn(columns, "status")
+
+	existingCategories, err := governance.ListCategories(ctx, m.ID)
+	if err != nil {
+		return nil, err
+	}
+	categoryBySlug := make(map[string]*domain.MenuCategory, len(existingCategories))
+	for _, category := range existingCategories {
+		categoryBySlug[category.Slug] = category
+	}
+	newCategories := make([]*domain.MenuCategory, 0)
+	items := make([]*domain.MenuItem, 0, len(records)-1)
+	seenNames := map[string]bool{}
+	for index, row := range records[1:] {
+		line := index + 2
+		result.Rows++
+		if len(row) == 0 || strings.TrimSpace(strings.Join(row, "")) == "" {
+			continue
+		}
+		name := strings.TrimSpace(csvValue(row, nameIndex))
+		price, priceErr := strconv.ParseInt(strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(csvValue(row, priceIndex)), ".", ""), ",", ""), 10, 64)
+		categoryName := strings.TrimSpace(csvValue(row, categoryIndex))
+		rowErrors := make([]string, 0)
+		if name == "" || len(name) > 150 {
+			rowErrors = append(rowErrors, "nama wajib diisi dan maksimal 150 karakter")
+		}
+		if priceErr != nil || price <= 0 {
+			rowErrors = append(rowErrors, "harga harus berupa angka lebih dari 0")
+		}
+		if categoryName == "" || len(categoryName) > 80 {
+			rowErrors = append(rowErrors, "kategori wajib diisi dan maksimal 80 karakter")
+		}
+		if seenNames[strings.ToLower(name)] {
+			rowErrors = append(rowErrors, "nama menu duplikat dalam file")
+		}
+		prep := 15
+		if prepIndex >= 0 && strings.TrimSpace(csvValue(row, prepIndex)) != "" {
+			parsed, prepErr := strconv.Atoi(strings.TrimSpace(csvValue(row, prepIndex)))
+			if prepErr != nil || parsed < 1 || parsed > 180 {
+				rowErrors = append(rowErrors, "prep_time_minutes harus 1-180")
+			} else {
+				prep = parsed
+			}
+		}
+		status := strings.ToLower(strings.TrimSpace(csvValue(row, statusIndex)))
+		if status != "" && !validMenuLifecycleStatus(status) {
+			rowErrors = append(rowErrors, "status menu tidak valid")
+		}
+		var image *string
+		if imageIndex >= 0 && strings.TrimSpace(csvValue(row, imageIndex)) != "" {
+			value := strings.TrimSpace(csvValue(row, imageIndex))
+			if imageErr := validateMenuImageInput(domain.MenuItemImageInput{URL: value}); imageErr != nil {
+				rowErrors = append(rowErrors, imageErr.Error())
+			} else {
+				image = &value
+			}
+		}
+		var stock, dailyLimit *int
+		if stockIndex >= 0 && strings.TrimSpace(csvValue(row, stockIndex)) != "" {
+			parsed, stockErr := strconv.Atoi(strings.TrimSpace(csvValue(row, stockIndex)))
+			if stockErr != nil || parsed < 0 {
+				rowErrors = append(rowErrors, "stock_quantity harus angka >= 0")
+			} else {
+				stock = &parsed
+			}
+		}
+		if limitIndex >= 0 && strings.TrimSpace(csvValue(row, limitIndex)) != "" {
+			parsed, limitErr := strconv.Atoi(strings.TrimSpace(csvValue(row, limitIndex)))
+			if limitErr != nil || parsed < 0 {
+				rowErrors = append(rowErrors, "daily_sales_limit harus angka >= 0")
+			} else {
+				dailyLimit = &parsed
+			}
+		}
+		if len(rowErrors) > 0 {
+			for _, message := range rowErrors {
+				result.Errors = append(result.Errors, domain.CatalogImportRowError{Row: line, Message: message})
+			}
+			continue
+		}
+		seenNames[strings.ToLower(name)] = true
+		slug := slugifyMenuCategory(categoryName)
+		category := categoryBySlug[slug]
+		if category == nil {
+			category = &domain.MenuCategory{ID: uuid.New().String(), MerchantID: m.ID, Name: categoryName, Slug: slug, Status: "active"}
+			categoryBySlug[slug] = category
+			newCategories = append(newCategories, category)
+		}
+		if category.Status != "active" {
+			result.Errors = append(result.Errors, domain.CatalogImportRowError{Row: line, Message: "kategori sedang diarsipkan"})
+			continue
+		}
+		description := strings.TrimSpace(csvValue(row, descriptionIndex))
+		var descriptionPtr *string
+		if description != "" {
+			descriptionPtr = &description
+		}
+		item := &domain.MenuItem{ID: uuid.New().String(), MerchantID: m.ID, Nama: name, Deskripsi: descriptionPtr, Harga: price, Kategori: category.Name,
+			CategoryID: &category.ID, PrepTimeMinutes: prep, IsAvailable: false, Status: domain.MenuItemStatusModerationPending,
+			ModerationStatus: domain.MenuModerationPending, StockQuantity: stock, DailySalesLimit: dailyLimit}
+		if image != nil {
+			item.Foto = image
+			item.Images = []domain.MenuItemImage{{URL: *image, IsPrimary: true}}
+		}
+		if dailyLimit != nil {
+			resetAt := nextInventoryReset(time.Now())
+			item.SalesResetAt = &resetAt
+		}
+		items = append(items, item)
+	}
+	if result.Rows > 1000 {
+		result.Errors = append(result.Errors, domain.CatalogImportRowError{Row: 1, Message: "maksimal 1000 baris per import"})
+	}
+	currentCount, countErr := s.menuRepo.CountByMerchant(ctx, m.ID)
+	if countErr != nil {
+		return nil, countErr
+	}
+	if currentCount+len(items) > 1000 {
+		result.Errors = append(result.Errors, domain.CatalogImportRowError{Row: 1, Message: "batas total 1000 item menu merchant terlampaui"})
+	}
+	if len(result.Errors) > 0 {
+		result.Committed = false
+		_ = governance.CompleteCatalogImport(ctx, record.ID, "rejected", *result)
+		return result, nil
+	}
+	result.CreatedCount = len(items)
+	result.Committed = true
+	if err := governance.BulkImportMenu(ctx, m.ID, record.ID, items, newCategories, *result); err != nil {
+		result.Committed = false
+		_ = governance.CompleteCatalogImport(ctx, record.ID, "failed", *result)
+		return nil, err
+	}
+	return result, nil
+}
+
+func normalizeCSVColumn(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	return strings.NewReplacer(" ", "_", "-", "_", ".", "_").Replace(value)
+}
+
+func firstCSVColumn(columns map[string]int, names ...string) int {
+	for _, name := range names {
+		if index, ok := columns[name]; ok {
+			return index
+		}
+	}
+	return -1
+}
+
+func csvValue(row []string, index int) string {
+	if index < 0 || index >= len(row) {
+		return ""
+	}
+	return row[index]
 }
 
 // ─────────────────────────────────────────────

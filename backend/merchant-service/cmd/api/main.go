@@ -106,7 +106,7 @@ func main() {
 	reportRepo := repository.NewPostgresReportRepository(db, db)
 	staffRepo := repository.NewPostgresMerchantStaffRepository(db, db)
 	accessRepo := repository.NewPostgresMerchantAccessRepository(db, db)
-	svc := service.NewMerchantService(merchantRepo, menuRepo, orderRepo, reportRepo, accessRepo)
+	svc := service.NewMerchantServiceWithGovernance(merchantRepo, menuRepo, orderRepo, reportRepo, accessRepo, menuRepo)
 	staffSvc := service.NewStaffService(merchantRepo, staffRepo, infrastructure.NewStaffNotifier(), accessRepo)
 	accessSvc := service.NewMerchantAccessService(merchantRepo, staffRepo, accessRepo)
 	h := handler.NewMerchantHandler(svc, uploadSvc)
@@ -171,6 +171,18 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/upload", middleware.BaseChain(h.UploadMerchantDoc))
 
 	// Menu CRUD (FOOD-BIKE-018)
+	mux.HandleFunc("/api/v1/merchant/menu-categories", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			h.CreateMenuCategory(w, r)
+		case http.MethodGet:
+			h.ListMenuCategories(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	mux.HandleFunc("/api/v1/merchant/menu-categories/{id}", middleware.BaseChain(h.UpdateMenuCategory))
+	mux.HandleFunc("/api/v1/merchant/menu/import", middleware.BaseChain(h.ImportMenuCSV))
 	mux.HandleFunc("/api/v1/merchant/menu", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -205,6 +217,7 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
+	mux.HandleFunc("/api/v1/merchant/menu/{id}/moderation", middleware.BaseChain(h.ModerateMenuItem))
 
 	// Promo merchant (FB-099): CRUD self-serve, tanpa approval admin
 	mux.HandleFunc("/api/v1/merchant/promos", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {

@@ -91,6 +91,11 @@ type MerchantService interface {
 	// ReplaceMenuItemVariants (FB-108): replace semua varian menu item
 	// (transaksi atomik). Array kosong = hapus semua (single-variant lagi).
 	ReplaceMenuItemVariants(ctx context.Context, userID string, itemID string, req ReplaceMenuItemVariantsRequest) ([]*MenuItemVariant, error)
+	CreateMenuCategory(ctx context.Context, userID string, req CreateMenuCategoryRequest) (*MenuCategory, error)
+	ListMenuCategories(ctx context.Context, userID string) ([]*MenuCategory, error)
+	UpdateMenuCategory(ctx context.Context, userID, categoryID string, req UpdateMenuCategoryRequest) (*MenuCategory, error)
+	ModerateMenuItem(ctx context.Context, actorID, actorRole, itemID string, req ModerateMenuItemRequest) (*MenuItem, error)
+	ImportMenuCSV(ctx context.Context, userID, idempotencyKey string, content []byte) (*BulkMenuImportResult, error)
 
 	// Order action (FOOD-BIKE-017/021)
 	// AcceptOrder menyetujui order food: status → preparing, set merchant_accepted_at.

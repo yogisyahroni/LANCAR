@@ -107,6 +107,24 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 			nama,
 			harga,
 			is_available,
+			status,
+			(NOT EXISTS (
+				SELECT 1 FROM merchant_menu_item_schedules schedule
+				WHERE schedule.menu_item_id = merchant_menu_items.id AND schedule.is_active = TRUE
+			) OR EXISTS (
+				SELECT 1 FROM merchant_menu_item_schedules schedule
+				WHERE schedule.menu_item_id = merchant_menu_items.id
+				  AND schedule.is_active = TRUE
+				  AND schedule.weekday = EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Jakarta'))::smallint
+				  AND (
+					(schedule.starts_at < schedule.ends_at
+					 AND (NOW() AT TIME ZONE 'Asia/Jakarta')::time >= schedule.starts_at
+					 AND (NOW() AT TIME ZONE 'Asia/Jakarta')::time < schedule.ends_at)
+					OR (schedule.starts_at > schedule.ends_at
+					 AND ((NOW() AT TIME ZONE 'Asia/Jakarta')::time >= schedule.starts_at
+					      OR (NOW() AT TIME ZONE 'Asia/Jakarta')::time < schedule.ends_at))
+				  )
+			)) AS schedule_available,
 			prep_time_minutes,
 			stock_quantity,
 			daily_sales_limit,
@@ -124,9 +142,13 @@ func (r *foodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]do
 	var items []domain.FoodMenuItemInfo
 	for rows.Next() {
 		var it domain.FoodMenuItemInfo
-		if err := rows.Scan(&it.ID, &it.MerchantID, &it.Name, &it.Price, &it.IsAvailable, &it.PrepTimeMinutes, &it.StockQuantity, &it.DailySalesLimit, &it.DailySalesCount, &it.SalesResetAt); err != nil {
+		var status string
+		var scheduleAvailable bool
+		if err := rows.Scan(&it.ID, &it.MerchantID, &it.Name, &it.Price, &it.IsAvailable, &status, &scheduleAvailable, &it.PrepTimeMinutes, &it.StockQuantity, &it.DailySalesLimit, &it.DailySalesCount, &it.SalesResetAt); err != nil {
 			return nil, err
 		}
+		it.Status = status
+		it.ScheduleAvailable = &scheduleAvailable
 		items = append(items, it)
 	}
 	return items, rows.Err()
@@ -316,9 +338,9 @@ func (r *foodRepo) GetMenuItemVariants(ctx context.Context, menuIDs []string) (m
 
 	// 1. Grup varian
 	variantRows, err := r.readDB.QueryContext(ctx, fmt.Sprintf(`
-		SELECT id::text, menu_item_id::text, nama, is_required, min_select, max_select
+		SELECT id::text, menu_item_id::text, nama, kind, status, is_required, min_select, max_select
 		FROM menu_item_variants
-		WHERE menu_item_id IN (%s)
+		WHERE menu_item_id IN (%s) AND status = 'active'
 		ORDER BY sort_order ASC, created_at ASC`, strings.Join(placeholders, ", ")), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query menu_item_variants: %w", err)
@@ -328,7 +350,7 @@ func (r *foodRepo) GetMenuItemVariants(ctx context.Context, menuIDs []string) (m
 	variants := make([]domain.MenuItemVariant, 0)
 	for variantRows.Next() {
 		var v domain.MenuItemVariant
-		if err := variantRows.Scan(&v.ID, &v.MenuID, &v.Nama, &v.IsRequired, &v.MinSelect, &v.MaxSelect); err != nil {
+		if err := variantRows.Scan(&v.ID, &v.MenuID, &v.Nama, &v.Kind, &v.Status, &v.IsRequired, &v.MinSelect, &v.MaxSelect); err != nil {
 			return nil, err
 		}
 		variants = append(variants, v)
@@ -760,10 +782,22 @@ func (r *foodRepo) ActivateScheduledFoodOrder(ctx context.Context, orderID strin
 // GetFoodMerchantMenu — FOOD-BIKE-055/056: daftar menu merchant.
 func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]domain.FoodMenuItemInfo, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
-		SELECT id::text, merchant_id::text, nama, harga, is_available, prep_time_minutes, kategori, foto
+		SELECT id::text, merchant_id::text, nama, harga, is_available, status,
+		       (NOT EXISTS (
+				SELECT 1 FROM merchant_menu_item_schedules schedule
+				WHERE schedule.menu_item_id = merchant_menu_items.id AND schedule.is_active = TRUE
+			   ) OR EXISTS (
+				SELECT 1 FROM merchant_menu_item_schedules schedule
+				WHERE schedule.menu_item_id = merchant_menu_items.id AND schedule.is_active = TRUE
+				  AND schedule.weekday = EXTRACT(DOW FROM (NOW() AT TIME ZONE 'Asia/Jakarta'))::smallint
+				  AND ((schedule.starts_at < schedule.ends_at AND (NOW() AT TIME ZONE 'Asia/Jakarta')::time >= schedule.starts_at AND (NOW() AT TIME ZONE 'Asia/Jakarta')::time < schedule.ends_at)
+				       OR (schedule.starts_at > schedule.ends_at AND ((NOW() AT TIME ZONE 'Asia/Jakarta')::time >= schedule.starts_at OR (NOW() AT TIME ZONE 'Asia/Jakarta')::time < schedule.ends_at)))
+			   )) AS schedule_available,
+		       prep_time_minutes, kategori, foto
 		FROM merchant_menu_items
 		WHERE merchant_id = $1
-		ORDER BY is_available DESC, kategori NULLS LAST, nama ASC`,
+		  AND status NOT IN ('draft', 'moderation_pending', 'rejected', 'archived')
+		ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, kategori NULLS LAST, nama ASC`,
 		merchantID,
 	)
 	if err != nil {
@@ -776,8 +810,9 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 	for rows.Next() {
 		var item domain.FoodMenuItemInfo
 		var kategori, foto sql.NullString
+		var scheduleAvailable bool
 		if err := rows.Scan(
-			&item.ID, &item.MerchantID, &item.Name, &item.Price, &item.IsAvailable,
+			&item.ID, &item.MerchantID, &item.Name, &item.Price, &item.IsAvailable, &item.Status, &scheduleAvailable,
 			&item.PrepTimeMinutes, &kategori, &foto,
 		); err != nil {
 			return nil, err
@@ -788,11 +823,45 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 		if foto.Valid {
 			item.Foto = &foto.String
 		}
+		item.ScheduleAvailable = &scheduleAvailable
 		out = append(out, item)
 		menuIDs = append(menuIDs, item.ID)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	if len(menuIDs) > 0 {
+		imagePlaceholders := make([]string, len(menuIDs))
+		imageArgs := make([]any, len(menuIDs))
+		for i, id := range menuIDs {
+			imagePlaceholders[i] = fmt.Sprintf("$%d", i+1)
+			imageArgs[i] = id
+		}
+		imageRows, imageErr := r.readDB.QueryContext(ctx, fmt.Sprintf(`
+			SELECT menu_item_id::text, url
+			FROM merchant_menu_item_images
+			WHERE menu_item_id IN (%s)
+			ORDER BY sort_order, created_at`, strings.Join(imagePlaceholders, ", ")), imageArgs...)
+		if imageErr != nil {
+			return nil, imageErr
+		}
+		imagesByItem := make(map[string][]string)
+		for imageRows.Next() {
+			var itemID, imageURL string
+			if scanErr := imageRows.Scan(&itemID, &imageURL); scanErr != nil {
+				imageRows.Close()
+				return nil, scanErr
+			}
+			imagesByItem[itemID] = append(imagesByItem[itemID], imageURL)
+		}
+		if imageErr := imageRows.Err(); imageErr != nil {
+			imageRows.Close()
+			return nil, imageErr
+		}
+		imageRows.Close()
+		for i := range out {
+			out[i].Images = imagesByItem[out[i].ID]
+		}
 	}
 
 	// FB-108: attach grup varian per item (sekali query batch).

@@ -670,6 +670,131 @@ func (h *MerchantHandler) ReplaceMenuItemVariants(w http.ResponseWriter, r *http
 	h.respondJSON(w, http.StatusOK, variants)
 }
 
+func (h *MerchantHandler) CreateMenuCategory(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var req domain.CreateMenuCategoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	category, err := h.svc.CreateMenuCategory(r.Context(), userID, req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusCreated, category)
+}
+
+func (h *MerchantHandler) ListMenuCategories(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	categories, err := h.svc.ListMenuCategories(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, categories)
+}
+
+func (h *MerchantHandler) UpdateMenuCategory(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	categoryID := r.PathValue("id")
+	var req domain.UpdateMenuCategoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	category, err := h.svc.UpdateMenuCategory(r.Context(), userID, categoryID, req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, category)
+}
+
+func (h *MerchantHandler) ModerateMenuItem(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	role := strings.ToLower(strings.TrimSpace(r.Header.Get("X-User-Role")))
+	if role != "super_admin" && role != "ops_admin" && role != "ops_security" && role != "admin" {
+		h.respondError(w, http.StatusForbidden, "role tidak berwenang memoderasi menu")
+		return
+	}
+	if !requireStepUp(r) {
+		h.respondError(w, http.StatusUnauthorized, "step-up authentication (TOTP) wajib untuk moderasi menu")
+		return
+	}
+	var req domain.ModerateMenuItemRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	item, err := h.svc.ModerateMenuItem(r.Context(), actorID, role, r.PathValue("id"), req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, item)
+}
+
+func (h *MerchantHandler) ImportMenuCSV(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if idempotencyKey == "" {
+		idempotencyKey = strings.TrimSpace(r.Header.Get("X-Idempotency-Key"))
+	}
+	var content []byte
+	if strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data") {
+		r.Body = http.MaxBytesReader(w, r.Body, 5*1024*1024+4096)
+		if err := r.ParseMultipartForm(5 * 1024 * 1024); err != nil {
+			h.respondError(w, http.StatusRequestEntityTooLarge, "File terlalu besar (maks 5MB)")
+			return
+		}
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			h.respondError(w, http.StatusBadRequest, "Field 'file' wajib diisi")
+			return
+		}
+		defer file.Close()
+		content, err = io.ReadAll(file)
+		if err != nil {
+			h.respondError(w, http.StatusBadRequest, "Gagal membaca file CSV")
+			return
+		}
+	} else {
+		r.Body = http.MaxBytesReader(w, r.Body, 5*1024*1024+1)
+		var err error
+		content, err = io.ReadAll(r.Body)
+		if err != nil {
+			h.respondError(w, http.StatusRequestEntityTooLarge, "File terlalu besar (maks 5MB)")
+			return
+		}
+	}
+	result, err := h.svc.ImportMenuCSV(r.Context(), userID, idempotencyKey, content)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(result.Errors) > 0 {
+		h.respondJSON(w, http.StatusUnprocessableEntity, result)
+		return
+	}
+	h.respondJSON(w, http.StatusCreated, result)
+}
+
 // ─────────────────────────────────────────────
 // Order Action (FOOD-BIKE-017/021)
 // ─────────────────────────────────────────────
