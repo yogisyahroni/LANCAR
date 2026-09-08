@@ -179,15 +179,15 @@ INSERT INTO market_compliance_requirements (
   document_type, document_version, locale, purpose, policy_version
 )
 VALUES
-  ('id-jk', 'customer', 'customer_identity', 'identity', NULL, NULL, 'id-ID', 'account_access', 'compliance-id-jk-v1'),
-  ('id-jk', 'customer', 'terms_of_service', 'consent', 'terms', 'terms-id-jk-v1', 'id-ID', 'service_access', 'compliance-id-jk-v1'),
-  ('id-jk', 'customer', 'privacy_notice', 'consent', 'privacy', 'privacy-id-jk-v1', 'id-ID', 'data_processing', 'compliance-id-jk-v1'),
-  ('id-jk', 'courier', 'government_identity', 'document', 'ktp', NULL, 'id-ID', 'courier_onboarding', 'compliance-id-jk-v1'),
-  ('id-jk', 'courier', 'vehicle_eligibility', 'document', 'stnk', NULL, 'id-ID', 'courier_onboarding', 'compliance-id-jk-v1'),
-  ('id-jk', 'courier', 'mitra_agreement', 'consent', 'mitra_agreement', 'mitra-id-jk-v1', 'id-ID', 'courier_operations', 'compliance-id-jk-v1'),
-  ('id-jk', 'merchant', 'legal_entity', 'identity', NULL, NULL, 'id-ID', 'merchant_onboarding', 'compliance-id-jk-v1'),
-  ('id-jk', 'merchant', 'business_registration', 'document', 'nib', NULL, 'id-ID', 'merchant_onboarding', 'compliance-id-jk-v1'),
-  ('id-jk', 'merchant', 'merchant_terms', 'consent', 'merchant_terms', 'merchant-terms-id-jk-v1', 'id-ID', 'merchant_operations', 'compliance-id-jk-v1')
+  ('id-jk', 'customer', 'customer_identity', 'identity', NULL, NULL, 'id-ID', 'account_access', 'idjk-2026.1'),
+  ('id-jk', 'customer', 'terms_of_service', 'consent', 'terms', 'terms-2026.1', 'id-ID', 'service_access', 'idjk-2026.1'),
+  ('id-jk', 'customer', 'privacy_notice', 'consent', 'privacy', 'privacy-2026.1', 'id-ID', 'data_processing', 'idjk-2026.1'),
+  ('id-jk', 'courier', 'government_identity', 'document', 'ktp', NULL, 'id-ID', 'courier_onboarding', 'idjk-2026.1'),
+  ('id-jk', 'courier', 'vehicle_eligibility', 'document', 'stnk', NULL, 'id-ID', 'courier_onboarding', 'idjk-2026.1'),
+  ('id-jk', 'courier', 'mitra_agreement', 'consent', 'mitra_agreement', 'mitra-2026.1', 'id-ID', 'courier_operations', 'idjk-2026.1'),
+  ('id-jk', 'merchant', 'legal_entity', 'identity', NULL, NULL, 'id-ID', 'merchant_onboarding', 'idjk-2026.1'),
+  ('id-jk', 'merchant', 'business_registration', 'document', 'nib', NULL, 'id-ID', 'merchant_onboarding', 'idjk-2026.1'),
+  ('id-jk', 'merchant', 'merchant_terms', 'consent', 'merchant_terms', 'merchant-terms-2026.1', 'id-ID', 'merchant_operations', 'idjk-2026.1')
 ON CONFLICT (market_code, role_code, requirement_code, policy_version) DO NOTHING;
 
 INSERT INTO market_compliance_data_policies (
@@ -195,10 +195,10 @@ INSERT INTO market_compliance_data_policies (
   policy_version, legal_basis
 )
 VALUES
-  ('id-jk', 'identity', 1825, 'limited', 'anonymize', 'compliance-id-jk-v1', 'account_and_regulatory_obligation'),
-  ('id-jk', 'verification_artifact', 1825, 'prohibited', 'retain_legal_hold', 'compliance-id-jk-v1', 'fraud_and_regulatory_obligation'),
-  ('id-jk', 'consent', 3650, 'allowed', 'retain_legal_hold', 'compliance-id-jk-v1', 'consent_audit'),
-  ('id-jk', 'operational', 730, 'allowed', 'delete', 'compliance-id-jk-v1', 'service_operations')
+      ('id-jk', 'identity', 1825, 'limited', 'anonymize', 'idjk-2026.1', 'account_and_regulatory_obligation'),
+      ('id-jk', 'verification_artifact', 1825, 'prohibited', 'retain_legal_hold', 'idjk-2026.1', 'fraud_and_regulatory_obligation'),
+      ('id-jk', 'consent', 3650, 'allowed', 'retain_legal_hold', 'idjk-2026.1', 'consent_audit'),
+      ('id-jk', 'operational', 730, 'allowed', 'delete', 'idjk-2026.1', 'service_operations')
 ON CONFLICT (market_code, data_class, policy_version) DO NOTHING;
 
 INSERT INTO market_compliance_artifact_policies (
@@ -206,9 +206,9 @@ INSERT INTO market_compliance_artifact_policies (
   retention_days, export_mode, deletion_mode, policy_version
 )
 VALUES
-  ('id-jk', 'courier', 'identity_document', 'compliance_only', 1825, 'prohibited', 'retain_legal_hold', 'compliance-id-jk-v1'),
-  ('id-jk', 'courier', 'vehicle_document', 'compliance_only', 1825, 'prohibited', 'retain_legal_hold', 'compliance-id-jk-v1'),
-  ('id-jk', 'merchant', 'business_document', 'compliance_only', 1825, 'prohibited', 'retain_legal_hold', 'compliance-id-jk-v1')
+      ('id-jk', 'courier', 'identity_document', 'compliance_only', 1825, 'prohibited', 'retain_legal_hold', 'idjk-2026.1'),
+      ('id-jk', 'courier', 'vehicle_document', 'compliance_only', 1825, 'prohibited', 'retain_legal_hold', 'idjk-2026.1'),
+      ('id-jk', 'merchant', 'business_document', 'compliance_only', 1825, 'prohibited', 'retain_legal_hold', 'idjk-2026.1')
 ON CONFLICT (market_code, role_code, artifact_type, policy_version) DO NOTHING;
 
 -- Extend the existing launch readiness gate so a new market cannot become
