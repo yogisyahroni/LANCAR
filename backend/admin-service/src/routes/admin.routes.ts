@@ -89,6 +89,8 @@ adminRoutes.patch('/admin/experiments/:key', requireRole(['super_admin', 'ops_ad
 adminRoutes.post('/admin/experiments/:key/kill', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experiment.kill'), (req, res) => controllers.killExperiment(req, res));
 adminRoutes.get('/admin/settings', (req, res) => controllers.getSystemConfigs(req, res));
 adminRoutes.patch('/admin/settings/:key', requireTotp, (req, res) => controllers.updateSystemConfig(req, res));
+adminRoutes.get('/admin/mobile-release-policies', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMobileReleasePolicies(req, res));
+adminRoutes.put('/admin/mobile-release-policies/:marketCode/:clientType/:platform', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.mobile_release_policy.upsert'), (req, res) => controllers.upsertAdminMobileReleasePolicy(req, res));
 adminRoutes.get('/admin/market-configs', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMarketConfigs(req, res));
 adminRoutes.get('/admin/market-configs/:marketCode', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminMarketConfig(req, res));
 adminRoutes.post('/admin/market-configs', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.market_config.create'), (req, res) => controllers.createAdminMarketConfig(req, res));

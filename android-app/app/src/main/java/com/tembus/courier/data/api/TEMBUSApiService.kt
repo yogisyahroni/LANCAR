@@ -107,7 +107,10 @@ interface TEMBUSApiService {
      */
     @GET("api/v1/system/latest-version")
     suspend fun getLatestVersion(
-        @Query("type") type: String
+        @Query("type") type: String,
+        @Query("market_code") marketCode: String? = null,
+        @Query("platform") platform: String = "android",
+        @Query("locale") locale: String? = null
     ): Response<AppVersion>
 
     @GET("api/v1/maps/config")

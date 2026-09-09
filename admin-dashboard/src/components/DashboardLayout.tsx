@@ -41,7 +41,8 @@ import {
   Calendar,
   Globe2,
   Beaker,
-  Sparkles
+  Sparkles,
+  Smartphone
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -255,6 +256,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Megaphone, label: "Broadcast Center", path: "/broadcasts", allowedRoles: ['super_admin', 'admin', 'ops_admin'] }, // 10.2
         { icon: Sparkles, label: "App Experience", path: "/app-experience", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
         { icon: Globe2, label: "Localized Content", path: "/localized-content", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
+        { icon: Smartphone, label: "Mobile Release Policies", path: "/mobile-release-policies", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
         { icon: Calendar, label: "Campaign Calendar", path: "/campaign-calendar", allowedRoles: ['super_admin', 'admin', 'ops_admin'] },
         { icon: FileText, label: "Resi Templates", path: "/resi-templates", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
       ]

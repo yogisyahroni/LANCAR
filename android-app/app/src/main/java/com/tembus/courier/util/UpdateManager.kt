@@ -166,14 +166,16 @@ class UpdateManager @Inject constructor(
 
     private suspend fun checkBackendUpdate(): AppVersion? {
         return try {
-            val response = apiService.getLatestVersion("courier")
+            val response = apiService.getLatestVersion("courier", marketCode = DEFAULT_MARKET_CODE)
             if (!response.isSuccessful) {
                 return null
             }
 
             val latest = response.body()
             if (latest != null && (
-                    latest.code > BuildConfig.VERSION_CODE ||
+                    latest.updateRequired ||
+                        latest.hardBlock ||
+                        latest.code > BuildConfig.VERSION_CODE ||
                         latest.force ||
                         latest.compatibility?.upgradeRequired == true
                 )) latest else null
@@ -515,6 +517,7 @@ class UpdateManager @Inject constructor(
     )
 
     private companion object {
+        private const val DEFAULT_MARKET_CODE = "id-jk"
         private val COURIER_TAG_REGEX = Regex("""v1\.0\.(\d+)""")
         private val SHA256_HEX_REGEX = Regex("^[a-f0-9]{64}$")
         private const val UPDATE_CACHE_DIR = "updates"

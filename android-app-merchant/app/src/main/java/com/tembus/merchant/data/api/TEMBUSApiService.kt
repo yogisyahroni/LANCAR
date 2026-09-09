@@ -29,7 +29,10 @@ interface TEMBUSApiService {
     // ── System (auto-update) ──
     @GET("api/v1/system/latest-version")
     suspend fun getLatestVersion(
-        @Query("type") type: String
+        @Query("type") type: String,
+        @Query("market_code") marketCode: String? = null,
+        @Query("platform") platform: String = "android",
+        @Query("locale") locale: String? = null
     ): Response<AppVersion>
 
     // ── Auth (auth-service, generic untuk semua role) ──

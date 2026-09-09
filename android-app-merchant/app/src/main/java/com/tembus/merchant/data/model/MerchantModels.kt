@@ -414,7 +414,14 @@ data class AppVersion(
     @SerializedName("min_supported_name") val minSupportedName: String? = null,
     @SerializedName("api_schema_version") val apiSchemaVersion: Int? = null,
     @SerializedName("supported_schema_versions") val supportedSchemaVersions: List<Int> = emptyList(),
-    @SerializedName("compatibility") val compatibility: AppCompatibility? = null
+    @SerializedName("compatibility") val compatibility: AppCompatibility? = null,
+    @SerializedName("update_mode") val updateMode: String = "none",
+    @SerializedName("update_required") val updateRequired: Boolean = false,
+    @SerializedName("hard_block") val hardBlock: Boolean = false,
+    @SerializedName("hard_block_reason") val hardBlockReason: String? = null,
+    @SerializedName("message") val message: String? = null,
+    @SerializedName("store_destinations") val storeDestinations: Map<String, String> = emptyMap(),
+    @SerializedName("recovery_access") val recoveryAccess: UpdateRecoveryAccess = UpdateRecoveryAccess()
 )
 
 data class AppCompatibility(
@@ -422,6 +429,12 @@ data class AppCompatibility(
     @SerializedName("upgrade_required") val upgradeRequired: Boolean = false,
     @SerializedName("dynamic_features_enabled") val dynamicFeaturesEnabled: Boolean = false,
     @SerializedName("reason") val reason: String? = null
+)
+
+data class UpdateRecoveryAccess(
+    @SerializedName("active_order") val activeOrder: Boolean = true,
+    @SerializedName("support") val support: Boolean = true,
+    @SerializedName("new_transactions") val newTransactions: Boolean = true
 )
 
 /** List wrapper menu: {items, total, page, page_size}. */

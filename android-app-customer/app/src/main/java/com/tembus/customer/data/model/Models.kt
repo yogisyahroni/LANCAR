@@ -174,7 +174,28 @@ data class AppVersion(
     val supportedSchemaVersions: List<Int> = emptyList(),
 
     @SerialName("compatibility")
-    val compatibility: AppCompatibility? = null
+    val compatibility: AppCompatibility? = null,
+
+    @SerialName("update_mode")
+    val updateMode: String = "none",
+
+    @SerialName("update_required")
+    val updateRequired: Boolean = false,
+
+    @SerialName("hard_block")
+    val hardBlock: Boolean = false,
+
+    @SerialName("hard_block_reason")
+    val hardBlockReason: String? = null,
+
+    @SerialName("message")
+    val message: String? = null,
+
+    @SerialName("store_destinations")
+    val storeDestinations: Map<String, String> = emptyMap(),
+
+    @SerialName("recovery_access")
+    val recoveryAccess: UpdateRecoveryAccess = UpdateRecoveryAccess()
 )
 
 @Serializable
@@ -183,4 +204,11 @@ data class AppCompatibility(
     @SerialName("upgrade_required") val upgradeRequired: Boolean = false,
     @SerialName("dynamic_features_enabled") val dynamicFeaturesEnabled: Boolean = false,
     @SerialName("reason") val reason: String? = null
+)
+
+@Serializable
+data class UpdateRecoveryAccess(
+    @SerialName("active_order") val activeOrder: Boolean = true,
+    @SerialName("support") val support: Boolean = true,
+    @SerialName("new_transactions") val newTransactions: Boolean = true
 )

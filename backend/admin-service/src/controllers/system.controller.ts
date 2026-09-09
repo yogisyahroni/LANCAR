@@ -13,9 +13,15 @@ import {
   compatibilityResponse,
   getClientCompatibilityPolicy,
   readClientCompatibility,
+  supportedClientTypes,
   supportedMobileClientTypes,
+  type SupportedClientType,
   type SupportedMobileClientType,
 } from '../services/clientCompatibility';
+import {
+  resolveMobileReleaseDecision,
+  type ReleasePlatform,
+} from '../services/mobileReleasePolicy';
 import {
   buildMapsRouteEtaSnapshot,
   fetchOpenStreetMapTile,
@@ -98,14 +104,58 @@ export const getPublicRuntimeConfigs = async (req: Request, res: Response): Prom
 export const getLatestVersion = async (req: Request, res: Response): Promise<void> => {
   try {
     const type = req.query.type as string;
-    if (!type || !supportedMobileClientTypes.includes(type as SupportedMobileClientType)) {
+    if (!type || !supportedClientTypes.includes(type as SupportedClientType)) {
       res.status(400).json({ error: 'Invalid app type' });
       return;
     }
 
-    const clientType = type as SupportedMobileClientType;
+    const clientType = type as SupportedClientType;
+    const platform = (typeof req.query.platform === 'string'
+      ? req.query.platform
+      : clientType === 'web' ? 'web' : 'android') as ReleasePlatform;
+    if ((clientType === 'web' && platform !== 'web') || (clientType !== 'web' && platform !== 'android')) {
+      res.status(400).json({ error: 'Invalid client platform' });
+      return;
+    }
+    const marketCode = (typeof req.query.market_code === 'string'
+      ? req.query.market_code
+      : typeof req.headers['x-market-code'] === 'string' ? req.headers['x-market-code'] : 'id-jk').trim().toLowerCase();
+    const requestedLocale = typeof req.query.locale === 'string'
+      ? req.query.locale
+      : typeof req.headers['accept-language'] === 'string'
+        ? req.headers['accept-language'].split(',')[0].split(';')[0].trim()
+        : 'id-ID';
     const policy = getClientCompatibilityPolicy(clientType);
     const compatibility = readClientCompatibility(req.headers, clientType);
+    const scopedDecision = await resolveMobileReleaseDecision({
+      market_code: marketCode,
+      client_type: clientType,
+      platform,
+      compatibility,
+      requested_locale: requestedLocale,
+    });
+
+    if (scopedDecision) {
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      res.setHeader('Vary', 'X-App-Type, X-App-Version-Code, X-App-Schema-Version, X-Market-Code, Accept-Language');
+      res.json({
+        ...scopedDecision,
+        compatibility: {
+          ...compatibilityResponse(compatibility, policy),
+          minimum_supported_version_code: scopedDecision.min_supported_code,
+          minimum_supported_version_name: scopedDecision.min_supported_name,
+          upgrade_required: scopedDecision.hard_block || compatibility.upgradeRequired,
+          status: scopedDecision.hard_block ? 'upgrade_required' : compatibility.status,
+          reason: scopedDecision.hard_block ? `release_policy_${scopedDecision.hard_block_reason}` : compatibility.reason,
+        },
+      });
+      return;
+    }
+
+    if (!supportedMobileClientTypes.includes(clientType as SupportedMobileClientType)) {
+      res.status(404).json({ error: 'Release policy not found for this market/platform' });
+      return;
+    }
 
     const versionKey = `mobile_${type}_version`;
     const result = await readDb.query(

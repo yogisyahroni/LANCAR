@@ -31,19 +31,30 @@ fun UpdateDialog(
 ) {
     AlertDialog(
         onDismissRequest = {
-            if (!version.force && !isUpdating) onDismiss()
+            if (!version.hardBlock && !version.force && !isUpdating) onDismiss()
         },
         title = {
             Text(
-                text = "Update tersedia",
+                text = if (version.hardBlock || version.force) "Pembaruan diperlukan" else "Update tersedia",
                 style = MaterialTheme.typography.titleLarge
             )
         },
         text = {
             Column {
                 Text(
-                    text = "TEMBUS ${version.name} siap dipasang. Aplikasi akan menyiapkan paket update dan membuka installer Android."
+                    text = version.message
+                        ?: "TEMBUS ${version.name} siap dipasang. Aplikasi akan menyiapkan paket update dan membuka installer Android."
                 )
+
+                if (version.hardBlock || version.force) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Pesanan aktif: ${if (version.recoveryAccess.activeOrder) "tetap dapat diakses" else "dibatasi"}. " +
+                            "Bantuan: ${if (version.recoveryAccess.support) "tetap dapat diakses" else "dibatasi"}. " +
+                            "Transaksi baru: ${if (version.recoveryAccess.newTransactions) "tersedia" else "ditahan sampai update selesai"}.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
 
                 if (isUpdating) {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -76,7 +87,7 @@ fun UpdateDialog(
             }
         },
         dismissButton = {
-            if (!version.force && !isUpdating) {
+            if (!version.hardBlock && !version.force && !isUpdating) {
                 TextButton(onClick = onDismiss) {
                     Text("Nanti")
                 }

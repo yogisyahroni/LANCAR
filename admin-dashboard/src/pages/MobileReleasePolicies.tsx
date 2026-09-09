@@ -1,0 +1,192 @@
+import { useMemo, useState } from 'react'
+import { CheckCircle2, ExternalLink, RefreshCw, Save, ShieldCheck, Smartphone } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { api } from '../lib/api'
+
+type ClientType = 'customer' | 'courier' | 'merchant' | 'web'
+type Platform = 'android' | 'web'
+type UpdateMode = 'none' | 'soft' | 'hard'
+type HardBlockReason = 'none' | 'unsafe' | 'incompatible'
+
+type ReleasePolicy = {
+  id: string
+  market_code: string
+  client_type: ClientType
+  platform: Platform
+  latest_version_code: number
+  latest_version_name: string
+  min_supported_version_code: number
+  min_supported_version_name: string
+  recommended_version_code: number | null
+  recommended_version_name: string | null
+  update_mode: UpdateMode
+  hard_block_reason: HardBlockReason
+  localized_messages: Record<string, string>
+  store_destinations: Record<string, string>
+  allow_active_order_access: boolean
+  allow_support_access: boolean
+  allow_new_transactions: boolean
+  remote_config_scope: 'release_metadata'
+  revision: number
+  updated_at: string
+}
+
+type FormState = {
+  market_code: string
+  client_type: ClientType
+  platform: Platform
+  latest_version_code: string
+  latest_version_name: string
+  min_supported_version_code: string
+  min_supported_version_name: string
+  recommended_version_code: string
+  recommended_version_name: string
+  update_mode: UpdateMode
+  hard_block_reason: HardBlockReason
+  message_id: string
+  message_en: string
+  store_url: string
+  reason: string
+}
+
+const inputClass = 'mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20'
+const clientLabels: Record<ClientType, string> = { customer: 'Customer', courier: 'Courier', merchant: 'Merchant', web: 'Web' }
+
+const newForm = (): FormState => ({
+  market_code: 'id-jk',
+  client_type: 'customer',
+  platform: 'android',
+  latest_version_code: '1',
+  latest_version_name: '1.0.0',
+  min_supported_version_code: '1',
+  min_supported_version_name: '1.0.0',
+  recommended_version_code: '',
+  recommended_version_name: '',
+  update_mode: 'none',
+  hard_block_reason: 'none',
+  message_id: 'Versi baru tersedia. Perbarui aplikasi saat siap.',
+  message_en: 'A new version is available. Update when ready.',
+  store_url: '',
+  reason: 'Release policy updated from admin dashboard',
+})
+
+const requestKey = () => `admin.mobile_release_policy.${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`
+const errorMessage = (error: unknown) => {
+  const response = error as { response?: { data?: { message?: unknown } } }
+  return typeof response.response?.data?.message === 'string' ? response.response.data.message : 'Release policy operation failed'
+}
+
+const toForm = (policy: ReleasePolicy): FormState => ({
+  market_code: policy.market_code,
+  client_type: policy.client_type,
+  platform: policy.platform,
+  latest_version_code: String(policy.latest_version_code),
+  latest_version_name: policy.latest_version_name,
+  min_supported_version_code: String(policy.min_supported_version_code),
+  min_supported_version_name: policy.min_supported_version_name,
+  recommended_version_code: policy.recommended_version_code === null ? '' : String(policy.recommended_version_code),
+  recommended_version_name: policy.recommended_version_name ?? '',
+  update_mode: policy.update_mode,
+  hard_block_reason: policy.hard_block_reason,
+  message_id: policy.localized_messages['id-ID'] ?? '',
+  message_en: policy.localized_messages['en-US'] ?? '',
+  store_url: policy.store_destinations.primary ?? policy.store_destinations.default ?? '',
+  reason: `Revision ${policy.revision} updated from admin dashboard`,
+})
+
+export default function MobileReleasePolicies() {
+  const queryClient = useQueryClient()
+  const [form, setForm] = useState<FormState>(newForm)
+  const [showForm, setShowForm] = useState(false)
+  const query = useQuery({
+    queryKey: ['mobile-release-policies'],
+    queryFn: async (): Promise<ReleasePolicy[]> => (await api.get('/admin/mobile-release-policies')).data?.data ?? [],
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const isHard = form.update_mode === 'hard'
+      const payload = {
+        latest_version_code: Number(form.latest_version_code),
+        latest_version_name: form.latest_version_name.trim(),
+        min_supported_version_code: Number(form.min_supported_version_code),
+        min_supported_version_name: form.min_supported_version_name.trim(),
+        recommended_version_code: form.recommended_version_code ? Number(form.recommended_version_code) : null,
+        recommended_version_name: form.recommended_version_name.trim() || null,
+        update_mode: form.update_mode,
+        hard_block_reason: isHard ? form.hard_block_reason : 'none',
+        localized_messages: {
+          ...(form.message_id.trim() ? { 'id-ID': form.message_id.trim() } : {}),
+          ...(form.message_en.trim() ? { 'en-US': form.message_en.trim() } : {}),
+        },
+        store_destinations: form.store_url.trim() ? { primary: form.store_url.trim() } : {},
+        reason: form.reason.trim(),
+      }
+      return api.put(`/admin/mobile-release-policies/${encodeURIComponent(form.market_code.trim().toLowerCase())}/${form.client_type}/${form.platform}`, payload, { headers: { 'X-Idempotency-Key': requestKey() } })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mobile-release-policies'] })
+      setShowForm(false)
+      toast.success('Mobile release policy saved')
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  })
+
+  const sorted = useMemo(() => [...(query.data ?? [])].sort((a, b) => `${a.market_code}:${a.client_type}:${a.platform}`.localeCompare(`${b.market_code}:${b.client_type}:${b.platform}`)), [query.data])
+  const isHard = form.update_mode === 'hard'
+  const canSave = Boolean(form.market_code.trim() && form.latest_version_name.trim() && form.min_supported_version_name.trim() && form.reason.trim() && (!isHard || form.hard_block_reason !== 'none'))
+
+  const edit = (policy: ReleasePolicy) => {
+    setForm(toForm(policy))
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  return (
+    <div className="space-y-6 p-6 lg:p-8">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="flex items-center gap-3"><Smartphone className="text-primary-light" size={26} /><h1 className="text-3xl font-black tracking-tight text-zinc-100">Mobile Release Policies</h1></div>
+          <p className="mt-2 max-w-4xl text-sm leading-relaxed text-zinc-500">Kelola minimum version, soft update, dan hard update per market/client/platform. Hard update selalu mempertahankan akses pesanan aktif dan support; transaksi baru ditahan sampai binary diperbarui.</p>
+        </div>
+        <div className="flex gap-2"><button type="button" onClick={() => query.refetch()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-300"><RefreshCw size={14} /> Refresh</button><button type="button" onClick={() => { setForm(newForm()); setShowForm(true) }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white"><Save size={14} /> New policy</button></div>
+      </header>
+
+      <section className="rounded-3xl border border-amber-400/20 bg-amber-400/5 p-5" aria-label="release policy safety boundary">
+        <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 shrink-0 text-amber-300" size={20} /><div><p className="text-sm font-black text-amber-100">Release metadata only</p><p className="mt-1 text-xs leading-relaxed text-amber-100/70">Remote policy tidak mengirim kode native, JavaScript executable, atau menggantikan store review. Capability native baru tetap memerlukan build dan review platform.</p></div></div>
+      </section>
+
+      {showForm ? <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-xl shadow-black/10" aria-labelledby="release-policy-editor-title">
+        <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-light">Scoped policy editor</p><h2 id="release-policy-editor-title" className="mt-1 text-xl font-black text-zinc-100">Set release gate</h2></div><CheckCircle2 className="text-emerald-400" size={20} /></div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <label className="text-xs font-bold text-zinc-400">Market code<input className={inputClass} value={form.market_code} onChange={(event) => setForm({ ...form, market_code: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400">Client<select className={inputClass} value={form.client_type} onChange={(event) => { const clientType = event.target.value as ClientType; setForm({ ...form, client_type: clientType, platform: clientType === 'web' ? 'web' : 'android' }) }}>{Object.entries(clientLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="text-xs font-bold text-zinc-400">Platform<select className={inputClass} value={form.platform} disabled={form.client_type === 'web'} onChange={(event) => setForm({ ...form, platform: event.target.value as Platform })}><option value="android">Android</option><option value="web">Web</option></select></label>
+          <label className="text-xs font-bold text-zinc-400">Update mode<select className={inputClass} value={form.update_mode} onChange={(event) => { const updateMode = event.target.value as UpdateMode; setForm({ ...form, update_mode: updateMode, hard_block_reason: updateMode === 'hard' ? (form.hard_block_reason === 'none' ? 'unsafe' : form.hard_block_reason) : 'none' }) }}><option value="none">None</option><option value="soft">Soft — dismissible</option><option value="hard">Hard — required</option></select></label>
+          <label className="text-xs font-bold text-zinc-400">Latest version code<input type="number" min="1" className={inputClass} value={form.latest_version_code} onChange={(event) => setForm({ ...form, latest_version_code: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400">Latest version name<input className={inputClass} placeholder="1.2.3" value={form.latest_version_name} onChange={(event) => setForm({ ...form, latest_version_name: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400">Minimum version code<input type="number" min="1" className={inputClass} value={form.min_supported_version_code} onChange={(event) => setForm({ ...form, min_supported_version_code: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400">Minimum version name<input className={inputClass} placeholder="1.0.0" value={form.min_supported_version_name} onChange={(event) => setForm({ ...form, min_supported_version_name: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400">Recommended code<input type="number" min="1" className={inputClass} value={form.recommended_version_code} onChange={(event) => setForm({ ...form, recommended_version_code: event.target.value })} placeholder="Optional" /></label>
+          <label className="text-xs font-bold text-zinc-400">Recommended name<input className={inputClass} value={form.recommended_version_name} onChange={(event) => setForm({ ...form, recommended_version_name: event.target.value })} placeholder="Optional" /></label>
+          <label className="text-xs font-bold text-zinc-400">Hard-block reason<select className={inputClass} value={form.hard_block_reason} disabled={!isHard} onChange={(event) => setForm({ ...form, hard_block_reason: event.target.value as HardBlockReason })}><option value="none">None</option><option value="unsafe">Unsafe binary</option><option value="incompatible">Incompatible binary</option></select></label>
+          <label className="text-xs font-bold text-zinc-400">Store destination URL<input type="url" className={inputClass} value={form.store_url} onChange={(event) => setForm({ ...form, store_url: event.target.value })} placeholder="https://..." /></label>
+          <label className="text-xs font-bold text-zinc-400 md:col-span-2">Bahasa Indonesia message<textarea className={`${inputClass} min-h-20 resize-y`} maxLength={240} value={form.message_id} onChange={(event) => setForm({ ...form, message_id: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400 md:col-span-2">English message<textarea className={`${inputClass} min-h-20 resize-y`} maxLength={240} value={form.message_en} onChange={(event) => setForm({ ...form, message_en: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400 md:col-span-4">Audit reason<input className={inputClass} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label>
+        </div>
+        {isHard ? <p className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs leading-relaxed text-red-200">Hard update hanya valid untuk binary unsafe/incompatible. Akses pesanan aktif dan support dipertahankan; transaksi baru otomatis ditahan oleh server.</p> : null}
+        <div className="mt-5 flex flex-wrap items-center gap-3"><button type="button" disabled={!canSave || saveMutation.isPending} onClick={() => saveMutation.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50"><Save size={14} /> {saveMutation.isPending ? 'Saving...' : 'Save policy'}</button><button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-400">Cancel</button><p className="text-xs text-zinc-500">Perubahan dilindungi TOTP dan idempotency key.</p></div>
+      </section> : null}
+
+      <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" aria-labelledby="release-policy-list-title">
+        <div className="flex items-center justify-between gap-3"><div><h2 id="release-policy-list-title" className="text-lg font-black text-zinc-100">Active policy matrix</h2><p className="mt-1 text-xs text-zinc-500">One policy per market, client, and platform. Revision history is retained server-side.</p></div><span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">{sorted.length} policies</span></div>
+        {query.isLoading ? <p className="mt-5 text-sm text-zinc-500">Loading release policies...</p> : null}
+        {query.isError ? <p className="mt-5 text-sm text-red-300">Release policy list failed to load.</p> : null}
+        <div className="mt-5 grid gap-3 xl:grid-cols-2">{sorted.map((policy) => <article key={policy.id} className="rounded-2xl border border-white/10 bg-black/10 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs text-primary-light">{policy.market_code}</span><span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">{clientLabels[policy.client_type]}</span><span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">{policy.platform}</span><span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-widest ${policy.update_mode === 'hard' ? 'bg-red-500/10 text-red-300' : policy.update_mode === 'soft' ? 'bg-amber-500/10 text-amber-200' : 'bg-emerald-500/10 text-emerald-300'}`}>{policy.update_mode}</span></div><p className="mt-3 text-sm font-bold text-zinc-200">Latest {policy.latest_version_name} · minimum {policy.min_supported_version_name}</p><p className="mt-1 text-xs text-zinc-500">Recommended: {policy.recommended_version_name ?? 'none'} · reason: {policy.hard_block_reason} · revision {policy.revision}</p><p className="mt-2 text-xs text-zinc-500">Recovery: active order {policy.allow_active_order_access ? 'available' : 'blocked'}, support {policy.allow_support_access ? 'available' : 'blocked'}, new transactions {policy.allow_new_transactions ? 'available' : 'held'}</p>{policy.store_destinations.primary ? <a className="mt-2 inline-flex items-center gap-1 text-xs text-primary-light hover:underline" href={policy.store_destinations.primary} target="_blank" rel="noreferrer">Store destination <ExternalLink size={12} /></a> : null}</div><button type="button" onClick={() => edit(policy)} className="shrink-0 rounded-xl border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400">Edit</button></div></article>)}</div>
+        {!query.isLoading && sorted.length === 0 ? <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-600">No scoped release policies yet.</div> : null}
+      </section>
+    </div>
+  )
+}
