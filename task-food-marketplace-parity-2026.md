@@ -2184,12 +2184,12 @@ A task is complete only when applicable boxes below are true:
 - `admin-dashboard/src/components/experience/RevisionHistory.tsx`
 
 **Checklist**
-- [ ] Non-engineering user can create/schedule banner/campaign/home layout from approved component schema.
-- [ ] Preview customer Android/web surfaces for selected market/locale/app version.
-- [ ] Publish validation blocks missing asset, invalid deeplink, unsupported schema, bad schedule and inaccessible contrast.
-- [ ] Revision history shows who changed what and supports one-click rollback to known-good revision.
-- [ ] Two-step approval available for global/high-impact campaign.
-- [ ] Publish can be canaried to internal/test cohort before public rollout.
+- [x] Non-engineering user can create/schedule banner/campaign/home layout from approved component schema.
+- [x] Preview customer Android/web surfaces for selected market/locale/app version.
+- [x] Publish validation blocks missing asset, invalid deeplink, unsupported schema, bad schedule and inaccessible contrast.
+- [x] Revision history shows who changed what and supports one-click rollback to known-good revision.
+- [x] Two-step approval available for global/high-impact campaign.
+- [x] Publish can be canaried to internal/test cohort before public rollout.
 
 ---
 
