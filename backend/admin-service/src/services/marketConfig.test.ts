@@ -73,6 +73,17 @@ describe('market configuration', () => {
     expect(readDb.query).toHaveBeenCalledTimes(1);
   });
 
+  it('fails closed when an active market is paused without requiring a client update', async () => {
+    readDb.query.mockResolvedValueOnce({ rows: [{ market_code: 'id-jk', is_ready: false, reason_codes: ['market_not_active'] }] });
+
+    await expect(getPublicMarketConfig('id-jk')).rejects.toMatchObject<Partial<MarketConfigError>>({
+      code: 'MARKET_CONFIGURATION_UNAVAILABLE',
+      status: 503,
+      reasonCodes: ['market_not_active'],
+    });
+    expect(readDb.query).toHaveBeenCalledTimes(1);
+  });
+
   it('increments version, records rollback version, and resets approval on material update', async () => {
     const client = {
       query: jest.fn()
