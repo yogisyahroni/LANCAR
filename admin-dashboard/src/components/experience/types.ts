@@ -134,6 +134,12 @@ export type ExperienceAuditRecord = {
   created_at: string
 }
 
+export type ExperienceDiffFieldChange = {
+  field: 'content' | 'targeting' | 'schedule' | 'assets' | 'deep_links' | 'flags' | 'tokens'
+  previous: unknown
+  next: unknown
+}
+
 export type ExperienceHistory = {
   revisions: ExperienceManifest[]
   audit: ExperienceAuditRecord[]

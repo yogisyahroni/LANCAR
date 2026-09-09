@@ -20,6 +20,7 @@ export type PreviewResult = {
     added_sections: string[]
     removed_sections: string[]
     changed_sections: string[]
+    field_changes: Array<{ field: string; previous: unknown; next: unknown }>
   }
   release_summary?: {
     audience: {
@@ -36,6 +37,12 @@ export type PreviewResult = {
 }
 
 type Props = { result?: PreviewResult }
+
+const valueLabel = (value: unknown): string => {
+  if (value === null || value === undefined) return 'none'
+  const serialized = typeof value === 'string' ? value : JSON.stringify(value)
+  return serialized.length > 360 ? `${serialized.slice(0, 360)}…` : serialized
+}
 
 export default function RevisionDiffPreview({ result }: Props) {
   if (!result) return (
@@ -69,6 +76,7 @@ export default function RevisionDiffPreview({ result }: Props) {
       {!result.validation.valid ? <div className="space-y-2 rounded-2xl border border-red-500/20 bg-red-500/5 p-4" role="alert"><p className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-red-200"><AlertTriangle size={14} /> Blocking validation</p>{result.validation.issues.map((issue) => <p key={`${issue.code}:${issue.path}`} className="text-xs text-red-100/80">{issue.path} · {issue.message}</p>)}</div> : <p className="flex items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-200"><CheckCircle2 size={14} /> Schema, asset/deep-link integrity, schedule and targeting gates are clear for this saved candidate.</p>}
       {outcomes.length ? <div className="space-y-2"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Component outcomes</p>{outcomes.map((outcome) => <div key={outcome.section_id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs"><span className="font-mono text-zinc-300">{outcome.section_id} · {outcome.component}</span><span className={outcome.status === 'rendered' ? 'text-emerald-300' : outcome.status === 'fallback' ? 'text-amber-300' : 'text-zinc-500'}>{outcome.status}{outcome.reason ? ` · ${outcome.reason}` : ''}</span></div>)}</div> : null}
       <div className="space-y-1 text-[11px] text-zinc-500"><div className="flex flex-wrap gap-2"><span>Changed: {result.diff.changed_fields.length}</span><span>·</span><span>Added sections: {result.diff.added_sections.length}</span><span>·</span><span>Removed: {result.diff.removed_sections.length}</span><span>·</span><span>Changed sections: {result.diff.changed_sections.length}</span></div>{result.diff.changed_fields.length ? <p>Fields: {result.diff.changed_fields.join(', ')}</p> : null}</div>
+      {result.diff.field_changes.length ? <div className="space-y-2 rounded-2xl border border-white/10 bg-black/10 p-4" aria-label="field-level revision diff"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Field-level changes</p>{result.diff.field_changes.map((change) => <div key={change.field} className="grid gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs md:grid-cols-[7rem_1fr_1fr] md:items-start"><span className="font-black uppercase tracking-wider text-primary-light">{change.field}</span><span className="break-words text-red-200/80"><strong className="mr-1 text-[10px] uppercase tracking-widest text-zinc-600">Previous</strong>{valueLabel(change.previous)}</span><span className="break-words text-emerald-200/80"><strong className="mr-1 text-[10px] uppercase tracking-widest text-zinc-600">New</strong>{valueLabel(change.next)}</span></div>)}</div> : null}
     </section>
   )
 }

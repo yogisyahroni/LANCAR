@@ -26,7 +26,9 @@ const text = (properties: Record<string, unknown>, key: string) => typeof proper
 
 export default function ExperiencePreview({ surface, sections, resolvedSections, simulation }: Props) {
   const SurfaceIcon = surfaceIcon[surface]
-  const visibleSections = (resolvedSections ?? sections).filter((section) => section.enabled !== false)
+  const visibleSections = resolvedSections
+    ? resolvedSections.filter((section) => section.enabled !== false)
+    : sections.filter((section) => section.enabled !== false)
   return (
     <section className="rounded-3xl border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/20" aria-labelledby="experience-preview-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

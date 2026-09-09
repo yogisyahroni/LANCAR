@@ -1832,6 +1832,17 @@ export const rollbackExperienceManifest = async (
       throw new ExperienceManifestError('EXPERIENCE_ROLLBACK_TARGET_NOT_FOUND', 404, `Historical revision ${targetRevision} is not available for rollback`);
     }
     const target = rowToManifest(targetResult.rows[0]);
+    if (target.market_code !== current.market_code
+      || target.surface !== current.surface
+      || target.schema_version !== current.schema_version
+      || target.kill_switch_active) {
+      throw new ExperienceManifestError(
+        'EXPERIENCE_ROLLBACK_TARGET_INCOMPATIBLE',
+        409,
+        `Historical revision ${target.revision} is not a compatible known-good rollback target`,
+      );
+    }
+    assertPersistedManifestIntegrity(target);
     await client.query(
       `UPDATE experience_manifest_revisions
           SET state = 'rolled_back', rolled_back_by = $1, rolled_back_at = NOW(), updated_by = $1, updated_at = NOW()
@@ -2261,17 +2272,43 @@ export const listExperienceAudit = async (filters: {
   market_code?: unknown;
   surface?: unknown;
   manifest_id?: unknown;
+  actor_id?: unknown;
+  action?: unknown;
+  date_from?: unknown;
+  date_to?: unknown;
 } = {}): Promise<ExperienceManifestAuditRecord[]> => {
   const marketCode = validateListFilter(filters.market_code, 'market_code');
   const surface = validateListFilter(filters.surface, 'surface');
   const manifestId = filters.manifest_id == null || filters.manifest_id === ''
     ? null
     : parseUuid(filters.manifest_id, 'manifest_id');
+  const actorId = filters.actor_id == null || filters.actor_id === ''
+    ? null
+    : parseUuid(filters.actor_id, 'actor_id');
+  const action = filters.action == null || filters.action === '' ? null : String(filters.action).trim().toLowerCase();
+  const auditActions = new Set([
+    'draft_created', 'draft_updated', 'previewed', 'approval_requested', 'approved', 'rejected',
+    'published', 'superseded', 'rolled_back', 'kill_switched', 'kill_switch_cleared',
+  ]);
+  if (action && !auditActions.has(action)) throw new ExperienceManifestError('INVALID_EXPERIENCE_FILTER', 400, 'action is invalid');
+  const parseAuditDate = (value: unknown, field: string): string | null => {
+    if (value === undefined || value === null || value === '') return null;
+    const date = new Date(String(value));
+    if (Number.isNaN(date.getTime())) throw new ExperienceManifestError('INVALID_EXPERIENCE_FILTER', 400, `${field} is invalid`);
+    return date.toISOString();
+  };
+  const dateFrom = parseAuditDate(filters.date_from, 'date_from');
+  const dateTo = parseAuditDate(filters.date_to, 'date_to');
+  if (dateFrom && dateTo && dateFrom > dateTo) throw new ExperienceManifestError('INVALID_EXPERIENCE_FILTER', 400, 'date_from must not be after date_to');
   const values: unknown[] = [];
   const where: string[] = [];
   if (marketCode) { values.push(marketCode); where.push(`r.market_code = $${values.length}`); }
   if (surface) { values.push(surface); where.push(`r.surface = $${values.length}`); }
   if (manifestId) { values.push(manifestId); where.push(`a.manifest_id = $${values.length}`); }
+  if (actorId) { values.push(actorId); where.push(`a.actor_id = $${values.length}`); }
+  if (action) { values.push(action); where.push(`a.action = $${values.length}`); }
+  if (dateFrom) { values.push(dateFrom); where.push(`a.created_at >= $${values.length}`); }
+  if (dateTo) { values.push(dateTo); where.push(`a.created_at <= $${values.length}`); }
   const result = await readDb.query(
     `SELECT a.id, a.revision_id, a.manifest_id, a.revision, a.action, a.actor_id,
             a.reason, a.correlation_id, a.previous_state, a.new_state, a.metadata,
@@ -2603,6 +2640,11 @@ export type ExperienceManifestPreviewResult = {
     added_sections: string[];
     removed_sections: string[];
     changed_sections: string[];
+    field_changes: Array<{
+      field: 'content' | 'targeting' | 'schedule' | 'assets' | 'deep_links' | 'flags' | 'tokens';
+      previous: unknown;
+      next: unknown;
+    }>;
   };
   release_summary: {
     audience: {
@@ -2694,14 +2736,55 @@ const publicManifestFromRecord = (manifest: ExperienceManifestRecord): PublicExp
   signature: manifest.signature,
 });
 
-const previewDiff = (current: PublicExperienceManifest | null, candidate: PublicExperienceManifest | null): ExperienceManifestPreviewResult['diff'] => {
-  if (!candidate) return { changed_fields: [], added_sections: [], removed_sections: [], changed_sections: [] };
-  if (!current) return {
-    changed_fields: ['manifest_id', 'revision', 'schema_version', 'market_code', 'locale', 'surface', 'version_range', 'schedule', 'presentation'],
-    added_sections: candidate.sections.map((section) => section.id),
-    removed_sections: [],
-    changed_sections: [],
-  };
+const deepLinksForDiff = (sections: ExperienceSection[]): string[] => {
+  const links = new Set<string>();
+  sections.forEach((section) => collectDeepLinks(section.properties, links));
+  return Array.from(links).sort();
+};
+
+const flagsForDiff = (manifest: ExperienceManifestRecord): JsonObject => {
+  const flags: JsonObject = { kill_switch_active: manifest.kill_switch_active };
+  manifest.sections.forEach((section) => {
+    Object.entries(section.properties)
+      .filter(([key]) => /flag|feature|enabled/i.test(key))
+      .forEach(([key, value]) => { flags[`${section.id}.${key}`] = value; });
+  });
+  return flags;
+};
+
+const tokensForDiff = (sections: ExperienceSection[]): ExperienceSection[] =>
+  sections.filter((section) => section.component === 'design_tokens');
+
+const previewDiff = (
+  current: PublicExperienceManifest | null,
+  candidate: PublicExperienceManifest | null,
+  currentRecord: ExperienceManifestRecord | null = null,
+  candidateRecord: ExperienceManifestRecord | null = null,
+): ExperienceManifestPreviewResult['diff'] => {
+  const empty = { changed_fields: [], added_sections: [], removed_sections: [], changed_sections: [], field_changes: [] } as ExperienceManifestPreviewResult['diff'];
+  if (!candidate) return empty;
+  if (!current) {
+    const fieldChanges: ExperienceManifestPreviewResult['diff']['field_changes'] = [
+      { field: 'content', previous: null, next: candidate.sections },
+      { field: 'schedule', previous: null, next: { starts_at: candidate.starts_at, ends_at: candidate.ends_at, timezone: candidate.schedule_timezone } },
+      { field: 'assets', previous: null, next: candidate.asset_references },
+      { field: 'deep_links', previous: null, next: deepLinksForDiff(candidate.sections) },
+    ];
+    if (candidateRecord) {
+      fieldChanges.push(
+        { field: 'targeting', previous: null, next: candidateRecord.targeting },
+        { field: 'flags', previous: null, next: flagsForDiff(candidateRecord) },
+        { field: 'tokens', previous: null, next: tokensForDiff(candidateRecord.sections) },
+      );
+    }
+    return {
+      changed_fields: ['manifest_id', 'revision', 'schema_version', 'market_code', 'locale', 'surface', 'version_range', 'schedule', 'presentation', 'content', 'targeting', 'assets', 'deep_links', 'flags', 'tokens'],
+      added_sections: candidate.sections.map((section) => section.id),
+      removed_sections: [],
+      changed_sections: [],
+      field_changes: fieldChanges,
+    };
+  }
   const changedFields = [
     ['schema_version', current.schema_version, candidate.schema_version],
     ['market_code', current.market_code, candidate.market_code],
@@ -2713,6 +2796,21 @@ const previewDiff = (current: PublicExperienceManifest | null, candidate: Public
   ].filter(([, left, right]) => JSON.stringify(left) !== JSON.stringify(right)).map(([name]) => String(name));
   const currentSections = new Map(current.sections.map((section) => [section.id, section]));
   const candidateSections = new Map(candidate.sections.map((section) => [section.id, section]));
+  const fieldChanges: ExperienceManifestPreviewResult['diff']['field_changes'] = [];
+  const addFieldChange = (field: ExperienceManifestPreviewResult['diff']['field_changes'][number]['field'], previous: unknown, next: unknown) => {
+    if (JSON.stringify(previous) === JSON.stringify(next)) return;
+    fieldChanges.push({ field, previous, next });
+    changedFields.push(field);
+  };
+  addFieldChange('content', current.sections, candidate.sections);
+  if (currentRecord && candidateRecord) {
+    addFieldChange('targeting', currentRecord.targeting, candidateRecord.targeting);
+    addFieldChange('flags', flagsForDiff(currentRecord), flagsForDiff(candidateRecord));
+    addFieldChange('tokens', tokensForDiff(currentRecord.sections), tokensForDiff(candidateRecord.sections));
+  }
+  addFieldChange('assets', current.asset_references, candidate.asset_references);
+  addFieldChange('deep_links', deepLinksForDiff(current.sections), deepLinksForDiff(candidate.sections));
+  addFieldChange('schedule', { starts_at: current.starts_at, ends_at: current.ends_at, timezone: current.schedule_timezone }, { starts_at: candidate.starts_at, ends_at: candidate.ends_at, timezone: candidate.schedule_timezone });
   return {
     changed_fields: changedFields,
     added_sections: candidate.sections.filter((section) => !currentSections.has(section.id)).map((section) => section.id),
@@ -2721,6 +2819,7 @@ const previewDiff = (current: PublicExperienceManifest | null, candidate: Public
       const previous = currentSections.get(section.id);
       return Boolean(previous && JSON.stringify(previous) !== JSON.stringify(section));
     }).map((section) => section.id),
+    field_changes: fieldChanges,
   };
 };
 
@@ -2817,6 +2916,14 @@ export const previewExperienceManifestRevision = async (
     candidateManifest = { ...candidateManifest, sections: localized.sections as ExperienceSection[] };
   }
   const fallback = simulation.matched ? null : currentLive;
+  let currentRecord: ExperienceManifestRecord | null = null;
+  if (simulation.matched && currentLive) {
+    const currentResult = await queryable.query(
+      `${manifestSelect} WHERE manifest_id = $1 AND revision = $2 LIMIT 1`,
+      [currentLive.manifest_id, currentLive.revision],
+    );
+    currentRecord = currentResult.rows[0] ? rowToManifest(currentResult.rows[0]) : null;
+  }
   const sectionOutcomes = manifest.sections.map((section) => ({
     section_id: section.id,
     component: section.component,
@@ -2831,7 +2938,7 @@ export const previewExperienceManifestRevision = async (
     candidate: candidateManifest ? { manifest: candidateManifest, section_outcomes: sectionOutcomes } : null,
     fallback,
     current_live: currentLive,
-    diff: previewDiff(currentLive, candidateManifest),
+    diff: previewDiff(currentLive, candidateManifest, currentRecord, manifest),
     release_summary: releaseSummaryFor(manifest),
   };
 };

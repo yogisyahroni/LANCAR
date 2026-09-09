@@ -15,6 +15,7 @@ import {
   rejectExperienceManifest,
   getExperienceCacheControl,
   getExperienceManifestHistory,
+  listExperienceAudit,
   listExperienceManifestRevisions,
   parseExperienceManifestInput,
   pickExperienceManifest,
@@ -907,7 +908,7 @@ describe('experience manifest contract', () => {
       candidate: null,
       fallback: null,
     });
-    expect(result.diff).toEqual({ changed_fields: [], added_sections: [], removed_sections: [], changed_sections: [] });
+    expect(result.diff).toEqual({ changed_fields: [], added_sections: [], removed_sections: [], changed_sections: [], field_changes: [] });
   });
 
   it('returns an approver-facing audience, rollout and blast-radius summary without changing public output', async () => {
@@ -948,6 +949,30 @@ describe('experience manifest contract', () => {
       expect.objectContaining({ code: 'EXPERIENCE_FALLBACK_REQUIRED', blocking: true }),
     ]));
     expect(result.impression_recorded).toBe(false);
+  });
+
+  it('returns previous and next values for content, targeting, assets and CTA diff fields', async () => {
+    const draft = candidate({
+      revision: 2,
+      targeting: { cohorts: ['beta'], market_codes: ['id-jk'], city_codes: [], zone_codes: [], locales: [], service_usage_cohorts: [], roles: [], experiment_assignments: [] },
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'New', deep_link: '/promo?campaign_id=sale' } }],
+      asset_references: [{ asset_id: 'hero', uri: '/assets/hero.webp', kind: 'image', checksum }],
+    }) as any;
+    draft.checksum = checksumForRow(draft);
+    const current = row('published', 1);
+    const queryable = { query: jest.fn().mockResolvedValue({ rows: [current] }) };
+    const result = await previewExperienceManifestRevision(draft, {
+      market_code: 'id-jk', locale: 'id-ID', app_version: '1.5.0', schema_version: 1,
+      device_preset: 'phone', theme_mode: 'dark', cohort: 'beta', at: '2026-01-02T00:00:00.000Z',
+    }, queryable, async () => ({
+      manifest_id: manifestId, schema_version: 1, revision: 1, market_code: 'id-jk', locale: 'id-ID', resolved_locale: 'id-ID',
+      surface: 'customer_android', min_app_version: '1.0.0', max_app_version: null, starts_at: '2026-01-01T00:00:00.000Z', ends_at: null,
+      schedule_timezone: 'Asia/Jakarta', ttl_seconds: 300, cache_policy: 'private', sections: current.sections, asset_references: current.asset_references,
+      checksum, signature: null,
+    } as any));
+
+    expect(result.diff.field_changes.map((change) => change.field)).toEqual(expect.arrayContaining(['content', 'targeting', 'assets', 'deep_links']));
+    expect(result.diff.field_changes.find((change) => change.field === 'targeting')).toMatchObject({ previous: expect.objectContaining({ cohorts: [] }), next: expect.objectContaining({ cohorts: ['beta'] }) });
   });
 
   it('previews a partial rollout using the same stable user identity as runtime selection', () => {
@@ -1239,12 +1264,37 @@ describe('experience manifest lifecycle persistence', () => {
     expect(result.audit[0]).toMatchObject({ action: 'draft_created', actor_id: actorId });
   });
 
+  it('filters audit history by campaign, actor, action and date range', async () => {
+    (readDb.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+
+    await listExperienceAudit({
+      market_code: 'id-jk',
+      surface: 'customer_android',
+      manifest_id: manifestId,
+      actor_id: actorId,
+      action: 'published',
+      date_from: '2026-01-01T00:00:00.000Z',
+      date_to: '2026-01-02T00:00:00.000Z',
+    });
+
+    const [sql, values] = (readDb.query as jest.Mock).mock.calls[0];
+    expect(sql).toEqual(expect.stringContaining('a.actor_id ='));
+    expect(sql).toEqual(expect.stringContaining('a.action ='));
+    expect(sql).toEqual(expect.stringContaining('a.created_at >= '));
+    expect(sql).toEqual(expect.stringContaining('a.created_at <= '));
+    expect(values).toEqual([ 'id-jk', 'customer_android', manifestId, actorId, 'published', '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z' ]);
+  });
+
   it('rolls back to a historical revision without editing its payload', async () => {
+    const current = row('published', 2);
+    current.content_checksum = checksumForRow(current);
+    const target = row('superseded', 1);
+    target.content_checksum = checksumForRow(target);
     client.query
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [row('published', 2)] })
-      .mockResolvedValueOnce({ rows: [row('superseded', 1)] })
+      .mockResolvedValueOnce({ rows: [current] })
+      .mockResolvedValueOnce({ rows: [target] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [row('published', 1)] })

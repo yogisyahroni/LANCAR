@@ -766,7 +766,7 @@ export default function AppExperience() {
               }
               isRevision={mode === "revision"}
               focusAssetId={focusAssetId}
-              homeLayoutMode={activeSection === "Home Layout"}
+              homeLayoutMode={activeSection === 'Home Layout'}
               serviceVisibilityMode={activeSection === "Service Visibility"}
             />
           ) : null}
@@ -866,7 +866,7 @@ export default function AppExperience() {
                     className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest disabled:opacity-50 ${actionManifest.kill_switch_active ? "border-amber-500/30 bg-amber-500/10 text-amber-300" : "border-red-500/30 bg-red-500/10 text-red-300"}`}
                   >
                     <Ban size={14} />{" "}
-                    {actionManifest.kill_switch_active ? "Resume" : "Pause"}
+                        {actionManifest.kill_switch_active ? 'Resume' : 'Pause'}
                   </button>
                 ) : null}
                 {publishedManifest && canPublish ? (
@@ -1188,6 +1188,7 @@ export default function AppExperience() {
               }
               loading={rollbackMutation.isPending}
               selectedRevision={selectedRevision}
+              currentPublishedRevision={publishedManifest?.revision ?? null}
               onRollback={(revision) => {
                 if (window.confirm(`Restore revision ${revision}?`))
                   rollbackMutation.mutate(revision);

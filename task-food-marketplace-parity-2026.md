@@ -2901,12 +2901,12 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `backend/experience-service/internal/domain/experience_audit.go`
 
 **Checklist**
-- [ ] Every draft/publish/approval/reject/pause/rollback/kill-switch action records actor + timestamp + reason.
-- [ ] Diff shows previous vs new content, targeting, schedule, assets, deep links, flags and token changes.
-- [ ] Historical published revision is immutable.
-- [ ] Admin can filter history by campaign, market, surface, actor, date and action.
-- [ ] Audit history cannot be deleted through normal Experience UI.
-- [ ] Rollback link only appears for compatible known-good revisions.
+- [x] Every draft/publish/approval/reject/pause/rollback/kill-switch action records actor + timestamp + reason. Evidence: `docs/task-evidence/ADMEXP-2026-016.md`.
+- [x] Diff shows previous vs new content, targeting, schedule, assets, deep links, flags and token changes. Evidence: `docs/task-evidence/ADMEXP-2026-016.md`.
+- [x] Historical published revision is immutable. Evidence: `docs/task-evidence/ADMEXP-2026-016.md`.
+- [x] Admin can filter history by campaign, market, surface, actor, date and action. Evidence: `docs/task-evidence/ADMEXP-2026-016.md`.
+- [x] Audit history cannot be deleted through normal Experience UI. Evidence: `docs/task-evidence/ADMEXP-2026-016.md`.
+- [x] Rollback link only appears for compatible known-good revisions. Evidence: `docs/task-evidence/ADMEXP-2026-016.md`.
 
 ---
 

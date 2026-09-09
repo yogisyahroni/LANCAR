@@ -370,6 +370,10 @@ export const listAdminExperienceAudit = async (req: Request, res: Response): Pro
       market_code: req.query.market_code,
       surface: req.query.surface,
       manifest_id: req.query.manifest_id,
+      actor_id: req.query.actor_id,
+      action: req.query.action,
+      date_from: req.query.date_from,
+      date_to: req.query.date_to,
     });
     respondSuccess(req, res, data);
   } catch (error) {
