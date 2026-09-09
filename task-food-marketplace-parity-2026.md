@@ -2584,12 +2584,12 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 `App Experience → Home Layout → select market/surface → edit/drag sections → configure properties → Preview → Validate → Save Draft → Submit Approval/Publish`
 
 **Checklist**
-- [ ] Drag/drop reorder produces deterministic ordered schema, not pixel coordinates.
-- [ ] Admin cannot add arbitrary component names not supported by registered schema.
-- [ ] Required/safety-critical fallback sections cannot be accidentally deleted when the binary requires them.
-- [ ] Duplicate/conflicting section IDs rejected.
-- [ ] Device/app-version preview updates before publish.
-- [ ] Reordering existing supported components requires no mobile rebuild.
+- [x] Drag/drop reorder produces deterministic ordered schema, not pixel coordinates. Evidence: `docs/task-evidence/ADMEXP-2026-005.md`
+- [x] Admin cannot add arbitrary component names not supported by registered schema. Evidence: `docs/task-evidence/ADMEXP-2026-005.md`
+- [x] Required/safety-critical fallback sections cannot be accidentally deleted when the binary requires them. Evidence: `docs/task-evidence/ADMEXP-2026-005.md`
+- [x] Duplicate/conflicting section IDs rejected. Evidence: `docs/task-evidence/ADMEXP-2026-005.md`
+- [x] Device/app-version preview updates before publish. Evidence: `docs/task-evidence/ADMEXP-2026-005.md`
+- [x] Reordering existing supported components requires no mobile rebuild. Evidence: `docs/task-evidence/ADMEXP-2026-005.md`
 
 ---
 
