@@ -2648,11 +2648,11 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - rollback target
 
 **Checklist**
-- [ ] Admin can create, duplicate, edit draft, schedule, preview, pause and retire banner without code change.
-- [ ] Asset dimensions/size/content type validated before save/publish.
-- [ ] Invalid deep link blocks publish.
-- [ ] Promo UI copy may advertise an offer but final discount remains validated by Promo/Pricing backend.
-- [ ] Impression/click analytics attach campaign id + revision.
+- [x] Admin can create, duplicate, edit draft, schedule, preview, pause and retire banner without code change. Evidence: `docs/task-evidence/ADMEXP-2026-006.md`
+- [x] Asset dimensions/size/content type validated before save/publish. Evidence: `docs/task-evidence/ADMEXP-2026-006.md`
+- [x] Invalid deep link blocks publish. Evidence: `docs/task-evidence/ADMEXP-2026-006.md`
+- [x] Promo UI copy may advertise an offer but final discount remains validated by Promo/Pricing backend. Evidence: `docs/task-evidence/ADMEXP-2026-006.md`
+- [x] Impression/click analytics attach campaign id + revision. Evidence: `docs/task-evidence/ADMEXP-2026-006.md`
 
 ---
 
