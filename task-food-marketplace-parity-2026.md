@@ -2984,31 +2984,31 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 > Task ini dianggap selesai hanya jika operator non-engineer dapat menjalankan seluruh routine runtime experience operation dari Admin Web end-to-end. Keberadaan API saja **tidak memenuhi acceptance**.
 
 **Must be executable from Admin GUI without Postman/SQL/code/rebuild**
-- [ ] Replace hero/header banner.
-- [ ] Change localized banner copy and CTA.
-- [ ] Reorder supported home sections.
-- [ ] Add/remove supported promo/info component from Home.
-- [ ] Launch/schedule/pause campaign intro after native splash.
-- [ ] Target campaign by market/city/locale/app version/cohort.
-- [ ] Change existing service badge/subtitle/order.
-- [ ] Marketing-hide an existing service entry.
-- [ ] Execute authorized `new_order_gate`/provider kill switch with explicit blast-radius warning.
-- [ ] Start 1%/5%/25%/100% staged rollout.
-- [ ] Configure soft-update/minimum-version policy according to permission.
-- [ ] Upload/select/version campaign assets.
-- [ ] Select/test typed deep link.
-- [ ] Preview exact market/surface/app-version candidate.
-- [ ] Submit for approval and approve/reject according to RBAC.
-- [ ] Publish/schedule production revision.
-- [ ] Inspect revision diff and audit log.
-- [ ] Roll back to last-known-good revision.
-- [ ] See release health/analytics by revision.
+- [x] Replace hero/header banner.
+- [x] Change localized banner copy and CTA.
+- [x] Reorder supported home sections.
+- [x] Add/remove supported promo/info component from Home.
+- [x] Launch/schedule/pause campaign intro after native splash.
+- [x] Target campaign by market/city/locale/app version/cohort.
+- [x] Change existing service badge/subtitle/order.
+- [x] Marketing-hide an existing service entry.
+- [x] Execute authorized `new_order_gate`/provider kill switch with explicit blast-radius warning.
+- [x] Start 1%/5%/25%/100% staged rollout.
+- [x] Configure soft-update/minimum-version policy according to permission.
+- [x] Upload/select/version campaign assets.
+- [x] Select/test typed deep link.
+- [x] Preview exact market/surface/app-version candidate.
+- [x] Submit for approval and approve/reject according to RBAC.
+- [x] Publish/schedule production revision.
+- [x] Inspect revision diff and audit log.
+- [x] Roll back to last-known-good revision.
+- [x] See release health/analytics by revision.
 
 **Final acceptance**
-- [ ] Product/Marketing/Ops runbook documents the click path for every operation above.
+- [x] Product/Marketing/Ops runbook documents the click path for every operation above.
 - [ ] A staging drill is recorded where a non-engineer performs banner change → targeted publish → app verification → rollback without engineering intervention.
-- [ ] No required routine Experience operation depends on manually editing server JSON/config/env.
-- [ ] Any action that still requires an app update is explicitly labeled in Admin as `Requires App Release` rather than presented as a broken remote-config option.
+- [x] No required routine Experience operation depends on manually editing server JSON/config/env.
+- [x] Any action that still requires an app update is explicitly labeled in Admin as `Requires App Release` rather than presented as a broken remote-config option.
 
 ---
 

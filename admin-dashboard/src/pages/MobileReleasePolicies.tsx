@@ -215,7 +215,7 @@ export default function MobileReleasePolicies() {
       </header>
 
       <section className="rounded-3xl border border-amber-400/20 bg-amber-400/5 p-5" aria-label="release policy safety boundary">
-        <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 shrink-0 text-amber-300" size={20} /><div><p className="text-sm font-black text-amber-100">Release metadata only</p><p className="mt-1 text-xs leading-relaxed text-amber-100/70">Remote policy tidak mengirim kode native, JavaScript executable, atau menggantikan store review. Capability native baru tetap memerlukan build dan review platform.</p></div></div>
+        <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 shrink-0 text-amber-300" size={20} /><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-black text-amber-100">Release metadata only</p><span className="rounded-full border border-red-400/30 bg-red-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-red-200">Requires App Release</span></div><p className="mt-1 text-xs leading-relaxed text-amber-100/70">Remote policy tidak mengirim kode native, JavaScript executable, atau menggantikan store review. Capability native baru diberi label <strong>Requires App Release</strong> dan tetap memerlukan build serta review platform.</p></div></div>
       </section>
 
       {showForm ? <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-xl shadow-black/10" aria-labelledby="release-policy-editor-title">
