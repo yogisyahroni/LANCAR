@@ -62,6 +62,13 @@ The component whitelist is:
 - `campaign_intro` (launch-only; consumed after the native OS splash)
 - `design_tokens` (campaign presentation presets; never rendered as a UI component)
 
+The whitelist is surface-scoped. `customer_android` and `customer_web` may use
+the full customer campaign/component set. `merchant_android` and
+`courier_android` may use only `campaign_strip`, `info_card`, `quick_actions`,
+`notice`, `spacer`, and `design_tokens`. The server rejects a component that is
+valid in another surface, so operational merchant/courier content cannot
+silently become a customer-home renderer payload.
+
 `service_grid` may use `service_codes` for ordering/visibility and may also
 provide `cards` entries with a service `code`, presentation-only `subtitle`,
 and presentation-only `badge`. The customer app intersects those entries with

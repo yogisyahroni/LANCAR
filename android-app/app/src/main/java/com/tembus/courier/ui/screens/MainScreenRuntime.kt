@@ -110,6 +110,7 @@ import com.tembus.courier.domain.CourierRouteScreen
 import com.tembus.courier.domain.CourierRouteState
 import com.tembus.courier.data.security.LocalDeviceSecurityManager
 import com.tembus.courier.data.session.AuthSessionManager
+import com.tembus.courier.data.repository.ExperienceConfigRepository
 import com.tembus.courier.service.LocationTrackerService
 import com.tembus.courier.ui.components.maps.RuntimeMapMarker
 import com.tembus.courier.ui.components.maps.RuntimeMapRenderer
@@ -173,6 +174,10 @@ internal fun MainScreenRuntime(
  ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val experienceConfigRepository = remember(context) {
+        val application = context.applicationContext as com.tembus.courier.TEMBUSApplication
+        ExperienceConfigRepository(context.applicationContext, application.tembusApiService)
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     val localSecurityManager = remember(context) {
         LocalDeviceSecurityManager(context.applicationContext)
@@ -420,6 +425,7 @@ internal fun MainScreenRuntime(
     MainScreenEffects(deps)
     MainScreenContent(
         context = context,
+        experienceConfigRepository = experienceConfigRepository,
         scope = scope,
         snackbarHostState = snackbarHostState,
         isOnDemandCourier = isOnDemandCourier,

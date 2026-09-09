@@ -5,6 +5,7 @@ import com.tembus.courier.data.model.ApiResponse
 import com.tembus.courier.data.model.CourierTipsSummary
 import com.tembus.courier.data.model.CourierTip
 import com.tembus.courier.data.model.RuntimeConfigResponse
+import com.tembus.courier.data.model.ExperienceManifestEnvelope
 import com.tembus.courier.data.model.SosTamperRequest
 import com.tembus.courier.data.model.SosTriggerRequest
 import com.tembus.courier.data.model.SosTriggerResponse
@@ -87,6 +88,17 @@ import kotlinx.serialization.json.JsonElement
  * Handles auth, FCM token registration, order operations, and location sync.
  */
 interface TEMBUSApiService {
+
+    @GET("api/v1/experience/manifest")
+    suspend fun getExperienceManifest(
+        @Query("market_code") marketCode: String,
+        @Query("locale") locale: String,
+        @Query("surface") surface: String,
+        @Query("app_version") appVersion: String,
+        @Query("cohort") cohort: String? = null,
+        @Query("experiment_ref") experimentRef: String? = null,
+        @Header("If-None-Match") ifNoneMatch: String? = null,
+    ): Response<ExperienceManifestEnvelope>
     
     // ── SYSTEM ──────────────────────────────────────────────────
     

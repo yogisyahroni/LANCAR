@@ -31,6 +31,8 @@ class AppContainer(context: Context) {
     val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences, deviceIdentityProvider)
     val merchantOfflineCache: MerchantOfflineCache = MerchantOfflineCache(appContext) { sessionManager.getUserIdSync() }
     val merchantRepository: MerchantRepository = MerchantRepository(apiService, merchantOfflineCache)
+    val experienceConfigRepository: com.tembus.merchant.data.repository.ExperienceConfigRepository =
+        com.tembus.merchant.data.repository.ExperienceConfigRepository(appContext, apiService)
 
     // FB-119: chat customer↔merchant per order.
     val chatRepository: ChatRepository = ChatRepository(apiService)

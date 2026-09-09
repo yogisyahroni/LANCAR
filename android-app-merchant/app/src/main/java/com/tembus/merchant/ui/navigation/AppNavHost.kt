@@ -232,6 +232,7 @@ fun AppNavHost() {
             val context = LocalContext.current
             MainScreen(
                 merchantRepository = app.container.merchantRepository,
+                experienceConfigRepository = app.container.experienceConfigRepository,
                 onOpenStruk = { orderId ->
                     navController.navigate(MerchantRoutes.orderDetailMerchant(orderId))
                 },

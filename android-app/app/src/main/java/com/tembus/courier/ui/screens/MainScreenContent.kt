@@ -19,6 +19,8 @@ import com.tembus.courier.data.model.*
 import com.tembus.courier.data.security.LocalDeviceSecurityManager
 import com.tembus.courier.data.security.LocalDeviceSecuritySettings
 import com.tembus.courier.data.session.AuthSessionManager
+import com.tembus.courier.data.repository.ExperienceConfigRepository
+import com.tembus.courier.ui.components.CourierExperienceSlot
 import com.tembus.courier.domain.CourierProofTypes
 import com.tembus.courier.domain.CourierRouteReducer
 import com.tembus.courier.domain.CourierRouteState
@@ -30,6 +32,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun MainScreenContent(
     context: Context,
+    experienceConfigRepository: ExperienceConfigRepository,
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     isOnDemandCourier: Boolean,
@@ -152,35 +155,36 @@ internal fun MainScreenContent(
         }
     ) { paddingValues ->
         if (isOnDemandCourier && selectedTab == 0) {
-            OnDemandMapHome(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                orders = roleOrders,
-                offers = onDemandOffers,
-                services = onDemandServices,
-                capabilityProfile = capabilityProfile,
-                courierVehicleType = courierVehicleType,
-                routePreviews = routePreviews,
-                activeRoutePlan = activeRoutePlan,
-                hotspots = onDemandHotspots,
-                mapsProviderConfig = mapsProviderConfig,
-                isOnline = isOnline,
-                presenceState = presenceState,
-                onOnlineToggle = { online -> requestDutyToggle(online) },
-                onOpenDelivery = { order ->
-                    if (order.isMaintenanceService()) {
-                        routeState = if (order.serviceCode?.startsWith("towing") == true) {
-                            CourierRouteReducer.towingFlow(order.orderId)
+            Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+                CourierExperienceSlot(experienceConfigRepository, Modifier.padding(bottom = 8.dp))
+                OnDemandMapHome(
+                    modifier = Modifier.weight(1f),
+                    orders = roleOrders,
+                    offers = onDemandOffers,
+                    services = onDemandServices,
+                    capabilityProfile = capabilityProfile,
+                    courierVehicleType = courierVehicleType,
+                    routePreviews = routePreviews,
+                    activeRoutePlan = activeRoutePlan,
+                    hotspots = onDemandHotspots,
+                    mapsProviderConfig = mapsProviderConfig,
+                    isOnline = isOnline,
+                    presenceState = presenceState,
+                    onOnlineToggle = { online -> requestDutyToggle(online) },
+                    onOpenDelivery = { order ->
+                        if (order.isMaintenanceService()) {
+                            routeState = if (order.serviceCode?.startsWith("towing") == true) {
+                                CourierRouteReducer.towingFlow(order.orderId)
+                            } else {
+                                CourierRouteReducer.tambalBanFlow(order.orderId)
+                            }
                         } else {
-                            CourierRouteReducer.tambalBanFlow(order.orderId)
+                            onOpenOrderDetail(order)
                         }
-                    } else {
-                        onOpenOrderDetail(order)
-                    }
-                },
-                onViewOrders = { selectedTab = 1 }
-            )
+                    },
+                    onViewOrders = { selectedTab = 1 }
+                )
+            }
         } else {
             Column(
                 modifier = Modifier
@@ -190,6 +194,7 @@ internal fun MainScreenContent(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                CourierExperienceSlot(experienceConfigRepository)
                 MainScreenInlineError(
                     message = inlineErrorMessage,
                     onRetry = { orderViewModel.fetchOrdersFromBackend() },

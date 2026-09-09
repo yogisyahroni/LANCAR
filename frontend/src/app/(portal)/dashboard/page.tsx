@@ -25,6 +25,7 @@ import { clientLog } from '@/lib/clientLogger';
 import Link from 'next/link';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { useFeatureFlag } from '@/hooks/useFeatureFlag';
+import ExperienceRenderer from '@/components/experience/ExperienceRenderer';
 
 interface Order {
   id: string;
@@ -205,6 +206,8 @@ export default function DashboardPage() {
           )}
         </div>
       </motion.div>
+
+      <ExperienceRenderer />
 
       {/* Dashboard Mode Selector */}
       <div className="flex justify-center mb-6">

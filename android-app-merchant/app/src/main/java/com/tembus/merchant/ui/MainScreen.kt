@@ -24,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import com.tembus.merchant.R
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.repository.MerchantRepository
+import com.tembus.merchant.data.repository.ExperienceConfigRepository
 import com.tembus.merchant.featureflag.FeatureFlagManager
+import com.tembus.merchant.ui.components.MerchantExperienceSlot
 import com.tembus.merchant.ui.screens.home.StitchOrdersDashboardScreen
 import com.tembus.merchant.ui.screens.menu.ManageMenuZipScreen
 import com.tembus.merchant.ui.screens.profile.StoreProfileZipScreen
@@ -38,6 +40,7 @@ private data class MainTab(val labelRes: Int, val icon: ImageVector, val key: St
 @Composable
 fun MainScreen(
     merchantRepository: MerchantRepository,
+    experienceConfigRepository: ExperienceConfigRepository,
     onOpenStruk: (String) -> Unit,
     onOpenChat: (String, String) -> Unit, // FB-119
     onCallCustomer: (String) -> Unit, // FB-124: telepon pelanggan
@@ -140,11 +143,21 @@ fun MainScreen(
                         onSelect = { selectedTab = it },
                         useNavigationRail = true
                     )
-                    Box(Modifier.weight(1f).fillMaxHeight()) { renderScreen() }
+                    Box(Modifier.weight(1f).fillMaxHeight()) {
+                        Column {
+                            MerchantExperienceSlot(experienceConfigRepository, Modifier.padding(12.dp))
+                            Box(Modifier.weight(1f)) { renderScreen() }
+                        }
+                    }
                 }
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(1f)) { renderScreen() }
+                    Box(modifier = Modifier.weight(1f)) {
+                        Column {
+                            MerchantExperienceSlot(experienceConfigRepository, Modifier.padding(12.dp))
+                            Box(Modifier.weight(1f)) { renderScreen() }
+                        }
+                    }
                     MerchantNavigation(
                         tabs = tabs,
                         selectedTab = safeSelected,

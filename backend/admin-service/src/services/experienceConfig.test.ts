@@ -129,6 +129,39 @@ describe('experience manifest contract', () => {
     expect(parsed.asset_references).toEqual([]);
   });
 
+  it('enforces surface-specific component contracts', () => {
+    const merchantManifest = parseExperienceManifestInput({
+      ...validInput,
+      surface: 'merchant_android',
+      sections: [{
+        id: 'merchant-notice',
+        component: 'notice',
+        properties: { title: 'Operational notice', body: 'Kitchen guidance' },
+      }],
+    });
+    expect(merchantManifest.sections[0].component).toBe('notice');
+
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      surface: 'merchant_android',
+      sections: [{
+        id: 'customer-home',
+        component: 'service_grid',
+        properties: { service_codes: ['food'] },
+      }],
+    })).toThrow('not allowed on merchant_android');
+
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      surface: 'courier_android',
+      sections: [{
+        id: 'customer-campaign',
+        component: 'campaign_intro',
+        properties: { campaign_id: 'campaign-1', title: 'Customer-only campaign' },
+      }],
+    })).toThrow('not allowed on courier_android');
+  });
+
   it('persists the asset delivery contract and rejects unsafe metadata', () => {
     const parsed = parseExperienceManifestInput({
       ...validInput,

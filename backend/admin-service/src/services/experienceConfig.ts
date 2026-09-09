@@ -458,6 +458,25 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
 
 const componentValues = new Set<string>(Object.keys(componentSchemas));
 
+/**
+ * A manifest is resolved per surface, but a shared component registry alone
+ * is not enough: it would let a merchant/courier revision accidentally carry
+ * customer-home-only sections. Keep the policy explicit at the contract
+ * boundary and let each native renderer own its surface-appropriate UI.
+ */
+export const EXPERIENCE_SURFACE_COMPONENTS: Record<ExperienceSurface, readonly ExperienceComponent[]> = {
+  customer_android: [
+    'hero_banner', 'campaign_strip', 'promo_carousel', 'service_grid', 'info_card',
+    'quick_actions', 'notice', 'spacer', 'campaign_intro', 'design_tokens',
+  ],
+  customer_web: [
+    'hero_banner', 'campaign_strip', 'promo_carousel', 'service_grid', 'info_card',
+    'quick_actions', 'notice', 'spacer', 'campaign_intro', 'design_tokens',
+  ],
+  merchant_android: ['campaign_strip', 'info_card', 'quick_actions', 'notice', 'spacer', 'design_tokens'],
+  courier_android: ['campaign_strip', 'info_card', 'quick_actions', 'notice', 'spacer', 'design_tokens'],
+};
+
 export const experienceManifestInputSchema = z.object({
   schema_version: z.coerce.number().int().min(1).max(10).default(1),
   market_code: z.string().trim().toLowerCase().regex(MARKET_CODE),
@@ -603,7 +622,7 @@ const normalizeLocale = (value: string): string => value.split('-').map((part, i
   return part.length === 2 ? part.toUpperCase() : part.toLowerCase();
 }).join('-');
 
-const parseComponent = (value: unknown, index: number): ExperienceSection => {
+const parseComponent = (value: unknown, index: number, surface: ExperienceSurface): ExperienceSection => {
   const section = jsonObject(value, `sections[${index}]`);
   const id = typeof section.id === 'string' ? section.id.trim().toLowerCase() : '';
   const component = typeof section.component === 'string' ? section.component.trim().toLowerCase() : '';
@@ -612,6 +631,13 @@ const parseComponent = (value: unknown, index: number): ExperienceSection => {
   }
   if (!componentValues.has(component)) {
     throw new ExperienceManifestError('EXPERIENCE_COMPONENT_NOT_ALLOWED', 400, `sections[${index}].component is not allowlisted`);
+  }
+  if (!EXPERIENCE_SURFACE_COMPONENTS[surface].includes(component as ExperienceComponent)) {
+    throw new ExperienceManifestError(
+      'EXPERIENCE_COMPONENT_NOT_ALLOWED_FOR_SURFACE',
+      400,
+      `sections[${index}].component '${component}' is not allowed on ${surface}`,
+    );
   }
   const properties = jsonObject(section.properties, `sections[${index}].properties`);
   const parsed = componentSchemas[component as ExperienceComponent].safeParse(properties);
@@ -640,13 +666,13 @@ const parseComponent = (value: unknown, index: number): ExperienceSection => {
   return { id, component: component as ExperienceComponent, properties: parsed.data as JsonObject };
 };
 
-const parseSections = (value: unknown): ExperienceSection[] => {
+const parseSections = (value: unknown, surface: ExperienceSurface): ExperienceSection[] => {
   if (!Array.isArray(value) || value.length < 1 || value.length > 20) {
     throw new ExperienceManifestError('INVALID_EXPERIENCE_SECTIONS', 400, 'sections must contain 1 to 20 entries');
   }
   const seen = new Set<string>();
   return value.map((item, index) => {
-    const section = parseComponent(item, index);
+    const section = parseComponent(item, index, surface);
     if (seen.has(section.id)) {
       throw new ExperienceManifestError('DUPLICATE_EXPERIENCE_SECTION', 400, `section id '${section.id}' is duplicated`);
     }
@@ -755,7 +781,7 @@ const parseInput = (body: unknown): ExperienceManifestInput => {
     ends_at: endsAt,
     canary_cohort: canaryCohort,
     targeting: parseTargeting(input.targeting),
-    sections: parseSections(input.sections),
+    sections: parseSections(input.sections, input.surface),
     asset_references: normalizeAssetReferencesForInput(parseAssets(input.asset_references)),
   };
   rejectProtectedKeys({ targeting: normalized.targeting, sections: normalized.sections, asset_references: normalized.asset_references });
@@ -950,7 +976,7 @@ const rowToManifest = (row: Record<string, any>): ExperienceManifestRecord => ({
   ttl_seconds: Number(row.ttl_seconds),
   cache_policy: row.cache_policy as ExperienceCachePolicy,
   targeting: parseTargeting(row.targeting),
-  sections: parseSections(row.sections),
+  sections: parseSections(row.sections, row.surface as ExperienceSurface),
   asset_references: parseAssets(row.asset_references),
   checksum: String(row.content_checksum),
   signature: row.signature ? String(row.signature) : null,
