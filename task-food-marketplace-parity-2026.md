@@ -2070,12 +2070,12 @@ A task is complete only when applicable boxes below are true:
 - `spacer`
 
 **Checklist**
-- [ ] Backend can reorder/hide/show configured home sections without binary update.
-- [ ] Service card visibility/order/subtitle/badge can be market/campaign targeted while actual service availability is revalidated by authoritative backend.
-- [ ] Renderer only accepts precompiled whitelisted native component types.
-- [ ] Unknown component type is skipped with telemetry.
-- [ ] Remote config may change presentation, not price/order eligibility truth.
-- [ ] Packaged safe home remains available if remote experience service is down.
+- [x] Backend can reorder/hide/show configured home sections without binary update. Evidence: `docs/task-evidence/APP-2026-003.md`.
+- [x] Service card visibility/order/subtitle/badge can be market/campaign targeted while actual service availability is revalidated by authoritative backend. Evidence: `docs/task-evidence/APP-2026-003.md`.
+- [x] Renderer only accepts precompiled whitelisted native component types. Evidence: `docs/task-evidence/APP-2026-003.md`.
+- [x] Unknown component type is skipped with telemetry. Evidence: `docs/task-evidence/APP-2026-003.md`.
+- [x] Remote config may change presentation, not price/order eligibility truth. Evidence: `docs/task-evidence/APP-2026-003.md`.
+- [x] Packaged safe home remains available if remote experience service is down. Evidence: `docs/task-evidence/APP-2026-003.md`.
 
 ---
 
