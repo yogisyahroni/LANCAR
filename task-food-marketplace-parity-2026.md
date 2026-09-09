@@ -2261,10 +2261,10 @@ A task is complete only when applicable boxes below are true:
 - `frontend/src/components/experience/ExperienceRenderer.tsx`
 
 **Checklist**
-- [ ] One backend experience service supports surface-specific schemas; do not force customer-home components onto courier/merchant.
-- [ ] Merchant can receive dynamic operational notice/campaign/help content without changing kitchen/order state logic.
-- [ ] Courier can receive dynamic safety/education/incentive/info modules without changing active-job state machine.
-- [ ] Customer Web and Android can share campaign id/eligibility while rendering native surface-appropriate components.
+- [x] One backend experience service supports surface-specific schemas; do not force customer-home components onto courier/merchant. (Evidence: `docs/task-evidence/APP-2026-013.md`)
+- [x] Merchant can receive dynamic operational notice/campaign/help content without changing kitchen/order state logic. (Evidence: `docs/task-evidence/APP-2026-013.md`)
+- [x] Courier can receive dynamic safety/education/incentive/info modules without changing active-job state machine. (Evidence: `docs/task-evidence/APP-2026-013.md`)
+- [x] Customer Web and Android can share campaign id/eligibility while rendering native surface-appropriate components. (Evidence: `docs/task-evidence/APP-2026-013.md`)
 
 ---
 
