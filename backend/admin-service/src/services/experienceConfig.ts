@@ -521,17 +521,24 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   campaign_intro: z.object({
     enabled: z.boolean().default(true),
     campaign_id: identifier,
+    campaign_name: text(160).optional(),
     title: text(120).optional(),
     body: text(500).optional(),
     media_asset_id: identifier.optional(),
     localized_copy: localizedCopyReferenceSchema,
     frequency_cap_hours: z.coerce.number().int().min(0).max(720).default(24),
     max_impressions: z.coerce.number().int().min(1).max(100).default(1),
+    display_duration_seconds: z.coerce.number().int().min(1).max(60).default(6),
+    max_duration_seconds: z.coerce.number().int().min(1).max(120).default(15),
+    prefetch_window_hours: z.coerce.number().int().min(1).max(24).default(24),
     dismissible: z.boolean().default(true),
     skippable: z.boolean().default(true),
   }).strict().refine(
     (value) => Boolean(value.title || value.localized_copy?.title),
     'Campaign intro requires title or localized_copy.title',
+  ).refine(
+    (value) => value.display_duration_seconds <= value.max_duration_seconds,
+    { path: ['display_duration_seconds'], message: 'Campaign intro display duration must not exceed max duration' },
   ),
   design_tokens: designTokensSchema,
 };

@@ -119,10 +119,27 @@ class StartupCampaignPolicyTest {
         assertNull(StartupCampaignPolicy.evaluate(snapshot(scope = scope.copy(appVersion = "0.9.0")), nowMillis = now))
     }
 
+    @Test
+    fun displayAndMaximumDurationsAreBounded() {
+        val campaign = StartupCampaignPolicy.parse(
+            snapshot(properties = campaignProperties(displayDurationSeconds = 8, maxDurationSeconds = 20), assets = listOf(asset())).manifest,
+        )
+        assertNotNull(campaign)
+        assertEquals(8, requireNotNull(campaign).displayDurationSeconds)
+        assertEquals(20, requireNotNull(campaign).maxDurationSeconds)
+        assertNull(
+            StartupCampaignPolicy.parse(
+                snapshot(properties = campaignProperties(displayDurationSeconds = 21, maxDurationSeconds = 20), assets = listOf(asset())).manifest,
+            ),
+        )
+    }
+
     private fun campaignProperties(
         enabled: Boolean = true,
         maxImpressions: Int = 1,
         frequencyCapHours: Int = 24,
+        displayDurationSeconds: Int = 6,
+        maxDurationSeconds: Int = 15,
     ): JsonObject = buildJsonObject {
         put("enabled", enabled)
         put("campaign_id", "launch-2026")
@@ -131,6 +148,8 @@ class StartupCampaignPolicyTest {
         put("media_asset_id", "hero-image")
         put("frequency_cap_hours", frequencyCapHours)
         put("max_impressions", maxImpressions)
+        put("display_duration_seconds", displayDurationSeconds)
+        put("max_duration_seconds", maxDurationSeconds)
         put("dismissible", true)
         put("skippable", true)
     }

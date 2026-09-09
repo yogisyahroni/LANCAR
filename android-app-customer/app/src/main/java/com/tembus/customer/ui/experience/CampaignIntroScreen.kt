@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tembus.customer.domain.config.StartupCampaignDecision
 import java.io.File
+import kotlinx.coroutines.delay
 
 /**
  * Post-splash campaign layer. It only consumes a verified local asset path;
@@ -48,6 +50,20 @@ fun CampaignIntroScreen(
     onAssetError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    LaunchedEffect(
+        decision.campaign.campaignId,
+        decision.campaign.displayDurationSeconds,
+        decision.campaign.maxDurationSeconds,
+    ) {
+        // The campaign layer can never hold the user at startup indefinitely.
+        delay(
+            decision.campaign.displayDurationSeconds
+                .coerceAtMost(decision.campaign.maxDurationSeconds)
+                .coerceIn(1, 120) * 1_000L,
+        )
+        onSkip()
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()

@@ -35,6 +35,38 @@ class ExperienceAssetPrefetchPolicyTest {
     }
 
     @Test
+    fun campaignIntroCanUseAShorterBoundedPrefetchWindow() {
+        val now = Instant.parse("2026-09-09T00:00:00Z").toEpochMilli()
+        val startsAt = Instant.ofEpochMilli(now + 12 * 60 * 60 * 1000L).toString()
+        val manifest = ExperienceManifest(
+            manifestId = "manifest-campaign",
+            schemaVersion = 1,
+            revision = 1,
+            marketCode = "id-jk",
+            locale = "id-ID",
+            surface = "customer_android",
+            minAppVersion = "1.0.0",
+            startsAt = startsAt,
+            sections = listOf(
+                ExperienceSection(
+                    id = "intro",
+                    component = "campaign_intro",
+                    properties = buildJsonObject {
+                        put("campaign_id", "launch-2026")
+                        put("title", "Launch")
+                        put("media_asset_id", "hero")
+                        put("prefetch_window_hours", 6)
+                    },
+                ),
+            ),
+            assetReferences = listOf(asset("hero")),
+            checksum = "a".repeat(64),
+        )
+
+        assertTrue(ExperienceAssetPrefetchPolicy.eligibleAssets(manifest, now).isEmpty())
+    }
+
+    @Test
     fun dataSaverUsesLighterFallbackPolicy() {
         assertTrue(ExperienceAssetPrefetchPolicy.shouldPreferFallback(isMetered = true, dataSaverEnabled = false))
         assertTrue(ExperienceAssetPrefetchPolicy.shouldPreferFallback(isMetered = false, dataSaverEnabled = true))

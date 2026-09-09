@@ -24,7 +24,9 @@ object ExperienceAssetPrefetchPolicy {
     ): List<ExperienceAssetReference> {
         val startsAt = parseInstant(manifest.startsAt) ?: return emptyList()
         val endsAt = manifest.endsAt?.let(::parseInstant)
-        if (startsAt > nowMillis + windowMillis || endsAt != null && endsAt <= nowMillis) return emptyList()
+        val campaignWindowMillis = campaignPrefetchWindowMillis(manifest)
+        val effectiveWindowMillis = minOf(windowMillis, campaignWindowMillis)
+        if (startsAt > nowMillis + effectiveWindowMillis || endsAt != null && endsAt <= nowMillis) return emptyList()
 
         val referencedIds = manifest.sections.flatMapTo(linkedSetOf()) { collectAssetIds(it.properties) }
         val eligible = manifest.assetReferences.filter { asset ->
@@ -37,6 +39,17 @@ object ExperienceAssetPrefetchPolicy {
     }
 
     fun shouldPreferFallback(isMetered: Boolean, dataSaverEnabled: Boolean): Boolean = isMetered || dataSaverEnabled
+
+    private fun campaignPrefetchWindowMillis(manifest: ExperienceManifest): Long {
+        val configuredHours = manifest.sections
+            .firstOrNull { it.component == "campaign_intro" }
+            ?.properties
+            ?.get("prefetch_window_hours")
+            ?.let { (it as? JsonPrimitive)?.contentOrNull?.toLongOrNull() }
+            ?.coerceIn(1L, 24L)
+            ?: 24L
+        return configuredHours * 60L * 60L * 1_000L
+    }
 
     private fun collectAssetIds(element: JsonElement): Set<String> {
         val found = linkedSetOf<String>()

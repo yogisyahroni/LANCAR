@@ -13,12 +13,15 @@ import kotlinx.serialization.json.contentOrNull
 
 data class StartupCampaign(
     val campaignId: String,
+    val campaignName: String?,
     val enabled: Boolean,
     val title: String,
     val body: String?,
     val mediaAssetId: String?,
     val frequencyCapHours: Int,
     val maxImpressions: Int,
+    val displayDurationSeconds: Int,
+    val maxDurationSeconds: Int,
     val dismissible: Boolean,
     val skippable: Boolean,
     val assetReference: ExperienceAssetReference?,
@@ -76,6 +79,9 @@ object StartupCampaignPolicy {
         val campaignId = properties.string("campaign_id") ?: return null
         val title = properties.string("title") ?: return null
         val mediaAssetId = properties.string("media_asset_id")
+        val displayDurationSeconds = properties.int("display_duration_seconds", 6).coerceIn(1, 60)
+        val maxDurationSeconds = properties.int("max_duration_seconds", 15).coerceIn(1, 120)
+        if (displayDurationSeconds > maxDurationSeconds) return null
         val assetReference = mediaAssetId?.let { id ->
             manifest.assetReferences.firstOrNull { it.assetId == id }
         }
@@ -84,6 +90,7 @@ object StartupCampaignPolicy {
 
         return StartupCampaign(
             campaignId = campaignId,
+            campaignName = properties.string("campaign_name"),
             enabled = properties.boolean("enabled", default = true),
             title = title,
             body = properties.string("body"),
@@ -92,6 +99,8 @@ object StartupCampaignPolicy {
                 .coerceIn(0, 720),
             maxImpressions = properties.int("max_impressions", DEFAULT_MAX_IMPRESSIONS)
                 .coerceIn(1, 100),
+            displayDurationSeconds = displayDurationSeconds,
+            maxDurationSeconds = maxDurationSeconds,
             dismissible = properties.boolean("dismissible", default = true),
             skippable = properties.boolean("skippable", default = true),
             assetReference = assetReference,

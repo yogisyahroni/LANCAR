@@ -123,8 +123,9 @@ object ExperienceManifestValidator {
         "notice" to setOf("title", "body", "cta_label", "deep_link", "external_url"),
         "spacer" to setOf("size"),
         "campaign_intro" to setOf(
-            "enabled", "campaign_id", "title", "body", "media_asset_id",
-            "frequency_cap_hours", "max_impressions", "dismissible", "skippable",
+            "enabled", "campaign_id", "campaign_name", "title", "body", "media_asset_id",
+            "frequency_cap_hours", "max_impressions", "display_duration_seconds",
+            "max_duration_seconds", "prefetch_window_hours", "dismissible", "skippable",
         ),
         "design_tokens" to setOf(
             "accent_preset", "background_preset", "corner_preset", "spacing_preset", "badge_preset",
@@ -281,7 +282,10 @@ object ExperienceManifestValidator {
                 normalizedKey == "campaign_id" -> sanitizeIdentifier(value)
                 normalizedKey == "placement" -> sanitizePlacement(component, value)
                 normalizedKey in setOf("enabled", "dismissible", "skippable") -> sanitizeBoolean(value)
-                normalizedKey in setOf("frequency_cap_hours", "max_impressions") -> sanitizeInteger(value, normalizedKey)
+                normalizedKey in setOf(
+                    "frequency_cap_hours", "max_impressions", "display_duration_seconds",
+                    "max_duration_seconds", "prefetch_window_hours",
+                ) -> sanitizeInteger(value, normalizedKey)
                 else -> sanitizeText(value)
             }
             if (sanitized != null) result[normalizedKey] = sanitized
@@ -296,6 +300,11 @@ object ExperienceManifestValidator {
         }
         if (!required.all(result::containsKey)) return null
         if (component == "service_grid" && "service_codes" !in result && "cards" !in result) return null
+        if (component == "campaign_intro") {
+            val displayDuration = (result["display_duration_seconds"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 6
+            val maxDuration = (result["max_duration_seconds"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 15
+            if (displayDuration > maxDuration) return null
+        }
         return JsonObject(result)
     }
 
@@ -342,6 +351,9 @@ object ExperienceManifestValidator {
         val valid = when (key) {
             "frequency_cap_hours" -> parsed in 0..720
             "max_impressions" -> parsed in 1..100
+            "display_duration_seconds" -> parsed in 1..60
+            "max_duration_seconds" -> parsed in 1..120
+            "prefetch_window_hours" -> parsed in 1..24
             else -> false
         }
         return parsed.takeIf { valid }?.let(::JsonPrimitive)

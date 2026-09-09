@@ -405,6 +405,58 @@ describe('experience manifest contract', () => {
     });
   });
 
+  it('validates bounded campaign intro duration and prefetch controls', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'intro',
+        component: 'campaign_intro',
+        properties: {
+          campaign_id: 'launch-2026',
+          campaign_name: 'Launch intro',
+          title: 'Selamat datang',
+          display_duration_seconds: 8,
+          max_duration_seconds: 20,
+          prefetch_window_hours: 12,
+          dismissible: true,
+          skippable: true,
+        },
+      }],
+    });
+    expect(parsed.sections[0].properties).toMatchObject({
+      campaign_name: 'Launch intro',
+      display_duration_seconds: 8,
+      max_duration_seconds: 20,
+      prefetch_window_hours: 12,
+    });
+
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'intro',
+        component: 'campaign_intro',
+        properties: {
+          campaign_id: 'launch-2026',
+          title: 'Selamat datang',
+          display_duration_seconds: 21,
+          max_duration_seconds: 20,
+        },
+      }],
+    })).toThrow('display duration');
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'intro',
+        component: 'campaign_intro',
+        properties: {
+          campaign_id: 'launch-2026',
+          title: 'Selamat datang',
+          prefetch_window_hours: 25,
+        },
+      }],
+    })).toThrow('prefetch_window_hours');
+  });
+
   it('accepts bounded localized copy references while keeping protected documents outside the marketing CMS', () => {
     const parsed = parseExperienceManifestInput({
       ...validInput,

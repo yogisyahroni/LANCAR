@@ -132,13 +132,18 @@ same validation. A promo carousel item follows the same rule and uses its
 `id` as the campaign identity when `campaign_id` is omitted.
 
 `campaign_intro` is presentation-only and is consumed after the local native
-OS splash. Its `campaign_id`, localized `title`/optional `body`, optional
-`media_asset_id` (image/animation only), `frequency_cap_hours`,
-`max_impressions`, `dismissible`, and `skippable` fields are evaluated against
-the already-resolved manifest scope. The customer app never fetches campaign
-media on the critical startup path; remote assets are staged into an isolated,
-checksum-verified local bundle, while `/assets/` references are verified
-against installed resources before the manifest becomes LKG.
+OS splash. Its `campaign_id`, optional internal `campaign_name`, localized
+`title`/optional `body`, optional `media_asset_id` (image/animation only),
+`frequency_cap_hours`, `max_impressions`, bounded
+`display_duration_seconds`/`max_duration_seconds`, `dismissible`, and
+`skippable` fields are evaluated against the already-resolved manifest scope.
+The customer app never fetches campaign media on the critical startup path;
+remote assets are staged into an isolated, checksum-verified local bundle,
+with a bounded `prefetch_window_hours` of at most 24 hours before activation.
+On metered/data-saver networks, the asset reference's
+`fallback_asset_id` is preferred; if no verified fallback exists, the intro is
+skipped. `/assets/` references are verified against installed resources before
+the manifest becomes LKG.
 
 ## Lifecycle API
 
@@ -240,7 +245,9 @@ after 24 hours.
 
 Asset prefetch runs in a Wi-Fi constrained WorkManager job. The eligibility
 policy selects only assets referenced by the audience-scoped manifest that is
-active or starts within the next 24 hours; unreferenced campaign assets are
-never downloaded globally. On a metered or data-saver network the client uses
-the declared fallback, or skips the campaign when no verified lighter asset is
-available.
+active or starts within the next configured campaign window (up to 24 hours);
+unreferenced campaign assets are never downloaded globally. On a metered or
+data-saver network the client uses the declared fallback, or skips the campaign
+when no verified lighter asset is available. The prefetch worker is
+non-critical background work and cannot gate the native splash or first usable
+screen.
