@@ -2136,11 +2136,11 @@ A task is complete only when applicable boxes below are true:
 - badge style preset
 
 **Checklist**
-- [ ] Core brand/accessibility tokens have safe packaged defaults.
-- [ ] Remote values are constrained by enum/range/contrast validation, not arbitrary styling instructions.
-- [ ] Critical transaction screens may opt out of campaign theming.
-- [ ] Unsupported theme token falls back safely.
-- [ ] Do not remotely download executable UI code or arbitrary font binaries.
+- [x] Core brand/accessibility tokens have safe packaged defaults. Evidence: `docs/task-evidence/APP-2026-006.md`.
+- [x] Remote values are constrained by enum/range/contrast validation, not arbitrary styling instructions. Evidence: `docs/task-evidence/APP-2026-006.md`.
+- [x] Critical transaction screens may opt out of campaign theming. Evidence: `docs/task-evidence/APP-2026-006.md`.
+- [x] Unsupported theme token falls back safely. Evidence: `docs/task-evidence/APP-2026-006.md`.
+- [x] Do not remotely download executable UI code or arbitrary font binaries. Evidence: `docs/task-evidence/APP-2026-006.md`.
 
 ---
 
