@@ -35,6 +35,13 @@ The component whitelist is:
 - `service_grid`
 - `info_card`
 - `quick_actions`
+- `notice`
+- `spacer`
+
+`service_grid` may use `service_codes` for ordering/visibility and may also
+provide `cards` entries with a service `code`, presentation-only `subtitle`,
+and presentation-only `badge`. The customer app intersects those entries with
+the authoritative enabled-service response before rendering or navigation.
 
 Each component has a strict property schema. Unknown components and unknown
 properties are rejected before publication. HTML, JavaScript/data URLs,

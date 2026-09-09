@@ -47,6 +47,7 @@ fun getServiceIcon(serviceCode: String): ImageVector {
         "tambal_ban_mobil" -> ServiceIcons.TambalBanMobil
         "towing_motor" -> ServiceIcons.TowingMotor
         "towing_mobil" -> ServiceIcons.TowingMobil
+        "food_delivery", "food" -> ServiceIcons.Food
         else -> ServiceIcons.Motor
     }
 }

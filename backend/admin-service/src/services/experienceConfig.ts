@@ -19,7 +19,9 @@ export type ExperienceComponent =
   | 'promo_carousel'
   | 'service_grid'
   | 'info_card'
-  | 'quick_actions';
+  | 'quick_actions'
+  | 'notice'
+  | 'spacer';
 
 type JsonObject = Record<string, unknown>;
 type QueryResult<T = Record<string, unknown>> = { rows: T[] };
@@ -97,6 +99,12 @@ const quickActionSchema = z.object({
   deep_link: safeDeepLink,
 }).strict();
 
+const serviceGridCardSchema = z.object({
+  code: identifier,
+  subtitle: text(160).optional(),
+  badge: text(32).optional(),
+}).strict();
+
 const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   hero_banner: z.object({
     title: text(120),
@@ -114,9 +122,13 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   }).strict(),
   service_grid: z.object({
     title: text(120).optional(),
-    service_codes: z.array(identifier).min(1).max(20),
+    service_codes: z.array(identifier).min(1).max(20).optional(),
+    cards: z.array(serviceGridCardSchema).min(1).max(20).optional(),
     display_mode: z.enum(['compact', 'cards']).default('cards'),
-  }).strict(),
+  }).strict().refine(
+    (value) => (value.service_codes?.length ?? 0) > 0 || (value.cards?.length ?? 0) > 0,
+    'service_grid requires service_codes or cards',
+  ),
   info_card: z.object({
     title: text(120),
     body: text(700),
@@ -125,6 +137,14 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   }).strict(),
   quick_actions: z.object({
     actions: z.array(quickActionSchema).min(1).max(8),
+  }).strict(),
+  notice: z.object({
+    title: text(120),
+    body: text(500).optional(),
+    ...ctaFields,
+  }).strict(),
+  spacer: z.object({
+    size: z.enum(['small', 'medium', 'large']).default('medium'),
   }).strict(),
 };
 

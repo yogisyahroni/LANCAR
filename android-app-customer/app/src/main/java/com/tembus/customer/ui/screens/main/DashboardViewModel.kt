@@ -8,6 +8,7 @@ import com.tembus.customer.data.model.DeliveryServiceProduct
 import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.data.repository.OrderRepository
 import com.tembus.customer.data.session.AuthSessionManager
+import com.tembus.customer.domain.config.ExperienceConfigManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,7 +23,8 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
     private val notificationRepository: NotificationRepository,
-    private val sessionManager: AuthSessionManager
+    private val sessionManager: AuthSessionManager,
+    private val experienceConfigManager: ExperienceConfigManager,
 ) : ViewModel() {
     private val technicalErrorMarkers = listOf("HTTP ", "Exception", "java.", "kotlin.", "retrofit", "okhttp", "timeout")
 
@@ -39,6 +41,7 @@ class DashboardViewModel @Inject constructor(
 
     private val _services = MutableStateFlow<List<DeliveryServiceProduct>>(emptyList())
     val services = _services.asStateFlow()
+    val experienceSnapshot = experienceConfigManager.snapshot
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()

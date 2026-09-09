@@ -93,9 +93,11 @@ object ExperienceManifestValidator {
         "hero_banner" to setOf("title", "body", "image_asset_id", "cta_label", "deep_link"),
         "campaign_strip" to setOf("title", "body", "cta_label", "deep_link"),
         "promo_carousel" to setOf("items"),
-        "service_grid" to setOf("title", "service_codes", "display_mode"),
+        "service_grid" to setOf("title", "service_codes", "cards", "display_mode"),
         "info_card" to setOf("title", "body", "icon_asset_id", "deep_link"),
         "quick_actions" to setOf("actions"),
+        "notice" to setOf("title", "body", "cta_label", "deep_link"),
+        "spacer" to setOf("size"),
     )
     private val protectedKeys = setOf(
         "amount", "authorization", "commission", "currency", "delivery_status",
@@ -199,10 +201,13 @@ object ExperienceManifestValidator {
             val sanitized = when {
                 normalizedKey == "items" && component == "promo_carousel" -> sanitizePromoItems(value)
                 normalizedKey == "actions" && component == "quick_actions" -> sanitizeQuickActions(value)
+                normalizedKey == "cards" && component == "service_grid" -> sanitizeServiceCards(value)
                 normalizedKey == "service_codes" -> sanitizeIdentifiers(value)
                 normalizedKey.endsWith("asset_id") -> sanitizeIdentifier(value)
                 normalizedKey == "deep_link" -> sanitizeDeepLink(value)
                 normalizedKey == "display_mode" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { it in setOf("compact", "cards") }?.let(::JsonPrimitive)
+                normalizedKey == "size" && component == "spacer" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { it in setOf("small", "medium", "large") }?.let(::JsonPrimitive)
+                normalizedKey == "code" && component == "service_card" -> sanitizeIdentifier(value)
                 else -> sanitizeText(value)
             }
             if (sanitized != null) result[normalizedKey] = sanitized
@@ -210,11 +215,23 @@ object ExperienceManifestValidator {
 
         val required = when (component) {
             "hero_banner", "campaign_strip", "info_card" -> setOf("title")
-            "promo_carousel", "quick_actions", "service_grid" -> setOf(if (component == "promo_carousel") "items" else if (component == "quick_actions") "actions" else "service_codes")
+            "promo_carousel", "quick_actions" -> setOf(if (component == "promo_carousel") "items" else "actions")
+            "notice" -> setOf("title")
             else -> emptySet()
         }
         if (!required.all(result::containsKey)) return null
+        if (component == "service_grid" && "service_codes" !in result && "cards" !in result) return null
         return JsonObject(result)
+    }
+
+    private fun sanitizeServiceCards(value: JsonElement): JsonArray? {
+        val cards = value as? JsonArray ?: return null
+        val output = cards.mapNotNull { item ->
+            val objectValue = item as? JsonObject ?: return@mapNotNull null
+            sanitizeProperties("service_card", objectValue, setOf("code", "subtitle", "badge"))
+                ?.takeIf { it.containsKey("code") }
+        }
+        return JsonArray(output).takeIf { output.size == cards.size && output.isNotEmpty() && output.size <= 20 }
     }
 
     private fun sanitizePromoItems(value: JsonElement): JsonArray? {

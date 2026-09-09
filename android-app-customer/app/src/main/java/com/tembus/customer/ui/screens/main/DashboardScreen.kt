@@ -100,6 +100,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.tembus.customer.R
 import com.tembus.customer.data.model.Order
+import com.tembus.customer.ui.experience.DynamicHomeRenderer
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
 import com.tembus.customer.ui.theme.Background
@@ -160,6 +161,8 @@ fun DashboardScreen(
     val notificationUnreadCount by viewModel.notificationUnreadCount.collectAsState()
     val notificationUnreadByCategory by viewModel.notificationUnreadByCategory.collectAsState()
     val banners by viewModel.banners.collectAsState()
+    val services by viewModel.services.collectAsState()
+    val experienceSnapshot by viewModel.experienceSnapshot.collectAsState()
     val hasUnreadMessages = (notificationUnreadByCategory["message"] ?: 0) > 0
     val notificationPermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
@@ -245,13 +248,33 @@ fun DashboardScreen(
                     }
 
                     item {
-                        GojekServiceGrid(
-                            onPickupClick = { onBookingClick("pickup") }, // Gabung ambil/kirim
-                            onFoodClick = onFoodClick,
-                            onAggregatorClick = { onBookingClick("aggregator") },
-                            onTambalBanClick = { onBookingClick("tambal_ban") },
-                            onTowingClick = { onBookingClick("towing") }
-                        )
+                        if (experienceSnapshot.manifest.sections.isEmpty()) {
+                            GojekServiceGrid(
+                                onPickupClick = { onBookingClick("pickup") }, // Gabung ambil/kirim
+                                onFoodClick = onFoodClick,
+                                onAggregatorClick = { onBookingClick("aggregator") },
+                                onTambalBanClick = { onBookingClick("tambal_ban") },
+                                onTowingClick = { onBookingClick("towing") }
+                            )
+                        } else {
+                            DynamicHomeRenderer(
+                                snapshot = experienceSnapshot,
+                                services = services,
+                                onServiceClick = onBookingClick,
+                                onDeepLink = { link ->
+                                    when (link) {
+                                        "/home", "lancar://home" -> onHomeClick()
+                                        "/food", "lancar://food" -> onFoodClick()
+                                        "/orders", "lancar://orders" -> onHistoryClick()
+                                        "/profile", "lancar://profile" -> onProfileClick()
+                                        "/promo", "lancar://promo" -> onBookingClick("promo")
+                                        else -> Unit
+                                    }
+                                },
+                                onHistoryClick = onHistoryClick,
+                                onFavoritesClick = { onBookingClick("food_favorites") },
+                            )
+                        }
                     }
 
                 // A4: global banner (pengumuman in-app platform-wide dari super_admin).

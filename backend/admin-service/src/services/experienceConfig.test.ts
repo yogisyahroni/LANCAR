@@ -105,6 +105,35 @@ describe('experience manifest contract', () => {
     expect(parsed.asset_references).toEqual([]);
   });
 
+  it('accepts presentation-only service card targeting and native notice/spacer sections', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      sections: [
+        {
+          id: 'services',
+          component: 'service_grid',
+          properties: {
+            cards: [
+              { code: 'tembus_instant', subtitle: 'Cepat', badge: 'Baru' },
+            ],
+            display_mode: 'cards',
+          },
+        },
+        { id: 'notice', component: 'notice', properties: { title: 'Info' } },
+        { id: 'gap', component: 'spacer', properties: { size: 'small' } },
+      ],
+    });
+
+    expect(parsed.sections.map((section) => section.component)).toEqual([
+      'service_grid',
+      'notice',
+      'spacer',
+    ]);
+    expect(parsed.sections[0].properties).toMatchObject({
+      cards: [{ code: 'tembus_instant', subtitle: 'Cepat', badge: 'Baru' }],
+    });
+  });
+
   it('rejects unknown components, unsafe links, and protected properties', () => {
     expect(() => parseExperienceManifestInput({
       ...validInput,
