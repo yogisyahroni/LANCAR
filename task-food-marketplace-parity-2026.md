@@ -2773,11 +2773,11 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - lifecycle: active/deprecated/scheduled deletion
 
 **Checklist**
-- [ ] Oversized/unsupported/corrupt files rejected before becoming publishable.
-- [ ] Admin cannot delete an asset still referenced by live or retained rollback revision.
-- [ ] Asset replacement creates a new immutable version/reference; do not silently mutate historical campaign content.
-- [ ] CDN/object-storage credential never reaches browser.
-- [ ] Asset upload and publish are separately permissioned where appropriate.
+- [x] Oversized/unsupported/corrupt files rejected before becoming publishable. Evidence: `docs/task-evidence/ADMEXP-2026-010.md`
+- [x] Admin cannot delete an asset still referenced by live or retained rollback revision. Evidence: `docs/task-evidence/ADMEXP-2026-010.md`
+- [x] Asset replacement creates a new immutable version/reference; do not silently mutate historical campaign content. Evidence: `docs/task-evidence/ADMEXP-2026-010.md`
+- [x] CDN/object-storage credential never reaches browser. Evidence: `docs/task-evidence/ADMEXP-2026-010.md`
+- [x] Asset upload and publish are separately permissioned where appropriate. Evidence: `docs/task-evidence/ADMEXP-2026-010.md`
 
 ---
 
