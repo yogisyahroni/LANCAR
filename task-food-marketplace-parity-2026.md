@@ -2881,14 +2881,14 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 `DRAFT → VALIDATED → PREVIEWED → AWAITING_APPROVAL → APPROVED → SCHEDULED/CANARY → LIVE → PAUSED/EXPIRED/ROLLED_BACK`
 
 **Checklist**
-- [ ] Save Draft never changes live user experience.
-- [ ] Submit Approval freezes candidate revision or creates immutable candidate snapshot.
-- [ ] Approver sees diff, audience, schedule, rollout percentage, affected surfaces and risk/blast-radius summary.
-- [ ] Canary can target internal users or small deterministic percentage before general release.
-- [ ] Percentage rollout supports staged increase without rebuilding manifest content.
-- [ ] Publish is atomic from revision perspective: users resolve either old known-good or new complete revision, never half-edited state.
-- [ ] Rollback selects an immutable known-good revision and records rollback reason.
-- [ ] Optional automated rollback guardrail can trigger on configured crash/render/fetch failure thresholds, with alert/audit.
+- [x] Save Draft never changes live user experience. Evidence: `docs/task-evidence/ADMEXP-2026-015.md`.
+- [x] Submit Approval freezes candidate revision or creates immutable candidate snapshot. Evidence: `docs/task-evidence/ADMEXP-2026-015.md`.
+- [x] Approver sees diff, audience, schedule, rollout percentage, affected surfaces and risk/blast-radius summary. Evidence: `docs/task-evidence/ADMEXP-2026-015.md`.
+- [x] Canary can target internal users or small deterministic percentage before general release. Evidence: `docs/task-evidence/ADMEXP-2026-015.md`.
+- [x] Percentage rollout supports staged increase without rebuilding manifest content. Evidence: `docs/task-evidence/ADMEXP-2026-015.md`.
+- [x] Publish is atomic from revision perspective: users resolve either old known-good or new complete revision, never half-edited state. Evidence: `docs/task-evidence/ADMEXP-2026-015.md`.
+- [x] Rollback selects an immutable known-good revision and records rollback reason. Evidence: `docs/task-evidence/ADMEXP-2026-015.md`.
+- [x] Optional automated rollback guardrail can trigger on configured crash/render/fetch failure thresholds, with alert/audit. Evidence: `docs/task-evidence/ADMEXP-2026-015.md`.
 
 ---
 
