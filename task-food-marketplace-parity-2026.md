@@ -2271,11 +2271,11 @@ A task is complete only when applicable boxes below are true:
 ## APP-2026-014 — Dynamic localized content packs [P1]
 
 **Checklist**
-- [ ] Marketing/banner/help copy can be published per locale without app release.
-- [ ] Locale fallback order is explicit, e.g. `id-ID → id → default`.
-- [ ] Missing translation does not expose raw localization key.
-- [ ] Legal/financial/consent copy uses approved versioned content path, not casual marketing CMS override.
-- [ ] Remote copy has length constraints so layout remains stable.
+- [x] Marketing/banner/help copy can be published per locale without app release. (Evidence: `docs/task-evidence/APP-2026-014.md`)
+- [x] Locale fallback order is explicit, e.g. `id-ID → id → default`. (Evidence: `docs/task-evidence/APP-2026-014.md`)
+- [x] Missing translation does not expose raw localization key. (Evidence: `docs/task-evidence/APP-2026-014.md`)
+- [x] Legal/financial/consent copy uses approved versioned content path, not casual marketing CMS override. (Evidence: `docs/task-evidence/APP-2026-014.md`)
+- [x] Remote copy has length constraints so layout remains stable. (Evidence: `docs/task-evidence/APP-2026-014.md`)
 
 ---
 
