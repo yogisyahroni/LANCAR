@@ -2929,10 +2929,10 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - experiment exposure where applicable
 
 **Checklist**
-- [ ] Admin can drill from anomaly to exact live revision/campaign.
-- [ ] Marketing metrics and reliability metrics shown separately; high CTR does not hide crash regression.
-- [ ] Rollback CTA available from a failing revision health view only to authorized role.
-- [ ] Alert threshold/config change itself is audited.
+- [x] Admin can drill from anomaly to exact live revision/campaign. Evidence: `docs/task-evidence/ADMEXP-2026-017.md`.
+- [x] Marketing metrics and reliability metrics shown separately; high CTR does not hide crash regression. Evidence: `docs/task-evidence/ADMEXP-2026-017.md`.
+- [x] Rollback CTA available from a failing revision health view only to authorized role. Evidence: `docs/task-evidence/ADMEXP-2026-017.md`.
+- [x] Alert threshold/config change itself is audited. Evidence: `docs/task-evidence/ADMEXP-2026-017.md`.
 
 ---
 
