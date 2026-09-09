@@ -121,6 +121,7 @@ adminRoutes.post('/admin/experience/assets', requireExperienceAccess(EXPERIENCE_
 adminRoutes.get('/admin/experience/revisions', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceRevisions(req, res));
 adminRoutes.get('/admin/experience/audit', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceAudit(req, res));
 adminRoutes.get('/admin/experience/deep-links', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceDeepLinks(req, res));
+adminRoutes.get('/admin/experience/deep-link-registry', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceDeepLinkRegistry(req, res));
 adminRoutes.post('/admin/experience/deep-links', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.validateAdminExperienceDeepLink(req, res));
 adminRoutes.get('/admin/experience/rollouts', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceRollouts(req, res));
 adminRoutes.post('/admin/experience/rollouts', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.validateAdminExperienceRollout(req, res));

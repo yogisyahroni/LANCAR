@@ -8,6 +8,7 @@ jest.mock('../db', () => ({
 import { db, readDb } from '../db';
 import {
   canonicalExperienceManifestPayload,
+  buildExperienceDeepLink,
   compareSemanticVersions,
   createExperienceManifest,
   approveExperienceManifest,
@@ -28,6 +29,7 @@ import {
   updateExperienceManifestDraft,
   validateExperienceAsset,
   validateExperienceDeepLink,
+  validateExperienceExternalUrl,
   validateExperienceRollout,
 } from './experienceConfig';
 
@@ -224,6 +226,18 @@ describe('experience manifest contract', () => {
     } catch (error) {
       expect(error).toMatchObject({ code: 'EXPERIENCE_CANARY_COHORT_REQUIRED', issues: [{ path: 'canary_cohort' }] });
     }
+  });
+
+  it('resolves only registered deep-link routes with required parameters and fallback metadata', () => {
+    expect(buildExperienceDeepLink('promo_detail', { campaign_id: 'ramadan-2026' })).toMatchObject({
+      deep_link: '/promo?campaign_id=ramadan-2026',
+      route: { route_id: 'promo_detail', min_app_version: '1.1.0', fallback_route_id: 'food_home' },
+    });
+    expect(() => buildExperienceDeepLink('promo_detail', {})).toThrow('campaign_id is required');
+    expect(() => buildExperienceDeepLink('promo_detail', { campaign_id: 'bad value' })).toThrow('does not match');
+    expect(() => buildExperienceDeepLink('removed-route', {})).toThrow('not registered or is deprecated');
+    expect(validateExperienceExternalUrl('https://app.bawain.my.id/promo')).toBe('https://app.bawain.my.id/promo');
+    expect(() => validateExperienceExternalUrl('https://evil.example/promo')).toThrow('allowlisted HTTPS host');
   });
 
   it('validates the supported banner placement vocabulary', () => {

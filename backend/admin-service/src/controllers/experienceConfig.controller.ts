@@ -5,6 +5,8 @@ import {
   createExperienceManifest,
   approveExperienceManifest,
   ExperienceManifestError,
+  buildExperienceDeepLink,
+  EXPERIENCE_DEEP_LINK_REGISTRY,
   listExperienceAssets,
   listExperienceAudit,
   listExperienceDeepLinks,
@@ -25,6 +27,7 @@ import {
   updateExperienceManifestDraft,
   validateExperienceAsset,
   validateExperienceDeepLink,
+  validateExperienceExternalUrl,
   validateExperienceManifestDraft,
   validateExperienceRollout,
   type ExperienceSurface,
@@ -369,7 +372,7 @@ export const listAdminExperienceAudit = async (req: Request, res: Response): Pro
 
 export const listAdminExperienceDeepLinks = async (req: Request, res: Response): Promise<void> => {
   try {
-    const data = await listExperienceDeepLinks({ market_code: req.query.market_code, surface: req.query.surface });
+    const data = await listExperienceDeepLinks({ market_code: req.query.market_code, surface: req.query.surface, include_usage: req.query.include_usage === 'true' });
     respondSuccess(req, res, data);
   } catch (error) {
     respondWithError(res, error, 'deep_links_list');
@@ -378,12 +381,19 @@ export const listAdminExperienceDeepLinks = async (req: Request, res: Response):
 
 export const validateAdminExperienceDeepLink = async (req: Request, res: Response): Promise<void> => {
   try {
-    const value = req.body?.deep_link;
-    const data = { deep_link: validateExperienceDeepLink(value) };
+    const data = req.body?.route_id
+      ? buildExperienceDeepLink(req.body.route_id, req.body.params)
+      : typeof req.body?.external_url === 'string'
+        ? { external_url: validateExperienceExternalUrl(req.body.external_url) }
+        : { deep_link: validateExperienceDeepLink(req.body?.deep_link) };
     respondSuccess(req, res, data);
   } catch (error) {
     respondWithError(res, error, 'deep_link_validate');
   }
+};
+
+export const listAdminExperienceDeepLinkRegistry = async (_req: Request, res: Response): Promise<void> => {
+  respondSuccess(_req, res, EXPERIENCE_DEEP_LINK_REGISTRY);
 };
 
 export const listAdminExperienceRollouts = async (req: Request, res: Response): Promise<void> => {

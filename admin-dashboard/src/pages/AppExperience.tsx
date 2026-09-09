@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import AppExperienceEditor from './AppExperienceEditor'
 import AppExperienceOverview from './AppExperienceOverview'
 import ExperienceAssets from './ExperienceAssets'
+import DeepLinks from './DeepLinks'
 import ExperiencePreview from '../components/experience/ExperiencePreview'
 import RevisionHistory from '../components/experience/RevisionHistory'
 import ExperienceScopeBar, { type ExperienceScope } from '../components/experience/ExperienceScopeBar'
@@ -238,6 +239,7 @@ export default function AppExperience() {
   if (activeSection === 'Overview') return <AppExperienceOverview />
   if (activeSection === 'Kill Switches') return <KillSwitches />
   if (activeSection === 'Asset Library') return <div className="space-y-8 animate-in"><ExperienceScopeBar value={scope} onChange={updateScope} /><ExperienceAssets marketCode={form.market_code} surface={form.surface} /></div>
+  if (activeSection === 'Deep Links') return <div className="space-y-8 animate-in"><ExperienceScopeBar value={scope} onChange={updateScope} /><DeepLinks marketCode={form.market_code} surface={form.surface} appVersion={form.min_app_version} schemaVersion={form.schema_version} /></div>
 
   return (
     <div className="space-y-8 animate-in">

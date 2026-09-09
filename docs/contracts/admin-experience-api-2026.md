@@ -75,9 +75,13 @@ creating duplicate stores:
 - `GET /admin/experience/audit?market_code=&surface=&manifest_id=` lists the
   append-only audit records in scope.
 - `GET /admin/experience/deep-links?market_code=&surface=` lists links found
-  in scoped manifest sections. `POST /admin/experience/deep-links` validates a
-  candidate against the allowlisted LANCAR routes; links are stored only as
-  part of a draft.
+  in scoped manifest sections. `GET /admin/experience/deep-links?include_usage=true`
+  returns the manifest/revision references for deprecation analysis.
+- `GET /admin/experience/deep-link-registry` returns the typed, version-aware
+  first-party route registry and fallback route metadata. `POST
+  /admin/experience/deep-links` validates a registered `route_id` plus its
+  required parameters, or validates an allowlisted first-party HTTPS
+  `external_url`; links are stored only as part of a draft.
 - `GET /admin/experience/rollouts?market_code=&surface=` returns rollout and
   schedule state from revisions. `POST /admin/experience/rollouts` validates
   canary/public schedule input; changing a rollout is done through the draft

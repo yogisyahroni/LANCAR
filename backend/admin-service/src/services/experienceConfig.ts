@@ -53,6 +53,38 @@ export const EXPERIENCE_EXTERNAL_HOSTS = [
   'app.bawain.my.id',
 ] as const;
 
+export type ExperienceDeepLinkParameter = {
+  name: string;
+  label: string;
+  required: boolean;
+  pattern: 'identifier' | 'uuid';
+  example: string;
+};
+
+export type ExperienceDeepLinkRoute = {
+  route_id: string;
+  label: string;
+  description: string;
+  template: string;
+  parameters: ExperienceDeepLinkParameter[];
+  min_app_version: string;
+  min_schema_version: number;
+  supported_surfaces: ExperienceSurface[];
+  fallback_route_id: string;
+  status: 'active' | 'deprecated';
+};
+
+export const EXPERIENCE_DEEP_LINK_REGISTRY: ExperienceDeepLinkRoute[] = [
+  { route_id: 'home', label: 'Home', description: 'Customer home shell', template: '/home', parameters: [], min_app_version: '1.0.0', min_schema_version: 1, supported_surfaces: [...EXPERIENCE_SURFACES], fallback_route_id: 'home', status: 'active' },
+  { route_id: 'food_home', label: 'Food service home', description: 'Food marketplace service home', template: '/food', parameters: [], min_app_version: '1.0.0', min_schema_version: 1, supported_surfaces: ['customer_android', 'customer_web'], fallback_route_id: 'home', status: 'active' },
+  { route_id: 'service_home', label: 'Typed service home', description: 'A registered service within the food surface', template: '/food?service={service_code}', parameters: [{ name: 'service_code', label: 'Service code', required: true, pattern: 'identifier', example: 'food_delivery' }], min_app_version: '1.2.0', min_schema_version: 1, supported_surfaces: ['customer_android', 'customer_web'], fallback_route_id: 'food_home', status: 'active' },
+  { route_id: 'promo_detail', label: 'Promo detail', description: 'Presentation-only promo destination', template: '/promo?campaign_id={campaign_id}', parameters: [{ name: 'campaign_id', label: 'Campaign ID', required: true, pattern: 'identifier', example: 'ramadan-2026' }], min_app_version: '1.1.0', min_schema_version: 1, supported_surfaces: ['customer_android', 'customer_web'], fallback_route_id: 'food_home', status: 'active' },
+  { route_id: 'order_history', label: 'Order history', description: 'Customer order history', template: '/orders', parameters: [], min_app_version: '1.0.0', min_schema_version: 1, supported_surfaces: ['customer_android', 'customer_web'], fallback_route_id: 'home', status: 'active' },
+  { route_id: 'order_detail', label: 'Order detail', description: 'A typed order detail destination', template: '/orders?order_id={order_id}', parameters: [{ name: 'order_id', label: 'Order ID', required: true, pattern: 'uuid', example: '11111111-1111-4111-8111-111111111111' }], min_app_version: '1.3.0', min_schema_version: 1, supported_surfaces: ['customer_android', 'customer_web'], fallback_route_id: 'order_history', status: 'active' },
+  { route_id: 'support', label: 'Support', description: 'Customer support entry', template: '/support', parameters: [], min_app_version: '1.0.0', min_schema_version: 1, supported_surfaces: [...EXPERIENCE_SURFACES], fallback_route_id: 'home', status: 'active' },
+  { route_id: 'profile', label: 'Profile', description: 'Customer profile entry', template: '/profile', parameters: [], min_app_version: '1.0.0', min_schema_version: 1, supported_surfaces: ['customer_android', 'customer_web'], fallback_route_id: 'home', status: 'active' },
+];
+
 const PROTECTED_KEYS = [
   'amount', 'authorization', 'commission', 'currency', 'delivery_status',
   'eligibility', 'financial', 'order_state', 'payment', 'payout', 'price',
@@ -921,6 +953,46 @@ export const validateExperienceDeepLink = (value: unknown): string => {
       [],
       issues,
     );
+  }
+  return parsed.data;
+};
+
+const deepLinkParameterPatterns: Record<ExperienceDeepLinkParameter['pattern'], RegExp> = {
+  identifier: IDENTIFIER,
+  uuid: UUID,
+};
+
+export const buildExperienceDeepLink = (routeId: unknown, params: unknown): { route: ExperienceDeepLinkRoute; deep_link: string } => {
+  const route = EXPERIENCE_DEEP_LINK_REGISTRY.find((candidate) => candidate.route_id === routeId);
+  if (!route || route.status !== 'active') {
+    throw new ExperienceManifestError('INVALID_EXPERIENCE_DEEP_LINK_ROUTE', 400, 'Deep-link route is not registered or is deprecated', [], [{ path: 'route_id', code: 'invalid_route', message: 'Select an active registered route' }]);
+  }
+  const values = params && typeof params === 'object' && !Array.isArray(params) ? params as Record<string, unknown> : {};
+  const allowed = new Set(route.parameters.map((parameter) => parameter.name));
+  const unknown = Object.keys(values).filter((key) => !allowed.has(key));
+  if (unknown.length > 0) {
+    throw new ExperienceManifestError('INVALID_EXPERIENCE_DEEP_LINK_PARAMS', 400, `Unknown route parameters: ${unknown.join(', ')}`, [], [{ path: 'params', code: 'unknown_parameter', message: `Unknown route parameters: ${unknown.join(', ')}` }]);
+  }
+  const resolved = new Map<string, string>();
+  route.parameters.forEach((parameter) => {
+    const rawValue = values[parameter.name];
+    const value = typeof rawValue === 'string' ? rawValue.trim() : '';
+    if (!value && parameter.required) {
+      throw new ExperienceManifestError('INVALID_EXPERIENCE_DEEP_LINK_PARAMS', 400, `${parameter.name} is required`, [], [{ path: `params.${parameter.name}`, code: 'required', message: `${parameter.name} is required` }]);
+    }
+    if (value && !deepLinkParameterPatterns[parameter.pattern].test(value)) {
+      throw new ExperienceManifestError('INVALID_EXPERIENCE_DEEP_LINK_PARAMS', 400, `${parameter.name} does not match the registered route format`, [], [{ path: `params.${parameter.name}`, code: 'invalid', message: `${parameter.name} does not match the registered route format` }]);
+    }
+    if (value) resolved.set(parameter.name, encodeURIComponent(value));
+  });
+  const deepLink = route.parameters.reduce((template, parameter) => template.replace(`{${parameter.name}}`, resolved.get(parameter.name) || ''), route.template);
+  return { route, deep_link: validateExperienceDeepLink(deepLink) };
+};
+
+export const validateExperienceExternalUrl = (value: unknown): string => {
+  const parsed = safeExternalUrl.safeParse(value);
+  if (!parsed.success) {
+    throw new ExperienceManifestError('INVALID_EXPERIENCE_EXTERNAL_URL', 400, 'External URL must use an allowlisted HTTPS host', [], [{ path: 'external_url', code: 'invalid', message: 'Use HTTPS on bawain.my.id, www.bawain.my.id or app.bawain.my.id without credentials' }]);
   }
   return parsed.data;
 };
@@ -2031,11 +2103,41 @@ const collectDeepLinks = (value: unknown, result: Set<string>): void => {
   });
 };
 
+export type ExperienceDeepLinkUsage = {
+  deep_link: string;
+  manifest_id: string;
+  revision: number;
+  state: ExperienceManifestState;
+  market_code: string;
+  surface: ExperienceSurface;
+  min_app_version: string;
+  schema_version: number;
+};
+
 export const listExperienceDeepLinks = async (filters: {
   market_code?: unknown;
   surface?: unknown;
-} = {}): Promise<string[]> => {
+  include_usage?: boolean;
+} = {}): Promise<string[] | ExperienceDeepLinkUsage[]> => {
   const manifests = await listExperienceManifestRevisions(filters);
+  if (filters.include_usage) {
+    const usages: ExperienceDeepLinkUsage[] = [];
+    manifests.forEach((manifest) => {
+      const links = new Set<string>();
+      manifest.sections.forEach((section) => collectDeepLinks(section.properties, links));
+      links.forEach((deep_link) => usages.push({
+        deep_link,
+        manifest_id: manifest.manifest_id,
+        revision: manifest.revision,
+        state: manifest.state,
+        market_code: manifest.market_code,
+        surface: manifest.surface,
+        min_app_version: manifest.min_app_version,
+        schema_version: manifest.schema_version,
+      }));
+    });
+    return usages.sort((left, right) => left.deep_link.localeCompare(right.deep_link) || right.revision - left.revision);
+  }
   const result = new Set<string>();
   manifests.forEach((manifest) => manifest.sections.forEach((section) => collectDeepLinks(section.properties, result)));
   return Array.from(result).sort();
