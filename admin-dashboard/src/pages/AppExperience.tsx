@@ -9,6 +9,7 @@ import AppExperienceEditor from './AppExperienceEditor'
 import AppExperienceOverview from './AppExperienceOverview'
 import ExperienceAssets from './ExperienceAssets'
 import DeepLinks from './DeepLinks'
+import DesignTokens from './DesignTokens'
 import ExperiencePreview from '../components/experience/ExperiencePreview'
 import RevisionHistory from '../components/experience/RevisionHistory'
 import ExperienceScopeBar, { type ExperienceScope } from '../components/experience/ExperienceScopeBar'
@@ -84,11 +85,12 @@ export default function AppExperience() {
   }, [editorManifest])
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const payload = formToPayload(form)
-      if (mode === 'draft' && form.manifest_id) {
+    mutationFn: async (formOverride?: ExperienceForm) => {
+      const nextForm = formOverride ?? form
+      const payload = formToPayload(nextForm)
+      if (mode === 'draft' && nextForm.manifest_id) {
         if (!actionManifest?.checksum || actionManifest.state !== 'draft') throw new Error('Refresh the draft before saving it')
-        return api.patch(`/admin/experience/manifests/${form.manifest_id}/draft`, payload, {
+        return api.patch(`/admin/experience/manifests/${nextForm.manifest_id}/draft`, payload, {
           headers: {
             'X-Idempotency-Key': requestKey('update'),
             'If-Match': `"${actionManifest.checksum}"`,
@@ -211,7 +213,7 @@ export default function AppExperience() {
     setSimulation(undefined)
     toast.success('Campaign duplicated as a new draft')
   }
-  const save = () => saveMutation.mutate()
+  const save = (nextForm?: ExperienceForm) => saveMutation.mutate(nextForm)
   const actionBusy = previewMutation.isPending || audiencePairMutation.isPending || approveMutation.isPending || publishMutation.isPending || rollbackMutation.isPending || killMutation.isPending || restoreMutation.isPending || retireMutation.isPending
   const scope: ExperienceScope = {
     marketCode: form.market_code,
@@ -240,6 +242,7 @@ export default function AppExperience() {
   if (activeSection === 'Kill Switches') return <KillSwitches />
   if (activeSection === 'Asset Library') return <div className="space-y-8 animate-in"><ExperienceScopeBar value={scope} onChange={updateScope} /><ExperienceAssets marketCode={form.market_code} surface={form.surface} /></div>
   if (activeSection === 'Deep Links') return <div className="space-y-8 animate-in"><ExperienceScopeBar value={scope} onChange={updateScope} /><DeepLinks marketCode={form.market_code} surface={form.surface} appVersion={form.min_app_version} schemaVersion={form.schema_version} /></div>
+  if (activeSection === 'Design Tokens') return <div className="space-y-8 animate-in"><ExperienceScopeBar value={scope} onChange={updateScope} /><DesignTokens form={form} manifests={manifestsQuery.data ?? []} selectedId={selectedId} selected={selected} actionManifest={actionManifest} publishedManifest={publishedManifest} history={historyQuery.data} historyLoading={historyQuery.isLoading} selectedRevision={selectedRevision} mode={mode} canEdit={canEdit} canApprove={canApprove} canPublish={canPublish} canRollback={canRollback} saving={saveMutation.isPending} actionBusy={actionBusy} onFormChange={(next) => { setForm(next); setPreviewSurface(next.surface) }} onSave={save} onNew={startNew} onRefresh={() => { void manifestsQuery.refetch(); if (selectedId) void historyQuery.refetch() }} onSelect={selectManifest} onApprove={() => approveMutation.mutate()} onPublish={() => publishMutation.mutate()} onRollback={(revision) => { if (window.confirm(`Restore revision ${revision}?`)) rollbackMutation.mutate(revision) }} /></div>
 
   return (
     <div className="space-y-8 animate-in">
