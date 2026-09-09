@@ -2834,10 +2834,10 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - active-order/support fallback behavior
 
 **Checklist**
-- [ ] Admin sees estimated affected version distribution before hard update publish.
-- [ ] Hard update requires elevated permission + confirmation + reason + approval where configured.
-- [ ] System blocks unsafe hard-update rule if it would make active-order/support recovery unreachable.
-- [ ] Version policy is market/platform scoped; Android rule does not silently affect web/iOS/future surfaces.
+- [x] Admin sees estimated affected version distribution before hard update publish. Evidence: `docs/task-evidence/ADMEXP-2026-013.md`
+- [x] Hard update requires elevated permission + confirmation + reason + approval where configured. Evidence: `docs/task-evidence/ADMEXP-2026-013.md`
+- [x] System blocks unsafe hard-update rule if it would make active-order/support recovery unreachable. Evidence: `docs/task-evidence/ADMEXP-2026-013.md`
+- [x] Version policy is market/platform scoped; Android rule does not silently affect web/iOS/future surfaces. Evidence: `docs/task-evidence/ADMEXP-2026-013.md`
 
 ---
 
