@@ -49,6 +49,7 @@ internal data class DynamicPromoCardModel(
     val title: String,
     val body: String?,
     val badge: String?,
+    val altLabel: String?,
     val imageAssetId: String?,
     val ctaLabel: String?,
     val deepLink: String?,
@@ -141,7 +142,7 @@ internal fun DynamicPromoCard(
             if (!imageFailed && !assetPath.isNullOrBlank()) {
                 AsyncImage(
                     model = assetPath,
-                    contentDescription = item.title,
+                    contentDescription = item.altLabel ?: item.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.size(78.dp),
                     onError = {

@@ -50,6 +50,36 @@ class ExperienceConfigManagerTest {
     }
 
     @Test
+    fun bannerCampaignFieldsAndTypedPromoIdentityRemainSafeAtTheNativeBoundary() {
+        val sanitized = ExperienceManifestValidator.sanitize(
+            manifest = manifest(
+                sections = listOf(
+                    section(
+                        component = "hero_banner",
+                        properties = buildJsonObject {
+                            put("campaign_id", "ramadan-2026")
+                            put("campaign_name", "Ramadan food")
+                            put("title", "Promo Ramadan")
+                            put("alt_label", "Banner promo Ramadan")
+                            put("frequency_cap_hours", 24)
+                            put("max_impressions", 2)
+                            put("deep_link", "/food")
+                        },
+                    ),
+                ),
+            ),
+            scope = scope,
+            nowMillis = Instant.now().toEpochMilli(),
+        )
+
+        val properties = requireNotNull(sanitized).sections.single().properties
+        assertEquals("ramadan-2026", properties["campaign_id"]?.toString()?.trim('"'))
+        assertEquals("Banner promo Ramadan", properties["alt_label"]?.toString()?.trim('"'))
+        assertEquals("24", properties["frequency_cap_hours"]?.toString())
+        assertEquals("2", properties["max_impressions"]?.toString())
+    }
+
+    @Test
     fun legacyGlobalBannerIsOnlyRenderedWhenExperienceHasNoSafeSections() {
         val packaged = ExperienceConfigSnapshot(
             manifest = ExperienceManifestValidator.packagedDefault(scope),

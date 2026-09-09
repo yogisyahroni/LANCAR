@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Clock3, ExternalLink, GitBranch, RefreshCw
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import type { ExperienceAuditRecord, ExperienceManifest, ExperienceSurface } from '../components/experience/types'
+import { campaignNameForManifest, type ExperienceAuditRecord, type ExperienceManifest, type ExperienceSurface } from '../components/experience/types'
 
 type OverviewFilters = {
   market_code: string
@@ -78,8 +78,7 @@ const supportsAppVersion = (manifest: ExperienceManifest, version: string) =>
     && (!manifest.max_app_version || compareVersions(version, manifest.max_app_version) <= 0))
 
 const titleFor = (manifest: ExperienceManifest) => {
-  const properties = manifest.sections[0]?.properties ?? {}
-  return stringValue(properties.title) || stringValue(properties.campaign_id) || manifest.sections[0]?.component || 'Untitled campaign'
+  return campaignNameForManifest(manifest)
 }
 
 const deepLinksIn = (value: unknown, result: string[] = []): string[] => {

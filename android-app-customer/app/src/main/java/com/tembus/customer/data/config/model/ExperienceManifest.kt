@@ -114,9 +114,9 @@ object ExperienceManifestValidator {
     private val semver = Regex("^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$")
     private val sha256 = Regex("^[a-f0-9]{64}$")
     private val components = mapOf(
-        "hero_banner" to setOf("campaign_id", "title", "body", "badge", "image_asset_id", "cta_label", "deep_link", "external_url"),
-        "campaign_strip" to setOf("campaign_id", "title", "body", "badge", "image_asset_id", "cta_label", "deep_link", "external_url"),
-        "promo_carousel" to setOf("items"),
+        "hero_banner" to setOf("campaign_id", "campaign_name", "placement", "title", "body", "badge", "alt_label", "image_asset_id", "frequency_cap_hours", "max_impressions", "cta_label", "deep_link", "external_url"),
+        "campaign_strip" to setOf("campaign_id", "campaign_name", "placement", "title", "body", "badge", "alt_label", "image_asset_id", "frequency_cap_hours", "max_impressions", "cta_label", "deep_link", "external_url"),
+        "promo_carousel" to setOf("campaign_name", "placement", "frequency_cap_hours", "max_impressions", "items"),
         "service_grid" to setOf("title", "service_codes", "cards", "display_mode"),
         "info_card" to setOf("title", "body", "icon_asset_id", "deep_link"),
         "quick_actions" to setOf("actions"),
@@ -279,6 +279,7 @@ object ExperienceManifestValidator {
                 component == "design_tokens" && normalizedKey.endsWith("_preset") -> sanitizeDesignTokenPreset(normalizedKey, value)
                 normalizedKey == "code" && component == "service_card" -> sanitizeIdentifier(value)
                 normalizedKey == "campaign_id" -> sanitizeIdentifier(value)
+                normalizedKey == "placement" -> sanitizePlacement(component, value)
                 normalizedKey in setOf("enabled", "dismissible", "skippable") -> sanitizeBoolean(value)
                 normalizedKey in setOf("frequency_cap_hours", "max_impressions") -> sanitizeInteger(value, normalizedKey)
                 else -> sanitizeText(value)
@@ -312,6 +313,17 @@ object ExperienceManifestValidator {
             ?.let(::JsonPrimitive)
     }
 
+    private fun sanitizePlacement(component: String, value: JsonElement): JsonPrimitive? {
+        val placement = (value as? JsonPrimitive)?.contentOrNull?.trim()?.lowercase(Locale.ROOT) ?: return null
+        val allowed = when (component) {
+            "hero_banner" -> setOf("hero", "header")
+            "campaign_strip" -> setOf("campaign_strip")
+            "promo_carousel" -> setOf("carousel")
+            else -> emptySet()
+        }
+        return placement.takeIf { it in allowed }?.let(::JsonPrimitive)
+    }
+
     private fun sanitizeServiceCards(value: JsonElement): JsonArray? {
         val cards = value as? JsonArray ?: return null
         val output = cards.mapNotNull { item ->
@@ -339,7 +351,7 @@ object ExperienceManifestValidator {
         val items = value as? JsonArray ?: return null
         val output = items.mapNotNull { item ->
             val objectValue = item as? JsonObject ?: return@mapNotNull null
-            sanitizeProperties("promo_item", objectValue, setOf("id", "campaign_id", "title", "body", "badge", "image_asset_id", "cta_label", "deep_link", "external_url"))
+            sanitizeProperties("promo_item", objectValue, setOf("id", "campaign_id", "campaign_name", "title", "body", "badge", "alt_label", "image_asset_id", "cta_label", "deep_link", "external_url"))
                 ?.takeIf { it.containsKey("id") && it.containsKey("title") }
         }
         return JsonArray(output).takeIf { output.size == items.size && output.isNotEmpty() && output.size <= 10 }

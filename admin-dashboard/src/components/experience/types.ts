@@ -54,6 +54,7 @@ export type ExperienceManifest = {
   schedule_timezone: string
   rollout_stage: RolloutStage
   canary_cohort: string | null
+  rollout_percentage: number
   ttl_seconds: number
   cache_policy: 'no-store' | 'private' | 'public'
   targeting: ExperienceTargeting
@@ -81,6 +82,31 @@ export type ExperienceManifest = {
   kill_switched_at: string | null
   kill_switch_reason: string | null
 }
+
+export type ExperienceCampaignStatus = 'draft' | 'scheduled' | 'live' | 'paused' | 'expired'
+
+export const experienceCampaignStatus = (
+  manifest: Pick<ExperienceManifest, 'state' | 'starts_at' | 'ends_at' | 'kill_switch_active'>,
+  now = new Date(),
+): ExperienceCampaignStatus => {
+  if (manifest.state === 'draft') return 'draft'
+  if (manifest.state === 'superseded' || manifest.state === 'rolled_back') return 'expired'
+  if (manifest.ends_at && new Date(manifest.ends_at).getTime() <= now.getTime()) return 'expired'
+  if (manifest.kill_switch_active) return 'paused'
+  if (new Date(manifest.starts_at).getTime() > now.getTime()) return 'scheduled'
+  return 'live'
+}
+
+export const campaignNameForManifest = (manifest: Pick<ExperienceManifest, 'sections'>): string => {
+  const first = manifest.sections[0]
+  return String(first?.properties.campaign_name || first?.properties.title || first?.component || 'Untitled campaign')
+}
+
+export const placementForComponent = (component: string): string => ({
+  hero_banner: 'Hero',
+  campaign_strip: 'Campaign strip',
+  promo_carousel: 'Carousel',
+} as Record<string, string>)[component] ?? component.replaceAll('_', ' ')
 
 export type ExperienceAuditRecord = {
   id: string
@@ -115,6 +141,7 @@ export type ExperienceForm = {
   schedule_timezone: string
   rollout_stage: RolloutStage
   canary_cohort: string
+  rollout_percentage: number
   ttl_seconds: number
   cache_policy: 'no-store' | 'private' | 'public'
   targeting: ExperienceTargeting
@@ -194,6 +221,7 @@ export const defaultExperienceForm = (): ExperienceForm => ({
   schedule_timezone: 'Asia/Jakarta',
   rollout_stage: 'public',
   canary_cohort: '',
+  rollout_percentage: 100,
   ttl_seconds: 300,
   cache_policy: 'private',
   targeting: emptyTargeting(),
@@ -214,6 +242,7 @@ export const formFromManifest = (manifest: ExperienceManifest): ExperienceForm =
   schedule_timezone: manifest.schedule_timezone,
   rollout_stage: manifest.rollout_stage,
   canary_cohort: manifest.canary_cohort ?? '',
+  rollout_percentage: manifest.rollout_percentage ?? 100,
   ttl_seconds: manifest.ttl_seconds,
   cache_policy: manifest.cache_policy,
   targeting: manifest.targeting,
@@ -234,11 +263,20 @@ export const hasAudienceConstraints = (targeting: ExperienceTargeting) => Boolea
   || targeting.experiment_assignments.length,
 )
 
-const cleanedProperties = (properties: Record<string, unknown>) => Object.fromEntries(Object.entries(properties).filter(([, value]) => {
-  if (typeof value === 'string') return value.trim().length > 0
-  if (Array.isArray(value)) return value.length > 0
-  return value !== undefined && value !== null
-}))
+const cleanedProperties = (properties: Record<string, unknown>): Record<string, unknown> => Object.fromEntries(Object.entries(properties)
+  .map(([key, value]) => [
+    key,
+    ['items', 'actions'].includes(key) && Array.isArray(value)
+      ? value.map((item) => item && typeof item === 'object' && !Array.isArray(item)
+        ? cleanedProperties(item as Record<string, unknown>)
+        : item)
+      : value,
+  ])
+  .filter(([, value]) => {
+    if (typeof value === 'string') return value.trim().length > 0
+    if (Array.isArray(value)) return value.length > 0
+    return value !== undefined && value !== null
+  }))
 
 export const formToPayload = (form: ExperienceForm) => ({
   ...(form.manifest_id ? { manifest_id: form.manifest_id } : {}),
@@ -253,6 +291,7 @@ export const formToPayload = (form: ExperienceForm) => ({
   schedule_timezone: form.schedule_timezone.trim() || 'UTC',
   rollout_stage: form.rollout_stage,
   canary_cohort: form.rollout_stage === 'canary' ? form.canary_cohort.trim().toLowerCase() : null,
+  rollout_percentage: form.rollout_percentage,
   ttl_seconds: form.ttl_seconds,
   cache_policy: form.cache_policy,
   targeting: form.targeting,

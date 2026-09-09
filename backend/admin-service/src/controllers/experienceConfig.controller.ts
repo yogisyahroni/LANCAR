@@ -19,6 +19,7 @@ import {
   rejectExperienceManifest,
   resolvePublicExperienceManifest,
   rollbackExperienceManifest,
+  retireExperienceManifest,
   setExperienceManifestKillSwitch,
   submitExperienceManifestApproval,
   updateExperienceManifestDraft,
@@ -219,6 +220,22 @@ export const publishAdminExperienceManifest = async (req: Request, res: Response
     respondSuccess(req, res, data);
   } catch (error) {
     respondWithError(res, error, 'publish');
+  }
+};
+
+export const retireAdminExperienceManifest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason : '';
+    const data = await retireExperienceManifest(
+      manifestId(req),
+      getActorId(req),
+      reason,
+      correlationId(req, res),
+      auditContext(req, res),
+    );
+    respondSuccess(req, res, data);
+  } catch (error) {
+    respondWithError(res, error, 'retire');
   }
 };
 

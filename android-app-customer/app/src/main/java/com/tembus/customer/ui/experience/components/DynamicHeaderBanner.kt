@@ -56,6 +56,7 @@ internal fun DynamicHeaderBanner(
     title: String,
     body: String?,
     badge: String?,
+    altLabel: String?,
     ctaLabel: String?,
     deepLink: String?,
     externalUrl: String?,
@@ -126,7 +127,7 @@ internal fun DynamicHeaderBanner(
                 if (!imageFailed && !assetPath.isNullOrBlank()) {
                     AsyncImage(
                         model = assetPath,
-                        contentDescription = title,
+                        contentDescription = altLabel ?: title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.size(76.dp),
                         onError = {

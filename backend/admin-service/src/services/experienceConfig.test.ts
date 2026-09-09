@@ -19,6 +19,7 @@ import {
   pickExperienceManifest,
   previewExperienceManifestAudience,
   publishExperienceManifest,
+  retireExperienceManifest,
   rollbackExperienceManifest,
   resolvePublicExperienceManifest,
   setExperienceManifestKillSwitch,
@@ -69,6 +70,7 @@ const row = (state: string, revision = 1): Record<string, unknown> => ({
   schedule_timezone: 'Asia/Jakarta',
   rollout_stage: 'public',
   canary_cohort: null,
+  rollout_percentage: 100,
   ttl_seconds: 300,
   cache_policy: 'private',
   targeting: {
@@ -131,6 +133,7 @@ const candidate = (overrides: Partial<ExperienceManifestCandidate> = {}): Experi
   schedule_timezone: 'Asia/Jakarta',
   rollout_stage: 'public',
   canary_cohort: null,
+  rollout_percentage: 100,
   ttl_seconds: 300,
   cache_policy: 'private',
   targeting: {
@@ -211,15 +214,35 @@ describe('experience manifest contract', () => {
     expect(validateExperienceRollout({
       rollout_stage: 'canary',
       canary_cohort: 'internal-test',
+      rollout_percentage: 25,
       starts_at: '2026-09-10T09:00:00.000Z',
       schedule_timezone: 'Asia/Jakarta',
-    })).toMatchObject({ rollout_stage: 'canary', canary_cohort: 'internal-test' });
+    })).toMatchObject({ rollout_stage: 'canary', canary_cohort: 'internal-test', rollout_percentage: 25 });
     try {
       validateExperienceRollout({ rollout_stage: 'canary' });
       throw new Error('expected canary rollout validation to fail');
     } catch (error) {
       expect(error).toMatchObject({ code: 'EXPERIENCE_CANARY_COHORT_REQUIRED', issues: [{ path: 'canary_cohort' }] });
     }
+  });
+
+  it('validates the supported banner placement vocabulary', () => {
+    expect(parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'header',
+        component: 'hero_banner',
+        properties: { title: 'Header campaign', placement: 'header' },
+      }],
+    }).sections[0].properties).toMatchObject({ placement: 'header' });
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'strip',
+        component: 'campaign_strip',
+        properties: { title: 'Strip campaign', placement: 'hero' },
+      }],
+    })).toThrow('placement must be campaign_strip');
   });
 
   it('enforces surface-specific component contracts', () => {
@@ -417,8 +440,12 @@ describe('experience manifest contract', () => {
           component: 'hero_banner',
           properties: {
             campaign_id: 'ramadan-2026',
+            campaign_name: 'Ramadan food',
             title: 'Promo Ramadan',
             badge: 'Terbatas',
+            alt_label: 'Banner promo Ramadan',
+            frequency_cap_hours: 24,
+            max_impressions: 2,
             external_url: 'https://app.bawain.my.id/promo/ramadan?source=home',
           },
         },
@@ -429,8 +456,10 @@ describe('experience manifest contract', () => {
             items: [{
               id: 'promo-1',
               campaign_id: 'ramadan-2026',
+              campaign_name: 'Ramadan food item',
               title: 'Diskon ongkir',
               badge: 'Baru',
+              alt_label: 'Promo diskon ongkir',
               external_url: 'https://bawain.my.id/promo/1',
             }],
           },
@@ -440,11 +469,15 @@ describe('experience manifest contract', () => {
 
     expect(parsed.sections[0].properties).toMatchObject({
       campaign_id: 'ramadan-2026',
+      campaign_name: 'Ramadan food',
       badge: 'Terbatas',
+      alt_label: 'Banner promo Ramadan',
+      frequency_cap_hours: 24,
+      max_impressions: 2,
       external_url: 'https://app.bawain.my.id/promo/ramadan?source=home',
     });
     expect(parsed.sections[1].properties).toMatchObject({
-      items: [expect.objectContaining({ campaign_id: 'ramadan-2026', badge: 'Baru' })],
+      items: [expect.objectContaining({ campaign_id: 'ramadan-2026', campaign_name: 'Ramadan food item', badge: 'Baru', alt_label: 'Promo diskon ongkir' })],
     });
   });
 
@@ -689,6 +722,25 @@ describe('experience manifest contract', () => {
     })).toBeNull();
   });
 
+  it('uses a stable authenticated-user bucket for percentage rollout and excludes anonymous traffic', () => {
+    const partial = candidate({ rollout_percentage: 1 });
+    const request = {
+      market_code: 'id-jk',
+      locale: 'id-ID',
+      default_locale: 'id-ID',
+      app_version: '1.5.0',
+      user_id: actorId,
+    };
+    const first = pickExperienceManifest([partial], request);
+    const second = pickExperienceManifest([partial], request);
+    expect(second).toEqual(first);
+    expect(pickExperienceManifest([candidate({ rollout_percentage: 0 })], request)).toBeNull();
+    expect(pickExperienceManifest([candidate({ rollout_percentage: 50 })], {
+      ...request,
+      user_id: null,
+    })).toBeNull();
+  });
+
   it('serves a canary only to its explicit test cohort and keeps the public fallback', () => {
     const canary = candidate({ rollout_stage: 'canary', canary_cohort: 'internal-test', revision: 2 });
     const publicFallback = candidate({ rollout_stage: 'public', canary_cohort: null, revision: 1 });
@@ -738,6 +790,17 @@ describe('experience manifest contract', () => {
     expect(previewExperienceManifestAudience(row('draft') as any, {
       market_code: 'id-jk', locale: 'en-US', app_version: '1.5.0', at: '2025-12-31T00:00:00.000Z',
     })).toMatchObject({ matched: false, reason: 'outside_schedule' });
+  });
+
+  it('previews a partial rollout using the same stable user identity as runtime selection', () => {
+    const previewUserId = Array.from({ length: 1000 }, (_, index) => `preview-user-${index}`)
+      .find((userId) => Number.parseInt(createHash('sha256').update(`${manifestId}:${userId}`).digest('hex').slice(0, 8), 16) % 100 === 0);
+    expect(previewUserId).toBeDefined();
+    const partial = { ...row('draft'), rollout_percentage: 1 } as any;
+    expect(previewExperienceManifestAudience(partial, {
+      market_code: 'id-jk', locale: 'en-US', app_version: '1.5.0', user_id: previewUserId,
+      at: '2026-01-02T00:00:00.000Z',
+    })).toMatchObject({ matched: true, reason: 'matched' });
   });
 
   it('maps cache policy to an explicit cache header', () => {
@@ -910,6 +973,22 @@ describe('experience manifest lifecycle persistence', () => {
     expect(result.kill_switch_active).toBe(true);
     expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes('kill_switch_active'))).toBe(true);
     expect(client.query.mock.calls.some(([sql, values]: [string, unknown[]]) => sql.includes('experience_manifest_audit') && values.includes('kill_switched'))).toBe(true);
+    expect(client.query).toHaveBeenLastCalledWith('COMMIT');
+  });
+
+  it('retires a published manifest without mutating its immutable payload', async () => {
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [row('published')] })
+      .mockResolvedValueOnce({ rows: [{ ...row('superseded') }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await retireExperienceManifest(manifestId, actorId, 'Campaign ended', 'corr-retire');
+
+    expect(result.state).toBe('superseded');
+    expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes("SET state = 'superseded'"))).toBe(true);
+    expect(client.query.mock.calls.some(([sql, values]: [string, unknown[]]) => sql.includes('experience_manifest_audit') && values.includes('superseded'))).toBe(true);
     expect(client.query).toHaveBeenLastCalledWith('COMMIT');
   });
 

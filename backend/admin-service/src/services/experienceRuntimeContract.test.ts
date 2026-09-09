@@ -38,6 +38,7 @@ const candidate = (overrides: Partial<ExperienceManifestCandidate> = {}): Experi
   schedule_timezone: 'Asia/Jakarta',
   rollout_stage: 'public',
   canary_cohort: null,
+  rollout_percentage: 100,
   ttl_seconds: 300,
   cache_policy: 'private',
   targeting: {
