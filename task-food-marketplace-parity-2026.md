@@ -2093,13 +2093,13 @@ A task is complete only when applicable boxes below are true:
 - `android-app-customer/app/src/main/java/com/tembus/customer/domain/config/StartupCampaignPolicy.kt`
 
 **Checklist**
-- [ ] Native OS splash remains minimal/static/local for reliable startup.
-- [ ] Optional campaign intro can use remotely managed image/animation asset and localized copy from cached manifest.
-- [ ] Network fetch does not block first usable app screen; show campaign only when config+asset are already valid/cached or quickly available by policy.
-- [ ] Campaign supports start/end time, market, locale, cohort, min app version, frequency cap, max impressions and dismiss/skip policy.
-- [ ] Missing/expired/corrupt asset skips campaign and proceeds normally.
-- [ ] Campaign can be remotely killed instantly.
-- [ ] Next-campaign assets can be prefetched so a new promo can appear on subsequent launch without app update.
+- [x] Native OS splash remains minimal/static/local for reliable startup. Evidence: `docs/task-evidence/APP-2026-004.md`.
+- [x] Optional campaign intro can use remotely managed image/animation asset and localized copy from cached manifest. Evidence: `docs/task-evidence/APP-2026-004.md`.
+- [x] Network fetch does not block first usable app screen; show campaign only when config+asset are already valid/cached or quickly available by policy. Evidence: `docs/task-evidence/APP-2026-004.md`.
+- [x] Campaign supports start/end time, market, locale, cohort, min app version, frequency cap, max impressions and dismiss/skip policy. Evidence: `docs/task-evidence/APP-2026-004.md`.
+- [x] Missing/expired/corrupt asset skips campaign and proceeds normally. Evidence: `docs/task-evidence/APP-2026-004.md`.
+- [x] Campaign can be remotely killed instantly. Evidence: `docs/task-evidence/APP-2026-004.md`.
+- [x] Next-campaign assets can be prefetched so a new promo can appear on subsequent launch without app update. Evidence: `docs/task-evidence/APP-2026-004.md`.
 
 ---
 
