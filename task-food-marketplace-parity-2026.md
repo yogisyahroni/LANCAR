@@ -1961,11 +1961,11 @@ A task is complete only when applicable boxes below are true:
 **Checklist**
 - [ ] Market config/compliance/payment/maps/providers/tax/support/on-call/data residency complete.
 - [ ] Localized customer/courier/merchant flows pass E2E.
-  - [x] Currency/tax/refund/payout reconciliation passes. (Local PostgreSQL reconciliation evidence and current order/integration/admin verification passed 2026-09-09; live launch reconciliation remains a release gate.)
+- [x] Currency/tax/refund/payout reconciliation passes. (Local PostgreSQL reconciliation evidence and current order/integration/admin verification passed 2026-09-09; live launch reconciliation remains a release gate.)
 - [ ] Provider and payment sandbox/live credential cutover rehearsed.
 - [ ] Load/capacity and region-failover checks pass.
-  - [x] Kill switches and rollback tested before launch. (Pricing/payout kill-switch tests, deterministic recovery drill, and rollback-path verification passed 2026-09-09.)
-  - [x] Market can be disabled/degraded without shipping a new app binary. (Paused-market resolver test returns typed `MARKET_CONFIGURATION_UNAVAILABLE` without a client update 2026-09-09.)
+- [x] Kill switches and rollback tested before launch. (Pricing/payout kill-switch tests, deterministic recovery drill, and rollback-path verification passed 2026-09-09.)
+- [x] Market can be disabled/degraded without shipping a new app binary. (Paused-market resolver test returns typed `MARKET_CONFIGURATION_UNAVAILABLE` without a client update 2026-09-09.)
 
 ---
 
