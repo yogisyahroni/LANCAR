@@ -171,6 +171,30 @@ describe('experience manifest contract', () => {
     }
   });
 
+  it('accepts optional section enabled state while preserving the legacy default', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      sections: [
+        { ...validInput.sections[0], enabled: false },
+        { id: 'fallback', component: 'notice', properties: { title: 'Fallback' } },
+      ],
+    });
+
+    expect(parsed.sections[0].enabled).toBe(false);
+    expect(parseExperienceManifestInput(validInput).sections[0].enabled).toBeUndefined();
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ ...validInput.sections[0], enabled: 'false' }],
+    })).toThrow('enabled must be a boolean');
+  });
+
+  it('requires at least one enabled section for a safe fallback', () => {
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ ...validInput.sections[0], enabled: false }],
+    })).toThrow('At least one experience section must remain enabled');
+  });
+
   it('validates assets, allowlisted deep links, and rollout schedules', () => {
     expect(validateExperienceAsset({ asset_id: 'hero', uri: '/assets/hero.webp', kind: 'image', checksum })).toMatchObject({
       asset_id: 'hero',
@@ -229,6 +253,21 @@ describe('experience manifest contract', () => {
         properties: { campaign_id: 'campaign-1', title: 'Customer-only campaign' },
       }],
     })).toThrow('not allowed on courier_android');
+  });
+
+  it('rejects unknown components and duplicate section IDs', () => {
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ id: 'unsafe', component: 'custom_html', properties: {} }],
+    })).toThrow('not allowlisted');
+
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [
+        { id: 'hero', component: 'hero_banner', properties: { title: 'Primary' } },
+        { id: 'hero', component: 'notice', properties: { title: 'Conflicting' } },
+      ],
+    })).toThrow('is duplicated');
   });
 
   it('persists the asset delivery contract and rejects unsafe metadata', () => {

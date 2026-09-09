@@ -18,6 +18,7 @@ export type ExperienceTargeting = {
 export type ExperienceSection = {
   id: string
   component: string
+  enabled?: boolean
   properties: Record<string, unknown>
 }
 
@@ -137,6 +138,7 @@ export const emptyTargeting = (): ExperienceTargeting => ({
 export const defaultSection = (): ExperienceSection => ({
   id: `hero-${Date.now()}`,
   component: 'hero_banner',
+  enabled: true,
   properties: {
     title: 'Campaign title',
     body: 'Campaign message',
@@ -215,7 +217,7 @@ export const formFromManifest = (manifest: ExperienceManifest): ExperienceForm =
   ttl_seconds: manifest.ttl_seconds,
   cache_policy: manifest.cache_policy,
   targeting: manifest.targeting,
-  sections: manifest.sections,
+  sections: manifest.sections.map((section) => ({ ...section, enabled: section.enabled !== false })),
   asset_references: manifest.asset_references.map(normalizeAssetForForm),
 })
 

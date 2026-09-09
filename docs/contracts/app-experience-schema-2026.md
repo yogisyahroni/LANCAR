@@ -48,7 +48,10 @@ Each logical `manifest_id` has immutable revisions. A revision contains:
   `market_codes`, `city_codes`, `zone_codes`, `locales`,
   `service_usage_cohorts`, `user_status` (`new`/`existing`), `roles`,
   `cohorts`, `experiment_ref`, and `experiment_assignments`.
-- `sections` using only the precompiled component whitelist.
+- `sections` using only the precompiled component whitelist. Each section has a
+  deterministic array position and may carry an optional boolean `enabled`
+  flag; omitted `enabled` preserves the legacy enabled behavior, and every
+  accepted manifest must retain at least one enabled section.
 - `asset_references` with HTTPS or `/assets/` URIs and SHA-256 checksums. Remote
   assets use a CDN/object-storage URL only; bucket credentials are never sent to
   the app. Each new reference records `content_type`, optional pixel

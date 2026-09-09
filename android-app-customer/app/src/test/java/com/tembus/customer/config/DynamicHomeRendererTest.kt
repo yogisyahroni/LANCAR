@@ -55,6 +55,19 @@ class DynamicHomeRendererTest {
     }
 
     @Test
+    fun disabledSupportedSectionsAreOmittedWithoutChangingTheOrderedPayload() {
+        val sections = collectRenderableSections(
+            sections = listOf(
+                ExperienceSection(id = "disabled", component = "notice", enabled = false, properties = buildJsonObject { put("title", "Hidden") }),
+                ExperienceSection(id = "visible", component = "notice", properties = buildJsonObject { put("title", "Visible") }),
+            ),
+            onUnknownComponent = {},
+        )
+
+        assertEquals(listOf("visible"), sections.map { it.id })
+    }
+
+    @Test
     fun serviceCardsFollowRemoteOrderButRequireAuthoritativeEnabledService() {
         val properties = json.parseToJsonElement(
             """{"cards":[{"code":"food_delivery","subtitle":"Promo hari ini","badge":"Baru"},{"code":"disabled_service","subtitle":"Tidak boleh tampil"},{"code":"tembus_instant"}]}""",

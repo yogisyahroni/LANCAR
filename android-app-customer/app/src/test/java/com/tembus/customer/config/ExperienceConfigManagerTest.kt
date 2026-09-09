@@ -85,6 +85,16 @@ class ExperienceConfigManagerTest {
     }
 
     @Test
+    fun allDisabledSectionsAreRejectedInsteadOfReplacingTheKnownGoodLayout() {
+        assertNull(
+            ExperienceManifestValidator.sanitize(
+                manifest(sections = listOf(section().copy(enabled = false))),
+                scope,
+            ),
+        )
+    }
+
+    @Test
     fun marketLocaleSurfaceAndVersionScopeAreEnforced() {
         assertNull(ExperienceManifestValidator.sanitize(manifest(marketCode = "id-bdg"), scope))
         assertNull(ExperienceManifestValidator.sanitize(manifest(locale = "en-US"), scope))

@@ -558,6 +558,7 @@ export type ExperienceManifestInput = z.infer<typeof experienceManifestInputSche
 export type ExperienceSection = {
   id: string;
   component: ExperienceComponent;
+  enabled?: boolean;
   properties: JsonObject;
 };
 
@@ -683,6 +684,7 @@ const parseComponent = (value: unknown, index: number, surface: ExperienceSurfac
   const section = jsonObject(value, `sections[${index}]`);
   const id = typeof section.id === 'string' ? section.id.trim().toLowerCase() : '';
   const component = typeof section.component === 'string' ? section.component.trim().toLowerCase() : '';
+  const enabled = section.enabled;
   if (!IDENTIFIER.test(id)) {
     throw new ExperienceManifestError('INVALID_EXPERIENCE_SECTION', 400, `sections[${index}].id is invalid`);
   }
@@ -695,6 +697,9 @@ const parseComponent = (value: unknown, index: number, surface: ExperienceSurfac
       400,
       `sections[${index}].component '${component}' is not allowed on ${surface}`,
     );
+  }
+  if (enabled !== undefined && typeof enabled !== 'boolean') {
+    throw new ExperienceManifestError('INVALID_EXPERIENCE_SECTION', 400, `sections[${index}].enabled must be a boolean`);
   }
   const properties = jsonObject(section.properties, `sections[${index}].properties`);
   const parsed = componentSchemas[component as ExperienceComponent].safeParse(properties);
@@ -727,7 +732,12 @@ const parseComponent = (value: unknown, index: number, surface: ExperienceSurfac
       `sections[${index}].properties must contain only one CTA target`,
     );
   }
-  return { id, component: component as ExperienceComponent, properties: parsed.data as JsonObject };
+  return {
+    id,
+    component: component as ExperienceComponent,
+    ...(enabled === undefined ? {} : { enabled }),
+    properties: parsed.data as JsonObject,
+  };
 };
 
 const parseSections = (value: unknown, surface: ExperienceSurface): ExperienceSection[] => {
@@ -741,7 +751,7 @@ const parseSections = (value: unknown, surface: ExperienceSurface): ExperienceSe
     );
   }
   const seen = new Set<string>();
-  return value.map((item, index) => {
+  const sections = value.map((item, index) => {
     const section = parseComponent(item, index, surface);
     if (seen.has(section.id)) {
       throw new ExperienceManifestError('DUPLICATE_EXPERIENCE_SECTION', 400, `section id '${section.id}' is duplicated`);
@@ -749,6 +759,14 @@ const parseSections = (value: unknown, surface: ExperienceSurface): ExperienceSe
     seen.add(section.id);
     return section;
   });
+  if (!sections.some((section) => section.enabled !== false)) {
+    throw new ExperienceManifestError(
+      'NO_ENABLED_EXPERIENCE_SECTION',
+      400,
+      'At least one experience section must remain enabled',
+    );
+  }
+  return sections;
 };
 
 const parseTargeting = (value: unknown): z.infer<typeof targetingSchema> => {

@@ -47,6 +47,7 @@ data class ExperienceSection(
     @SerialName("id") val id: String = "",
     @SerialName("component") val component: String = "",
     @SerialName("properties") val properties: JsonObject = buildJsonObject {},
+    @SerialName("enabled") val enabled: Boolean = true,
 )
 
 @Serializable
@@ -175,6 +176,7 @@ object ExperienceManifestValidator {
         // A non-empty server manifest with no supported content is not safe to cache.
         // The caller keeps the previous known-good revision or packaged defaults.
         if (manifest.sections.isNotEmpty() && sections.isEmpty()) return null
+        if (manifest.sections.isNotEmpty() && sections.none { it.enabled }) return null
 
         return manifest.copy(
             marketCode = manifest.marketCode.trim().lowercase(Locale.ROOT),

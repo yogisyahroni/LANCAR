@@ -73,7 +73,8 @@ internal fun collectRenderableSections(
     sections: List<ExperienceSection>,
     onUnknownComponent: (String) -> Unit,
 ): List<ExperienceSection> = sections.mapNotNull { section ->
-    if (isDynamicComponentSupported(section.component)) section
+    if (!section.enabled) null
+    else if (isDynamicComponentSupported(section.component)) section
     else if (section.component in NON_HOME_COMPONENTS) null
     else {
         onUnknownComponent(section.component)
@@ -126,7 +127,7 @@ fun DynamicHomeRenderer(
     }
     LaunchedEffect(snapshot.manifest.manifestId, snapshot.manifest.revision) {
         snapshot.manifest.sections
-            .filter { it.component !in RENDERABLE_COMPONENTS && it.component !in NON_HOME_COMPONENTS }
+            .filter { it.enabled && it.component !in RENDERABLE_COMPONENTS && it.component !in NON_HOME_COMPONENTS }
             .forEach { section ->
                 reportRuntime(ExperienceBannerEventType.SECTION_RENDER_FAILURE, "section", "section-${section.component}", "unknown_component")
             }
