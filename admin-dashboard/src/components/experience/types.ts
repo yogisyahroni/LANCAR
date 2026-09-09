@@ -1,6 +1,6 @@
 export type ExperienceSurface = 'customer_android' | 'customer_web' | 'merchant_android' | 'courier_android'
 export type RolloutStage = 'canary' | 'public'
-export type ApprovalStatus = 'not_required' | 'pending' | 'approved' | 'rejected'
+export type ApprovalStatus = 'not_required' | 'draft' | 'pending' | 'approved' | 'rejected'
 
 export type ExperienceTargeting = {
   cohorts: string[]

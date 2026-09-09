@@ -898,7 +898,7 @@ describe('experience manifest contract', () => {
     const result = await previewExperienceManifestRevision(draft, {
       market_code: 'id-jk', locale: 'en-US', app_version: '1.0.0', schema_version: 1,
       device_preset: 'phone', theme_mode: 'dark', at: '2026-01-02T00:00:00.000Z',
-    }, { query: jest.fn() }, async () => null);
+    }, { query: jest.fn().mockResolvedValue({ rows: [] }) }, async () => null);
 
     expect(result).toMatchObject({
       impression_recorded: false,
@@ -908,6 +908,28 @@ describe('experience manifest contract', () => {
       fallback: null,
     });
     expect(result.diff).toEqual({ changed_fields: [], added_sections: [], removed_sections: [], changed_sections: [] });
+  });
+
+  it('returns an approver-facing audience, rollout and blast-radius summary without changing public output', async () => {
+    const draft = candidate({
+      rollout_stage: 'canary', canary_cohort: 'internal-test', rollout_percentage: 5,
+      targeting: { cohorts: ['internal-test'], market_codes: [], city_codes: [], zone_codes: [], locales: [], service_usage_cohorts: [], roles: [], experiment_assignments: [] },
+    }) as any;
+    draft.checksum = checksumForRow(draft);
+    const result = await previewExperienceManifestRevision(draft, {
+      market_code: 'id-jk', locale: 'en-US', app_version: '1.0.0', schema_version: 1,
+      device_preset: 'phone', theme_mode: 'dark', cohort: 'internal-test', at: '2026-01-02T00:00:00.000Z',
+    }, { query: jest.fn().mockResolvedValue({ rows: [] }) }, async () => null);
+
+    expect(result.release_summary).toMatchObject({
+      audience: { mode: 'targeted', market_code: 'id-jk', locale: 'id-ID' },
+      rollout: { stage: 'canary', canary_cohort: 'internal-test', percentage: 5 },
+      affected_surfaces: ['customer_android'],
+      blast_radius: { level: 'low' },
+    });
+    expect(result.release_summary.blast_radius.reasons).toEqual(expect.arrayContaining([
+      'customer-facing surface',
+    ]));
   });
 
   it('blocks a targeted candidate when no active untargeted fallback exists', async () => {
@@ -1027,6 +1049,26 @@ describe('experience manifest lifecycle persistence', () => {
       { requestId: 'req-version', actorRole: 'ops_admin' },
       { revision: 1, checksum: 'b'.repeat(64) },
     )).rejects.toMatchObject({ code: 'EXPERIENCE_VERSION_CONFLICT', status: 409 });
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+    expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes('UPDATE experience_manifest_revisions'))).toBe(false);
+  });
+
+  it('freezes a submitted approval candidate so a draft update cannot mutate it', async () => {
+    const pendingDraft = row('draft') as any;
+    pendingDraft.requires_approval = true;
+    pendingDraft.approval_status = 'pending';
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [pendingDraft] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(updateExperienceManifestDraft(
+      manifestId,
+      validInput,
+      actorId,
+      'corr-frozen',
+    )).rejects.toMatchObject({ code: 'EXPERIENCE_APPROVAL_REVISION_LOCKED', status: 409 });
     expect(client.query).toHaveBeenCalledWith('ROLLBACK');
     expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes('UPDATE experience_manifest_revisions'))).toBe(false);
   });

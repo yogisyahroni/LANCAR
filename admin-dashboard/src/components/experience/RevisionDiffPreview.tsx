@@ -21,6 +21,18 @@ export type PreviewResult = {
     removed_sections: string[]
     changed_sections: string[]
   }
+  release_summary?: {
+    audience: {
+      mode: 'broad' | 'targeted'
+      market_code: string
+      locale: string
+      dimensions: Record<string, unknown>
+    }
+    schedule: { starts_at: string; ends_at: string | null; timezone: string }
+    rollout: { stage: 'canary' | 'public'; canary_cohort: string | null; percentage: number }
+    affected_surfaces: string[]
+    blast_radius: { level: 'low' | 'medium' | 'high'; reasons: string[] }
+  }
 }
 
 type Props = { result?: PreviewResult }
@@ -44,6 +56,12 @@ export default function RevisionDiffPreview({ result }: Props) {
         <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3"><p className="text-[10px] font-black uppercase tracking-widest text-primary-light">Candidate</p><p className="mt-2 text-sm font-black text-zinc-200">{result.candidate ? `Revision ${result.candidate.manifest.revision}` : 'Not rendered for context'}</p><p className="mt-1 text-xs text-zinc-500">{result.candidate?.manifest.sections.length ?? 0} sections</p></div>
         <div className={`rounded-2xl border p-3 ${result.validation.valid ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-red-500/20 bg-red-500/5'}`}><p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Publish gate</p><p className={`mt-2 text-sm font-black ${result.validation.valid ? 'text-emerald-200' : 'text-red-200'}`}>{result.validation.valid ? 'Pass' : 'Blocked'}</p><p className="mt-1 text-xs text-zinc-500">{result.validation.issues.length} validation issue(s)</p></div>
       </div>
+      {result.release_summary ? <div className="grid gap-3 lg:grid-cols-4" aria-label="approval release summary">
+        <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Audience</p><p className="mt-2 text-sm font-black text-zinc-200">{result.release_summary.audience.mode}</p><p className="mt-1 text-xs text-zinc-500">{result.release_summary.audience.market_code} · {result.release_summary.audience.locale}</p><p className="mt-1 text-[11px] text-zinc-600">{Object.entries(result.release_summary.audience.dimensions).filter(([, value]) => Array.isArray(value) ? value.length > 0 : Boolean(value)).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : String(value)}`).join(' · ') || 'No additional constraints'}</p></div>
+        <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Schedule</p><p className="mt-2 text-sm font-black text-zinc-200">{new Date(result.release_summary.schedule.starts_at).toLocaleString()}</p><p className="mt-1 text-xs text-zinc-500">{result.release_summary.schedule.timezone}{result.release_summary.schedule.ends_at ? ` → ${new Date(result.release_summary.schedule.ends_at).toLocaleString()}` : ' · no end'}</p></div>
+        <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Rollout / surfaces</p><p className="mt-2 text-sm font-black text-zinc-200">{result.release_summary.rollout.stage} · {result.release_summary.rollout.percentage}%</p><p className="mt-1 text-xs text-zinc-500">{result.release_summary.rollout.canary_cohort || 'general audience'} · {result.release_summary.affected_surfaces.join(', ')}</p></div>
+        <div className={`rounded-2xl border p-3 ${result.release_summary.blast_radius.level === 'high' ? 'border-red-500/20 bg-red-500/5' : result.release_summary.blast_radius.level === 'medium' ? 'border-amber-500/20 bg-amber-500/5' : 'border-emerald-500/20 bg-emerald-500/5'}`}><p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Risk / blast radius</p><p className="mt-2 text-sm font-black uppercase text-zinc-200">{result.release_summary.blast_radius.level}</p><div className="mt-1 space-y-1">{result.release_summary.blast_radius.reasons.map((reason) => <p key={reason} className="text-xs text-zinc-500">{reason}</p>)}</div></div>
+      </div> : null}
       <div className="grid gap-3 md:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Current live sections</p><div className="mt-2 space-y-1">{result.current_live?.sections.map((section) => <p key={section.id} className="text-xs text-zinc-400">{section.id} · {section.component}</p>) ?? <p className="text-xs text-zinc-600">None</p>}</div></div>
         <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3"><p className="text-[10px] font-black uppercase tracking-widest text-primary-light">Candidate sections</p><div className="mt-2 space-y-1">{result.candidate?.manifest.sections.map((section) => <p key={section.id} className="text-xs text-zinc-300">{section.id} · {section.component}</p>) ?? <p className="text-xs text-zinc-600">Not rendered for this context</p>}</div></div>

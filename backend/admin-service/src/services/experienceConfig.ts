@@ -17,7 +17,7 @@ export const EXPERIENCE_SURFACES = [
 
 export type ExperienceSurface = (typeof EXPERIENCE_SURFACES)[number];
 export type ExperienceManifestState = 'draft' | 'published' | 'superseded' | 'rolled_back';
-export type ExperienceApprovalStatus = 'not_required' | 'pending' | 'approved' | 'rejected';
+export type ExperienceApprovalStatus = 'not_required' | 'draft' | 'pending' | 'approved' | 'rejected';
 export type ExperienceCachePolicy = 'no-store' | 'private' | 'public';
 export type ExperienceComponent =
   | 'hero_banner'
@@ -1263,7 +1263,9 @@ const rowToManifest = (row: Record<string, any>): ExperienceManifestRecord => ({
     ? 'approved'
     : row.approval_status === 'pending'
       ? 'pending'
-      : row.approval_status === 'rejected' ? 'rejected' : 'not_required',
+      : row.approval_status === 'rejected'
+        ? 'rejected'
+        : row.approval_status === 'draft' ? 'draft' : 'not_required',
   approval_requested_by: row.approval_requested_by ? String(row.approval_requested_by) : null,
   approval_requested_at: row.approval_requested_at ? new Date(row.approval_requested_at).toISOString() : null,
   approved_by: row.approved_by ? String(row.approved_by) : null,
@@ -1480,15 +1482,15 @@ export const createExperienceManifest = async (
          approved_by, approved_at
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
                  $14, $15::jsonb, $16::jsonb, $17, $18, $19, 'draft', $20, $20,
-                 $21, $22, $23, CASE WHEN $23 THEN 'pending' ELSE 'not_required' END,
-                 $24, CASE WHEN $23 THEN NOW() ELSE NULL END, NULL, NULL)
+                 $21, $22, $23, CASE WHEN $23 THEN 'draft' ELSE 'not_required' END,
+                 NULL, NULL, NULL, NULL)
        RETURNING *`,
       [
         manifestId, revision, input.schema_version, input.market_code, input.locale, input.surface,
         input.min_app_version, input.max_app_version ?? null, input.starts_at, input.ends_at ?? null,
         input.schedule_timezone, input.rollout_percentage, input.ttl_seconds, input.cache_policy, serialize(input.targeting),
         serialize(input.sections), serialize(input.asset_references), content.checksum, content.signature, actorId,
-        input.rollout_stage, input.canary_cohort ?? null, requiresApproval, requiresApproval ? actorId : null,
+        input.rollout_stage, input.canary_cohort ?? null, requiresApproval,
       ],
     );
     const manifest = rowToManifest(result.rows[0]);
@@ -1527,6 +1529,14 @@ export const updateExperienceManifestDraft = async (
         ['experience_draft_version_changed'],
       );
     }
+    if (current.requires_approval && ['pending', 'approved'].includes(current.approval_status)) {
+      throw new ExperienceManifestError(
+        'EXPERIENCE_APPROVAL_REVISION_LOCKED',
+        409,
+        'This approval candidate is immutable after submission; reject it or create a new campaign revision before editing',
+        ['experience_approval_candidate_frozen'],
+      );
+    }
     if (current.market_code !== input.market_code || current.surface !== input.surface || current.locale !== input.locale) {
       // Scope changes are allowed only while a revision is still a draft, but
       // the explicit branch keeps the decision visible for audit/review.
@@ -1542,9 +1552,9 @@ export const updateExperienceManifestDraft = async (
               sections = $16::jsonb, asset_references = $17::jsonb,
               content_checksum = $18, signature = $19,
               requires_approval = $20,
-              approval_status = CASE WHEN $20 THEN 'pending' ELSE 'not_required' END,
-              approval_requested_by = CASE WHEN $20 THEN $21 ELSE NULL END,
-              approval_requested_at = CASE WHEN $20 THEN NOW() ELSE NULL END,
+              approval_status = CASE WHEN $20 THEN 'draft' ELSE 'not_required' END,
+              approval_requested_by = NULL,
+              approval_requested_at = NULL,
               approved_by = NULL, approved_at = NULL,
               updated_by = $22, updated_at = NOW()
         WHERE id = $23 AND state = 'draft'
@@ -1702,10 +1712,9 @@ export const approveExperienceManifest = async (
     if (draft.created_by && draft.created_by === actorId) {
       throw new ExperienceManifestError('EXPERIENCE_APPROVAL_MAKER_CHECKER_REQUIRED', 403, 'The manifest creator cannot approve the same high-impact campaign');
     }
-    if (draft.approval_status === 'rejected') {
-      throw new ExperienceManifestError('EXPERIENCE_APPROVAL_NOT_PENDING', 409, 'The manifest must be submitted again after rejection before it can be approved');
+    if (draft.approval_status !== 'pending') {
+      throw new ExperienceManifestError('EXPERIENCE_APPROVAL_NOT_PENDING', 409, 'The manifest must be explicitly submitted for approval before it can be approved');
     }
-    if (draft.approval_status === 'approved') return draft;
     const approvedResult = await client.query(
       `UPDATE experience_manifest_revisions
           SET approval_status = 'approved', approved_by = $1, approved_at = NOW(),
@@ -2595,6 +2604,73 @@ export type ExperienceManifestPreviewResult = {
     removed_sections: string[];
     changed_sections: string[];
   };
+  release_summary: {
+    audience: {
+      mode: 'broad' | 'targeted';
+      market_code: string;
+      locale: string;
+      dimensions: JsonObject;
+    };
+    schedule: {
+      starts_at: string;
+      ends_at: string | null;
+      timezone: string;
+    };
+    rollout: {
+      stage: 'canary' | 'public';
+      canary_cohort: string | null;
+      percentage: number;
+    };
+    affected_surfaces: ExperienceSurface[];
+    blast_radius: {
+      level: 'low' | 'medium' | 'high';
+      reasons: string[];
+    };
+  };
+};
+
+const releaseSummaryFor = (manifest: ExperienceManifestRecord): ExperienceManifestPreviewResult['release_summary'] => {
+  const targeted = hasTargetingConstraints(manifest.targeting);
+  const percentage = manifest.rollout_percentage ?? 100;
+  const reasons: string[] = [];
+  if (!targeted) reasons.push('untargeted audience can reach every eligible user in the market');
+  if (manifest.rollout_stage === 'public') reasons.push('public rollout stage');
+  if (percentage >= 50) reasons.push(`${percentage}% rollout exposure`);
+  if (manifest.surface === 'customer_android' || manifest.surface === 'customer_web') reasons.push('customer-facing surface');
+  const level: 'low' | 'medium' | 'high' = !targeted || (manifest.rollout_stage === 'public' && percentage >= 50)
+    ? 'high'
+    : manifest.rollout_stage === 'canary' && percentage <= 10 ? 'low' : 'medium';
+  return {
+    audience: {
+      mode: targeted ? 'targeted' : 'broad',
+      market_code: manifest.market_code,
+      locale: manifest.locale,
+      dimensions: {
+        cohorts: manifest.targeting.cohorts,
+        market_codes: manifest.targeting.market_codes,
+        city_codes: manifest.targeting.city_codes,
+        zone_codes: manifest.targeting.zone_codes,
+        locales: manifest.targeting.locales,
+        service_usage_cohorts: manifest.targeting.service_usage_cohorts,
+        user_status: manifest.targeting.user_status ?? null,
+        roles: manifest.targeting.roles,
+        experiment_ref: manifest.targeting.experiment_ref ?? null,
+        experiment_assignments: manifest.targeting.experiment_assignments,
+      },
+    },
+    schedule: {
+      starts_at: manifest.starts_at,
+      ends_at: manifest.ends_at,
+      timezone: manifest.schedule_timezone,
+    },
+    rollout: {
+      stage: manifest.rollout_stage,
+      canary_cohort: manifest.canary_cohort,
+      percentage,
+    },
+    affected_surfaces: [manifest.surface],
+    blast_radius: { level, reasons },
+  };
 };
 
 const publicManifestFromRecord = (manifest: ExperienceManifestRecord): PublicExperienceManifest => ({
@@ -2756,6 +2832,7 @@ export const previewExperienceManifestRevision = async (
     fallback,
     current_live: currentLive,
     diff: previewDiff(currentLive, candidateManifest),
+    release_summary: releaseSummaryFor(manifest),
   };
 };
 
