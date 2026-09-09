@@ -2492,6 +2492,9 @@ const previewAudienceSchema = z.object({
   locale,
   default_locale: locale.optional(),
   app_version: semver,
+  schema_version: z.coerce.number().int().min(1).max(10).default(1),
+  device_preset: z.enum(['phone', 'tablet', 'desktop']).default('phone'),
+  theme_mode: z.enum(['light', 'dark', 'system']).default('system'),
   user_id: identifier.nullable().optional(),
   cohort: identifier.nullable().optional(),
   experiment_ref: identifier.nullable().optional(),
@@ -2521,7 +2524,8 @@ export const previewExperienceManifestAudience = (
   const startsAt = new Date(manifest.starts_at).getTime();
   const endsAt = manifest.ends_at ? new Date(manifest.ends_at).getTime() : null;
   const withinSchedule = startsAt <= at.getTime() && (endsAt === null || at.getTime() < endsAt);
-  const selected = withinSchedule ? pickExperienceManifest([manifest], {
+  const schemaSupported = context.schema_version >= manifest.schema_version;
+  const selected = withinSchedule && schemaSupported ? pickExperienceManifest([manifest], {
     market_code: context.market_code,
     locale: context.locale,
     default_locale: context.default_locale || manifest.locale,
@@ -2539,11 +2543,20 @@ export const previewExperienceManifestAudience = (
 
   return {
     matched: Boolean(selected),
-    reason: !withinSchedule ? 'outside_schedule' : selected ? 'matched' : 'audience_or_version_mismatch',
+    reason: !withinSchedule
+      ? 'outside_schedule'
+      : !schemaSupported
+        ? 'unsupported_schema_version'
+        : !isWithinAppRange(manifest, context.app_version)
+          ? 'unsupported_app_version'
+          : selected ? 'matched' : 'audience_or_version_mismatch',
     simulated_context: {
       market_code: context.market_code,
       locale: normalizeLocale(context.locale),
       app_version: context.app_version,
+      schema_version: context.schema_version,
+      device_preset: context.device_preset,
+      theme_mode: context.theme_mode,
       cohort: context.cohort ?? null,
       experiment_ref: context.experiment_ref ?? null,
       experiment_assignment: context.experiment_assignment ?? null,
@@ -2555,6 +2568,194 @@ export const previewExperienceManifestAudience = (
       at: at.toISOString(),
     },
     selected_manifest: selected ? { manifest_id: selected.manifest_id, revision: selected.revision, resolved_locale: selected.resolved_locale } : null,
+  };
+};
+
+export type ExperiencePreviewValidationIssue = ExperienceValidationIssue & {
+  blocking: boolean;
+};
+
+export type ExperienceManifestPreviewResult = {
+  impression_recorded: false;
+  simulation: JsonObject;
+  context: JsonObject;
+  validation: {
+    valid: boolean;
+    issues: ExperiencePreviewValidationIssue[];
+  };
+  candidate: {
+    manifest: PublicExperienceManifest;
+    section_outcomes: Array<{ section_id: string; component: string; status: 'rendered' | 'skipped' | 'fallback'; reason?: string }>;
+  } | null;
+  fallback: PublicExperienceManifest | null;
+  current_live: PublicExperienceManifest | null;
+  diff: {
+    changed_fields: string[];
+    added_sections: string[];
+    removed_sections: string[];
+    changed_sections: string[];
+  };
+};
+
+const publicManifestFromRecord = (manifest: ExperienceManifestRecord): PublicExperienceManifest => ({
+  manifest_id: manifest.manifest_id,
+  schema_version: manifest.schema_version,
+  revision: manifest.revision,
+  market_code: manifest.market_code,
+  locale: manifest.locale,
+  resolved_locale: normalizeLocale(manifest.locale),
+  surface: manifest.surface,
+  min_app_version: manifest.min_app_version,
+  max_app_version: manifest.max_app_version,
+  starts_at: manifest.starts_at,
+  ends_at: manifest.ends_at,
+  schedule_timezone: manifest.schedule_timezone || 'UTC',
+  ttl_seconds: manifest.ttl_seconds,
+  cache_policy: manifest.cache_policy,
+  sections: manifest.sections,
+  asset_references: manifest.asset_references,
+  checksum: manifest.checksum,
+  signature: manifest.signature,
+});
+
+const previewDiff = (current: PublicExperienceManifest | null, candidate: PublicExperienceManifest | null): ExperienceManifestPreviewResult['diff'] => {
+  if (!candidate) return { changed_fields: [], added_sections: [], removed_sections: [], changed_sections: [] };
+  if (!current) return {
+    changed_fields: ['manifest_id', 'revision', 'schema_version', 'market_code', 'locale', 'surface', 'version_range', 'schedule', 'presentation'],
+    added_sections: candidate.sections.map((section) => section.id),
+    removed_sections: [],
+    changed_sections: [],
+  };
+  const changedFields = [
+    ['schema_version', current.schema_version, candidate.schema_version],
+    ['market_code', current.market_code, candidate.market_code],
+    ['locale', current.locale, candidate.locale],
+    ['surface', current.surface, candidate.surface],
+    ['version_range', [current.min_app_version, current.max_app_version], [candidate.min_app_version, candidate.max_app_version]],
+    ['schedule', [current.starts_at, current.ends_at, current.schedule_timezone], [candidate.starts_at, candidate.ends_at, candidate.schedule_timezone]],
+    ['presentation', [current.ttl_seconds, current.cache_policy], [candidate.ttl_seconds, candidate.cache_policy]],
+  ].filter(([, left, right]) => JSON.stringify(left) !== JSON.stringify(right)).map(([name]) => String(name));
+  const currentSections = new Map(current.sections.map((section) => [section.id, section]));
+  const candidateSections = new Map(candidate.sections.map((section) => [section.id, section]));
+  return {
+    changed_fields: changedFields,
+    added_sections: candidate.sections.filter((section) => !currentSections.has(section.id)).map((section) => section.id),
+    removed_sections: current.sections.filter((section) => !candidateSections.has(section.id)).map((section) => section.id),
+    changed_sections: candidate.sections.filter((section) => {
+      const previous = currentSections.get(section.id);
+      return Boolean(previous && JSON.stringify(previous) !== JSON.stringify(section));
+    }).map((section) => section.id),
+  };
+};
+
+const previewValidationIssue = (error: unknown): ExperiencePreviewValidationIssue => {
+  const manifestError = error instanceof ExperienceManifestError ? error : null;
+  return {
+    path: manifestError?.issues[0]?.path || 'manifest',
+    code: manifestError?.issues[0]?.code || manifestError?.code || 'EXPERIENCE_PREVIEW_VALIDATION_FAILED',
+    message: manifestError?.issues[0]?.message || (error instanceof Error ? error.message : 'Manifest validation failed'),
+    blocking: true,
+  };
+};
+
+export const previewExperienceManifestRevision = async (
+  manifest: ExperienceManifestRecord,
+  audienceValue: unknown,
+  queryable: Queryable = readDb,
+  liveResolver?: (request: Parameters<typeof resolvePublicExperienceManifest>[0]) => Promise<PublicExperienceManifest | null>,
+): Promise<ExperienceManifestPreviewResult> => {
+  const parsed = previewAudienceSchema.safeParse(audienceValue);
+  if (!parsed.success) {
+    throw new ExperienceManifestError(
+      'INVALID_EXPERIENCE_PREVIEW_CONTEXT',
+      400,
+      parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '),
+    );
+  }
+  const context = parsed.data;
+  const simulation = previewExperienceManifestAudience(manifest, context);
+  const issues: ExperiencePreviewValidationIssue[] = [];
+  try {
+    assertPersistedManifestIntegrity(manifest);
+  } catch (error) {
+    issues.push(previewValidationIssue(error));
+  }
+  if (hasTargetingConstraints(manifest.targeting)) {
+    const fallbackResult = await queryable.query(
+      `${manifestSelect}
+         WHERE market_code = $1
+           AND surface = $2
+           AND state = 'published'
+           AND kill_switch_active = FALSE
+           AND id <> $3
+           AND starts_at <= NOW()
+           AND (ends_at IS NULL OR ends_at > NOW())
+       LIMIT 500`,
+      [manifest.market_code, manifest.surface, manifest.id],
+    );
+    const hasFallback = fallbackResult.rows.some((row) => !hasTargetingConstraints(rowToManifest(row).targeting));
+    if (!hasFallback) {
+      issues.push({
+        path: 'targeting',
+        code: 'EXPERIENCE_FALLBACK_REQUIRED',
+        message: 'At least one active untargeted fallback audience is required before publishing a targeted manifest',
+        blocking: true,
+      });
+    }
+  }
+
+  const liveRequest: Parameters<typeof resolvePublicExperienceManifest>[0] = {
+      market_code: context.market_code,
+      locale: context.locale,
+      surface: manifest.surface,
+      app_version: context.app_version,
+      cohort: context.cohort ?? null,
+      experiment_ref: context.experiment_ref ?? null,
+      experiment_assignment: context.experiment_assignment ?? null,
+      city_code: context.city_code ?? null,
+      zone_code: context.zone_code ?? null,
+      service_usage_cohort: context.service_usage_cohort ?? null,
+      user_status: context.user_status ?? null,
+      role: context.role ?? null,
+    };
+  let currentLive: PublicExperienceManifest | null = null;
+  if (liveResolver) {
+    currentLive = await liveResolver(liveRequest);
+  } else {
+    try {
+      currentLive = await resolvePublicExperienceManifest(liveRequest);
+    } catch (error) {
+      if (!(error instanceof ExperienceManifestError) || ![404, 503].includes(error.status)) throw error;
+    }
+  }
+
+  let candidateManifest = simulation.matched ? publicManifestFromRecord(manifest) : null;
+  if (candidateManifest) {
+    const localized = await resolveLocalizedContentReferences({
+      market_code: context.market_code,
+      surface: manifest.surface,
+      requested_locale: context.locale,
+      market_default_locale: context.default_locale || manifest.locale,
+      sections: candidateManifest.sections,
+    });
+    candidateManifest = { ...candidateManifest, sections: localized.sections as ExperienceSection[] };
+  }
+  const fallback = simulation.matched ? null : currentLive;
+  const sectionOutcomes = manifest.sections.map((section) => ({
+    section_id: section.id,
+    component: section.component,
+    status: simulation.matched ? 'rendered' as const : fallback ? 'fallback' as const : 'skipped' as const,
+    ...(simulation.matched ? {} : { reason: typeof simulation.reason === 'string' ? simulation.reason : undefined }),
+  }));
+  return {
+    impression_recorded: false,
+    simulation,
+    context: simulation.simulated_context as JsonObject,
+    validation: { valid: issues.every((issue) => !issue.blocking), issues },
+    candidate: candidateManifest ? { manifest: candidateManifest, section_outcomes: sectionOutcomes } : null,
+    fallback,
+    current_live: currentLive,
+    diff: previewDiff(currentLive, candidateManifest),
   };
 };
 

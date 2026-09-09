@@ -19,6 +19,7 @@ import {
   parseExperienceManifestInput,
   pickExperienceManifest,
   previewExperienceManifestAudience,
+  previewExperienceManifestRevision,
   publishExperienceManifest,
   retireExperienceManifest,
   rollbackExperienceManifest,
@@ -889,6 +890,42 @@ describe('experience manifest contract', () => {
     expect(previewExperienceManifestAudience(row('draft') as any, {
       market_code: 'id-jk', locale: 'en-US', app_version: '1.5.0', at: '2025-12-31T00:00:00.000Z',
     })).toMatchObject({ matched: false, reason: 'outside_schedule' });
+  });
+
+  it('marks an old app/schema capability as skipped without recording an impression', async () => {
+    const draft = candidate({ min_app_version: '1.2.0', schema_version: 2 }) as any;
+    draft.checksum = checksumForRow(draft);
+    const result = await previewExperienceManifestRevision(draft, {
+      market_code: 'id-jk', locale: 'en-US', app_version: '1.0.0', schema_version: 1,
+      device_preset: 'phone', theme_mode: 'dark', at: '2026-01-02T00:00:00.000Z',
+    }, { query: jest.fn() }, async () => null);
+
+    expect(result).toMatchObject({
+      impression_recorded: false,
+      simulation: { matched: false, reason: 'unsupported_schema_version' },
+      validation: { valid: true },
+      candidate: null,
+      fallback: null,
+    });
+    expect(result.diff).toEqual({ changed_fields: [], added_sections: [], removed_sections: [], changed_sections: [] });
+  });
+
+  it('blocks a targeted candidate when no active untargeted fallback exists', async () => {
+    const draft = candidate({
+      targeting: { cohorts: ['beta'], market_codes: [], city_codes: [], zone_codes: [], locales: [], service_usage_cohorts: [], roles: [], experiment_assignments: [] },
+    }) as any;
+    draft.checksum = checksumForRow(draft);
+    const queryable = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const result = await previewExperienceManifestRevision(draft, {
+      market_code: 'id-jk', locale: 'en-US', app_version: '1.5.0', schema_version: 1,
+      device_preset: 'desktop', theme_mode: 'light', cohort: 'beta', at: '2026-01-02T00:00:00.000Z',
+    }, queryable, async () => null);
+
+    expect(result.validation).toMatchObject({ valid: false });
+    expect(result.validation.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'EXPERIENCE_FALLBACK_REQUIRED', blocking: true }),
+    ]));
+    expect(result.impression_recorded).toBe(false);
   });
 
   it('previews a partial rollout using the same stable user identity as runtime selection', () => {

@@ -175,10 +175,13 @@ allow arbitrary HTML, CSS, JavaScript, or remote executable content:
 - `PATCH /admin/experience/manifests/:manifestId/draft` — update only a draft.
 - `POST /admin/experience/manifests/:manifestId/preview` — validate and audit a
   preview without changing the revision state. An optional `audience` object
-  (`market_code`, `locale`, `app_version`, city/zone, cohort, role, user
-  status, service-usage cohort and experiment assignment) simulates the
-  server resolver and returns only `matched`, a reason, a sanitized context
-  and the selected revision; targeting rules are not returned.
+  (`market_code`, `locale`, `app_version`, schema capability, device-size,
+  theme, city/zone, cohort, role, user status, service-usage cohort and
+  experiment assignment) simulates the same server resolver used by public
+  resolution. The response compares current live and candidate revisions,
+  reports rendered/skipped/fallback section outcomes, blocking schema/asset/
+  deep-link/schedule/targeting validation issues, and explicitly sets
+  `impression_recorded: false`; targeting rules are not returned.
 - `POST /admin/experience/manifests/:manifestId/retire` — remove the published
   revision from public resolution while retaining its immutable history.
 - `POST /admin/experience/manifests/:manifestId/approve` — checker-only

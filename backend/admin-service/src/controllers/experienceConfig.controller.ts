@@ -16,7 +16,7 @@ import {
   getExperienceManifestHistory,
   listExperienceManifestRevisions,
   previewExperienceManifest,
-  previewExperienceManifestAudience,
+  previewExperienceManifestRevision,
   publishExperienceManifest,
   rejectExperienceManifest,
   resolvePublicExperienceManifest,
@@ -163,6 +163,9 @@ const previewAudienceInput = (req: Request, manifest: { market_code: string; loc
     locale: queryString(raw.locale) || manifest.locale,
     default_locale: queryString(raw.default_locale) || manifest.locale,
     app_version: queryString(raw.app_version) || manifest.min_app_version,
+    schema_version: raw.schema_version ?? 1,
+    device_preset: raw.device_preset ?? 'phone',
+    theme_mode: raw.theme_mode ?? 'system',
     cohort: safeAudienceIdentifier(raw.cohort),
     experiment_ref: safeAudienceIdentifier(raw.experiment_ref),
     experiment_assignment: safeAudienceIdentifier(raw.experiment_assignment),
@@ -225,8 +228,12 @@ export const updateAdminExperienceManifestDraft = async (req: Request, res: Resp
 export const previewAdminExperienceManifest = async (req: Request, res: Response): Promise<void> => {
   try {
     const data = await previewExperienceManifest(manifestId(req), getActorId(req), correlationId(req, res), auditContext(req, res));
-    const simulation = previewExperienceManifestAudience(data, previewAudienceInput(req, data));
-    respondSuccess(req, res, data, 200, { simulation, preview: true });
+    const previewResult = await previewExperienceManifestRevision(data, previewAudienceInput(req, data));
+    respondSuccess(req, res, data, 200, {
+      simulation: previewResult.simulation,
+      preview_result: previewResult,
+      preview: true,
+    });
   } catch (error) {
     respondWithError(res, error, 'preview');
   }

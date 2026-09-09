@@ -4,6 +4,7 @@ import type { ExperienceSection, ExperienceSurface } from './types'
 type Props = {
   surface: ExperienceSurface
   sections: ExperienceSection[]
+  resolvedSections?: ExperienceSection[]
   simulation?: { matched?: boolean; reason?: string; selected_manifest?: { revision?: number } | null }
 }
 
@@ -23,9 +24,9 @@ const surfaceIcon: Record<ExperienceSurface, LucideIcon> = {
 
 const text = (properties: Record<string, unknown>, key: string) => typeof properties[key] === 'string' ? properties[key] as string : ''
 
-export default function ExperiencePreview({ surface, sections, simulation }: Props) {
+export default function ExperiencePreview({ surface, sections, resolvedSections, simulation }: Props) {
   const SurfaceIcon = surfaceIcon[surface]
-  const visibleSections = sections.filter((section) => section.enabled !== false)
+  const visibleSections = (resolvedSections ?? sections).filter((section) => section.enabled !== false)
   return (
     <section className="rounded-3xl border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/20" aria-labelledby="experience-preview-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -46,7 +47,7 @@ export default function ExperiencePreview({ surface, sections, simulation }: Pro
           </article>
         })}
       </div>
-      <p className="mt-4 text-[11px] leading-relaxed text-zinc-600">Preview uses the same allowlisted component schema as the apps. It never executes remote code, and transaction screens remain native-owned.</p>
+      <p className="mt-4 text-[11px] leading-relaxed text-zinc-600">Preview uses the server-resolved allowlisted component schema. It never executes remote code or records campaign exposure, and transaction screens remain native-owned.</p>
     </section>
   )
 }
