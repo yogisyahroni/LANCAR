@@ -57,6 +57,7 @@ import CourierRetention from './pages/CourierRetention'
 import RiskReview from './pages/RiskReview'
 import Experiments from './pages/Experiments'
 import AppExperience from './pages/AppExperience'
+import LocalizedContentPacks from './pages/LocalizedContentPacks'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -422,6 +423,7 @@ function App() {
           />
           <Route path="/experiments" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><Experiments /></ProtectedRoute>} />
           <Route path="/app-experience" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><AppExperience /></ProtectedRoute>} />
+          <Route path="/localized-content" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><LocalizedContentPacks /></ProtectedRoute>} />
 
           <Route 
             path="/audit-logs" 

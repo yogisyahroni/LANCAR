@@ -274,6 +274,32 @@ describe('experience manifest contract', () => {
     });
   });
 
+  it('accepts bounded localized copy references while keeping protected documents outside the marketing CMS', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'localized-hero',
+        component: 'hero_banner',
+        properties: {
+          localized_copy: { title: 'home.hero.title', body: 'home.hero.body' },
+          deep_link: '/food',
+        },
+      }],
+    });
+    expect(parsed.sections[0].properties).toMatchObject({
+      localized_copy: { title: 'home.hero.title', body: 'home.hero.body' },
+    });
+
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'protected-copy',
+        component: 'notice',
+        properties: { localized_copy: { title: 'legal.terms.title' } },
+      }],
+    })).toThrow(/legal, financial, consent or transaction content/);
+  });
+
   it('accepts first-party banner media, badge, campaign identity and external CTA targets', () => {
     const parsed = parseExperienceManifestInput({
       ...validInput,
@@ -785,5 +811,51 @@ describe('experience manifest lifecycle persistence', () => {
     expect(result.revision).toBe(1);
     expect(result).not.toHaveProperty('targeting');
     expect(readDb.query).toHaveBeenNthCalledWith(3, expect.stringContaining('SELECT created_at FROM users'), [actorId]);
+  });
+
+  it('resolves localized copy references before returning the public manifest and changes its response checksum', async () => {
+    const localizedManifest = row('published') as any;
+    localizedManifest.locale = 'id-ID';
+    localizedManifest.sections = [{
+      id: 'hero',
+      component: 'hero_banner',
+      properties: { localized_copy: { title: 'home.hero.title' } },
+    }];
+    (readDb.query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ default_locale: 'id-ID', launch_state: 'active' }] })
+      .mockResolvedValueOnce({ rows: [localizedManifest] })
+      .mockResolvedValueOnce({ rows: [{
+        id: revisionId,
+        market_code: 'id-jk',
+        surface: 'customer_android',
+        pack_key: 'home.hero.title',
+        content_kind: 'banner',
+        locale: 'id',
+        value: 'Pesan sekarang',
+        revision: 2,
+        content_checksum: 'b'.repeat(64),
+        effective_from: '2026-01-01T00:00:00.000Z',
+        effective_to: null,
+        state: 'published',
+        created_by: null,
+        updated_by: null,
+        published_by: actorId,
+        published_at: '2026-01-01T00:00:00.000Z',
+        rolled_back_by: null,
+        rolled_back_at: null,
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      }] });
+
+    const result = await resolvePublicExperienceManifest({
+      market_code: 'id-jk',
+      locale: 'id-ID',
+      surface: 'customer_android',
+      app_version: '1.5.0',
+    });
+    expect(result.sections[0].properties).toEqual({ title: 'Pesan sekarang' });
+    expect(result.checksum).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.checksum).not.toBe(localizedManifest.content_checksum);
+    expect(JSON.stringify(result)).not.toContain('home.hero.title');
   });
 });

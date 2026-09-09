@@ -2,6 +2,11 @@ import { createHash, createHmac, randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
 import { z } from 'zod';
 import { db, readDb } from '../db';
+import {
+  localizedCopyReferenceSchema,
+  localeFallbackChain,
+  resolveLocalizedContentReferences,
+} from './localizedContent';
 
 export const EXPERIENCE_SURFACES = [
   'customer_android',
@@ -323,22 +328,30 @@ const ctaFields = {
 const promoItemSchema = z.object({
   id: identifier,
   campaign_id: identifier.optional(),
-  title: text(120),
+  title: text(120).optional(),
   body: text(500).optional(),
   badge: text(40).optional(),
   image_asset_id: identifier.optional(),
+  localized_copy: localizedCopyReferenceSchema,
   ...ctaFields,
 }).strict().refine(
+  (value) => Boolean(value.title || value.localized_copy?.title),
+  'Promo item requires title or localized_copy.title',
+).refine(
   (value) => !(value.deep_link && value.external_url),
   'Promo item must contain only one CTA target',
 );
 
 const quickActionSchema = z.object({
   id: identifier,
-  label: text(80),
+  label: text(80).optional(),
   icon_asset_id: identifier.optional(),
   deep_link: safeDeepLink,
-}).strict();
+  localized_copy: localizedCopyReferenceSchema,
+}).strict().refine(
+  (value) => Boolean(value.label || value.localized_copy?.label),
+  'Quick action requires label or localized_copy.label',
+);
 
 const serviceGridCardSchema = z.object({
   code: identifier,
@@ -399,25 +412,34 @@ const designTokensSchema = z.object({
 const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   hero_banner: z.object({
     campaign_id: identifier.optional(),
-    title: text(120),
+    title: text(120).optional(),
     body: text(500).optional(),
     badge: text(40).optional(),
     image_asset_id: identifier.optional(),
+    localized_copy: localizedCopyReferenceSchema,
     ...ctaFields,
-  }).strict(),
+  }).strict().refine(
+    (value) => Boolean(value.title || value.localized_copy?.title),
+    'Hero banner requires title or localized_copy.title',
+  ),
   campaign_strip: z.object({
     campaign_id: identifier.optional(),
-    title: text(120),
+    title: text(120).optional(),
     body: text(320).optional(),
     badge: text(40).optional(),
     image_asset_id: identifier.optional(),
+    localized_copy: localizedCopyReferenceSchema,
     ...ctaFields,
-  }).strict(),
+  }).strict().refine(
+    (value) => Boolean(value.title || value.localized_copy?.title),
+    'Campaign strip requires title or localized_copy.title',
+  ),
   promo_carousel: z.object({
     items: z.array(promoItemSchema).min(1).max(10),
   }).strict(),
   service_grid: z.object({
     title: text(120).optional(),
+    localized_copy: localizedCopyReferenceSchema,
     service_codes: z.array(identifier).min(1).max(20).optional(),
     cards: z.array(serviceGridCardSchema).min(1).max(20).optional(),
     display_mode: z.enum(['compact', 'cards']).default('cards'),
@@ -426,33 +448,48 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
     'service_grid requires service_codes or cards',
   ),
   info_card: z.object({
-    title: text(120),
-    body: text(700),
+    title: text(120).optional(),
+    body: text(700).optional(),
     icon_asset_id: identifier.optional(),
     deep_link: safeDeepLink.optional(),
-  }).strict(),
+    localized_copy: localizedCopyReferenceSchema,
+  }).strict().refine(
+    (value) => Boolean(value.title || value.localized_copy?.title),
+    'Info card requires title or localized_copy.title',
+  ).refine(
+    (value) => Boolean(value.body || value.localized_copy?.body),
+    'Info card requires body or localized_copy.body',
+  ),
   quick_actions: z.object({
     actions: z.array(quickActionSchema).min(1).max(8),
   }).strict(),
   notice: z.object({
-    title: text(120),
+    title: text(120).optional(),
     body: text(500).optional(),
+    localized_copy: localizedCopyReferenceSchema,
     ...ctaFields,
-  }).strict(),
+  }).strict().refine(
+    (value) => Boolean(value.title || value.localized_copy?.title),
+    'Notice requires title or localized_copy.title',
+  ),
   spacer: z.object({
     size: z.enum(['small', 'medium', 'large']).default('medium'),
   }).strict(),
   campaign_intro: z.object({
     enabled: z.boolean().default(true),
     campaign_id: identifier,
-    title: text(120),
+    title: text(120).optional(),
     body: text(500).optional(),
     media_asset_id: identifier.optional(),
+    localized_copy: localizedCopyReferenceSchema,
     frequency_cap_hours: z.coerce.number().int().min(0).max(720).default(24),
     max_impressions: z.coerce.number().int().min(1).max(100).default(1),
     dismissible: z.boolean().default(true),
     skippable: z.boolean().default(true),
-  }).strict(),
+  }).strict().refine(
+    (value) => Boolean(value.title || value.localized_copy?.title),
+    'Campaign intro requires title or localized_copy.title',
+  ),
   design_tokens: designTokensSchema,
 };
 
@@ -1617,14 +1654,14 @@ export const pickExperienceManifest = (
   candidates: ExperienceManifestCandidate[],
   request: ExperienceAudienceContext & { default_locale: string },
 ): PublicExperienceManifest | null => {
-  const requestedLocale = normalizeLocale(request.locale);
-  const defaultLocale = normalizeLocale(request.default_locale);
+  const localeChain = localeFallbackChain(request.locale, request.default_locale).map(normalizeLocale);
   const ranked = candidates.flatMap((candidate) => {
     if (candidate.kill_switch_active) return [];
     if (candidate.market_code !== request.market_code) return [];
     if (candidate.rollout_stage === 'canary' && candidate.canary_cohort !== request.cohort) return [];
     const candidateLocale = normalizeLocale(candidate.locale);
-    const localeScore = candidateLocale === requestedLocale ? 2 : candidateLocale === defaultLocale ? 1 : 0;
+    const localeIndex = localeChain.indexOf(candidateLocale);
+    const localeScore = localeIndex < 0 ? 0 : localeChain.length - localeIndex;
     if (localeScore === 0 || !isWithinAppRange(candidate, request.app_version)) return [];
     const targetScore = targetingScore(candidate.targeting, request);
     if (targetScore === null) return [];
@@ -1716,7 +1753,26 @@ export const resolvePublicExperienceManifest = async (request: {
     role: request.role ?? null,
   });
   if (!selected) throw new ExperienceManifestError('EXPERIENCE_MANIFEST_NOT_AVAILABLE', 404, 'No published experience manifest matches this market, locale, surface and app version');
-  return selected;
+  const localized = await resolveLocalizedContentReferences({
+    market_code: marketCode,
+    surface: request.surface,
+    requested_locale: request.locale,
+    market_default_locale: marketResult.rows[0].default_locale,
+    sections: selected.sections,
+  });
+  if (Object.keys(localized.resolved).length === 0 && localized.sections === selected.sections) return selected;
+
+  // Dynamic copy is part of the public representation, so derive a new
+  // checksum/signature from the resolved payload. The stored manifest remains
+  // immutable and only contains safe references to the approved content pack.
+  // Include the immutable manifest checksum so a copy response cannot be
+  // detached from the signed/published manifest revision that referenced it.
+  const payload = JSON.stringify({
+    manifest_checksum: selected.checksum,
+    sections: localized.sections,
+  });
+  const checksum = checksumFor(payload);
+  return { ...selected, sections: localized.sections as ExperienceSection[], checksum, signature: signatureFor(checksum) };
 };
 
 const previewAudienceSchema = z.object({

@@ -29,6 +29,7 @@ publicRoutes.post('/auth/web/promos/validate', verifyWebSession, promoReadRateLi
 publicRoutes.get('/auth/web/feature-flags', verifyWebSession, (req, res) => controllers.featureFlagsPublic.getWebFeatureFlags(req, res));
 publicRoutes.get('/api/v1/mobile/feature-flags', requireMobileOrWebAuth, (req, res) => controllers.featureFlagsPublic.getMobileFeatureFlags(req, res));
 publicRoutes.get('/api/v1/experience/manifest', publicEndpointRateLimiter, (req, res) => controllers.getPublicExperienceManifest(req, res));
+publicRoutes.get('/api/v1/content-packs/:packKey', publicEndpointRateLimiter, (req, res) => controllers.getPublicLocalizedContentPack(req, res));
 publicRoutes.post('/api/v1/customer/experience/events', requireMobileOrWebAuth, publicEndpointRateLimiter, (req, res) => controllers.recordCustomerExperienceEvent(req, res));
 publicRoutes.get('/api/v1/mobile/orders/:id/conversation', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
 publicRoutes.patch('/api/v1/mobile/orders/:id/conversation/read', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.customerOrder.markOrderChatRead(req, res));

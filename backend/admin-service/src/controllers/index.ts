@@ -66,6 +66,7 @@ export * from './marketConfig.controller';
 export * from './compliance.controller';
 export * from './experienceConfig.controller';
 export * from './experienceAnalytics.controller';
+export * from './localizedContent.controller';
 
 // Customer Web Portal Auth
 export * from './customerAuth.controller';
