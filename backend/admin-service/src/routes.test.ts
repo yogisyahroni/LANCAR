@@ -155,6 +155,8 @@ jest.mock('./controllers', () => ({
   listAdminExperienceKillSwitches: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
   setAdminExperienceKillSwitch: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
   getAdminExperienceObservability: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  getAdminExperienceGuardrailPolicy: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  updateAdminExperienceGuardrailPolicy: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
   evaluateAdminExperienceGuardrail: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
   getAnalyticsSLA: jest.fn((req, res) => res.status(200).json({})),
   getAnalyticsSurge: jest.fn((req, res) => res.status(200).json({})),
@@ -314,6 +316,8 @@ describe('Admin Service Routes', () => {
       request(app).post('/admin/experience/rollouts').query(scope).send({ rollout_stage: 'public' }).set(headers),
       request(app).get('/admin/experience/kill-switches').query(scope).set(headers),
       request(app).post('/admin/experience/kill-switches').send({ ...scope, manifest_id: manifestId, active: true, reason: 'Emergency test' }).set(headers),
+      request(app).get('/admin/experience/guardrail-policy').set(headers),
+      request(app).patch('/admin/experience/guardrail-policy').send({ min_events: 20, max_failure_rate_pct: 10, window_hours: 1 }).set(headers),
     ];
 
     const responses = await Promise.all(requests);
@@ -325,6 +329,8 @@ describe('Admin Service Routes', () => {
     expect(controllers.validateAdminExperienceAsset).toHaveBeenCalledTimes(1);
     expect(controllers.listAdminExperienceAudit).toHaveBeenCalledTimes(1);
     expect(controllers.setAdminExperienceKillSwitch).toHaveBeenCalledTimes(1);
+    expect(controllers.getAdminExperienceGuardrailPolicy).toHaveBeenCalledTimes(1);
+    expect(controllers.updateAdminExperienceGuardrailPolicy).toHaveBeenCalledTimes(1);
   });
 
   it('protects the operational order timeline behind admin authentication', async () => {

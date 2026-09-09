@@ -97,7 +97,7 @@ describe('recordCustomerExperienceEvent', () => {
       market_code: 'id-jk',
     }), response);
 
-    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(db.query).toHaveBeenCalledTimes(4);
     const [query, values] = (db.query as jest.Mock).mock.calls[0];
     expect(query).toContain('INSERT INTO event_outbox');
     expect(values[0]).toBe('experience_runtime');

@@ -3,6 +3,7 @@ export const EXPERIENCE_CAPABILITIES = {
   draftWrite: 'experience.draft.write',
   assetWrite: 'experience.asset.write',
   targetingWrite: 'experience.targeting.write',
+  guardrailWrite: 'experience.guardrail.write',
   featureFlagWrite: 'experience.feature_flag.write',
   killSwitchExecute: 'experience.kill_switch.execute',
   submitApproval: 'experience.submit_approval',

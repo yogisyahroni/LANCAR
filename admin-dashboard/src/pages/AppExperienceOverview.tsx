@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -13,8 +13,14 @@ import {
   Zap,
 } from "lucide-react";
 import { Link } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "../lib/api";
+import { useAuthStore } from "../store/useAuthStore";
+import {
+  EXPERIENCE_CAPABILITIES,
+  hasExperiencePermission,
+} from "../lib/experiencePermissions";
 import {
   campaignNameForManifest,
   type ExperienceAuditRecord,
@@ -52,13 +58,44 @@ type ObservabilitySummary = {
     section_render_failure: number;
     broken_asset: number;
     deeplink_failure: number;
+    startup_regression: number;
+    network_regression: number;
+    fetch_latency_avg_ms: number;
+    fetch_latency_p95_ms: number;
+    impressions: number;
+    clicks: number;
+    dismissals: number;
   };
   breakdown: Array<{
     manifest_id: string;
     manifest_revision: number;
+    market_code: string;
+    app_version: string;
+    total_events: number;
+    reliability_total: number;
     reliability_failures: number;
     reliability_failure_rate_pct: number;
+    impressions: number;
+    clicks: number;
+    dismissals: number;
+    fetch_latency_avg_ms: number;
+    rollback_target_revision: number | null;
   }>;
+  guardrail_policy: {
+    version: number;
+    min_events: number;
+    max_failure_rate_pct: number;
+    window_hours: number;
+    marketing_metrics_excluded: true;
+    updated_at: string | null;
+    updated_by: string | null;
+  };
+};
+
+type GuardrailPolicyDraft = {
+  min_events: string;
+  max_failure_rate_pct: string;
+  window_hours: string;
 };
 
 type Finding = {
@@ -68,7 +105,11 @@ type Finding = {
   revision: number;
   asset_id?: string;
   deep_link?: string;
+  rollback_target_revision?: number | null;
 };
+
+const requestKey = (action: string) =>
+  `admin.experience_${action}.${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
 
 const defaultFilters: OverviewFilters = {
   market_code: "id-jk",
@@ -242,9 +283,20 @@ function FindingLink({ finding }: { finding: Finding }) {
 }
 
 export default function AppExperienceOverview() {
+  const { user } = useAuthStore();
+  const queryClient = useQueryClient();
+  const canEditGuardrail = hasExperiencePermission(
+    user,
+    EXPERIENCE_CAPABILITIES.guardrailWrite,
+  );
+  const canRollback = hasExperiencePermission(
+    user,
+    EXPERIENCE_CAPABILITIES.rollback,
+  );
   const [filters, setFilters] = useState<OverviewFilters>(defaultFilters);
   const [auditFilters, setAuditFilters] =
     useState<AuditFilters>(defaultAuditFilters);
+  const [guardrailDraft, setGuardrailDraft] = useState<GuardrailPolicyDraft | null>(null);
   const params = useMemo(
     () =>
       Object.fromEntries(
@@ -297,6 +349,67 @@ export default function AppExperienceOverview() {
       ).data?.data ?? null,
   });
 
+  const currentGuardrailDraft = (): GuardrailPolicyDraft => {
+    if (guardrailDraft) return guardrailDraft;
+    const policy = healthQuery.data?.guardrail_policy;
+    return {
+      min_events: String(policy?.min_events ?? 20),
+      max_failure_rate_pct: String(policy?.max_failure_rate_pct ?? 10),
+      window_hours: String(policy?.window_hours ?? 1),
+    };
+  };
+  const updateGuardrailDraft = (field: keyof GuardrailPolicyDraft, value: string) => {
+    setGuardrailDraft((current) => ({ ...currentGuardrailDraft(), ...current, [field]: value }));
+  };
+
+  const rollbackMutation = useMutation({
+    mutationFn: ({
+      manifestId,
+      targetRevision,
+      reason,
+    }: {
+      manifestId: string;
+      targetRevision: number;
+      reason: string;
+    }) =>
+      api.post(
+        `/admin/experience/manifests/${manifestId}/rollback`,
+        { target_revision: targetRevision, reason },
+        { headers: { "X-Idempotency-Key": requestKey("rollback") } },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["experience-overview-health"] });
+      queryClient.invalidateQueries({ queryKey: ["experience-overview-manifests"] });
+      queryClient.invalidateQueries({ queryKey: ["experience-overview-audit"] });
+      toast.success("Known-good revision restored");
+    },
+    onError: (error: unknown) => {
+      const response = error as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(response.response?.data?.message || response.message || "Rollback failed");
+    },
+  });
+
+  const guardrailPolicyMutation = useMutation({
+    mutationFn: () =>
+      api.patch(
+        "/admin/experience/guardrail-policy",
+        {
+          min_events: Number(currentGuardrailDraft().min_events),
+          max_failure_rate_pct: Number(currentGuardrailDraft().max_failure_rate_pct),
+          window_hours: Number(currentGuardrailDraft().window_hours),
+        },
+        { headers: { "X-Idempotency-Key": requestKey("guardrail-policy") } },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["experience-overview-health"] });
+      toast.success("Reliability guardrail policy updated and audited");
+    },
+    onError: (error: unknown) => {
+      const response = error as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(response.response?.data?.message || response.message || "Guardrail policy update failed");
+    },
+  });
+
   const now = Date.now();
   const rawManifests = manifestsQuery.data ?? [];
   const displayManifests = useMemo(
@@ -344,11 +457,12 @@ export default function AppExperienceOverview() {
     (manifest) => !supportsAppVersion(manifest, filters.app_version),
   );
   const health = healthQuery.data?.summary;
+  const policy = healthQuery.data?.guardrail_policy;
   const healthStatus = !health
     ? "UNKNOWN"
     : health.reliability_total === 0
       ? "NO TELEMETRY"
-      : health.reliability_failure_rate_pct >= 10
+      : health.reliability_failure_rate_pct >= (policy?.max_failure_rate_pct ?? 10)
         ? "DEGRADED"
         : health.reliability_failures > 0
           ? "WATCH"
@@ -411,6 +525,7 @@ export default function AppExperienceOverview() {
           message: `Runtime reliability has ${item.reliability_failures} failure event(s) (${item.reliability_failure_rate_pct}%)`,
           manifest_id: item.manifest_id,
           revision: item.manifest_revision,
+          rollback_target_revision: item.rollback_target_revision,
         });
       });
     return result.slice(0, 30);
@@ -427,6 +542,23 @@ export default function AppExperienceOverview() {
   const resetFilters = () => {
     setFilters(defaultFilters);
     setAuditFilters(defaultAuditFilters);
+  };
+  const requestHealthRollback = (finding: Finding) => {
+    if (!canRollback || finding.rollback_target_revision == null || finding.manifest_id === "unknown") return;
+    const reason = window.prompt(
+      `Rollback ${finding.manifest_id} revision ${finding.revision} to known-good revision ${finding.rollback_target_revision}. Reason:`,
+      "Reliability guardrail breach observed in App Experience health",
+    );
+    if (!reason?.trim()) return;
+    rollbackMutation.mutate({
+      manifestId: finding.manifest_id,
+      targetRevision: finding.rollback_target_revision,
+      reason: reason.trim(),
+    });
+  };
+  const saveGuardrailPolicy = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (canEditGuardrail) guardrailPolicyMutation.mutate();
   };
 
   return (
@@ -703,6 +835,177 @@ export default function AppExperienceOverview() {
           )}
         </div>
       </section>
+      <section
+        className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+        aria-labelledby="experience-analytics-release-title"
+      >
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <div className="flex items-center gap-3">
+              <Target size={18} className="text-primary-light" />
+              <div>
+                <h2 id="experience-analytics-release-title" className="text-base font-black text-zinc-100">
+                  Marketing performance
+                </h2>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Impression, click and dismiss are presentation metrics only;
+                  they never improve or hide reliability health.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-4">
+              <MetricCard
+                label="Impressions"
+                value={health?.impressions ?? "—"}
+                detail="campaign exposures"
+                icon={Target}
+                tone="text-sky-300"
+              />
+              <MetricCard
+                label="Clicks"
+                value={health?.clicks ?? "—"}
+                detail="campaign actions"
+                icon={Zap}
+                tone="text-primary-light"
+              />
+              <MetricCard
+                label="Dismissals"
+                value={health?.dismissals ?? "—"}
+                detail="campaign dismissals"
+                icon={XCircle}
+                tone="text-orange-300"
+              />
+              <MetricCard
+                label="CTR"
+                value={health && health.impressions > 0 ? `${((health.clicks / health.impressions) * 100).toFixed(2)}%` : "—"}
+                detail="clicks / impressions"
+                icon={GitBranch}
+                tone="text-violet-300"
+              />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-black text-zinc-100">Reliability guardrail policy</h2>
+                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                  Policy v{policy?.version ?? "—"}; every change
+                  writes before/after values to the administrative audit log.
+                </p>
+              </div>
+              <ShieldAlert size={18} className="text-orange-300" />
+            </div>
+            <form className="mt-4 grid gap-3 sm:grid-cols-3" onSubmit={saveGuardrailPolicy}>
+              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                Minimum events
+                <input
+                  type="number"
+                  min="1"
+                  max="1000000"
+                  disabled={!canEditGuardrail || guardrailPolicyMutation.isPending}
+                  value={currentGuardrailDraft().min_events}
+                  onChange={(event) => updateGuardrailDraft("min_events", event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100 disabled:opacity-50"
+                />
+              </label>
+              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                Max failure %
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  disabled={!canEditGuardrail || guardrailPolicyMutation.isPending}
+                  value={currentGuardrailDraft().max_failure_rate_pct}
+                  onChange={(event) => updateGuardrailDraft("max_failure_rate_pct", event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100 disabled:opacity-50"
+                />
+              </label>
+              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                Window hours
+                <input
+                  type="number"
+                  min="1"
+                  max="168"
+                  step="0.25"
+                  disabled={!canEditGuardrail || guardrailPolicyMutation.isPending}
+                  value={currentGuardrailDraft().window_hours}
+                  onChange={(event) => updateGuardrailDraft("window_hours", event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100 disabled:opacity-50"
+                />
+              </label>
+              <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[11px] text-zinc-600">
+                  Marketing metrics excluded: always enforced · last update {formatDate(policy?.updated_at)}
+                </p>
+                {canEditGuardrail ? (
+                  <button
+                    type="submit"
+                    disabled={guardrailPolicyMutation.isPending}
+                    className="rounded-xl bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50"
+                  >
+                    {guardrailPolicyMutation.isPending ? "Saving…" : "Save audited policy"}
+                  </button>
+                ) : (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Read-only policy</span>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
+        <div className="mt-5 overflow-x-auto rounded-2xl border border-white/10">
+          <table className="min-w-[980px] w-full text-left text-xs">
+            <thead className="border-b border-white/10 text-[10px] uppercase tracking-widest text-zinc-600">
+              <tr>
+                <th className="px-3 py-3">Live revision / campaign</th>
+                <th className="px-3 py-3">Market / app</th>
+                <th className="px-3 py-3">Reliability</th>
+                <th className="px-3 py-3">Fetch latency</th>
+                <th className="px-3 py-3">Marketing</th>
+                <th className="px-3 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(healthQuery.data?.breakdown ?? []).slice(0, 20).map((row) => {
+                const rowFinding: Finding = {
+                  kind: "runtime",
+                  message: "",
+                  manifest_id: row.manifest_id,
+                  revision: row.manifest_revision,
+                  rollback_target_revision: row.rollback_target_revision,
+                };
+                const ctr = row.impressions > 0 ? `${((row.clicks / row.impressions) * 100).toFixed(2)}%` : "—";
+                return (
+                  <tr key={`${row.manifest_id}-${row.manifest_revision}-${row.market_code}-${row.app_version}`} className="border-b border-white/5 text-zinc-300">
+                    <td className="px-3 py-3"><FindingLink finding={rowFinding} /></td>
+                    <td className="px-3 py-3">{row.market_code} · {row.app_version}</td>
+                    <td className={`px-3 py-3 font-black ${row.reliability_failure_rate_pct >= (policy?.max_failure_rate_pct ?? 10) ? "text-red-300" : "text-emerald-300"}`}>
+                      {row.reliability_failures}/{row.reliability_total} · {row.reliability_failure_rate_pct}%
+                    </td>
+                    <td className="px-3 py-3">{row.fetch_latency_avg_ms} ms avg</td>
+                    <td className="px-3 py-3">{row.impressions} / {row.clicks} / {row.dismissals} · {ctr} CTR</td>
+                    <td className="px-3 py-3">
+                      {canRollback && row.reliability_failures > 0 && row.rollback_target_revision != null && row.manifest_id !== "unknown" ? (
+                        <button
+                          type="button"
+                          disabled={rollbackMutation.isPending}
+                          onClick={() => requestHealthRollback(rowFinding)}
+                          className="rounded-lg border border-orange-400/30 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-orange-200 disabled:opacity-50"
+                        >
+                          Rollback r{row.rollback_target_revision}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-zinc-600">{row.reliability_failures > 0 ? "No compatible target" : "—"}</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {(healthQuery.data?.breakdown ?? []).length === 0 ? <p className="p-5 text-center text-sm text-zinc-600">No revision telemetry in this scope.</p> : null}
+        </div>
+      </section>
       <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
           <div className="flex items-center gap-3">
@@ -774,8 +1077,21 @@ export default function AppExperienceOverview() {
                     />
                     <span className="text-zinc-400">{finding.message}</span>
                   </div>
-                  <div className="shrink-0">
+                  <div className="flex shrink-0 flex-wrap items-center gap-3">
                     <FindingLink finding={finding} />
+                    {finding.kind === "runtime"
+                      && canRollback
+                      && finding.rollback_target_revision != null
+                      && finding.manifest_id !== "unknown" ? (
+                        <button
+                          type="button"
+                          disabled={rollbackMutation.isPending}
+                          onClick={() => requestHealthRollback(finding)}
+                          className="rounded-lg border border-orange-400/30 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-orange-200 disabled:opacity-50"
+                        >
+                          Rollback r{finding.rollback_target_revision}
+                        </button>
+                      ) : null}
                   </div>
                 </div>
               ))}

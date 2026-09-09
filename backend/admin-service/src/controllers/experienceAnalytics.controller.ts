@@ -1,13 +1,16 @@
 import { createHash } from 'node:crypto';
 import { Request, Response } from 'express';
 import { db } from '../db';
+import { getActorId } from '../utils/authUtils';
 import { enqueueOutboxEvent } from '../services/eventOutbox';
 import { EXPERIENCE_SURFACES } from '../services/experienceConfig';
 import {
   evaluateExperienceGuardrail,
+  getExperienceGuardrailPolicy,
   EXPERIENCE_TELEMETRY_EVENT_TYPES,
   getExperienceObservability,
   isReliabilityTelemetry,
+  updateExperienceGuardrailPolicy,
   type ExperienceTelemetryEventType,
 } from '../services/experienceObservability';
 
@@ -223,5 +226,31 @@ export const evaluateAdminExperienceGuardrail = async (req: Request, res: Respon
     const message = error instanceof Error ? error.message : 'Experience guardrail unavailable';
     const status = /is invalid/.test(message) ? 400 : 500;
     res.status(status).json({ success: false, code: status === 400 ? 'INVALID_EXPERIENCE_GUARDRAIL' : 'EXPERIENCE_GUARDRAIL_UNAVAILABLE', message });
+  }
+};
+
+export const getAdminExperienceGuardrailPolicy = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    res.json({ success: true, data: await getExperienceGuardrailPolicy() });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Experience guardrail policy unavailable';
+    res.status(500).json({ success: false, code: 'EXPERIENCE_GUARDRAIL_POLICY_UNAVAILABLE', message });
+  }
+};
+
+export const updateAdminExperienceGuardrailPolicy = async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json({
+      success: true,
+      data: await updateExperienceGuardrailPolicy(req.body, getActorId(req)),
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Experience guardrail policy unavailable';
+    const status = /is invalid/.test(message) ? 400 : 500;
+    res.status(status).json({
+      success: false,
+      code: status === 400 ? 'INVALID_EXPERIENCE_GUARDRAIL_POLICY' : 'EXPERIENCE_GUARDRAIL_POLICY_UNAVAILABLE',
+      message,
+    });
   }
 };

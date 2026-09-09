@@ -1,11 +1,19 @@
 import {
   evaluateExperienceGuardrail,
+  getExperienceGuardrailPolicy,
   getExperienceObservability,
+  updateExperienceGuardrailPolicy,
 } from './experienceObservability';
+import { db } from '../db';
 import { rollbackExperienceManifest } from './experienceConfig';
 
 jest.mock('./experienceConfig', () => ({
   rollbackExperienceManifest: jest.fn(),
+}));
+
+jest.mock('../db', () => ({
+  db: { connect: jest.fn() },
+  readDb: { query: jest.fn() },
 }));
 
 const rollbackMock = rollbackExperienceManifest as jest.MockedFunction<typeof rollbackExperienceManifest>;
@@ -55,6 +63,13 @@ describe('experience observability', () => {
             dismissals: '1',
             fetch_latency_avg_ms: '120.5',
           }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{
+            value: { version: 3, min_events: 20, max_failure_rate_pct: 10, window_hours: 1, marketing_metrics_excluded: true },
+            updated_at: '2026-09-09T01:00:00.000Z',
+            updated_by: '11111111-1111-4111-8111-111111111111',
+          }],
         }),
     };
 
@@ -77,7 +92,7 @@ describe('experience observability', () => {
       max_failure_rate_pct: 10,
       marketing_metrics_excluded: true,
     }));
-    expect(queryable.query).toHaveBeenCalledTimes(2);
+    expect(queryable.query).toHaveBeenCalledTimes(3);
     expect(queryable.query.mock.calls[0][0]).toContain('marketing_events');
     expect(queryable.query.mock.calls[0][0]).toContain("COALESCE(headers->>'source', payload->>'surface')");
   });
@@ -86,6 +101,7 @@ describe('experience observability', () => {
     const queryable = {
       query: jest
         .fn()
+        .mockResolvedValueOnce({ rows: [{ value: { version: 1, min_events: 20, max_failure_rate_pct: 10, window_hours: 1 } }] })
         .mockResolvedValueOnce({ rows: [{ manifest_id: 'manifest-1', revision: 9, requires_approval: true, previous_revision: 8 }] })
         .mockResolvedValueOnce({ rows: [{ reliability_total: '19', reliability_failures: '19' }] }),
     };
@@ -102,6 +118,7 @@ describe('experience observability', () => {
       action: 'none',
       reliability_total: 19,
       reliability_failures: 19,
+      policy_version: 1,
     }));
     expect(rollbackMock).not.toHaveBeenCalled();
   });
@@ -111,6 +128,7 @@ describe('experience observability', () => {
     const queryable = {
       query: jest
         .fn()
+        .mockResolvedValueOnce({ rows: [{ value: { version: 2, min_events: 20, max_failure_rate_pct: 10, window_hours: 1 } }] })
         .mockResolvedValueOnce({ rows: [{ manifest_id: 'manifest-1', revision: 9, requires_approval: true, previous_revision: 8 }] })
         .mockResolvedValueOnce({ rows: [{ reliability_total: '20', reliability_failures: '3' }] }),
     };
@@ -134,5 +152,37 @@ describe('experience observability', () => {
       expect.stringContaining('automated high-impact guardrail rollback'),
       'correlation-2',
     );
+  });
+
+  it('falls back to the safe default policy when the config row is absent', async () => {
+    const queryable = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    await expect(getExperienceGuardrailPolicy(queryable)).resolves.toEqual(expect.objectContaining({
+      version: 1,
+      min_events: 20,
+      max_failure_rate_pct: 10,
+      window_hours: 1,
+      marketing_metrics_excluded: true,
+      updated_at: null,
+    }));
+  });
+
+  it('audits every guardrail policy threshold change with before and after values', async () => {
+    const client = { query: jest.fn(), release: jest.fn() };
+    (db.connect as jest.Mock).mockResolvedValue(client);
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ value: { version: 4, min_events: 20, max_failure_rate_pct: 10, window_hours: 1 } }] })
+      .mockResolvedValueOnce({ rows: [{ value: { version: 5, min_events: 30, max_failure_rate_pct: 8.5, window_hours: 2 }, updated_at: '2026-09-10T01:00:00.000Z', updated_by: '11111111-1111-4111-8111-111111111111' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await updateExperienceGuardrailPolicy({ min_events: 30, max_failure_rate_pct: 8.5, window_hours: 2 }, '11111111-1111-4111-8111-111111111111');
+
+    expect(result).toEqual(expect.objectContaining({ version: 5, min_events: 30, max_failure_rate_pct: 8.5, window_hours: 2 }));
+    const auditCall = client.query.mock.calls.find(([sql]: [string]) => sql.includes('experience.guardrail_policy.updated'));
+    expect(auditCall?.[1]).toEqual([
+      '11111111-1111-4111-8111-111111111111',
+      expect.stringContaining('"min_events":20'),
+    ]);
   });
 });
