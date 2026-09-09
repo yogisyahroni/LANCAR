@@ -9,6 +9,7 @@ import com.tembus.customer.data.model.NotificationRealtimeEvent
 import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.data.session.AuthSessionManager
 import com.tembus.customer.data.session.SessionInvalidationReason
+import com.tembus.customer.domain.config.ExperienceConfigManager
 import com.tembus.customer.ui.navigation.Screen
 import com.tembus.customer.util.SocketManager
 import com.tembus.customer.util.NotificationEventVersionStore
@@ -30,7 +31,8 @@ class MainViewModel @Inject constructor(
     private val onboardingPreferences: OnboardingPreferences,
     private val socketManager: SocketManager,
     private val callInviteStore: CallInviteStore,
-    private val notificationEventVersionStore: NotificationEventVersionStore
+    private val notificationEventVersionStore: NotificationEventVersionStore,
+    private val experienceConfigManager: ExperienceConfigManager,
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(true)
@@ -127,6 +129,7 @@ class MainViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
+            experienceConfigManager.clearUserTargetingAssignment()
             sessionManager.clearSession()
             authenticatedDestination = Screen.AuthGraph.route
             _startDestination.value = Screen.AuthGraph.route

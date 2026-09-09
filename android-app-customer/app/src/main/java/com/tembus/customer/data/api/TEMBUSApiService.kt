@@ -1,6 +1,7 @@
 package com.tembus.customer.data.api
 
 import com.tembus.customer.data.model.*
+import com.tembus.customer.data.config.model.ExperienceManifestEnvelope
 import kotlinx.serialization.json.JsonElement
 import retrofit2.Response
 import retrofit2.http.*
@@ -15,6 +16,17 @@ interface TEMBUSApiService {
 
     @GET("api/v1/mobile/feature-flags")
     suspend fun getFeatureFlags(): Response<JsonElement>
+
+    @GET("api/v1/experience/manifest")
+    suspend fun getExperienceManifest(
+        @Query("market_code") marketCode: String,
+        @Query("locale") locale: String,
+        @Query("surface") surface: String,
+        @Query("app_version") appVersion: String,
+        @Query("cohort") cohort: String? = null,
+        @Query("experiment_ref") experimentRef: String? = null,
+        @Header("If-None-Match") ifNoneMatch: String? = null,
+    ): Response<ExperienceManifestEnvelope>
 
     @GET("api/v1/maps/config")
     suspend fun getMapsProviderConfig(

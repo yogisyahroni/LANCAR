@@ -6,6 +6,7 @@ import com.tembus.customer.data.model.ProfileResponse
 import com.tembus.customer.data.model.UpdateProfileRequest
 import com.tembus.customer.data.repository.ProfileRepository
 import com.tembus.customer.data.session.AuthSessionManager
+import com.tembus.customer.domain.config.ExperienceConfigManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +30,8 @@ sealed class ProfileUiState {
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val repository: ProfileRepository,
-    private val sessionManager: AuthSessionManager
+    private val sessionManager: AuthSessionManager,
+    private val experienceConfigManager: ExperienceConfigManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ProfileUiState>(ProfileUiState.Idle)
@@ -96,6 +98,7 @@ class ProfileViewModel @Inject constructor(
 
     fun logout(onLoggedOut: () -> Unit) {
         viewModelScope.launch {
+            experienceConfigManager.clearUserTargetingAssignment()
             sessionManager.clearSession()
             onLoggedOut()
         }
