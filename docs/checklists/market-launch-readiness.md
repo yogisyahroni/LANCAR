@@ -17,15 +17,16 @@ link and one of `PASS`, `FAIL`, or `NOT_RUN`.
 | Canary cohort / percentage |  |
 | Incident ID / correlation ID |  |
 
-## Current execution record — 2026-09-09
+## Current execution record — 2026-09-10
 
 - Repository preflight: `python scripts/market_launch_readiness.py --validate --drill` — PASS (14 contract/drill checks; external runtime explicitly not claimed).
 - Local client contract: `python scripts/mobile/check_localization.py` — PASS (three Android apps, web ID/EN parity and RTL-ready direction contract).
-- Customer web localization E2E: Chromium — PASS (3 tests).
+- Customer web localization E2E: Chromium — PASS (3 tests); customer login/dashboard, validation and package quote→order→history→detail flows also PASS (6 Chromium tests total through the local Cloudflare Tunnel).
 - Android logic coverage: `gradlew.bat test` — PASS for courier, customer and merchant debug/release unit-test suites; interactive device E2E remains separate and unproven.
-- Local PostgreSQL market snapshot: `id-jk` readiness returned ready with no reason codes; 9 active compliance requirements, 4 active data policies and 5 enabled services were observed. This is local evidence, not staging evidence.
-- Staging CI: run `34305290732` for commit `dae26af1` — repository verification, migration, security, container-audit and image build jobs PASS. Deployment guard reported `STAGING_SSH_HOST` missing, so `deployed=false`; browser E2E and k6 jobs were skipped.
-- Public staging probe: `/health` returned `200`; current `/api/v1/system/latest-version?type=merchant` returned `400` and no compatibility metadata, confirming the pushed compatibility commit is not yet deployed there.
+- Local PostgreSQL market snapshot: `id-jk` readiness returned ready with no reason codes; 9 active compliance requirements, 4 active data policies and 5 enabled services were observed. The service-visible Compose database was migrated through `20260910000002`; this is local evidence, not staging evidence.
+- Local authenticated runtime: Admin login, direct/gateway `/me`, logout and core service health returned HTTP 200. The local Cloudflare Tunnel exposes this same local Compose stack at the public domains; it is not a VPS staging deployment.
+- Staging CI: run `34409225428` for commit `96113858` — repository verification, migration, security, container-audit, image build/push and evidence gate jobs PASS. Deployment guard reported `STAGING_SSH_HOST` missing, so `deployed=false`; browser E2E and k6 jobs were skipped.
+- Public-domain probe: API/admin/app/merchant health returned `200` through the local tunnel. This does not prove current-commit VPS staging behavior.
 
 The hard-gate rows remain `NOT_RUN` until their required owner, environment,
 provider, capacity and mobile-runtime evidence is attached. Do not activate a
