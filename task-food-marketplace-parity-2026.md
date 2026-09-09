@@ -2679,11 +2679,11 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - emergency kill-switch state
 
 **Checklist**
-- [ ] Admin preview clearly labels this as **post-native-splash campaign intro**, not OS launch splash.
-- [ ] Admin cannot configure network fetch as a mandatory startup blocker.
-- [ ] Expired/unavailable asset automatically falls back/skip according to policy.
-- [ ] Campaign can be scheduled days ahead and assets prefetched before activation.
-- [ ] Kill action is available to authorized ops/publisher without app release.
+- [x] Admin preview clearly labels this as **post-native-splash campaign intro**, not OS launch splash. Evidence: `docs/task-evidence/ADMEXP-2026-007.md`
+- [x] Admin cannot configure network fetch as a mandatory startup blocker. Evidence: `docs/task-evidence/ADMEXP-2026-007.md`
+- [x] Expired/unavailable asset automatically falls back/skip according to policy. Evidence: `docs/task-evidence/ADMEXP-2026-007.md`
+- [x] Campaign can be scheduled days ahead and assets prefetched before activation. Evidence: `docs/task-evidence/ADMEXP-2026-007.md`
+- [x] Kill action is available to authorized ops/publisher without app release. Evidence: `docs/task-evidence/ADMEXP-2026-007.md`
 
 ---
 
