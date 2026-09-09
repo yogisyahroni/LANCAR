@@ -47,6 +47,8 @@ import com.tembus.customer.ui.experience.components.DynamicPromoCardModel
 import com.tembus.customer.ui.navigation.RemoteDeepLinkResolver
 import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
 import com.tembus.customer.ui.navigation.RemoteInternalDestination
+import com.tembus.customer.ui.theme.LocalRuntimeDesignTokens
+import com.tembus.customer.ui.theme.RuntimeThemeProvider
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -62,7 +64,7 @@ private val RENDERABLE_COMPONENTS = setOf(
     "notice",
     "spacer",
 )
-private val NON_HOME_COMPONENTS = setOf("campaign_intro")
+private val NON_HOME_COMPONENTS = setOf("campaign_intro", "design_tokens")
 
 internal fun isDynamicComponentSupported(component: String): Boolean = component in RENDERABLE_COMPONENTS
 
@@ -100,6 +102,7 @@ fun DynamicHomeRenderer(
     resolveAssetPath: suspend (String) -> String? = { null },
     onHistoryClick: () -> Unit,
     onFavoritesClick: () -> Unit,
+    allowRuntimeTheme: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val renderableSections = collectRenderableSections(snapshot.manifest.sections) { component ->
@@ -115,12 +118,14 @@ fun DynamicHomeRenderer(
         }
     }
     val marketCode = snapshot.scope?.marketCode ?: snapshot.manifest.marketCode
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        renderableSections.forEach { section ->
-            when (section.component) {
+    RuntimeThemeProvider(snapshot = snapshot, enabled = allowRuntimeTheme) {
+        val runtimeTokens = LocalRuntimeDesignTokens.current
+        Column(
+            modifier = modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(runtimeTokens.itemSpacing),
+        ) {
+            renderableSections.forEach { section ->
+                when (section.component) {
                 "hero_banner" -> DynamicHeaderBanner(
                     component = section.component,
                     campaignId = section.properties.string("campaign_id") ?: section.id,
@@ -137,7 +142,6 @@ fun DynamicHomeRenderer(
                     resolveAssetPath = resolveAssetPath,
                     onAction = onRemoteAction,
                     onEvent = reportEvent,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
                 )
                 "campaign_strip" -> DynamicHeaderBanner(
                     component = section.component,
@@ -155,7 +159,6 @@ fun DynamicHomeRenderer(
                     resolveAssetPath = resolveAssetPath,
                     onAction = onRemoteAction,
                     onEvent = reportEvent,
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 )
                 "promo_carousel" -> DynamicPromoCarousel(
                     section = section,
@@ -174,6 +177,7 @@ fun DynamicHomeRenderer(
                 "info_card" -> DynamicInfoCard(section, onRemoteAction)
                 "notice" -> DynamicNotice(section, onRemoteAction)
                 "spacer" -> DynamicSpacer(section)
+                }
             }
         }
     }

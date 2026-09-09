@@ -115,6 +115,9 @@ object ExperienceManifestValidator {
             "enabled", "campaign_id", "title", "body", "media_asset_id",
             "frequency_cap_hours", "max_impressions", "dismissible", "skippable",
         ),
+        "design_tokens" to setOf(
+            "accent_preset", "background_preset", "corner_preset", "spacing_preset", "badge_preset",
+        ),
     )
     private val protectedKeys = setOf(
         "amount", "authorization", "commission", "currency", "delivery_status",
@@ -225,6 +228,7 @@ object ExperienceManifestValidator {
                 normalizedKey == "external_url" -> sanitizeExternalUrl(value)
                 normalizedKey == "display_mode" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { it in setOf("compact", "cards") }?.let(::JsonPrimitive)
                 normalizedKey == "size" && component == "spacer" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { it in setOf("small", "medium", "large") }?.let(::JsonPrimitive)
+                component == "design_tokens" && normalizedKey.endsWith("_preset") -> sanitizeDesignTokenPreset(normalizedKey, value)
                 normalizedKey == "code" && component == "service_card" -> sanitizeIdentifier(value)
                 normalizedKey == "campaign_id" -> sanitizeIdentifier(value)
                 normalizedKey in setOf("enabled", "dismissible", "skippable") -> sanitizeBoolean(value)
@@ -244,6 +248,20 @@ object ExperienceManifestValidator {
         if (!required.all(result::containsKey)) return null
         if (component == "service_grid" && "service_codes" !in result && "cards" !in result) return null
         return JsonObject(result)
+    }
+
+    private fun sanitizeDesignTokenPreset(key: String, value: JsonElement): JsonPrimitive? {
+        val allowed = when (key) {
+            "accent_preset" -> setOf("brand", "campaign_orange", "campaign_blue")
+            "background_preset" -> setOf("surface", "brand_soft", "accent_soft")
+            "corner_preset" -> setOf("compact", "standard", "emphasized")
+            "spacing_preset" -> setOf("compact", "standard", "relaxed")
+            "badge_preset" -> setOf("hidden", "label", "pill")
+            else -> emptySet()
+        }
+        return (value as? JsonPrimitive)?.contentOrNull?.trim()?.lowercase(Locale.ROOT)
+            ?.takeIf { it in allowed }
+            ?.let(::JsonPrimitive)
     }
 
     private fun sanitizeServiceCards(value: JsonElement): JsonArray? {

@@ -1,5 +1,6 @@
 package com.tembus.customer.ui.experience.components
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -29,7 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,6 +41,9 @@ import com.tembus.customer.data.config.ExperienceBannerEvent
 import com.tembus.customer.data.config.ExperienceBannerEventType
 import com.tembus.customer.ui.navigation.RemoteDeepLinkResolver
 import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
+import com.tembus.customer.ui.theme.LocalRuntimeDesignTokens
+import com.tembus.customer.ui.theme.RuntimeBadgePreset
+import com.tembus.customer.ui.theme.TembusRadius
 
 @Composable
 internal fun DynamicHeaderBanner(
@@ -58,9 +62,12 @@ internal fun DynamicHeaderBanner(
     resolveAssetPath: suspend (String) -> String?,
     onAction: (RemoteDeepLinkTarget) -> Unit,
     onEvent: (ExperienceBannerEvent) -> Unit,
-    containerColor: Color,
     modifier: Modifier = Modifier,
 ) {
+    val runtimeTokens = LocalRuntimeDesignTokens.current
+    val darkTheme = isSystemInDarkTheme()
+    val accentColor = runtimeTokens.accentColor(darkTheme)
+    val accentContentColor = runtimeTokens.accentContentColor(darkTheme)
     val assetPath by produceState<String?>(initialValue = null, imageAssetId, manifestRevision) {
         value = imageAssetId?.let { resolveAssetPath(it) }
     }
@@ -87,10 +94,10 @@ internal fun DynamicHeaderBanner(
 
     Card(
         modifier = modifier.fillMaxWidth().padding(horizontal = 18.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(runtimeTokens.cornerRadius),
+        colors = CardDefaults.cardColors(containerColor = runtimeTokens.backgroundColor(darkTheme)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(runtimeTokens.contentPadding)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -107,8 +114,8 @@ internal fun DynamicHeaderBanner(
                 } else {
                     Surface(
                         modifier = Modifier.size(76.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(runtimeTokens.innerCornerRadius),
+                        color = accentColor.copy(alpha = 0.12f),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(Icons.Default.Campaign, contentDescription = null, modifier = Modifier.size(32.dp))
@@ -116,20 +123,26 @@ internal fun DynamicHeaderBanner(
                     }
                 }
                 Column(Modifier.weight(1f)) {
-                    badge?.let {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                        ) {
-                            Text(
-                                text = it,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
+                    if (runtimeTokens.badgePreset != RuntimeBadgePreset.HIDDEN) {
+                        badge?.let {
+                            if (runtimeTokens.badgePreset == RuntimeBadgePreset.LABEL) {
+                                Text(it, color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            } else {
+                                Surface(
+                                    shape = RoundedCornerShape(TembusRadius.Chip),
+                                    color = accentColor,
+                                ) {
+                                    Text(
+                                        text = it,
+                                        color = accentContentColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
                         }
-                        Spacer(Modifier.height(6.dp))
                     }
                     Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     body?.let {
@@ -144,7 +157,7 @@ internal fun DynamicHeaderBanner(
                 }
             }
             if (hasAction) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(runtimeTokens.itemSpacing))
                 AssistChip(
                     onClick = {
                         onEvent(
@@ -161,6 +174,11 @@ internal fun DynamicHeaderBanner(
                     },
                     label = { Text(ctaLabel.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     trailingIcon = { Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = accentColor,
+                        labelColor = accentContentColor,
+                        trailingIconContentColor = accentContentColor,
+                    ),
                 )
             }
         }

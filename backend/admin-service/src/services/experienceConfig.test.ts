@@ -187,6 +187,70 @@ describe('experience manifest contract', () => {
     });
   });
 
+  it('accepts bounded runtime design token presets and applies safe defaults', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'campaign-theme',
+        component: 'design_tokens',
+        properties: {
+          accent_preset: 'campaign_orange',
+          background_preset: 'accent_soft',
+          corner_preset: 'emphasized',
+          spacing_preset: 'relaxed',
+          badge_preset: 'pill',
+        },
+      }],
+    });
+
+    expect(parsed.sections[0].properties).toEqual({
+      accent_preset: 'campaign_orange',
+      background_preset: 'accent_soft',
+      corner_preset: 'emphasized',
+      spacing_preset: 'relaxed',
+      badge_preset: 'pill',
+    });
+
+    const defaults = parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ id: 'campaign-theme', component: 'design_tokens', properties: {} }],
+    });
+    expect(defaults.sections[0].properties).toMatchObject({
+      accent_preset: 'brand',
+      background_preset: 'surface',
+      corner_preset: 'standard',
+      spacing_preset: 'standard',
+      badge_preset: 'pill',
+    });
+  });
+
+  it('rejects arbitrary design colors, unknown presets, and remote font instructions', () => {
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'campaign-theme',
+        component: 'design_tokens',
+        properties: { accent_preset: '#FF0000' },
+      }],
+    })).toThrow();
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'campaign-theme',
+        component: 'design_tokens',
+        properties: { spacing_preset: 'huge' },
+      }],
+    })).toThrow();
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'campaign-theme',
+        component: 'design_tokens',
+        properties: { font_url: 'https://evil.example/font.woff2' },
+      }],
+    })).toThrow('Unrecognized key');
+  });
+
   it('rejects unknown components, unsafe links, and protected properties', () => {
     expect(() => parseExperienceManifestInput({
       ...validInput,

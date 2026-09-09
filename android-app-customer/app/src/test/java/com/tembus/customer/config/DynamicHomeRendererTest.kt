@@ -40,6 +40,21 @@ class DynamicHomeRendererTest {
     }
 
     @Test
+    fun designTokensAreManifestMetadataAndNeverBecomeAHomeComposable() {
+        val events = mutableListOf<String>()
+        val sections = collectRenderableSections(
+            sections = listOf(
+                ExperienceSection(id = "theme", component = "design_tokens", properties = buildJsonObject { put("accent_preset", "campaign_blue") }),
+                ExperienceSection(id = "notice", component = "notice", properties = buildJsonObject { put("title", "Info") }),
+            ),
+            onUnknownComponent = events::add,
+        )
+
+        assertEquals(listOf("notice"), sections.map { it.component })
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
     fun serviceCardsFollowRemoteOrderButRequireAuthoritativeEnabledService() {
         val properties = json.parseToJsonElement(
             """{"cards":[{"code":"food_delivery","subtitle":"Promo hari ini","badge":"Baru"},{"code":"disabled_service","subtitle":"Tidak boleh tampil"},{"code":"tembus_instant"}]}""",

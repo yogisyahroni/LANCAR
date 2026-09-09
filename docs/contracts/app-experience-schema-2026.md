@@ -38,6 +38,7 @@ The component whitelist is:
 - `notice`
 - `spacer`
 - `campaign_intro` (launch-only; consumed after the native OS splash)
+- `design_tokens` (campaign presentation presets; never rendered as a UI component)
 
 `service_grid` may use `service_codes` for ordering/visibility and may also
 provide `cards` entries with a service `code`, presentation-only `subtitle`,
@@ -47,6 +48,21 @@ the authoritative enabled-service response before rendering or navigation.
 Each component has a strict property schema. Unknown components and unknown
 properties are rejected before publication. HTML, JavaScript/data URLs,
 arbitrary deep links, and protected transaction properties are rejected.
+
+`design_tokens` is an optional, non-rendered section for bounded campaign
+presentation theming. Its only properties are semantic presets:
+`accent_preset` (`brand`, `campaign_orange`, `campaign_blue`),
+`background_preset` (`surface`, `brand_soft`, `accent_soft`),
+`corner_preset` (`compact`, `standard`, `emphasized`),
+`spacing_preset` (`compact`, `standard`, `relaxed`), and
+`badge_preset` (`hidden`, `label`, `pill`). The server and Android client map
+these values to the packaged design system and enforce WCAG AA contrast of at
+least 4.5:1. Missing or unsupported values use the packaged defaults. Remote
+manifests cannot provide arbitrary colors, CSS, font families, font binaries,
+JavaScript, WebViews, or executable UI code. The customer Android client
+scopes these tokens to the dynamic dashboard campaign presentation; critical
+booking, payment, order, and tracking screens remain on the packaged theme and
+may explicitly opt out.
 
 `hero_banner` and `campaign_strip` are presentation-only banner components.
 They may carry a localized `title`, optional `body`, `badge`, `campaign_id`,

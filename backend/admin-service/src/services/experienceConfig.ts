@@ -22,7 +22,8 @@ export type ExperienceComponent =
   | 'quick_actions'
   | 'notice'
   | 'spacer'
-  | 'campaign_intro';
+  | 'campaign_intro'
+  | 'design_tokens';
 
 type JsonObject = Record<string, unknown>;
 type QueryResult<T = Record<string, unknown>> = { rows: T[] };
@@ -137,6 +138,56 @@ const serviceGridCardSchema = z.object({
   badge: text(32).optional(),
 }).strict();
 
+const runtimeDesignTokenPalette = {
+  accent: {
+    brand: { light: '#003A20', dark: '#1A7A4C', onLight: '#FFFFFF', onDark: '#F4F7F5' },
+    campaign_orange: { light: '#F97316', dark: '#FB923C', onLight: '#1A0E00', onDark: '#0B120E' },
+    campaign_blue: { light: '#2563EB', dark: '#60A5FA', onLight: '#FFFFFF', onDark: '#0B120E' },
+  },
+  background: {
+    surface: { light: '#FFFFFF', dark: '#142019', onLight: '#14211A', onDark: '#F4F7F5' },
+    brand_soft: { light: '#E8F5EE', dark: '#0D3322', onLight: '#14211A', onDark: '#F4F7F5' },
+    accent_soft: { light: '#FFF1E6', dark: '#3D2414', onLight: '#14211A', onDark: '#F4F7F5' },
+  },
+} as const;
+
+const relativeLuminance = (hex: string): number => {
+  const channels = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255);
+  const linear = channels.map((channel) => channel <= 0.03928
+    ? channel / 12.92
+    : ((channel + 0.055) / 1.055) ** 2.4);
+  return (0.2126 * linear[0]) + (0.7152 * linear[1]) + (0.0722 * linear[2]);
+};
+
+const contrastRatio = (foreground: string, background: string): number => {
+  const light = Math.max(relativeLuminance(foreground), relativeLuminance(background));
+  const dark = Math.min(relativeLuminance(foreground), relativeLuminance(background));
+  return (light + 0.05) / (dark + 0.05);
+};
+
+const designTokensSchema = z.object({
+  accent_preset: z.enum(['brand', 'campaign_orange', 'campaign_blue']).default('brand'),
+  background_preset: z.enum(['surface', 'brand_soft', 'accent_soft']).default('surface'),
+  corner_preset: z.enum(['compact', 'standard', 'emphasized']).default('standard'),
+  spacing_preset: z.enum(['compact', 'standard', 'relaxed']).default('standard'),
+  badge_preset: z.enum(['hidden', 'label', 'pill']).default('pill'),
+}).strict().superRefine((tokens, context) => {
+  const accent = runtimeDesignTokenPalette.accent[tokens.accent_preset];
+  const background = runtimeDesignTokenPalette.background[tokens.background_preset];
+  const ratios = [
+    contrastRatio(accent.onLight, accent.light),
+    contrastRatio(accent.onDark, accent.dark),
+    contrastRatio(background.onLight, background.light),
+    contrastRatio(background.onDark, background.dark),
+  ];
+  if (ratios.some((ratio) => ratio < 4.5)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Design token presets must preserve WCAG AA contrast of at least 4.5:1',
+    });
+  }
+});
+
 const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   hero_banner: z.object({
     campaign_id: identifier.optional(),
@@ -194,6 +245,7 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
     dismissible: z.boolean().default(true),
     skippable: z.boolean().default(true),
   }).strict(),
+  design_tokens: designTokensSchema,
 };
 
 const componentValues = new Set<string>(Object.keys(componentSchemas));
