@@ -55,6 +55,16 @@ data class ExperienceAssetReference(
     @SerialName("uri") val uri: String = "",
     @SerialName("kind") val kind: String = "",
     @SerialName("checksum") val checksum: String = "",
+    @SerialName("content_type") val contentType: String = "",
+    @SerialName("width") val width: Int? = null,
+    @SerialName("height") val height: Int? = null,
+    @SerialName("aspect_ratio") val aspectRatio: Double? = null,
+    @SerialName("size_limit_bytes") val sizeLimitBytes: Long = 5L * 1024L * 1024L,
+    @SerialName("version") val version: String = "1",
+    @SerialName("expires_at") val expiresAt: String? = null,
+    @SerialName("cache_policy") val cachePolicy: String = "private",
+    @SerialName("retention_until") val retentionUntil: String? = null,
+    @SerialName("fallback_asset_id") val fallbackAssetId: String? = null,
 )
 
 data class ExperienceConfigScope(
@@ -139,10 +149,22 @@ object ExperienceManifestValidator {
         if (!isInSchedule(manifest.startsAt, manifest.endsAt, nowMillis)) return null
         if (manifest.manifestId.isBlank() || manifest.revision < 1 || !sha256.matches(manifest.checksum)) return null
 
-        val assets = manifest.assetReferences.mapNotNull(::sanitizeAsset)
+        val assets = manifest.assetReferences.mapNotNull { sanitizeAsset(it, nowMillis) }
         if (assets.size != manifest.assetReferences.size) return null
         val assetIds = assets.map { it.assetId }.toSet()
         if (assetIds.size != assets.size) return null
+        if (assets.any { asset ->
+                val fallback = asset.fallbackAssetId
+                fallback != null && (fallback !in assetIds || fallback == asset.assetId)
+            }) return null
+        if (assets.any { asset ->
+                val fallback = asset.fallbackAssetId?.let { id -> assets.firstOrNull { it.assetId == id } }
+                fallback?.fallbackAssetId == asset.assetId
+            }) return null
+        if (assets.any { asset ->
+                val fallback = asset.fallbackAssetId?.let { id -> assets.firstOrNull { it.assetId == id } }
+                fallback != null && isImageFamily(asset.kind) != isImageFamily(fallback.kind)
+            }) return null
 
         val sections = manifest.sections.mapNotNull { section ->
             sanitizeSection(section, assetIds)
@@ -188,9 +210,23 @@ object ExperienceManifestValidator {
         return 0
     }
 
-    private fun sanitizeAsset(asset: ExperienceAssetReference): ExperienceAssetReference? {
+    private fun sanitizeAsset(asset: ExperienceAssetReference, nowMillis: Long): ExperienceAssetReference? {
         if (!identifier.matches(asset.assetId) || !sha256.matches(asset.checksum)) return null
         if (asset.kind !in setOf("image", "animation", "icon", "video")) return null
+        if (asset.sizeLimitBytes !in 1L..MAX_ASSET_BYTES) return null
+        if (asset.version.isBlank() || !asset.version.matches(VERSION)) return null
+        val contentType = asset.contentType.trim().lowercase(Locale.ROOT)
+        if (contentType.isNotEmpty() && contentType !in SUPPORTED_CONTENT_TYPES) return null
+        if (contentType.isNotEmpty() && asset.kind != "video" && !contentType.startsWith("image/")) return null
+        if (contentType.startsWith("image/") && asset.kind == "video") return null
+        if (contentType.startsWith("video/") && asset.kind != "video") return null
+        if ((asset.width == null) != (asset.height == null)) return null
+        if (asset.width != null && asset.height != null && (asset.width !in 1..4096 || asset.height !in 1..4096)) return null
+        if (asset.aspectRatio != null && (!asset.aspectRatio.isFinite() || asset.aspectRatio !in 0.1..20.0)) return null
+        val expiresAt = parseInstant(asset.expiresAt) ?: if (asset.expiresAt == null) null else return null
+        if (expiresAt != null && expiresAt <= nowMillis) return null
+        val retentionUntil = parseInstant(asset.retentionUntil) ?: if (asset.retentionUntil == null) null else return null
+        if (retentionUntil != null && expiresAt != null && retentionUntil < expiresAt) return null
         val uri = asset.uri.trim()
         val isLocalAsset = uri.startsWith("/assets/") && !uri.contains("..") && !uri.contains("//")
         // URI userInfo must be absent; keep this explicit to avoid credentials in asset URLs.
@@ -199,7 +235,13 @@ object ExperienceManifestValidator {
             parsed.scheme.equals("https", ignoreCase = true) && parsed.userInfo == null && parsed.host != null
         }.getOrDefault(false)
         if (!isLocalAsset && !httpsWithoutCredentials) return null
-        return asset.copy(assetId = asset.assetId.lowercase(Locale.ROOT), uri = uri)
+        return asset.copy(
+            assetId = asset.assetId.lowercase(Locale.ROOT),
+            uri = uri,
+            contentType = contentType,
+            cachePolicy = asset.cachePolicy.takeIf { it in CACHE_POLICIES } ?: "private",
+            fallbackAssetId = asset.fallbackAssetId?.lowercase(Locale.ROOT),
+        )
     }
 
     private fun sanitizeSection(section: ExperienceSection, assetIds: Set<String>): ExperienceSection? {
@@ -385,6 +427,17 @@ object ExperienceManifestValidator {
         if (!semver.matches(value)) return null
         return value.substringBefore('-').substringBefore('+').split('.').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 3 }
     }
+
+    private fun parseInstant(value: String?): Long? = value?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+
+    private fun isImageFamily(kind: String): Boolean = kind in setOf("image", "animation", "icon")
+
+    private const val MAX_ASSET_BYTES = 5L * 1024L * 1024L
+    private val VERSION = Regex("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
+    private val SUPPORTED_CONTENT_TYPES = setOf(
+        "image/avif", "image/gif", "image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm",
+    )
+    private val CACHE_POLICIES = setOf("no-store", "private", "public")
 }
 
 private const val CUSTOMER_ANDROID_SURFACE = ExperienceManifestValidator.CUSTOMER_ANDROID_SURFACE

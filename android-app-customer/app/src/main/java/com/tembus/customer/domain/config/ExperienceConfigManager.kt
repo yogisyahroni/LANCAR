@@ -1,11 +1,14 @@
 package com.tembus.customer.domain.config
 
+import android.content.Context
 import com.tembus.customer.data.config.ExperienceConfigRepository
 import com.tembus.customer.data.config.model.ExperienceConfigScope
 import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
 import com.tembus.customer.data.config.model.ExperienceConfigSource
 import com.tembus.customer.data.config.model.ExperienceManifestValidator
 import com.tembus.customer.data.session.AuthSessionManager
+import com.tembus.customer.worker.ExperienceAssetPrefetchWorker
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,6 +29,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class ExperienceConfigManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repository: ExperienceConfigRepository,
     private val sessionManager: AuthSessionManager,
 ) {
@@ -52,6 +56,7 @@ class ExperienceConfigManager @Inject constructor(
     fun start() {
         if (started) return
         started = true
+        ExperienceAssetPrefetchWorker.schedule(context)
         accountObserver = managerScope.launch {
             var previousUserId: String? = null
             sessionManager.customerId.distinctUntilChanged().collectLatest { userId ->

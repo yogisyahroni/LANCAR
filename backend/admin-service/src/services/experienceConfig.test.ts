@@ -128,6 +128,44 @@ describe('experience manifest contract', () => {
     expect(parsed.asset_references).toEqual([]);
   });
 
+  it('persists the asset delivery contract and rejects unsafe metadata', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome', image_asset_id: 'hero-image' } }],
+      asset_references: [{
+        asset_id: 'hero-image',
+        uri: '/assets/hero.webp',
+        kind: 'image',
+        checksum,
+        width: 1200,
+        height: 675,
+        size_limit_bytes: 250_000,
+        version: '2026-09-01',
+        expires_at: '2026-12-31T00:00:00.000Z',
+        cache_policy: 'public',
+      }],
+    });
+    expect(parsed.asset_references[0]).toMatchObject({
+      content_type: 'image/webp',
+      width: 1200,
+      height: 675,
+      aspect_ratio: 1200 / 675,
+      size_limit_bytes: 250_000,
+      version: '2026-09-01',
+      cache_policy: 'public',
+      fallback_asset_id: null,
+    });
+
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome', image_asset_id: 'hero-image' } }],
+      asset_references: [{
+        asset_id: 'hero-image', uri: 'https://cdn.example.com/hero.bin', kind: 'image', checksum,
+        content_type: 'application/octet-stream',
+      }],
+    })).toThrow(/content_type/);
+  });
+
   it('converts timezone-less schedule wall-clock values using the declared IANA timezone', () => {
     const parsed = parseExperienceManifestInput({
       ...validInput,
@@ -401,6 +439,34 @@ describe('experience manifest contract', () => {
     });
     const payloadB = payloadA.replace('"private"', '"private"');
     expect(payloadA).toBe(payloadB);
+
+    const assetPayload = canonicalExperienceManifestPayload({
+      manifest_id: manifestId,
+      revision: 1,
+      schema_version: 1,
+      market_code: 'id-jk',
+      locale: 'en-US',
+      surface: 'customer_android',
+      min_app_version: '1.0.0',
+      max_app_version: null,
+      starts_at: '2026-01-01T00:00:00.000Z',
+      ends_at: null,
+      schedule_timezone: 'Asia/Jakarta',
+      rollout_stage: 'public',
+      canary_cohort: null,
+      ttl_seconds: 300,
+      cache_policy: 'private',
+      targeting: {
+        cohorts: [], market_codes: [], city_codes: [], zone_codes: [], locales: [],
+        service_usage_cohorts: [], roles: [], experiment_assignments: [],
+      },
+      sections: [],
+      asset_references: [{
+        asset_id: 'hero', uri: '/assets/hero.webp', kind: 'image', checksum,
+        expires_at: new Date('2026-12-31T00:00:00.000Z'),
+      }],
+    });
+    expect(assetPayload).toContain('2026-12-31T00:00:00.000Z');
   });
 
   it('selects exactly one manifest by locale, targeting, and app range', () => {

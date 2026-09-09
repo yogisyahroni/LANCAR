@@ -26,6 +26,16 @@ export type ExperienceAsset = {
   uri: string
   kind: 'image' | 'animation' | 'icon' | 'video'
   checksum: string
+  content_type?: string
+  width?: number | null
+  height?: number | null
+  aspect_ratio?: number | null
+  size_limit_bytes?: number
+  version?: string
+  expires_at?: string | null
+  cache_policy?: 'no-store' | 'private' | 'public'
+  retention_until?: string | null
+  fallback_asset_id?: string | null
 }
 
 export type ExperienceManifest = {
@@ -148,6 +158,24 @@ const dateTimeForTimezone = (value: Date, timeZone: string) => {
   }
 }
 
+const defaultContentTypeForKind = (kind: ExperienceAsset['kind']) => kind === 'video'
+  ? 'video/mp4'
+  : kind === 'animation' ? 'image/gif' : 'image/webp'
+
+const normalizeAssetForForm = (asset: ExperienceAsset): ExperienceAsset => ({
+  ...asset,
+  content_type: asset.content_type || defaultContentTypeForKind(asset.kind),
+  width: asset.width ?? null,
+  height: asset.height ?? null,
+  aspect_ratio: asset.aspect_ratio ?? null,
+  size_limit_bytes: asset.size_limit_bytes ?? 5 * 1024 * 1024,
+  version: asset.version || '1',
+  expires_at: asset.expires_at ?? null,
+  cache_policy: asset.cache_policy || 'private',
+  retention_until: asset.retention_until ?? null,
+  fallback_asset_id: asset.fallback_asset_id ?? null,
+})
+
 export const defaultExperienceForm = (): ExperienceForm => ({
   schema_version: 1,
   market_code: 'id-jk',
@@ -184,7 +212,7 @@ export const formFromManifest = (manifest: ExperienceManifest): ExperienceForm =
   cache_policy: manifest.cache_policy,
   targeting: manifest.targeting,
   sections: manifest.sections,
-  asset_references: manifest.asset_references,
+  asset_references: manifest.asset_references.map(normalizeAssetForForm),
 })
 
 export const hasAudienceConstraints = (targeting: ExperienceTargeting) => Boolean(
@@ -223,5 +251,5 @@ export const formToPayload = (form: ExperienceForm) => ({
   cache_policy: form.cache_policy,
   targeting: form.targeting,
   sections: form.sections.map((section) => ({ ...section, properties: cleanedProperties(section.properties) })),
-  asset_references: form.asset_references,
+  asset_references: form.asset_references.map((asset) => normalizeAssetForForm(asset)),
 })

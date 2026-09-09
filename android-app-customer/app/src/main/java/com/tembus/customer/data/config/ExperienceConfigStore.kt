@@ -1,6 +1,9 @@
 package com.tembus.customer.data.config
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import android.net.ConnectivityManager
+import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -101,36 +104,53 @@ class ExperienceConfigStore @Inject constructor(
         revision: Int,
         assets: List<com.tembus.customer.data.config.model.ExperienceAssetReference>,
     ): String? = withContext(Dispatchers.IO) {
-        if (assets.isEmpty()) return@withContext "packaged"
+        val remoteAssets = assets.filterNot { it.uri.startsWith("/assets/") }
+        if (remoteAssets.isEmpty()) return@withContext "packaged"
         val root = File(context.filesDir, "experience-assets")
         if (!root.exists() && !root.mkdirs()) return@withContext null
-        val bundleKey = "${manifestId.take(24)}-$revision"
+        val protectedBundleKeys = setOfNotNull(
+            context.experienceConfigDataStore.data.first()[Keys.assetBundleKey],
+        )
+        cleanupAssetCache(root, protectedBundleKeys)
+        val preferFallback = preferFallbackForCurrentNetwork()
+        val assetsById = assets.associateBy { it.assetId }
+        val selectedAssets = remoteAssets.mapNotNull { asset ->
+            val fallback = asset.fallbackAssetId?.let(assetsById::get)
+            when {
+                preferFallback && fallback != null -> fallback
+                preferFallback -> null
+                else -> asset
+            }
+        }.distinctBy { it.assetId }
+        if (selectedAssets.isEmpty()) return@withContext "packaged"
+
+        val bundleKey = "${manifestId.take(24)}-$revision-${if (preferFallback) "lite" else "full"}"
         val committed = File(root, bundleKey)
         if (committed.isDirectory) return@withContext bundleKey
         val staging = File(root, ".staging-${UUID.randomUUID()}")
         if (!staging.mkdirs()) return@withContext null
         try {
-            assets.forEach { asset ->
-                if (asset.uri.startsWith("/assets/")) return@forEach
-                val request = Request.Builder().url(asset.uri).get().build()
-                httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) throw IllegalStateException("asset_http_${response.code}")
-                    val body = response.body ?: throw IllegalStateException("asset_body_missing")
-                    if (body.contentLength() > MAX_ASSET_BYTES) throw IllegalStateException("asset_too_large")
-                    val bytes = body.bytes()
-                    if (bytes.size > MAX_ASSET_BYTES) throw IllegalStateException("asset_too_large")
-                    val digest = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
-                    if (!digest.equals(asset.checksum, ignoreCase = true)) throw IllegalStateException("asset_checksum_mismatch")
-                    val partial = File(staging, "${asset.assetId}.partial")
-                    val target = File(staging, asset.assetId)
-                    partial.outputStream().use { it.write(bytes) }
-                    if (!partial.renameTo(target)) throw IllegalStateException("asset_atomic_rename_failed")
+            remoteAssets.forEach { asset ->
+                val fallback = asset.fallbackAssetId?.let(assetsById::get)
+                val selected = if (preferFallback) fallback else asset
+                if (selected == null) return@forEach
+                try {
+                    downloadAsset(selected, staging)
+                } catch (primaryFailure: Exception) {
+                    if (preferFallback || fallback == null) throw primaryFailure
+                    downloadAsset(fallback, staging)
                 }
             }
+            File(staging, RETENTION_MARKER).writeText(
+                retentionUntilFor(assets, System.currentTimeMillis()).toString(),
+                Charsets.UTF_8,
+            )
             if (committed.exists()) committed.deleteRecursively()
             if (!staging.renameTo(committed)) throw IllegalStateException("asset_bundle_atomic_rename_failed")
+            committed.setLastModified(System.currentTimeMillis())
             bundleKey
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            Log.w(TAG, "Experience asset staging failed manifest=$manifestId revision=$revision reason=${error.javaClass.simpleName}")
             staging.deleteRecursively()
             null
         }
@@ -154,26 +174,72 @@ class ExperienceConfigStore @Inject constructor(
     suspend fun resolveAssetPath(
         bundleKey: String?,
         asset: com.tembus.customer.data.config.model.ExperienceAssetReference,
+        fallback: com.tembus.customer.data.config.model.ExperienceAssetReference? = null,
     ): String? = withContext(Dispatchers.IO) {
-        if (!isSafeAssetId(asset.assetId)) return@withContext null
+        if (isExpired(asset)) return@withContext null
+        val preferFallback = preferFallbackForCurrentNetwork()
+        val preferred = if (preferFallback) fallback else asset
+        resolveAssetDirect(bundleKey, preferred)?.let { return@withContext it }
+        if (preferred != fallback) resolveAssetDirect(bundleKey, fallback) else null
+    }
+
+    private fun resolveAssetDirect(
+        bundleKey: String?,
+        asset: com.tembus.customer.data.config.model.ExperienceAssetReference?,
+    ): String? {
+        if (asset == null || !isSafeAssetId(asset.assetId) || isExpired(asset)) return null
         if (asset.uri.startsWith("/assets/")) {
             val packagedPath = asset.uri.removePrefix("/assets/")
-            if (packagedPath.isBlank() || packagedPath.contains("..") || packagedPath.contains("//")) {
-                return@withContext null
-            }
-            return@withContext verifyAssetStream(
+            if (packagedPath.isBlank() || packagedPath.contains("..") || packagedPath.contains("//")) return null
+            return verifyAssetStream(
                 open = { context.assets.open(packagedPath) },
-                expectedChecksum = asset.checksum,
+                asset = asset,
             ).takeIf { it == true }?.let { "file:///android_asset/$packagedPath" }
         }
 
-        val bundle = bundleDirectory(bundleKey) ?: return@withContext null
+        val bundle = bundleDirectory(bundleKey) ?: return null
         val file = File(bundle, asset.assetId)
-        if (!file.isFile) return@withContext null
-        verifyAssetStream(
-            open = { file.inputStream() },
-            expectedChecksum = asset.checksum,
-        ).takeIf { it == true }?.let { file.absolutePath }
+        if (!file.isFile) return null
+        return verifyAssetFile(file, asset).takeIf { it }?.let { file.absolutePath }
+    }
+
+    private fun downloadAsset(
+        asset: com.tembus.customer.data.config.model.ExperienceAssetReference,
+        staging: File,
+    ) {
+        if (asset.uri.startsWith("/assets/")) return
+        val request = Request.Builder().url(asset.uri).get().build()
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IllegalStateException("asset_http_${response.code}")
+            val body = response.body ?: throw IllegalStateException("asset_body_missing")
+            val maxBytes = asset.sizeLimitBytes.coerceIn(1L, MAX_ASSET_BYTES)
+            if (body.contentLength() > maxBytes) throw IllegalStateException("asset_too_large")
+            val contentType = body.contentType()?.toString()?.substringBefore(';')?.trim()?.lowercase()
+            if (!ExperienceAssetDeliveryPolicy.contentTypeMatches(asset.kind, asset.contentType, contentType)) {
+                throw IllegalStateException("asset_content_type_mismatch")
+            }
+            val partial = File(staging, "${asset.assetId}.partial")
+            try {
+                body.byteStream().use { input ->
+                    partial.outputStream().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var total = 0L
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            if (total > maxBytes) throw IllegalStateException("asset_too_large")
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+                if (!verifyAssetFile(partial, asset)) throw IllegalStateException("asset_integrity_mismatch")
+                val target = File(staging, asset.assetId)
+                if (!partial.renameTo(target)) throw IllegalStateException("asset_atomic_rename_failed")
+            } finally {
+                if (partial.exists()) partial.delete()
+            }
+        }
     }
 
     private fun bundleDirectory(bundleKey: String?): File? {
@@ -185,29 +251,98 @@ class ExperienceConfigStore @Inject constructor(
 
     private fun verifyAssetStream(
         open: () -> java.io.InputStream,
-        expectedChecksum: String,
+        asset: com.tembus.customer.data.config.model.ExperienceAssetReference,
     ): Boolean? = runCatching {
         val digest = MessageDigest.getInstance("SHA-256")
         var total = 0L
+        val maxBytes = asset.sizeLimitBytes.coerceIn(1L, MAX_ASSET_BYTES)
         open().use { input ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             while (true) {
                 val count = input.read(buffer)
                 if (count < 0) break
                 total += count
-                if (total > MAX_ASSET_BYTES) return@runCatching false
+                if (!ExperienceAssetDeliveryPolicy.withinByteLimit(total, maxBytes)) return@runCatching false
                 digest.update(buffer, 0, count)
             }
         }
-        digest.digest().toHex().equals(expectedChecksum, ignoreCase = true)
+        digest.digest().toHex().equals(asset.checksum, ignoreCase = true)
     }.getOrNull()
+
+    private fun verifyAssetFile(
+        file: File,
+        asset: com.tembus.customer.data.config.model.ExperienceAssetReference,
+    ): Boolean {
+        if (!file.isFile || !ExperienceAssetDeliveryPolicy.withinByteLimit(file.length(), asset.sizeLimitBytes)) return false
+        val verified = verifyAssetStream({ file.inputStream() }, asset) == true
+        if (!verified || asset.width == null || asset.height == null || asset.kind == "video") return verified
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+        if (options.outWidth <= 0 || options.outHeight <= 0) return false
+        return ExperienceAssetDeliveryPolicy.dimensionsMatch(
+            width = options.outWidth,
+            height = options.outHeight,
+            expectedWidth = asset.width,
+            expectedHeight = asset.height,
+            expectedAspectRatio = asset.aspectRatio,
+        )
+    }
+
+    private fun preferFallbackForCurrentNetwork(): Boolean {
+        val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val dataSaverEnabled = connectivity.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+        return ExperienceAssetPrefetchPolicy.shouldPreferFallback(connectivity.isActiveNetworkMetered, dataSaverEnabled)
+    }
+
+    private fun isExpired(asset: com.tembus.customer.data.config.model.ExperienceAssetReference): Boolean =
+        asset.expiresAt?.let { expiresAt -> runCatching { java.time.Instant.parse(expiresAt).toEpochMilli() <= System.currentTimeMillis() }.getOrDefault(true) } == true
+
+    private fun cleanupAssetCache(root: File, protectedBundleKeys: Set<String>) {
+        val now = System.currentTimeMillis()
+        val entries = root.listFiles().orEmpty()
+        entries.filter { it.isDirectory && it.name.startsWith(".staging-") }
+            .filter { now - it.lastModified() > STAGING_RETENTION_MILLIS }
+            .forEach { it.deleteRecursively() }
+
+        val bundles = root.listFiles().orEmpty().filter { it.isDirectory && !it.name.startsWith(".") }
+        bundles.filter { it.name !in protectedBundleKeys && now >= retentionUntilFor(it) }
+            .forEach { it.deleteRecursively() }
+
+        var totalBytes = bundles.filter { it.exists() }.sumOf(::directorySize)
+        if (totalBytes <= MAX_ASSET_CACHE_BYTES) return
+        bundles.filter { it.exists() && it.name !in protectedBundleKeys }
+            .sortedBy(File::lastModified)
+            .forEach { bundle ->
+                if (totalBytes <= MAX_ASSET_CACHE_BYTES) return@forEach
+                val size = directorySize(bundle)
+                if (bundle.deleteRecursively()) totalBytes -= size
+            }
+    }
+
+    private fun directorySize(directory: File): Long = directory.walkTopDown().filter(File::isFile).sumOf(File::length)
+
+    private fun retentionUntilFor(
+        assets: List<com.tembus.customer.data.config.model.ExperienceAssetReference>,
+        nowMillis: Long,
+    ): Long = assets.mapNotNull { asset ->
+        asset.retentionUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+    }.maxOrNull() ?: (nowMillis + ASSET_RETENTION_MILLIS)
+
+    private fun retentionUntilFor(bundle: File): Long =
+        File(bundle, RETENTION_MARKER).takeIf(File::isFile)?.readText()?.trim()?.toLongOrNull()
+            ?: (bundle.lastModified() + ASSET_RETENTION_MILLIS)
 
     private fun isSafeAssetId(value: String): Boolean = value.matches(SAFE_ASSET_ID)
 
     private companion object {
+        const val TAG = "ExperienceAssetStore"
         val SAFE_BUNDLE_KEY = Regex("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
         val SAFE_ASSET_ID = Regex("^[a-z0-9][a-z0-9._-]{0,127}$")
-        const val MAX_ASSET_BYTES = 5 * 1024 * 1024
+        const val MAX_ASSET_BYTES = ExperienceAssetDeliveryPolicy.MAX_ASSET_BYTES
+        const val MAX_ASSET_CACHE_BYTES = 50L * 1024L * 1024L
+        const val ASSET_RETENTION_MILLIS = 30L * 24L * 60L * 60L * 1000L
+        const val STAGING_RETENTION_MILLIS = 24L * 60L * 60L * 1000L
+        const val RETENTION_MARKER = ".retention_until"
     }
 
     suspend fun readTargetingAssignment(userId: String?): StoredTargetingAssignment? {

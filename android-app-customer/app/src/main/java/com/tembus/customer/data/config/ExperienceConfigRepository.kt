@@ -69,7 +69,10 @@ class ExperienceConfigRepository @Inject constructor(
         }
     }
 
-    suspend fun refresh(scope: ExperienceConfigScope): ExperienceConfigSnapshot {
+    suspend fun refresh(
+        scope: ExperienceConfigScope,
+        forceNetwork: Boolean = false,
+    ): ExperienceConfigSnapshot {
         val cached = store.readCachedManifest()
         val cachedManifest = cachedManifestFor(cached, scope)
         val cachedSnapshot = if (cachedManifest != null && cached != null) {
@@ -90,7 +93,7 @@ class ExperienceConfigRepository @Inject constructor(
             )
         }
 
-        if (cachedManifest != null && cached != null && isFresh(cachedManifest, cached.storedAtMillis)) {
+        if (!forceNetwork && cachedManifest != null && cached != null && isFresh(cachedManifest, cached.storedAtMillis)) {
             return cachedSnapshot
         }
 
@@ -119,7 +122,7 @@ class ExperienceConfigRepository @Inject constructor(
                             store.stageAssetsAtomically(
                                 manifestId = sanitized.manifestId,
                                 revision = sanitized.revision,
-                                assets = sanitized.assetReferences,
+                                assets = ExperienceAssetPrefetchPolicy.eligibleAssets(sanitized),
                             )
                         }
                     }.getOrNull()
@@ -164,7 +167,10 @@ class ExperienceConfigRepository @Inject constructor(
     ): String? {
         val reference = snapshot.manifest.assetReferences.firstOrNull { it.assetId == assetId }
             ?: return null
-        return store.resolveAssetPath(snapshot.assetBundleKey, reference)
+        val fallback = reference.fallbackAssetId?.let { fallbackId ->
+            snapshot.manifest.assetReferences.firstOrNull { it.assetId == fallbackId }
+        }
+        return store.resolveAssetPath(snapshot.assetBundleKey, reference, fallback)
     }
 
     fun setMarketCode(marketCode: String) {

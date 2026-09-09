@@ -231,6 +231,19 @@ const safeExternalUrl = z.string().trim().max(2048).refine((value) => {
   }
 }, 'External URL must be HTTPS on an allowlisted first-party host');
 
+const MAX_EXPERIENCE_ASSET_BYTES = 5 * 1024 * 1024;
+const EXPERIENCE_ASSET_CONTENT_TYPES = new Set([
+  'image/avif',
+  'image/gif',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'video/mp4',
+  'video/webm',
+]);
+const EXPERIENCE_ASSET_CACHE_POLICIES = ['no-store', 'private', 'public'] as const;
+const experienceAssetVersion = z.string().trim().max(64).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/);
+
 const targetingSchema = z.object({
   cohorts: z.array(identifier).max(50).default([]),
   market_codes: z.array(identifier).max(50).default([]),
@@ -263,7 +276,40 @@ const assetReferenceSchema = z.object({
   uri: safeResourceUri,
   kind: z.enum(['image', 'animation', 'icon', 'video']),
   checksum: z.string().trim().regex(SHA256),
-}).strict();
+  content_type: z.string().trim().toLowerCase().optional(),
+  width: z.coerce.number().int().min(1).max(4096).nullable().optional(),
+  height: z.coerce.number().int().min(1).max(4096).nullable().optional(),
+  aspect_ratio: z.coerce.number().finite().min(0.1).max(20).nullable().optional(),
+  size_limit_bytes: z.coerce.number().int().min(1).max(MAX_EXPERIENCE_ASSET_BYTES).optional(),
+  version: experienceAssetVersion.optional(),
+  expires_at: z.coerce.date().nullable().optional(),
+  cache_policy: z.enum(EXPERIENCE_ASSET_CACHE_POLICIES).optional(),
+  retention_until: z.coerce.date().nullable().optional(),
+  fallback_asset_id: identifier.nullable().optional(),
+}).strict().superRefine((asset, context) => {
+  if (asset.content_type && !EXPERIENCE_ASSET_CONTENT_TYPES.has(asset.content_type)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['content_type'], message: 'Asset content_type is not allowlisted' });
+  }
+  if (asset.content_type && ['image', 'animation', 'icon'].includes(asset.kind) && !asset.content_type.startsWith('image/')) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['content_type'], message: `${asset.kind} assets must use an image content type` });
+  }
+  if (asset.content_type?.startsWith('image/') && asset.kind === 'video') {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['content_type'], message: 'Video assets must use a video content type' });
+  }
+  if (asset.content_type?.startsWith('video/') && asset.kind !== 'video') {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['content_type'], message: 'Video content_type requires kind=video' });
+  }
+  if ((asset.width == null) !== (asset.height == null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['width'], message: 'width and height must be provided together' });
+  }
+  if (asset.width && asset.height && asset.aspect_ratio
+    && Math.abs((asset.width / asset.height) - asset.aspect_ratio) > 0.02) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['aspect_ratio'], message: 'aspect_ratio must match declared dimensions' });
+  }
+  if (asset.retention_until && asset.expires_at && asset.retention_until.getTime() < asset.expires_at.getTime()) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['retention_until'], message: 'retention_until must not precede expires_at' });
+  }
+});
 
 const ctaFields = {
   cta_label: text(80).optional(),
@@ -629,6 +675,28 @@ const parseAssets = (value: unknown): ExperienceAssetReference[] => {
   });
 };
 
+const defaultAssetContentType = (kind: ExperienceAssetReference['kind']): string => {
+  if (kind === 'video') return 'video/mp4';
+  if (kind === 'animation') return 'image/gif';
+  return 'image/webp';
+};
+
+// New revisions persist a complete asset delivery contract. Reads remain
+// backwards compatible with older JSONB rows whose optional metadata is absent.
+const normalizeAssetReferencesForInput = (assets: ExperienceAssetReference[]): ExperienceAssetReference[] => assets.map((asset) => ({
+  ...asset,
+  content_type: asset.content_type || defaultAssetContentType(asset.kind),
+  width: asset.width ?? null,
+  height: asset.height ?? null,
+  aspect_ratio: asset.aspect_ratio ?? (asset.width && asset.height ? asset.width / asset.height : null),
+  size_limit_bytes: asset.size_limit_bytes ?? MAX_EXPERIENCE_ASSET_BYTES,
+  version: asset.version || '1',
+  expires_at: asset.expires_at ?? null,
+  cache_policy: asset.cache_policy || 'private',
+  retention_until: asset.retention_until ?? null,
+  fallback_asset_id: asset.fallback_asset_id ?? null,
+}));
+
 const parseUuid = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !UUID.test(value.trim())) {
     throw new ExperienceManifestError('INVALID_EXPERIENCE_MANIFEST_ID', 400, `${field} must be a UUID`);
@@ -673,7 +741,7 @@ const parseInput = (body: unknown): ExperienceManifestInput => {
     canary_cohort: canaryCohort,
     targeting: parseTargeting(input.targeting),
     sections: parseSections(input.sections),
-    asset_references: parseAssets(input.asset_references),
+    asset_references: normalizeAssetReferencesForInput(parseAssets(input.asset_references)),
   };
   rejectProtectedKeys({ targeting: normalized.targeting, sections: normalized.sections, asset_references: normalized.asset_references });
   validateAssetReferences(normalized.sections, normalized.asset_references);
@@ -697,6 +765,36 @@ const validateAssetReferences = (sections: ExperienceSection[], assets: Experien
   const missing = Array.from(referenced).filter((id) => !assetIds.has(id));
   if (missing.length > 0) {
     throw new ExperienceManifestError('EXPERIENCE_ASSET_NOT_DECLARED', 400, `Referenced assets are missing: ${missing.join(', ')}`);
+  }
+  const invalidFallback = assets.find((asset) => asset.fallback_asset_id && (
+    asset.fallback_asset_id === asset.asset_id || !assetIds.has(asset.fallback_asset_id)
+  ));
+  if (invalidFallback) {
+    throw new ExperienceManifestError(
+      'EXPERIENCE_ASSET_FALLBACK_NOT_DECLARED',
+      400,
+      `Fallback asset for '${invalidFallback.asset_id}' must reference another declared asset`,
+    );
+  }
+  const incompatibleFallback = assets.find((asset) => {
+    const fallback = asset.fallback_asset_id ? assets.find((candidate) => candidate.asset_id === asset.fallback_asset_id) : null;
+    if (!fallback) return false;
+    const imageFamily = new Set(['image', 'animation', 'icon']);
+    return imageFamily.has(asset.kind) !== imageFamily.has(fallback.kind);
+  });
+  if (incompatibleFallback) {
+    throw new ExperienceManifestError(
+      'EXPERIENCE_ASSET_FALLBACK_KIND_MISMATCH',
+      400,
+      `Fallback asset for '${incompatibleFallback.asset_id}' must use the same media family`,
+    );
+  }
+  const fallbackCycle = assets.some((asset) => {
+    const fallback = asset.fallback_asset_id ? assets.find((candidate) => candidate.asset_id === asset.fallback_asset_id) : null;
+    return Boolean(fallback?.fallback_asset_id === asset.asset_id);
+  });
+  if (fallbackCycle) {
+    throw new ExperienceManifestError('EXPERIENCE_ASSET_FALLBACK_CYCLE', 400, 'Asset fallbacks must not form a cycle');
   }
 };
 
@@ -731,6 +829,7 @@ export const compareSemanticVersions = (left: string, right: string): number => 
 
 const canonicalize = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(canonicalize);
+  if (value instanceof Date) return value.toISOString();
   if (!value || typeof value !== 'object') return value;
   return Object.keys(value as JsonObject).sort().reduce<JsonObject>((result, key) => {
     result[key] = canonicalize((value as JsonObject)[key]);

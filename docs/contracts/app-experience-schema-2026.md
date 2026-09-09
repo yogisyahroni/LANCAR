@@ -35,7 +35,14 @@ Each logical `manifest_id` has immutable revisions. A revision contains:
   `service_usage_cohorts`, `user_status` (`new`/`existing`), `roles`,
   `cohorts`, `experiment_ref`, and `experiment_assignments`.
 - `sections` using only the precompiled component whitelist.
-- `asset_references` with HTTPS or `/assets/` URIs and SHA-256 checksums.
+- `asset_references` with HTTPS or `/assets/` URIs and SHA-256 checksums. Remote
+  assets use a CDN/object-storage URL only; bucket credentials are never sent to
+  the app. Each new reference records `content_type`, optional pixel
+  `width`/`height` and `aspect_ratio`, `size_limit_bytes` (maximum 5 MiB),
+  immutable `version`, optional `expires_at`, `cache_policy`, and
+  `retention_until`. An optional `fallback_asset_id` identifies a lighter
+  image/animation for metered or data-saver networks and must point to another
+  declared asset without forming a cycle.
 - server-generated `checksum` and optional HMAC `signature`.
 - audit fields `published_at` and `published_by`.
 - internal lifecycle fields `requires_approval`, `approval_status`, and the
@@ -170,3 +177,20 @@ identity or client-supplied price/promo eligibility.
   correlation ID in the audit trail.
 - Rollback changes the active revision pointer/state only; it never edits the
   historical payload.
+
+## Asset delivery and lifecycle
+
+The Android client verifies the HTTPS response content type, declared byte
+limit, SHA-256 checksum, and declared image dimensions/aspect ratio before an
+asset is atomically committed. It keeps the manifest and its asset bundle as a
+single LKG envelope, uses bounded disk storage, and retains superseded bundles
+for the manifest retention window so rollback or an already-cached revision
+continues to render safely. Old temporary staging directories are cleaned up
+after 24 hours.
+
+Asset prefetch runs in a Wi-Fi constrained WorkManager job. The eligibility
+policy selects only assets referenced by the audience-scoped manifest that is
+active or starts within the next 24 hours; unreferenced campaign assets are
+never downloaded globally. On a metered or data-saver network the client uses
+the declared fallback, or skips the campaign when no verified lighter asset is
+available.
