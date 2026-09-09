@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test';
 const adminE2EEnabled = process.env.ADMIN_E2E === 'true';
 const manifestId = '11111111-1111-4111-8111-111111111111';
 
-const baseManifest = (overrides: Record<string, unknown> = {}) => ({
+type AdminE2EManifest = Record<string, unknown>;
+
+const baseManifest = (overrides: Partial<AdminE2EManifest> = {}): AdminE2EManifest => ({
   id: '33333333-3333-4333-8333-333333333333',
   manifest_id: manifestId,
   revision: 2,
