@@ -2715,11 +2715,11 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `checkout_gate`: stop new checkout/payment initiation safely when explicitly required.
 
 **Checklist**
-- [ ] Active orders, tracking, proof, support and refund/recovery entry remain reachable when discovery/new-order entry is disabled.
-- [ ] Admin UI explains blast radius before execution and requires reason.
-- [ ] High-impact kill switch supports expiry/auto-revert or explicit review time where useful.
-- [ ] Business backend still validates service/provider availability; hiding UI is not the sole enforcement.
-- [ ] Kill-switch action emits high-severity audit/notification to appropriate ops channel/dashboard.
+- [x] Active orders, tracking, proof, support and refund/recovery entry remain reachable when discovery/new-order entry is disabled. Evidence: `docs/task-evidence/ADMEXP-2026-008.md`
+- [x] Admin UI explains blast radius before execution and requires reason. Evidence: `docs/task-evidence/ADMEXP-2026-008.md`
+- [x] High-impact kill switch supports expiry/auto-revert or explicit review time where useful. Evidence: `docs/task-evidence/ADMEXP-2026-008.md`
+- [x] Business backend still validates service/provider availability; hiding UI is not the sole enforcement. Evidence: `docs/task-evidence/ADMEXP-2026-008.md`
+- [x] Kill-switch action emits high-severity audit/notification to appropriate ops channel/dashboard. Evidence: `docs/task-evidence/ADMEXP-2026-008.md`
 
 ---
 
