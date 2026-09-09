@@ -2745,12 +2745,12 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - percentage rollout bucket
 
 **Checklist**
-- [ ] Complex targeting resolves server-side; browser/client does not receive unnecessary sensitive rule data.
-- [ ] Sensitive personal attributes are unavailable in marketing targeting UI.
-- [ ] Start/end schedule always shows effective timezone and converted admin-local preview.
-- [ ] Conflict detector warns when two active campaigns compete for the same exclusive placement.
-- [ ] Default/fallback audience/config is visible before publish.
-- [ ] Preview can simulate at least one matching and one non-matching audience case.
+- [x] Complex targeting resolves server-side; browser/client does not receive unnecessary sensitive rule data. Evidence: `docs/task-evidence/ADMEXP-2026-009.md`
+- [x] Sensitive personal attributes are unavailable in marketing targeting UI. Evidence: `docs/task-evidence/ADMEXP-2026-009.md`
+- [x] Start/end schedule always shows effective timezone and converted admin-local preview. Evidence: `docs/task-evidence/ADMEXP-2026-009.md`
+- [x] Conflict detector warns when two active campaigns compete for the same exclusive placement. Evidence: `docs/task-evidence/ADMEXP-2026-009.md`
+- [x] Default/fallback audience/config is visible before publish. Evidence: `docs/task-evidence/ADMEXP-2026-009.md`
+- [x] Preview can simulate at least one matching and one non-matching audience case. Evidence: `docs/task-evidence/ADMEXP-2026-009.md`
 
 ---
 
