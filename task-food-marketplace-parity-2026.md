@@ -2164,12 +2164,12 @@ A task is complete only when applicable boxes below are true:
 ## APP-2026-008 — Safe audience targeting and scheduling [P0/P1]
 
 **Checklist**
-- [ ] Targeting may use market, city/zone, locale, app version, service usage cohort, new/existing user, merchant/courier role and explicit experiment assignment.
-- [ ] Targeting rules have start/end timezone-aware schedule.
-- [ ] Do not use sensitive personal attributes for marketing targeting.
-- [ ] Server resolves complex targeting; client should not receive unnecessary audience-rule data.
-- [ ] Preview tool can simulate market/version/cohort before publish.
-- [ ] Default/fallback audience always defined.
+- [x] Targeting may use market, city/zone, locale, app version, service usage cohort, new/existing user, merchant/courier role and explicit experiment assignment. Evidence: `docs/task-evidence/APP-2026-008.md`.
+- [x] Targeting rules have start/end timezone-aware schedule. Evidence: `docs/task-evidence/APP-2026-008.md`.
+- [x] Do not use sensitive personal attributes for marketing targeting. Evidence: `docs/task-evidence/APP-2026-008.md`.
+- [x] Server resolves complex targeting; client should not receive unnecessary audience-rule data. Evidence: `docs/task-evidence/APP-2026-008.md`.
+- [x] Preview tool can simulate market/version/cohort before publish. Evidence: `docs/task-evidence/APP-2026-008.md`.
+- [x] Default/fallback audience always defined. Evidence: `docs/task-evidence/APP-2026-008.md`.
 
 ---
 
