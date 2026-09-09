@@ -20,6 +20,9 @@ interface FeatureFlag {
   description?: string | null
   category?: string | null
   is_enabled: boolean
+  require_checklist?: boolean
+  config?: Record<string, unknown> | null
+  evaluation_revision?: number | string | null
   updated_at?: string | null
   updated_by_name?: string | null
 }
@@ -32,6 +35,7 @@ export default function FeatureFlags() {
   const [search, setSearch] = useState('')
   const [toggleTarget, setToggleTarget] = useState<FeatureFlag | null>(null)
   const [reason, setReason] = useState('')
+  const [rollbackPlan, setRollbackPlan] = useState('')
 
   const flagsQuery = useQuery({
     queryKey: ['feature-flags'],
@@ -52,8 +56,8 @@ export default function FeatureFlags() {
   })
 
   const toggleMutation = useMutation({
-    mutationFn: async ({ key, nextEnabled, reason }: { key: string; nextEnabled: boolean; reason: string }) => {
-      return api.patch(`/admin/feature-flags/${key}/toggle`, { new_enabled: nextEnabled, reason })
+    mutationFn: async ({ key, nextEnabled, reason, rollbackPlan }: { key: string; nextEnabled: boolean; reason: string; rollbackPlan: string }) => {
+      return api.patch(`/admin/feature-flags/${key}/toggle`, { new_enabled: nextEnabled, reason, rollback_plan: rollbackPlan || undefined })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feature-flags'] })
@@ -61,6 +65,7 @@ export default function FeatureFlags() {
       toast.success('Feature flag diperbarui')
       setToggleTarget(null)
       setReason('')
+      setRollbackPlan('')
     },
     onError: (error: any) => {
       toast.error(flagErrorMessage(error, 'Gagal memperbarui feature flag'))
@@ -95,10 +100,21 @@ export default function FeatureFlags() {
       toast.error('Alasan perubahan wajib diisi')
       return
     }
+    const highBlast = Boolean(
+      toggleTarget.require_checklist ||
+      toggleTarget.config?.high_blast_radius === true ||
+      ['authorization', 'financial', 'payment', 'pricing', 'risk', 'routing', 'security', 'settlement', 'system'].includes((toggleTarget.category || '').toLowerCase()) ||
+      ['require_payment_gateway', 'dynamic_pricing_peak_hour', 'dynamic_pricing_demand_supply', 'multi_zone_courier', 'model_p2p', 'model_two_legs', 'model_three_legs', 'three_legs_relay'].includes(toggleTarget.key),
+    )
+    if (highBlast && rollbackPlan.trim().length < 20) {
+      toast.error('Rollback plan minimal 20 karakter wajib untuk flag high-blast-radius')
+      return
+    }
     toggleMutation.mutate({
       key: toggleTarget.key,
       nextEnabled: !toggleTarget.is_enabled,
       reason: reason.trim(),
+      rollbackPlan: rollbackPlan.trim(),
     })
   }
 
@@ -187,6 +203,7 @@ export default function FeatureFlags() {
                           onClick={() => {
                             setToggleTarget(flag)
                             setReason('')
+                            setRollbackPlan('')
                           }}
                           role="switch"
                           aria-checked={flag.is_enabled}
@@ -312,6 +329,19 @@ export default function FeatureFlags() {
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Contoh: rollout bertahap payment gateway baru..."
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                />
+              </div>
+              <div className="mt-5 space-y-2">
+                <label htmlFor="ff-rollback-plan" className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                  Rollback Plan {toggleTarget.require_checklist ? '(wajib)' : '(wajib untuk high-blast flag)'}
+                </label>
+                <textarea
+                  id="ff-rollback-plan"
+                  rows={3}
+                  value={rollbackPlan}
+                  onChange={(e) => setRollbackPlan(e.target.value)}
+                  placeholder="Contoh: kembalikan flag ke off, verifikasi active-order recovery, lalu pantau error rate..."
                   className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
                 />
               </div>

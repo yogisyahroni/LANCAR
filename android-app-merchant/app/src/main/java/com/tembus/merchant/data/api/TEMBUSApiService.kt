@@ -4,12 +4,16 @@ import com.tembus.merchant.data.model.*
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
+import com.google.gson.JsonElement
 
 /**
  * TEMBUS Merchant API — semua endpoint merchant-service yang sudah LIVE di staging.
  * Base URL dari BuildConfig (gateway: api.bawain.my.id/api/v1).
  */
 interface TEMBUSApiService {
+
+    @GET("api/v1/mobile/feature-flags")
+    suspend fun getFeatureFlags(): Response<JsonElement>
 
     // ── System (auto-update) ──
     @GET("api/v1/system/latest-version")

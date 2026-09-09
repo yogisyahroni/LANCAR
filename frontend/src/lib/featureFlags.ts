@@ -5,6 +5,7 @@ export type FeatureFlagVariant = string | number | boolean;
 export interface FeatureFlagState {
   enabled: boolean;
   variant: FeatureFlagVariant | null;
+  evaluation_revision: number;
 }
 
 export type FeatureFlagStateMap = Record<string, FeatureFlagState>;
@@ -40,6 +41,11 @@ const asVariant = (value: unknown): FeatureFlagVariant | null => {
   return null;
 };
 
+const asRevision = (value: unknown): number => {
+  const revision = typeof value === 'number' ? value : Number(value);
+  return Number.isSafeInteger(revision) && revision > 0 ? revision : 1;
+};
+
 const normalizeEntry = (raw: Record<string, unknown>): FeatureFlagState => {
   let enabled = asBoolean(raw.is_enabled);
   if (enabled === null) enabled = asBoolean(raw.enabled);
@@ -60,10 +66,11 @@ const normalizeEntry = (raw: Record<string, unknown>): FeatureFlagState => {
   return {
     enabled: enabled ?? false,
     variant,
+    evaluation_revision: asRevision(raw.evaluation_revision),
   };
 };
 
-const normalizeFlagsPayload = (payload: unknown): FeatureFlagStateMap => {
+export const normalizeFlagsPayload = (payload: unknown): FeatureFlagStateMap => {
   const result: FeatureFlagStateMap = {};
 
   const consumeRow = (key: unknown, value: unknown) => {
@@ -77,6 +84,7 @@ const normalizeFlagsPayload = (payload: unknown): FeatureFlagStateMap => {
     result[key] = {
       enabled: primitiveEnabled ?? false,
       variant: primitiveVariant,
+      evaluation_revision: 1,
     };
   };
 
@@ -91,6 +99,11 @@ const normalizeFlagsPayload = (payload: unknown): FeatureFlagStateMap => {
   if (!payload || typeof payload !== 'object') return result;
 
   const record = payload as Record<string, unknown>;
+  // Public API responses are enveloped as { success, data: { flags } }.
+  // Unwrap the transport envelope before treating entries as flags.
+  if (record.data && typeof record.data === 'object' && !Array.isArray(record.data)) {
+    return normalizeFlagsPayload(record.data);
+  }
   if (record.flags && typeof record.flags === 'object') {
     if (Array.isArray(record.flags)) {
       return normalizeFlagsPayload(record.flags);

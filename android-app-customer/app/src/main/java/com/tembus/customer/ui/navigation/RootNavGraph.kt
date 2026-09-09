@@ -62,6 +62,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.tembus.customer.data.model.NotificationRealtimeEvent
 import com.tembus.customer.data.session.SessionInvalidationReason
+import com.tembus.customer.featureflag.FeatureFlagManager
 import com.tembus.customer.domain.config.StartupCampaignDecision
 import com.tembus.customer.ui.MainViewModel
 import com.tembus.customer.ui.experience.CampaignIntroScreen
@@ -284,6 +285,13 @@ fun RootNavGraph(
             }
 
             composable(Screen.FoodHome.route) {
+                val featureFlags by FeatureFlagManager.snapshot.collectAsState()
+                if (featureFlags["customer_food_entry"]?.enabled == false) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Food sedang dinonaktifkan sementara")
+                    }
+                    return@composable
+                }
                 val context = LocalContext.current
                 var userLat by remember { mutableStateOf<Double?>(null) }
                 var userLng by remember { mutableStateOf<Double?>(null) }

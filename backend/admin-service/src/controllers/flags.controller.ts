@@ -6,6 +6,31 @@ import { redis } from '../redis';
 import { sendEmailAlert, sendSlackAlert } from '../notifications';
 import { validateFlagConfig } from '../validators';
 import { getIO } from '../websocket';
+import {
+  validateFeatureFlagChangeGovernance,
+} from '../services/featureFlagEvaluator';
+
+const requireHighBlastApproval = (
+  req: Request,
+  res: Response,
+  flag: { key: string; category?: string | null; config?: unknown; require_checklist?: boolean },
+  rollbackPlan: unknown,
+): boolean => {
+  const decision = validateFeatureFlagChangeGovernance(flag, req.user?.role, rollbackPlan);
+  if (!decision.allowed) {
+    res.status(decision.statusCode || 400).json({ error: decision.error });
+    return false;
+  }
+
+  return true;
+};
+
+const invalidatePublicFlagCaches = async () => {
+  await Promise.all([
+    redis.del('flags:public:v3:web'),
+    redis.del('flags:public:v3:mobile'),
+  ]);
+};
 
 export const exportAuditLogs = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -77,7 +102,7 @@ export const exportMasaReport = async (req: Request, res: Response): Promise<voi
 export const getAllFlags = async (req: Request, res: Response) => {
   try {
     const category = req.query.category as string;
-    let query = 'SELECT id, key, category, is_enabled, config, require_checklist, updated_at FROM feature_flags';
+    let query = 'SELECT id, key, category, is_enabled, config, require_checklist, evaluation_revision, updated_at FROM feature_flags';
     const values: any[] = [];
 
     if (category) {
@@ -110,7 +135,7 @@ export const getFlagByKey = async (req: Request, res: Response): Promise<void> =
 
 export const toggleFlag = async (req: Request, res: Response): Promise<void> => {
   const key = req.params.key as string;
-  const { new_enabled, reason } = req.body;
+  const { new_enabled, reason, rollback_plan: rollbackPlan } = req.body;
   const retiredDeliveryModelFlags = ['model_two_legs', 'model_three_legs', 'three_legs_relay'];
 
   if (!reason || reason.length < 10) {
@@ -129,13 +154,18 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
     }
     const flag = flagRes.rows[0];
 
+    if (!requireHighBlastApproval(req, res, flag, rollbackPlan)) {
+      await client.query('ROLLBACK');
+      return;
+    }
+
     if (retiredDeliveryModelFlags.includes(key) && new_enabled === true) {
       res.status(422).json({ error: '2-Kaki and 3-Kaki delivery models are retired. Only P2P can be enabled.' });
       return;
     }
 
     const updateRes = await client.query(
-      'UPDATE feature_flags SET is_enabled = $1, updated_at = NOW() WHERE key = $2 RETURNING *',
+      'UPDATE feature_flags SET is_enabled = $1, evaluation_revision = COALESCE(evaluation_revision, 1) + 1, updated_at = NOW() WHERE key = $2 RETURNING *',
       [new_enabled, key]
     );
 
@@ -145,15 +175,25 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
     }
 
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [key, new_enabled, changedBy, reason, JSON.stringify(flag.config), flag.category || 'feature']
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category, evaluation_revision, checklist_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        key,
+        new_enabled,
+        changedBy,
+        reason,
+        JSON.stringify(flag.config),
+        flag.category || 'feature',
+        updateRes.rows[0]?.evaluation_revision || 1,
+        JSON.stringify({ rollback_plan: typeof rollbackPlan === 'string' ? rollbackPlan.trim() : null }),
+      ]
     );
 
     await client.query('COMMIT');
 
     const cacheKey = `flag:${key}`;
     await redis.del(cacheKey);
+    await invalidatePublicFlagCaches();
     await redis.publish('flag:changed', JSON.stringify({ key, is_enabled: new_enabled, changed_at: new Date() }));
 
     getIO().emit('flag:changed', { key, is_enabled: new_enabled, changed_at: new Date() });
@@ -172,7 +212,7 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
 
 export const updateFlagConfig = async (req: Request, res: Response): Promise<void> => {
   const key = req.params.key as string;
-  const { config, reason } = req.body;
+  const { config, reason, rollback_plan: rollbackPlan } = req.body;
 
   if (typeof config === 'number' && isNaN(config)) {
     res.status(400).json({ error: 'Invalid config value: NaN' });
@@ -203,23 +243,38 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
     }
     const flag = flagRes.rows[0];
 
+    if (!requireHighBlastApproval(req, res, flag, rollbackPlan)) {
+      await client.query('ROLLBACK');
+      return;
+    }
+
     const updateRes = await client.query(
-      'UPDATE feature_flags SET config = $1, updated_at = NOW() WHERE key = $2 RETURNING *',
+      'UPDATE feature_flags SET config = $1, evaluation_revision = COALESCE(evaluation_revision, 1) + 1, updated_at = NOW() WHERE key = $2 RETURNING *',
       [validConfig, key]
     );
 
     const changedBy = getActorId(req);
 
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [key, flag.is_enabled, changedBy, reason, JSON.stringify(validConfig), flag.category || 'feature']
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category, evaluation_revision, checklist_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        key,
+        flag.is_enabled,
+        changedBy,
+        reason,
+        JSON.stringify(validConfig),
+        flag.category || 'feature',
+        updateRes.rows[0]?.evaluation_revision || 1,
+        JSON.stringify({ rollback_plan: typeof rollbackPlan === 'string' ? rollbackPlan.trim() : null }),
+      ]
     );
 
     await client.query('COMMIT');
 
     const cacheKey = `flag:${key}`;
     await redis.del(cacheKey);
+    await invalidatePublicFlagCaches();
     await redis.publish('flag:changed', JSON.stringify({ key, is_enabled: flag.is_enabled, changed_at: new Date() }));
 
     getIO().emit('flag:changed', { key, is_enabled: flag.is_enabled, config: validConfig, changed_at: new Date() });
@@ -239,7 +294,7 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
 export const getFlagLogs = async (req: Request, res: Response) => {
   try {
     const key = req.params.key as string;
-    const result = await readDb.query('SELECT * FROM feature_flag_logs WHERE flag_key = $1 ORDER BY created_at DESC', [key]);
+    const result = await readDb.query('SELECT * FROM feature_flag_logs WHERE key = $1 ORDER BY created_at DESC', [key]);
     res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -262,7 +317,7 @@ export const getAllLogs = async (req: Request, res: Response) => {
 };
 
 export const createFlag = async (req: Request, res: Response): Promise<void> => {
-  const { key, category, description, config, is_enabled, reason, require_checklist } = req.body;
+  const { key, category, description, config, is_enabled, reason, require_checklist, rollback_plan: rollbackPlan } = req.body;
 
   if (!key || !category) {
     res.status(400).json({ error: 'Key and Category are required' });
@@ -273,6 +328,21 @@ export const createFlag = async (req: Request, res: Response): Promise<void> => 
     res.status(400).json({ error: 'Reason must be at least 10 characters' });
     return;
   }
+
+  let validConfig;
+  try {
+    validConfig = validateFlagConfig(config || {});
+  } catch (error: any) {
+    res.status(400).json({ error: 'Invalid configuration format', details: error.errors });
+    return;
+  }
+
+  if (!requireHighBlastApproval(req, res, {
+    key,
+    category,
+    config: validConfig,
+    require_checklist: require_checklist === true,
+  }, rollbackPlan)) return;
 
   const client = await db.connect();
   try {
@@ -285,22 +355,33 @@ export const createFlag = async (req: Request, res: Response): Promise<void> => 
     }
 
     const insertRes = await client.query(
-      `INSERT INTO feature_flags (key, category, description, config, is_enabled, updated_at) 
-       VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
-      [key, category, description || '', config || {}, is_enabled || false]
+      `INSERT INTO feature_flags (key, category, description, config, is_enabled, require_checklist, evaluation_revision, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 1, NOW()) RETURNING *`,
+      [key, category, description || '', validConfig, is_enabled === true, require_checklist === true]
     );
 
     const changedBy = getActorId(req);
 
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, description, category, require_checklist) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [key, is_enabled || false, changedBy, reason, JSON.stringify(config || {}), description, category, require_checklist || false]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, description, category, require_checklist, evaluation_revision, checklist_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9)`,
+      [
+        key,
+        is_enabled === true,
+        changedBy,
+        reason,
+        JSON.stringify(validConfig),
+        description,
+        category,
+        require_checklist === true,
+        JSON.stringify({ rollback_plan: typeof rollbackPlan === 'string' ? rollbackPlan.trim() : null }),
+      ]
     );
 
     await client.query('COMMIT');
 
     await redis.del('flags:all');
+    await invalidatePublicFlagCaches();
 
     res.status(201).json(insertRes.rows[0]);
   } catch (error: any) {

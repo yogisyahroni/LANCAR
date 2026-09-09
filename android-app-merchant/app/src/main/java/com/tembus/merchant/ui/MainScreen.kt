@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.tembus.merchant.R
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.repository.MerchantRepository
+import com.tembus.merchant.featureflag.FeatureFlagManager
 import com.tembus.merchant.ui.screens.home.StitchOrdersDashboardScreen
 import com.tembus.merchant.ui.screens.menu.ManageMenuZipScreen
 import com.tembus.merchant.ui.screens.profile.StoreProfileZipScreen
@@ -60,6 +61,8 @@ fun MainScreen(
     var isCorporate by rememberSaveable { mutableStateOf(false) }
     var profileLoaded by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val featureFlags by FeatureFlagManager.snapshot.collectAsState()
+    val menuEntryEnabled = featureFlags["merchant_menu_entry"]?.enabled ?: true
 
     LaunchedEffect(Unit) {
         scope.launch {
@@ -76,7 +79,7 @@ fun MainScreen(
     // Tab dasar sesuai desain Stitch (4 tab utama)
     val baseTabs = listOf(
         MainTab(R.string.merchant_tab_orders, Icons.Filled.ReceiptLong, "orders"),
-        MainTab(R.string.merchant_tab_menu, Icons.Filled.RestaurantMenu, "menu"),
+        *if (menuEntryEnabled) arrayOf(MainTab(R.string.merchant_tab_menu, Icons.Filled.RestaurantMenu, "menu")) else emptyArray(),
         MainTab(R.string.merchant_tab_insights, Icons.Filled.Assessment, "report"),
         MainTab(R.string.merchant_tab_profile, Icons.Filled.Storefront, "profile")
     )

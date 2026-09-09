@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.tembus.merchant.data.api.ApiClient
 import com.tembus.merchant.data.api.TEMBUSApiService
+import com.tembus.merchant.featureflag.FeatureFlagManager
 import com.tembus.merchant.data.cache.MerchantOfflineCache
 import com.tembus.merchant.data.device.DeviceIdentityProvider
 import com.tembus.merchant.data.notifications.OrderAlertNotifier
@@ -49,6 +50,7 @@ class TEMBUSApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        FeatureFlagManager.init(this, container.apiService)
         // FB-093: inisialisasi osmdroid (user agent wajib, kalau tidak tile 403)
         org.osmdroid.config.Configuration.getInstance().load(
             this, android.preference.PreferenceManager.getDefaultSharedPreferences(this)

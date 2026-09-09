@@ -101,6 +101,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.tembus.customer.R
 import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.config.ExperienceBannerEvent
+import com.tembus.customer.featureflag.FeatureFlagManager
 import com.tembus.customer.ui.experience.DynamicHomeRenderer
 import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
 import com.tembus.customer.ui.theme.Accent
@@ -166,6 +167,11 @@ fun DashboardScreen(
     val banners by viewModel.banners.collectAsState()
     val services by viewModel.services.collectAsState()
     val experienceSnapshot by viewModel.experienceSnapshot.collectAsState()
+    val featureFlags by FeatureFlagManager.snapshot.collectAsState()
+    val foodEntryEnabled = featureFlags["customer_food_entry"]?.enabled ?: true
+    val visibleServices = if (foodEntryEnabled) services else services.filterNot {
+        it.code.equals("food", ignoreCase = true) || it.code.equals("food_delivery", ignoreCase = true)
+    }
     val hasUnreadMessages = (notificationUnreadByCategory["message"] ?: 0) > 0
     val notificationPermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
@@ -255,6 +261,7 @@ fun DashboardScreen(
                             GojekServiceGrid(
                                 onPickupClick = { onBookingClick("pickup") }, // Gabung ambil/kirim
                                 onFoodClick = onFoodClick,
+                                showFood = foodEntryEnabled,
                                 onAggregatorClick = { onBookingClick("aggregator") },
                                 onTambalBanClick = { onBookingClick("tambal_ban") },
                                 onTowingClick = { onBookingClick("towing") }
@@ -262,8 +269,13 @@ fun DashboardScreen(
                         } else {
                             DynamicHomeRenderer(
                                 snapshot = experienceSnapshot,
-                                services = services,
-                                onServiceClick = onBookingClick,
+                                services = visibleServices,
+                                onServiceClick = { serviceCode ->
+                                    if (foodEntryEnabled ||
+                                        (!serviceCode.equals("food", ignoreCase = true) && !serviceCode.equals("food_delivery", ignoreCase = true))) {
+                                        onBookingClick(serviceCode)
+                                    }
+                                },
                                 onRemoteAction = onRemoteAction,
                                 onBannerEvent = viewModel::recordExperienceBannerEvent,
                                 resolveAssetPath = { assetId -> viewModel.resolveExperienceAsset(experienceSnapshot, assetId) },
@@ -558,6 +570,7 @@ private fun WalletAction(icon: ImageVector, label: String) {
 private fun GojekServiceGrid(
     onPickupClick: () -> Unit,
     onFoodClick: () -> Unit,
+    showFood: Boolean = true,
     onAggregatorClick: () -> Unit,
     onTambalBanClick: () -> Unit,
     onTowingClick: () -> Unit
@@ -570,7 +583,9 @@ private fun GojekServiceGrid(
         Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GojekServiceTile("Paket Instan", Icons.Default.LocalShipping, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, onPickupClick, modifier = Modifier.weight(1f))
-            GojekServiceTile("Food", Icons.Default.Restaurant, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.onTertiary, onFoodClick, modifier = Modifier.weight(1f))
+            if (showFood) {
+                GojekServiceTile("Food", Icons.Default.Restaurant, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.onTertiary, onFoodClick, modifier = Modifier.weight(1f))
+            }
             GojekServiceTile("Ekspedisi\nAntar-Kota", Icons.Default.LocalShipping, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, onAggregatorClick, modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(14.dp))

@@ -5,6 +5,9 @@ export type RuntimeFeatureFlag = {
   key: string;
   is_enabled: boolean;
   config: Record<string, unknown> | null;
+  category?: string | null;
+  require_checklist?: boolean;
+  evaluation_revision: number;
 };
 
 const cacheKeyForFlag = (key: string) => `flag:${key}`;
@@ -22,6 +25,11 @@ const parseCachedFlag = (payload: string | null): RuntimeFeatureFlag | null => {
       key: parsed.key,
       is_enabled: parsed.is_enabled,
       config: parsed.config && typeof parsed.config === 'object' ? parsed.config : null,
+      category: typeof parsed.category === 'string' ? parsed.category : null,
+      require_checklist: parsed.require_checklist === true,
+      evaluation_revision: Number.isSafeInteger(Number(parsed.evaluation_revision)) && Number(parsed.evaluation_revision) > 0
+        ? Number(parsed.evaluation_revision)
+        : 1,
     };
   } catch {
     return null;
@@ -39,7 +47,7 @@ export const getFeatureFlag = async (key: string): Promise<RuntimeFeatureFlag | 
   }
 
   const result = await readDb.query<RuntimeFeatureFlag>(
-    'SELECT key, is_enabled, config FROM feature_flags WHERE key = $1 LIMIT 1',
+    'SELECT key, is_enabled, config, category, require_checklist, evaluation_revision FROM feature_flags WHERE key = $1 LIMIT 1',
     [key]
   );
 
@@ -52,7 +60,12 @@ export const getFeatureFlag = async (key: string): Promise<RuntimeFeatureFlag | 
     // Cache write failures must not change feature behavior.
   }
 
-  return flag;
+  return {
+    ...flag,
+    evaluation_revision: Number.isSafeInteger(Number(flag.evaluation_revision)) && Number(flag.evaluation_revision) > 0
+      ? Number(flag.evaluation_revision)
+      : 1,
+  };
 };
 
 export const isFeatureFlagEnabled = async (key: string, defaultValue = false): Promise<boolean> => {

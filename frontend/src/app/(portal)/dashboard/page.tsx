@@ -24,6 +24,7 @@ import { api } from '@/lib/api';
 import { clientLog } from '@/lib/clientLogger';
 import Link from 'next/link';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 
 interface Order {
   id: string;
@@ -58,6 +59,7 @@ export default function DashboardPage() {
   const [chartMode, setChartMode] = useState<'count' | 'value'>('count');
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [dashboardMode, setDashboardMode] = useState<'instan' | 'ekspedisi'>('instan');
+  const foodEntry = useFeatureFlag('customer_food_entry', true);
 
   // Load only real customer orders. Empty/error states should stay honest.
   const fetchOrders = async () => {
@@ -192,6 +194,15 @@ export default function DashboardPage() {
             <Layers className="h-4 w-4 shrink-0" />
             Kirim Massal
           </Link>
+          {foodEntry.enabled && (
+            <Link
+              href="/orders/new/food"
+              className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 text-foreground hover:bg-muted font-medium text-sm rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm select-none"
+            >
+              <Package className="h-4 w-4 shrink-0" />
+              Pesan Food
+            </Link>
+          )}
         </div>
       </motion.div>
 

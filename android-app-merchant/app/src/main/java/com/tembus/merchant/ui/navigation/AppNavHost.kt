@@ -7,6 +7,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -43,6 +49,7 @@ import com.tembus.merchant.ui.screens.staff.StaffAcceptViewModel
 import com.tembus.merchant.ui.screens.staff.StaffScreen
 import com.tembus.merchant.ui.screens.staff.StaffViewModel
 import com.tembus.merchant.data.repository.MerchantRepository
+import com.tembus.merchant.featureflag.FeatureFlagManager
 import com.tembus.merchant.ui.screens.menu.VariantEditorScreen
 import com.tembus.merchant.ui.screens.menu.VariantEditorViewModel
 import com.tembus.merchant.ui.screens.struk.StrukScreen
@@ -308,10 +315,15 @@ fun AppNavHost() {
             route = MerchantRoutes.MANAGE_MENU,
             deepLinks = listOf(navDeepLink { uriPattern = MerchantZipDeepLinks.MANAGE_MENU })
         ) {
-            ManageMenuZipScreen(
-                onOpenAddMenu = { navController.navigate(MerchantRoutes.ADD_MENU) },
-                onOpenEditMenu = { menuId -> navController.navigate(MerchantRoutes.editMenu(menuId)) }
-            )
+            val featureFlags by FeatureFlagManager.snapshot.collectAsState()
+            if (featureFlags["merchant_menu_entry"]?.enabled == false) {
+                FeatureFlagUnavailableScreen()
+            } else {
+                ManageMenuZipScreen(
+                    onOpenAddMenu = { navController.navigate(MerchantRoutes.ADD_MENU) },
+                    onOpenEditMenu = { menuId -> navController.navigate(MerchantRoutes.editMenu(menuId)) }
+                )
+            }
         }
 
         composable(
@@ -478,22 +490,32 @@ fun AppNavHost() {
             arguments = listOf(navArgument("menuId") { type = NavType.StringType }),
             deepLinks = listOf(navDeepLink { uriPattern = MerchantZipDeepLinks.EDIT_MENU })
         ) { backStackEntry ->
-            MenuEditorZipScreen(
-                menuId = backStackEntry.arguments?.getString("menuId"),
-                onBack = { navController.popBackStack() },
-                onOpenVariants = { menuId -> navController.navigate(MerchantRoutes.variants(menuId)) }
-            )
+            val featureFlags by FeatureFlagManager.snapshot.collectAsState()
+            if (featureFlags["merchant_menu_entry"]?.enabled == false) {
+                FeatureFlagUnavailableScreen()
+            } else {
+                MenuEditorZipScreen(
+                    menuId = backStackEntry.arguments?.getString("menuId"),
+                    onBack = { navController.popBackStack() },
+                    onOpenVariants = { menuId -> navController.navigate(MerchantRoutes.variants(menuId)) }
+                )
+            }
         }
 
         composable(
             route = MerchantRoutes.ADD_MENU,
             deepLinks = listOf(navDeepLink { uriPattern = MerchantZipDeepLinks.ADD_MENU })
         ) {
-            MenuEditorZipScreen(
-                menuId = null,
-                onBack = { navController.popBackStack() },
-                onOpenVariants = { menuId -> navController.navigate(MerchantRoutes.variants(menuId)) }
-            )
+            val featureFlags by FeatureFlagManager.snapshot.collectAsState()
+            if (featureFlags["merchant_menu_entry"]?.enabled == false) {
+                FeatureFlagUnavailableScreen()
+            } else {
+                MenuEditorZipScreen(
+                    menuId = null,
+                    onBack = { navController.popBackStack() },
+                    onOpenVariants = { menuId -> navController.navigate(MerchantRoutes.variants(menuId)) }
+                )
+            }
         }
 
         composable(
@@ -576,21 +598,39 @@ fun AppNavHost() {
             arguments = listOf(navArgument("menuItemId") { type = NavType.StringType }),
             deepLinks = listOf(navDeepLink { uriPattern = MerchantZipDeepLinks.VARIANTS })
         ) { backStackEntry ->
-            val menuItemId = backStackEntry.arguments?.getString("menuItemId").orEmpty()
-            val variantViewModel: VariantEditorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                key = "variants-$menuItemId",
-                factory = AppViewModelFactory {
-                    VariantEditorViewModel(
-                        merchantRepository = app.container.merchantRepository,
-                        menuItemId = menuItemId
-                    )
-                }
-            )
-            VariantEditorScreen(
-                viewModel = variantViewModel,
-                onBack = { navController.popBackStack() }
-            )
+            val featureFlags by FeatureFlagManager.snapshot.collectAsState()
+            if (featureFlags["merchant_menu_entry"]?.enabled == false) {
+                FeatureFlagUnavailableScreen()
+            } else {
+                val menuItemId = backStackEntry.arguments?.getString("menuItemId").orEmpty()
+                val variantViewModel: VariantEditorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    key = "variants-$menuItemId",
+                    factory = AppViewModelFactory {
+                        VariantEditorViewModel(
+                            merchantRepository = app.container.merchantRepository,
+                            menuItemId = menuItemId
+                        )
+                    }
+                )
+                VariantEditorScreen(
+                    viewModel = variantViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun FeatureFlagUnavailableScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Fitur sedang dinonaktifkan sementara",
+            style = MaterialTheme.typography.bodyLarge,
+        )
     }
 }
 

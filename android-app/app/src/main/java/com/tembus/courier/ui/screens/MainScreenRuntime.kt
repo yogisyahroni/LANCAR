@@ -158,6 +158,7 @@ import java.io.File
 import kotlin.math.min
 import com.tembus.courier.ui.screens.*
 import com.tembus.courier.ui.screens.*
+import com.tembus.courier.featureflag.FeatureFlagManager
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -205,6 +206,11 @@ internal fun MainScreenRuntime(
     val syncIntervalMs by orderViewModel.syncIntervalMs.collectAsState()
     val error by orderViewModel.error.collectAsState()
     val lastRemoteSyncAt by orderViewModel.lastRemoteSyncAt.collectAsState()
+    val featureFlags by FeatureFlagManager.snapshot.collectAsState()
+    val serviceDiscoveryEnabled = featureFlags["courier_service_discovery_entry"]?.enabled ?: true
+    // Only the optional discovery catalog is gated. Offers, active orders,
+    // proof, chat and recovery remain available independently of this flag.
+    val visibleOnDemandServices = if (serviceDiscoveryEnabled) onDemandServices else emptyList()
     
     val unreadNotificationCount by notificationViewModel.unreadCount.collectAsState()
 
@@ -430,7 +436,7 @@ internal fun MainScreenRuntime(
         roleDeliveredToday = roleDeliveredToday,
         roleEarningsToday = roleEarningsToday,
         allOrders = allOrders,
-        onDemandServices = onDemandServices,
+        onDemandServices = visibleOnDemandServices,
         capabilityProfile = capabilityProfile,
         courierVehicleType = courierVehicleType,
         routePreviews = routePreviews,
