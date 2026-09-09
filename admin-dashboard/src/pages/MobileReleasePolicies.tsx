@@ -31,7 +31,19 @@ type ReleasePolicy = {
   allow_new_transactions: boolean
   remote_config_scope: 'release_metadata'
   revision: number
+  effective_from: string
+  effective_to: string | null
   updated_at: string
+}
+
+type PolicyImpact = {
+  coverage: 'observed' | 'no_observed_events'
+  window_days: number
+  observed_events: number
+  affected_events: number
+  affected_share_pct: number | null
+  unknown_events: number
+  versions: Array<{ app_version: string; observed_events: number; share_pct: number; affected: boolean | null }>
 }
 
 type FormState = {
@@ -49,11 +61,14 @@ type FormState = {
   message_id: string
   message_en: string
   store_url: string
+  effective_from: string
+  effective_to: string
   reason: string
 }
 
 const inputClass = 'mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20'
 const clientLabels: Record<ClientType, string> = { customer: 'Customer', courier: 'Courier', merchant: 'Merchant', web: 'Web' }
+const localDateTime = (value: Date) => new Date(value.getTime() - value.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 
 const newForm = (): FormState => ({
   market_code: 'id-jk',
@@ -70,6 +85,8 @@ const newForm = (): FormState => ({
   message_id: 'Versi baru tersedia. Perbarui aplikasi saat siap.',
   message_en: 'A new version is available. Update when ready.',
   store_url: '',
+  effective_from: localDateTime(new Date()),
+  effective_to: '',
   reason: 'Release policy updated from admin dashboard',
 })
 
@@ -94,6 +111,8 @@ const toForm = (policy: ReleasePolicy): FormState => ({
   message_id: policy.localized_messages['id-ID'] ?? '',
   message_en: policy.localized_messages['en-US'] ?? '',
   store_url: policy.store_destinations.primary ?? policy.store_destinations.default ?? '',
+  effective_from: localDateTime(new Date(policy.effective_from)),
+  effective_to: policy.effective_to ? localDateTime(new Date(policy.effective_to)) : '',
   reason: `Revision ${policy.revision} updated from admin dashboard`,
 })
 
@@ -106,6 +125,18 @@ export default function MobileReleasePolicies() {
   const query = useQuery({
     queryKey: ['mobile-release-policies'],
     queryFn: async (): Promise<ReleasePolicy[]> => (await api.get('/admin/mobile-release-policies', { params: { market_code: form.market_code } })).data?.data ?? [],
+  })
+  const isHard = form.update_mode === 'hard'
+  const impactQuery = useQuery({
+    queryKey: ['mobile-release-policy-impact', form.market_code, form.client_type, form.platform, form.min_supported_version_name],
+    enabled: showForm && isHard && Boolean(form.market_code.trim() && form.min_supported_version_name.trim()),
+    queryFn: async (): Promise<PolicyImpact> => (await api.get('/admin/mobile-release-policies/impact', { params: {
+      market_code: form.market_code.trim().toLowerCase(),
+      client_type: form.client_type,
+      platform: form.platform,
+      min_supported_version_name: form.min_supported_version_name.trim(),
+      window_days: 30,
+    } })).data?.data,
   })
 
   const saveMutation = useMutation({
@@ -125,6 +156,9 @@ export default function MobileReleasePolicies() {
           ...(form.message_en.trim() ? { 'en-US': form.message_en.trim() } : {}),
         },
         store_destinations: form.store_url.trim() ? { primary: form.store_url.trim() } : {},
+        effective_from: new Date(form.effective_from).toISOString(),
+        effective_to: form.effective_to.trim() ? new Date(form.effective_to).toISOString() : null,
+        confirm_hard_update: isHard,
         reason: form.reason.trim(),
       }
       return api.put(`/admin/mobile-release-policies/${encodeURIComponent(form.market_code.trim().toLowerCase())}/${form.client_type}/${form.platform}`, payload, { headers: { 'X-Idempotency-Key': requestKey() } })
@@ -138,8 +172,22 @@ export default function MobileReleasePolicies() {
   })
 
   const sorted = useMemo(() => [...(query.data ?? [])].sort((a, b) => `${a.market_code}:${a.client_type}:${a.platform}`.localeCompare(`${b.market_code}:${b.client_type}:${b.platform}`)), [query.data])
-  const isHard = form.update_mode === 'hard'
-  const canSave = Boolean(form.market_code.trim() && form.latest_version_name.trim() && form.min_supported_version_name.trim() && form.reason.trim() && (!isHard || form.hard_block_reason !== 'none'))
+  const validWindow = Boolean(form.effective_from && (!form.effective_to || new Date(form.effective_to).getTime() > new Date(form.effective_from).getTime()))
+  const hardImpactReady = !isHard || impactQuery.data?.coverage === 'observed'
+  const canSave = Boolean(form.market_code.trim() && form.latest_version_name.trim() && form.min_supported_version_name.trim() && form.reason.trim() && validWindow && hardImpactReady && (!isHard || form.hard_block_reason !== 'none'))
+
+  const save = () => {
+    if (isHard) {
+      const impact = impactQuery.data
+      if (!impact || impact.coverage !== 'observed') {
+        toast.error('Hard update memerlukan estimasi versi teramati sebelum publish')
+        return
+      }
+      const affected = impact.affected_share_pct == null ? 'unknown' : `${impact.affected_share_pct}%`
+      if (!window.confirm(`Konfirmasi hard update untuk ${form.market_code}/${form.client_type}/${form.platform}. Estimasi client terdampak di sample 30 hari: ${affected}. Akses order aktif/support tetap tersedia; transaksi baru ditahan. Lanjutkan?`)) return
+    }
+    saveMutation.mutate()
+  }
 
   const edit = (policy: ReleasePolicy) => {
     setForm(toForm(policy))
@@ -176,12 +224,15 @@ export default function MobileReleasePolicies() {
           <label className="text-xs font-bold text-zinc-400">Recommended name<input className={inputClass} value={form.recommended_version_name} onChange={(event) => setForm({ ...form, recommended_version_name: event.target.value })} placeholder="Optional" /></label>
           <label className="text-xs font-bold text-zinc-400">Hard-block reason<select className={inputClass} value={form.hard_block_reason} disabled={!isHard} onChange={(event) => setForm({ ...form, hard_block_reason: event.target.value as HardBlockReason })}><option value="none">None</option><option value="unsafe">Unsafe binary</option><option value="incompatible">Incompatible binary</option></select></label>
           <label className="text-xs font-bold text-zinc-400">Store destination URL<input type="url" className={inputClass} value={form.store_url} onChange={(event) => setForm({ ...form, store_url: event.target.value })} placeholder="https://..." /></label>
+          <label className="text-xs font-bold text-zinc-400">Effective start<input type="datetime-local" className={inputClass} value={form.effective_from} onChange={(event) => setForm({ ...form, effective_from: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400">Effective end<input type="datetime-local" className={inputClass} value={form.effective_to} onChange={(event) => setForm({ ...form, effective_to: event.target.value })} placeholder="Optional" /></label>
           <label className="text-xs font-bold text-zinc-400 md:col-span-2">Bahasa Indonesia message<textarea className={`${inputClass} min-h-20 resize-y`} maxLength={240} value={form.message_id} onChange={(event) => setForm({ ...form, message_id: event.target.value })} /></label>
           <label className="text-xs font-bold text-zinc-400 md:col-span-2">English message<textarea className={`${inputClass} min-h-20 resize-y`} maxLength={240} value={form.message_en} onChange={(event) => setForm({ ...form, message_en: event.target.value })} /></label>
           <label className="text-xs font-bold text-zinc-400 md:col-span-4">Audit reason<input className={inputClass} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label>
         </div>
         {isHard ? <p className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs leading-relaxed text-red-200">Hard update hanya valid untuk binary unsafe/incompatible. Akses pesanan aktif dan support dipertahankan; transaksi baru otomatis ditahan oleh server.</p> : null}
-        <div className="mt-5 flex flex-wrap items-center gap-3"><button type="button" disabled={!canSave || !canMutate || saveMutation.isPending} onClick={() => saveMutation.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50"><Save size={14} /> {saveMutation.isPending ? 'Saving...' : 'Save policy'}</button><button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-400">Cancel</button><p className="text-xs text-zinc-500">Perubahan dilindungi TOTP dan idempotency key.</p></div>
+        {isHard ? <section className="mt-5 rounded-2xl border border-sky-400/20 bg-sky-400/5 p-4" aria-label="hard update impact estimate"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-widest text-sky-200">Affected version estimate</p><p className="mt-1 text-[11px] text-sky-100/70">Observed experience telemetry, last {impactQuery.data?.window_days ?? 30} days. This is a release-safety sample, not a fabricated total-user count.</p></div><span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-sky-100">{impactQuery.isLoading ? 'Loading' : impactQuery.data?.coverage === 'observed' ? `${impactQuery.data.observed_events} events` : 'No sample'}</span></div>{impactQuery.isError ? <p className="mt-3 text-xs text-red-200">Impact estimate unavailable; hard update remains blocked.</p> : null}{impactQuery.data?.coverage === 'no_observed_events' ? <p className="mt-3 text-xs text-amber-200">Belum ada telemetry versi untuk scope ini. Hard update tidak dapat dipublish sampai sample teramati tersedia.</p> : null}{impactQuery.data?.coverage === 'observed' ? <div className="mt-3 grid gap-2 sm:grid-cols-3"><div className="rounded-xl bg-black/10 p-3"><p className="text-[10px] uppercase tracking-widest text-zinc-500">Affected</p><p className="mt-1 text-lg font-black text-red-200">{impactQuery.data.affected_share_pct == null ? '—' : `${impactQuery.data.affected_share_pct}%`}</p></div><div className="rounded-xl bg-black/10 p-3"><p className="text-[10px] uppercase tracking-widest text-zinc-500">Unknown</p><p className="mt-1 text-lg font-black text-amber-200">{impactQuery.data.unknown_events}</p></div><div className="rounded-xl bg-black/10 p-3"><p className="text-[10px] uppercase tracking-widest text-zinc-500">Recovery</p><p className="mt-1 text-xs font-black text-emerald-200">Order + support open</p></div></div> : null}{impactQuery.data?.versions.length ? <div className="mt-3 space-y-1">{impactQuery.data.versions.map((version) => <div key={version.app_version} className="flex items-center justify-between rounded-lg bg-black/10 px-3 py-2 text-[11px]"><span className="font-mono text-zinc-300">{version.app_version}</span><span className="text-zinc-500">{version.share_pct}% · {version.affected === null ? 'unknown' : version.affected ? 'affected' : 'supported'}</span></div>)}</div> : null}</section> : null}
+        <div className="mt-5 flex flex-wrap items-center gap-3"><button type="button" disabled={!canSave || !canMutate || saveMutation.isPending} onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50"><Save size={14} /> {saveMutation.isPending ? 'Saving...' : isHard ? 'Confirm and publish policy' : 'Save policy'}</button><button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-400">Cancel</button><p className="text-xs text-zinc-500">Perubahan hard dilindungi permission policy, TOTP, konfirmasi eksplisit, reason audit dan idempotency key.</p></div>
       </section> : null}
 
       <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" aria-labelledby="release-policy-list-title">

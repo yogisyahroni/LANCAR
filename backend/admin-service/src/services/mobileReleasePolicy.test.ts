@@ -1,5 +1,6 @@
 import {
   decideMobileRelease,
+  estimateMobileReleasePolicyImpact,
   parseMobileReleasePolicyInput,
   type MobileReleasePolicyRecord,
 } from './mobileReleasePolicy';
@@ -63,6 +64,22 @@ describe('mobile release policy contract', () => {
       min_supported_version_code: 1, min_supported_version_name: '1.0.0',
       update_mode: 'none', reason: 'Wrong client platform',
     })).toThrow(/web client must use the web platform/);
+
+    expect(() => parseMobileReleasePolicyInput({
+      market_code: 'id-jk', client_type: 'customer', platform: 'android',
+      latest_version_code: 3, latest_version_name: '1.0.3',
+      min_supported_version_code: 2, min_supported_version_name: '1.0.2',
+      update_mode: 'hard', hard_block_reason: 'unsafe', reason: 'Missing explicit confirmation',
+    })).toThrow(/explicit confirmation/);
+
+    expect(parseMobileReleasePolicyInput({
+      market_code: 'id-jk', client_type: 'customer', platform: 'android',
+      latest_version_code: 3, latest_version_name: '1.0.3',
+      min_supported_version_code: 2, min_supported_version_name: '1.0.2',
+      update_mode: 'hard', hard_block_reason: 'unsafe', confirm_hard_update: true,
+      effective_from: '2026-09-10T00:00:00.000Z', effective_to: '2026-09-11T00:00:00.000Z',
+      reason: 'Confirmed unsafe binary release gate',
+    })).toMatchObject({ confirm_hard_update: true, effective_to: expect.any(Date) });
   });
 
   it('keeps soft updates dismissible and separate from transaction failures', () => {
@@ -129,5 +146,23 @@ describe('mobile release policy contract', () => {
       hard_block_reason: 'incompatible',
     });
     expect(decision.recovery_access).toEqual({ active_order: true, support: true, new_transactions: false });
+  });
+
+  it('estimates affected version distribution from observed scoped experience telemetry', async () => {
+    const queryable = { query: jest.fn().mockResolvedValue({ rows: [
+      { app_version: '1.0.1', observed_events: 25 },
+      { app_version: '1.0.2', observed_events: 50 },
+      { app_version: 'unknown', observed_events: 5 },
+    ] }) };
+    const impact = await estimateMobileReleasePolicyImpact({
+      market_code: 'id-jk', client_type: 'customer', platform: 'android', min_supported_version_name: '1.0.2',
+    }, queryable);
+
+    expect(impact).toMatchObject({ coverage: 'observed', observed_events: 80, affected_events: 25, unknown_events: 5, affected_share_pct: 33.33 });
+    expect(impact.versions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ app_version: '1.0.1', affected: true, share_pct: 31.25 }),
+      expect.objectContaining({ app_version: 'unknown', affected: null, share_pct: 6.25 }),
+    ]));
+    expect(queryable.query).toHaveBeenCalledWith(expect.stringContaining("aggregate_type IN ('experience_banner', 'experience_runtime')"), ['id-jk', 30, ['customer_android']]);
   });
 });

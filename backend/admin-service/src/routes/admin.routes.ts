@@ -91,6 +91,7 @@ adminRoutes.post('/admin/experiments/:key/kill', requireRole(['super_admin', 'op
 adminRoutes.get('/admin/settings', (req, res) => controllers.getSystemConfigs(req, res));
 adminRoutes.patch('/admin/settings/:key', requireTotp, (req, res) => controllers.updateSystemConfig(req, res));
 adminRoutes.get('/admin/mobile-release-policies', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'mobile-policy' }), (req, res) => controllers.listAdminMobileReleasePolicies(req, res));
+adminRoutes.get('/admin/mobile-release-policies/impact', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'mobile-policy' }), (req, res) => controllers.estimateAdminMobileReleasePolicyImpact(req, res));
 adminRoutes.put('/admin/mobile-release-policies/:marketCode/:clientType/:platform', requireExperienceAccess(EXPERIENCE_PERMISSIONS.versionPolicyWrite, { target: 'mobile-policy' }), requireTotp, requireIdempotencyKey('admin.mobile_release_policy.upsert'), (req, res) => controllers.upsertAdminMobileReleasePolicy(req, res));
 adminRoutes.get('/admin/market-configs', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMarketConfigs(req, res));
 adminRoutes.get('/admin/market-configs/:marketCode', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminMarketConfig(req, res));

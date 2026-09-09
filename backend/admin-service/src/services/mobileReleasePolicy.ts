@@ -42,6 +42,9 @@ export const mobileReleasePolicyInputSchema = z.object({
   hard_block_reason: z.enum(RELEASE_HARD_BLOCK_REASONS).default('none'),
   localized_messages: localizedMessagesSchema.default({}),
   store_destinations: storeDestinationsSchema.default({}),
+  effective_from: z.coerce.date().default(() => new Date()),
+  effective_to: z.coerce.date().nullable().optional(),
+  confirm_hard_update: z.boolean().default(false),
   reason: z.string().trim().min(8).max(500).default('Release policy updated'),
 }).strict().superRefine((value, context) => {
   if (value.min_supported_version_code > value.latest_version_code) {
@@ -62,6 +65,15 @@ export const mobileReleasePolicyInputSchema = z.object({
   }
   if (value.update_mode !== 'hard' && value.hard_block_reason !== 'none') {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['hard_block_reason'], message: 'hard block reason is only valid for hard updates' });
+  }
+  if (value.update_mode === 'hard' && !value.confirm_hard_update) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['confirm_hard_update'], message: 'hard update requires explicit confirmation' });
+  }
+  if (value.update_mode !== 'hard' && value.confirm_hard_update) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['confirm_hard_update'], message: 'confirmation is only valid for hard updates' });
+  }
+  if (value.effective_to && value.effective_to <= value.effective_from) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['effective_to'], message: 'effective end must be after effective start' });
   }
   if (value.platform === 'web' && value.client_type !== 'web') {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['client_type'], message: 'web platform is reserved for the web client' });
@@ -250,6 +262,80 @@ export const listMobileReleasePolicies = async (filters: Record<string, unknown>
   return result.rows.map(rowToRecord);
 };
 
+export type MobileReleasePolicyImpact = {
+  market_code: string;
+  client_type: ReleaseClientType;
+  platform: ReleasePlatform;
+  window_days: number;
+  sample_source: 'experience_telemetry';
+  coverage: 'observed' | 'no_observed_events';
+  observed_events: number;
+  affected_events: number;
+  affected_share_pct: number | null;
+  unknown_events: number;
+  versions: Array<{ app_version: string; observed_events: number; share_pct: number; affected: boolean | null }>;
+};
+
+const semanticVersionParts = (value: string): number[] => value.split(/[.+-]/, 3).map((part) => Number(part) || 0);
+const compareSemanticVersions = (left: string, right: string): number => {
+  const a = semanticVersionParts(left);
+  const b = semanticVersionParts(right);
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+    if ((a[index] || 0) !== (b[index] || 0)) return (a[index] || 0) - (b[index] || 0);
+  }
+  return 0;
+};
+
+export const estimateMobileReleasePolicyImpact = async (request: {
+  market_code: string;
+  client_type: ReleaseClientType;
+  platform: ReleasePlatform;
+  min_supported_version_name: string;
+  window_days?: number;
+}, queryable: Queryable = readDb): Promise<MobileReleasePolicyImpact> => {
+  const marketCode = request.market_code.trim().toLowerCase();
+  const windowDays = Math.min(Math.max(Math.floor(request.window_days || 30), 1), 90);
+  const sources = request.client_type === 'web'
+    ? ['customer_web']
+    : request.client_type === 'customer' ? ['customer_android'] : [request.client_type];
+  const result = await queryable.query<{ app_version: string; observed_events: string | number }>(
+    `SELECT COALESCE(headers->>'app_version', payload->>'app_version', 'unknown') AS app_version,
+            COUNT(*)::integer AS observed_events
+       FROM event_outbox
+      WHERE occurred_at >= NOW() - ($2::integer * INTERVAL '1 day')
+        AND market_code = $1
+        AND aggregate_type IN ('experience_banner', 'experience_runtime')
+        AND event_type LIKE 'experience.%'
+        AND COALESCE(headers->>'source', payload->>'surface', '') = ANY($3::text[])
+      GROUP BY COALESCE(headers->>'app_version', payload->>'app_version', 'unknown')
+      ORDER BY observed_events DESC, app_version
+      LIMIT 100`, [marketCode, windowDays, sources],
+  );
+  const versions = result.rows.map((row) => {
+    const appVersion = String(row.app_version || 'unknown');
+    const observedEvents = Number(row.observed_events) || 0;
+    const affected = appVersion === 'unknown' ? null : compareSemanticVersions(appVersion, request.min_supported_version_name) < 0;
+    return { app_version: appVersion, observed_events: observedEvents, share_pct: 0, affected };
+  });
+  const observedEvents = versions.reduce((total, row) => total + row.observed_events, 0);
+  const unknownEvents = versions.filter((row) => row.affected === null).reduce((total, row) => total + row.observed_events, 0);
+  const affectedEvents = versions.filter((row) => row.affected === true).reduce((total, row) => total + row.observed_events, 0);
+  const normalizedVersions = versions.map((row) => ({ ...row, share_pct: observedEvents ? Math.round((row.observed_events / observedEvents) * 10000) / 100 : 0 }));
+  return {
+    market_code: marketCode,
+    client_type: request.client_type,
+    platform: request.platform,
+    window_days: windowDays,
+    sample_source: 'experience_telemetry',
+    coverage: observedEvents > 0 ? 'observed' : 'no_observed_events',
+    observed_events: observedEvents,
+    affected_events: affectedEvents,
+    affected_share_pct: observedEvents > unknownEvents ? Math.round((affectedEvents / (observedEvents - unknownEvents)) * 10000) / 100 : null,
+    unknown_events: unknownEvents,
+    versions: normalizedVersions,
+  };
+};
+
 export const upsertMobileReleasePolicy = async (
   body: unknown,
   actorId: string,
@@ -275,6 +361,7 @@ export const upsertMobileReleasePolicy = async (
       input.recommended_version_code ?? null, input.recommended_version_name ?? null,
       input.update_mode, input.hard_block_reason,
       serialize(input.localized_messages), serialize(input.store_destinations),
+      input.effective_from, input.effective_to ?? null,
       input.update_mode === 'hard', input.update_mode === 'hard', input.update_mode !== 'hard',
       revision, actorId,
     ];
@@ -286,9 +373,10 @@ export const upsertMobileReleasePolicy = async (
            recommended_version_code = $8, recommended_version_name = $9,
            update_mode = $10, hard_block_reason = $11,
            localized_messages = $12::jsonb, store_destinations = $13::jsonb,
-           allow_active_order_access = $14, allow_support_access = $15,
-           allow_new_transactions = $16, revision = $17,
-           updated_by = $18, updated_at = NOW()
+           effective_from = $14, effective_to = $15,
+           allow_active_order_access = $16, allow_support_access = $17,
+           allow_new_transactions = $18, revision = $19,
+           updated_by = $20, updated_at = NOW()
          WHERE market_code = $1 AND client_type = $2 AND platform = $3
          RETURNING *`, values,
       )
@@ -299,9 +387,10 @@ export const upsertMobileReleasePolicy = async (
            min_supported_version_code, min_supported_version_name,
            recommended_version_code, recommended_version_name,
            update_mode, hard_block_reason, localized_messages, store_destinations,
+           effective_from, effective_to,
            allow_active_order_access, allow_support_access, allow_new_transactions,
            revision, updated_by
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20)
          RETURNING *`, values,
       );
     const policy = rowToRecord(result.rows[0]);

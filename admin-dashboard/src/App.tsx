@@ -58,6 +58,7 @@ import Experiments from './pages/Experiments'
 import AppExperience from './pages/AppExperience'
 import LocalizedContentPacks from './pages/LocalizedContentPacks'
 import MobileReleasePolicies from './pages/MobileReleasePolicies'
+import AppVersionPolicy from './pages/AppVersionPolicy'
 import DashboardLayout from './components/DashboardLayout'
 import ExperienceScopedPage from './components/experience/ExperienceScopedPage'
 import { EXPERIENCE_CAPABILITIES, hasExperiencePermission, type ExperienceCapability } from './lib/experiencePermissions'
@@ -457,7 +458,7 @@ function App() {
             path="/app-experience/version-policy"
             element={
               <ProtectedRoute allowedCapabilities={[EXPERIENCE_CAPABILITIES.read]}>
-                <ExperienceScopedPage><MobileReleasePolicies /></ExperienceScopedPage>
+                <ExperienceScopedPage><AppVersionPolicy /></ExperienceScopedPage>
               </ProtectedRoute>
             }
           />

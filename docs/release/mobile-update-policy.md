@@ -37,6 +37,12 @@ through the existing server-side market controls without shipping a new binary.
 3. Use `soft` for a dismissible release notice. Use `hard` only for a genuinely
    unsafe or incompatible old binary; the database constraint rejects a hard
    policy that removes active-order or support access.
+   Before a hard policy is saved, the Admin GUI shows the observed version
+   distribution for the scoped market/client/platform from the last 30 days of
+   experience telemetry. If there is no observed sample, the hard policy is
+   blocked rather than presented as a fabricated affected-user estimate. The
+   operator must confirm the impact estimate explicitly; the protected route
+   also requires the version-policy permission, TOTP and an audit reason.
 4. Verify the resolved endpoint for the target market/locale and test the
    customer, courier, and merchant update surfaces before promotion.
 5. Record the revision and audit reason. Roll back by restoring the previous
