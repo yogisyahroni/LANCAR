@@ -105,6 +105,8 @@ adminRoutes.post('/admin/experience/manifests/:manifestId/preview', requireRole(
 adminRoutes.post('/admin/experience/manifests/:manifestId/approve', requireRole(['super_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experience_manifest.approve'), (req, res) => controllers.approveAdminExperienceManifest(req, res));
 adminRoutes.post('/admin/experience/manifests/:manifestId/publish', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.experience_manifest.publish'), (req, res) => controllers.publishAdminExperienceManifest(req, res));
 adminRoutes.post('/admin/experience/manifests/:manifestId/rollback', requireRole(['super_admin']), requireTotp, requireIdempotencyKey('admin.experience_manifest.rollback'), (req, res) => controllers.rollbackAdminExperienceManifest(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/kill', requireRole(['super_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experience_manifest.kill'), (req, res) => controllers.killAdminExperienceManifest(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/restore', requireRole(['super_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experience_manifest.restore'), (req, res) => controllers.restoreAdminExperienceManifest(req, res));
 adminRoutes.get('/admin/compliance/policy', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminCompliancePolicy(req, res));
 adminRoutes.get('/admin/maps-provider-config', (req, res) => controllers.getAdminMapsProviderRuntimeConfig(req, res));
 adminRoutes.patch('/admin/maps-provider-config', requireTotp, (req, res) => controllers.updateAdminMapsProviderRuntimeConfig(req, res));

@@ -53,23 +53,23 @@ class ExperienceConfigRepositoryTest {
         coEvery { store.readCachedManifest() } returns cached(
             oldManifest,
             storedAtMillis = System.currentTimeMillis() - 10_000,
-            etag = "\"old-etag\"",
+            etag = "\"${oldManifest.checksum}\"",
         )
         every { store.isAssetBundleAvailable(any()) } returns true
         coEvery { store.stageAssetsAtomically(any(), any(), any()) } returns "packaged"
         coEvery { store.writeManifestAtomically(any(), any(), any(), any(), any(), any()) } just runs
         val api = mockk<ExperienceConfigApi>()
-        coEvery { api.fetch(scope, "\"old-etag\"") } returns
-            ExperienceConfigFetchResult.Updated(newManifest, "\"new-etag\"")
+        coEvery { api.fetch(scope, "\"${oldManifest.checksum}\"") } returns
+            ExperienceConfigFetchResult.Updated(newManifest, "\"${newManifest.checksum}\"")
         val repository = repository(api, store)
 
         val snapshot = repository.refresh(scope)
 
         assertEquals(ExperienceConfigSource.NETWORK, snapshot.source)
         assertEquals("new-manifest", snapshot.manifest.manifestId)
-        coVerify(exactly = 1) { api.fetch(scope, "\"old-etag\"") }
+        coVerify(exactly = 1) { api.fetch(scope, "\"${oldManifest.checksum}\"") }
         coVerify(exactly = 1) { store.stageAssetsAtomically("new-manifest", 2, any()) }
-        coVerify(exactly = 1) { store.writeManifestAtomically(any(), scope.cacheKey, "\"new-etag\"", 2, any(), "packaged") }
+        coVerify(exactly = 1) { store.writeManifestAtomically(any(), scope.cacheKey, "\"${newManifest.checksum}\"", 2, any(), "packaged") }
     }
 
     @Test
@@ -125,6 +125,22 @@ class ExperienceConfigRepositoryTest {
 
         assertEquals(ExperienceConfigSource.PACKAGED_DEFAULT, snapshot.source)
         coVerify(exactly = 1) { api.fetch(controlScope, null) }
+    }
+
+    @Test
+    fun corruptedCachedEtagFallsBackToPackagedDefault() = runTest {
+        val cachedManifest = manifest(ttlSeconds = 1)
+        val store = mockk<ExperienceConfigStore>()
+        coEvery { store.readCachedManifest() } returns cached(cachedManifest, System.currentTimeMillis(), "\"${"b".repeat(64)}\"")
+        every { store.isAssetBundleAvailable(any()) } returns true
+        val api = mockk<ExperienceConfigApi>()
+        coEvery { api.fetch(scope, null) } returns ExperienceConfigFetchResult.Failed("offline")
+        val repository = repository(api, store)
+
+        val snapshot = repository.refresh(scope)
+
+        assertEquals(ExperienceConfigSource.PACKAGED_DEFAULT, snapshot.source)
+        coVerify(exactly = 1) { api.fetch(scope, null) }
     }
 
     private fun repository(

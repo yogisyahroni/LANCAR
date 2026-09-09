@@ -17,6 +17,7 @@ import {
   publishExperienceManifest,
   rollbackExperienceManifest,
   resolvePublicExperienceManifest,
+  setExperienceManifestKillSwitch,
   type ExperienceManifestCandidate,
 } from './experienceConfig';
 
@@ -411,6 +412,39 @@ describe('experience manifest contract', () => {
     })).toThrow('Referenced assets are missing');
   });
 
+  it('enforces aggregate and per-component payload limits', () => {
+    const largeSections = Array.from({ length: 20 }, (_, index) => ({
+      id: `promos-${index}`,
+      component: 'promo_carousel',
+      properties: {
+        items: Array.from({ length: 10 }, (_, itemIndex) => ({
+          id: `promo-${index}-${itemIndex}`,
+          title: 'T'.repeat(120),
+          body: 'B'.repeat(500),
+          badge: 'N'.repeat(40),
+          cta_label: 'C'.repeat(80),
+        })),
+      },
+    }));
+    expect(() => parseExperienceManifestInput({ ...validInput, sections: largeSections })).toThrow('Manifest payload exceeds');
+
+    const oversizedComponent = {
+      id: 'promos',
+      component: 'promo_carousel',
+      properties: {
+        items: Array.from({ length: 10 }, (_, itemIndex) => ({
+          id: `promo-${itemIndex}`,
+          title: 'T'.repeat(120),
+          body: 'B'.repeat(500),
+          badge: 'N'.repeat(40),
+          cta_label: 'C'.repeat(80),
+          deep_link: '/promo',
+        })),
+      },
+    };
+    expect(() => parseExperienceManifestInput({ ...validInput, sections: [oversizedComponent] })).toThrow('component limit');
+  });
+
   it('compares semantic versions and creates deterministic canonical payloads', () => {
     expect(compareSemanticVersions('1.0.0', '1.0.0-beta.1')).toBeGreaterThan(0);
     expect(compareSemanticVersions('1.2.0', '1.10.0')).toBeLessThan(0);
@@ -494,6 +528,12 @@ describe('experience manifest contract', () => {
     const baseRequest = { market_code: 'id-jk', locale: 'id-ID', default_locale: 'id-ID', app_version: '1.5.0' };
     expect(pickExperienceManifest([publicFallback, canary], baseRequest)?.revision).toBe(1);
     expect(pickExperienceManifest([publicFallback, canary], { ...baseRequest, cohort: 'internal-test' })?.revision).toBe(2);
+  });
+
+  it('never selects a manifest disabled by the audited kill switch', () => {
+    expect(pickExperienceManifest([candidate({ kill_switch_active: true })], {
+      market_code: 'id-jk', locale: 'id-ID', default_locale: 'id-ID', app_version: '1.5.0',
+    })).toBeNull();
   });
 
   it('resolves complex audience targeting and preserves an untargeted fallback', () => {
@@ -583,6 +623,22 @@ describe('experience manifest lifecycle persistence', () => {
     expect(result.state).toBe('published');
     expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes("state = 'published'"))).toBe(true);
     expect(client.query).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('toggles the published manifest kill switch and records an audit event', async () => {
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [row('published')] })
+      .mockResolvedValueOnce({ rows: [{ ...row('published'), kill_switch_active: true, kill_switched_by: actorId, kill_switched_at: '2026-09-09T00:00:00.000Z', kill_switch_reason: 'Security incident' }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await setExperienceManifestKillSwitch(manifestId, true, actorId, 'Security incident', 'corr-kill');
+
+    expect(result.kill_switch_active).toBe(true);
+    expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes('kill_switch_active'))).toBe(true);
+    expect(client.query.mock.calls.some(([sql, values]: [string, unknown[]]) => sql.includes('experience_manifest_audit') && values.includes('kill_switched'))).toBe(true);
+    expect(client.query).toHaveBeenLastCalledWith('COMMIT');
   });
 
   it('blocks publishing a targeted manifest when no untargeted fallback is active', async () => {

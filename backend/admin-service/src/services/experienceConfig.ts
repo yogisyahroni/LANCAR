@@ -55,6 +55,9 @@ const PROTECTED_KEYS = [
   'total', 'transaction',
 ];
 
+const MAX_EXPERIENCE_MANIFEST_BYTES = 96 * 1024;
+const MAX_EXPERIENCE_COMPONENT_BYTES = 8 * 1024;
+
 const text = (max: number) => z.string().trim().min(1).max(max).refine(
   (value) => !/[<>]|javascript:|data:text\/html/i.test(value),
   'HTML, executable URLs, and unsafe markup are not allowed',
@@ -525,6 +528,10 @@ export type ExperienceManifestRecord = {
   approval_requested_at: string | null;
   approved_by: string | null;
   approved_at: string | null;
+  kill_switch_active: boolean;
+  kill_switched_by: string | null;
+  kill_switched_at: string | null;
+  kill_switch_reason: string | null;
 };
 
 export type PublicExperienceManifest = {
@@ -550,6 +557,7 @@ export type PublicExperienceManifest = {
 
 export type ExperienceManifestCandidate = Pick<ExperienceManifestRecord, 'manifest_id' | 'revision' | 'schema_version' | 'market_code' | 'locale' | 'surface' | 'min_app_version' | 'max_app_version' | 'starts_at' | 'ends_at' | 'schedule_timezone' | 'rollout_stage' | 'canary_cohort' | 'ttl_seconds' | 'cache_policy' | 'targeting' | 'sections' | 'asset_references' | 'checksum' | 'signature'> & {
   default_locale?: string;
+  kill_switch_active?: boolean;
 };
 
 export class ExperienceManifestError extends Error {
@@ -615,6 +623,13 @@ const parseComponent = (value: unknown, index: number): ExperienceSection => {
     );
   }
   const parsedProperties = parsed.data as JsonObject;
+  if (Buffer.byteLength(JSON.stringify(parsedProperties), 'utf8') > MAX_EXPERIENCE_COMPONENT_BYTES) {
+    throw new ExperienceManifestError(
+      'EXPERIENCE_COMPONENT_TOO_LARGE',
+      400,
+      `sections[${index}].properties exceeds the ${MAX_EXPERIENCE_COMPONENT_BYTES}-byte component limit`,
+    );
+  }
   if (typeof parsedProperties.deep_link === 'string' && typeof parsedProperties.external_url === 'string') {
     throw new ExperienceManifestError(
       'EXPERIENCE_MULTIPLE_CTA_TARGETS',
@@ -745,6 +760,14 @@ const parseInput = (body: unknown): ExperienceManifestInput => {
   };
   rejectProtectedKeys({ targeting: normalized.targeting, sections: normalized.sections, asset_references: normalized.asset_references });
   validateAssetReferences(normalized.sections, normalized.asset_references);
+  const payloadBytes = Buffer.byteLength(JSON.stringify(normalized), 'utf8');
+  if (payloadBytes > MAX_EXPERIENCE_MANIFEST_BYTES) {
+    throw new ExperienceManifestError(
+      'EXPERIENCE_MANIFEST_TOO_LARGE',
+      400,
+      `Manifest payload exceeds the ${MAX_EXPERIENCE_MANIFEST_BYTES}-byte limit`,
+    );
+  }
   return normalized;
 };
 
@@ -905,7 +928,8 @@ const manifestSelect = `
          signature, state, created_by, updated_by, published_by, published_at,
          rolled_back_by, rolled_back_at, created_at, updated_at,
          requires_approval, approval_status, approval_requested_by, approval_requested_at,
-         approved_by, approved_at
+         approved_by, approved_at, kill_switch_active, kill_switched_by,
+         kill_switched_at, kill_switch_reason
     FROM experience_manifest_revisions`;
 
 const rowToManifest = (row: Record<string, any>): ExperienceManifestRecord => ({
@@ -947,6 +971,10 @@ const rowToManifest = (row: Record<string, any>): ExperienceManifestRecord => ({
   approval_requested_at: row.approval_requested_at ? new Date(row.approval_requested_at).toISOString() : null,
   approved_by: row.approved_by ? String(row.approved_by) : null,
   approved_at: row.approved_at ? new Date(row.approved_at).toISOString() : null,
+  kill_switch_active: Boolean(row.kill_switch_active),
+  kill_switched_by: row.kill_switched_by ? String(row.kill_switched_by) : null,
+  kill_switched_at: row.kill_switched_at ? new Date(row.kill_switched_at).toISOString() : null,
+  kill_switch_reason: row.kill_switch_reason ? String(row.kill_switch_reason) : null,
 });
 
 const snapshot = (manifest: ExperienceManifestRecord | Record<string, any>): JsonObject => ({
@@ -980,6 +1008,10 @@ const snapshot = (manifest: ExperienceManifestRecord | Record<string, any>): Jso
   approval_requested_at: manifest.approval_requested_at ?? null,
   approved_by: manifest.approved_by ?? null,
   approved_at: manifest.approved_at ?? null,
+  kill_switch_active: manifest.kill_switch_active ?? false,
+  kill_switched_by: manifest.kill_switched_by ?? null,
+  kill_switched_at: manifest.kill_switched_at ?? null,
+  kill_switch_reason: manifest.kill_switch_reason ?? null,
 });
 
 const serialize = (value: unknown): string => JSON.stringify(value ?? null);
@@ -1245,6 +1277,7 @@ export const publishExperienceManifest = async (
          WHERE market_code = $1
            AND surface = $2
            AND state = 'published'
+           AND kill_switch_active = FALSE
            AND id <> $3
            AND starts_at <= NOW()
            AND (ends_at IS NULL OR ends_at > NOW())
@@ -1330,6 +1363,67 @@ export const rollbackExperienceManifest = async (
     const published = rowToManifest(publishedTarget.rows[0]);
     await audit(client, published, 'published', actorId, `Rollback to revision ${target.revision}: ${normalizedReason}`, target.state, 'published', correlationId, { rollback_from_revision: current.revision });
     return published;
+  });
+};
+
+export const setExperienceManifestKillSwitch = async (
+  manifestIdValue: unknown,
+  active: boolean,
+  actorId: string,
+  reason: string,
+  correlationId: string | null,
+): Promise<ExperienceManifestRecord> => {
+  const manifestId = parseUuid(manifestIdValue, 'manifest_id');
+  const normalizedReason = reason.trim();
+  if (normalizedReason.length < 3 || normalizedReason.length > 500) {
+    throw new ExperienceManifestError(
+      'EXPERIENCE_KILL_SWITCH_REASON_REQUIRED',
+      400,
+      'Kill-switch reason must contain 3 to 500 characters',
+    );
+  }
+
+  return withTransaction(async (client) => {
+    await lockManifest(client, manifestId);
+    const currentResult = await client.query(
+      `${manifestSelect} WHERE manifest_id = $1 AND state = 'published' FOR UPDATE`,
+      [manifestId],
+    );
+    if (!currentResult.rows[0]) {
+      throw new ExperienceManifestError(
+        'EXPERIENCE_PUBLISHED_NOT_FOUND',
+        409,
+        `Manifest '${manifestId}' has no published revision`,
+      );
+    }
+    const current = rowToManifest(currentResult.rows[0]);
+    if (current.kill_switch_active === active) return current;
+
+    const result = await client.query(
+      `UPDATE experience_manifest_revisions
+          SET kill_switch_active = $1,
+              kill_switched_by = CASE WHEN $1 THEN $2 ELSE NULL END,
+              kill_switched_at = CASE WHEN $1 THEN NOW() ELSE NULL END,
+              kill_switch_reason = CASE WHEN $1 THEN $3 ELSE NULL END,
+              updated_by = $2,
+              updated_at = NOW()
+        WHERE id = $4 AND state = 'published'
+        RETURNING *`,
+      [active, actorId, normalizedReason, current.id],
+    );
+    const updated = rowToManifest(result.rows[0]);
+    await audit(
+      client,
+      updated,
+      active ? 'kill_switched' : 'kill_switch_cleared',
+      actorId,
+      normalizedReason,
+      'published',
+      'published',
+      correlationId,
+      { kill_switch_active: active },
+    );
+    return updated;
   });
 };
 
@@ -1500,6 +1594,7 @@ export const pickExperienceManifest = (
   const requestedLocale = normalizeLocale(request.locale);
   const defaultLocale = normalizeLocale(request.default_locale);
   const ranked = candidates.flatMap((candidate) => {
+    if (candidate.kill_switch_active) return [];
     if (candidate.market_code !== request.market_code) return [];
     if (candidate.rollout_stage === 'canary' && candidate.canary_cohort !== request.cohort) return [];
     const candidateLocale = normalizeLocale(candidate.locale);
@@ -1571,6 +1666,7 @@ export const resolvePublicExperienceManifest = async (request: {
        WHERE market_code = $1
          AND surface = $2
          AND state = 'published'
+         AND kill_switch_active = FALSE
          AND starts_at <= NOW()
          AND (ends_at IS NULL OR ends_at > NOW())
        ORDER BY revision DESC

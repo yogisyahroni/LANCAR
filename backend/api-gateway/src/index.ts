@@ -458,6 +458,7 @@ const generalLimiter = rateLimit({
 const publicMapsLimiter = createPublicEndpointRateLimiter('maps', { recordEvent: recordPublicAbuseEvent });
 const publicPricingLimiter = createPublicEndpointRateLimiter('pricing', { recordEvent: recordPublicAbuseEvent });
 const publicSystemLimiter = createPublicEndpointRateLimiter('system', { recordEvent: recordPublicAbuseEvent });
+const publicExperienceLimiter = createPublicEndpointRateLimiter('experience', { recordEvent: recordPublicAbuseEvent });
 const publicMapsAbuseGuard = createMapsAbuseGuard({ recordEvent: recordPublicAbuseEvent });
 const publicPricingAbuseGuard = createPricingAbuseGuard({ recordEvent: recordPublicAbuseEvent });
 
@@ -938,6 +939,27 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       logProxyForward('market_config', req, ADMIN_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) recordBreakerFailure(adminBreaker);
+    },
+  },
+}));
+
+// Presentation-only experience manifests are public runtime configuration.
+// Keep them on the configuration owner, with a dedicated rate-limit bucket;
+// they must not inherit the authenticated API default or a transactional
+// service proxy.
+app.use('/api/v1/experience', publicExperienceLimiter);
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string, req: Request) =>
+    req.method === 'GET' && pathname === '/api/v1/experience/manifest',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('experience_config', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any) => {

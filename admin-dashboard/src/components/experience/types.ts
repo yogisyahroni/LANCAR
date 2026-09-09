@@ -75,6 +75,10 @@ export type ExperienceManifest = {
   approval_requested_at: string | null
   approved_by: string | null
   approved_at: string | null
+  kill_switch_active: boolean
+  kill_switched_by: string | null
+  kill_switched_at: string | null
+  kill_switch_reason: string | null
 }
 
 export type ExperienceAuditRecord = {

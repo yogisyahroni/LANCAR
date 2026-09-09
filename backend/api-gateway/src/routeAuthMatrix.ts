@@ -160,6 +160,12 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: exact('/api/v1/compliance/policy', ['GET']),
   },
   {
+    id: 'experience-config-public-runtime',
+    requirement: 'public',
+    publicReason: 'Presentation-only experience manifests are public configuration needed before authentication and must fail closed downstream.',
+    matches: exact('/api/v1/experience/manifest', ['GET']),
+  },
+  {
     id: 'compliance-user-api',
     requirement: 'web-session-or-jwt',
     matches: prefix('/api/v1/compliance'),

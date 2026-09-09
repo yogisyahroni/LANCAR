@@ -12,6 +12,14 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private val SHA256 = Regex("^[a-f0-9]{64}$")
+
+private fun etagChecksum(etag: String?): String? {
+    val value = etag?.trim()?.removePrefix("W/")?.trim() ?: return null
+    if (value.length < 2 || value.first() != '"' || value.last() != '"') return null
+    return value.substring(1, value.length - 1).lowercase()
+}
+
 sealed interface ExperienceConfigFetchResult {
     data class Updated(val manifest: ExperienceManifest, val etag: String?) : ExperienceConfigFetchResult
     data class NotModified(val etag: String?) : ExperienceConfigFetchResult
@@ -45,13 +53,28 @@ class RetrofitExperienceConfigApi @Inject constructor(
         }.fold(
             onSuccess = { response ->
                 when {
-                    response.code() == 304 -> ExperienceConfigFetchResult.NotModified(response.headers()["ETag"])
+                    response.code() == 304 -> {
+                        val etag = response.headers()["ETag"]
+                        if (etag != null && etagChecksum(etag) == null) {
+                            ExperienceConfigFetchResult.Failed("manifest_invalid_etag")
+                        } else {
+                            ExperienceConfigFetchResult.NotModified(etag)
+                        }
+                    }
                     response.isSuccessful -> {
                         val data = response.body()?.data
                         if (data == null) {
                             ExperienceConfigFetchResult.Failed("manifest_response_missing_data")
                         } else {
-                            ExperienceConfigFetchResult.Updated(data, response.headers()["ETag"])
+                            val etag = response.headers()["ETag"]
+                            val checksum = data.checksum.trim().lowercase()
+                            val boundChecksum = etagChecksum(etag)
+                            when {
+                                !SHA256.matches(checksum) -> ExperienceConfigFetchResult.Failed("manifest_invalid_checksum")
+                                etag != null && boundChecksum == null -> ExperienceConfigFetchResult.Failed("manifest_invalid_etag")
+                                boundChecksum != null && boundChecksum != checksum -> ExperienceConfigFetchResult.Failed("manifest_etag_checksum_mismatch")
+                                else -> ExperienceConfigFetchResult.Updated(data, etag ?: "\"$checksum\"")
+                            }
                         }
                     }
                     else -> ExperienceConfigFetchResult.Failed("manifest_http_${response.code()}")

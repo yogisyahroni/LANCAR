@@ -99,7 +99,7 @@ class ExperienceConfigRepository @Inject constructor(
 
         val result = runCatching {
             withTimeout(NETWORK_TIMEOUT_MILLIS) {
-                api.fetch(scope, cached?.takeIf { it.scopeKey == scope.cacheKey }?.etag)
+                api.fetch(scope, cached?.takeIf { it.scopeKey == scope.cacheKey && cachedManifest != null }?.etag)
             }
         }.getOrElse { ExperienceConfigFetchResult.Failed(it.javaClass.simpleName) }
 
@@ -181,6 +181,7 @@ class ExperienceConfigRepository @Inject constructor(
 
     private fun decodeAndValidate(rawJson: String, scope: ExperienceConfigScope): ExperienceManifest? =
         runCatching {
+            if (rawJson.toByteArray(Charsets.UTF_8).size > ExperienceManifestValidator.MAX_MANIFEST_BYTES) return@runCatching null
             val manifest = json.decodeFromString(ExperienceManifest.serializer(), rawJson)
             ExperienceManifestValidator.sanitize(manifest, scope)
         }.getOrNull()
@@ -191,7 +192,12 @@ class ExperienceConfigRepository @Inject constructor(
     ): ExperienceManifest? {
         if (cached == null || cached.scopeKey != scope.cacheKey) return null
         if (!store.isAssetBundleAvailable(cached.assetBundleKey)) return null
-        return decodeAndValidate(cached.manifestJson, scope)
+        val manifest = decodeAndValidate(cached.manifestJson, scope) ?: return null
+        if (cached.revision != manifest.revision) return null
+        val cachedEtag = cached.etag?.trim()?.removePrefix("W/")?.trim()
+        if (cachedEtag != null && (cachedEtag.length < 2 || cachedEtag.first() != '"' || cachedEtag.last() != '"')) return null
+        if (cachedEtag != null && cachedEtag.substring(1, cachedEtag.length - 1).lowercase() != manifest.checksum.lowercase()) return null
+        return manifest
     }
 
     private fun isFresh(manifest: ExperienceManifest, storedAtMillis: Long): Boolean {

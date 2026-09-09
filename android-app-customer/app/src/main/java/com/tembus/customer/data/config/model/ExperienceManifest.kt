@@ -133,7 +133,8 @@ object ExperienceManifestValidator {
         "amount", "authorization", "commission", "currency", "delivery_status",
         "eligibility", "financial", "order_state", "payment", "payout", "price",
         "provider", "refund", "risk", "settlement", "state_machine", "tax",
-        "total", "transaction",
+        "total", "transaction", "html", "html_content", "javascript", "script",
+        "shell", "command", "reflection_target", "class_name", "bytecode", "webview",
     )
 
     fun sanitize(
@@ -148,6 +149,8 @@ object ExperienceManifestValidator {
         if (!isWithinVersion(manifest.minAppVersion, manifest.maxAppVersion, scope.appVersion)) return null
         if (!isInSchedule(manifest.startsAt, manifest.endsAt, nowMillis)) return null
         if (manifest.manifestId.isBlank() || manifest.revision < 1 || !sha256.matches(manifest.checksum)) return null
+        if (manifest.signature != null && !sha256.matches(manifest.signature)) return null
+        if (manifest.sections.size > MAX_COMPONENTS || manifest.assetReferences.size > MAX_ASSETS) return null
 
         val assets = manifest.assetReferences.mapNotNull { sanitizeAsset(it, nowMillis) }
         if (assets.size != manifest.assetReferences.size) return null
@@ -249,6 +252,7 @@ object ExperienceManifestValidator {
         val component = section.component.trim().lowercase(Locale.ROOT)
         if (!identifier.matches(id)) return null
         val allowed = components[component] ?: return null
+        if (section.properties.toString().toByteArray(Charsets.UTF_8).size > MAX_COMPONENT_BYTES) return null
         val properties = sanitizeProperties(component, section.properties, allowed) ?: return null
         val referencedAssetIds = collectAssetIds(properties)
         if (referencedAssetIds.any { it !in assetIds }) return null
@@ -432,6 +436,10 @@ object ExperienceManifestValidator {
 
     private fun isImageFamily(kind: String): Boolean = kind in setOf("image", "animation", "icon")
 
+    const val MAX_MANIFEST_BYTES = 96 * 1024
+    private const val MAX_COMPONENTS = 20
+    private const val MAX_ASSETS = 50
+    private const val MAX_COMPONENT_BYTES = 32 * 1024
     private const val MAX_ASSET_BYTES = 5L * 1024L * 1024L
     private val VERSION = Regex("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
     private val SUPPORTED_CONTENT_TYPES = setOf(

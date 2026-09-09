@@ -13,6 +13,7 @@ import {
   publishExperienceManifest,
   resolvePublicExperienceManifest,
   rollbackExperienceManifest,
+  setExperienceManifestKillSwitch,
   updateExperienceManifestDraft,
   type ExperienceSurface,
 } from '../services/experienceConfig';
@@ -159,6 +160,28 @@ export const rollbackAdminExperienceManifest = async (req: Request, res: Respons
     respondWithError(res, error, 'rollback');
   }
 };
+
+const setAdminExperienceManifestKillSwitch = async (req: Request, res: Response, active: boolean): Promise<void> => {
+  try {
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason : '';
+    const data = await setExperienceManifestKillSwitch(
+      manifestId(req),
+      active,
+      getActorId(req),
+      reason,
+      correlationId(req, res),
+    );
+    res.json({ success: true, data });
+  } catch (error) {
+    respondWithError(res, error, active ? 'kill' : 'kill_restore');
+  }
+};
+
+export const killAdminExperienceManifest = async (req: Request, res: Response): Promise<void> =>
+  setAdminExperienceManifestKillSwitch(req, res, true);
+
+export const restoreAdminExperienceManifest = async (req: Request, res: Response): Promise<void> =>
+  setAdminExperienceManifestKillSwitch(req, res, false);
 
 export const getPublicExperienceManifest = async (req: Request, res: Response): Promise<void> => {
   try {
