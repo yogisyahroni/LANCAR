@@ -2218,13 +2218,13 @@ A task is complete only when applicable boxes below are true:
 - `backend/api-gateway/` validation/rate-limit boundary as applicable
 
 **Checklist**
-- [ ] Manifest has strict schema and maximum payload/component/asset limits.
-- [ ] Payload/cache can be integrity-checked by revision/hash/signature strategy.
-- [ ] Remote config never contains secrets, arbitrary JavaScript, SQL, shell, reflection target or executable bytecode.
-- [ ] Arbitrary WebView HTML is not allowed for core order/payment/identity flows.
-- [ ] Deep links and external domains are allowlisted.
-- [ ] Server sanitizes user-visible remote text/URLs and prevents unsafe schemes.
-- [ ] Compromised CMS account blast radius is limited by role/approval/audit/kill switch.
+- [x] Manifest has strict schema and maximum payload/component/asset limits. (Evidence: `docs/task-evidence/APP-2026-011.md`)
+- [x] Payload/cache can be integrity-checked by revision/hash/signature strategy. (Evidence: `docs/task-evidence/APP-2026-011.md`)
+- [x] Remote config never contains secrets, arbitrary JavaScript, SQL, shell, reflection target or executable bytecode. (Evidence: `docs/task-evidence/APP-2026-011.md`)
+- [x] Arbitrary WebView HTML is not allowed for core order/payment/identity flows. (Evidence: `docs/task-evidence/APP-2026-011.md`)
+- [x] Deep links and external domains are allowlisted. (Evidence: `docs/task-evidence/APP-2026-011.md`)
+- [x] Server sanitizes user-visible remote text/URLs and prevents unsafe schemes. (Evidence: `docs/task-evidence/APP-2026-011.md`)
+- [x] Compromised CMS account blast radius is limited by role/approval/audit/kill switch. (Evidence: `docs/task-evidence/APP-2026-011.md`)
 
 ---
 
