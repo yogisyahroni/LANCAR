@@ -1763,24 +1763,44 @@ const validateListFilter = (value: unknown, field: string): string | null => {
   if (field === 'market_code' && !MARKET_CODE.test(normalized)) throw new ExperienceManifestError('INVALID_EXPERIENCE_FILTER', 400, `${field} is invalid`);
   if (field === 'surface' && !EXPERIENCE_SURFACES.includes(normalized as ExperienceSurface)) throw new ExperienceManifestError('INVALID_EXPERIENCE_FILTER', 400, `${field} is invalid`);
   if (field === 'state' && !['draft', 'published', 'superseded', 'rolled_back'].includes(normalized)) throw new ExperienceManifestError('INVALID_EXPERIENCE_FILTER', 400, `${field} is invalid`);
+  if (['city_code', 'zone_code'].includes(field) && !IDENTIFIER.test(normalized)) throw new ExperienceManifestError('INVALID_EXPERIENCE_FILTER', 400, `${field} is invalid`);
+  if (field === 'locale' && !LOCALE.test(normalized)) throw new ExperienceManifestError('INVALID_EXPERIENCE_FILTER', 400, `${field} is invalid`);
+  if (field === 'app_version' && !SEMVER.test(normalized)) throw new ExperienceManifestError('INVALID_EXPERIENCE_FILTER', 400, `${field} is invalid`);
   return normalized;
 };
+
+const matchesOverviewTarget = (values: string[], requested: string | null): boolean =>
+  !requested || values.length === 0 || values.includes(requested);
 
 export const listExperienceManifestRevisions = async (filters: {
   market_code?: unknown;
   surface?: unknown;
   state?: unknown;
+  city_code?: unknown;
+  zone_code?: unknown;
+  locale?: unknown;
+  app_version?: unknown;
 } = {}): Promise<ExperienceManifestRecord[]> => {
   const marketCode = validateListFilter(filters.market_code, 'market_code');
   const surface = validateListFilter(filters.surface, 'surface');
   const state = validateListFilter(filters.state, 'state');
+  const cityCode = validateListFilter(filters.city_code, 'city_code');
+  const zoneCode = validateListFilter(filters.zone_code, 'zone_code');
+  const requestedLocale = validateListFilter(filters.locale, 'locale');
+  const appVersion = validateListFilter(filters.app_version, 'app_version');
   const values: unknown[] = [];
   const where: string[] = [];
   if (marketCode) { values.push(marketCode); where.push(`market_code = $${values.length}`); }
   if (surface) { values.push(surface); where.push(`surface = $${values.length}`); }
   if (state) { values.push(state); where.push(`state = $${values.length}`); }
   const result = await readDb.query(`${manifestSelect}${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY manifest_id ASC, revision DESC LIMIT 1000`, values);
-  return result.rows.map(rowToManifest);
+  return result.rows.map(rowToManifest).filter((manifest) => {
+    if (!matchesOverviewTarget(manifest.targeting.city_codes, cityCode)) return false;
+    if (!matchesOverviewTarget(manifest.targeting.zone_codes, zoneCode)) return false;
+    if (requestedLocale && normalizeLocale(manifest.locale) !== normalizeLocale(requestedLocale)) return false;
+    if (appVersion && !isWithinAppRange(manifest, appVersion)) return false;
+    return true;
+  });
 };
 
 export const validateExperienceRollout = (body: unknown): JsonObject => {

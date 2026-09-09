@@ -14,6 +14,7 @@ import {
   rejectExperienceManifest,
   getExperienceCacheControl,
   getExperienceManifestHistory,
+  listExperienceManifestRevisions,
   parseExperienceManifestInput,
   pickExperienceManifest,
   previewExperienceManifestAudience,
@@ -703,6 +704,31 @@ describe('experience manifest contract', () => {
   it('maps cache policy to an explicit cache header', () => {
     expect(getExperienceCacheControl({ ...candidate(), cache_policy: 'no-store' } as any)).toBe('no-store');
     expect(getExperienceCacheControl({ ...candidate(), cache_policy: 'public', ttl_seconds: 60 } as any)).toContain('public, max-age=60');
+  });
+
+  it('filters overview revisions by city, locale and supported app version while retaining broad fallback', async () => {
+    const cityTarget = row('published', 2) as any;
+    cityTarget.targeting = {
+      cohorts: [], market_codes: [], city_codes: ['jakarta-selatan'], zone_codes: [], locales: [],
+      service_usage_cohorts: [], roles: [], experiment_assignments: [],
+    };
+    const otherCity = row('published', 3) as any;
+    otherCity.targeting = {
+      cohorts: [], market_codes: [], city_codes: ['bandung'], zone_codes: [], locales: [],
+      service_usage_cohorts: [], roles: [], experiment_assignments: [],
+    };
+    const tooNew = row('published', 4) as any;
+    tooNew.min_app_version = '2.0.0';
+    (readDb.query as jest.Mock).mockResolvedValueOnce({ rows: [row('published'), cityTarget, otherCity, tooNew] });
+
+    const result = await listExperienceManifestRevisions({
+      market_code: 'id-jk',
+      surface: 'customer_android',
+      city_code: 'jakarta-selatan',
+      locale: 'en-US',
+      app_version: '1.5.0',
+    });
+    expect(result.map((manifest) => manifest.revision)).toEqual([1, 2]);
   });
 });
 

@@ -86,6 +86,7 @@ export type ExperienceObservabilityFilters = {
   manifestId?: string;
   revision?: number;
   marketCode?: string;
+  surface?: string;
   appVersion?: string;
 };
 
@@ -161,6 +162,7 @@ const filtersFor = (filters: ExperienceObservabilityFilters) => {
   if (filters.manifestId) add("payload->>'manifest_id' = ?", filters.manifestId);
   if (filters.revision != null) add("NULLIF(payload->>'manifest_revision', '')::integer = ?", filters.revision);
   if (filters.marketCode) add('market_code = ?', filters.marketCode);
+  if (filters.surface) add("COALESCE(headers->>'source', payload->>'surface') = ?", filters.surface);
   if (filters.appVersion) add("COALESCE(headers->>'app_version', payload->>'app_version', 'unknown') = ?", filters.appVersion);
   return { where: predicates.join(' AND '), values };
 };
@@ -243,6 +245,7 @@ export const getExperienceObservability = async (
       ...(filters.manifestId ? { manifestId: filters.manifestId } : {}),
       ...(filters.revision != null ? { revision: filters.revision } : {}),
       ...(filters.marketCode ? { marketCode: filters.marketCode } : {}),
+      ...(filters.surface ? { surface: filters.surface } : {}),
       ...(filters.appVersion ? { appVersion: filters.appVersion } : {}),
     },
     summary: {

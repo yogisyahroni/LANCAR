@@ -162,6 +162,10 @@ export const listAdminExperienceManifests = async (req: Request, res: Response):
       market_code: req.query.market_code,
       surface: req.query.surface,
       state: req.query.state,
+      city_code: req.query.city_code,
+      zone_code: req.query.zone_code,
+      locale: req.query.locale,
+      app_version: req.query.app_version,
     });
     respondSuccess(req, res, data);
   } catch (error) {

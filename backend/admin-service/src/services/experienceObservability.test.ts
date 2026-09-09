@@ -61,6 +61,7 @@ describe('experience observability', () => {
     const result = await getExperienceObservability({
       from: new Date('2026-09-09T00:00:00.000Z'),
       to: new Date('2026-09-09T01:00:00.000Z'),
+      surface: 'customer_android',
     }, queryable);
 
     expect(result.summary.reliability_failure_rate_pct).toBe(8.33);
@@ -78,6 +79,7 @@ describe('experience observability', () => {
     }));
     expect(queryable.query).toHaveBeenCalledTimes(2);
     expect(queryable.query.mock.calls[0][0]).toContain('marketing_events');
+    expect(queryable.query.mock.calls[0][0]).toContain("COALESCE(headers->>'source', payload->>'surface')");
   });
 
   it('does not trip the guardrail when the reliability sample is below the minimum', async () => {

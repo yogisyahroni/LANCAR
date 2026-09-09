@@ -5,6 +5,7 @@ type Props = {
   value: ExperienceAsset[]
   onChange: (value: ExperienceAsset[]) => void
   disabled?: boolean
+  focusAssetId?: string | null
 }
 
 const inputClass = 'mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:opacity-50'
@@ -35,7 +36,7 @@ const newAsset = (index: number): ExperienceAsset => ({
   fallback_asset_id: null,
 })
 
-export default function AssetPicker({ value, onChange, disabled = false }: Props) {
+export default function AssetPicker({ value, onChange, disabled = false, focusAssetId = null }: Props) {
   const update = (index: number, patch: Partial<ExperienceAsset>) => onChange(value.map((asset, assetIndex) => assetIndex === index ? { ...asset, ...patch } : asset))
 
   return (
@@ -48,7 +49,8 @@ export default function AssetPicker({ value, onChange, disabled = false }: Props
         <button type="button" disabled={disabled} onClick={() => onChange([...value, newAsset(value.length)])} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary-light disabled:opacity-50"><Plus size={14} /> Add</button>
       </div>
       {value.length === 0 ? <p className="mt-4 rounded-xl border border-dashed border-white/10 p-4 text-xs text-zinc-600">No assets. Components without media can be published safely.</p> : <div className="mt-4 space-y-3">
-        {value.map((asset, index) => <div key={`${asset.asset_id}-${index}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+        {value.map((asset, index) => <div key={`${asset.asset_id}-${index}`} className={`rounded-xl border p-3 ${asset.asset_id === focusAssetId ? 'border-orange-400/70 bg-orange-500/10' : 'border-white/10 bg-white/[0.03]'}`}>
+          {asset.asset_id === focusAssetId ? <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-orange-200">Offending asset linked from overview</p> : null}
           <div className="grid gap-3 md:grid-cols-[1fr_2fr_130px_1fr_auto]">
             <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">ID<input className={inputClass} disabled={disabled} value={asset.asset_id} onChange={(event) => update(index, { asset_id: event.target.value })} /></label>
             <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">HTTPS URI<input className={inputClass} disabled={disabled} value={asset.uri} onChange={(event) => update(index, { uri: event.target.value })} placeholder="https://cdn.example.com/banner.webp" /></label>

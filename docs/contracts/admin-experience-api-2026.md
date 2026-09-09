@@ -35,7 +35,7 @@ HTTP `428` with `EXPERIENCE_PRECONDITION_REQUIRED`.
 
 | Method | Route | Purpose | Authorization |
 | --- | --- | --- | --- |
-| GET | `/admin/experience/manifests?market_code=&surface=&state=` | List revisions in an explicit scope | `experience.read` |
+| GET | `/admin/experience/manifests?market_code=&city_code=&zone_code=&surface=&locale=&app_version=&state=` | List revisions in an explicit scope; city/zone keep broad fallback visible and app version is range-aware | `experience.read` |
 | GET | `/admin/experience/manifests/:manifestId` | Read revisions and append-only audit history | `experience.read` |
 | POST | `/admin/experience/manifests` | Create a validated draft revision | `experience.draft.write` |
 | PATCH/PUT | `/admin/experience/manifests/:manifestId/draft` or `/:manifestId` | Update the draft only | `experience.draft.write` |
@@ -86,6 +86,10 @@ creating duplicate stores:
   exposure switches. `POST /admin/experience/kill-switches` and the
   manifest-scoped `/kill` and `/restore` routes perform the audited,
   idempotent emergency action.
+- `GET /admin/experience/observability?range=24H&market_code=&surface=&app_version=`
+  reports fetch/render reliability telemetry for the selected operational
+  scope. Marketing impressions/clicks are kept separate from reliability
+  failure-rate calculations.
 
 ## Audit contract
 

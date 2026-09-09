@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Request, Response } from 'express';
 import { db } from '../db';
 import { enqueueOutboxEvent } from '../services/eventOutbox';
+import { EXPERIENCE_SURFACES } from '../services/experienceConfig';
 import {
   evaluateExperienceGuardrail,
   EXPERIENCE_TELEMETRY_EVENT_TYPES,
@@ -190,6 +191,7 @@ export const getAdminExperienceObservability = async (req: Request, res: Respons
       manifestId: queryText(req.query.manifest_id),
       revision: queryText(req.query.revision) ? Number(queryText(req.query.revision)) : undefined,
       marketCode: queryText(req.query.market_code)?.toLowerCase(),
+      surface: queryText(req.query.surface)?.toLowerCase(),
       appVersion: queryText(req.query.app_version),
     };
     if (filters.revision != null && (!Number.isInteger(filters.revision) || filters.revision < 0)) {
@@ -197,6 +199,7 @@ export const getAdminExperienceObservability = async (req: Request, res: Respons
     }
     if (filters.manifestId && !UUID.test(filters.manifestId)) throw new Error('manifest_id is invalid');
     if (filters.marketCode && !MARKET_CODE.test(filters.marketCode)) throw new Error('market_code is invalid');
+    if (filters.surface && !EXPERIENCE_SURFACES.includes(filters.surface as typeof EXPERIENCE_SURFACES[number])) throw new Error('surface is invalid');
     if (filters.appVersion && !APP_VERSION.test(filters.appVersion)) throw new Error('app_version is invalid');
     const data = await getExperienceObservability(filters);
     res.json({ success: true, data });
