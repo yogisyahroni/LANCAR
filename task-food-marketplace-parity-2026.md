@@ -2307,16 +2307,16 @@ A task is complete only when applicable boxes below are true:
 - `frontend/e2e/runtime-experience.spec.ts`
 
 **Mandatory scenarios**
-- [ ] First install offline uses packaged default.
-- [ ] Cached manifest renders while network refresh fails.
-- [ ] New compatible revision updates banner/home order without app release.
-- [ ] Invalid/unknown component safely skipped.
-- [ ] Corrupt/oversized asset safely rejected.
-- [ ] Campaign starts/expires by schedule correctly across timezone.
-- [ ] Kill switch removes entry point but active order remains reachable.
-- [ ] Old app ignores unsupported new component and remains usable.
-- [ ] Bad revision rollback restores known-good experience.
-- [ ] Promo shown remotely but server rejects ineligible promo at transaction boundary.
+- [x] First install offline uses packaged default. (Evidence: docs/task-evidence/APP-2026-016.md)
+- [x] Cached manifest renders while network refresh fails. (Evidence: docs/task-evidence/APP-2026-016.md)
+- [x] New compatible revision updates banner/home order without app release. (Evidence: docs/task-evidence/APP-2026-016.md)
+- [x] Invalid/unknown component safely skipped. (Evidence: docs/task-evidence/APP-2026-016.md)
+- [x] Corrupt/oversized asset safely rejected. (Evidence: docs/task-evidence/APP-2026-016.md)
+- [x] Campaign starts/expires by schedule correctly across timezone. (Evidence: docs/task-evidence/APP-2026-016.md)
+- [x] Kill switch removes entry point but active order remains reachable. (Evidence: docs/task-evidence/APP-2026-016.md)
+- [x] Old app ignores unsupported new component and remains usable. (Evidence: docs/task-evidence/APP-2026-016.md)
+- [x] Bad revision rollback restores known-good experience. (Evidence: docs/task-evidence/APP-2026-016.md)
+- [x] Promo shown remotely but server rejects ineligible promo at transaction boundary. (Evidence: docs/task-evidence/APP-2026-016.md)
 
 ---
 
