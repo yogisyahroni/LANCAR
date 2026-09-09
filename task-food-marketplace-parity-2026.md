@@ -2543,10 +2543,10 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - draft awaiting approval count
 
 **Checklist**
-- [ ] Admin can filter by country/market, city/zone, surface, locale and app version.
-- [ ] Clear separation of `LIVE`, `SCHEDULED`, `CANARY`, `DRAFT`, `AWAITING_APPROVAL`, `ROLLED_BACK`, `EXPIRED`.
-- [ ] Overview links directly to offending revision/campaign/asset instead of only showing aggregate errors.
-- [ ] Global overview never implies one market config is active everywhere.
+- [x] Admin can filter by country/market, city/zone, surface, locale and app version. Evidence: `docs/task-evidence/ADMEXP-2026-004.md`
+- [x] Clear separation of `LIVE`, `SCHEDULED`, `CANARY`, `DRAFT`, `AWAITING_APPROVAL`, `ROLLED_BACK`, `EXPIRED`. Evidence: `docs/task-evidence/ADMEXP-2026-004.md`
+- [x] Overview links directly to offending revision/campaign/asset instead of only showing aggregate errors. Evidence: `docs/task-evidence/ADMEXP-2026-004.md`
+- [x] Global overview never implies one market config is active everywhere. Evidence: `docs/task-evidence/ADMEXP-2026-004.md`
 
 ---
 
