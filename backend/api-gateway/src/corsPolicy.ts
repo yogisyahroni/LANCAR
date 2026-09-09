@@ -39,6 +39,14 @@ export const PUBLIC_ALLOWED_HEADERS = [
   'x-request-id',
   'traceparent',
   'x-requested-with',
+  // Public client capability metadata sent by the customer/merchant web apps.
+  // These are not trusted identity headers; the gateway validates/authenticates
+  // requests independently and must allow them through the browser preflight.
+  'x-app-type',
+  'x-app-platform',
+  'x-app-version',
+  'x-app-schema-version',
+  'x-app-capabilities',
 ];
 
 type EnvLike = NodeJS.ProcessEnv;

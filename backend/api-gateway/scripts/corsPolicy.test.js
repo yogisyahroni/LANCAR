@@ -89,4 +89,18 @@ for (const internalHeader of ['x-user-id', 'x-user-role', 'x-totp-verified', 'x-
   );
 }
 
+for (const clientMetadataHeader of [
+  'x-app-type',
+  'x-app-platform',
+  'x-app-version',
+  'x-app-schema-version',
+  'x-app-capabilities',
+]) {
+  assert.strictEqual(
+    PUBLIC_ALLOWED_HEADERS.map((header) => header.toLowerCase()).includes(clientMetadataHeader),
+    true,
+    `${clientMetadataHeader} must be allowed for browser client preflight`,
+  );
+}
+
 console.log('CORS policy tests passed');
