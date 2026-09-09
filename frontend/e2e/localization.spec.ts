@@ -33,4 +33,18 @@ test.describe('localization and direction contract', () => {
     }));
     expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
   });
+
+  test('keeps the public shell usable with long translated copy', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    const heading = page.getByRole('heading', { level: 1 });
+    await heading.evaluate((node) => {
+      node.textContent = 'Every delivery deserves a clear, helpful and trustworthy experience across every market';
+    });
+
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
+  });
 });
