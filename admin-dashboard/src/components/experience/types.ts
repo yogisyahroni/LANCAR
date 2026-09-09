@@ -160,6 +160,15 @@ export type ExperienceForm = {
   asset_references: ExperienceAsset[]
 }
 
+export type ExperienceConflict = {
+  manifest_id: string
+  revision: number
+  campaign_name: string
+  placements: string[]
+  starts_at: string
+  ends_at: string | null
+}
+
 export const emptyTargeting = (): ExperienceTargeting => ({
   cohorts: [],
   market_codes: [],
@@ -296,6 +305,48 @@ export const hasAudienceConstraints = (targeting: ExperienceTargeting) => Boolea
   || targeting.experiment_ref
   || targeting.experiment_assignments.length,
 )
+
+const overlap = (left: string[], right: string[]) => left.length === 0 || right.length === 0 || left.some((value) => right.includes(value))
+
+const targetingOverlaps = (left: ExperienceTargeting, right: ExperienceTargeting) => {
+  if (!overlap(left.market_codes, right.market_codes)
+    || !overlap(left.city_codes, right.city_codes)
+    || !overlap(left.zone_codes, right.zone_codes)
+    || !overlap(left.locales.map((value) => value.toLowerCase()), right.locales.map((value) => value.toLowerCase()))
+    || !overlap(left.service_usage_cohorts, right.service_usage_cohorts)
+    || !overlap(left.cohorts, right.cohorts)
+    || !overlap(left.roles, right.roles)
+    || !overlap(left.experiment_assignments, right.experiment_assignments)) return false
+  if (left.user_status && right.user_status && left.user_status !== right.user_status) return false
+  if (left.experiment_ref && right.experiment_ref && left.experiment_ref !== right.experiment_ref) return false
+  return true
+}
+
+const dateRangeOverlaps = (leftStart: string, leftEnd: string | null, rightStart: string, rightEnd: string | null) => {
+  const start = Math.max(new Date(leftStart).getTime(), new Date(rightStart).getTime())
+  const end = Math.min(leftEnd ? new Date(leftEnd).getTime() : Number.POSITIVE_INFINITY, rightEnd ? new Date(rightEnd).getTime() : Number.POSITIVE_INFINITY)
+  return Number.isFinite(start) && start < end
+}
+
+const placementSet = (sections: ExperienceSection[]) => Array.from(new Set(sections.filter((section) => section.enabled !== false).map((section) => placementForComponent(section.component))))
+
+export const detectExperienceConflicts = (form: ExperienceForm, manifests: ExperienceManifest[], selectedManifestId?: string | null): ExperienceConflict[] => {
+  const currentPlacements = placementSet(form.sections)
+  return manifests.filter((manifest) => {
+    if (manifest.manifest_id === selectedManifestId || manifest.state !== 'published' || manifest.kill_switch_active) return false
+    if (manifest.market_code !== form.market_code.trim().toLowerCase() || manifest.surface !== form.surface) return false
+    if (!dateRangeOverlaps(form.starts_at, form.ends_at || null, manifest.starts_at, manifest.ends_at)) return false
+    if (!targetingOverlaps(form.targeting, manifest.targeting)) return false
+    return currentPlacements.some((placement) => placementSet(manifest.sections).includes(placement))
+  }).map((manifest) => ({
+    manifest_id: manifest.manifest_id,
+    revision: manifest.revision,
+    campaign_name: campaignNameForManifest(manifest),
+    placements: placementSet(manifest.sections),
+    starts_at: manifest.starts_at,
+    ends_at: manifest.ends_at,
+  }))
+}
 
 const cleanedProperties = (properties: Record<string, unknown>): Record<string, unknown> => Object.fromEntries(Object.entries(properties)
   .map(([key, value]) => [
