@@ -1944,11 +1944,11 @@ A task is complete only when applicable boxes below are true:
 - `tests/contract/backward-compatibility/`
 
 **Checklist**
-- [ ] Backend supports documented minimum client versions during rollout window.
-- [ ] Additive API changes are preferred; breaking changes require explicit version/migration path.
-- [ ] Server knows app version/schema capability before returning unsupported dynamic features.
-- [ ] Old app remains safely usable or receives explicit upgrade-required state; it must not silently misprice/misrender an order.
-- [ ] Country launch has rollout/canary/rollback plan independent from mobile store release cadence.
+- [x] Backend supports documented minimum client versions during rollout window.
+- [x] Additive API changes are preferred; breaking changes require explicit version/migration path.
+- [x] Server knows app version/schema capability before returning unsupported dynamic features.
+- [x] Old app remains safely usable or receives explicit upgrade-required state; it must not silently misprice/misrender an order.
+- [x] Country launch has rollout/canary/rollback plan independent from mobile store release cadence.
 
 ---
 
