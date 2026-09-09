@@ -2035,12 +2035,12 @@ A task is complete only when applicable boxes below are true:
 - `android-app-customer/app/src/test/java/com/tembus/customer/config/ExperienceConfigManagerTest.kt`
 
 **Checklist**
-- [ ] App starts from packaged defaults or last-known-good config; startup never waits indefinitely for network config.
-- [ ] Refresh config asynchronously using ETag/revision/TTL.
-- [ ] Cache is atomic: partially downloaded manifest/assets never replace last-known-good revision.
-- [ ] Unsupported schema/component/property is ignored or falls back safely, never crashes home.
-- [ ] Config is scoped by market/locale/app version/surface.
-- [ ] Logout/account switch clears user-targeted assignment data that must not leak between accounts.
+- [x] App starts from packaged defaults or last-known-good config; startup never waits indefinitely for network config. Evidence: `docs/task-evidence/APP-2026-002.md`.
+- [x] Refresh config asynchronously using ETag/revision/TTL. Evidence: `docs/task-evidence/APP-2026-002.md`.
+- [x] Cache is atomic: partially downloaded manifest/assets never replace last-known-good revision. Evidence: `docs/task-evidence/APP-2026-002.md`.
+- [x] Unsupported schema/component/property is ignored or falls back safely, never crashes home. Evidence: `docs/task-evidence/APP-2026-002.md`.
+- [x] Config is scoped by market/locale/app version/surface. Evidence: `docs/task-evidence/APP-2026-002.md`.
+- [x] Logout/account switch clears user-targeted assignment data that must not leak between accounts. Evidence: `docs/task-evidence/APP-2026-002.md`.
 
 ---
 
