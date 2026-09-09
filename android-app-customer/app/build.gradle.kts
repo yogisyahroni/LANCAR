@@ -367,6 +367,7 @@ dependencies {
 
     // Coil for image loading in Compose
     implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-gif:2.5.0")
     
     // Accompanist for runtime permissions in Compose
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")

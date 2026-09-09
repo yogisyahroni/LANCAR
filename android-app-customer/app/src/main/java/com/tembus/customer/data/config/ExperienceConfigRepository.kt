@@ -7,6 +7,7 @@ import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
 import com.tembus.customer.data.config.model.ExperienceConfigSource
 import com.tembus.customer.data.config.model.ExperienceManifest
 import com.tembus.customer.data.config.model.ExperienceManifestValidator
+import com.tembus.customer.data.config.model.ExperienceAssetReference
 import com.tembus.customer.data.localization.LocaleManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.withTimeout
@@ -50,12 +51,20 @@ class ExperienceConfigRepository @Inject constructor(
         val cached = store.readCachedManifest()
         val manifest = cachedManifestFor(cached, scope)
         return if (manifest != null && cached != null) {
-            ExperienceConfigSnapshot(manifest, ExperienceConfigSource.LAST_KNOWN_GOOD, cached.storedAtMillis)
+            ExperienceConfigSnapshot(
+                manifest = manifest,
+                source = ExperienceConfigSource.LAST_KNOWN_GOOD,
+                loadedAtMillis = cached.storedAtMillis,
+                scope = scope,
+                assetBundleKey = cached.assetBundleKey,
+            )
         } else {
             ExperienceConfigSnapshot(
                 manifest = ExperienceManifestValidator.packagedDefault(scope),
                 source = ExperienceConfigSource.PACKAGED_DEFAULT,
                 loadedAtMillis = System.currentTimeMillis(),
+                scope = scope,
+                assetBundleKey = "packaged",
             )
         }
     }
@@ -64,12 +73,20 @@ class ExperienceConfigRepository @Inject constructor(
         val cached = store.readCachedManifest()
         val cachedManifest = cachedManifestFor(cached, scope)
         val cachedSnapshot = if (cachedManifest != null && cached != null) {
-            ExperienceConfigSnapshot(cachedManifest, ExperienceConfigSource.LAST_KNOWN_GOOD, cached.storedAtMillis)
+            ExperienceConfigSnapshot(
+                manifest = cachedManifest,
+                source = ExperienceConfigSource.LAST_KNOWN_GOOD,
+                loadedAtMillis = cached.storedAtMillis,
+                scope = scope,
+                assetBundleKey = cached.assetBundleKey,
+            )
         } else {
             ExperienceConfigSnapshot(
-                ExperienceManifestValidator.packagedDefault(scope),
-                ExperienceConfigSource.PACKAGED_DEFAULT,
-                System.currentTimeMillis(),
+                manifest = ExperienceManifestValidator.packagedDefault(scope),
+                source = ExperienceConfigSource.PACKAGED_DEFAULT,
+                loadedAtMillis = System.currentTimeMillis(),
+                scope = scope,
+                assetBundleKey = "packaged",
             )
         }
 
@@ -119,7 +136,13 @@ class ExperienceConfigRepository @Inject constructor(
                             storedAtMillis = storedAt,
                             assetBundleKey = assetBundleKey,
                         )
-                        ExperienceConfigSnapshot(sanitized, ExperienceConfigSource.NETWORK, storedAt)
+                        ExperienceConfigSnapshot(
+                            manifest = sanitized,
+                            source = ExperienceConfigSource.NETWORK,
+                            loadedAtMillis = storedAt,
+                            scope = scope,
+                            assetBundleKey = assetBundleKey,
+                        )
                     }
                 }
             }
@@ -133,6 +156,15 @@ class ExperienceConfigRepository @Inject constructor(
 
     suspend fun saveUserTargetingAssignment(userId: String, cohort: String?, experimentRef: String?) {
         store.saveTargetingAssignment(userId, cohort, experimentRef)
+    }
+
+    suspend fun resolveAssetPath(
+        snapshot: ExperienceConfigSnapshot,
+        assetId: String,
+    ): String? {
+        val reference = snapshot.manifest.assetReferences.firstOrNull { it.assetId == assetId }
+            ?: return null
+        return store.resolveAssetPath(snapshot.assetBundleKey, reference)
     }
 
     fun setMarketCode(marketCode: String) {

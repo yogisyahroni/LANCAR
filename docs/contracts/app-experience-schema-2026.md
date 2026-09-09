@@ -37,6 +37,7 @@ The component whitelist is:
 - `quick_actions`
 - `notice`
 - `spacer`
+- `campaign_intro` (launch-only; consumed after the native OS splash)
 
 `service_grid` may use `service_codes` for ordering/visibility and may also
 provide `cards` entries with a service `code`, presentation-only `subtitle`,
@@ -46,6 +47,15 @@ the authoritative enabled-service response before rendering or navigation.
 Each component has a strict property schema. Unknown components and unknown
 properties are rejected before publication. HTML, JavaScript/data URLs,
 arbitrary deep links, and protected transaction properties are rejected.
+
+`campaign_intro` is presentation-only and is consumed after the local native
+OS splash. Its `campaign_id`, localized `title`/optional `body`, optional
+`media_asset_id` (image/animation only), `frequency_cap_hours`,
+`max_impressions`, `dismissible`, and `skippable` fields are evaluated against
+the already-resolved manifest scope. The customer app never fetches campaign
+media on the critical startup path; remote assets are staged into an isolated,
+checksum-verified local bundle, while `/assets/` references are verified
+against installed resources before the manifest becomes LKG.
 
 ## Lifecycle API
 

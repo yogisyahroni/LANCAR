@@ -21,7 +21,8 @@ export type ExperienceComponent =
   | 'info_card'
   | 'quick_actions'
   | 'notice'
-  | 'spacer';
+  | 'spacer'
+  | 'campaign_intro';
 
 type JsonObject = Record<string, unknown>;
 type QueryResult<T = Record<string, unknown>> = { rows: T[] };
@@ -145,6 +146,17 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   }).strict(),
   spacer: z.object({
     size: z.enum(['small', 'medium', 'large']).default('medium'),
+  }).strict(),
+  campaign_intro: z.object({
+    enabled: z.boolean().default(true),
+    campaign_id: identifier,
+    title: text(120),
+    body: text(500).optional(),
+    media_asset_id: identifier.optional(),
+    frequency_cap_hours: z.coerce.number().int().min(0).max(720).default(24),
+    max_impressions: z.coerce.number().int().min(1).max(100).default(1),
+    dismissible: z.boolean().default(true),
+    skippable: z.boolean().default(true),
   }).strict(),
 };
 

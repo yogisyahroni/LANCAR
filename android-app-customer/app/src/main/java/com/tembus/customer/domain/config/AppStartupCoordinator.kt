@@ -7,8 +7,10 @@ import javax.inject.Singleton
 @Singleton
 class AppStartupCoordinator @Inject constructor(
     private val experienceConfigManager: ExperienceConfigManager,
+    private val startupCampaignCoordinator: StartupCampaignCoordinator,
 ) {
     fun start() {
         experienceConfigManager.start()
+        startupCampaignCoordinator.start()
     }
 }

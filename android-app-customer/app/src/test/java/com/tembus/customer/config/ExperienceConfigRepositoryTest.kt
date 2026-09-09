@@ -106,6 +106,27 @@ class ExperienceConfigRepositoryTest {
         coVerify(exactly = 0) { store.writeManifestAtomically(any(), any(), any(), any(), any(), any()) }
     }
 
+    @Test
+    fun audienceChangeDoesNotReuseAnotherCohortsCachedManifest() = runTest {
+        val betaScope = scope.copy(cohort = "beta")
+        val controlScope = scope.copy(cohort = "control")
+        val betaManifest = manifest(manifestId = "beta-manifest", revision = 1, ttlSeconds = 300)
+        val store = mockk<ExperienceConfigStore>()
+        coEvery { store.readCachedManifest() } returns cached(
+            betaManifest,
+            storedAtMillis = System.currentTimeMillis(),
+        ).copy(scopeKey = betaScope.cacheKey)
+        every { store.isAssetBundleAvailable(any()) } returns true
+        val api = mockk<ExperienceConfigApi>()
+        coEvery { api.fetch(controlScope, null) } returns ExperienceConfigFetchResult.Failed("offline")
+        val repository = repository(api, store)
+
+        val snapshot = repository.refresh(controlScope)
+
+        assertEquals(ExperienceConfigSource.PACKAGED_DEFAULT, snapshot.source)
+        coVerify(exactly = 1) { api.fetch(controlScope, null) }
+    }
+
     private fun repository(
         api: ExperienceConfigApi,
         store: ExperienceConfigStore,

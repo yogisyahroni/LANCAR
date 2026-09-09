@@ -31,12 +31,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.activity.viewModels
 import com.tembus.customer.ui.MainViewModel
+import com.tembus.customer.domain.config.StartupCampaignCoordinator
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
     @Inject
     lateinit var updateManager: UpdateManager
+
+    @Inject
+    lateinit var startupCampaignCoordinator: StartupCampaignCoordinator
 
     @Inject
     lateinit var authRepository: com.tembus.customer.data.repository.AuthRepository
@@ -84,6 +88,7 @@ class MainActivity : FragmentActivity() {
         setContent {
             CustomerLocaleRuntime {
             TEMBUSCustomerTheme {
+                val campaignDecision by startupCampaignCoordinator.decision.collectAsState()
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -101,7 +106,12 @@ class MainActivity : FragmentActivity() {
                     Box(modifier = Modifier.fillMaxSize()) {
                         com.tembus.customer.ui.navigation.RootNavGraph(
                             initialDeepLink = pendingDeepLinkUri,
-                            onDeepLinkConsumed = { pendingDeepLinkUri = null }
+                            onDeepLinkConsumed = { pendingDeepLinkUri = null },
+                            campaignDecision = campaignDecision,
+                            onCampaignShown = startupCampaignCoordinator::recordImpression,
+                            onCampaignSkip = startupCampaignCoordinator::skipForSession,
+                            onCampaignDismiss = startupCampaignCoordinator::dismiss,
+                            onCampaignAssetError = startupCampaignCoordinator::skipForSession,
                         )
                         updateInfo?.let { info ->
                             UpdateDialog(

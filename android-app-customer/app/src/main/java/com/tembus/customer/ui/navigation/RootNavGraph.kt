@@ -62,7 +62,9 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.tembus.customer.data.model.NotificationRealtimeEvent
 import com.tembus.customer.data.session.SessionInvalidationReason
+import com.tembus.customer.domain.config.StartupCampaignDecision
 import com.tembus.customer.ui.MainViewModel
+import com.tembus.customer.ui.experience.CampaignIntroScreen
 import com.tembus.customer.ui.screens.auth.AuthNavGraph
 import com.tembus.customer.ui.localization.LanguageScreen
 import com.tembus.customer.ui.screens.profile.LoyaltyScreen
@@ -112,7 +114,12 @@ fun RootNavGraph(
     viewModel: MainViewModel = hiltViewModel(),
     initialDeepLink: Uri? = null,
     onDeepLinkConsumed: () -> Unit = {},
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    campaignDecision: StartupCampaignDecision? = null,
+    onCampaignShown: (StartupCampaignDecision) -> Unit = {},
+    onCampaignSkip: (StartupCampaignDecision) -> Unit = {},
+    onCampaignDismiss: (StartupCampaignDecision) -> Unit = {},
+    onCampaignAssetError: (StartupCampaignDecision) -> Unit = {},
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
     val startDestination by viewModel.startDestination.collectAsState()
@@ -195,6 +202,12 @@ fun RootNavGraph(
         if (foregroundNotification != null) {
             delay(5_200)
             foregroundNotification = null
+        }
+    }
+
+    LaunchedEffect(currentRoute, campaignDecision?.campaign?.campaignId) {
+        if (currentRoute == Screen.Dashboard.route && campaignDecision != null) {
+            onCampaignShown(campaignDecision)
         }
     }
 
@@ -601,6 +614,15 @@ fun RootNavGraph(
             },
             modifier = Modifier.align(Alignment.TopCenter)
         )
+        if (currentRoute == Screen.Dashboard.route && campaignDecision != null) {
+            CampaignIntroScreen(
+                decision = campaignDecision,
+                onSkip = { onCampaignSkip(campaignDecision) },
+                onDismiss = { onCampaignDismiss(campaignDecision) },
+                onAssetError = { onCampaignAssetError(campaignDecision) },
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
     }
 }
 

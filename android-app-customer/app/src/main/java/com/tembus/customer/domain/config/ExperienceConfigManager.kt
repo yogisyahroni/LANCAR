@@ -78,6 +78,11 @@ class ExperienceConfigManager @Inject constructor(
         repository.saveUserTargetingAssignment(userId, cohort, experimentRef)
     }
 
+    suspend fun resolveAssetPath(
+        snapshot: ExperienceConfigSnapshot,
+        assetId: String,
+    ): String? = repository.resolveAssetPath(snapshot, assetId)
+
     fun setMarketCode(marketCode: String) {
         repository.setMarketCode(marketCode)
         refreshNow()
@@ -85,6 +90,16 @@ class ExperienceConfigManager @Inject constructor(
 
     private suspend fun refreshForUser(userId: String?) {
         val scope = repository.currentScope(userId)
+        // Do not expose the previous account's resolved manifest while the
+        // new scope is being loaded; this is especially important for
+        // cohort-targeted startup campaigns.
+        _snapshot.value = ExperienceConfigSnapshot(
+            manifest = ExperienceManifestValidator.packagedDefault(scope),
+            source = ExperienceConfigSource.PACKAGED_DEFAULT,
+            loadedAtMillis = System.currentTimeMillis(),
+            scope = scope,
+            assetBundleKey = "packaged",
+        )
         _snapshot.value = repository.loadLastKnownGood(scope)
         // The network operation is deliberately launched from the manager's
         // background scope; this coroutine never blocks MainActivity startup.

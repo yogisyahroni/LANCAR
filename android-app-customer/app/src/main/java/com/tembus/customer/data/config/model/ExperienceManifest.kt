@@ -66,7 +66,17 @@ data class ExperienceConfigScope(
     val experimentRef: String? = null,
 ) {
     val cacheKey: String
-        get() = listOf(marketCode, locale, appVersion, surface).joinToString("|")
+        // Cohort/experiment are part of the resolved-manifest identity. A
+        // single cached revision must never be reused for another audience
+        // after an account switch.
+        get() = listOf(
+            marketCode,
+            locale,
+            appVersion,
+            surface,
+            cohort.orEmpty(),
+            experimentRef.orEmpty(),
+        ).joinToString("|")
 }
 
 enum class ExperienceConfigSource {
@@ -79,6 +89,8 @@ data class ExperienceConfigSnapshot(
     val manifest: ExperienceManifest,
     val source: ExperienceConfigSource,
     val loadedAtMillis: Long,
+    val scope: ExperienceConfigScope? = null,
+    val assetBundleKey: String? = null,
 )
 
 object ExperienceManifestValidator {
@@ -98,6 +110,10 @@ object ExperienceManifestValidator {
         "quick_actions" to setOf("actions"),
         "notice" to setOf("title", "body", "cta_label", "deep_link"),
         "spacer" to setOf("size"),
+        "campaign_intro" to setOf(
+            "enabled", "campaign_id", "title", "body", "media_asset_id",
+            "frequency_cap_hours", "max_impressions", "dismissible", "skippable",
+        ),
     )
     private val protectedKeys = setOf(
         "amount", "authorization", "commission", "currency", "delivery_status",
@@ -208,6 +224,9 @@ object ExperienceManifestValidator {
                 normalizedKey == "display_mode" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { it in setOf("compact", "cards") }?.let(::JsonPrimitive)
                 normalizedKey == "size" && component == "spacer" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { it in setOf("small", "medium", "large") }?.let(::JsonPrimitive)
                 normalizedKey == "code" && component == "service_card" -> sanitizeIdentifier(value)
+                normalizedKey == "campaign_id" -> sanitizeIdentifier(value)
+                normalizedKey in setOf("enabled", "dismissible", "skippable") -> sanitizeBoolean(value)
+                normalizedKey in setOf("frequency_cap_hours", "max_impressions") -> sanitizeInteger(value, normalizedKey)
                 else -> sanitizeText(value)
             }
             if (sanitized != null) result[normalizedKey] = sanitized
@@ -217,6 +236,7 @@ object ExperienceManifestValidator {
             "hero_banner", "campaign_strip", "info_card" -> setOf("title")
             "promo_carousel", "quick_actions" -> setOf(if (component == "promo_carousel") "items" else "actions")
             "notice" -> setOf("title")
+            "campaign_intro" -> setOf("campaign_id", "title")
             else -> emptySet()
         }
         if (!required.all(result::containsKey)) return null
@@ -232,6 +252,19 @@ object ExperienceManifestValidator {
                 ?.takeIf { it.containsKey("code") }
         }
         return JsonArray(output).takeIf { output.size == cards.size && output.isNotEmpty() && output.size <= 20 }
+    }
+
+    private fun sanitizeBoolean(value: JsonElement): JsonPrimitive? =
+        (value as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull()?.let(::JsonPrimitive)
+
+    private fun sanitizeInteger(value: JsonElement, key: String): JsonPrimitive? {
+        val parsed = (value as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: return null
+        val valid = when (key) {
+            "frequency_cap_hours" -> parsed in 0..720
+            "max_impressions" -> parsed in 1..100
+            else -> false
+        }
+        return parsed.takeIf { valid }?.let(::JsonPrimitive)
     }
 
     private fun sanitizePromoItems(value: JsonElement): JsonArray? {

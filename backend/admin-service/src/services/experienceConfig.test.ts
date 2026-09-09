@@ -121,6 +121,18 @@ describe('experience manifest contract', () => {
         },
         { id: 'notice', component: 'notice', properties: { title: 'Info' } },
         { id: 'gap', component: 'spacer', properties: { size: 'small' } },
+        {
+          id: 'intro',
+          component: 'campaign_intro',
+          properties: {
+            campaign_id: 'launch-2026',
+            title: 'Selamat datang',
+            frequency_cap_hours: 24,
+            max_impressions: 2,
+            dismissible: true,
+            skippable: true,
+          },
+        },
       ],
     });
 
@@ -128,6 +140,7 @@ describe('experience manifest contract', () => {
       'service_grid',
       'notice',
       'spacer',
+      'campaign_intro',
     ]);
     expect(parsed.sections[0].properties).toMatchObject({
       cards: [{ code: 'tembus_instant', subtitle: 'Cepat', badge: 'Baru' }],

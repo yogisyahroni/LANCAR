@@ -56,6 +56,7 @@ private val RENDERABLE_COMPONENTS = setOf(
     "notice",
     "spacer",
 )
+private val NON_HOME_COMPONENTS = setOf("campaign_intro")
 
 internal fun isDynamicComponentSupported(component: String): Boolean = component in RENDERABLE_COMPONENTS
 
@@ -64,6 +65,7 @@ internal fun collectRenderableSections(
     onUnknownComponent: (String) -> Unit,
 ): List<ExperienceSection> = sections.mapNotNull { section ->
     if (isDynamicComponentSupported(section.component)) section
+    else if (section.component in NON_HOME_COMPONENTS) null
     else {
         onUnknownComponent(section.component)
         null

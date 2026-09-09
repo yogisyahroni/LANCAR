@@ -144,7 +144,70 @@ class ExperienceConfigStore @Inject constructor(
 
     fun isAssetBundleAvailable(bundleKey: String?): Boolean {
         if (bundleKey == "packaged") return true
-        return !bundleKey.isNullOrBlank() && File(context.filesDir, "experience-assets/$bundleKey").isDirectory
+        return bundleDirectory(bundleKey)?.isDirectory == true
+    }
+
+    /**
+     * Returns a local-only asset path after verifying presence, size and the
+     * manifest checksum. No network request is made by this method.
+     */
+    suspend fun resolveAssetPath(
+        bundleKey: String?,
+        asset: com.tembus.customer.data.config.model.ExperienceAssetReference,
+    ): String? = withContext(Dispatchers.IO) {
+        if (!isSafeAssetId(asset.assetId)) return@withContext null
+        if (asset.uri.startsWith("/assets/")) {
+            val packagedPath = asset.uri.removePrefix("/assets/")
+            if (packagedPath.isBlank() || packagedPath.contains("..") || packagedPath.contains("//")) {
+                return@withContext null
+            }
+            return@withContext verifyAssetStream(
+                open = { context.assets.open(packagedPath) },
+                expectedChecksum = asset.checksum,
+            ).takeIf { it == true }?.let { "file:///android_asset/$packagedPath" }
+        }
+
+        val bundle = bundleDirectory(bundleKey) ?: return@withContext null
+        val file = File(bundle, asset.assetId)
+        if (!file.isFile) return@withContext null
+        verifyAssetStream(
+            open = { file.inputStream() },
+            expectedChecksum = asset.checksum,
+        ).takeIf { it == true }?.let { file.absolutePath }
+    }
+
+    private fun bundleDirectory(bundleKey: String?): File? {
+        if (bundleKey.isNullOrBlank() || !bundleKey.matches(SAFE_BUNDLE_KEY)) return null
+        val root = File(context.filesDir, "experience-assets").canonicalFile
+        val candidate = File(root, bundleKey).canonicalFile
+        return candidate.takeIf { it.parentFile == root }
+    }
+
+    private fun verifyAssetStream(
+        open: () -> java.io.InputStream,
+        expectedChecksum: String,
+    ): Boolean? = runCatching {
+        val digest = MessageDigest.getInstance("SHA-256")
+        var total = 0L
+        open().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                total += count
+                if (total > MAX_ASSET_BYTES) return@runCatching false
+                digest.update(buffer, 0, count)
+            }
+        }
+        digest.digest().toHex().equals(expectedChecksum, ignoreCase = true)
+    }.getOrNull()
+
+    private fun isSafeAssetId(value: String): Boolean = value.matches(SAFE_ASSET_ID)
+
+    private companion object {
+        val SAFE_BUNDLE_KEY = Regex("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
+        val SAFE_ASSET_ID = Regex("^[a-z0-9][a-z0-9._-]{0,127}$")
+        const val MAX_ASSET_BYTES = 5 * 1024 * 1024
     }
 
     suspend fun readTargetingAssignment(userId: String?): StoredTargetingAssignment? {
@@ -188,7 +251,4 @@ class ExperienceConfigStore @Inject constructor(
 
     private fun ByteArray.toHex(): String = joinToString("") { byte -> "%02x".format(byte) }
 
-    private companion object {
-        const val MAX_ASSET_BYTES = 5 * 1024 * 1024
-    }
 }
