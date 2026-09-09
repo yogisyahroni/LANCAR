@@ -8,7 +8,9 @@ import {
   canonicalExperienceManifestPayload,
   compareSemanticVersions,
   createExperienceManifest,
+  approveExperienceManifest,
   getExperienceCacheControl,
+  getExperienceManifestHistory,
   parseExperienceManifestInput,
   pickExperienceManifest,
   previewExperienceManifestAudience,
@@ -55,6 +57,8 @@ const row = (state: string, revision = 1): Record<string, unknown> => ({
   starts_at: '2026-01-01T00:00:00.000Z',
   ends_at: null,
   schedule_timezone: 'Asia/Jakarta',
+  rollout_stage: 'public',
+  canary_cohort: null,
   ttl_seconds: 300,
   cache_policy: 'private',
   targeting: {
@@ -74,6 +78,12 @@ const row = (state: string, revision = 1): Record<string, unknown> => ({
   rolled_back_at: null,
   created_at: '2026-01-01T00:00:00.000Z',
   updated_at: '2026-01-01T00:00:00.000Z',
+  requires_approval: false,
+  approval_status: 'not_required',
+  approval_requested_by: null,
+  approval_requested_at: null,
+  approved_by: null,
+  approved_at: null,
 });
 
 const candidate = (overrides: Partial<ExperienceManifestCandidate> = {}): ExperienceManifestCandidate => ({
@@ -88,6 +98,8 @@ const candidate = (overrides: Partial<ExperienceManifestCandidate> = {}): Experi
   starts_at: '2026-01-01T00:00:00.000Z',
   ends_at: null,
   schedule_timezone: 'Asia/Jakarta',
+  rollout_stage: 'public',
+  canary_cohort: null,
   ttl_seconds: 300,
   cache_policy: 'private',
   targeting: {
@@ -376,6 +388,8 @@ describe('experience manifest contract', () => {
       starts_at: '2026-01-01T00:00:00.000Z',
       ends_at: null,
       schedule_timezone: 'Asia/Jakarta',
+      rollout_stage: 'public',
+      canary_cohort: null,
       ttl_seconds: 300,
       cache_policy: 'private',
       targeting: {
@@ -406,6 +420,14 @@ describe('experience manifest contract', () => {
     expect(pickExperienceManifest([candidate({ min_app_version: '2.0.0' })], {
       market_code: 'id-jk', locale: 'id-ID', default_locale: 'id-ID', app_version: '1.5.0',
     })).toBeNull();
+  });
+
+  it('serves a canary only to its explicit test cohort and keeps the public fallback', () => {
+    const canary = candidate({ rollout_stage: 'canary', canary_cohort: 'internal-test', revision: 2 });
+    const publicFallback = candidate({ rollout_stage: 'public', canary_cohort: null, revision: 1 });
+    const baseRequest = { market_code: 'id-jk', locale: 'id-ID', default_locale: 'id-ID', app_version: '1.5.0' };
+    expect(pickExperienceManifest([publicFallback, canary], baseRequest)?.revision).toBe(1);
+    expect(pickExperienceManifest([publicFallback, canary], { ...baseRequest, cohort: 'internal-test' })?.revision).toBe(2);
   });
 
   it('resolves complex audience targeting and preserves an untargeted fallback', () => {
@@ -511,6 +533,54 @@ describe('experience manifest lifecycle persistence', () => {
     await expect(publishExperienceManifest(manifestId, actorId, 'corr-fallback'))
       .rejects.toMatchObject({ code: 'EXPERIENCE_FALLBACK_REQUIRED', status: 409 });
     expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+  });
+
+  it('requires maker-checker approval before publishing a broad manifest', async () => {
+    const pendingDraft = row('draft', 2) as any;
+    pendingDraft.requires_approval = true;
+    pendingDraft.approval_status = 'pending';
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [pendingDraft] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(publishExperienceManifest(manifestId, actorId, 'corr-approval'))
+      .rejects.toMatchObject({ code: 'EXPERIENCE_APPROVAL_REQUIRED', status: 409 });
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+  });
+
+  it('approves a high-impact draft only through a different operator and records the audit', async () => {
+    const pendingDraft = row('draft') as any;
+    pendingDraft.requires_approval = true;
+    pendingDraft.approval_status = 'pending';
+    const approvedDraft = { ...pendingDraft, approval_status: 'approved', approved_by: '44444444-4444-4444-8444-444444444444' };
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [pendingDraft] })
+      .mockResolvedValueOnce({ rows: [approvedDraft] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await approveExperienceManifest(manifestId, '44444444-4444-4444-8444-444444444444', 'corr-approval');
+    expect(result.approval_status).toBe('approved');
+    expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes("action") && sql.includes('experience_manifest_audit'))).toBe(true);
+    expect(client.query).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('returns revision history together with append-only audit entries for CMS review', async () => {
+    (readDb.query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [row('published')] })
+      .mockResolvedValueOnce({ rows: [{
+        id: '55555555-5555-4555-8555-555555555555', revision_id: revisionId, manifest_id: manifestId,
+        revision: 1, action: 'draft_created', actor_id: actorId, reason: 'created', correlation_id: 'corr-history',
+        previous_state: null, new_state: 'draft', metadata: {}, created_at: '2026-01-01T00:00:00.000Z',
+      }] });
+
+    const result = await getExperienceManifestHistory(manifestId);
+    expect(result.revisions).toHaveLength(1);
+    expect(result.audit[0]).toMatchObject({ action: 'draft_created', actor_id: actorId });
   });
 
   it('rolls back to a historical revision without editing its payload', async () => {

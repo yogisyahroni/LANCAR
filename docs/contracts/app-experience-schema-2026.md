@@ -27,6 +27,9 @@ Each logical `manifest_id` has immutable revisions. A revision contains:
   an explicit offset are respected; timestamps without an offset are treated
   as local wall-clock values in `schedule_timezone` and converted to UTC by
   the server. Nonexistent DST wall-clock times are rejected.
+- `rollout_stage` — `public` for the normal audience or `canary` for an
+  explicitly named internal/test cohort. `canary_cohort` is required for a
+  canary and canary revisions are never returned outside that cohort.
 - `targeting` may use only governed, non-sensitive dimensions:
   `market_codes`, `city_codes`, `zone_codes`, `locales`,
   `service_usage_cohorts`, `user_status` (`new`/`existing`), `roles`,
@@ -35,6 +38,9 @@ Each logical `manifest_id` has immutable revisions. A revision contains:
 - `asset_references` with HTTPS or `/assets/` URIs and SHA-256 checksums.
 - server-generated `checksum` and optional HMAC `signature`.
 - audit fields `published_at` and `published_by`.
+- internal lifecycle fields `requires_approval`, `approval_status`, and the
+  approval actor/timestamps. Broad untargeted campaigns require maker-checker
+  approval; targeted campaigns may be published by the authorized publisher.
 
 The component whitelist is:
 
@@ -95,7 +101,9 @@ against installed resources before the manifest becomes LKG.
 ## Lifecycle API
 
 Admin routes require an authenticated admin role, TOTP for mutations, and an
-idempotency key for create/update/publish/rollback:
+idempotency key for create/update/approve/publish/rollback. The dashboard
+editor uses only the approved component schema and asset picker; it does not
+allow arbitrary HTML, CSS, JavaScript, or remote executable content:
 
 - `POST /admin/experience/manifests` — create a draft revision.
 - `PATCH /admin/experience/manifests/:manifestId/draft` — update only a draft.
@@ -105,8 +113,13 @@ idempotency key for create/update/publish/rollback:
   status, service-usage cohort and experiment assignment) simulates the
   server resolver and returns only `matched`, a reason, a sanitized context
   and the selected revision; targeting rules are not returned.
+- `POST /admin/experience/manifests/:manifestId/approve` — checker-only
+  approval for a broad/high-impact draft. The checker must be different from
+  the creator; repeated approval is idempotent.
 - `POST /admin/experience/manifests/:manifestId/publish` — atomically publish
-  the draft and supersede the prior published revision.
+  the draft and supersede the prior published revision. Broad drafts are
+  rejected until approval is recorded. A canary publish remains isolated to
+  its named cohort; public rollout is a separate revision.
 - `POST /admin/experience/manifests/:manifestId/rollback` — atomically restore
   a historical revision, preserving every payload checksum.
 - `GET /admin/experience/manifests` and

@@ -12,6 +12,7 @@ export const EXPERIENCE_SURFACES = [
 
 export type ExperienceSurface = (typeof EXPERIENCE_SURFACES)[number];
 export type ExperienceManifestState = 'draft' | 'published' | 'superseded' | 'rolled_back';
+export type ExperienceApprovalStatus = 'not_required' | 'pending' | 'approved';
 export type ExperienceCachePolicy = 'no-store' | 'private' | 'public';
 export type ExperienceComponent =
   | 'hero_banner'
@@ -243,6 +244,20 @@ const targetingSchema = z.object({
   experiment_assignments: z.array(identifier).max(50).default([]),
 }).strict();
 
+const hasTargetingConstraints = (targeting: z.infer<typeof targetingSchema>): boolean => {
+  const normalizedTargeting = targetingSchema.parse(targeting);
+  return normalizedTargeting.market_codes.length > 0
+    || normalizedTargeting.city_codes.length > 0
+    || normalizedTargeting.zone_codes.length > 0
+    || normalizedTargeting.locales.length > 0
+    || normalizedTargeting.service_usage_cohorts.length > 0
+    || normalizedTargeting.user_status != null
+    || normalizedTargeting.roles.length > 0
+    || normalizedTargeting.cohorts.length > 0
+    || normalizedTargeting.experiment_ref != null
+    || normalizedTargeting.experiment_assignments.length > 0;
+};
+
 const assetReferenceSchema = z.object({
   asset_id: identifier,
   uri: safeResourceUri,
@@ -404,6 +419,8 @@ export const experienceManifestInputSchema = z.object({
   starts_at: z.coerce.date().default(() => new Date()),
   ends_at: z.coerce.date().nullable().optional(),
   schedule_timezone: scheduleTimezone.default('UTC'),
+  rollout_stage: z.enum(['canary', 'public']).default('public'),
+  canary_cohort: identifier.nullable().optional(),
   ttl_seconds: z.coerce.number().int().min(0).max(86400).default(300),
   cache_policy: z.enum(['no-store', 'private', 'public']).default('private'),
   targeting: z.unknown().optional(),
@@ -438,6 +455,8 @@ export type ExperienceManifestRecord = {
   starts_at: string;
   ends_at: string | null;
   schedule_timezone: string;
+  rollout_stage: 'canary' | 'public';
+  canary_cohort: string | null;
   ttl_seconds: number;
   cache_policy: ExperienceCachePolicy;
   targeting: z.infer<typeof targetingSchema>;
@@ -454,6 +473,12 @@ export type ExperienceManifestRecord = {
   rolled_back_at: string | null;
   created_at: string;
   updated_at: string;
+  requires_approval: boolean;
+  approval_status: ExperienceApprovalStatus;
+  approval_requested_by: string | null;
+  approval_requested_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
 };
 
 export type PublicExperienceManifest = {
@@ -477,7 +502,7 @@ export type PublicExperienceManifest = {
   signature: string | null;
 };
 
-export type ExperienceManifestCandidate = Pick<ExperienceManifestRecord, 'manifest_id' | 'revision' | 'schema_version' | 'market_code' | 'locale' | 'surface' | 'min_app_version' | 'max_app_version' | 'starts_at' | 'ends_at' | 'schedule_timezone' | 'ttl_seconds' | 'cache_policy' | 'targeting' | 'sections' | 'asset_references' | 'checksum' | 'signature'> & {
+export type ExperienceManifestCandidate = Pick<ExperienceManifestRecord, 'manifest_id' | 'revision' | 'schema_version' | 'market_code' | 'locale' | 'surface' | 'min_app_version' | 'max_app_version' | 'starts_at' | 'ends_at' | 'schedule_timezone' | 'rollout_stage' | 'canary_cohort' | 'ttl_seconds' | 'cache_policy' | 'targeting' | 'sections' | 'asset_references' | 'checksum' | 'signature'> & {
   default_locale?: string;
 };
 
@@ -633,11 +658,19 @@ const parseInput = (body: unknown): ExperienceManifestInput => {
   if (endsAt && endsAt.getTime() <= input.starts_at.getTime()) {
     throw new ExperienceManifestError('INVALID_EXPERIENCE_SCHEDULE', 400, 'ends_at must be after starts_at');
   }
+  const canaryCohort = input.canary_cohort ?? null;
+  if (input.rollout_stage === 'canary' && !canaryCohort) {
+    throw new ExperienceManifestError('EXPERIENCE_CANARY_COHORT_REQUIRED', 400, 'canary_cohort is required for a canary rollout');
+  }
+  if (input.rollout_stage === 'public' && canaryCohort) {
+    throw new ExperienceManifestError('EXPERIENCE_CANARY_COHORT_INVALID', 400, 'canary_cohort is only valid for a canary rollout');
+  }
   const normalized: ExperienceManifestInput = {
     ...input,
     locale: normalizedLocale,
     max_app_version: maxVersion,
     ends_at: endsAt,
+    canary_cohort: canaryCohort,
     targeting: parseTargeting(input.targeting),
     sections: parseSections(input.sections),
     asset_references: parseAssets(input.asset_references),
@@ -717,6 +750,8 @@ export const canonicalExperienceManifestPayload = (input: {
   starts_at: Date | string;
   ends_at: Date | string | null;
   schedule_timezone: string;
+  rollout_stage: 'canary' | 'public';
+  canary_cohort: string | null;
   ttl_seconds: number;
   cache_policy: ExperienceCachePolicy;
   targeting: z.infer<typeof targetingSchema>;
@@ -734,6 +769,8 @@ export const canonicalExperienceManifestPayload = (input: {
   starts_at: new Date(input.starts_at).toISOString(),
   ends_at: input.ends_at ? new Date(input.ends_at).toISOString() : null,
   schedule_timezone: input.schedule_timezone,
+  rollout_stage: input.rollout_stage,
+  canary_cohort: input.canary_cohort,
   ttl_seconds: input.ttl_seconds,
   cache_policy: input.cache_policy,
   targeting: input.targeting,
@@ -763,10 +800,13 @@ const assertSigningConfiguration = (): void => {
 
 const manifestSelect = `
   SELECT id, manifest_id, revision, schema_version, market_code, locale, surface,
-         min_app_version, max_app_version, starts_at, ends_at, schedule_timezone, ttl_seconds,
+         min_app_version, max_app_version, starts_at, ends_at, schedule_timezone,
+         rollout_stage, canary_cohort, ttl_seconds,
          cache_policy, targeting, sections, asset_references, content_checksum,
          signature, state, created_by, updated_by, published_by, published_at,
-         rolled_back_by, rolled_back_at, created_at, updated_at
+         rolled_back_by, rolled_back_at, created_at, updated_at,
+         requires_approval, approval_status, approval_requested_by, approval_requested_at,
+         approved_by, approved_at
     FROM experience_manifest_revisions`;
 
 const rowToManifest = (row: Record<string, any>): ExperienceManifestRecord => ({
@@ -782,6 +822,8 @@ const rowToManifest = (row: Record<string, any>): ExperienceManifestRecord => ({
   starts_at: new Date(row.starts_at).toISOString(),
   ends_at: row.ends_at ? new Date(row.ends_at).toISOString() : null,
   schedule_timezone: String(row.schedule_timezone || 'UTC'),
+  rollout_stage: row.rollout_stage === 'canary' ? 'canary' : 'public',
+  canary_cohort: row.canary_cohort ? String(row.canary_cohort) : null,
   ttl_seconds: Number(row.ttl_seconds),
   cache_policy: row.cache_policy as ExperienceCachePolicy,
   targeting: parseTargeting(row.targeting),
@@ -798,6 +840,14 @@ const rowToManifest = (row: Record<string, any>): ExperienceManifestRecord => ({
   rolled_back_at: row.rolled_back_at ? new Date(row.rolled_back_at).toISOString() : null,
   created_at: new Date(row.created_at).toISOString(),
   updated_at: new Date(row.updated_at).toISOString(),
+  requires_approval: Boolean(row.requires_approval),
+  approval_status: row.approval_status === 'approved'
+    ? 'approved'
+    : row.approval_status === 'pending' ? 'pending' : 'not_required',
+  approval_requested_by: row.approval_requested_by ? String(row.approval_requested_by) : null,
+  approval_requested_at: row.approval_requested_at ? new Date(row.approval_requested_at).toISOString() : null,
+  approved_by: row.approved_by ? String(row.approved_by) : null,
+  approved_at: row.approved_at ? new Date(row.approved_at).toISOString() : null,
 });
 
 const snapshot = (manifest: ExperienceManifestRecord | Record<string, any>): JsonObject => ({
@@ -816,6 +866,8 @@ const snapshot = (manifest: ExperienceManifestRecord | Record<string, any>): Jso
   starts_at: manifest.starts_at,
   ends_at: manifest.ends_at ?? null,
   schedule_timezone: manifest.schedule_timezone || 'UTC',
+  rollout_stage: manifest.rollout_stage || 'public',
+  canary_cohort: manifest.canary_cohort ?? null,
   ttl_seconds: manifest.ttl_seconds,
   cache_policy: manifest.cache_policy,
   targeting: manifest.targeting,
@@ -823,6 +875,12 @@ const snapshot = (manifest: ExperienceManifestRecord | Record<string, any>): Jso
   asset_references: manifest.asset_references,
   signature: manifest.signature ?? null,
   state: manifest.state,
+  requires_approval: manifest.requires_approval ?? false,
+  approval_status: manifest.approval_status ?? 'not_required',
+  approval_requested_by: manifest.approval_requested_by ?? null,
+  approval_requested_at: manifest.approval_requested_at ?? null,
+  approved_by: manifest.approved_by ?? null,
+  approved_at: manifest.approved_at ?? null,
 });
 
 const serialize = (value: unknown): string => JSON.stringify(value ?? null);
@@ -889,6 +947,8 @@ const contentValues = (manifestId: string, revision: number, input: ExperienceMa
     starts_at: input.starts_at,
     ends_at: input.ends_at ?? null,
     schedule_timezone: input.schedule_timezone,
+    rollout_stage: input.rollout_stage,
+    canary_cohort: input.canary_cohort ?? null,
     ttl_seconds: input.ttl_seconds,
     cache_policy: input.cache_policy,
     targeting: input.targeting,
@@ -935,20 +995,26 @@ export const createExperienceManifest = async (
     );
     const revision = Number(latest.rows[0]?.revision ?? 0) + 1;
     const content = contentValues(manifestId, revision, input);
+    const requiresApproval = !hasTargetingConstraints(input.targeting);
     const result = await client.query(
       `INSERT INTO experience_manifest_revisions (
          manifest_id, revision, schema_version, market_code, locale, surface,
          min_app_version, max_app_version, starts_at, ends_at, schedule_timezone, ttl_seconds,
          cache_policy, targeting, sections, asset_references, content_checksum,
-         signature, state, created_by, updated_by
+         signature, state, created_by, updated_by, rollout_stage, canary_cohort,
+         requires_approval, approval_status, approval_requested_by, approval_requested_at,
+         approved_by, approved_at
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-                 $13, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18, 'draft', $19, $19)
+                 $13, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18, 'draft', $19, $19,
+                 $20, $21, $22, CASE WHEN $22 THEN 'pending' ELSE 'not_required' END,
+                 $23, CASE WHEN $22 THEN NOW() ELSE NULL END, NULL, NULL)
        RETURNING *`,
       [
         manifestId, revision, input.schema_version, input.market_code, input.locale, input.surface,
         input.min_app_version, input.max_app_version ?? null, input.starts_at, input.ends_at ?? null,
         input.schedule_timezone, input.ttl_seconds, input.cache_policy, serialize(input.targeting),
         serialize(input.sections), serialize(input.asset_references), content.checksum, content.signature, actorId,
+        input.rollout_stage, input.canary_cohort ?? null, requiresApproval, requiresApproval ? actorId : null,
       ],
     );
     const manifest = rowToManifest(result.rows[0]);
@@ -978,20 +1044,29 @@ export const updateExperienceManifestDraft = async (
       // the explicit branch keeps the decision visible for audit/review.
     }
     const content = contentValues(manifestId, current.revision, input);
+    const requiresApproval = !hasTargetingConstraints(input.targeting);
     const result = await client.query(
       `UPDATE experience_manifest_revisions
           SET schema_version = $1, market_code = $2, locale = $3, surface = $4,
               min_app_version = $5, max_app_version = $6, starts_at = $7, ends_at = $8,
-              schedule_timezone = $9, ttl_seconds = $10, cache_policy = $11, targeting = $12::jsonb,
-              sections = $13::jsonb, asset_references = $14::jsonb,
-              content_checksum = $15, signature = $16, updated_by = $17, updated_at = NOW()
-        WHERE id = $18 AND state = 'draft'
+              schedule_timezone = $9, rollout_stage = $10, canary_cohort = $11,
+              ttl_seconds = $12, cache_policy = $13, targeting = $14::jsonb,
+              sections = $15::jsonb, asset_references = $16::jsonb,
+              content_checksum = $17, signature = $18,
+              requires_approval = $19,
+              approval_status = CASE WHEN $19 THEN 'pending' ELSE 'not_required' END,
+              approval_requested_by = CASE WHEN $19 THEN $20 ELSE NULL END,
+              approval_requested_at = CASE WHEN $19 THEN NOW() ELSE NULL END,
+              approved_by = NULL, approved_at = NULL,
+              updated_by = $21, updated_at = NOW()
+        WHERE id = $22 AND state = 'draft'
         RETURNING *`,
       [
         input.schema_version, input.market_code, input.locale, input.surface, input.min_app_version,
         input.max_app_version ?? null, input.starts_at, input.ends_at ?? null, input.schedule_timezone,
-        input.ttl_seconds, input.cache_policy, serialize(input.targeting), serialize(input.sections),
-        serialize(input.asset_references), content.checksum, content.signature, actorId, current.id,
+        input.rollout_stage, input.canary_cohort ?? null, input.ttl_seconds, input.cache_policy,
+        serialize(input.targeting), serialize(input.sections), serialize(input.asset_references), content.checksum,
+        content.signature, requiresApproval, actorId, actorId, current.id,
       ],
     );
     const manifest = rowToManifest(result.rows[0]);
@@ -1015,6 +1090,40 @@ export const previewExperienceManifest = async (
   });
 };
 
+export const approveExperienceManifest = async (
+  manifestIdValue: unknown,
+  actorId: string,
+  correlationId: string | null,
+): Promise<ExperienceManifestRecord> => {
+  const manifestId = parseUuid(manifestIdValue, 'manifest_id');
+  return withTransaction(async (client) => {
+    await lockManifest(client, manifestId);
+    const result = await client.query(`${manifestSelect} WHERE manifest_id = $1 AND state = 'draft' FOR UPDATE`, [manifestId]);
+    if (!result.rows[0]) throw new ExperienceManifestError('EXPERIENCE_DRAFT_NOT_FOUND', 404, `Draft manifest '${manifestId}' was not found`);
+    const draft = rowToManifest(result.rows[0]);
+    if (!draft.requires_approval) {
+      throw new ExperienceManifestError('EXPERIENCE_APPROVAL_NOT_REQUIRED', 409, 'This manifest does not require two-step approval');
+    }
+    if (draft.created_by && draft.created_by === actorId) {
+      throw new ExperienceManifestError('EXPERIENCE_APPROVAL_MAKER_CHECKER_REQUIRED', 403, 'The manifest creator cannot approve the same high-impact campaign');
+    }
+    if (draft.approval_status === 'approved') return draft;
+    const approvedResult = await client.query(
+      `UPDATE experience_manifest_revisions
+          SET approval_status = 'approved', approved_by = $1, approved_at = NOW(),
+              updated_by = $1, updated_at = NOW()
+        WHERE id = $2 AND state = 'draft' AND requires_approval = TRUE
+        RETURNING *`,
+      [actorId, draft.id],
+    );
+    const approved = rowToManifest(approvedResult.rows[0]);
+    await audit(client, approved, 'approved', actorId, 'High-impact experience manifest approved', 'pending', 'approved', correlationId, {
+      maker_id: draft.created_by,
+    });
+    return approved;
+  });
+};
+
 export const publishExperienceManifest = async (
   manifestIdValue: unknown,
   actorId: string,
@@ -1027,6 +1136,9 @@ export const publishExperienceManifest = async (
     const draftResult = await client.query(`${manifestSelect} WHERE manifest_id = $1 AND state = 'draft' FOR UPDATE`, [manifestId]);
     if (!draftResult.rows[0]) throw new ExperienceManifestError('EXPERIENCE_DRAFT_NOT_FOUND', 404, `Draft manifest '${manifestId}' was not found`);
     const draft = rowToManifest(draftResult.rows[0]);
+    if (draft.requires_approval && draft.approval_status !== 'approved') {
+      throw new ExperienceManifestError('EXPERIENCE_APPROVAL_REQUIRED', 409, 'A high-impact manifest requires approval by a different authorized operator before publishing');
+    }
     const currentResult = await client.query(`${manifestSelect} WHERE manifest_id = $1 AND state = 'published' FOR UPDATE`, [manifestId]);
     const current = currentResult.rows[0] ? rowToManifest(currentResult.rows[0]) : null;
     const fallbackResult = await client.query(
@@ -1148,10 +1260,68 @@ export const listExperienceManifestRevisions = async (filters: {
   return result.rows.map(rowToManifest);
 };
 
-export const getExperienceManifestHistory = async (manifestIdValue: unknown): Promise<ExperienceManifestRecord[]> => {
+export type ExperienceManifestAuditRecord = {
+  id: string;
+  revision_id: string;
+  manifest_id: string;
+  revision: number;
+  action: string;
+  actor_id: string | null;
+  reason: string | null;
+  correlation_id: string | null;
+  previous_state: string | null;
+  new_state: string;
+  metadata: JsonObject;
+  created_at: string;
+};
+
+export type ExperienceManifestHistory = {
+  revisions: ExperienceManifestRecord[];
+  audit: ExperienceManifestAuditRecord[];
+};
+
+const auditMetadata = (value: unknown): JsonObject => {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as JsonObject : {};
+    } catch {
+      return {};
+    }
+  }
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : {};
+};
+
+export const getExperienceManifestHistory = async (manifestIdValue: unknown): Promise<ExperienceManifestHistory> => {
   const manifestId = parseUuid(manifestIdValue, 'manifest_id');
-  const result = await readDb.query(`${manifestSelect} WHERE manifest_id = $1 ORDER BY revision DESC`, [manifestId]);
-  return result.rows.map(rowToManifest);
+  const [revisionsResult, auditResult] = await Promise.all([
+    readDb.query(`${manifestSelect} WHERE manifest_id = $1 ORDER BY revision DESC`, [manifestId]),
+    readDb.query(
+      `SELECT id, revision_id, manifest_id, revision, action, actor_id, reason,
+              correlation_id, previous_state, new_state, metadata, created_at
+         FROM experience_manifest_audit
+        WHERE manifest_id = $1
+        ORDER BY created_at DESC, id DESC`,
+      [manifestId],
+    ),
+  ]);
+  return {
+    revisions: revisionsResult.rows.map((row) => rowToManifest(row)),
+    audit: auditResult.rows.map((row) => ({
+      id: String(row.id),
+      revision_id: String(row.revision_id),
+      manifest_id: String(row.manifest_id),
+      revision: Number(row.revision),
+      action: String(row.action),
+      actor_id: row.actor_id ? String(row.actor_id) : null,
+      reason: row.reason ? String(row.reason) : null,
+      correlation_id: row.correlation_id ? String(row.correlation_id) : null,
+      previous_state: row.previous_state ? String(row.previous_state) : null,
+      new_state: String(row.new_state),
+      metadata: auditMetadata(row.metadata),
+      created_at: new Date(row.created_at).toISOString(),
+    })),
+  };
 };
 
 const NEW_USER_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -1224,20 +1394,6 @@ const targetingScore = (
     + (normalizedTargeting.experiment_assignments.length > 0 ? 2 : 0);
 };
 
-const hasTargetingConstraints = (targeting: z.infer<typeof targetingSchema>): boolean => {
-  const normalizedTargeting = targetingSchema.parse(targeting);
-  return normalizedTargeting.market_codes.length > 0
-    || normalizedTargeting.city_codes.length > 0
-    || normalizedTargeting.zone_codes.length > 0
-    || normalizedTargeting.locales.length > 0
-    || normalizedTargeting.service_usage_cohorts.length > 0
-    || normalizedTargeting.user_status != null
-    || normalizedTargeting.roles.length > 0
-    || normalizedTargeting.cohorts.length > 0
-    || normalizedTargeting.experiment_ref != null
-    || normalizedTargeting.experiment_assignments.length > 0;
-};
-
 export const pickExperienceManifest = (
   candidates: ExperienceManifestCandidate[],
   request: ExperienceAudienceContext & { default_locale: string },
@@ -1246,12 +1402,13 @@ export const pickExperienceManifest = (
   const defaultLocale = normalizeLocale(request.default_locale);
   const ranked = candidates.flatMap((candidate) => {
     if (candidate.market_code !== request.market_code) return [];
+    if (candidate.rollout_stage === 'canary' && candidate.canary_cohort !== request.cohort) return [];
     const candidateLocale = normalizeLocale(candidate.locale);
     const localeScore = candidateLocale === requestedLocale ? 2 : candidateLocale === defaultLocale ? 1 : 0;
     if (localeScore === 0 || !isWithinAppRange(candidate, request.app_version)) return [];
     const targetScore = targetingScore(candidate.targeting, request);
     if (targetScore === null) return [];
-    return [{ candidate, localeScore, targetScore }];
+    return [{ candidate, localeScore, targetScore: targetScore + (candidate.rollout_stage === 'canary' ? 100 : 0) }];
   });
   ranked.sort((left, right) => {
     if (right.localeScore !== left.localeScore) return right.localeScore - left.localeScore;

@@ -3,6 +3,7 @@ import { getActorId } from '../utils/authUtils';
 import { securityLog } from '../security/logRedaction';
 import {
   createExperienceManifest,
+  approveExperienceManifest,
   ExperienceManifestError,
   getExperienceCacheControl,
   getExperienceManifestHistory,
@@ -130,6 +131,15 @@ export const publishAdminExperienceManifest = async (req: Request, res: Response
     res.json({ success: true, data });
   } catch (error) {
     respondWithError(res, error, 'publish');
+  }
+};
+
+export const approveAdminExperienceManifest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = await approveExperienceManifest(manifestId(req), getActorId(req), correlationId(req, res));
+    res.json({ success: true, data });
+  } catch (error) {
+    respondWithError(res, error, 'approve');
   }
 };
 

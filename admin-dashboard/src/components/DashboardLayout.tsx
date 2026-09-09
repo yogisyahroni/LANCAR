@@ -40,7 +40,8 @@ import {
   Megaphone,
   Calendar,
   Globe2,
-  Beaker
+  Beaker,
+  Sparkles
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -252,6 +253,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: Newspaper, label: "Berita & Artikel", path: "/news", restrictedRoles: ['cs_agent'] },
         { icon: Megaphone, label: "Global Banner", path: "/banners", allowedRoles: ['super_admin'] }, // A4
         { icon: Megaphone, label: "Broadcast Center", path: "/broadcasts", allowedRoles: ['super_admin', 'admin', 'ops_admin'] }, // 10.2
+        { icon: Sparkles, label: "App Experience", path: "/app-experience", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
         { icon: Calendar, label: "Campaign Calendar", path: "/campaign-calendar", allowedRoles: ['super_admin', 'admin', 'ops_admin'] },
         { icon: FileText, label: "Resi Templates", path: "/resi-templates", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
       ]
