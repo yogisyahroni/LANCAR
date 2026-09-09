@@ -2808,11 +2808,11 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `admin-dashboard/src/components/experience/ContrastPreview.tsx`
 
 **Checklist**
-- [ ] Admin may select only predefined token enums/ranges from `APP-2026-006`; never arbitrary CSS/Kotlin instructions.
-- [ ] Core brand/safety/transaction-screen token locks are visible and cannot be overridden by marketing role.
-- [ ] Contrast/accessibility validator runs before publish.
-- [ ] Preview covers light/dark/system modes if supported.
-- [ ] Token change participates in revision/approval/rollback like any other experience change.
+- [x] Admin may select only predefined token enums/ranges from `APP-2026-006`; never arbitrary CSS/Kotlin instructions. Evidence: `docs/task-evidence/ADMEXP-2026-012.md`
+- [x] Core brand/safety/transaction-screen token locks are visible and cannot be overridden by marketing role. Evidence: `docs/task-evidence/ADMEXP-2026-012.md`
+- [x] Contrast/accessibility validator runs before publish. Evidence: `docs/task-evidence/ADMEXP-2026-012.md`
+- [x] Preview covers light/dark/system modes if supported. Evidence: `docs/task-evidence/ADMEXP-2026-012.md`
+- [x] Token change participates in revision/approval/rollback like any other experience change. Evidence: `docs/task-evidence/ADMEXP-2026-012.md`
 
 ---
 
