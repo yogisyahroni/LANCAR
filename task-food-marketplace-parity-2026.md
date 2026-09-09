@@ -2791,12 +2791,12 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `backend/experience-service/internal/service/deep_link_service.go`
 
 **Checklist**
-- [ ] Admin selects typed/registered route such as service home, promo detail, order history, support, etc.; no arbitrary code target.
-- [ ] Required route parameters validated before save.
-- [ ] Route registry is aware of minimum app/schema version that supports destination.
-- [ ] External URL uses allowlisted HTTPS domain/scheme only.
-- [ ] Tester shows destination/fallback behavior for selected platform/app version.
-- [ ] Removing/deprecating a route identifies campaigns still referencing it.
+- [x] Admin selects typed/registered route such as service home, promo detail, order history, support, etc.; no arbitrary code target. Evidence: `docs/task-evidence/ADMEXP-2026-011.md`
+- [x] Required route parameters validated before save. Evidence: `docs/task-evidence/ADMEXP-2026-011.md`
+- [x] Route registry is aware of minimum app/schema version that supports destination. Evidence: `docs/task-evidence/ADMEXP-2026-011.md`
+- [x] External URL uses allowlisted HTTPS domain/scheme only. Evidence: `docs/task-evidence/ADMEXP-2026-011.md`
+- [x] Tester shows destination/fallback behavior for selected platform/app version. Evidence: `docs/task-evidence/ADMEXP-2026-011.md`
+- [x] Removing/deprecating a route identifies campaigns still referencing it. Evidence: `docs/task-evidence/ADMEXP-2026-011.md`
 
 ---
 
