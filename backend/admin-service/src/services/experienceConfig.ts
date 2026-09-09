@@ -17,7 +17,7 @@ export const EXPERIENCE_SURFACES = [
 
 export type ExperienceSurface = (typeof EXPERIENCE_SURFACES)[number];
 export type ExperienceManifestState = 'draft' | 'published' | 'superseded' | 'rolled_back';
-export type ExperienceApprovalStatus = 'not_required' | 'pending' | 'approved';
+export type ExperienceApprovalStatus = 'not_required' | 'pending' | 'approved' | 'rejected';
 export type ExperienceCachePolicy = 'no-store' | 'private' | 'public';
 export type ExperienceComponent =
   | 'hero_banner'
@@ -62,6 +62,22 @@ const PROTECTED_KEYS = [
 
 const MAX_EXPERIENCE_MANIFEST_BYTES = 96 * 1024;
 const MAX_EXPERIENCE_COMPONENT_BYTES = 8 * 1024;
+
+export type ExperienceValidationIssue = {
+  path: string;
+  code: string;
+  message: string;
+};
+
+export type ExperienceAuditContext = {
+  requestId?: string | null;
+  actorRole?: string | null;
+};
+
+export type ExperienceExpectedVersion = {
+  revision?: number | null;
+  checksum?: string | null;
+};
 
 const text = (max: number) => z.string().trim().min(1).max(max).refine(
   (value) => !/[<>]|javascript:|data:text\/html/i.test(value),
@@ -617,14 +633,18 @@ export type ExperienceManifestCandidate = Pick<ExperienceManifestRecord, 'manife
 };
 
 export class ExperienceManifestError extends Error {
+  public readonly issues: ExperienceValidationIssue[];
+
   constructor(
     public readonly code: string,
     public readonly status: number,
     message: string,
     public readonly reasonCodes: string[] = [],
+    issues: ExperienceValidationIssue[] = [],
   ) {
     super(message);
     this.name = 'ExperienceManifestError';
+    this.issues = issues.length > 0 ? issues : [{ path: '$', code, message }];
   }
 }
 
@@ -679,10 +699,17 @@ const parseComponent = (value: unknown, index: number, surface: ExperienceSurfac
   const properties = jsonObject(section.properties, `sections[${index}].properties`);
   const parsed = componentSchemas[component as ExperienceComponent].safeParse(properties);
   if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => ({
+      path: `sections[${index}].properties${issue.path.length ? `.${issue.path.join('.')}` : ''}`,
+      code: issue.code,
+      message: issue.message,
+    }));
     throw new ExperienceManifestError(
       'INVALID_EXPERIENCE_COMPONENT_PROPERTIES',
       400,
-      parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '),
+      issues.map((issue) => `${issue.path}: ${issue.message}`).join('; '),
+      [],
+      issues,
     );
   }
   const parsedProperties = parsed.data as JsonObject;
@@ -705,7 +732,13 @@ const parseComponent = (value: unknown, index: number, surface: ExperienceSurfac
 
 const parseSections = (value: unknown, surface: ExperienceSurface): ExperienceSection[] => {
   if (!Array.isArray(value) || value.length < 1 || value.length > 20) {
-    throw new ExperienceManifestError('INVALID_EXPERIENCE_SECTIONS', 400, 'sections must contain 1 to 20 entries');
+    throw new ExperienceManifestError(
+      'INVALID_EXPERIENCE_SECTIONS',
+      400,
+      'sections must contain 1 to 20 entries',
+      [],
+      [{ path: 'sections', code: 'invalid_length', message: 'sections must contain 1 to 20 entries' }],
+    );
   }
   const seen = new Set<string>();
   return value.map((item, index) => {
@@ -721,10 +754,17 @@ const parseSections = (value: unknown, surface: ExperienceSurface): ExperienceSe
 const parseTargeting = (value: unknown): z.infer<typeof targetingSchema> => {
   const parsed = targetingSchema.safeParse(value ?? {});
   if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => ({
+      path: `targeting.${issue.path.join('.') || '$'}`,
+      code: issue.code,
+      message: issue.message,
+    }));
     throw new ExperienceManifestError(
       'INVALID_EXPERIENCE_TARGETING',
       400,
-      parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '),
+      issues.map((issue) => `${issue.path}: ${issue.message}`).join('; '),
+      [],
+      issues,
     );
   }
   return parsed.data;
@@ -739,10 +779,17 @@ const parseAssets = (value: unknown): ExperienceAssetReference[] => {
   return value.map((item, index) => {
     const parsed = assetReferenceSchema.safeParse(item);
     if (!parsed.success) {
+      const issues = parsed.error.issues.map((issue) => ({
+        path: `asset_references[${index}]${issue.path.length ? `.${issue.path.join('.')}` : ''}`,
+        code: issue.code,
+        message: issue.message,
+      }));
       throw new ExperienceManifestError(
         'INVALID_EXPERIENCE_ASSET',
         400,
-        parsed.error.issues.map((issue) => `asset_references[${index}].${issue.path.join('.')}: ${issue.message}`).join('; '),
+        issues.map((issue) => `${issue.path}: ${issue.message}`).join('; '),
+        [],
+        issues,
       );
     }
     if (seen.has(parsed.data.asset_id)) {
@@ -775,6 +822,30 @@ const normalizeAssetReferencesForInput = (assets: ExperienceAssetReference[]): E
   fallback_asset_id: asset.fallback_asset_id ?? null,
 }));
 
+export const validateExperienceAsset = (value: unknown): ExperienceAssetReference => {
+  const parsed = normalizeAssetReferencesForInput(parseAssets([value]));
+  return parsed[0];
+};
+
+export const validateExperienceDeepLink = (value: unknown): string => {
+  const parsed = safeDeepLink.safeParse(value);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => ({
+      path: 'deep_link',
+      code: issue.code,
+      message: issue.message,
+    }));
+    throw new ExperienceManifestError(
+      'INVALID_EXPERIENCE_DEEP_LINK',
+      400,
+      issues.map((issue) => `${issue.path}: ${issue.message}`).join('; '),
+      [],
+      issues,
+    );
+  }
+  return parsed.data;
+};
+
 const parseUuid = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !UUID.test(value.trim())) {
     throw new ExperienceManifestError('INVALID_EXPERIENCE_MANIFEST_ID', 400, `${field} must be a UUID`);
@@ -785,10 +856,17 @@ const parseUuid = (value: unknown, field: string): string => {
 const parseInput = (body: unknown): ExperienceManifestInput => {
   const parsed = experienceManifestInputSchema.safeParse(normalizeScheduleInput(body));
   if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => ({
+      path: issue.path.join('.') || '$',
+      code: issue.code,
+      message: issue.message,
+    }));
     throw new ExperienceManifestError(
       'INVALID_EXPERIENCE_MANIFEST',
       400,
-      parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '),
+      issues.map((issue) => `${issue.path}: ${issue.message}`).join('; '),
+      [],
+      issues,
     );
   }
   const input = parsed.data;
@@ -1029,7 +1107,9 @@ const rowToManifest = (row: Record<string, any>): ExperienceManifestRecord => ({
   requires_approval: Boolean(row.requires_approval),
   approval_status: row.approval_status === 'approved'
     ? 'approved'
-    : row.approval_status === 'pending' ? 'pending' : 'not_required',
+    : row.approval_status === 'pending'
+      ? 'pending'
+      : row.approval_status === 'rejected' ? 'rejected' : 'not_required',
   approval_requested_by: row.approval_requested_by ? String(row.approval_requested_by) : null,
   approval_requested_at: row.approval_requested_at ? new Date(row.approval_requested_at).toISOString() : null,
   approved_by: row.approved_by ? String(row.approved_by) : null,
@@ -1115,7 +1195,19 @@ const audit = async (
   newState: string,
   correlationId: string | null,
   metadata: JsonObject = {},
+  context: ExperienceAuditContext = {},
 ): Promise<void> => {
+  const hasPreviousRevision = Object.prototype.hasOwnProperty.call(metadata, 'previous_revision');
+  const hasNewRevision = Object.prototype.hasOwnProperty.call(metadata, 'new_revision');
+  const auditMetadata = {
+    ...metadata,
+    actor_role: context.actorRole ?? null,
+    request_id: context.requestId ?? null,
+    previous_revision: hasPreviousRevision ? metadata.previous_revision : manifest.revision,
+    new_revision: hasNewRevision ? metadata.new_revision : manifest.revision,
+    market_code: manifest.market_code,
+    surface: manifest.surface,
+  };
   await client.query(
     `INSERT INTO experience_manifest_audit (
        revision_id, manifest_id, revision, action, actor_id, reason,
@@ -1123,7 +1215,7 @@ const audit = async (
      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)`,
     [
       manifest.id, manifest.manifest_id, manifest.revision, action, actorId, reason,
-      correlationId, previousState, newState, serialize(metadata),
+      correlationId, previousState, newState, serialize(auditMetadata),
     ],
   );
 };
@@ -1153,6 +1245,36 @@ const contentValues = (manifestId: string, revision: number, input: ExperienceMa
   return { payload, checksum, signature: signatureFor(checksum) };
 };
 
+const assertPersistedManifestIntegrity = (manifest: ExperienceManifestRecord): void => {
+  const input = parseExperienceManifestInput({
+    schema_version: manifest.schema_version,
+    market_code: manifest.market_code,
+    locale: manifest.locale,
+    surface: manifest.surface,
+    min_app_version: manifest.min_app_version,
+    max_app_version: manifest.max_app_version,
+    starts_at: manifest.starts_at,
+    ends_at: manifest.ends_at,
+    schedule_timezone: manifest.schedule_timezone,
+    rollout_stage: manifest.rollout_stage,
+    canary_cohort: manifest.canary_cohort,
+    ttl_seconds: manifest.ttl_seconds,
+    cache_policy: manifest.cache_policy,
+    targeting: manifest.targeting,
+    sections: manifest.sections,
+    asset_references: manifest.asset_references,
+  });
+  const expected = contentValues(manifest.manifest_id, manifest.revision, input);
+  if (manifest.checksum !== expected.checksum || (expected.signature && manifest.signature !== expected.signature)) {
+    throw new ExperienceManifestError(
+      'EXPERIENCE_MANIFEST_INTEGRITY_MISMATCH',
+      409,
+      'The stored manifest checksum or signature does not match its canonical payload',
+      ['experience_manifest_integrity_failed'],
+    );
+  }
+};
+
 const normalizeManifestIdFromBody = (body: unknown): string => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return randomUUID();
   const value = (body as Record<string, unknown>).manifest_id;
@@ -1169,6 +1291,7 @@ export const createExperienceManifest = async (
   body: unknown,
   actorId: string,
   correlationId: string | null,
+  auditContext: ExperienceAuditContext = {},
 ): Promise<ExperienceManifestRecord> => {
   const input = parseInput(bodyWithoutManifestId(body));
   const manifestId = normalizeManifestIdFromBody(body);
@@ -1212,7 +1335,10 @@ export const createExperienceManifest = async (
       ],
     );
     const manifest = rowToManifest(result.rows[0]);
-    await audit(client, manifest, 'draft_created', actorId, 'Experience manifest draft created', null, 'draft', correlationId);
+    await audit(client, manifest, 'draft_created', actorId, 'Experience manifest draft created', null, 'draft', correlationId, {
+      previous_revision: null,
+      new_revision: manifest.revision,
+    }, auditContext);
     return manifest;
   });
 };
@@ -1222,6 +1348,8 @@ export const updateExperienceManifestDraft = async (
   body: unknown,
   actorId: string,
   correlationId: string | null,
+  auditContext: ExperienceAuditContext = {},
+  expectedVersion: ExperienceExpectedVersion = {},
 ): Promise<ExperienceManifestRecord> => {
   const manifestId = parseUuid(manifestIdValue, 'manifest_id');
   const input = parseInput(bodyWithoutManifestId(body));
@@ -1233,6 +1361,15 @@ export const updateExperienceManifestDraft = async (
       throw new ExperienceManifestError('EXPERIENCE_DRAFT_NOT_FOUND', 404, `Draft manifest '${manifestId}' was not found`);
     }
     const current = rowToManifest(currentResult.rows[0]);
+    if ((expectedVersion.revision != null && current.revision !== expectedVersion.revision)
+      || (expectedVersion.checksum != null && current.checksum !== expectedVersion.checksum)) {
+      throw new ExperienceManifestError(
+        'EXPERIENCE_VERSION_CONFLICT',
+        409,
+        'The draft changed since it was loaded. Refresh the draft and retry with the latest ETag.',
+        ['experience_draft_version_changed'],
+      );
+    }
     if (current.market_code !== input.market_code || current.surface !== input.surface || current.locale !== input.locale) {
       // Scope changes are allowed only while a revision is still a draft, but
       // the explicit branch keeps the decision visible for audit/review.
@@ -1264,7 +1401,10 @@ export const updateExperienceManifestDraft = async (
       ],
     );
     const manifest = rowToManifest(result.rows[0]);
-    await audit(client, manifest, 'draft_updated', actorId, 'Experience manifest draft updated', 'draft', 'draft', correlationId);
+    await audit(client, manifest, 'draft_updated', actorId, 'Experience manifest draft updated', 'draft', 'draft', correlationId, {
+      previous_revision: current.revision,
+      new_revision: manifest.revision,
+    }, auditContext);
     return manifest;
   });
 };
@@ -1273,14 +1413,117 @@ export const previewExperienceManifest = async (
   manifestIdValue: unknown,
   actorId: string,
   correlationId: string | null,
+  auditContext: ExperienceAuditContext = {},
 ): Promise<ExperienceManifestRecord> => {
   const manifestId = parseUuid(manifestIdValue, 'manifest_id');
   return withTransaction(async (client) => {
     const result = await client.query(`${manifestSelect} WHERE manifest_id = $1 AND state = 'draft' FOR UPDATE`, [manifestId]);
     if (!result.rows[0]) throw new ExperienceManifestError('EXPERIENCE_DRAFT_NOT_FOUND', 404, `Draft manifest '${manifestId}' was not found`);
     const manifest = rowToManifest(result.rows[0]);
-    await audit(client, manifest, 'previewed', actorId, 'Experience manifest preview requested', 'draft', 'draft', correlationId);
+    await audit(client, manifest, 'previewed', actorId, 'Experience manifest preview requested', 'draft', 'draft', correlationId, {}, auditContext);
     return manifest;
+  });
+};
+
+export type ExperienceManifestValidation = {
+  valid: true;
+  manifest_id: string;
+  revision: number;
+  checksum: string;
+  issues: ExperienceValidationIssue[];
+};
+
+export const validateExperienceManifestDraft = async (
+  manifestIdValue: unknown,
+): Promise<ExperienceManifestValidation> => {
+  const manifestId = parseUuid(manifestIdValue, 'manifest_id');
+  const result = await readDb.query(`${manifestSelect} WHERE manifest_id = $1 AND state = 'draft' LIMIT 1`, [manifestId]);
+  if (!result.rows[0]) throw new ExperienceManifestError('EXPERIENCE_DRAFT_NOT_FOUND', 404, `Draft manifest '${manifestId}' was not found`);
+  const manifest = rowToManifest(result.rows[0]);
+  assertPersistedManifestIntegrity(manifest);
+  return {
+    valid: true,
+    manifest_id: manifest.manifest_id,
+    revision: manifest.revision,
+    checksum: manifest.checksum,
+    issues: [],
+  };
+};
+
+export const submitExperienceManifestApproval = async (
+  manifestIdValue: unknown,
+  actorId: string,
+  correlationId: string | null,
+  auditContext: ExperienceAuditContext = {},
+): Promise<ExperienceManifestRecord> => {
+  const manifestId = parseUuid(manifestIdValue, 'manifest_id');
+  return withTransaction(async (client) => {
+    await lockManifest(client, manifestId);
+    const result = await client.query(`${manifestSelect} WHERE manifest_id = $1 AND state = 'draft' FOR UPDATE`, [manifestId]);
+    if (!result.rows[0]) throw new ExperienceManifestError('EXPERIENCE_DRAFT_NOT_FOUND', 404, `Draft manifest '${manifestId}' was not found`);
+    const draft = rowToManifest(result.rows[0]);
+    if (!draft.requires_approval) {
+      throw new ExperienceManifestError('EXPERIENCE_APPROVAL_NOT_REQUIRED', 409, 'This manifest does not require two-step approval');
+    }
+    if (draft.approval_status === 'pending' || draft.approval_status === 'approved') return draft;
+    const submittedResult = await client.query(
+      `UPDATE experience_manifest_revisions
+          SET approval_status = 'pending', approval_requested_by = $1,
+              approval_requested_at = NOW(), approved_by = NULL, approved_at = NULL,
+              updated_by = $1, updated_at = NOW()
+        WHERE id = $2 AND state = 'draft' AND requires_approval = TRUE
+        RETURNING *`,
+      [actorId, draft.id],
+    );
+    const submitted = rowToManifest(submittedResult.rows[0]);
+    await audit(client, submitted, 'approval_requested', actorId, 'High-impact experience manifest submitted for approval', 'draft', 'draft', correlationId, {
+      previous_revision: draft.revision,
+      new_revision: submitted.revision,
+    }, auditContext);
+    return submitted;
+  });
+};
+
+export const rejectExperienceManifest = async (
+  manifestIdValue: unknown,
+  actorId: string,
+  reason: string,
+  correlationId: string | null,
+  auditContext: ExperienceAuditContext = {},
+): Promise<ExperienceManifestRecord> => {
+  const manifestId = parseUuid(manifestIdValue, 'manifest_id');
+  const normalizedReason = reason.trim();
+  if (normalizedReason.length < 3 || normalizedReason.length > 500) {
+    throw new ExperienceManifestError('EXPERIENCE_APPROVAL_REASON_REQUIRED', 400, 'Rejection reason must contain 3 to 500 characters');
+  }
+
+  return withTransaction(async (client) => {
+    await lockManifest(client, manifestId);
+    const result = await client.query(`${manifestSelect} WHERE manifest_id = $1 AND state = 'draft' FOR UPDATE`, [manifestId]);
+    if (!result.rows[0]) throw new ExperienceManifestError('EXPERIENCE_DRAFT_NOT_FOUND', 404, `Draft manifest '${manifestId}' was not found`);
+    const draft = rowToManifest(result.rows[0]);
+    if (!draft.requires_approval) {
+      throw new ExperienceManifestError('EXPERIENCE_APPROVAL_NOT_REQUIRED', 409, 'This manifest does not require two-step approval');
+    }
+    if (draft.approval_status === 'approved') {
+      throw new ExperienceManifestError('EXPERIENCE_APPROVAL_ALREADY_APPROVED', 409, 'An approved manifest cannot be rejected');
+    }
+    if (draft.approval_status === 'rejected') return draft;
+    const rejectedResult = await client.query(
+      `UPDATE experience_manifest_revisions
+          SET approval_status = 'rejected', approved_by = NULL, approved_at = NULL,
+              updated_by = $1, updated_at = NOW()
+        WHERE id = $2 AND state = 'draft' AND requires_approval = TRUE
+        RETURNING *`,
+      [actorId, draft.id],
+    );
+    const rejected = rowToManifest(rejectedResult.rows[0]);
+    await audit(client, rejected, 'rejected', actorId, normalizedReason, 'draft', 'draft', correlationId, {
+      previous_revision: draft.revision,
+      new_revision: rejected.revision,
+      maker_id: draft.created_by,
+    }, auditContext);
+    return rejected;
   });
 };
 
@@ -1288,6 +1531,7 @@ export const approveExperienceManifest = async (
   manifestIdValue: unknown,
   actorId: string,
   correlationId: string | null,
+  auditContext: ExperienceAuditContext = {},
 ): Promise<ExperienceManifestRecord> => {
   const manifestId = parseUuid(manifestIdValue, 'manifest_id');
   return withTransaction(async (client) => {
@@ -1301,6 +1545,9 @@ export const approveExperienceManifest = async (
     if (draft.created_by && draft.created_by === actorId) {
       throw new ExperienceManifestError('EXPERIENCE_APPROVAL_MAKER_CHECKER_REQUIRED', 403, 'The manifest creator cannot approve the same high-impact campaign');
     }
+    if (draft.approval_status === 'rejected') {
+      throw new ExperienceManifestError('EXPERIENCE_APPROVAL_NOT_PENDING', 409, 'The manifest must be submitted again after rejection before it can be approved');
+    }
     if (draft.approval_status === 'approved') return draft;
     const approvedResult = await client.query(
       `UPDATE experience_manifest_revisions
@@ -1313,7 +1560,7 @@ export const approveExperienceManifest = async (
     const approved = rowToManifest(approvedResult.rows[0]);
     await audit(client, approved, 'approved', actorId, 'High-impact experience manifest approved', 'pending', 'approved', correlationId, {
       maker_id: draft.created_by,
-    });
+    }, auditContext);
     return approved;
   });
 };
@@ -1322,6 +1569,7 @@ export const publishExperienceManifest = async (
   manifestIdValue: unknown,
   actorId: string,
   correlationId: string | null,
+  auditContext: ExperienceAuditContext = {},
 ): Promise<ExperienceManifestRecord> => {
   assertSigningConfiguration();
   const manifestId = parseUuid(manifestIdValue, 'manifest_id');
@@ -1330,6 +1578,7 @@ export const publishExperienceManifest = async (
     const draftResult = await client.query(`${manifestSelect} WHERE manifest_id = $1 AND state = 'draft' FOR UPDATE`, [manifestId]);
     if (!draftResult.rows[0]) throw new ExperienceManifestError('EXPERIENCE_DRAFT_NOT_FOUND', 404, `Draft manifest '${manifestId}' was not found`);
     const draft = rowToManifest(draftResult.rows[0]);
+    assertPersistedManifestIntegrity(draft);
     if (draft.requires_approval && draft.approval_status !== 'approved') {
       throw new ExperienceManifestError('EXPERIENCE_APPROVAL_REQUIRED', 409, 'A high-impact manifest requires approval by a different authorized operator before publishing');
     }
@@ -1361,7 +1610,11 @@ export const publishExperienceManifest = async (
         `UPDATE experience_manifest_revisions SET state = 'superseded', updated_by = $1, updated_at = NOW() WHERE id = $2`,
         [actorId, current.id],
       );
-      await audit(client, { ...current, state: 'superseded' }, 'superseded', actorId, 'Superseded by a newer published revision', 'published', 'superseded', correlationId, { replacement_revision: draft.revision });
+      await audit(client, { ...current, state: 'superseded' }, 'superseded', actorId, 'Superseded by a newer published revision', 'published', 'superseded', correlationId, {
+        replacement_revision: draft.revision,
+        previous_revision: current.revision,
+        new_revision: draft.revision,
+      }, auditContext);
     }
     const publishedResult = await client.query(
       `UPDATE experience_manifest_revisions
@@ -1371,7 +1624,10 @@ export const publishExperienceManifest = async (
       [actorId, draft.id],
     );
     const published = rowToManifest(publishedResult.rows[0]);
-    await audit(client, published, 'published', actorId, 'Experience manifest published', 'draft', 'published', correlationId, { previous_revision: current?.revision ?? null });
+    await audit(client, published, 'published', actorId, 'Experience manifest published', 'draft', 'published', correlationId, {
+      previous_revision: current?.revision ?? null,
+      new_revision: published.revision,
+    }, auditContext);
     return published;
   });
 };
@@ -1382,6 +1638,7 @@ export const rollbackExperienceManifest = async (
   actorId: string,
   reason: string,
   correlationId: string | null,
+  auditContext: ExperienceAuditContext = {},
 ): Promise<ExperienceManifestRecord> => {
   const manifestId = parseUuid(manifestIdValue, 'manifest_id');
   const targetRevision = Number(targetRevisionValue);
@@ -1415,7 +1672,11 @@ export const rollbackExperienceManifest = async (
         WHERE id = $2`,
       [actorId, current.id],
     );
-    await audit(client, { ...current, state: 'rolled_back' }, 'rolled_back', actorId, normalizedReason, 'published', 'rolled_back', correlationId, { target_revision: target.revision });
+    await audit(client, { ...current, state: 'rolled_back' }, 'rolled_back', actorId, normalizedReason, 'published', 'rolled_back', correlationId, {
+      target_revision: target.revision,
+      previous_revision: current.revision,
+      new_revision: target.revision,
+    }, auditContext);
     const publishedTarget = await client.query(
       `UPDATE experience_manifest_revisions
           SET state = 'published', published_by = $1, published_at = NOW(), updated_by = $1, updated_at = NOW()
@@ -1424,7 +1685,11 @@ export const rollbackExperienceManifest = async (
       [actorId, target.id],
     );
     const published = rowToManifest(publishedTarget.rows[0]);
-    await audit(client, published, 'published', actorId, `Rollback to revision ${target.revision}: ${normalizedReason}`, target.state, 'published', correlationId, { rollback_from_revision: current.revision });
+    await audit(client, published, 'published', actorId, `Rollback to revision ${target.revision}: ${normalizedReason}`, target.state, 'published', correlationId, {
+      rollback_from_revision: current.revision,
+      previous_revision: current.revision,
+      new_revision: target.revision,
+    }, auditContext);
     return published;
   });
 };
@@ -1435,6 +1700,7 @@ export const setExperienceManifestKillSwitch = async (
   actorId: string,
   reason: string,
   correlationId: string | null,
+  auditContext: ExperienceAuditContext = {},
 ): Promise<ExperienceManifestRecord> => {
   const manifestId = parseUuid(manifestIdValue, 'manifest_id');
   const normalizedReason = reason.trim();
@@ -1485,6 +1751,7 @@ export const setExperienceManifestKillSwitch = async (
       'published',
       correlationId,
       { kill_switch_active: active },
+      auditContext,
     );
     return updated;
   });
@@ -1516,6 +1783,134 @@ export const listExperienceManifestRevisions = async (filters: {
   return result.rows.map(rowToManifest);
 };
 
+export const validateExperienceRollout = (body: unknown): JsonObject => {
+  const schema = z.object({
+    rollout_stage: z.enum(['canary', 'public']).default('public'),
+    canary_cohort: identifier.nullable().optional(),
+    min_app_version: semver.optional(),
+    max_app_version: semver.nullable().optional(),
+    starts_at: z.coerce.date().default(() => new Date()),
+    ends_at: z.coerce.date().nullable().optional(),
+    schedule_timezone: scheduleTimezone.default('UTC'),
+  }).strict();
+  const parsed = schema.safeParse(normalizeScheduleInput(body));
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => ({
+      path: issue.path.join('.') || '$',
+      code: issue.code,
+      message: issue.message,
+    }));
+    throw new ExperienceManifestError(
+      'INVALID_EXPERIENCE_ROLLOUT',
+      400,
+      issues.map((issue) => `${issue.path}: ${issue.message}`).join('; '),
+      [],
+      issues,
+    );
+  }
+  const data = parsed.data;
+  if (data.rollout_stage === 'canary' && !data.canary_cohort) {
+    throw new ExperienceManifestError('EXPERIENCE_CANARY_COHORT_REQUIRED', 400, 'canary_cohort is required for a canary rollout', [], [{
+      path: 'canary_cohort', code: 'required', message: 'canary_cohort is required for a canary rollout',
+    }]);
+  }
+  if (data.rollout_stage === 'public' && data.canary_cohort) {
+    throw new ExperienceManifestError('EXPERIENCE_CANARY_COHORT_INVALID', 400, 'canary_cohort is only valid for a canary rollout', [], [{
+      path: 'canary_cohort', code: 'invalid', message: 'canary_cohort is only valid for a canary rollout',
+    }]);
+  }
+  if (data.ends_at && data.ends_at.getTime() <= data.starts_at.getTime()) {
+    throw new ExperienceManifestError('INVALID_EXPERIENCE_SCHEDULE', 400, 'ends_at must be after starts_at', [], [{
+      path: 'ends_at', code: 'invalid', message: 'ends_at must be after starts_at',
+    }]);
+  }
+  return {
+    ...data,
+    starts_at: data.starts_at.toISOString(),
+    ends_at: data.ends_at?.toISOString() ?? null,
+    canary_cohort: data.canary_cohort ?? null,
+    max_app_version: data.max_app_version ?? null,
+  };
+};
+
+export const listExperienceAssets = async (filters: {
+  market_code?: unknown;
+  surface?: unknown;
+} = {}): Promise<Array<ExperienceAssetReference & { manifest_id: string; revision: number }>> => {
+  const manifests = await listExperienceManifestRevisions(filters);
+  const seen = new Set<string>();
+  const assets: Array<ExperienceAssetReference & { manifest_id: string; revision: number }> = [];
+  manifests.forEach((manifest) => {
+    manifest.asset_references.forEach((asset) => {
+      const key = `${asset.asset_id}:${asset.version || '1'}:${asset.checksum}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      assets.push({ ...asset, manifest_id: manifest.manifest_id, revision: manifest.revision });
+    });
+  });
+  return assets;
+};
+
+const collectDeepLinks = (value: unknown, result: Set<string>): void => {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectDeepLinks(item, result));
+    return;
+  }
+  if (!value || typeof value !== 'object') return;
+  Object.entries(value as JsonObject).forEach(([key, nested]) => {
+    if (key === 'deep_link' && typeof nested === 'string') result.add(nested);
+    collectDeepLinks(nested, result);
+  });
+};
+
+export const listExperienceDeepLinks = async (filters: {
+  market_code?: unknown;
+  surface?: unknown;
+} = {}): Promise<string[]> => {
+  const manifests = await listExperienceManifestRevisions(filters);
+  const result = new Set<string>();
+  manifests.forEach((manifest) => manifest.sections.forEach((section) => collectDeepLinks(section.properties, result)));
+  return Array.from(result).sort();
+};
+
+export const listExperienceRollouts = async (filters: {
+  market_code?: unknown;
+  surface?: unknown;
+} = {}): Promise<Array<JsonObject>> => {
+  const manifests = await listExperienceManifestRevisions(filters);
+  return manifests.map((manifest) => ({
+    manifest_id: manifest.manifest_id,
+    revision: manifest.revision,
+    market_code: manifest.market_code,
+    surface: manifest.surface,
+    state: manifest.state,
+    rollout_stage: manifest.rollout_stage,
+    canary_cohort: manifest.canary_cohort,
+    starts_at: manifest.starts_at,
+    ends_at: manifest.ends_at,
+    schedule_timezone: manifest.schedule_timezone,
+  }));
+};
+
+export const listExperienceKillSwitches = async (filters: {
+  market_code?: unknown;
+  surface?: unknown;
+} = {}): Promise<Array<JsonObject>> => {
+  const manifests = await listExperienceManifestRevisions(filters);
+  return manifests
+    .filter((manifest) => manifest.state === 'published')
+    .map((manifest) => ({
+      manifest_id: manifest.manifest_id,
+      revision: manifest.revision,
+      market_code: manifest.market_code,
+      surface: manifest.surface,
+      active: manifest.kill_switch_active,
+      reason: manifest.kill_switch_reason,
+      changed_by: manifest.kill_switched_by,
+      changed_at: manifest.kill_switched_at,
+    }));
+};
+
 export type ExperienceManifestAuditRecord = {
   id: string;
   revision_id: string;
@@ -1535,6 +1930,21 @@ export type ExperienceManifestHistory = {
   revisions: ExperienceManifestRecord[];
   audit: ExperienceManifestAuditRecord[];
 };
+
+const auditRowToRecord = (row: Record<string, any>): ExperienceManifestAuditRecord => ({
+  id: String(row.id),
+  revision_id: String(row.revision_id),
+  manifest_id: String(row.manifest_id),
+  revision: Number(row.revision),
+  action: String(row.action),
+  actor_id: row.actor_id ? String(row.actor_id) : null,
+  reason: row.reason ? String(row.reason) : null,
+  correlation_id: row.correlation_id ? String(row.correlation_id) : null,
+  previous_state: row.previous_state ? String(row.previous_state) : null,
+  new_state: String(row.new_state),
+  metadata: auditMetadata(row.metadata),
+  created_at: new Date(row.created_at).toISOString(),
+});
 
 const auditMetadata = (value: unknown): JsonObject => {
   if (typeof value === 'string') {
@@ -1563,21 +1973,37 @@ export const getExperienceManifestHistory = async (manifestIdValue: unknown): Pr
   ]);
   return {
     revisions: revisionsResult.rows.map((row) => rowToManifest(row)),
-    audit: auditResult.rows.map((row) => ({
-      id: String(row.id),
-      revision_id: String(row.revision_id),
-      manifest_id: String(row.manifest_id),
-      revision: Number(row.revision),
-      action: String(row.action),
-      actor_id: row.actor_id ? String(row.actor_id) : null,
-      reason: row.reason ? String(row.reason) : null,
-      correlation_id: row.correlation_id ? String(row.correlation_id) : null,
-      previous_state: row.previous_state ? String(row.previous_state) : null,
-      new_state: String(row.new_state),
-      metadata: auditMetadata(row.metadata),
-      created_at: new Date(row.created_at).toISOString(),
-    })),
+    audit: auditResult.rows.map((row) => auditRowToRecord(row)),
   };
+};
+
+export const listExperienceAudit = async (filters: {
+  market_code?: unknown;
+  surface?: unknown;
+  manifest_id?: unknown;
+} = {}): Promise<ExperienceManifestAuditRecord[]> => {
+  const marketCode = validateListFilter(filters.market_code, 'market_code');
+  const surface = validateListFilter(filters.surface, 'surface');
+  const manifestId = filters.manifest_id == null || filters.manifest_id === ''
+    ? null
+    : parseUuid(filters.manifest_id, 'manifest_id');
+  const values: unknown[] = [];
+  const where: string[] = [];
+  if (marketCode) { values.push(marketCode); where.push(`r.market_code = $${values.length}`); }
+  if (surface) { values.push(surface); where.push(`r.surface = $${values.length}`); }
+  if (manifestId) { values.push(manifestId); where.push(`a.manifest_id = $${values.length}`); }
+  const result = await readDb.query(
+    `SELECT a.id, a.revision_id, a.manifest_id, a.revision, a.action, a.actor_id,
+            a.reason, a.correlation_id, a.previous_state, a.new_state, a.metadata,
+            a.created_at
+       FROM experience_manifest_audit a
+       JOIN experience_manifest_revisions r ON r.id = a.revision_id
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY a.created_at DESC, a.id DESC
+      LIMIT 1000`,
+    values,
+  );
+  return result.rows.map((row) => auditRowToRecord(row));
 };
 
 const NEW_USER_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;

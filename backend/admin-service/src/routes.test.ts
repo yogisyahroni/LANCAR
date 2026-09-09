@@ -131,6 +131,27 @@ jest.mock('./controllers', () => ({
   getAnalyticsKPIs: jest.fn((req, res) => res.status(200).json({})),
   listAdminExperienceManifests: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
   getAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  createAdminExperienceManifest: jest.fn((req, res) => res.status(201).json({ success: true, data: {} })),
+  updateAdminExperienceManifestDraft: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  validateAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  previewAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  submitAdminExperienceManifestApproval: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  approveAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  rejectAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  publishAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  rollbackAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  killAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  restoreAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  listAdminExperienceAssets: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  validateAdminExperienceAsset: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  listAdminExperienceRevisions: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  listAdminExperienceAudit: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  listAdminExperienceDeepLinks: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  validateAdminExperienceDeepLink: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  listAdminExperienceRollouts: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  validateAdminExperienceRollout: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
+  listAdminExperienceKillSwitches: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  setAdminExperienceKillSwitch: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
   getAdminExperienceObservability: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
   evaluateAdminExperienceGuardrail: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
   getAnalyticsSLA: jest.fn((req, res) => res.status(200).json({})),
@@ -192,6 +213,9 @@ describe('Admin Service Routes', () => {
       const role = values.find((value) => ['super_admin', 'ops_admin', 'ops_security', 'cs_agent', 'finance_admin'].includes(String(value)));
       if (sql.includes('FROM permissions')) {
         return Promise.resolve({ rows: [{ allowed: ['super_admin', 'ops_admin', 'ops_security'].includes(String(role)) }] });
+      }
+      if (sql.includes('FROM experience_manifest_revisions')) {
+        return Promise.resolve({ rows: [{ market_code: 'id-jk', surface: 'customer_android' }] });
       }
       if (sql.includes('FROM experience_admin_scope_grants')) {
         const target = values[2];
@@ -257,6 +281,46 @@ describe('Admin Service Routes', () => {
     }));
     expect(controllers.listAdminExperienceManifests).not.toHaveBeenCalled();
     expect((db.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO audit_logs'))).toBe(true);
+  });
+
+  it('maps every Admin Experience contract action to an authenticated controller', async () => {
+    const headers = gatewayHeaders({ role: 'super_admin' });
+    const scope = { market_code: 'id-jk', surface: 'customer_android' };
+    const manifestId = '11111111-1111-4111-8111-111111111111';
+    const requests = [
+      request(app).get('/admin/experience/manifests').query(scope).set(headers),
+      request(app).get(`/admin/experience/manifests/${manifestId}`).set(headers),
+      request(app).post('/admin/experience/manifests').send(scope).set(headers),
+      request(app).patch(`/admin/experience/manifests/${manifestId}/draft`).send(scope).set(headers),
+      request(app).put(`/admin/experience/manifests/${manifestId}`).send(scope).set(headers),
+      request(app).post(`/admin/experience/manifests/${manifestId}/validate`).set(headers),
+      request(app).post(`/admin/experience/manifests/${manifestId}/preview`).set(headers),
+      request(app).post(`/admin/experience/manifests/${manifestId}/submit-approval`).set(headers),
+      request(app).post(`/admin/experience/manifests/${manifestId}/approve`).set(headers),
+      request(app).post(`/admin/experience/manifests/${manifestId}/reject`).send({ reason: 'Needs copy review' }).set(headers),
+      request(app).post(`/admin/experience/manifests/${manifestId}/publish`).set(headers),
+      request(app).post(`/admin/experience/manifests/${manifestId}/rollback`).send({ target_revision: 1, reason: 'Restore known good' }).set(headers),
+      request(app).get('/admin/experience/assets').query(scope).set(headers),
+      request(app).post('/admin/experience/assets').query(scope).send({ asset_id: 'hero', uri: 'https://cdn.example.com/hero.webp' }).set(headers),
+      request(app).get('/admin/experience/revisions').query(scope).set(headers),
+      request(app).get('/admin/experience/audit').query(scope).set(headers),
+      request(app).get('/admin/experience/deep-links').query(scope).set(headers),
+      request(app).post('/admin/experience/deep-links').query(scope).send({ deep_link: '/food' }).set(headers),
+      request(app).get('/admin/experience/rollouts').query(scope).set(headers),
+      request(app).post('/admin/experience/rollouts').query(scope).send({ rollout_stage: 'public' }).set(headers),
+      request(app).get('/admin/experience/kill-switches').query(scope).set(headers),
+      request(app).post('/admin/experience/kill-switches').send({ ...scope, manifest_id: manifestId, active: true, reason: 'Emergency test' }).set(headers),
+    ];
+
+    const responses = await Promise.all(requests);
+    expect(responses.every((response) => response.status < 400)).toBe(true);
+    expect(controllers.validateAdminExperienceManifest).toHaveBeenCalledTimes(1);
+    expect(controllers.submitAdminExperienceManifestApproval).toHaveBeenCalledTimes(1);
+    expect(controllers.rejectAdminExperienceManifest).toHaveBeenCalledTimes(1);
+    expect(controllers.listAdminExperienceAssets).toHaveBeenCalledTimes(1);
+    expect(controllers.validateAdminExperienceAsset).toHaveBeenCalledTimes(1);
+    expect(controllers.listAdminExperienceAudit).toHaveBeenCalledTimes(1);
+    expect(controllers.setAdminExperienceKillSwitch).toHaveBeenCalledTimes(1);
   });
 
   it('protects the operational order timeline behind admin authentication', async () => {

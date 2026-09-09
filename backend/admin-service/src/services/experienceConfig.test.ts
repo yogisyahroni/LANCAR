@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 jest.mock('../db', () => ({
   db: { connect: jest.fn() },
   readDb: { query: jest.fn() },
@@ -9,6 +11,7 @@ import {
   compareSemanticVersions,
   createExperienceManifest,
   approveExperienceManifest,
+  rejectExperienceManifest,
   getExperienceCacheControl,
   getExperienceManifestHistory,
   parseExperienceManifestInput,
@@ -18,7 +21,12 @@ import {
   rollbackExperienceManifest,
   resolvePublicExperienceManifest,
   setExperienceManifestKillSwitch,
+  submitExperienceManifestApproval,
   type ExperienceManifestCandidate,
+  updateExperienceManifestDraft,
+  validateExperienceAsset,
+  validateExperienceDeepLink,
+  validateExperienceRollout,
 } from './experienceConfig';
 
 const manifestId = '11111111-1111-4111-8111-111111111111';
@@ -87,6 +95,27 @@ const row = (state: string, revision = 1): Record<string, unknown> => ({
   approved_at: null,
 });
 
+const checksumForRow = (value: Record<string, any>): string => createHash('sha256').update(canonicalExperienceManifestPayload({
+  manifest_id: value.manifest_id,
+  revision: value.revision,
+  schema_version: value.schema_version,
+  market_code: value.market_code,
+  locale: value.locale,
+  surface: value.surface,
+  min_app_version: value.min_app_version,
+  max_app_version: value.max_app_version,
+  starts_at: value.starts_at,
+  ends_at: value.ends_at,
+  schedule_timezone: value.schedule_timezone,
+  rollout_stage: value.rollout_stage,
+  canary_cohort: value.canary_cohort,
+  ttl_seconds: value.ttl_seconds,
+  cache_policy: value.cache_policy,
+  targeting: value.targeting,
+  sections: value.sections,
+  asset_references: value.asset_references,
+})).digest('hex');
+
 const candidate = (overrides: Partial<ExperienceManifestCandidate> = {}): ExperienceManifestCandidate => ({
   manifest_id: manifestId,
   revision: 1,
@@ -127,6 +156,45 @@ describe('experience manifest contract', () => {
     expect(parsed.schedule_timezone).toBe('Asia/Jakarta');
     expect(parsed.sections[0].component).toBe('hero_banner');
     expect(parsed.asset_references).toEqual([]);
+  });
+
+  it('returns field-level issues for invalid manifest input', () => {
+    try {
+      parseExperienceManifestInput({ ...validInput, sections: [] });
+      throw new Error('expected manifest validation to fail');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'INVALID_EXPERIENCE_SECTIONS',
+        issues: [{ path: 'sections', code: 'invalid_length' }],
+      });
+    }
+  });
+
+  it('validates assets, allowlisted deep links, and rollout schedules', () => {
+    expect(validateExperienceAsset({ asset_id: 'hero', uri: '/assets/hero.webp', kind: 'image', checksum })).toMatchObject({
+      asset_id: 'hero',
+      content_type: 'image/webp',
+      cache_policy: 'private',
+    });
+    expect(validateExperienceDeepLink('/food/orders')).toBe('/food/orders');
+    try {
+      validateExperienceDeepLink('https://evil.example');
+      throw new Error('expected deep-link validation to fail');
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'INVALID_EXPERIENCE_DEEP_LINK', issues: [{ path: 'deep_link' }] });
+    }
+    expect(validateExperienceRollout({
+      rollout_stage: 'canary',
+      canary_cohort: 'internal-test',
+      starts_at: '2026-09-10T09:00:00.000Z',
+      schedule_timezone: 'Asia/Jakarta',
+    })).toMatchObject({ rollout_stage: 'canary', canary_cohort: 'internal-test' });
+    try {
+      validateExperienceRollout({ rollout_stage: 'canary' });
+      throw new Error('expected canary rollout validation to fail');
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'EXPERIENCE_CANARY_COHORT_REQUIRED', issues: [{ path: 'canary_cohort' }] });
+    }
   });
 
   it('enforces surface-specific component contracts', () => {
@@ -657,19 +725,99 @@ describe('experience manifest lifecycle persistence', () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
-    const result = await createExperienceManifest({ ...validInput, manifest_id: manifestId }, actorId, 'corr-1');
+    const result = await createExperienceManifest(
+      { ...validInput, manifest_id: manifestId },
+      actorId,
+      'corr-1',
+      { requestId: 'req-create', actorRole: 'ops_admin' },
+    );
     expect(result.state).toBe('draft');
     expect(result.revision).toBe(1);
     expect(client.query).toHaveBeenCalledWith('BEGIN');
-    expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes('experience_manifest_audit'))).toBe(true);
+    const auditCall = client.query.mock.calls.find(([sql]: [string]) => sql.includes('experience_manifest_audit'));
+    expect(auditCall).toBeDefined();
+    const auditMetadata = JSON.parse((auditCall as [string, unknown[]])[1][9] as string);
+    expect(auditMetadata).toMatchObject({
+      actor_role: 'ops_admin',
+      request_id: 'req-create',
+      previous_revision: null,
+      new_revision: 1,
+      market_code: 'id-jk',
+      surface: 'customer_android',
+    });
     expect(client.query).toHaveBeenCalledWith('COMMIT');
   });
 
-  it('publishes only the draft and supersedes the previous revision', async () => {
+  it('rejects a stale draft update before writing over a newer revision', async () => {
     client.query
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [row('draft', 2)] })
+      .mockResolvedValueOnce({ rows: [row('draft')] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(updateExperienceManifestDraft(
+      manifestId,
+      validInput,
+      actorId,
+      'corr-version',
+      { requestId: 'req-version', actorRole: 'ops_admin' },
+      { revision: 1, checksum: 'b'.repeat(64) },
+    )).rejects.toMatchObject({ code: 'EXPERIENCE_VERSION_CONFLICT', status: 409 });
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+    expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes('UPDATE experience_manifest_revisions'))).toBe(false);
+  });
+
+  it('supports rejection and resubmission of a high-impact draft with audit records', async () => {
+    const pendingDraft = row('draft') as any;
+    pendingDraft.requires_approval = true;
+    pendingDraft.approval_status = 'pending';
+    const rejectedDraft = { ...pendingDraft, approval_status: 'rejected' };
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [pendingDraft] })
+      .mockResolvedValueOnce({ rows: [rejectedDraft] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const rejected = await rejectExperienceManifest(
+      manifestId,
+      actorId,
+      'Copy needs legal review',
+      'corr-reject',
+      { requestId: 'req-reject', actorRole: 'ops_admin' },
+    );
+    expect(rejected.approval_status).toBe('rejected');
+    expect(client.query.mock.calls.some(([sql, values]: [string, unknown[]]) => sql.includes('experience_manifest_audit') && values.includes('rejected'))).toBe(true);
+
+    jest.clearAllMocks();
+    (db.connect as jest.Mock).mockResolvedValue(client);
+    const resubmittedDraft = { ...rejectedDraft, approval_status: 'pending' };
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [rejectedDraft] })
+      .mockResolvedValueOnce({ rows: [resubmittedDraft] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const submitted = await submitExperienceManifestApproval(
+      manifestId,
+      actorId,
+      'corr-submit',
+      { requestId: 'req-submit', actorRole: 'ops_admin' },
+    );
+    expect(submitted.approval_status).toBe('pending');
+    expect(client.query.mock.calls.some(([sql, values]: [string, unknown[]]) => sql.includes('experience_manifest_audit') && values.includes('approval_requested'))).toBe(true);
+  });
+
+  it('publishes only the draft and supersedes the previous revision', async () => {
+    const draft = row('draft', 2) as any;
+    draft.content_checksum = checksumForRow(draft);
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [draft] })
       .mockResolvedValueOnce({ rows: [row('published', 1)] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
@@ -702,7 +850,11 @@ describe('experience manifest lifecycle persistence', () => {
 
   it('blocks publishing a targeted manifest when no untargeted fallback is active', async () => {
     const targetedDraft = row('draft', 2) as any;
-    targetedDraft.targeting = { cohorts: ['beta'] };
+    targetedDraft.targeting = {
+      cohorts: ['beta'], market_codes: [], city_codes: [], zone_codes: [], locales: [],
+      service_usage_cohorts: [], roles: [], experiment_assignments: [],
+    };
+    targetedDraft.content_checksum = checksumForRow(targetedDraft);
     client.query
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
@@ -720,6 +872,7 @@ describe('experience manifest lifecycle persistence', () => {
     const pendingDraft = row('draft', 2) as any;
     pendingDraft.requires_approval = true;
     pendingDraft.approval_status = 'pending';
+    pendingDraft.content_checksum = checksumForRow(pendingDraft);
     client.query
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
