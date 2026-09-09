@@ -2860,11 +2860,11 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - light/dark mode where applicable
 
 **Checklist**
-- [ ] Preview resolves the same manifest schema/rules as production resolver, not a disconnected mock implementation.
-- [ ] Admin can compare `current live` vs `candidate revision` side-by-side/diff.
-- [ ] Unsupported component for selected old app version is visibly shown as skipped/fallback.
-- [ ] Broken asset/deep-link/contrast/schedule targeting appears as blocking validation before publish.
-- [ ] Preview never counts as real campaign impression/exposure metric.
+- [x] Preview resolves the same manifest schema/rules as production resolver, not a disconnected mock implementation. Evidence: `docs/task-evidence/ADMEXP-2026-014.md`
+- [x] Admin can compare `current live` vs `candidate revision` side-by-side/diff. Evidence: `docs/task-evidence/ADMEXP-2026-014.md`
+- [x] Unsupported component for selected old app version is visibly shown as skipped/fallback. Evidence: `docs/task-evidence/ADMEXP-2026-014.md`
+- [x] Broken asset/deep-link/contrast/schedule targeting appears as blocking validation before publish. Evidence: `docs/task-evidence/ADMEXP-2026-014.md`
+- [x] Preview never counts as real campaign impression/exposure metric. Evidence: `docs/task-evidence/ADMEXP-2026-014.md`
 
 ---
 
