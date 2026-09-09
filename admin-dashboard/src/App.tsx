@@ -60,6 +60,8 @@ import AppExperience from './pages/AppExperience'
 import LocalizedContentPacks from './pages/LocalizedContentPacks'
 import MobileReleasePolicies from './pages/MobileReleasePolicies'
 import DashboardLayout from './components/DashboardLayout'
+import ExperienceScopedPage from './components/experience/ExperienceScopedPage'
+import { APP_EXPERIENCE_ROLES } from './config/appExperienceNavigation'
 
 import { useEffect } from 'react'
 import { useAuthStore } from './store/useAuthStore'
@@ -91,6 +93,15 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
 
   return <DashboardLayout>{children}</DashboardLayout>
 }
+
+const APP_EXPERIENCE_ALLOWED_ROLES = [...APP_EXPERIENCE_ROLES]
+const SCHEDULING_ALLOWED_ROLES = ['super_admin', 'ops_admin']
+
+const ProtectedExperienceManifest = () => (
+  <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
+    <AppExperience />
+  </ProtectedRoute>
+)
 
 function App() {
   return (
@@ -417,13 +428,58 @@ function App() {
           <Route
             path="/feature-flags"
             element={
-              <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
+              <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
                 <FeatureFlags />
               </ProtectedRoute>
             }
           />
           <Route path="/experiments" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><Experiments /></ProtectedRoute>} />
-          <Route path="/app-experience" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><AppExperience /></ProtectedRoute>} />
+          <Route path="/app-experience" element={<Navigate to="/app-experience/overview" replace />} />
+          <Route path="/app-experience/overview" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/home-layout" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/campaigns" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/campaign-intro" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/service-visibility" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/kill-switches" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/targeting" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/assets" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/deep-links" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/design-tokens" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/preview" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/approval" element={<ProtectedExperienceManifest />} />
+          <Route path="/app-experience/revisions" element={<ProtectedExperienceManifest />} />
+          <Route
+            path="/app-experience/feature-flags"
+            element={
+              <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
+                <ExperienceScopedPage><FeatureFlags /></ExperienceScopedPage>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/app-experience/scheduling"
+            element={
+              <ProtectedRoute allowedRoles={SCHEDULING_ALLOWED_ROLES}>
+                <ExperienceScopedPage><CampaignCalendar /></ExperienceScopedPage>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/app-experience/version-policy"
+            element={
+              <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
+                <ExperienceScopedPage><MobileReleasePolicies /></ExperienceScopedPage>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/app-experience/analytics"
+            element={
+              <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
+                <ExperienceScopedPage><Analytics /></ExperienceScopedPage>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/localized-content" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><LocalizedContentPacks /></ProtectedRoute>} />
           <Route path="/mobile-release-policies" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><MobileReleasePolicies /></ProtectedRoute>} />
 

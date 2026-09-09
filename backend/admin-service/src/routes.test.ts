@@ -129,6 +129,8 @@ jest.mock('./controllers', () => ({
   updateZone: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
   deleteZone: jest.fn((req, res) => res.status(200).json({ status: 'deleted' })),
   getAnalyticsKPIs: jest.fn((req, res) => res.status(200).json({})),
+  listAdminExperienceManifests: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  getAdminExperienceManifest: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
   getAdminExperienceObservability: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
   evaluateAdminExperienceGuardrail: jest.fn((req, res) => res.status(200).json({ success: true, data: {} })),
   getAnalyticsSLA: jest.fn((req, res) => res.status(200).json({})),
@@ -200,6 +202,29 @@ describe('Admin Service Routes', () => {
       .set(gatewayHeaders());
     expect(res.status).toBe(200);
     expect(res.body).toEqual([{ key: 'test-flag' }]);
+  });
+
+  it('scopes App Experience and platform flag reads to authorized operators', async () => {
+    (controllers.listAdminExperienceManifests as jest.Mock).mockClear();
+    (controllers.getAllFlags as jest.Mock).mockClear();
+
+    const unauthorizedExperience = await request(app)
+      .get('/admin/experience/manifests')
+      .set(gatewayHeaders({ role: 'cs_agent' }));
+    expect(unauthorizedExperience.status).toBe(403);
+    expect(controllers.listAdminExperienceManifests).not.toHaveBeenCalled();
+
+    const authorizedExperience = await request(app)
+      .get('/admin/experience/manifests')
+      .set(gatewayHeaders({ role: 'ops_admin' }));
+    expect(authorizedExperience.status).toBe(200);
+    expect(controllers.listAdminExperienceManifests).toHaveBeenCalledTimes(1);
+
+    const unauthorizedFlags = await request(app)
+      .get('/admin/feature-flags')
+      .set(gatewayHeaders({ role: 'finance_admin' }));
+    expect(unauthorizedFlags.status).toBe(403);
+    expect(controllers.getAllFlags).toHaveBeenCalledTimes(0);
   });
 
   it('protects the operational order timeline behind admin authentication', async () => {

@@ -38,11 +38,8 @@ import {
   ShieldOff,
   Link as LinkIcon,
   Megaphone,
-  Calendar,
   Globe2,
   Beaker,
-  Sparkles,
-  Smartphone
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -52,6 +49,7 @@ import { clientLog } from '../lib/clientLogger'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '../store/useAuthStore'
+import { APP_EXPERIENCE_NAVIGATION } from '../config/appExperienceNavigation'
 
 import { createPortal } from 'react-dom'
 
@@ -113,6 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     "LOGISTIK & KURIR": true,
     "KEUANGAN, PAJAK (VAT) & TARIF": true,
     "MARKETING & PROMOSI": false,
+    "APP EXPERIENCE": true,
     "ZONA & PEMETAAN": false,
     "PELANGGAN & B2B": false,
     "HR & REKRUTMEN": false,
@@ -250,16 +249,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: "MARKETING & PROMOSI",
       items: [
         { icon: Ticket, label: "Vouchers", path: "/vouchers" },
-        { icon: BadgePercent, label: "Promos", path: "/promos" },
+        { icon: BadgePercent, label: "Promos (Financial)", path: "/promos" },
         { icon: Newspaper, label: "Berita & Artikel", path: "/news", restrictedRoles: ['cs_agent'] },
-        { icon: Megaphone, label: "Global Banner", path: "/banners", allowedRoles: ['super_admin'] }, // A4
         { icon: Megaphone, label: "Broadcast Center", path: "/broadcasts", allowedRoles: ['super_admin', 'admin', 'ops_admin'] }, // 10.2
-        { icon: Sparkles, label: "App Experience", path: "/app-experience", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
-        { icon: Globe2, label: "Localized Content", path: "/localized-content", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
-        { icon: Smartphone, label: "Mobile Release Policies", path: "/mobile-release-policies", allowedRoles: ['super_admin', 'ops_admin', 'ops_security'] },
-        { icon: Calendar, label: "Campaign Calendar", path: "/campaign-calendar", allowedRoles: ['super_admin', 'admin', 'ops_admin'] },
         { icon: FileText, label: "Resi Templates", path: "/resi-templates", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
       ]
+    },
+    {
+      title: "APP EXPERIENCE",
+      items: APP_EXPERIENCE_NAVIGATION.map(({ icon, label, path, allowedRoles }) => ({
+        icon,
+        label,
+        path,
+        allowedRoles,
+      })),
     },
     {
       title: "ZONA & PEMETAAN",
@@ -299,7 +302,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     allNavGroups.forEach(group => {
-      if (group.items.some(item => item.path === location.pathname)) {
+      if (group.items.some(item => item.path === location.pathname || (
+        group.title === 'APP EXPERIENCE' && location.pathname.startsWith('/app-experience/')
+      ))) {
         setOpenGroups(prev => ({ ...prev, [group.title]: true }))
       }
     })

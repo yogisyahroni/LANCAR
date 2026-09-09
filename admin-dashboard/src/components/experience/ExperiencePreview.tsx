@@ -1,20 +1,35 @@
-import { CheckCircle2, ExternalLink, Image as ImageIcon, Smartphone, Globe2, XCircle } from 'lucide-react'
-import type { ExperienceSection } from './types'
+import { CheckCircle2, ExternalLink, Image as ImageIcon, Smartphone, Globe2, Truck, Store, XCircle, type LucideIcon } from 'lucide-react'
+import type { ExperienceSection, ExperienceSurface } from './types'
 
 type Props = {
-  surface: 'customer_android' | 'customer_web'
+  surface: ExperienceSurface
   sections: ExperienceSection[]
   simulation?: { matched?: boolean; reason?: string; selected_manifest?: { revision?: number } | null }
+}
+
+const surfaceLabel: Record<ExperienceSurface, string> = {
+  customer_android: 'Customer Android',
+  customer_web: 'Customer Web',
+  merchant_android: 'Merchant Android',
+  courier_android: 'Courier Android',
+}
+
+const surfaceIcon: Record<ExperienceSurface, LucideIcon> = {
+  customer_android: Smartphone,
+  customer_web: Globe2,
+  merchant_android: Store,
+  courier_android: Truck,
 }
 
 const text = (properties: Record<string, unknown>, key: string) => typeof properties[key] === 'string' ? properties[key] as string : ''
 
 export default function ExperiencePreview({ surface, sections, simulation }: Props) {
+  const SurfaceIcon = surfaceIcon[surface]
   return (
     <section className="rounded-3xl border border-white/10 bg-zinc-950/70 p-5 shadow-2xl shadow-black/20" aria-labelledby="experience-preview-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-light">Safe schema preview</p><h2 id="experience-preview-title" className="mt-1 text-lg font-black text-zinc-100">{surface === 'customer_android' ? 'Customer Android' : 'Customer Web'} surface</h2></div>
-        <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-zinc-400">{surface === 'customer_android' ? <Smartphone size={15} /> : <Globe2 size={15} />} Native surface contract</div>
+        <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-light">Safe schema preview</p><h2 id="experience-preview-title" className="mt-1 text-lg font-black text-zinc-100">{surfaceLabel[surface]} surface</h2></div>
+        <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-zinc-400"><SurfaceIcon size={15} /> Native surface contract</div>
       </div>
       {simulation ? <div className={`mt-4 flex items-start gap-2 rounded-xl border p-3 text-xs ${simulation.matched ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/20 bg-amber-500/10 text-amber-200'}`}>{simulation.matched ? <CheckCircle2 size={16} className="mt-0.5 shrink-0" /> : <XCircle size={16} className="mt-0.5 shrink-0" />}<span>Audience simulation: <strong>{simulation.matched ? 'matched' : simulation.reason || 'not matched'}</strong>{simulation.selected_manifest?.revision ? ` · revision ${simulation.selected_manifest.revision}` : ''}</span></div> : null}
       <div className="mt-5 space-y-3 rounded-2xl bg-zinc-900 p-4">

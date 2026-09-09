@@ -1,11 +1,15 @@
 package com.tembus.customer.config
 
 import com.tembus.customer.data.config.model.ExperienceConfigScope
+import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
+import com.tembus.customer.data.config.model.ExperienceConfigSource
 import com.tembus.customer.data.config.model.ExperienceManifest
 import com.tembus.customer.data.config.model.ExperienceManifestValidator
+import com.tembus.customer.domain.config.shouldRenderLegacyGlobalBanner
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -43,6 +47,23 @@ class ExperienceConfigManagerTest {
         assertEquals("Welcome", properties["title"]?.toString()?.trim('"'))
         assertTrue("unknown_property" !in properties)
         assertTrue("payment" !in properties)
+    }
+
+    @Test
+    fun legacyGlobalBannerIsOnlyRenderedWhenExperienceHasNoSafeSections() {
+        val packaged = ExperienceConfigSnapshot(
+            manifest = ExperienceManifestValidator.packagedDefault(scope),
+            source = ExperienceConfigSource.PACKAGED_DEFAULT,
+            loadedAtMillis = 1L,
+            scope = scope,
+        )
+        val resolvedExperience = packaged.copy(
+            manifest = manifest(sections = listOf(section(component = "hero_banner"))),
+            source = ExperienceConfigSource.NETWORK,
+        )
+
+        assertTrue(shouldRenderLegacyGlobalBanner(packaged))
+        assertFalse(shouldRenderLegacyGlobalBanner(resolvedExperience))
     }
 
     @Test

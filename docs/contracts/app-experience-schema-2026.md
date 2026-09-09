@@ -11,6 +11,20 @@ The transaction services remain the source of truth even when a manifest shows
 a marketing CTA or service entry. A hidden or expired manifest does not remove
 an active-order recovery path.
 
+During the migration from the legacy `global_banners` table, the resolved
+Experience manifest is the authoritative home-presentation source whenever it
+contains safe sections. The customer Android client renders legacy global
+banners only as a compatibility fallback when no safe Experience sections are
+available; it never renders both sources concurrently. The legacy admin banner
+route remains available for the migration/backfill task and is not part of the
+App Experience navigation group.
+
+Promo campaigns remain owned by the Promo/Pricing domain for discount,
+eligibility, budget, reservation and redemption truth. Experience may carry a
+`campaign_id` and presentation copy only. Platform/runtime feature flags remain
+owned by the existing `feature_flags` store; the App Experience control plane
+links to that editor rather than creating a second flag store.
+
 ## Manifest shape
 
 Each logical `manifest_id` has immutable revisions. A revision contains:

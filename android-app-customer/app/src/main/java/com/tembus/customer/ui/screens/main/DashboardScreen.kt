@@ -103,6 +103,7 @@ import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.config.ExperienceBannerEvent
 import com.tembus.customer.featureflag.FeatureFlagManager
 import com.tembus.customer.ui.experience.DynamicHomeRenderer
+import com.tembus.customer.domain.config.shouldRenderLegacyGlobalBanner
 import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
@@ -172,6 +173,7 @@ fun DashboardScreen(
     val visibleServices = if (foodEntryEnabled) services else services.filterNot {
         it.code.equals("food", ignoreCase = true) || it.code.equals("food_delivery", ignoreCase = true)
     }
+    val showLegacyGlobalBanner = shouldRenderLegacyGlobalBanner(experienceSnapshot)
     val hasUnreadMessages = (notificationUnreadByCategory["message"] ?: 0) > 0
     val notificationPermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
@@ -286,7 +288,7 @@ fun DashboardScreen(
                     }
 
                 // A4: global banner (pengumuman in-app platform-wide dari super_admin).
-                if (banners.isNotEmpty()) {
+                if (showLegacyGlobalBanner && banners.isNotEmpty()) {
                     item {
                         GlobalBannerCard(banners = banners)
                     }
