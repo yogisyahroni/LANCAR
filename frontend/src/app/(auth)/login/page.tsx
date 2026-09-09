@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,38 +15,40 @@ import { startGoogleAuth } from '@/lib/googleAuth';
 import { startAppleAuth } from '@/lib/appleAuth';
 import { getCustomerWebDeviceId, buildCustomerWebDeviceInfo } from '@/lib/customerDevice';
 import { exchangeSession } from '@/lib/customerSession';
+import { useI18n } from '@/components/i18n/I18nProvider';
+import type { MessageKey } from '@/i18n/messages';
 
-const loginSchema = z.object({
+const createLoginSchema = (t: (key: MessageKey) => string) => z.object({
   // LGN-03: Email max length prevents oversized payload; format enforced by Zod
   email: z
     .string()
-    .email('Format email tidak valid')
-    .max(255, 'Email terlalu panjang')
+    .email(t('auth.emailInvalid'))
+    .max(255, t('auth.emailTooLong'))
     .optional()
     .or(z.literal('')),
   // LGN-03: Password constraints — min 8 already enforced by backend
   password: z
     .string()
-    .min(1, 'Password is required')
-    .max(128, 'Password terlalu panjang')
+    .min(1, t('auth.passwordRequired'))
+    .max(128, t('auth.passwordTooLong'))
     .optional()
     .or(z.literal('')),
   phone: z
     .string()
-    .min(8, 'Phone number must be at least 8 digits')
-    .max(20, 'Nomor telepon terlalu panjang')
+    .min(8, t('auth.phoneMinimum'))
+    .max(20, t('auth.phoneTooLong'))
     .optional()
     .or(z.literal('')),
   // LGN-03: OTP must be EXACTLY 6 numeric digits — blocks non-digit injection
   otp: z
     .string()
-    .length(6, 'OTP harus tepat 6 digit')
-    .regex(/^\d{6}$/, 'OTP hanya boleh berisi angka 0-9')
+    .length(6, t('auth.otpExact'))
+    .regex(/^\d{6}$/, t('auth.otpNumeric'))
     .optional()
     .or(z.literal('')),
 });
 
-type LoginFormValues = z.infer<typeof loginSchema>;
+type LoginFormValues = z.infer<ReturnType<typeof createLoginSchema>>;
 
 const getApiErrorMessage = (error: any, fallback: string) => {
   const data = error.response?.data;
@@ -55,6 +57,8 @@ const getApiErrorMessage = (error: any, fallback: string) => {
 };
 
 export default function LoginPage() {
+  const { t } = useI18n();
+  const loginSchema = useMemo(() => createLoginSchema(t), [t]);
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -70,9 +74,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('reason') === 'session-expired') {
-      setApiError('Sesi kamu sudah berakhir. Silakan masuk kembali untuk melanjutkan.');
+      setApiError(t('auth.sessionExpired'));
     }
-  }, []);
+  }, [t]);
 
   const {
     register,
@@ -101,7 +105,7 @@ export default function LoginPage() {
   const handleSendOtp = async () => {
     const identifier = pendingOtpIdentifier || phoneValue;
     if (!identifier || identifier.length < 8) {
-      setApiError('Please enter a valid email or phone number before sending OTP.');
+      setApiError(t('auth.identifierRequired'));
       return;
     }
     setApiError(null);
@@ -112,7 +116,7 @@ export default function LoginPage() {
       setCountdown(60);
     } catch (error: any) {
       clientLog.error('OTP send error', { error });
-      setApiError(getApiErrorMessage(error, 'Unable to send OTP. Please try again.'));
+      setApiError(getApiErrorMessage(error, t('auth.sendOtpFailed')));
     } finally {
       setIsSendingOtp(false);
     }
@@ -128,7 +132,7 @@ export default function LoginPage() {
     try {
       if (loginMethod === 'password') {
         if (!data.email || !data.password) {
-          setApiError('Email and Password are required for password login');
+          setApiError(t('auth.emailPasswordRequired'));
           return;
         }
         const deviceId = getCustomerWebDeviceId();
@@ -144,14 +148,14 @@ export default function LoginPage() {
           setOtpSent(true);
           setCountdown(60);
           setLoginMethod('otp');
-          const reason = response.data?.otp_reason === 'new_device' ? 'perangkat baru' : 'registrasi';
-          setApiError(`Verifikasi OTP diperlukan untuk ${reason}. Masukkan kode yang dikirim ke email kamu.`);
+          const reason = response.data?.otp_reason === 'new_device' ? t('auth.newDevice') : t('auth.registration');
+          setApiError(t('auth.otpVerificationRequired', { reason }));
           return;
         }
 
         const accessToken = response.data?.access_token;
         if (!accessToken) {
-          setApiError('Login berhasil diverifikasi, tetapi token sesi tidak tersedia. Silakan coba lagi.');
+          setApiError(t('auth.sessionTokenUnavailable'));
           return;
         }
 
@@ -166,7 +170,7 @@ export default function LoginPage() {
 
         const identifier = pendingOtpIdentifier || data.phone;
         if (!identifier || !data.otp) {
-          setApiError('Email/phone and OTP are required for OTP login');
+          setApiError(t('auth.otpLoginRequired'));
           return;
         }
         const deviceId = getCustomerWebDeviceId();
@@ -182,7 +186,7 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       clientLog.error('Login error', { error });
-      setApiError(getApiErrorMessage(error, 'An unexpected error occurred. Please try again.'));
+      setApiError(getApiErrorMessage(error, t('auth.unexpectedError')));
     }
   };
 
@@ -196,11 +200,11 @@ export default function LoginPage() {
       if (response.authorization_url) {
         window.location.href = response.authorization_url;
       } else {
-        setApiError('Gagal mendapatkan tautan login Google.');
+        setApiError(t('auth.googleLinkFailed'));
       }
     } catch (error: any) {
       clientLog.error('Google Auth Start Error', { error });
-      setApiError(getApiErrorMessage(error, 'Gagal memulai login dengan Google. Coba lagi.'));
+      setApiError(getApiErrorMessage(error, t('auth.googleStartFailed')));
     }
   };
 
@@ -213,11 +217,11 @@ export default function LoginPage() {
       if (response.authorization_url) {
         window.location.href = response.authorization_url;
       } else {
-        setApiError('Gagal mendapatkan tautan login Apple.');
+        setApiError(t('auth.appleLinkFailed'));
       }
     } catch (error: any) {
       clientLog.error('Apple Auth Start Error', { error });
-      setApiError(getApiErrorMessage(error, 'Gagal memulai login dengan Apple. Coba lagi.'));
+      setApiError(getApiErrorMessage(error, t('auth.appleStartFailed')));
     }
   };
 
@@ -238,9 +242,9 @@ export default function LoginPage() {
         <div className="bg-card/40 backdrop-blur-xl border border-border/40 rounded-2xl p-8 shadow-2xl relative z-10">
           <div className="flex flex-col items-center mb-6">
             <img src="/tembusweb.svg" alt="Tembus Logo" className="h-12 object-contain mb-4 drop-shadow-md" />
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Welcome to TEMBUS</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('auth.loginTitle')}</h1>
             <p className="text-sm text-muted-foreground mt-2 text-center">
-              Sign in to manage your logistics and deliveries
+              {t('auth.loginSubtitle')}
             </p>
           </div>
 
@@ -272,7 +276,7 @@ export default function LoginPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground flex items-center gap-2">
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      Email
+                      {t('auth.email')}
                     </label>
                     <input
                       {...register('email')}
@@ -289,10 +293,10 @@ export default function LoginPage() {
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-medium text-foreground flex items-center gap-2">
                         <KeyRound className="h-4 w-4 text-muted-foreground" />
-                        Password
+                        {t('auth.password')}
                       </label>
                       <a href="/forgot-pin" className="auth-link text-sm hover:underline">
-                        Forgot password?
+                        {t('auth.forgotPassword')}
                       </a>
                     </div>
                     <input
@@ -318,7 +322,7 @@ export default function LoginPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      {pendingOtpIdentifier ? 'Verified account' : 'Email or Phone Number'}
+                      {pendingOtpIdentifier ? t('auth.validatedAccount') : t('auth.emailOrPhone')}
                     </label>
                     <input
                       {...register('phone')}
@@ -340,14 +344,14 @@ export default function LoginPage() {
                       className="space-y-2"
                     >
                       <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-foreground">6-Digit OTP</label>
+                        <label className="text-sm font-medium text-foreground">{t('auth.otpLabel')}</label>
                         <button
                           type="button"
                           onClick={handleSendOtp}
                           disabled={countdown > 0 || isSendingOtp}
                           className="text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline transition-all"
                         >
-                          {isSendingOtp ? 'Sending...' : countdown > 0 ? `Resend in ${countdown}s` : 'Resend OTP'}
+                          {isSendingOtp ? t('auth.sending') : countdown > 0 ? t('auth.resendIn', { seconds: countdown }) : t('auth.resend')}
                         </button>
                       </div>
                       <input
@@ -377,24 +381,24 @@ export default function LoginPage() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="rounded bg-background/60 border border-border/40 text-primary focus:ring-primary/50 transition-all cursor-pointer"
                 />
-                <span className="text-sm text-muted-foreground">Remember me (30 days)</span>
+                <span className="text-sm text-foreground">{t('auth.rememberMe')}</span>
               </label>
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting || (loginMethod === 'otp' && !otpSent && isSendingOtp)}
-              className="w-full bg-primary text-primary-foreground font-medium py-2.5 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-primary/20"
+              className="w-full bg-primary text-white font-medium py-2.5 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-primary/20"
             >
               {isSubmitting || (loginMethod === 'otp' && !otpSent && isSendingOtp) ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {loginMethod === 'otp' && !otpSent ? 'Sending OTP...' : 'Signing in...'}
+                  {loginMethod === 'otp' && !otpSent ? t('auth.sendingOtp') : t('auth.signingIn')}
                 </>
               ) : loginMethod === 'otp' && !otpSent ? (
-                'Send OTP'
+                t('auth.sendOtp')
               ) : (
-                'Sign In'
+                t('auth.submit')
               )}
             </button>
           </form>
@@ -405,7 +409,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-border/40"></div>
             </div>
             <div className="relative flex justify-center text-xs text-muted-foreground uppercase">
-              <span className="bg-background/40 backdrop-blur-xl px-2">Or continue with</span>
+              <span className="bg-background/40 backdrop-blur-xl px-2">{t('auth.orContinue')}</span>
             </div>
           </div>
 
@@ -431,7 +435,7 @@ export default function LoginPage() {
                 fill="#EA4335"
               />
             </svg>
-            Sign in with Google
+            {t('auth.google')}
           </button>
 
           <button
@@ -439,13 +443,13 @@ export default function LoginPage() {
             className="mt-3 w-full border border-border/40 bg-foreground text-background hover:opacity-90 active:scale-[0.98] font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-3 transition-all duration-200"
           >
             <span className="text-xl leading-none" aria-hidden="true">●</span>
-            Sign in with Apple
+            {t('auth.apple')}
           </button>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            Don't have an account?{' '}
+            {t('auth.noAccount')}{' '}
             <a href="/daftar" className="auth-link hover:underline font-medium">
-              Sign up here
+              {t('auth.createAccount')}
             </a>
           </div>
         </div>

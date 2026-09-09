@@ -24,7 +24,7 @@ class LocaleApplier @Inject constructor(
     }
 
     fun applyLanguage(code: String) {
-        val locale = Locale.forLanguageTag(code)
+        val locale = com.tembus.customer.data.localization.LocaleContract.localeFor(code)
         Locale.setDefault(locale)
         val config = Configuration(context.resources.configuration)
         config.setLocale(locale)

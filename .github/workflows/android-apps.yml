@@ -435,6 +435,9 @@ jobs:
           fi
           echo "OK: no plain Context injection found."
 
+      - name: Validate localization contracts
+        run: python scripts/mobile/check_localization.py
+
       # 1. Quality Gate: Linting (fail-fast — do not ignore lint errors)
       - name: Run Lint
         run: ./gradlew lintDebug

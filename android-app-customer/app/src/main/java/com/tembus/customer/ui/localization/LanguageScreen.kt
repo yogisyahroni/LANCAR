@@ -9,7 +9,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import com.tembus.customer.ui.localization.CustomerText as Text
-import com.tembus.customer.ui.localization.CustomerTextCatalog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -17,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -42,9 +42,9 @@ fun LanguageScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CustomerTextCatalog.translate("Back"), tint = Primary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(com.tembus.customer.R.string.language), tint = Primary)
                 }
-                Text("Language", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
+                Text(stringResource(com.tembus.customer.R.string.language), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
             }
         }
     ) { padding ->

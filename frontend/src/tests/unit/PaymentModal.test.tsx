@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import I18nProvider from "@/components/i18n/I18nProvider";
 import { PaymentModal } from "@/components/orders/PaymentModal";
 import { api } from "@/lib/api";
 
@@ -21,16 +22,18 @@ describe("PaymentModal server-owned payment state", () => {
 
   it("shows pending with an explicit server-status retry after the gateway callback", async () => {
     render(
-      <PaymentModal
-        isOpen
-        onClose={vi.fn()}
-        orderId="order-1"
-        snapToken="snap-token"
-        snapJsUrl="https://example.test/snap.js"
-        clientKey="client-key"
-        amount={32000}
-        onSuccess={vi.fn()}
-      />,
+      <I18nProvider initialLocale="id-ID">
+        <PaymentModal
+          isOpen
+          onClose={vi.fn()}
+          orderId="order-1"
+          snapToken="snap-token"
+          snapJsUrl="https://example.test/snap.js"
+          clientKey="client-key"
+          amount={32000}
+          onSuccess={vi.fn()}
+        />
+      </I18nProvider>,
     );
 
     const payButton = await screen.findByRole("button", { name: "Bayar dengan Midtrans" });
@@ -45,16 +48,18 @@ describe("PaymentModal server-owned payment state", () => {
     const onSuccess = vi.fn();
 
     render(
-      <PaymentModal
-        isOpen
-        onClose={vi.fn()}
-        orderId="order-2"
-        snapToken="snap-token"
-        snapJsUrl="https://example.test/snap.js"
-        clientKey="client-key"
-        amount={32000}
-        onSuccess={onSuccess}
-      />,
+      <I18nProvider initialLocale="id-ID">
+        <PaymentModal
+          isOpen
+          onClose={vi.fn()}
+          orderId="order-2"
+          snapToken="snap-token"
+          snapJsUrl="https://example.test/snap.js"
+          clientKey="client-key"
+          amount={32000}
+          onSuccess={onSuccess}
+        />
+      </I18nProvider>,
     );
 
     const payButton = await screen.findByRole("button", { name: "Bayar dengan Midtrans" });

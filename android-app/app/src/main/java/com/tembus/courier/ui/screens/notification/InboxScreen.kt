@@ -22,9 +22,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.courier.data.model.AppNotification
-import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import java.text.SimpleDateFormat
+import com.tembus.courier.data.localization.LocaleFormatters
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -209,16 +210,14 @@ private fun formatTime(isoString: String): String {
             timeZone = TimeZone.getTimeZone("UTC")
         }
         val date = parser.parse(isoString) ?: return ""
-        val formatter = SimpleDateFormat("dd MMM, HH:mm", Locale("id", "ID"))
-        formatter.format(date)
+        LocaleFormatters.dateTime(date.time, Locale.getDefault().toLanguageTag())
     } catch (e: Exception) {
         try {
             val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             }
             val date = parser.parse(isoString) ?: return ""
-            val formatter = SimpleDateFormat("dd MMM, HH:mm", Locale("id", "ID"))
-            formatter.format(date)
+            LocaleFormatters.dateTime(date.time, Locale.getDefault().toLanguageTag())
         } catch (e2: Exception) {
             "" // fallback
         }

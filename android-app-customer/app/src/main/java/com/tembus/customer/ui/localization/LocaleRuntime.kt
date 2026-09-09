@@ -1,39 +1,40 @@
-package com.tembus.merchant.ui.localization
+package com.tembus.customer.ui.localization
 
-import android.content.Context
-import android.content.res.Configuration
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.runtime.CompositionLocalProvider
-import com.tembus.merchant.data.localization.LocaleManager
-import com.tembus.merchant.data.localization.LocaleContract
+import com.tembus.customer.data.localization.LocaleContract
+import com.tembus.customer.data.localization.LocaleManager
 
-/** Provides the persisted merchant locale to every Compose screen. */
+/** Applies the saved customer locale and exposes the matching Compose direction. */
 @Composable
-fun MerchantLocaleRuntime(content: @Composable () -> Unit) {
+fun CustomerLocaleRuntime(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val manager = remember(context.applicationContext) { LocaleManager(context.applicationContext) }
-    val languageCode by manager.languageCode.collectAsState(initial = LocaleManager.DEFAULT_LANG)
-    // Keep LocalContext pointing to the Activity. Hilt's Compose integration
-    // needs the Activity context when creating merchant ViewModels.
+    var languageCode by remember { mutableStateOf(LocaleManager.DEFAULT_LANG) }
+
+    LaunchedEffect(manager) {
+        languageCode = manager.getLanguageCode()
+    }
     LaunchedEffect(context, languageCode) {
-        context.applyMerchantLocale(languageCode)
+        context.applyCustomerLocale(languageCode)
     }
 
     val direction = if (LocaleContract.isRtl(languageCode)) LayoutDirection.Rtl else LayoutDirection.Ltr
     CompositionLocalProvider(LocalLayoutDirection provides direction) { content() }
 }
 
-private fun Context.applyMerchantLocale(languageCode: String) {
+private fun android.content.Context.applyCustomerLocale(languageCode: String) {
     val locale = LocaleContract.localeFor(languageCode)
     java.util.Locale.setDefault(locale)
-    val configuration = Configuration(resources.configuration)
+    val configuration = android.content.res.Configuration(resources.configuration)
     configuration.setLocale(locale)
     @Suppress("DEPRECATION")
     resources.updateConfiguration(configuration, resources.displayMetrics)

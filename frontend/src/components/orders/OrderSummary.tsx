@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { BadgePercent, Clock, Loader2, Package, MapPin, Route, ShieldCheck, Truck, Zap } from "lucide-react";
 import { api } from "@/lib/api";
 import { customerApiUrl } from "@/lib/runtimeConfig";
+import { useI18n } from '@/components/i18n/I18nProvider';
+import { formatCurrency, formatNumber } from '@/i18n/format';
 
 interface RouteSnapshot {
   active_provider?: string;
@@ -113,15 +115,10 @@ const modelLabel: Record<string, string> = {
 
 const apiBaseUrl = customerApiUrl;
 
-function formatMoney(amountMinor: number, currency = "IDR", minorUnit = 0): string {
+function formatMoney(amountMinor: number, currency = "IDR", minorUnit = 0, locale?: string): string {
   const safeCurrency = /^[A-Z]{3}$/.test(currency) ? currency : "IDR";
   const safeMinorUnit = Number.isInteger(minorUnit) && minorUnit >= 0 && minorUnit <= 3 ? minorUnit : 0;
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: safeCurrency,
-    minimumFractionDigits: safeMinorUnit,
-    maximumFractionDigits: safeMinorUnit
-  }).format(amountMinor / 10 ** safeMinorUnit);
+  return formatCurrency(amountMinor / 10 ** safeMinorUnit, safeCurrency, locale, safeMinorUnit);
 }
 
 const buildRouteTileUrl = (
@@ -129,11 +126,12 @@ const buildRouteTileUrl = (
   zoom: number,
   x: number,
   y: number,
-  tomTomApiKey?: string | null
+  tomTomApiKey?: string | null,
+  locale = 'id-ID'
 ) => {
   if (provider === "tomtom" && tomTomApiKey) {
     const key = encodeURIComponent(tomTomApiKey);
-    return `https://api.tomtom.com/map/1/tile/basic/main/${zoom}/${x}/${y}.png?key=${key}&tileSize=256&language=id-ID`;
+    return `https://api.tomtom.com/map/1/tile/basic/main/${zoom}/${x}/${y}.png?key=${key}&tileSize=256&language=${encodeURIComponent(locale)}`;
   }
   return `${apiBaseUrl}/maps/tiles/${zoom}/${x}/${y}.png`;
 };
@@ -281,6 +279,7 @@ function RoadRoutePreview({
   routeError?: string | null;
   mapsRuntimeConfig: PublicMapsRuntimeConfig | null;
 }) {
+  const { locale, t } = useI18n();
   const decodedPoints = decodePolyline(routeSnapshot?.route_polyline);
   const routeMap = buildRouteMap(decodedPoints);
   const tileSource = resolveRouteTileProvider(routeSnapshot, mapsRuntimeConfig);
@@ -289,7 +288,7 @@ function RoadRoutePreview({
     return (
       <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-background/45">
         <div className="absolute inset-0 animate-pulse bg-white/[0.06]" />
-        <span className="relative text-xs font-semibold text-muted-foreground">Menghitung rute jalan...</span>
+        <span className="relative text-xs font-semibold text-muted-foreground">{t('order.routeCalculating')}</span>
       </div>
     );
   }
@@ -298,7 +297,7 @@ function RoadRoutePreview({
     return (
       <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-background/45 px-4 text-center">
         <p className="text-xs font-medium text-muted-foreground">
-          {routeError || "Rute jalan akan tampil setelah pickup dan tujuan lengkap."}
+          {routeError || t('order.routeAddressNeeded')}
         </p>
       </div>
     );
@@ -328,7 +327,7 @@ function RoadRoutePreview({
               key={tile.key}
               alt=""
               aria-hidden="true"
-              src={buildRouteTileUrl(tileSource.provider, routeMap.zoom, tile.x, tile.y, tileSource.tomTomApiKey)}
+              src={buildRouteTileUrl(tileSource.provider, routeMap.zoom, tile.x, tile.y, tileSource.tomTomApiKey, locale)}
               className="absolute max-w-none select-none"
               draggable={false}
               style={{
@@ -345,7 +344,7 @@ function RoadRoutePreview({
           viewBox={`0 0 ${routeCanvas.width} ${routeCanvas.height}`}
           className="absolute inset-0 h-full w-full"
           role="img"
-          aria-label="Preview rute jalan pengiriman"
+          aria-label={t('order.streetRoutePreview')}
         >
           <polyline
             points={routeMap.routePoints}
@@ -368,11 +367,11 @@ function RoadRoutePreview({
         </svg>
         {tileSource.provider === "none" ? (
           <div className="absolute bottom-1 left-2 rounded bg-brand-emerald-950/75 px-1.5 py-0.5 text-[10px] font-medium text-brand-emerald-50">
-            Peta sedang disiapkan
+            {t('order.routeMapPreparing')}
           </div>
         ) : (
           <div className="absolute bottom-1 left-2 rounded bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-            {tileSource.provider === "tomtom" ? "© TomTom" : "© OpenStreetMap contributors"}
+            {tileSource.provider === "tomtom" ? "© TomTom" : t('order.osmAttribution')}
           </div>
         )}
       </div>
@@ -397,6 +396,7 @@ export function OrderSummary({
   onPromoCodeChange,
   onValidatePromo
 }: OrderSummaryProps) {
+  const { locale, t } = useI18n();
   const [mapsRuntimeConfig, setMapsRuntimeConfig] = useState<PublicMapsRuntimeConfig | null>(null);
   const currency = pricing?.currency || "IDR";
   const currencyMinorUnit = pricing?.currency_minor_unit ?? 0;
@@ -425,6 +425,8 @@ export function OrderSummary({
   const routeProvider = routeSnapshot?.active_provider || routeSnapshot?.provider || "runtime";
   const hasRouteGeometry = Boolean(routeSnapshot?.route_polyline);
   const hasRouteEstimate = Boolean(routeSnapshot || pricing);
+  const formatMoneyForLocale = (amountMinor: number, currencyCode = currency, minorUnit = currencyMinorUnit) =>
+    formatMoney(amountMinor, currencyCode, minorUnit, locale);
 
   useEffect(() => {
     let isMounted = true;
@@ -448,20 +450,20 @@ export function OrderSummary({
 
   return (
     <div className="sticky top-8 rounded-2xl border border-white/10 bg-background/50 p-6 shadow-xl backdrop-blur-md">
-      <h3 className="mb-6 text-lg font-semibold tracking-tight">Ringkasan Biaya</h3>
+      <h3 className="mb-6 text-lg font-semibold tracking-tight">{t('order.costSummary')}</h3>
 
       <div className="space-y-4">
         {/* Base Fare */}
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <MapPin className="h-4 w-4" />
-            <span>Ongkos Kirim {mode === 'instan' && pricing ? `(${pricing.distance_km} km)` : ""}</span>
+            <span>{t('order.shippingFee')} {mode === 'instan' && pricing ? `(${t('order.distanceUnit', { distance: formatNumber(pricing.distance_km, locale) })})` : ""}</span>
           </div>
           <span className="font-medium text-foreground">
             {isLoading ? (
               <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
             ) : pricing ? (
-              formatMoney(basePriceMinor, currency, currencyMinorUnit)
+              formatMoneyForLocale(basePriceMinor, currency, currencyMinorUnit)
             ) : (
               "-"
             )}
@@ -473,13 +475,13 @@ export function OrderSummary({
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Package className="h-4 w-4" />
-            <span>Biaya Dimensi/Berat</span>
+            <span>{t('order.dimensionWeightFee')}</span>
           </div>
           <span className="font-medium text-foreground">
             {isLoading ? (
               <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
             ) : pricing ? (
-              volumetricSurchargeMinor > 0 ? formatMoney(volumetricSurchargeMinor, currency, currencyMinorUnit) : "Gratis"
+              volumetricSurchargeMinor > 0 ? formatMoneyForLocale(volumetricSurchargeMinor, currency, currencyMinorUnit) : t('order.free')
             ) : (
               "-"
             )}
@@ -492,13 +494,13 @@ export function OrderSummary({
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <ShieldCheck className="h-4 w-4" />
-            <span>Asuransi</span>
+            <span>{t('order.insurance')}</span>
           </div>
           <span className="font-medium text-foreground">
             {isLoading ? (
               <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
             ) : pricing ? (
-              insuranceFeeMinor > 0 ? formatMoney(insuranceFeeMinor, currency, currencyMinorUnit) : "-"
+              insuranceFeeMinor > 0 ? formatMoneyForLocale(insuranceFeeMinor, currency, currencyMinorUnit) : "-"
             ) : (
               "-"
             )}
@@ -511,13 +513,13 @@ export function OrderSummary({
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Zap className="h-4 w-4 text-amber-500" />
-            <span>Surge / Demand</span>
+            <span>{t('order.surgeDemand')}</span>
           </div>
           <span className="font-medium text-foreground">
             {isLoading ? (
               <span className="inline-block h-4 w-16 animate-pulse rounded bg-white/10"></span>
             ) : pricing && surgeAmountMinor > 0 ? (
-              formatMoney(surgeAmountMinor, currency, currencyMinorUnit)
+              formatMoneyForLocale(surgeAmountMinor, currency, currencyMinorUnit)
             ) : (
               "-"
             )}
@@ -529,8 +531,8 @@ export function OrderSummary({
           <div className="mb-3 flex items-start gap-2">
             <BadgePercent className="mt-0.5 h-4 w-4 text-brand-emerald-400" />
             <div>
-              <p className="text-sm font-semibold tracking-tight text-foreground">Kode promo</p>
-              <p className="text-xs text-muted-foreground">Promo diverifikasi server sebelum checkout.</p>
+              <p className="text-sm font-semibold tracking-tight text-foreground">{t('order.promoCode')}</p>
+              <p className="text-xs text-muted-foreground">{t('order.promoServerVerified')}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -549,12 +551,12 @@ export function OrderSummary({
               disabled={!pricing || !promoCode.trim() || isLoading || isPromoChecking}
               className="rounded-xl border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-4 py-2 text-sm font-bold text-brand-emerald-200 transition-all hover:bg-brand-emerald-500/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
             >
-              {isPromoChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cek"}
+              {isPromoChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : t('order.check')}
             </button>
           </div>
           {promoQuote?.eligible && (
             <div className="mt-3 rounded-lg border border-brand-emerald-500/20 bg-brand-emerald-500/10 px-3 py-2 text-xs text-brand-emerald-100">
-              Promo aktif: hemat {formatMoney(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit)}
+              {t('order.activePromo', { amount: formatMoneyForLocale(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit) })}
             </div>
           )}
           {promoError && (
@@ -588,10 +590,10 @@ export function OrderSummary({
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-brand-emerald-300">
               <BadgePercent className="h-4 w-4" />
-              <span>Potongan Promo</span>
+              <span>{t('order.discountPromo')}</span>
             </div>
             <span className="font-semibold text-brand-emerald-300">
-              - {formatMoney(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit)}
+              - {formatMoneyForLocale(promoDiscountMinor, promoQuote?.currency || currency, promoQuote?.currency_minor_unit ?? currencyMinorUnit)}
             </span>
           </div>
         )}
@@ -601,16 +603,16 @@ export function OrderSummary({
           <div className="mb-3 flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
               <Package className="h-4 w-4" />
-              Berat Hitung
+              {t('order.calculatedWeight')}
             </span>
             <span className="font-semibold text-foreground">
-              {pricing?.chargeable_weight_kg ? `${pricing.chargeable_weight_kg} kg` : "-"}
+              {pricing?.chargeable_weight_kg ? t('order.weightUnit', { weight: formatNumber(pricing.chargeable_weight_kg, locale) }) : "-"}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
               <Truck className="h-4 w-4" />
-              Model
+              {t('order.model')}
             </span>
             <span className="font-semibold text-foreground">
               {pricing?.delivery_model ? modelLabel[pricing.delivery_model] || pricing.delivery_model : "-"}
@@ -619,10 +621,10 @@ export function OrderSummary({
           <div className="mt-3 flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
               <Clock className="h-4 w-4" />
-              ETA
+              {t('order.eta')}
             </span>
             <span className="font-semibold text-foreground">
-              {pricing?.eta_minutes ? `~${pricing.eta_minutes} menit` : "-"}
+              {pricing?.eta_minutes ? t('order.etaUnit', { minutes: formatNumber(pricing.eta_minutes, locale) }) : "-"}
             </span>
           </div>
         </div>
@@ -630,17 +632,17 @@ export function OrderSummary({
 
         {mode === 'instan' && pricing?.package_facts && (
           <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/[0.06] p-4 text-sm">
-            <p className="mb-3 font-semibold text-indigo-100">Fakta paket yang dipakai untuk quote</p>
+            <p className="mb-3 font-semibold text-indigo-100">{t('order.packageFacts')}</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-              <span className="text-muted-foreground">Jumlah</span><span className="text-right font-semibold">{pricing.package_facts.quantity || 1}</span>
-              <span className="text-muted-foreground">Kategori</span><span className="truncate text-right font-semibold">{pricing.package_facts.category || '-'}</span>
-              <span className="text-muted-foreground">Berat aktual</span><span className="text-right font-semibold">{pricing.actual_weight_kg ?? 0} kg</span>
-              <span className="text-muted-foreground">Berat volumetrik</span><span className="text-right font-semibold">{pricing.dimensional_weight_kg ?? 0} kg</span>
-              <span className="text-muted-foreground">Nilai barang</span><span className="text-right font-semibold">{formatMoney(Number(pricing.package_facts.item_value_idr || 0), "IDR", 0)}</span>
-              <span className="text-muted-foreground">Penanganan</span><span className="text-right font-semibold">{pricing.package_facts.fragile ? 'Rapuh' : 'Standar'}</span>
-              <span className="text-muted-foreground">Kode terima</span><span className="text-right font-semibold">{pricing.package_facts.delivery_code_policy === 'required' ? 'Wajib' : 'Opsional'}</span>
+              <span className="text-muted-foreground">{t('order.quantity')}</span><span className="text-right font-semibold">{formatNumber(pricing.package_facts.quantity || 1, locale)}</span>
+              <span className="text-muted-foreground">{t('order.category')}</span><span className="truncate text-right font-semibold">{pricing.package_facts.category || '-'}</span>
+              <span className="text-muted-foreground">{t('order.actualWeight')}</span><span className="text-right font-semibold">{t('order.weightUnit', { weight: formatNumber(pricing.actual_weight_kg ?? 0, locale) })}</span>
+              <span className="text-muted-foreground">{t('order.volumetricWeight')}</span><span className="text-right font-semibold">{t('order.weightUnit', { weight: formatNumber(pricing.dimensional_weight_kg ?? 0, locale) })}</span>
+              <span className="text-muted-foreground">{t('order.itemValue')}</span><span className="text-right font-semibold">{formatMoneyForLocale(Number(pricing.package_facts.item_value_idr || 0), "IDR", 0)}</span>
+              <span className="text-muted-foreground">{t('order.handling')}</span><span className="text-right font-semibold">{pricing.package_facts.fragile ? t('order.fragile') : t('order.standard')}</span>
+              <span className="text-muted-foreground">{t('order.deliveryCode')}</span><span className="text-right font-semibold">{pricing.package_facts.delivery_code_policy === 'required' ? t('order.required') : t('order.optional')}</span>
             </div>
-            {pricing.package_facts.prohibited && <p className="mt-3 text-xs font-semibold text-red-300">Barang terlarang ditolak sebelum checkout.</p>}
+            {pricing.package_facts.prohibited && <p className="mt-3 text-xs font-semibold text-red-300">{t('order.prohibitedRejected')}</p>}
           </div>
         )}
 
@@ -650,11 +652,11 @@ export function OrderSummary({
             <div className="flex items-start gap-2">
               <Route className="mt-0.5 h-4 w-4 text-brand-emerald-400" />
               <div>
-                <p className="text-sm font-semibold tracking-tight text-foreground">Preview rute</p>
+                <p className="text-sm font-semibold tracking-tight text-foreground">{t('order.routePreview')}</p>
                 <p className="text-xs text-muted-foreground">
                   {hasRouteEstimate
-                    ? `${routeDistanceKm ? `${routeDistanceKm.toFixed(1)} km` : "Jarak dihitung"}${routeEtaMinutes ? ` • ~${routeEtaMinutes} menit` : ""}`
-                    : "Lengkapi alamat untuk estimasi."}
+                    ? `${routeDistanceKm ? t('order.distanceUnit', { distance: formatNumber(routeDistanceKm, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }) : t('order.distanceCalculated')}${routeEtaMinutes ? ` • ${t('order.etaUnit', { minutes: formatNumber(routeEtaMinutes, locale) })}` : ""}`
+                    : t('order.completeAddressEstimate')}
                 </p>
               </div>
             </div>
@@ -670,12 +672,12 @@ export function OrderSummary({
           />
           {!pricing && hasRouteEstimate && (!hasRouteGeometry || routeSnapshot?.fallback_reason) && (
             <p className="mt-3 text-xs text-muted-foreground">
-              Preview rute ini untuk estimasi jarak. Harga final muncul setelah detail pengiriman lengkap.
+              {t('order.finalPriceAfterDetails')}
             </p>
           )}
           {pricing && !hasRouteGeometry && (
             <p className="mt-3 text-xs text-muted-foreground">
-              Harga final sudah dihitung backend. Visual rute belum tersedia dari provider aktif.
+              {t('order.backendPrice')}
             </p>
           )}
         </div>
@@ -686,9 +688,9 @@ export function OrderSummary({
         <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
           <div className="flex items-center gap-2 font-semibold">
             <Zap className="h-4 w-4" />
-            SURGE PRICING AKTIF
+            {t('order.surgeActive')}
           </div>
-          <p className="mt-1 text-xs text-amber-100/80">Biaya tambahan ditampilkan transparan sebelum pembayaran.</p>
+          <p className="mt-1 text-xs text-amber-100/80">{t('order.surgeDescription')}</p>
         </div>
       )}
 
@@ -696,15 +698,15 @@ export function OrderSummary({
 
       {/* Total */}
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-foreground">Total Tagihan</span>
+        <span className="font-semibold text-foreground">{t('order.totalBilling')}</span>
         <div className="text-right">
           <span className="text-2xl font-bold tracking-tight text-brand-emerald-500">
             {isLoading ? (
               <span className="inline-block h-8 w-24 animate-pulse rounded bg-brand-emerald-500/20"></span>
             ) : pricing ? (
-              formatMoney(payableTotalMinor, currency, currencyMinorUnit)
+              formatMoneyForLocale(payableTotalMinor, currency, currencyMinorUnit)
             ) : (
-              formatMoney(0, currency, currencyMinorUnit)
+              formatMoneyForLocale(0, currency, currencyMinorUnit)
             )}
           </span>
         </div>
@@ -718,7 +720,7 @@ export function OrderSummary({
         className="mt-8 w-full rounded-xl bg-primary px-4 py-4 text-sm font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 hover:shadow-primary/25 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
         whileTap={!submitDisabled ? { scale: 0.98 } : {}}
       >
-        {isLoading ? "Menghitung..." : "Bayar Sekarang"}
+        {isLoading ? t('order.calculating') : t('order.payNow')}
       </motion.button>
     </div>
   );

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { OrderSummary } from '@/components/orders/OrderSummary';
+import I18nProvider from '@/components/i18n/I18nProvider';
 import React from 'react';
 
 describe('OrderSummary Component', () => {
@@ -19,13 +20,16 @@ describe('OrderSummary Component', () => {
     onValidatePromo: vi.fn(),
   };
 
+  const renderSummary = (props: React.ComponentProps<typeof OrderSummary>) =>
+    render(<I18nProvider initialLocale="id-ID"><OrderSummary {...props} /></I18nProvider>);
+
   it('renders loading placeholder initially', () => {
-    render(<OrderSummary {...baseProps} isLoading={true} pricing={null} isValid={false} />);
-    expect(screen.getByText('Menghitung...')).toBeInTheDocument();
+    renderSummary({ ...baseProps, isLoading: true, pricing: null, isValid: false });
+    expect(screen.getByText('Menghitung…')).toBeInTheDocument();
   });
 
   it('renders correctly with given pricing data', () => {
-    render(<OrderSummary {...baseProps} isLoading={false} pricing={samplePricing} isValid={true} />);
+    renderSummary({ ...baseProps, isLoading: false, pricing: samplePricing, isValid: true });
     
     // Check total and items
     expect(screen.getByText('Rp 25.000')).toBeInTheDocument();
@@ -38,7 +42,7 @@ describe('OrderSummary Component', () => {
   });
 
   it('disables the payment button when isValid is false', () => {
-    render(<OrderSummary {...baseProps} isLoading={false} pricing={samplePricing} isValid={false} />);
+    renderSummary({ ...baseProps, isLoading: false, pricing: samplePricing, isValid: false });
     const button = screen.getByRole('button', { name: /Bayar Sekarang/i });
     expect(button).toBeDisabled();
   });

@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, Loader2, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { useI18n } from '@/components/i18n/I18nProvider';
+import { formatCurrency } from '@/i18n/format';
 
 declare global {
   interface Window {
@@ -36,6 +38,7 @@ export function PaymentModal({
   amount,
   onSuccess
 }: PaymentModalProps) {
+  const { locale, t } = useI18n();
   const [state, setState] = useState<PaymentState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [snapReady, setSnapReady] = useState(false);
@@ -234,10 +237,10 @@ export function PaymentModal({
           >
             <div className="flex items-start justify-between border-b border-white/10 p-5">
               <div>
-                <h2 id="payment-modal-title" className="text-xl font-bold tracking-tight text-foreground">Pembayaran Midtrans Snap</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Pilih QRIS, e-wallet, virtual account, atau metode lain dari Snap.</p>
+                <h2 id="payment-modal-title" className="text-xl font-bold tracking-tight text-foreground">{t('payment.title')}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{t('payment.description')}</p>
               </div>
-              <button ref={closeButtonRef} type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label="Tutup pembayaran">
+              <button ref={closeButtonRef} type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={t('payment.close')}>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -245,11 +248,11 @@ export function PaymentModal({
             <div className="p-6 sm:p-8">
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Tagihan</span>
-                  <span className="font-bold text-foreground">Rp {amount.toLocaleString("id-ID")}</span>
+                  <span className="text-muted-foreground">{t('payment.total')}</span>
+                  <span className="font-bold text-foreground">{formatCurrency(amount, 'IDR', locale)}</span>
                 </div>
                 <div className="mt-3 flex justify-between text-sm">
-                  <span className="text-muted-foreground">Gateway</span>
+                  <span className="text-muted-foreground">{t('payment.gateway')}</span>
                   <span className="font-semibold text-primary">Midtrans Snap</span>
                 </div>
               </div>
@@ -264,7 +267,7 @@ export function PaymentModal({
               {state === "paid" && (
                 <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/20 bg-success/10 p-3 text-sm text-brand-emerald-300">
                   <CheckCircle2 className="h-4 w-4" />
-                  Pembayaran berhasil dikonfirmasi.
+                  {t('payment.confirmed')}
                 </div>
               )}
 
@@ -276,7 +279,7 @@ export function PaymentModal({
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {state === "loading_snap" || state === "opened" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                  {state === "loading_snap" ? "Memuat Snap..." : "Bayar dengan Midtrans"}
+                  {state === "loading_snap" ? t('payment.loading') : t('payment.payWith')}
                 </button>
                 {state === "pending" && (
                   <button
@@ -286,7 +289,7 @@ export function PaymentModal({
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 py-3 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    {isChecking ? "Mengecek status..." : "Cek status pembayaran lagi"}
+                    {isChecking ? t('payment.checking') : t('payment.checkAgain')}
                   </button>
                 )}
                 {redirectUrl && (
@@ -297,7 +300,7 @@ export function PaymentModal({
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 py-3 text-sm font-semibold text-foreground transition-all hover:bg-white/10"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Buka halaman pembayaran
+                    {t('payment.openPage')}
                   </a>
                 )}
                 <button
@@ -305,7 +308,7 @@ export function PaymentModal({
                   onClick={onClose}
                   className="w-full rounded-lg bg-white/5 py-3 text-sm font-semibold text-muted-foreground transition-all hover:bg-white/10"
                 >
-                  Tutup
+                  {t('common.close')}
                 </button>
               </div>
             </div>

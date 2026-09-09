@@ -1,16 +1,15 @@
 package com.tembus.merchant.ui
 
-import java.text.NumberFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.tembus.merchant.data.localization.LocaleFormatters
 
 /** Format util bersama — dipakai di semua screen. */
 object Format {
     fun rupiah(value: Long): String {
-        val nf = NumberFormat.getNumberInstance(Locale("id", "ID"))
-        return "Rp " + nf.format(value)
+        return LocaleFormatters.currency(value, "IDR", Locale.getDefault().toLanguageTag())
     }
 
     /** Format ISO timestamp (UTC) ke HH:mm waktu lokal. */
@@ -19,7 +18,7 @@ object Format {
         return try {
             Instant.parse(iso)
                 .atZone(ZoneId.systemDefault())
-                .format(DateTimeFormatter.ofPattern("HH:mm"))
+                .format(DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault()))
         } catch (e: Exception) {
             "--:--"
         }
@@ -31,7 +30,7 @@ object Format {
         return try {
             Instant.parse(iso)
                 .atZone(ZoneId.systemDefault())
-                .format(DateTimeFormatter.ofPattern("d MMM HH:mm"))
+                .format(DateTimeFormatter.ofPattern("d MMM HH:mm", Locale.getDefault()))
         } catch (e: Exception) {
             ""
         }

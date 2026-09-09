@@ -1,3 +1,5 @@
+import type { MessageKey } from '@/i18n/messages';
+
 export type OrderPresentationInput = {
   model?: string | null;
   service_category?: "package_on_demand" | "food" | "tambal_ban" | "aggregator" | "towing" | string | null;
@@ -71,19 +73,20 @@ export function getOrderServicePresentation(order: OrderPresentationInput): Orde
 
 export type PaymentStatePresentation = {
   label: string;
+  labelKey: MessageKey;
   className: string;
 };
 
 export function getPaymentStatePresentation(status?: string | null): PaymentStatePresentation {
   switch (clean(status).toLowerCase()) {
-    case "paid": return { label: "Lunas", className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" };
-    case "failed": return { label: "Pembayaran gagal", className: "border-red-400/30 bg-red-400/10 text-red-200" };
-    case "expired": return { label: "Pembayaran kedaluwarsa", className: "border-red-400/30 bg-red-400/10 text-red-200" };
-    case "bypassed": return { label: "Dibebaskan sistem", className: "border-sky-400/30 bg-sky-400/10 text-sky-200" };
+    case "paid": return { label: "Lunas", labelKey: "order.paymentPaid", className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" };
+    case "failed": return { label: "Pembayaran gagal", labelKey: "order.paymentFailed", className: "border-red-400/30 bg-red-400/10 text-red-200" };
+    case "expired": return { label: "Pembayaran kedaluwarsa", labelKey: "order.paymentExpired", className: "border-red-400/30 bg-red-400/10 text-red-200" };
+    case "bypassed": return { label: "Dibebaskan sistem", labelKey: "order.paymentBypassed", className: "border-sky-400/30 bg-sky-400/10 text-sky-200" };
     case "pending":
     case "unselected":
-    case "pending_payment": return { label: "Menunggu pembayaran", className: "border-amber-400/30 bg-amber-400/10 text-amber-100" };
-    default: return { label: "Status pembayaran belum tersedia", className: "border-white/15 bg-white/5 text-muted-foreground" };
+    case "pending_payment": return { label: "Menunggu pembayaran", labelKey: "order.paymentPending", className: "border-amber-400/30 bg-amber-400/10 text-amber-100" };
+    default: return { label: "Status pembayaran belum tersedia", labelKey: "order.paymentUnknown", className: "border-white/15 bg-white/5 text-muted-foreground" };
   }
 }
 
@@ -92,3 +95,13 @@ export const deliveryStateLabel = (status?: string | null) => {
   if (!normalized) return "Status pengiriman belum tersedia";
   return normalized.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
+
+export function deliveryStateKey(status?: string | null): MessageKey | null {
+  switch (clean(status).toLowerCase()) {
+    case 'out_for_delivery': return 'order.deliveryOutForDelivery';
+    case 'delivered': return 'order.deliveryDelivered';
+    case 'cancelled':
+    case 'canceled': return 'order.deliveryCancelled';
+    default: return clean(status) ? null : 'order.deliveryUnknown';
+  }
+}

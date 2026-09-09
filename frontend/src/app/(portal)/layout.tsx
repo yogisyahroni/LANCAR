@@ -39,6 +39,10 @@ import { sanitizeDeepLink } from '@/lib/deepLink';
 
 import { getSocket, disconnectSocket } from '@/lib/socket';
 import { clearCustomerOrderDraft } from '@/components/orders/OrderSchemas';
+import LocaleSwitcher from '@/components/i18n/LocaleSwitcher';
+import { useI18n } from '@/components/i18n/I18nProvider';
+import { formatTime } from '@/i18n/format';
+import type { MessageKey } from '@/i18n/messages';
 
 interface DBNotification {
   id: string;
@@ -61,6 +65,7 @@ interface DBNotification {
 const NOTIFICATIONS_UPDATED_EVENT = 'tembus:notifications-updated';
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
+  const { locale, t } = useI18n();
   const { isAuthenticated, isLoading, setAuth, setLoading, user } = useAuthStore();
   const { notifications, addNotification, removeNotification } = useNotificationStore();
   const router = useRouter();
@@ -189,20 +194,20 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   // Navigation Items — only customer-facing pages
   const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Payment Links', href: '/payment-links', icon: LinkIcon },
-    { name: 'Katalog Produk', href: '/products', icon: Package },
-    { name: 'Kirim Paket', href: '/orders/new', icon: Package },
-    { name: 'Kirim Massal', href: '/orders/bulk', icon: Layers },
-    { name: 'Riwayat Order', href: '/orders', icon: Package },
-    { name: 'Pusat Bantuan', href: '/disputes', icon: AlertTriangle },
-    { name: 'Resi Management', href: '/resi', icon: Layers },
-    { name: 'Voucher & Promo', href: '/voucher', icon: Ticket },
-    { name: 'Buku Alamat', href: '/alamat', icon: MapPin },
-    { name: 'Laporan UMKM', href: '/laporan', icon: BarChart3 },
-    { name: 'Notifikasi', href: '/notifikasi', icon: Bell },
-    { name: 'Profil & Settings', href: '/profil', icon: Settings },
-  ];
+    { labelKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { labelKey: 'nav.paymentLinks', href: '/payment-links', icon: LinkIcon },
+    { labelKey: 'nav.products', href: '/products', icon: Package },
+    { labelKey: 'nav.ordersNew', href: '/orders/new', icon: Package },
+    { labelKey: 'nav.ordersBulk', href: '/orders/bulk', icon: Layers },
+    { labelKey: 'nav.orders', href: '/orders', icon: Package },
+    { labelKey: 'nav.help', href: '/disputes', icon: AlertTriangle },
+    { labelKey: 'nav.tracking', href: '/resi', icon: Layers },
+    { labelKey: 'nav.voucher', href: '/voucher', icon: Ticket },
+    { labelKey: 'nav.addresses', href: '/alamat', icon: MapPin },
+    { labelKey: 'nav.reports', href: '/laporan', icon: BarChart3 },
+    { labelKey: 'common.notifications', href: '/notifikasi', icon: Bell },
+    { labelKey: 'nav.profile', href: '/profil', icon: Settings },
+  ] satisfies Array<{ labelKey: MessageKey; href: string; icon: typeof LayoutDashboard }>;
 
   const orderCreationRoutes = ['/orders/new', '/orders/bulk'];
   const isNavigationItemActive = (href: string) => {
@@ -254,7 +259,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }, [pathname]);
 
   const filteredSearchItems = navItems.filter((item) =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    t(item.labelKey).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
@@ -332,7 +337,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                   )}
                 >
                   <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-colors", active ? "text-white" : "group-hover:text-primary-light")} />
-                  {!isCollapsed && <span className="font-medium whitespace-nowrap">{item.name}</span>}
+                  {!isCollapsed && <span className="font-medium whitespace-nowrap">{t(item.labelKey)}</span>}
                 </motion.div>
               </Link>
             )
@@ -391,7 +396,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                         )}
                       >
                         <item.icon className={cn("h-5 w-5 flex-shrink-0", active ? "text-white" : "text-zinc-500 dark:text-zinc-400")} />
-                        <span className="font-medium whitespace-nowrap">{item.name}</span>
+                        <span className="font-medium whitespace-nowrap">{t(item.labelKey)}</span>
                       </div>
                     </Link>
                   )
@@ -417,7 +422,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
               <input 
                 type="text" 
-                placeholder="Cari order, resi, atau menu..."
+                placeholder={t('nav.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -433,11 +438,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </div>
 
           <div className="flex items-center gap-3 md:gap-4">
+            <LocaleSwitcher />
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
               className="relative p-2.5 text-zinc-500 dark:text-zinc-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all"
-              title="Toggle theme"
+              title={t('common.toggleTheme')}
+              aria-label={t('common.toggleTheme')}
             >
               {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
@@ -468,7 +475,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       className="absolute right-0 mt-2 w-80 bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/10 shadow-2xl rounded-2xl p-4 flex flex-col max-h-[380px] z-50 select-none"
                     >
                       <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-2 mb-2">
-                        <span className="text-xs font-semibold text-foreground">Notifications</span>
+                        <span className="text-xs font-semibold text-foreground">{t('common.notifications')}</span>
                         <button 
                           onClick={async () => {
                             try {
@@ -478,7 +485,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                           }}
                           className="text-[10px] text-primary hover:underline"
                         >
-                          Clear All
+                          {t('common.clearAll')}
                         </button>
                       </div>
                       <div className="overflow-y-auto space-y-2 flex-1 scrollbar-hide">
@@ -518,14 +525,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                               </div>
                               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">{notif.body}</p>
                               <span className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 block">
-                                {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {formatTime(notif.created_at, locale)}
                               </span>
                             </div>
                           ))
                         ) : (
                           <div className="flex flex-col items-center justify-center py-8 text-center">
                             <Bell className="h-8 w-8 text-zinc-300 dark:text-zinc-700 mb-2" />
-                            <p className="text-xs text-zinc-500">Tidak ada notifikasi baru</p>
+                            <p className="text-xs text-zinc-500">{t('common.noNotifications')}</p>
                           </div>
                         )}
                       </div>
@@ -547,9 +554,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 }}
               >
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-foreground group-hover:text-primary-light transition-colors">{user?.name || 'Customer Tembus'}</p>
+                  <p className="text-sm font-bold text-foreground group-hover:text-primary-light transition-colors">{user?.name || t('nav.profileDefault')}</p>
                   <p className="text-[10px] tracking-widest text-zinc-500 font-bold">
-                    {user?.awb_sender_name ? `PENGIRIM: ${user.awb_sender_name.toUpperCase()}` : 'STANDARD TIER'}
+                    {user?.awb_sender_name ? t('nav.sender', { name: user.awb_sender_name.toUpperCase() }) : t('nav.standardTier')}
                   </p>
                 </div>
                 <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-brand-emerald-600 p-[1px] shadow-lg shadow-primary/10">
@@ -576,14 +583,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                         className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-zinc-600 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground transition-all duration-200 select-none"
                       >
                         <User className="h-4 w-4 shrink-0" />
-                        Profil & Settings
+                        {t('nav.profileLink')}
                       </Link>
                       <button
                         onClick={handleLogout}
                         className="flex items-center gap-2 px-3 py-2 mt-1 rounded-xl text-sm text-zinc-600 dark:text-zinc-400 hover:bg-red-500/10 hover:text-red-500 transition-all duration-200 select-none cursor-pointer text-left w-full"
                       >
                         <LogOut className="h-4 w-4 shrink-0" />
-                        Logout
+                        {t('nav.logout')}
                       </button>
                     </motion.div>
                   </>
@@ -604,14 +611,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             const isActive = isNavigationItemActive(item.href);
             return (
               <Link
-                key={item.name}
+                key={item.href}
                 href={item.href}
                 className={`flex flex-col items-center justify-center gap-1 px-3 py-1 rounded-xl transition-all duration-200 select-none ${
                   isActive ? 'text-primary font-bold' : 'text-zinc-500 dark:text-zinc-400'
                 }`}
               >
                 <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary animate-pulse")} />
-                <span className="text-[10px] tracking-tight">{item.name}</span>
+                <span className="text-[10px] tracking-tight">{t(item.labelKey)}</span>
               </Link>
             );
           })}
@@ -633,7 +640,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 <Search className="h-4 w-4 text-zinc-500 shrink-0" />
                 <input
                   type="text"
-                  placeholder="Cari fitur TEMBUS..."
+              placeholder={t('nav.featureSearchPlaceholder')}
                   className="flex-1 text-sm bg-transparent border-none focus:outline-none text-foreground placeholder:text-zinc-500 select-text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -651,7 +658,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <div className="max-h-72 overflow-y-auto select-none mt-1 space-y-1">
                 {filteredSearchItems.map((item) => (
                   <Link
-                    key={item.name}
+                    key={item.href}
                     href={item.href}
                     onClick={() => {
                       setIsSearchOpen(false);
@@ -661,14 +668,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className="h-4 w-4 shrink-0" />
-                      <span className="text-sm font-medium">{item.name}</span>
+                      <span className="text-sm font-medium">{t(item.labelKey)}</span>
                     </div>
                     <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" />
                   </Link>
                 ))}
                 {filteredSearchItems.length === 0 && (
                   <div className="text-center p-6">
-                    <span className="text-xs text-zinc-500 select-none">No pages found matching search query.</span>
+                    <span className="text-xs text-zinc-500 select-none">{t('common.noPages')}</span>
                   </div>
                 )}
               </div>
@@ -691,7 +698,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             >
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-semibold text-foreground truncate">
-                  {notif.title || 'Notification'}
+                  {notif.title || t('common.notifications')}
                 </h4>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-normal">
                   {notif.message}

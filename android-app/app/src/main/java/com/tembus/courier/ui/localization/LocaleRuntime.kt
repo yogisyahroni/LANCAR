@@ -8,8 +8,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
 import com.tembus.courier.data.localization.LocaleManager
-import java.util.Locale
+import com.tembus.courier.data.localization.LocaleContract
 
 /** Provides the persisted courier locale to all Compose screens. */
 @Composable
@@ -26,12 +29,13 @@ fun CourierLocaleRuntime(content: @Composable () -> Unit) {
         context.applyCourierLocale(languageCode)
     }
 
-    content()
+    val direction = if (LocaleContract.isRtl(languageCode)) LayoutDirection.Rtl else LayoutDirection.Ltr
+    CompositionLocalProvider(LocalLayoutDirection provides direction) { content() }
 }
 
 private fun Context.applyCourierLocale(languageCode: String) {
-    val locale = Locale.forLanguageTag(languageCode)
-    Locale.setDefault(locale)
+    val locale = LocaleContract.localeFor(languageCode)
+    java.util.Locale.setDefault(locale)
     val configuration = Configuration(resources.configuration)
     configuration.setLocale(locale)
     @Suppress("DEPRECATION")

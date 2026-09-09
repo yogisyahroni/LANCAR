@@ -21,6 +21,7 @@ import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.model.AppVersion
 import com.tembus.customer.ui.components.UpdateDialog
 import com.tembus.customer.ui.theme.TEMBUSCustomerTheme
+import com.tembus.customer.ui.localization.CustomerLocaleRuntime
 import com.tembus.customer.util.UpdateManager
 import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
@@ -81,6 +82,7 @@ class MainActivity : FragmentActivity() {
         }
 
         setContent {
+            CustomerLocaleRuntime {
             TEMBUSCustomerTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -134,6 +136,7 @@ class MainActivity : FragmentActivity() {
                         }
                     }
                 }
+            }
             }
         }
     }

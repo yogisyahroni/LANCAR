@@ -44,8 +44,8 @@ import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
-import java.text.SimpleDateFormat
 import java.util.*
+import com.tembus.customer.data.localization.LocaleFormatters
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -183,8 +183,7 @@ fun OrderCardItem(
         else -> Primary
     }
     
-    val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
-    val dateString = dateFormat.format(Date(order.createdAt))
+    val dateString = LocaleFormatters.dateTime(order.createdAt, Locale.getDefault().toLanguageTag())
 
     Card(
         modifier = Modifier
@@ -206,7 +205,7 @@ fun OrderCardItem(
                         isFood -> "FOOD"
                         order.serviceCategory.equals("on_demand", ignoreCase = true) || order.serviceSubType == "p2p" -> "PAKET INSTAN"
                         order.serviceCategory.equals("regular", ignoreCase = true) -> "EKSPEDISI ANTAR-KOTA"
-                        else -> order.serviceSubType?.replace('_', ' ')?.uppercase(Locale("id", "ID")) ?: "LAYANAN"
+                        else -> order.serviceSubType?.replace('_', ' ')?.uppercase(Locale.getDefault()) ?: "LAYANAN"
                     }
                     Card(
                         colors = CardDefaults.cardColors(containerColor = if (isFood) PrimaryLight.copy(alpha = 0.25f) else Color(0xFFE8EAF6)),
@@ -274,7 +273,7 @@ fun OrderCardItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(dateString, fontSize = 12.sp, color = OnSurfaceVariant)
-                Text("Rp ${order.fee}", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Primary)
+                Text(formatFee(order.fee), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Primary)
             }
 
             // FB-084: tombol "Pesan Lagi" khusus order food
@@ -349,7 +348,7 @@ private fun ReorderConfirmDialog(
                     ) {
                         Text("Total saat itu", fontSize = 13.sp, color = OnSurfaceVariant)
                         Text(
-                            "Rp ${formatRupiah(info.totalOld)}",
+                            formatRupiah(info.totalOld),
                             fontSize = 13.sp,
                             color = OnSurfaceVariant,
                             textDecoration = TextDecoration.LineThrough
@@ -360,7 +359,7 @@ private fun ReorderConfirmDialog(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Total sekarang", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("Rp ${formatRupiah(info.totalNew)}", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
+                        Text(formatRupiah(info.totalNew), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
                     }
                 }
             }
@@ -402,28 +401,30 @@ private fun ReorderItemRow(item: ReorderItem) {
             } else if (item.priceChanged) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Rp ${formatRupiah(item.oldPrice)}",
+                        formatRupiah(item.oldPrice),
                         fontSize = 12.sp,
                         color = OnSurfaceVariant,
                         textDecoration = TextDecoration.LineThrough
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "Rp ${formatRupiah(item.newPrice)}",
+                        formatRupiah(item.newPrice),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Primary
                     )
                 }
             } else {
-                Text("Rp ${formatRupiah(item.newPrice)}", fontSize = 12.sp, color = OnSurfaceVariant)
+                Text(formatRupiah(item.newPrice), fontSize = 12.sp, color = OnSurfaceVariant)
             }
         }
     }
 }
 
 private fun formatRupiah(value: Long): String =
-    value.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")
+    LocaleFormatters.currency(value, "IDR", Locale.getDefault().toLanguageTag())
+
+private fun formatFee(value: String): String = value.toLongOrNull()?.let(::formatRupiah) ?: value
 
 @Composable
 fun EmptyHistoryState(modifier: Modifier) {

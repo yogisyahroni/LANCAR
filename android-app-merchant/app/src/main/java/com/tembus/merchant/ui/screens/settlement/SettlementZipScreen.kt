@@ -52,8 +52,7 @@ import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryPale
-import java.text.NumberFormat
-import java.util.Locale
+import com.tembus.merchant.ui.Format
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -233,4 +232,4 @@ private fun WithdrawalDialog(
 }
 
 private fun formatIdr(amount: Long): String =
-    NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply { maximumFractionDigits = 0 }.format(amount)
+    Format.rupiah(amount)
