@@ -2516,12 +2516,12 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `GET/POST /admin/experience/kill-switches`
 
 **Checklist**
-- [ ] Every production-changing button in Admin maps to an authenticated API operation; no direct DB writes from browser.
-- [ ] Draft edit uses optimistic concurrency/revision/ETag so two admins cannot silently overwrite each other.
-- [ ] Publish/rollback/kill-switch mutations are idempotent or protected against duplicate click/retry.
-- [ ] API returns validation errors at field/component level so Admin can highlight the exact problem.
-- [ ] Every mutation stores actor, role, market, surface, request id, previous revision, new revision, reason and timestamp.
-- [ ] API cannot publish a manifest that bypasses schema/permission/approval rules.
+- [x] Every production-changing button in Admin maps to an authenticated API operation; no direct DB writes from browser. Evidence: `docs/task-evidence/ADMEXP-2026-003.md`
+- [x] Draft edit uses optimistic concurrency/revision/ETag so two admins cannot silently overwrite each other. Evidence: `docs/task-evidence/ADMEXP-2026-003.md`
+- [x] Publish/rollback/kill-switch mutations are idempotent or protected against duplicate click/retry. Evidence: `docs/task-evidence/ADMEXP-2026-003.md`
+- [x] API returns validation errors at field/component level so Admin can highlight the exact problem. Evidence: `docs/task-evidence/ADMEXP-2026-003.md`
+- [x] Every mutation stores actor, role, market, surface, request id, previous revision, new revision, reason and timestamp. Evidence: `docs/task-evidence/ADMEXP-2026-003.md`
+- [x] API cannot publish a manifest that bypasses schema/permission/approval rules. Evidence: `docs/task-evidence/ADMEXP-2026-003.md`
 
 ---
 
