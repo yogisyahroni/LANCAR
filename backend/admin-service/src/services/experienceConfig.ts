@@ -62,6 +62,142 @@ const text = (max: number) => z.string().trim().min(1).max(max).refine(
 const identifier = z.string().trim().toLowerCase().regex(IDENTIFIER);
 const locale = z.string().trim().regex(LOCALE);
 const semver = z.string().trim().regex(SEMVER);
+const scheduleTimezone = z.string().trim().refine((value) => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}, 'schedule_timezone must be a valid IANA timezone');
+
+const LOCAL_SCHEDULE_DATE = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
+const EXPLICIT_TIMEZONE = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+
+type LocalScheduleParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  millisecond: number;
+};
+
+const timeZoneParts = (date: Date, timeZone: string): LocalScheduleParts => {
+  const formatted = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(formatted
+    .filter((part) => part.type !== 'literal')
+    .map((part) => [part.type, Number(part.value)]));
+  return {
+    year: values.year,
+    month: values.month,
+    day: values.day,
+    hour: values.hour,
+    minute: values.minute,
+    second: values.second,
+    millisecond: date.getUTCMilliseconds(),
+  };
+};
+
+const parseLocalScheduleParts = (value: string): LocalScheduleParts | null => {
+  const match = LOCAL_SCHEDULE_DATE.exec(value.trim());
+  if (!match) return null;
+  const parts: LocalScheduleParts = {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    hour: Number(match[4]),
+    minute: Number(match[5]),
+    second: Number(match[6] || 0),
+    millisecond: Number((match[7] || '').padEnd(3, '0') || 0),
+  };
+  const calendarValue = new Date(Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    parts.millisecond,
+  ));
+  if (calendarValue.getUTCFullYear() !== parts.year
+      || calendarValue.getUTCMonth() !== parts.month - 1
+      || calendarValue.getUTCDate() !== parts.day
+      || calendarValue.getUTCHours() !== parts.hour
+      || calendarValue.getUTCMinutes() !== parts.minute
+      || calendarValue.getUTCSeconds() !== parts.second
+      || calendarValue.getUTCMilliseconds() !== parts.millisecond) {
+    return null;
+  }
+  return parts;
+};
+
+const sameScheduleParts = (left: LocalScheduleParts, right: LocalScheduleParts): boolean =>
+  left.year === right.year
+  && left.month === right.month
+  && left.day === right.day
+  && left.hour === right.hour
+  && left.minute === right.minute
+  && left.second === right.second
+  && left.millisecond === right.millisecond;
+
+const timeZoneOffsetMillis = (date: Date, timeZone: string): number => {
+  const parts = timeZoneParts(date, timeZone);
+  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second, parts.millisecond)
+    - date.getTime();
+};
+
+const localScheduleToUtc = (value: string, timeZone: string): string => {
+  const parts = parseLocalScheduleParts(value);
+  if (!parts) throw new ExperienceManifestError('INVALID_EXPERIENCE_SCHEDULE', 400, 'Schedule timestamps must be valid ISO date-times');
+  const localAsUtcMillis = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    parts.millisecond,
+  );
+  let utcMillis = localAsUtcMillis;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    utcMillis = localAsUtcMillis - timeZoneOffsetMillis(new Date(utcMillis), timeZone);
+  }
+  const resolved = new Date(utcMillis);
+  if (!sameScheduleParts(timeZoneParts(resolved, timeZone), parts)) {
+    throw new ExperienceManifestError(
+      'INVALID_EXPERIENCE_SCHEDULE',
+      400,
+      `Schedule timestamp '${value}' does not exist in ${timeZone}`,
+    );
+  }
+  return resolved.toISOString();
+};
+
+const normalizeScheduleInput = (body: unknown): unknown => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+  const raw = body as Record<string, unknown>;
+  const timezone = typeof raw.schedule_timezone === 'string' ? raw.schedule_timezone.trim() : 'UTC';
+  if (!scheduleTimezone.safeParse(timezone).success) return body;
+  const normalized = { ...raw };
+  for (const field of ['starts_at', 'ends_at'] as const) {
+    const value = raw[field];
+    if (typeof value === 'string' && !EXPLICIT_TIMEZONE.test(value.trim())) {
+      normalized[field] = localScheduleToUtc(value, timezone);
+    }
+  }
+  return normalized;
+};
 
 const safeResourceUri = z.string().trim().max(2048).refine((value) => {
   if (value.startsWith('/assets/')) return !value.includes('..') && !value.includes('//');
@@ -96,7 +232,15 @@ const safeExternalUrl = z.string().trim().max(2048).refine((value) => {
 
 const targetingSchema = z.object({
   cohorts: z.array(identifier).max(50).default([]),
+  market_codes: z.array(identifier).max(50).default([]),
+  city_codes: z.array(identifier).max(100).default([]),
+  zone_codes: z.array(identifier).max(100).default([]),
+  locales: z.array(locale).max(20).default([]),
+  service_usage_cohorts: z.array(identifier).max(50).default([]),
+  user_status: z.enum(['new', 'existing']).nullable().optional(),
+  roles: z.array(z.enum(['customer', 'merchant', 'courier'])).max(3).default([]),
   experiment_ref: identifier.nullable().optional(),
+  experiment_assignments: z.array(identifier).max(50).default([]),
 }).strict();
 
 const assetReferenceSchema = z.object({
@@ -259,6 +403,7 @@ export const experienceManifestInputSchema = z.object({
   max_app_version: semver.nullable().optional(),
   starts_at: z.coerce.date().default(() => new Date()),
   ends_at: z.coerce.date().nullable().optional(),
+  schedule_timezone: scheduleTimezone.default('UTC'),
   ttl_seconds: z.coerce.number().int().min(0).max(86400).default(300),
   cache_policy: z.enum(['no-store', 'private', 'public']).default('private'),
   targeting: z.unknown().optional(),
@@ -292,6 +437,7 @@ export type ExperienceManifestRecord = {
   max_app_version: string | null;
   starts_at: string;
   ends_at: string | null;
+  schedule_timezone: string;
   ttl_seconds: number;
   cache_policy: ExperienceCachePolicy;
   targeting: z.infer<typeof targetingSchema>;
@@ -322,6 +468,7 @@ export type PublicExperienceManifest = {
   max_app_version: string | null;
   starts_at: string;
   ends_at: string | null;
+  schedule_timezone: string;
   ttl_seconds: number;
   cache_policy: ExperienceCachePolicy;
   sections: ExperienceSection[];
@@ -330,7 +477,7 @@ export type PublicExperienceManifest = {
   signature: string | null;
 };
 
-export type ExperienceManifestCandidate = Pick<ExperienceManifestRecord, 'manifest_id' | 'revision' | 'schema_version' | 'market_code' | 'locale' | 'surface' | 'min_app_version' | 'max_app_version' | 'starts_at' | 'ends_at' | 'ttl_seconds' | 'cache_policy' | 'targeting' | 'sections' | 'asset_references' | 'checksum' | 'signature'> & {
+export type ExperienceManifestCandidate = Pick<ExperienceManifestRecord, 'manifest_id' | 'revision' | 'schema_version' | 'market_code' | 'locale' | 'surface' | 'min_app_version' | 'max_app_version' | 'starts_at' | 'ends_at' | 'schedule_timezone' | 'ttl_seconds' | 'cache_policy' | 'targeting' | 'sections' | 'asset_references' | 'checksum' | 'signature'> & {
   default_locale?: string;
 };
 
@@ -465,7 +612,7 @@ const parseUuid = (value: unknown, field: string): string => {
 };
 
 const parseInput = (body: unknown): ExperienceManifestInput => {
-  const parsed = experienceManifestInputSchema.safeParse(body);
+  const parsed = experienceManifestInputSchema.safeParse(normalizeScheduleInput(body));
   if (!parsed.success) {
     throw new ExperienceManifestError(
       'INVALID_EXPERIENCE_MANIFEST',
@@ -569,6 +716,7 @@ export const canonicalExperienceManifestPayload = (input: {
   max_app_version: string | null;
   starts_at: Date | string;
   ends_at: Date | string | null;
+  schedule_timezone: string;
   ttl_seconds: number;
   cache_policy: ExperienceCachePolicy;
   targeting: z.infer<typeof targetingSchema>;
@@ -585,6 +733,7 @@ export const canonicalExperienceManifestPayload = (input: {
   max_app_version: input.max_app_version,
   starts_at: new Date(input.starts_at).toISOString(),
   ends_at: input.ends_at ? new Date(input.ends_at).toISOString() : null,
+  schedule_timezone: input.schedule_timezone,
   ttl_seconds: input.ttl_seconds,
   cache_policy: input.cache_policy,
   targeting: input.targeting,
@@ -614,7 +763,7 @@ const assertSigningConfiguration = (): void => {
 
 const manifestSelect = `
   SELECT id, manifest_id, revision, schema_version, market_code, locale, surface,
-         min_app_version, max_app_version, starts_at, ends_at, ttl_seconds,
+         min_app_version, max_app_version, starts_at, ends_at, schedule_timezone, ttl_seconds,
          cache_policy, targeting, sections, asset_references, content_checksum,
          signature, state, created_by, updated_by, published_by, published_at,
          rolled_back_by, rolled_back_at, created_at, updated_at
@@ -632,6 +781,7 @@ const rowToManifest = (row: Record<string, any>): ExperienceManifestRecord => ({
   max_app_version: row.max_app_version ? String(row.max_app_version) : null,
   starts_at: new Date(row.starts_at).toISOString(),
   ends_at: row.ends_at ? new Date(row.ends_at).toISOString() : null,
+  schedule_timezone: String(row.schedule_timezone || 'UTC'),
   ttl_seconds: Number(row.ttl_seconds),
   cache_policy: row.cache_policy as ExperienceCachePolicy,
   targeting: parseTargeting(row.targeting),
@@ -665,6 +815,7 @@ const snapshot = (manifest: ExperienceManifestRecord | Record<string, any>): Jso
   max_app_version: manifest.max_app_version ?? null,
   starts_at: manifest.starts_at,
   ends_at: manifest.ends_at ?? null,
+  schedule_timezone: manifest.schedule_timezone || 'UTC',
   ttl_seconds: manifest.ttl_seconds,
   cache_policy: manifest.cache_policy,
   targeting: manifest.targeting,
@@ -737,6 +888,7 @@ const contentValues = (manifestId: string, revision: number, input: ExperienceMa
     max_app_version: input.max_app_version ?? null,
     starts_at: input.starts_at,
     ends_at: input.ends_at ?? null,
+    schedule_timezone: input.schedule_timezone,
     ttl_seconds: input.ttl_seconds,
     cache_policy: input.cache_policy,
     targeting: input.targeting,
@@ -786,17 +938,17 @@ export const createExperienceManifest = async (
     const result = await client.query(
       `INSERT INTO experience_manifest_revisions (
          manifest_id, revision, schema_version, market_code, locale, surface,
-         min_app_version, max_app_version, starts_at, ends_at, ttl_seconds,
+         min_app_version, max_app_version, starts_at, ends_at, schedule_timezone, ttl_seconds,
          cache_policy, targeting, sections, asset_references, content_checksum,
          signature, state, created_by, updated_by
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-                 $13::jsonb, $14::jsonb, $15::jsonb, $16, $17, 'draft', $18, $18)
+                 $13, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18, 'draft', $19, $19)
        RETURNING *`,
       [
         manifestId, revision, input.schema_version, input.market_code, input.locale, input.surface,
         input.min_app_version, input.max_app_version ?? null, input.starts_at, input.ends_at ?? null,
-        input.ttl_seconds, input.cache_policy, serialize(input.targeting), serialize(input.sections),
-        serialize(input.asset_references), content.checksum, content.signature, actorId,
+        input.schedule_timezone, input.ttl_seconds, input.cache_policy, serialize(input.targeting),
+        serialize(input.sections), serialize(input.asset_references), content.checksum, content.signature, actorId,
       ],
     );
     const manifest = rowToManifest(result.rows[0]);
@@ -830,16 +982,16 @@ export const updateExperienceManifestDraft = async (
       `UPDATE experience_manifest_revisions
           SET schema_version = $1, market_code = $2, locale = $3, surface = $4,
               min_app_version = $5, max_app_version = $6, starts_at = $7, ends_at = $8,
-              ttl_seconds = $9, cache_policy = $10, targeting = $11::jsonb,
-              sections = $12::jsonb, asset_references = $13::jsonb,
-              content_checksum = $14, signature = $15, updated_by = $16, updated_at = NOW()
-        WHERE id = $17 AND state = 'draft'
+              schedule_timezone = $9, ttl_seconds = $10, cache_policy = $11, targeting = $12::jsonb,
+              sections = $13::jsonb, asset_references = $14::jsonb,
+              content_checksum = $15, signature = $16, updated_by = $17, updated_at = NOW()
+        WHERE id = $18 AND state = 'draft'
         RETURNING *`,
       [
         input.schema_version, input.market_code, input.locale, input.surface, input.min_app_version,
-        input.max_app_version ?? null, input.starts_at, input.ends_at ?? null, input.ttl_seconds,
-        input.cache_policy, serialize(input.targeting), serialize(input.sections), serialize(input.asset_references),
-        content.checksum, content.signature, actorId, current.id,
+        input.max_app_version ?? null, input.starts_at, input.ends_at ?? null, input.schedule_timezone,
+        input.ttl_seconds, input.cache_policy, serialize(input.targeting), serialize(input.sections),
+        serialize(input.asset_references), content.checksum, content.signature, actorId, current.id,
       ],
     );
     const manifest = rowToManifest(result.rows[0]);
@@ -877,6 +1029,26 @@ export const publishExperienceManifest = async (
     const draft = rowToManifest(draftResult.rows[0]);
     const currentResult = await client.query(`${manifestSelect} WHERE manifest_id = $1 AND state = 'published' FOR UPDATE`, [manifestId]);
     const current = currentResult.rows[0] ? rowToManifest(currentResult.rows[0]) : null;
+    const fallbackResult = await client.query(
+      `${manifestSelect}
+         WHERE market_code = $1
+           AND surface = $2
+           AND state = 'published'
+           AND id <> $3
+           AND starts_at <= NOW()
+           AND (ends_at IS NULL OR ends_at > NOW())
+       LIMIT 500`,
+      [draft.market_code, draft.surface, current?.id ?? draft.id],
+    );
+    const hasFallbackAudience = !hasTargetingConstraints(draft.targeting)
+      || fallbackResult.rows.some((row) => !hasTargetingConstraints(rowToManifest(row).targeting));
+    if (!hasFallbackAudience) {
+      throw new ExperienceManifestError(
+        'EXPERIENCE_FALLBACK_REQUIRED',
+        409,
+        'At least one active untargeted fallback audience is required before publishing a targeted manifest',
+      );
+    }
     if (current) {
       await client.query(
         `UPDATE experience_manifest_revisions SET state = 'superseded', updated_by = $1, updated_at = NOW() WHERE id = $2`,
@@ -982,38 +1154,102 @@ export const getExperienceManifestHistory = async (manifestIdValue: unknown): Pr
   return result.rows.map(rowToManifest);
 };
 
+const NEW_USER_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+const deriveUserStatus = async (
+  request: ExperienceAudienceContext & { user_id?: string | null },
+  candidates: ExperienceManifestRecord[],
+): Promise<'new' | 'existing' | null> => {
+  if (request.user_status || !request.user_id) return request.user_status ?? null;
+  if (!candidates.some((candidate) => candidate.targeting.user_status)) return null;
+  const result = await readDb.query<{ created_at: string }>(
+    'SELECT created_at FROM users WHERE id = $1 AND deleted_at IS NULL LIMIT 1',
+    [request.user_id],
+  );
+  const createdAt = result.rows[0]?.created_at ? new Date(result.rows[0].created_at).getTime() : NaN;
+  if (!Number.isFinite(createdAt)) return null;
+  return Date.now() - createdAt <= NEW_USER_WINDOW_MS ? 'new' : 'existing';
+};
+
 const isWithinAppRange = (candidate: ExperienceManifestCandidate, appVersion: string): boolean => {
   if (compareSemanticVersions(appVersion, candidate.min_app_version) < 0) return false;
   return !candidate.max_app_version || compareSemanticVersions(appVersion, candidate.max_app_version) <= 0;
 };
 
+export type ExperienceAudienceContext = {
+  market_code: string;
+  locale: string;
+  app_version: string;
+  cohort?: string | null;
+  experiment_ref?: string | null;
+  experiment_assignment?: string | null;
+  city_code?: string | null;
+  zone_code?: string | null;
+  service_usage_cohort?: string | null;
+  user_status?: 'new' | 'existing' | null;
+  role?: 'customer' | 'merchant' | 'courier' | null;
+};
+
+const matchesTargetList = (
+  values: string[],
+  actual: string | null | undefined,
+  normalizeValue: (value: string) => string = (value) => value.toLowerCase(),
+): boolean => values.length === 0 || Boolean(actual && values.map(normalizeValue).includes(normalizeValue(actual)));
+
 const targetingScore = (
   targeting: z.infer<typeof targetingSchema>,
-  cohort: string | null,
-  experimentRef: string | null,
+  context: ExperienceAudienceContext,
 ): number | null => {
-  if (targeting.cohorts.length > 0 && (!cohort || !targeting.cohorts.includes(cohort))) return null;
-  if (targeting.experiment_ref && targeting.experiment_ref !== experimentRef) return null;
-  return (targeting.cohorts.length > 0 ? 2 : 0) + (targeting.experiment_ref ? 1 : 0);
+  const normalizedTargeting = targetingSchema.parse(targeting);
+  if (!matchesTargetList(normalizedTargeting.market_codes, context.market_code)) return null;
+  if (!matchesTargetList(normalizedTargeting.city_codes, context.city_code)) return null;
+  if (!matchesTargetList(normalizedTargeting.zone_codes, context.zone_code)) return null;
+  if (!matchesTargetList(normalizedTargeting.locales, context.locale, normalizeLocale)) return null;
+  if (!matchesTargetList(normalizedTargeting.service_usage_cohorts, context.service_usage_cohort)) return null;
+  if (normalizedTargeting.user_status && normalizedTargeting.user_status !== context.user_status) return null;
+  if (!matchesTargetList(normalizedTargeting.roles, context.role)) return null;
+  if (!matchesTargetList(normalizedTargeting.cohorts, context.cohort)) return null;
+  if (normalizedTargeting.experiment_ref && normalizedTargeting.experiment_ref !== context.experiment_ref) return null;
+  if (!matchesTargetList(normalizedTargeting.experiment_assignments, context.experiment_assignment)) return null;
+
+  return (normalizedTargeting.market_codes.length > 0 ? 1 : 0)
+    + (normalizedTargeting.city_codes.length > 0 ? 2 : 0)
+    + (normalizedTargeting.zone_codes.length > 0 ? 2 : 0)
+    + (normalizedTargeting.locales.length > 0 ? 1 : 0)
+    + (normalizedTargeting.service_usage_cohorts.length > 0 ? 2 : 0)
+    + (normalizedTargeting.user_status ? 2 : 0)
+    + (normalizedTargeting.roles.length > 0 ? 1 : 0)
+    + (normalizedTargeting.cohorts.length > 0 ? 2 : 0)
+    + (normalizedTargeting.experiment_ref ? 1 : 0)
+    + (normalizedTargeting.experiment_assignments.length > 0 ? 2 : 0);
+};
+
+const hasTargetingConstraints = (targeting: z.infer<typeof targetingSchema>): boolean => {
+  const normalizedTargeting = targetingSchema.parse(targeting);
+  return normalizedTargeting.market_codes.length > 0
+    || normalizedTargeting.city_codes.length > 0
+    || normalizedTargeting.zone_codes.length > 0
+    || normalizedTargeting.locales.length > 0
+    || normalizedTargeting.service_usage_cohorts.length > 0
+    || normalizedTargeting.user_status != null
+    || normalizedTargeting.roles.length > 0
+    || normalizedTargeting.cohorts.length > 0
+    || normalizedTargeting.experiment_ref != null
+    || normalizedTargeting.experiment_assignments.length > 0;
 };
 
 export const pickExperienceManifest = (
   candidates: ExperienceManifestCandidate[],
-  request: {
-    locale: string;
-    default_locale: string;
-    app_version: string;
-    cohort?: string | null;
-    experiment_ref?: string | null;
-  },
+  request: ExperienceAudienceContext & { default_locale: string },
 ): PublicExperienceManifest | null => {
   const requestedLocale = normalizeLocale(request.locale);
   const defaultLocale = normalizeLocale(request.default_locale);
   const ranked = candidates.flatMap((candidate) => {
+    if (candidate.market_code !== request.market_code) return [];
     const candidateLocale = normalizeLocale(candidate.locale);
     const localeScore = candidateLocale === requestedLocale ? 2 : candidateLocale === defaultLocale ? 1 : 0;
     if (localeScore === 0 || !isWithinAppRange(candidate, request.app_version)) return [];
-    const targetScore = targetingScore(candidate.targeting, request.cohort ?? null, request.experiment_ref ?? null);
+    const targetScore = targetingScore(candidate.targeting, request);
     if (targetScore === null) return [];
     return [{ candidate, localeScore, targetScore }];
   });
@@ -1036,6 +1272,7 @@ export const pickExperienceManifest = (
     max_app_version: selected.max_app_version,
     starts_at: new Date(selected.starts_at).toISOString(),
     ends_at: selected.ends_at ? new Date(selected.ends_at).toISOString() : null,
+    schedule_timezone: selected.schedule_timezone || 'UTC',
     ttl_seconds: selected.ttl_seconds,
     cache_policy: selected.cache_policy,
     sections: selected.sections,
@@ -1052,6 +1289,13 @@ export const resolvePublicExperienceManifest = async (request: {
   app_version: string;
   cohort?: string | null;
   experiment_ref?: string | null;
+  experiment_assignment?: string | null;
+  city_code?: string | null;
+  zone_code?: string | null;
+  service_usage_cohort?: string | null;
+  user_status?: 'new' | 'existing' | null;
+  user_id?: string | null;
+  role?: 'customer' | 'merchant' | 'courier' | null;
 }): Promise<PublicExperienceManifest> => {
   const marketCode = String(request.market_code || '').trim().toLowerCase();
   if (!MARKET_CODE.test(marketCode)) throw new ExperienceManifestError('MARKET_CODE_REQUIRED', 400, 'market_code is required and must be valid');
@@ -1078,15 +1322,92 @@ export const resolvePublicExperienceManifest = async (request: {
     [marketCode, request.surface],
   );
   const candidates = result.rows.map((row) => rowToManifest(row));
+  const userStatus = await deriveUserStatus(request, candidates);
   const selected = pickExperienceManifest(candidates, {
+    market_code: marketCode,
     locale: request.locale,
     default_locale: marketResult.rows[0].default_locale,
     app_version: request.app_version,
     cohort: request.cohort ?? null,
     experiment_ref: request.experiment_ref ?? null,
+    experiment_assignment: request.experiment_assignment ?? null,
+    city_code: request.city_code ?? null,
+    zone_code: request.zone_code ?? null,
+    service_usage_cohort: request.service_usage_cohort ?? null,
+    user_status: userStatus,
+    role: request.role ?? null,
   });
   if (!selected) throw new ExperienceManifestError('EXPERIENCE_MANIFEST_NOT_AVAILABLE', 404, 'No published experience manifest matches this market, locale, surface and app version');
   return selected;
+};
+
+const previewAudienceSchema = z.object({
+  market_code: z.string().trim().toLowerCase().regex(MARKET_CODE),
+  locale,
+  default_locale: locale.optional(),
+  app_version: semver,
+  cohort: identifier.nullable().optional(),
+  experiment_ref: identifier.nullable().optional(),
+  experiment_assignment: identifier.nullable().optional(),
+  city_code: identifier.nullable().optional(),
+  zone_code: identifier.nullable().optional(),
+  service_usage_cohort: identifier.nullable().optional(),
+  user_status: z.enum(['new', 'existing']).nullable().optional(),
+  role: z.enum(['customer', 'merchant', 'courier']).nullable().optional(),
+  at: z.coerce.date().optional(),
+}).strict();
+
+export const previewExperienceManifestAudience = (
+  manifest: ExperienceManifestRecord,
+  value: unknown,
+): JsonObject => {
+  const parsed = previewAudienceSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new ExperienceManifestError(
+      'INVALID_EXPERIENCE_PREVIEW_CONTEXT',
+      400,
+      parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '),
+    );
+  }
+  const context = parsed.data;
+  const at = context.at ?? new Date();
+  const startsAt = new Date(manifest.starts_at).getTime();
+  const endsAt = manifest.ends_at ? new Date(manifest.ends_at).getTime() : null;
+  const withinSchedule = startsAt <= at.getTime() && (endsAt === null || at.getTime() < endsAt);
+  const selected = withinSchedule ? pickExperienceManifest([manifest], {
+    market_code: context.market_code,
+    locale: context.locale,
+    default_locale: context.default_locale || manifest.locale,
+    app_version: context.app_version,
+    cohort: context.cohort ?? null,
+    experiment_ref: context.experiment_ref ?? null,
+    experiment_assignment: context.experiment_assignment ?? null,
+    city_code: context.city_code ?? null,
+    zone_code: context.zone_code ?? null,
+    service_usage_cohort: context.service_usage_cohort ?? null,
+    user_status: context.user_status ?? null,
+    role: context.role ?? null,
+  }) : null;
+
+  return {
+    matched: Boolean(selected),
+    reason: !withinSchedule ? 'outside_schedule' : selected ? 'matched' : 'audience_or_version_mismatch',
+    simulated_context: {
+      market_code: context.market_code,
+      locale: normalizeLocale(context.locale),
+      app_version: context.app_version,
+      cohort: context.cohort ?? null,
+      experiment_ref: context.experiment_ref ?? null,
+      experiment_assignment: context.experiment_assignment ?? null,
+      city_code: context.city_code ?? null,
+      zone_code: context.zone_code ?? null,
+      service_usage_cohort: context.service_usage_cohort ?? null,
+      user_status: context.user_status ?? null,
+      role: context.role ?? null,
+      at: at.toISOString(),
+    },
+    selected_manifest: selected ? { manifest_id: selected.manifest_id, revision: selected.revision, resolved_locale: selected.resolved_locale } : null,
+  };
 };
 
 export const getExperienceCacheControl = (manifest: PublicExperienceManifest): string => {

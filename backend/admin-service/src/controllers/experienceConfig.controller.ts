@@ -8,6 +8,7 @@ import {
   getExperienceManifestHistory,
   listExperienceManifestRevisions,
   previewExperienceManifest,
+  previewExperienceManifestAudience,
   publishExperienceManifest,
   resolvePublicExperienceManifest,
   rollbackExperienceManifest,
@@ -43,6 +44,35 @@ const queryString = (value: unknown): string | undefined => {
 };
 
 const manifestId = (req: Request): string => queryString(req.params.manifestId) || '';
+
+const safeAudienceIdentifier = (value: unknown): string | null => {
+  const normalized = queryString(value)?.toLowerCase();
+  return normalized && /^[a-z0-9][a-z0-9._-]{0,127}$/.test(normalized) ? normalized : null;
+};
+
+const previewAudienceInput = (req: Request, manifest: { market_code: string; locale: string; min_app_version: string }): Record<string, unknown> => {
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {};
+  const raw = body.audience && typeof body.audience === 'object' && !Array.isArray(body.audience)
+    ? body.audience as Record<string, unknown>
+    : body.simulation && typeof body.simulation === 'object' && !Array.isArray(body.simulation)
+      ? body.simulation as Record<string, unknown>
+      : body;
+  return {
+    market_code: safeAudienceIdentifier(raw.market_code) || manifest.market_code,
+    locale: queryString(raw.locale) || manifest.locale,
+    default_locale: queryString(raw.default_locale) || manifest.locale,
+    app_version: queryString(raw.app_version) || manifest.min_app_version,
+    cohort: safeAudienceIdentifier(raw.cohort),
+    experiment_ref: safeAudienceIdentifier(raw.experiment_ref),
+    experiment_assignment: safeAudienceIdentifier(raw.experiment_assignment),
+    city_code: safeAudienceIdentifier(raw.city_code),
+    zone_code: safeAudienceIdentifier(raw.zone_code),
+    service_usage_cohort: safeAudienceIdentifier(raw.service_usage_cohort),
+    user_status: raw.user_status ?? null,
+    role: raw.role ?? null,
+    at: raw.at,
+  };
+};
 
 export const listAdminExperienceManifests = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -87,7 +117,8 @@ export const updateAdminExperienceManifestDraft = async (req: Request, res: Resp
 export const previewAdminExperienceManifest = async (req: Request, res: Response): Promise<void> => {
   try {
     const data = await previewExperienceManifest(manifestId(req), getActorId(req), correlationId(req, res));
-    res.json({ success: true, data, preview: true });
+    const simulation = previewExperienceManifestAudience(data, previewAudienceInput(req, data));
+    res.json({ success: true, data, simulation, preview: true });
   } catch (error) {
     respondWithError(res, error, 'preview');
   }
@@ -127,13 +158,25 @@ export const getPublicExperienceManifest = async (req: Request, res: Response): 
       locale: queryString(req.query.locale) || 'id-ID',
       surface: surface as ExperienceSurface,
       app_version: queryString(req.query.app_version) || '',
-      cohort: queryString(req.query.cohort) || queryString(req.headers['x-experience-cohort']) || null,
-      experiment_ref: queryString(req.query.experiment_ref) || queryString(req.headers['x-experience-experiment']) || null,
+      cohort: safeAudienceIdentifier(req.query.cohort) || safeAudienceIdentifier(req.headers['x-experience-cohort']),
+      experiment_ref: safeAudienceIdentifier(req.query.experiment_ref) || safeAudienceIdentifier(req.headers['x-experience-experiment']),
+      experiment_assignment: safeAudienceIdentifier(req.query.experiment_assignment) || safeAudienceIdentifier(req.headers['x-experience-assignment']),
+      city_code: safeAudienceIdentifier(req.query.city_code) || safeAudienceIdentifier(req.headers['x-city-code']),
+      zone_code: safeAudienceIdentifier(req.query.zone_code) || safeAudienceIdentifier(req.headers['x-zone-code']),
+      service_usage_cohort: safeAudienceIdentifier(req.query.service_usage_cohort) || safeAudienceIdentifier(req.headers['x-experience-service-cohort']),
+      user_id: req.user?.id ?? null,
+      role: req.user?.role === 'customer' || req.user?.role === 'merchant' || req.user?.role === 'courier'
+        ? req.user.role
+        : null,
     });
     const etag = `"${data.checksum}"`;
     res.setHeader('ETag', etag);
     res.setHeader('Cache-Control', getExperienceCacheControl(data));
-    res.setHeader('Vary', 'Accept-Language, X-Market-Code, X-Experience-Cohort, X-Experience-Experiment');
+    res.setHeader(
+      'Vary',
+      'Accept-Language, X-Market-Code, X-Experience-Cohort, X-Experience-Experiment, '
+        + 'X-Experience-Assignment, X-City-Code, X-Zone-Code, X-Experience-Service-Cohort, Authorization',
+    );
     if (req.headers['if-none-match'] === etag) {
       res.status(304).end();
       return;

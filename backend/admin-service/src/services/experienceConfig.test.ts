@@ -11,6 +11,7 @@ import {
   getExperienceCacheControl,
   parseExperienceManifestInput,
   pickExperienceManifest,
+  previewExperienceManifestAudience,
   publishExperienceManifest,
   rollbackExperienceManifest,
   resolvePublicExperienceManifest,
@@ -29,6 +30,7 @@ const validInput = {
   surface: 'customer_android',
   min_app_version: '1.2.0',
   starts_at: '2026-01-01T00:00:00.000Z',
+  schedule_timezone: 'Asia/Jakarta',
   ttl_seconds: 300,
   cache_policy: 'private',
   targeting: { cohorts: ['beta'], experiment_ref: 'home-v1' },
@@ -52,9 +54,13 @@ const row = (state: string, revision = 1): Record<string, unknown> => ({
   max_app_version: null,
   starts_at: '2026-01-01T00:00:00.000Z',
   ends_at: null,
+  schedule_timezone: 'Asia/Jakarta',
   ttl_seconds: 300,
   cache_policy: 'private',
-  targeting: { cohorts: [] },
+  targeting: {
+    cohorts: [], market_codes: [], city_codes: [], zone_codes: [], locales: [],
+    service_usage_cohorts: [], roles: [], experiment_assignments: [],
+  },
   sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome' } }],
   asset_references: [],
   content_checksum: checksum,
@@ -81,9 +87,13 @@ const candidate = (overrides: Partial<ExperienceManifestCandidate> = {}): Experi
   max_app_version: null,
   starts_at: '2026-01-01T00:00:00.000Z',
   ends_at: null,
+  schedule_timezone: 'Asia/Jakarta',
   ttl_seconds: 300,
   cache_policy: 'private',
-  targeting: { cohorts: [] },
+  targeting: {
+    cohorts: [], market_codes: [], city_codes: [], zone_codes: [], locales: [],
+    service_usage_cohorts: [], roles: [], experiment_assignments: [],
+  },
   sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'Welcome' } }],
   asset_references: [],
   checksum,
@@ -101,8 +111,41 @@ describe('experience manifest contract', () => {
     expect(parsed.market_code).toBe('id-jk');
     expect(parsed.locale).toBe('en-US');
     expect(parsed.targeting.cohorts).toEqual(['beta']);
+    expect(parsed.schedule_timezone).toBe('Asia/Jakarta');
     expect(parsed.sections[0].component).toBe('hero_banner');
     expect(parsed.asset_references).toEqual([]);
+  });
+
+  it('converts timezone-less schedule wall-clock values using the declared IANA timezone', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      starts_at: '2026-06-01T09:00:00',
+      ends_at: '2026-06-01T10:00:00',
+      schedule_timezone: 'Asia/Jakarta',
+    });
+    expect(parsed.starts_at.toISOString()).toBe('2026-06-01T02:00:00.000Z');
+    expect(parsed.ends_at?.toISOString()).toBe('2026-06-01T03:00:00.000Z');
+  });
+
+  it('accepts safe audience dimensions and rejects unapproved personal attributes or timezones', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      targeting: {
+        market_codes: ['id-jk'],
+        city_codes: ['jakarta-selatan'],
+        zone_codes: ['zone-south'],
+        locales: ['id-ID'],
+        service_usage_cohorts: ['food-repeat'],
+        user_status: 'existing',
+        roles: ['customer'],
+        cohorts: ['beta'],
+        experiment_ref: 'food-home',
+        experiment_assignments: ['treatment-a'],
+      },
+    });
+    expect(parsed.targeting.service_usage_cohorts).toEqual(['food-repeat']);
+    expect(() => parseExperienceManifestInput({ ...validInput, targeting: { email: 'user@example.com' } })).toThrow(/email/);
+    expect(() => parseExperienceManifestInput({ ...validInput, schedule_timezone: 'Not/A-Timezone' })).toThrow(/schedule_timezone/);
   });
 
   it('accepts presentation-only service card targeting and native notice/spacer sections', () => {
@@ -332,9 +375,13 @@ describe('experience manifest contract', () => {
       max_app_version: null,
       starts_at: '2026-01-01T00:00:00.000Z',
       ends_at: null,
+      schedule_timezone: 'Asia/Jakarta',
       ttl_seconds: 300,
       cache_policy: 'private',
-      targeting: { cohorts: [] },
+      targeting: {
+        cohorts: [], market_codes: [], city_codes: [], zone_codes: [], locales: [],
+        service_usage_cohorts: [], roles: [], experiment_assignments: [],
+      },
       sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'x' } }],
       asset_references: [],
     });
@@ -345,20 +392,57 @@ describe('experience manifest contract', () => {
   it('selects exactly one manifest by locale, targeting, and app range', () => {
     const selected = pickExperienceManifest([
       candidate({ revision: 5, locale: 'en-US' }),
-      candidate({ revision: 2, locale: 'en-US', targeting: { cohorts: ['beta'] } }),
+      candidate({ revision: 2, locale: 'en-US', targeting: { cohorts: ['beta'] } as any }),
       candidate({ revision: 9, locale: 'id-ID' }),
-    ], { locale: 'en-US', default_locale: 'id-ID', app_version: '1.5.0', cohort: 'beta' });
+    ], { market_code: 'id-jk', locale: 'en-US', default_locale: 'id-ID', app_version: '1.5.0', cohort: 'beta' });
     expect(selected?.revision).toBe(2);
     expect(selected?.resolved_locale).toBe('en-US');
 
     const fallback = pickExperienceManifest([candidate({ revision: 3 })], {
-      locale: 'fr-FR', default_locale: 'id-ID', app_version: '1.5.0',
+      market_code: 'id-jk', locale: 'fr-FR', default_locale: 'id-ID', app_version: '1.5.0',
     });
     expect(fallback?.resolved_locale).toBe('id-ID');
 
     expect(pickExperienceManifest([candidate({ min_app_version: '2.0.0' })], {
-      locale: 'id-ID', default_locale: 'id-ID', app_version: '1.5.0',
+      market_code: 'id-jk', locale: 'id-ID', default_locale: 'id-ID', app_version: '1.5.0',
     })).toBeNull();
+  });
+
+  it('resolves complex audience targeting and preserves an untargeted fallback', () => {
+    const targeted = candidate({
+      revision: 2,
+      targeting: {
+        market_codes: ['id-jk'],
+        city_codes: ['jakarta-selatan'],
+        zone_codes: ['zone-south'],
+        locales: ['en-US'],
+        service_usage_cohorts: ['food-repeat'],
+        user_status: 'existing',
+        roles: ['customer'],
+        cohorts: ['beta'],
+        experiment_ref: 'food-home',
+        experiment_assignments: ['treatment-a'],
+      } as any,
+    });
+    const request = {
+      market_code: 'id-jk', locale: 'en-US', default_locale: 'id-ID', app_version: '1.5.0',
+      city_code: 'jakarta-selatan', zone_code: 'zone-south', service_usage_cohort: 'food-repeat',
+      user_status: 'existing' as const, role: 'customer' as const, cohort: 'beta',
+      experiment_ref: 'food-home', experiment_assignment: 'treatment-a',
+    };
+    expect(pickExperienceManifest([candidate({ revision: 1 }), targeted], request)?.revision).toBe(2);
+    expect(pickExperienceManifest([candidate({ revision: 1 }), targeted], { ...request, city_code: 'bandung' })?.revision).toBe(1);
+  });
+
+  it('previews a draft against a simulated audience and schedule without exposing rules', () => {
+    const result = previewExperienceManifestAudience(row('draft') as any, {
+      market_code: 'id-jk', locale: 'en-US', app_version: '1.5.0', at: '2026-01-02T00:00:00.000Z',
+    });
+    expect(result).toMatchObject({ matched: true, reason: 'matched' });
+    expect(result).not.toHaveProperty('targeting');
+    expect(previewExperienceManifestAudience(row('draft') as any, {
+      market_code: 'id-jk', locale: 'en-US', app_version: '1.5.0', at: '2025-12-31T00:00:00.000Z',
+    })).toMatchObject({ matched: false, reason: 'outside_schedule' });
   });
 
   it('maps cache policy to an explicit cache header', () => {
@@ -402,6 +486,7 @@ describe('experience manifest lifecycle persistence', () => {
       .mockResolvedValueOnce({ rows: [row('published', 1)] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [row('published', 2)] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
@@ -410,6 +495,22 @@ describe('experience manifest lifecycle persistence', () => {
     expect(result.state).toBe('published');
     expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes("state = 'published'"))).toBe(true);
     expect(client.query).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('blocks publishing a targeted manifest when no untargeted fallback is active', async () => {
+    const targetedDraft = row('draft', 2) as any;
+    targetedDraft.targeting = { cohorts: ['beta'] };
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [targetedDraft] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(publishExperienceManifest(manifestId, actorId, 'corr-fallback'))
+      .rejects.toMatchObject({ code: 'EXPERIENCE_FALLBACK_REQUIRED', status: 409 });
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
   });
 
   it('rolls back to a historical revision without editing its payload', async () => {
@@ -440,5 +541,24 @@ describe('experience manifest lifecycle persistence', () => {
       app_version: '1.2.0',
     })).rejects.toMatchObject({ code: 'EXPERIENCE_MARKET_UNAVAILABLE', status: 503 });
     expect(readDb.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('derives new/existing user targeting on the server without returning audience rules', async () => {
+    const targeted = row('published') as any;
+    targeted.targeting = {
+      cohorts: [], market_codes: [], city_codes: [], zone_codes: [], locales: [],
+      service_usage_cohorts: [], roles: [], experiment_assignments: [], user_status: 'new',
+    };
+    (readDb.query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ default_locale: 'id-ID', launch_state: 'active' }] })
+      .mockResolvedValueOnce({ rows: [targeted] })
+      .mockResolvedValueOnce({ rows: [{ created_at: new Date(Date.now() - 2 * 86400000).toISOString() }] });
+
+    const result = await resolvePublicExperienceManifest({
+      market_code: 'id-jk', locale: 'en-US', surface: 'customer_android', app_version: '1.5.0', user_id: actorId,
+    });
+    expect(result.revision).toBe(1);
+    expect(result).not.toHaveProperty('targeting');
+    expect(readDb.query).toHaveBeenNthCalledWith(3, expect.stringContaining('SELECT created_at FROM users'), [actorId]);
   });
 });

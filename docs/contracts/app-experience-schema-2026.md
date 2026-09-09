@@ -20,8 +20,17 @@ Each logical `manifest_id` has immutable revisions. A revision contains:
 - `market_code`, BCP-47-like `locale`, and one `surface`:
   `customer_android`, `customer_web`, `merchant_android`, or `courier_android`.
 - `min_app_version` and optional `max_app_version` using semantic versions.
-- `starts_at`, optional `ends_at`, `ttl_seconds`, and `cache_policy`.
-- `targeting.cohorts` and optional `targeting.experiment_ref`.
+- `starts_at`, optional `ends_at`, `schedule_timezone` (IANA timezone),
+  `ttl_seconds`, and `cache_policy`. The timestamps are stored as
+  unambiguous `TIMESTAMPTZ` instants; `schedule_timezone` preserves the
+  authoring timezone for DST-safe operations and review. ISO timestamps with
+  an explicit offset are respected; timestamps without an offset are treated
+  as local wall-clock values in `schedule_timezone` and converted to UTC by
+  the server. Nonexistent DST wall-clock times are rejected.
+- `targeting` may use only governed, non-sensitive dimensions:
+  `market_codes`, `city_codes`, `zone_codes`, `locales`,
+  `service_usage_cohorts`, `user_status` (`new`/`existing`), `roles`,
+  `cohorts`, `experiment_ref`, and `experiment_assignments`.
 - `sections` using only the precompiled component whitelist.
 - `asset_references` with HTTPS or `/assets/` URIs and SHA-256 checksums.
 - server-generated `checksum` and optional HMAC `signature`.
@@ -91,7 +100,11 @@ idempotency key for create/update/publish/rollback:
 - `POST /admin/experience/manifests` — create a draft revision.
 - `PATCH /admin/experience/manifests/:manifestId/draft` — update only a draft.
 - `POST /admin/experience/manifests/:manifestId/preview` — validate and audit a
-  preview without changing the revision state.
+  preview without changing the revision state. An optional `audience` object
+  (`market_code`, `locale`, `app_version`, city/zone, cohort, role, user
+  status, service-usage cohort and experiment assignment) simulates the
+  server resolver and returns only `matched`, a reason, a sanitized context
+  and the selected revision; targeting rules are not returned.
 - `POST /admin/experience/manifests/:manifestId/publish` — atomically publish
   the draft and supersede the prior published revision.
 - `POST /admin/experience/manifests/:manifestId/rollback` — atomically restore
@@ -113,10 +126,13 @@ correlation ID, state transition, and revision metadata.
 
 `locale` defaults only to the requested market's configured locale when the
 caller omits it; there is no Indonesia fallback for an unknown market.
-Optional `cohort` and `experiment_ref` select a targeted revision. The server
-filters active schedule and semantic-version range, prefers exact locale over
-the market default locale, prefers matching targeting, and returns exactly one
-manifest. Targeting rules and admin audit fields are not exposed publicly.
+Optional cohort, experiment reference/assignment, city/zone, service-usage
+cohort, role and user-status context select a targeted revision. The server
+filters the active timezone-aware schedule and semantic-version range, prefers
+exact locale over the market default locale, prefers matching targeting, and
+returns exactly one manifest. An untargeted revision is the explicit fallback
+audience when a more specific audience does not match. Targeting rules and
+admin audit fields are not exposed publicly.
 
 The response includes `ETag: "<checksum>"`, checksum/signature, cache policy,
 resolved locale, and the safe component/asset payload. `If-None-Match` returns
