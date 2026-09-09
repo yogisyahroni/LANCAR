@@ -24,7 +24,7 @@ link and one of `PASS`, `FAIL`, or `NOT_RUN`.
 - Customer web localization E2E: Chromium — PASS (3 tests).
 - Android logic coverage: `gradlew.bat test` — PASS for courier, customer and merchant debug/release unit-test suites; interactive device E2E remains separate and unproven.
 - Local PostgreSQL market snapshot: `id-jk` readiness returned ready with no reason codes; 9 active compliance requirements, 4 active data policies and 5 enabled services were observed. This is local evidence, not staging evidence.
-- Staging CI: run `34300594353` for commit `d44bb6a3` — repository verification, migration, security, container-audit and build jobs PASS. Deployment guard reported `STAGING_SSH_HOST` missing, so `deployed=false`; browser E2E and k6 jobs were skipped.
+- Staging CI: run `34302183075` for commit `6f41ba2c` — repository verification, migration, security, container-audit and build jobs PASS. Deployment guard reported `STAGING_SSH_HOST` missing, so `deployed=false`; browser E2E and k6 jobs were skipped.
 - Public staging probe: `/health` returned `200`; current `/api/v1/system/latest-version?type=merchant` returned `400` and no compatibility metadata, confirming the pushed compatibility commit is not yet deployed there.
 
 The hard-gate rows remain `NOT_RUN` until their required owner, environment,
