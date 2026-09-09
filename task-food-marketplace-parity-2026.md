@@ -2237,12 +2237,12 @@ A task is complete only when applicable boxes below are true:
 - `admin-dashboard/src/pages/Analytics.tsx`
 
 **Checklist**
-- [ ] Measure manifest fetch success/latency/cache-hit/parse failure/schema fallback.
-- [ ] Measure section render failure, broken asset, deeplink failure, campaign impression/click/dismiss.
-- [ ] Dashboard can break metrics by manifest revision/market/app version.
-- [ ] Crash/startup/network regression after a revision is detectable quickly.
-- [ ] High-impact revision can automatically or manually rollback when guardrail threshold trips.
-- [ ] Experiment/marketing metrics never replace core reliability guardrails.
+- [x] Measure manifest fetch success/latency/cache-hit/parse failure/schema fallback. (Evidence: `docs/task-evidence/APP-2026-012.md`)
+- [x] Measure section render failure, broken asset, deeplink failure, campaign impression/click/dismiss. (Evidence: `docs/task-evidence/APP-2026-012.md`)
+- [x] Dashboard can break metrics by manifest revision/market/app version. (Evidence: `docs/task-evidence/APP-2026-012.md`)
+- [x] Crash/startup/network regression after a revision is detectable quickly. (Evidence: `docs/task-evidence/APP-2026-012.md`)
+- [x] High-impact revision can automatically or manually rollback when guardrail threshold trips. (Evidence: `docs/task-evidence/APP-2026-012.md`)
+- [x] Experiment/marketing metrics never replace core reliability guardrails. (Evidence: `docs/task-evidence/APP-2026-012.md`)
 
 ---
 
