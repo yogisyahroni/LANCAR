@@ -111,7 +111,7 @@ class MainActivity : FragmentActivity() {
                             onCampaignShown = startupCampaignCoordinator::recordImpression,
                             onCampaignSkip = startupCampaignCoordinator::skipForSession,
                             onCampaignDismiss = startupCampaignCoordinator::dismiss,
-                            onCampaignAssetError = startupCampaignCoordinator::skipForSession,
+                            onCampaignAssetError = startupCampaignCoordinator::recordAssetError,
                         )
                         updateInfo?.let { info ->
                             UpdateDialog(

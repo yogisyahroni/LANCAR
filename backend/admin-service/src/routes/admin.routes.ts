@@ -299,6 +299,8 @@ adminRoutes.patch('/admin/sla-configs', requireRole(['super_admin', 'ops_admin']
 adminRoutes.get('/admin/analytics/kpis', (req, res) => controllers.getAnalyticsKPIs(req, res));
 adminRoutes.get('/admin/analytics/service-kpis', (req, res) => controllers.getAnalyticsServiceKPIs(req, res));
 adminRoutes.get('/admin/analytics/definitions', (req, res) => controllers.getAnalyticsDefinitions(req, res));
+adminRoutes.get('/admin/experience/observability', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminExperienceObservability(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/guardrail/evaluate', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experience_manifest.guardrail.evaluate'), (req, res) => controllers.evaluateAdminExperienceGuardrail(req, res));
 adminRoutes.get('/admin/analytics/sla', (req, res) => controllers.getAnalyticsSLA(req, res));
 adminRoutes.get('/admin/analytics/surge', (req, res) => controllers.getAnalyticsSurge(req, res));
 adminRoutes.get('/admin/analytics/scan-accuracy', (req, res) => controllers.getAnalyticsScanAccuracy(req, res));

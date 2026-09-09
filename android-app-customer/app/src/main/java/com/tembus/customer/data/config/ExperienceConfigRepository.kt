@@ -11,6 +11,10 @@ import com.tembus.customer.data.config.model.ExperienceAssetReference
 import com.tembus.customer.data.localization.LocaleManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,6 +25,7 @@ class ExperienceConfigRepository @Inject constructor(
     private val api: ExperienceConfigApi,
     private val store: ExperienceConfigStore,
     private val localeManager: LocaleManager,
+    private val experienceBannerAnalytics: ExperienceBannerAnalytics,
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -31,6 +36,8 @@ class ExperienceConfigRepository @Inject constructor(
     private val scopePreferences by lazy {
         context.getSharedPreferences(SCOPE_PREFERENCES, Context.MODE_PRIVATE)
     }
+
+    private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     suspend fun currentScope(userId: String? = null): ExperienceConfigScope {
         val languageCode = localeManager.getLanguageCode()
@@ -94,17 +101,32 @@ class ExperienceConfigRepository @Inject constructor(
         }
 
         if (!forceNetwork && cachedManifest != null && cached != null && isFresh(cachedManifest, cached.storedAtMillis)) {
+            reportTelemetry(
+                type = ExperienceBannerEventType.MANIFEST_CACHE_HIT,
+                snapshot = cachedSnapshot,
+                scope = scope,
+                cacheHit = true,
+            )
             return cachedSnapshot
         }
 
+        val fetchStartedAt = System.nanoTime()
         val result = runCatching {
             withTimeout(NETWORK_TIMEOUT_MILLIS) {
                 api.fetch(scope, cached?.takeIf { it.scopeKey == scope.cacheKey && cachedManifest != null }?.etag)
             }
         }.getOrElse { ExperienceConfigFetchResult.Failed(it.javaClass.simpleName) }
+        val fetchLatencyMs = ((System.nanoTime() - fetchStartedAt) / 1_000_000L).coerceAtLeast(0L)
 
         return when (result) {
             is ExperienceConfigFetchResult.NotModified -> {
+                reportTelemetry(
+                    type = ExperienceBannerEventType.MANIFEST_FETCH_SUCCESS,
+                    snapshot = cachedSnapshot,
+                    scope = scope,
+                    latencyMs = fetchLatencyMs,
+                    cacheHit = true,
+                )
                 if (cachedManifest != null && cached != null) {
                     store.touchManifest(System.currentTimeMillis())
                     cachedSnapshot.copy(loadedAtMillis = System.currentTimeMillis())
@@ -115,6 +137,27 @@ class ExperienceConfigRepository @Inject constructor(
             is ExperienceConfigFetchResult.Updated -> {
                 val sanitized = ExperienceManifestValidator.sanitize(result.manifest, scope)
                 if (sanitized == null) {
+                    reportTelemetry(
+                        type = ExperienceBannerEventType.MANIFEST_FETCH_FAILURE,
+                        snapshot = cachedSnapshot,
+                        scope = scope,
+                        latencyMs = fetchLatencyMs,
+                        errorCode = "manifest_validation_failed",
+                    )
+                    reportTelemetry(
+                        type = ExperienceBannerEventType.MANIFEST_PARSE_FAILURE,
+                        snapshot = cachedSnapshot,
+                        scope = scope,
+                        latencyMs = fetchLatencyMs,
+                        errorCode = "manifest_validation_failed",
+                    )
+                    reportTelemetry(
+                        type = ExperienceBannerEventType.MANIFEST_SCHEMA_FALLBACK,
+                        snapshot = cachedSnapshot,
+                        scope = scope,
+                        latencyMs = fetchLatencyMs,
+                        errorCode = "manifest_validation_failed",
+                    )
                     cachedSnapshot
                 } else {
                     val assetBundleKey = runCatching {
@@ -127,6 +170,27 @@ class ExperienceConfigRepository @Inject constructor(
                         }
                     }.getOrNull()
                     if (assetBundleKey == null) {
+                        reportTelemetry(
+                            type = ExperienceBannerEventType.MANIFEST_FETCH_FAILURE,
+                            snapshot = cachedSnapshot,
+                            scope = scope,
+                            latencyMs = fetchLatencyMs,
+                            errorCode = "asset_stage_failed",
+                        )
+                        reportTelemetry(
+                            type = ExperienceBannerEventType.ASSET_BROKEN,
+                            snapshot = cachedSnapshot,
+                            scope = scope,
+                            latencyMs = fetchLatencyMs,
+                            errorCode = "asset_stage_failed",
+                        )
+                        reportTelemetry(
+                            type = ExperienceBannerEventType.MANIFEST_SCHEMA_FALLBACK,
+                            snapshot = cachedSnapshot,
+                            scope = scope,
+                            latencyMs = fetchLatencyMs,
+                            errorCode = "asset_stage_failed",
+                        )
                         cachedSnapshot
                     } else {
                         val storedAt = System.currentTimeMillis()
@@ -139,17 +203,93 @@ class ExperienceConfigRepository @Inject constructor(
                             storedAtMillis = storedAt,
                             assetBundleKey = assetBundleKey,
                         )
-                        ExperienceConfigSnapshot(
+                        val snapshot = ExperienceConfigSnapshot(
                             manifest = sanitized,
                             source = ExperienceConfigSource.NETWORK,
                             loadedAtMillis = storedAt,
                             scope = scope,
                             assetBundleKey = assetBundleKey,
                         )
+                        reportTelemetry(
+                            type = ExperienceBannerEventType.MANIFEST_FETCH_SUCCESS,
+                            snapshot = snapshot,
+                            scope = scope,
+                            latencyMs = fetchLatencyMs,
+                            cacheHit = false,
+                        )
+                        snapshot
                     }
                 }
             }
-            is ExperienceConfigFetchResult.Failed -> cachedSnapshot
+            is ExperienceConfigFetchResult.Failed -> {
+                reportTelemetry(
+                    type = ExperienceBannerEventType.MANIFEST_FETCH_FAILURE,
+                    snapshot = cachedSnapshot,
+                    scope = scope,
+                    latencyMs = fetchLatencyMs,
+                    errorCode = result.reason,
+                )
+                if (result.reason.startsWith("manifest_", ignoreCase = true)
+                    || result.reason.contains("parse", ignoreCase = true)
+                    || result.reason.contains("checksum", ignoreCase = true)
+                    || result.reason.contains("etag", ignoreCase = true)
+                ) {
+                    reportTelemetry(
+                        type = ExperienceBannerEventType.MANIFEST_PARSE_FAILURE,
+                        snapshot = cachedSnapshot,
+                        scope = scope,
+                        latencyMs = fetchLatencyMs,
+                        errorCode = result.reason,
+                    )
+                }
+                if (cachedManifest == null) {
+                    reportTelemetry(
+                        type = ExperienceBannerEventType.MANIFEST_SCHEMA_FALLBACK,
+                        snapshot = cachedSnapshot,
+                        scope = scope,
+                        latencyMs = fetchLatencyMs,
+                        errorCode = result.reason,
+                    )
+                }
+                if (!result.reason.startsWith("manifest_", ignoreCase = true)
+                    || result.reason.matches(Regex("manifest_http_5\\d\\d"))
+                ) {
+                    reportTelemetry(
+                        type = ExperienceBannerEventType.NETWORK_REGRESSION,
+                        snapshot = cachedSnapshot,
+                        scope = scope,
+                        latencyMs = fetchLatencyMs,
+                        errorCode = result.reason,
+                    )
+                }
+                cachedSnapshot
+            }
+        }
+    }
+
+    private fun reportTelemetry(
+        type: ExperienceBannerEventType,
+        snapshot: ExperienceConfigSnapshot,
+        scope: ExperienceConfigScope,
+        latencyMs: Long? = null,
+        cacheHit: Boolean? = null,
+        errorCode: String? = null,
+    ) {
+        telemetryScope.launch {
+            experienceBannerAnalytics.record(
+                ExperienceBannerEvent(
+                    type = type,
+                    component = "manifest",
+                    campaignId = "runtime",
+                    sectionId = "runtime",
+                    manifestRevision = snapshot.manifest.revision.coerceAtLeast(0),
+                    marketCode = scope.marketCode,
+                    manifestId = snapshot.manifest.manifestId.takeIf { it.isNotBlank() && it != "packaged-default" },
+                    latencyMs = latencyMs,
+                    cacheHit = cacheHit,
+                    errorCode = errorCode,
+                ),
+            )
         }
     }
 

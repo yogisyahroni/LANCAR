@@ -1,6 +1,10 @@
 package com.tembus.customer.domain.config
 
 import android.content.Context
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.tembus.customer.data.config.ExperienceBannerAnalytics
+import com.tembus.customer.data.config.ExperienceBannerEvent
+import com.tembus.customer.data.config.ExperienceBannerEventType
 import com.tembus.customer.data.config.ExperienceConfigRepository
 import com.tembus.customer.data.config.model.ExperienceConfigScope
 import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
@@ -32,6 +36,7 @@ class ExperienceConfigManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: ExperienceConfigRepository,
     private val sessionManager: AuthSessionManager,
+    private val experienceBannerAnalytics: ExperienceBannerAnalytics,
 ) {
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _snapshot = MutableStateFlow(
@@ -106,8 +111,44 @@ class ExperienceConfigManager @Inject constructor(
             assetBundleKey = "packaged",
         )
         _snapshot.value = repository.loadLastKnownGood(scope)
+        recordCrashContext(_snapshot.value)
         // The network operation is deliberately launched from the manager's
         // background scope; this coroutine never blocks MainActivity startup.
-        _snapshot.value = repository.refresh(scope)
+        val refreshStartedAt = System.nanoTime()
+        val refreshed = repository.refresh(scope)
+        _snapshot.value = refreshed
+        recordCrashContext(refreshed)
+        val refreshLatencyMs = ((System.nanoTime() - refreshStartedAt) / 1_000_000L).coerceAtLeast(0L)
+        if (refreshLatencyMs >= STARTUP_REGRESSION_THRESHOLD_MILLIS) {
+            managerScope.launch {
+                experienceBannerAnalytics.record(
+                    ExperienceBannerEvent(
+                        type = ExperienceBannerEventType.STARTUP_REGRESSION,
+                        component = "startup",
+                        campaignId = "runtime",
+                        sectionId = "runtime",
+                        manifestRevision = refreshed.manifest.revision.coerceAtLeast(0),
+                        marketCode = scope.marketCode,
+                        manifestId = refreshed.manifest.manifestId.takeIf { it.isNotBlank() && it != "packaged-default" },
+                        latencyMs = refreshLatencyMs.coerceAtMost(60_000L),
+                        errorCode = "startup_refresh_slow",
+                    ),
+                )
+            }
+        }
+    }
+
+    companion object {
+        private const val STARTUP_REGRESSION_THRESHOLD_MILLIS = 3_000L
+    }
+
+    private fun recordCrashContext(snapshot: ExperienceConfigSnapshot) {
+        runCatching {
+            FirebaseCrashlytics.getInstance().apply {
+                setCustomKey("experience_manifest_revision", snapshot.manifest.revision)
+                setCustomKey("experience_manifest_id", snapshot.manifest.manifestId.take(128))
+                setCustomKey("experience_config_source", snapshot.source.name)
+            }
+        }
     }
 }

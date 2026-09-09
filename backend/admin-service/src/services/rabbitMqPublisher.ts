@@ -24,6 +24,7 @@ const canonicalEventHeaders = (headers: Record<string, unknown> = {}) => ({
   ...(headers.correlation_id ? { correlation_id: headers.correlation_id } : {}),
   ...(headers.trace_id ? { trace_id: headers.trace_id } : {}),
   ...(headers.market_code ? { market_code: headers.market_code } : {}),
+  ...(headers.app_version ? { app_version: headers.app_version } : {}),
   ...(headers.source ? { source: headers.source } : {}),
 });
 

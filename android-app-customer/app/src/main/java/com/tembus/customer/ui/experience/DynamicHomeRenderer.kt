@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -105,8 +106,30 @@ fun DynamicHomeRenderer(
     allowRuntimeTheme: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val marketCode = snapshot.scope?.marketCode ?: snapshot.manifest.marketCode
+    fun reportRuntime(type: ExperienceBannerEventType, component: String, sectionId: String, errorCode: String? = null) {
+        onBannerEvent(
+            ExperienceBannerEvent(
+                type = type,
+                component = component,
+                campaignId = "runtime",
+                sectionId = sectionId,
+                manifestRevision = snapshot.manifest.revision.coerceAtLeast(0),
+                marketCode = marketCode,
+                manifestId = snapshot.manifest.manifestId.takeIf { it.isNotBlank() && it != "packaged-default" },
+                errorCode = errorCode,
+            ),
+        )
+    }
     val renderableSections = collectRenderableSections(snapshot.manifest.sections) { component ->
         ExperienceRenderTelemetry.unknownComponent(component, snapshot.manifest.revision)
+    }
+    LaunchedEffect(snapshot.manifest.manifestId, snapshot.manifest.revision) {
+        snapshot.manifest.sections
+            .filter { it.component !in RENDERABLE_COMPONENTS && it.component !in NON_HOME_COMPONENTS }
+            .forEach { section ->
+                reportRuntime(ExperienceBannerEventType.SECTION_RENDER_FAILURE, "section", "section-${section.component}", "unknown_component")
+            }
     }
     val reportedImpressions = remember(snapshot.manifest.manifestId, snapshot.manifest.revision) { mutableSetOf<String>() }
     val reportEvent: (ExperienceBannerEvent) -> Unit = { event ->
@@ -117,7 +140,6 @@ fun DynamicHomeRenderer(
             onBannerEvent(event)
         }
     }
-    val marketCode = snapshot.scope?.marketCode ?: snapshot.manifest.marketCode
     RuntimeThemeProvider(snapshot = snapshot, enabled = allowRuntimeTheme) {
         val runtimeTokens = LocalRuntimeDesignTokens.current
         Column(
@@ -132,6 +154,7 @@ fun DynamicHomeRenderer(
                     sectionId = section.id,
                     manifestRevision = snapshot.manifest.revision,
                     marketCode = marketCode,
+                    manifestId = snapshot.manifest.manifestId,
                     title = section.properties.string("title") ?: return@forEach,
                     body = section.properties.string("body"),
                     badge = section.properties.string("badge"),
@@ -149,6 +172,7 @@ fun DynamicHomeRenderer(
                     sectionId = section.id,
                     manifestRevision = snapshot.manifest.revision,
                     marketCode = marketCode,
+                    manifestId = snapshot.manifest.manifestId,
                     title = section.properties.string("title") ?: return@forEach,
                     body = section.properties.string("body"),
                     badge = section.properties.string("badge"),
@@ -235,7 +259,23 @@ private fun DynamicPromoCarousel(
             externalUrl = item.string("external_url"),
         )
     }
-    if (promoItems.isEmpty()) return
+    if (promoItems.isEmpty()) {
+        LaunchedEffect(section.id, snapshot.manifest.manifestId, snapshot.manifest.revision) {
+            onEvent(
+                ExperienceBannerEvent(
+                    type = ExperienceBannerEventType.SECTION_RENDER_FAILURE,
+                    component = "section",
+                    campaignId = "runtime",
+                    sectionId = section.id,
+                    manifestRevision = snapshot.manifest.revision.coerceAtLeast(0),
+                    marketCode = marketCode,
+                    manifestId = snapshot.manifest.manifestId.takeIf { it.isNotBlank() && it != "packaged-default" },
+                    errorCode = "empty_promo_items",
+                ),
+            )
+        }
+        return
+    }
     Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp)) {
         Text("Untuk kamu", fontSize = 18.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(8.dp))
@@ -246,6 +286,7 @@ private fun DynamicPromoCarousel(
                     sectionId = section.id,
                     manifestRevision = snapshot.manifest.revision,
                     marketCode = marketCode,
+                    manifestId = snapshot.manifest.manifestId,
                     resolveAssetPath = resolveAssetPath,
                     onAction = onAction,
                     onEvent = onEvent,

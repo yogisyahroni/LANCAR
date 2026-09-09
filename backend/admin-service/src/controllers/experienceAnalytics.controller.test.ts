@@ -77,6 +77,40 @@ describe('recordCustomerExperienceEvent', () => {
     expect(response.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'INVALID_EXPERIENCE_EVENT' }));
   });
 
+  it('accepts runtime telemetry with release dimensions and keeps guardrail evaluation non-blocking', async () => {
+    (db.query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ id: 'event-row-id' }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const response = makeResponse();
+
+    await recordCustomerExperienceEvent(makeRequest({
+      event_id: '650e8400-e29b-41d4-a716-446655440000',
+      event_type: 'manifest_fetch_success',
+      component: 'manifest',
+      campaign_id: 'runtime',
+      section_id: 'runtime',
+      manifest_revision: 12,
+      manifest_id: '550e8400-e29b-41d4-a716-446655440000',
+      app_version: '2.4.0',
+      latency_ms: 145,
+      cache_hit: false,
+      market_code: 'id-jk',
+    }), response);
+
+    expect(db.query).toHaveBeenCalledTimes(2);
+    const [query, values] = (db.query as jest.Mock).mock.calls[0];
+    expect(query).toContain('INSERT INTO event_outbox');
+    expect(values[0]).toBe('experience_runtime');
+    expect(values[2]).toBe('experience.runtime.manifest_fetch_success');
+    expect(JSON.parse(values[4])).toEqual(expect.objectContaining({
+      manifest_id: '550e8400-e29b-41d4-a716-446655440000',
+      app_version: '2.4.0',
+      latency_ms: 145,
+      cache_hit: false,
+    }));
+    expect(response.status).toHaveBeenCalledWith(202);
+  });
+
   it('returns unauthorized without an authenticated customer identity', async () => {
     const response = makeResponse();
     await recordCustomerExperienceEvent({ body: {} } as Request, response);

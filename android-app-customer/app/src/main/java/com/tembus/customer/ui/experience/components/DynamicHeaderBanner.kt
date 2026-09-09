@@ -52,6 +52,7 @@ internal fun DynamicHeaderBanner(
     sectionId: String,
     manifestRevision: Int,
     marketCode: String,
+    manifestId: String? = null,
     title: String,
     body: String?,
     badge: String?,
@@ -72,6 +73,7 @@ internal fun DynamicHeaderBanner(
         value = imageAssetId?.let { resolveAssetPath(it) }
     }
     var imageFailed by remember(assetPath) { mutableStateOf(false) }
+    var imageFailureReported by remember(assetPath) { mutableStateOf(false) }
     val target = remember(deepLink, externalUrl) {
         RemoteDeepLinkResolver.resolve(deepLink, externalUrl)
     }
@@ -87,6 +89,24 @@ internal fun DynamicHeaderBanner(
                     sectionId = sectionId,
                     manifestRevision = manifestRevision,
                     marketCode = marketCode,
+                    manifestId = manifestId,
+                ),
+            )
+        }
+    }
+
+    LaunchedEffect(target, component, sectionId, manifestRevision) {
+        if (target is RemoteDeepLinkTarget.Invalid && (!deepLink.isNullOrBlank() || !externalUrl.isNullOrBlank())) {
+            onEvent(
+                ExperienceBannerEvent(
+                    type = ExperienceBannerEventType.DEEPLINK_FAILURE,
+                    component = "deeplink",
+                    campaignId = campaignId,
+                    sectionId = sectionId,
+                    manifestRevision = manifestRevision,
+                    marketCode = marketCode,
+                    manifestId = manifestId,
+                    errorCode = "invalid_target",
                 ),
             )
         }
@@ -109,7 +129,24 @@ internal fun DynamicHeaderBanner(
                         contentDescription = title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.size(76.dp),
-                        onError = { imageFailed = true },
+                        onError = {
+                            imageFailed = true
+                            if (!imageFailureReported) {
+                                imageFailureReported = true
+                                onEvent(
+                                    ExperienceBannerEvent(
+                                        type = ExperienceBannerEventType.ASSET_BROKEN,
+                                        component = "asset",
+                                        campaignId = campaignId,
+                                        sectionId = sectionId,
+                                        manifestRevision = manifestRevision,
+                                        marketCode = marketCode,
+                                        manifestId = manifestId,
+                                        errorCode = "image_load_failed",
+                                    ),
+                                )
+                            }
+                        },
                     )
                 } else {
                     Surface(
@@ -168,6 +205,7 @@ internal fun DynamicHeaderBanner(
                                 sectionId = sectionId,
                                 manifestRevision = manifestRevision,
                                 marketCode = marketCode,
+                                manifestId = manifestId,
                             ),
                         )
                         onAction(target)

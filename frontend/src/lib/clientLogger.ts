@@ -54,4 +54,14 @@ export const clientLog = {
     if (!isDebugEnabled()) return;
     console.error(message, sanitizeMeta(meta));
   },
+  experience(event: string, meta?: ClientLogMeta) {
+    if (!/^(manifest_|section_|asset_|deeplink_|startup_|network_)/.test(event)) return;
+    const safeMeta = sanitizeMeta(meta);
+    const message = `experience.${event}`;
+    if (/_failure$|_failure_|_broken$|_regression$|fallback$/.test(event)) {
+      console.warn(message, safeMeta);
+      return;
+    }
+    console.info(message, safeMeta);
+  },
 };

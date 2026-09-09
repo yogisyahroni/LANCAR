@@ -61,6 +61,7 @@ internal fun DynamicPromoCard(
     sectionId: String,
     manifestRevision: Int,
     marketCode: String,
+    manifestId: String? = null,
     resolveAssetPath: suspend (String) -> String?,
     onAction: (RemoteDeepLinkTarget) -> Unit,
     onEvent: (ExperienceBannerEvent) -> Unit,
@@ -74,6 +75,7 @@ internal fun DynamicPromoCard(
         value = item.imageAssetId?.let { resolveAssetPath(it) }
     }
     var imageFailed by remember(assetPath) { mutableStateOf(false) }
+    var imageFailureReported by remember(assetPath) { mutableStateOf(false) }
     val target = remember(item.deepLink, item.externalUrl) {
         RemoteDeepLinkResolver.resolve(item.deepLink, item.externalUrl)
     }
@@ -89,6 +91,24 @@ internal fun DynamicPromoCard(
                     sectionId = sectionId,
                     manifestRevision = manifestRevision,
                     marketCode = marketCode,
+                    manifestId = manifestId,
+                ),
+            )
+        }
+    }
+
+    LaunchedEffect(target, item.campaignId, sectionId, manifestRevision) {
+        if (target is RemoteDeepLinkTarget.Invalid && (!item.deepLink.isNullOrBlank() || !item.externalUrl.isNullOrBlank())) {
+            onEvent(
+                ExperienceBannerEvent(
+                    type = ExperienceBannerEventType.DEEPLINK_FAILURE,
+                    component = "deeplink",
+                    campaignId = item.campaignId,
+                    sectionId = sectionId,
+                    manifestRevision = manifestRevision,
+                    marketCode = marketCode,
+                    manifestId = manifestId,
+                    errorCode = "invalid_target",
                 ),
             )
         }
@@ -106,6 +126,7 @@ internal fun DynamicPromoCard(
                         sectionId = sectionId,
                         manifestRevision = manifestRevision,
                         marketCode = marketCode,
+                        manifestId = manifestId,
                     ),
                 )
                 onAction(target)
@@ -123,7 +144,24 @@ internal fun DynamicPromoCard(
                     contentDescription = item.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.size(78.dp),
-                    onError = { imageFailed = true },
+                    onError = {
+                        imageFailed = true
+                        if (!imageFailureReported) {
+                            imageFailureReported = true
+                            onEvent(
+                                ExperienceBannerEvent(
+                                    type = ExperienceBannerEventType.ASSET_BROKEN,
+                                    component = "asset",
+                                    campaignId = item.campaignId,
+                                    sectionId = sectionId,
+                                    manifestRevision = manifestRevision,
+                                    marketCode = marketCode,
+                                    manifestId = manifestId,
+                                    errorCode = "image_load_failed",
+                                ),
+                            )
+                        }
+                    },
                 )
             } else {
                 Surface(

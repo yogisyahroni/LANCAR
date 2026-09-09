@@ -28,6 +28,9 @@ data class StartupCampaignDecision(
     val campaign: StartupCampaign,
     /** A verified local path/asset URI; never a remote URL. */
     val assetPath: String?,
+    val manifestId: String? = null,
+    val manifestRevision: Int = 0,
+    val marketCode: String = "id-jk",
 )
 
 /**
@@ -58,7 +61,13 @@ object StartupCampaignPolicy {
 
         val assetPath = campaign.assetReference?.let(resolveAssetPath)
             ?: if (campaign.mediaAssetId == null) null else return null
-        return StartupCampaignDecision(campaign = campaign, assetPath = assetPath)
+        return StartupCampaignDecision(
+            campaign = campaign,
+            assetPath = assetPath,
+            manifestId = manifest.manifestId.takeIf { it.isNotBlank() && it != "packaged-default" },
+            manifestRevision = manifest.revision.coerceAtLeast(0),
+            marketCode = scope.marketCode,
+        )
     }
 
     fun parse(manifest: ExperienceManifest): StartupCampaign? {

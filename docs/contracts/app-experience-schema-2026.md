@@ -159,13 +159,26 @@ resolved locale, and the safe component/asset payload. `If-None-Match` returns
 `304` for an unchanged revision. Inactive or unknown markets fail closed with
 a typed error; the resolver never silently falls back to another market.
 
-Customer Android banner impressions and clicks are accepted at
-`POST /api/v1/customer/experience/events`. The authenticated endpoint accepts
-only `impression`/`click` events for `hero_banner`, `campaign_strip`, or
-`promo_carousel`, and requires `manifest_revision`, `campaign_id`, and
-`section_id`. It writes through the existing canonical `event_outbox` with a
-pseudonymous actor and client event UUID; it never stores the raw customer
-identity or client-supplied price/promo eligibility.
+Customer Android experience telemetry is accepted at
+`POST /api/v1/customer/experience/events`. Marketing events (`impression`,
+`click`, `dismiss`) are limited to `hero_banner`, `campaign_strip`, or
+`promo_carousel`; runtime events cover manifest fetch/cache/parse/schema
+fallback, section rendering, broken assets, deeplinks, startup, and network
+regressions. Every event carries a manifest revision, market, app version and
+client event UUID; runtime events may also carry a manifest UUID, latency,
+cache-hit flag, and a bounded error code. It writes through the existing
+canonical `event_outbox` with a pseudonymous actor and never stores the raw
+customer identity or client-supplied price/promo eligibility.
+
+The admin observability view groups events by manifest revision, market, and
+app version. Reliability guardrails count only runtime events: marketing
+impressions, clicks, and dismissals are reported separately and cannot lower
+or mask the reliability failure rate. The default one-hour guardrail requires
+at least 20 runtime events and trips at a failure rate of 10% or more. A
+tripped high-impact revision (`requires_approval = true`) automatically
+restores the newest historical revision; lower-impact revisions return a
+manual-rollback recommendation so an operator can make the decision with the
+same audited rollback endpoint.
 
 ## Operational/security requirements
 

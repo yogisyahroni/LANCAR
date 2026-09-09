@@ -6,6 +6,7 @@ import com.tembus.customer.data.config.ExperienceConfigApi
 import com.tembus.customer.data.config.ExperienceConfigFetchResult
 import com.tembus.customer.data.config.ExperienceConfigRepository
 import com.tembus.customer.data.config.ExperienceConfigStore
+import com.tembus.customer.data.config.ExperienceBannerAnalytics
 import com.tembus.customer.data.config.model.ExperienceConfigScope
 import com.tembus.customer.data.config.model.ExperienceConfigSource
 import com.tembus.customer.data.config.model.ExperienceManifest
@@ -151,6 +152,7 @@ class ExperienceConfigRepositoryTest {
         api = api,
         store = store,
         localeManager = mockk(relaxed = true),
+        experienceBannerAnalytics = mockk(relaxed = true),
     )
 
     private fun cached(

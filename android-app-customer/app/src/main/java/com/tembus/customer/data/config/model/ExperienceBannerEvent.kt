@@ -13,6 +13,11 @@ data class ExperienceBannerEventRequest(
     @SerialName("section_id") val sectionId: String,
     @SerialName("manifest_revision") val manifestRevision: Int,
     @SerialName("market_code") val marketCode: String,
+    @SerialName("manifest_id") val manifestId: String? = null,
+    @SerialName("app_version") val appVersion: String? = null,
+    @SerialName("latency_ms") val latencyMs: Long? = null,
+    @SerialName("cache_hit") val cacheHit: Boolean? = null,
+    @SerialName("error_code") val errorCode: String? = null,
 )
 
 @Serializable

@@ -129,7 +129,7 @@ export const buildCanonicalEventMetadata = (event: CanonicalEventInput): Canonic
 };
 
 export const canonicalEventHeaders = (headers: Record<string, unknown> = {}) => {
-  const allowed = ['request_id', 'correlation_id', 'trace_id', 'market_code', 'source'];
+  const allowed = ['request_id', 'correlation_id', 'trace_id', 'market_code', 'app_version', 'source'];
   return Object.fromEntries(
     allowed
       .map((key) => [key, headers[key]])

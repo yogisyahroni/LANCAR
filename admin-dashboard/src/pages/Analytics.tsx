@@ -350,6 +350,12 @@ export default function Analytics() {
     ...analyticsQueryOptions,
   })
 
+  const { data: experienceObservabilityPayload, isLoading: experienceObservabilityLoading, isError: experienceObservabilityError, error: experienceObservabilityQueryError, refetch: refetchExperienceObservability } = useQuery({
+    queryKey: ['analytics', 'experience-observability', timeRange],
+    queryFn: () => api.get(`/admin/experience/observability?range=${timeRange}`).then(res => res.data?.data),
+    ...analyticsQueryOptions,
+  })
+
   const { data: slaData, isLoading: slaLoading, isError: slaError, error: slaQueryError, refetch: refetchSla } = useQuery({
     queryKey: ['analytics', 'sla', timeRange],
     queryFn: () => api.get(`/admin/analytics/sla?range=${timeRange}`).then(res => res.data),
@@ -429,6 +435,8 @@ export default function Analytics() {
   }
 
   const kpiItems = Array.isArray(kpis) ? kpis : [];
+  const experienceSummary = experienceObservabilityPayload?.summary;
+  const experienceBreakdown = Array.isArray(experienceObservabilityPayload?.breakdown) ? experienceObservabilityPayload.breakdown : [];
 
   return (
     <div className="space-y-10 animate-in pb-20">
@@ -528,6 +536,88 @@ export default function Analytics() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-6">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
+              <Activity className="text-primary-light" size={22} />
+              Experience reliability guardrails
+            </h3>
+            <p className="text-xs text-zinc-500 mt-2">Fetch, render, asset, deeplink, startup, dan network metrics per revision. Impression/click/dismiss dipisahkan dari guardrail reliability.</p>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Window {timeRange}</span>
+        </div>
+        {experienceObservabilityLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-8 gap-3">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => <div key={item} className="h-24 rounded-2xl bg-white/5 animate-pulse" />)}
+          </div>
+        ) : experienceObservabilityError ? (
+          <DataState
+            title="Experience observability gagal dimuat"
+            message={getQueryErrorMessage(experienceObservabilityQueryError, 'Metrik runtime experience belum bisa diambil dari API.')}
+            onRetry={() => refetchExperienceObservability()}
+            tone="error"
+          />
+        ) : !experienceSummary ? (
+          <DataState
+            title="Belum ada telemetry experience"
+            message="Belum ada event runtime experience pada window ini."
+            onRetry={() => refetchExperienceObservability()}
+          />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-8 gap-3">
+              {[
+                ['Fetch success', experienceSummary.fetch_success],
+                ['Fetch failure', experienceSummary.fetch_failure],
+                ['Cache hit', experienceSummary.cache_hit],
+                ['Parse failure', experienceSummary.parse_failure],
+                ['Schema fallback', experienceSummary.schema_fallback],
+                ['Startup regression', experienceSummary.startup_regression],
+                ['Network regression', experienceSummary.network_regression],
+                ['Failure rate', `${experienceSummary.reliability_failure_rate_pct}%`],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">{label}</p>
+                  <p className="mt-2 text-xl font-black text-zinc-100">{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+              <span className="rounded-full bg-emerald-500/10 px-3 py-2 text-emerald-300">Core guardrail: {experienceSummary.reliability_failures}/{experienceSummary.reliability_total} failures</span>
+              <span className="rounded-full bg-primary/10 px-3 py-2 text-primary-light">Fetch latency p95: {experienceSummary.fetch_latency_p95_ms} ms</span>
+              <span className="rounded-full bg-white/5 px-3 py-2">Marketing: {experienceSummary.impressions} imp • {experienceSummary.clicks} click • {experienceSummary.dismissals} dismiss</span>
+            </div>
+            <div className="overflow-x-auto rounded-2xl border border-white/5">
+              <table className="min-w-full text-left text-xs">
+                <thead className="bg-white/[0.03] text-[9px] font-black uppercase tracking-widest text-zinc-600">
+                  <tr>
+                    <th className="px-4 py-3">Revision</th>
+                    <th className="px-4 py-3">Market</th>
+                    <th className="px-4 py-3">App</th>
+                    <th className="px-4 py-3">Reliability</th>
+                    <th className="px-4 py-3">Events</th>
+                    <th className="px-4 py-3">Marketing</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {experienceBreakdown.slice(0, 20).map((row: any) => (
+                    <tr key={`${row.manifest_id}-${row.manifest_revision}-${row.market_code}-${row.app_version}`} className="text-zinc-300">
+                      <td className="px-4 py-3 font-bold">{row.manifest_id} / {row.manifest_revision}</td>
+                      <td className="px-4 py-3">{row.market_code}</td>
+                      <td className="px-4 py-3">{row.app_version}</td>
+                      <td className={cn('px-4 py-3 font-black', Number(row.reliability_failure_rate_pct) >= 10 ? 'text-red-300' : 'text-emerald-300')}>{row.reliability_failure_rate_pct}%</td>
+                      <td className="px-4 py-3">{row.reliability_failures}/{row.reliability_total}</td>
+                      <td className="px-4 py-3">{row.impressions}/{row.clicks}/{row.dismissals}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">

@@ -1,6 +1,9 @@
 package com.tembus.customer.domain.config
 
 import com.tembus.customer.data.config.StartupCampaignStore
+import com.tembus.customer.data.config.ExperienceBannerAnalytics
+import com.tembus.customer.data.config.ExperienceBannerEvent
+import com.tembus.customer.data.config.ExperienceBannerEventType
 import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
 import com.tembus.customer.data.session.AuthSessionManager
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +28,7 @@ class StartupCampaignCoordinator @Inject constructor(
     private val experienceConfigManager: ExperienceConfigManager,
     private val campaignStore: StartupCampaignStore,
     private val sessionManager: AuthSessionManager,
+    private val experienceBannerAnalytics: ExperienceBannerAnalytics,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _decision = MutableStateFlow<StartupCampaignDecision?>(null)
@@ -69,6 +73,7 @@ class StartupCampaignCoordinator @Inject constructor(
         val key = decision.campaign.campaignId
         suppressedForSession.add(key)
         clearIfCurrent(key)
+        recordAnalytics(decision, ExperienceBannerEventType.DISMISS)
         scope.launch {
             sessionManager.getUserIdSync()?.let { userId ->
                 campaignStore.dismiss(userId, decision.campaign.campaignId)
@@ -83,6 +88,7 @@ class StartupCampaignCoordinator @Inject constructor(
         // repeatedly after its first impression has been persisted.
         suppressedForSession.add(key)
         clearIfCurrent(key)
+        recordAnalytics(decision, ExperienceBannerEventType.IMPRESSION)
         scope.launch {
             sessionManager.getUserIdSync()?.let { userId ->
                 campaignStore.recordImpression(
@@ -91,6 +97,34 @@ class StartupCampaignCoordinator @Inject constructor(
                     nowMillis = System.currentTimeMillis(),
                 )
             }
+        }
+    }
+
+    fun recordAssetError(decision: StartupCampaignDecision) {
+        val key = decision.campaign.campaignId
+        suppressedForSession.add(key)
+        clearIfCurrent(key)
+        recordAnalytics(decision, ExperienceBannerEventType.ASSET_BROKEN, "campaign_asset_load_failed")
+    }
+
+    private fun recordAnalytics(
+        decision: StartupCampaignDecision,
+        type: ExperienceBannerEventType,
+        errorCode: String? = null,
+    ) {
+        scope.launch {
+            experienceBannerAnalytics.record(
+                ExperienceBannerEvent(
+                    type = type,
+                    component = "campaign_strip",
+                    campaignId = decision.campaign.campaignId,
+                    sectionId = "campaign_intro",
+                    manifestRevision = decision.manifestRevision,
+                    marketCode = decision.marketCode,
+                    manifestId = decision.manifestId,
+                    errorCode = errorCode,
+                ),
+            )
         }
     }
 
