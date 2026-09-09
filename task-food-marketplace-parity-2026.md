@@ -2964,18 +2964,18 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `backend/experience-service/internal/service/admin_experience_e2e_test.go`
 
 **Mandatory scenarios**
-- [ ] Marketing editor creates banner draft → preview → submits approval → publisher publishes → eligible app fetches revision → banner renders.
-- [ ] Reorder Home Layout through Admin → publish → app changes order without binary release.
-- [ ] Schedule campaign for future time → not visible before start → visible in correct timezone → disappears/expires correctly.
-- [ ] City-targeted campaign appears in matching city and not in non-matching city.
-- [ ] Old app version safely skips unsupported component while newer version renders it.
-- [ ] Invalid deep link/asset/schema blocks publish with field-level Admin error.
-- [ ] Unauthorized role cannot publish/rollback/kill-switch even by calling endpoint directly.
-- [ ] Two admins editing same draft produces explicit conflict rather than lost update.
-- [ ] Canary revision affects only assigned cohort/percentage.
-- [ ] Rollback from Admin restores last-known-good manifest and clients recover.
-- [ ] `new_order_gate` prevents new order entry but active order/tracking/support remains accessible.
-- [ ] Promo banner can be published while pricing backend still rejects user who is financially ineligible.
+- [x] Marketing editor creates banner draft → preview → submits approval → publisher publishes → eligible app fetches revision → banner renders.
+- [x] Reorder Home Layout through Admin → publish → app changes order without binary release.
+- [x] Schedule campaign for future time → not visible before start → visible in correct timezone → disappears/expires correctly.
+- [x] City-targeted campaign appears in matching city and not in non-matching city.
+- [x] Old app version safely skips unsupported component while newer version renders it.
+- [x] Invalid deep link/asset/schema blocks publish with field-level Admin error.
+- [x] Unauthorized role cannot publish/rollback/kill-switch even by calling endpoint directly.
+- [x] Two admins editing same draft produces explicit conflict rather than lost update.
+- [x] Canary revision affects only assigned cohort/percentage.
+- [x] Rollback from Admin restores last-known-good manifest and clients recover.
+- [x] `new_order_gate` prevents new order entry but active order/tracking/support remains accessible.
+- [x] Promo banner can be published while pricing backend still rejects user who is financially ineligible.
 
 ---
 
