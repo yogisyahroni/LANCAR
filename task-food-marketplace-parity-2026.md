@@ -2152,12 +2152,12 @@ A task is complete only when applicable boxes below are true:
 - Customer Android, Merchant Android, Courier Android and Customer Web entry points
 
 **Checklist**
-- [ ] Flags support `off`, `on`, percentage rollout, market/city, app version and cohort conditions.
-- [ ] Emergency kill switch can hide/disable non-safe entry point without waiting for store release.
-- [ ] Transaction already in progress is not abandoned because its entry flag turns off; active-order recovery remains accessible.
-- [ ] Flag evaluation revision is logged for debugging/experiments.
-- [ ] Financial/security invariant cannot be disabled by a marketing feature flag.
-- [ ] High-blast-radius flags require elevated approval and rollback plan.
+- [x] Flags support `off`, `on`, percentage rollout, market/city, app version and cohort conditions. Evidence: `docs/task-evidence/APP-2026-007.md`.
+- [x] Emergency kill switch can hide/disable non-safe entry point without waiting for store release. Evidence: `docs/task-evidence/APP-2026-007.md`.
+- [x] Transaction already in progress is not abandoned because its entry flag turns off; active-order recovery remains accessible. Evidence: `docs/task-evidence/APP-2026-007.md`.
+- [x] Flag evaluation revision is logged for debugging/experiments. Evidence: `docs/task-evidence/APP-2026-007.md`.
+- [x] Financial/security invariant cannot be disabled by a marketing feature flag. Evidence: `docs/task-evidence/APP-2026-007.md`.
+- [x] High-blast-radius flags require elevated approval and rollback plan. Evidence: `docs/task-evidence/APP-2026-007.md`.
 
 ---
 
