@@ -28,6 +28,7 @@ publicRoutes.get('/auth/web/reports/umkm', verifyWebSession, (req, res) => contr
 publicRoutes.post('/auth/web/promos/validate', verifyWebSession, promoReadRateLimiter, (req, res) => controllers.validateCustomerPromo(req, res));
 publicRoutes.get('/auth/web/feature-flags', verifyWebSession, (req, res) => controllers.featureFlagsPublic.getWebFeatureFlags(req, res));
 publicRoutes.get('/api/v1/mobile/feature-flags', requireMobileOrWebAuth, (req, res) => controllers.featureFlagsPublic.getMobileFeatureFlags(req, res));
+publicRoutes.get('/api/v1/experience/manifest', publicEndpointRateLimiter, (req, res) => controllers.getPublicExperienceManifest(req, res));
 publicRoutes.get('/api/v1/mobile/orders/:id/conversation', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
 publicRoutes.patch('/api/v1/mobile/orders/:id/conversation/read', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.customerOrder.markOrderChatRead(req, res));
 publicRoutes.post('/api/v1/mobile/orders/:id/calls', requireMobileOrWebAuth, communicationCallRateLimiter, (req, res) => controllers.customerOrder.createOrderCall(req, res));
