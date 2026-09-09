@@ -97,18 +97,19 @@ object ExperienceManifestValidator {
     const val SUPPORTED_SCHEMA_VERSION = 1
     const val CUSTOMER_ANDROID_SURFACE = "customer_android"
     const val DEFAULT_MARKET_CODE = "id-jk"
+    private val experienceExternalHosts = setOf("bawain.my.id", "www.bawain.my.id", "app.bawain.my.id")
 
     private val identifier = Regex("^[a-z0-9][a-z0-9._-]{0,127}$")
     private val semver = Regex("^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$")
     private val sha256 = Regex("^[a-f0-9]{64}$")
     private val components = mapOf(
-        "hero_banner" to setOf("title", "body", "image_asset_id", "cta_label", "deep_link"),
-        "campaign_strip" to setOf("title", "body", "cta_label", "deep_link"),
+        "hero_banner" to setOf("campaign_id", "title", "body", "badge", "image_asset_id", "cta_label", "deep_link", "external_url"),
+        "campaign_strip" to setOf("campaign_id", "title", "body", "badge", "image_asset_id", "cta_label", "deep_link", "external_url"),
         "promo_carousel" to setOf("items"),
         "service_grid" to setOf("title", "service_codes", "cards", "display_mode"),
         "info_card" to setOf("title", "body", "icon_asset_id", "deep_link"),
         "quick_actions" to setOf("actions"),
-        "notice" to setOf("title", "body", "cta_label", "deep_link"),
+        "notice" to setOf("title", "body", "cta_label", "deep_link", "external_url"),
         "spacer" to setOf("size"),
         "campaign_intro" to setOf(
             "enabled", "campaign_id", "title", "body", "media_asset_id",
@@ -221,6 +222,7 @@ object ExperienceManifestValidator {
                 normalizedKey == "service_codes" -> sanitizeIdentifiers(value)
                 normalizedKey.endsWith("asset_id") -> sanitizeIdentifier(value)
                 normalizedKey == "deep_link" -> sanitizeDeepLink(value)
+                normalizedKey == "external_url" -> sanitizeExternalUrl(value)
                 normalizedKey == "display_mode" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { it in setOf("compact", "cards") }?.let(::JsonPrimitive)
                 normalizedKey == "size" && component == "spacer" -> (value as? JsonPrimitive)?.contentOrNull?.takeIf { it in setOf("small", "medium", "large") }?.let(::JsonPrimitive)
                 normalizedKey == "code" && component == "service_card" -> sanitizeIdentifier(value)
@@ -271,7 +273,7 @@ object ExperienceManifestValidator {
         val items = value as? JsonArray ?: return null
         val output = items.mapNotNull { item ->
             val objectValue = item as? JsonObject ?: return@mapNotNull null
-            sanitizeProperties("promo_item", objectValue, setOf("id", "title", "body", "image_asset_id", "cta_label", "deep_link"))
+            sanitizeProperties("promo_item", objectValue, setOf("id", "campaign_id", "title", "body", "badge", "image_asset_id", "cta_label", "deep_link", "external_url"))
                 ?.takeIf { it.containsKey("id") && it.containsKey("title") }
         }
         return JsonArray(output).takeIf { output.size == items.size && output.isNotEmpty() && output.size <= 10 }
@@ -304,6 +306,20 @@ object ExperienceManifestValidator {
             Regex("^/(home|food|promo|orders|support|profile)(?:[/?#].*)?$").matches(link)
         }
         return link.takeIf { allowed && it.length <= 512 && !it.contains("javascript:", ignoreCase = true) }?.let(::JsonPrimitive)
+    }
+
+    private fun sanitizeExternalUrl(value: JsonElement): JsonPrimitive? {
+        val raw = (value as? JsonPrimitive)?.contentOrNull?.trim() ?: return null
+        val parsed = runCatching { java.net.URI(raw) }.getOrNull() ?: return null
+        val host = parsed.host?.lowercase(Locale.ROOT) ?: return null
+        val safe = parsed.scheme.equals("https", ignoreCase = true)
+            && host in experienceExternalHosts
+            && parsed.userInfo == null
+            && (parsed.port == -1 || parsed.port == 443)
+            && parsed.rawFragment == null
+            && !parsed.rawPath.orEmpty().contains("..")
+            && !Regex("%2e", RegexOption.IGNORE_CASE).containsMatchIn(parsed.rawPath.orEmpty())
+        return raw.takeIf { safe && it.length <= 2048 }?.let(::JsonPrimitive)
     }
 
     private fun sanitizeText(value: JsonElement): JsonPrimitive? {

@@ -256,6 +256,21 @@ fun RootNavGraph(
                     },
                     onFoodClick = { navController.navigate(Screen.FoodHome.route) },
                     onIncomingClick = { navController.navigate(Screen.History.route) },
+                    onRemoteAction = { target ->
+                        when (target) {
+                            is RemoteDeepLinkTarget.Internal -> when (target.destination) {
+                                RemoteInternalDestination.HOME -> navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
+                                RemoteInternalDestination.FOOD -> navController.navigate(Screen.FoodHome.route) { launchSingleTop = true }
+                                RemoteInternalDestination.FOOD_FAVORITES -> navController.navigate(Screen.FoodFavorites.route) { launchSingleTop = true }
+                                RemoteInternalDestination.PROMO -> navController.navigate(Screen.Booking.createRoute("promo")) { launchSingleTop = true }
+                                RemoteInternalDestination.ORDERS -> navController.navigate(Screen.History.route) { launchSingleTop = true }
+                                RemoteInternalDestination.SUPPORT -> Unit
+                                RemoteInternalDestination.PROFILE -> navController.navigate(Screen.Profile.route) { launchSingleTop = true }
+                            }
+                            is RemoteDeepLinkTarget.External -> RemoteDeepLinkResolver.openExternalUrl(context, target)
+                            RemoteDeepLinkTarget.Invalid -> dispatchRemoteDeepLinkFailure(target)
+                        }
+                    },
                     onTrackingClick = { orderId -> navController.navigate(Screen.Tracking.createRoute(orderId)) },
                     onChatClick = { orderId -> navController.navigate(Screen.Chat.createRoute(orderId, null)) },
                     onHistoryClick = { navController.navigate(Screen.History.route) },

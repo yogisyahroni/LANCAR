@@ -48,6 +48,16 @@ Each component has a strict property schema. Unknown components and unknown
 properties are rejected before publication. HTML, JavaScript/data URLs,
 arbitrary deep links, and protected transaction properties are rejected.
 
+`hero_banner` and `campaign_strip` are presentation-only banner components.
+They may carry a localized `title`, optional `body`, `badge`, `campaign_id`,
+checksum-verified `image_asset_id`, and one CTA target (`deep_link` or
+`external_url`) with an optional `cta_label`. Internal CTA routes are mapped by
+the native client to a finite typed destination set. External CTAs are limited
+to the first-party HTTPS hosts `bawain.my.id`, `www.bawain.my.id`, and
+`app.bawain.my.id`; the client hands them to the system browser only after the
+same validation. A promo carousel item follows the same rule and uses its
+`id` as the campaign identity when `campaign_id` is omitted.
+
 `campaign_intro` is presentation-only and is consumed after the local native
 OS splash. Its `campaign_id`, localized `title`/optional `body`, optional
 `media_asset_id` (image/animation only), `frequency_cap_hours`,
@@ -96,6 +106,14 @@ The response includes `ETag: "<checksum>"`, checksum/signature, cache policy,
 resolved locale, and the safe component/asset payload. `If-None-Match` returns
 `304` for an unchanged revision. Inactive or unknown markets fail closed with
 a typed error; the resolver never silently falls back to another market.
+
+Customer Android banner impressions and clicks are accepted at
+`POST /api/v1/customer/experience/events`. The authenticated endpoint accepts
+only `impression`/`click` events for `hero_banner`, `campaign_strip`, or
+`promo_carousel`, and requires `manifest_revision`, `campaign_id`, and
+`section_id`. It writes through the existing canonical `event_outbox` with a
+pseudonymous actor and client event UUID; it never stores the raw customer
+identity or client-supplied price/promo eligibility.
 
 ## Operational/security requirements
 

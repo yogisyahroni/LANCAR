@@ -143,6 +143,7 @@ jest.mock('./controllers', () => ({
   publishEconomicPolicyRevision: jest.fn((req, res) => res.status(200).json({ success: true, data: { status: 'published' } })),
   rollbackEconomicPolicyRevision: jest.fn((req, res) => res.status(200).json({ success: true, data: { status: 'rolled_back' } })),
   getAnalyticsRetention: jest.fn((req, res) => res.status(200).json({})),
+  recordCustomerExperienceEvent: jest.fn((req, res) => res.status(202).json({ success: true })),
   getHeatData: jest.fn((req, res) => res.status(200).json([])),
   exportAnalytics: jest.fn((req, res) => res.status(200).send('csv,data')),
   getScheduledReports: jest.fn((req, res) => res.status(200).json([])),

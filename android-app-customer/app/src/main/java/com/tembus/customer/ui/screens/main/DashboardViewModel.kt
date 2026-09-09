@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.tembus.customer.data.model.GlobalBanner
 import com.tembus.customer.data.model.Order
 import com.tembus.customer.data.model.DeliveryServiceProduct
+import com.tembus.customer.data.config.ExperienceBannerAnalytics
+import com.tembus.customer.data.config.ExperienceBannerEvent
+import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
 import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.data.repository.OrderRepository
 import com.tembus.customer.data.session.AuthSessionManager
@@ -25,6 +28,7 @@ class DashboardViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val sessionManager: AuthSessionManager,
     private val experienceConfigManager: ExperienceConfigManager,
+    private val experienceBannerAnalytics: ExperienceBannerAnalytics,
 ) : ViewModel() {
     private val technicalErrorMarkers = listOf("HTTP ", "Exception", "java.", "kotlin.", "retrofit", "okhttp", "timeout")
 
@@ -42,6 +46,15 @@ class DashboardViewModel @Inject constructor(
     private val _services = MutableStateFlow<List<DeliveryServiceProduct>>(emptyList())
     val services = _services.asStateFlow()
     val experienceSnapshot = experienceConfigManager.snapshot
+
+    fun recordExperienceBannerEvent(event: ExperienceBannerEvent) {
+        viewModelScope.launch {
+            experienceBannerAnalytics.record(event)
+        }
+    }
+
+    suspend fun resolveExperienceAsset(snapshot: ExperienceConfigSnapshot, assetId: String): String? =
+        experienceConfigManager.resolveAssetPath(snapshot, assetId)
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()

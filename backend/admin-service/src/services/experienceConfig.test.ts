@@ -147,6 +147,46 @@ describe('experience manifest contract', () => {
     });
   });
 
+  it('accepts first-party banner media, badge, campaign identity and external CTA targets', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      sections: [
+        {
+          id: 'hero',
+          component: 'hero_banner',
+          properties: {
+            campaign_id: 'ramadan-2026',
+            title: 'Promo Ramadan',
+            badge: 'Terbatas',
+            external_url: 'https://app.bawain.my.id/promo/ramadan?source=home',
+          },
+        },
+        {
+          id: 'promos',
+          component: 'promo_carousel',
+          properties: {
+            items: [{
+              id: 'promo-1',
+              campaign_id: 'ramadan-2026',
+              title: 'Diskon ongkir',
+              badge: 'Baru',
+              external_url: 'https://bawain.my.id/promo/1',
+            }],
+          },
+        },
+      ],
+    });
+
+    expect(parsed.sections[0].properties).toMatchObject({
+      campaign_id: 'ramadan-2026',
+      badge: 'Terbatas',
+      external_url: 'https://app.bawain.my.id/promo/ramadan?source=home',
+    });
+    expect(parsed.sections[1].properties).toMatchObject({
+      items: [expect.objectContaining({ campaign_id: 'ramadan-2026', badge: 'Baru' })],
+    });
+  });
+
   it('rejects unknown components, unsafe links, and protected properties', () => {
     expect(() => parseExperienceManifestInput({
       ...validInput,
@@ -158,8 +198,49 @@ describe('experience manifest contract', () => {
     })).toThrow('allowlisted LANCAR route');
     expect(() => parseExperienceManifestInput({
       ...validInput,
+      sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'x', external_url: 'https://evil.example/promo' } }],
+    })).toThrow('allowlisted first-party host');
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'hero',
+        component: 'hero_banner',
+        properties: { title: 'x', deep_link: '/promo', external_url: 'https://app.bawain.my.id/promo' },
+      }],
+    })).toThrow('only one CTA target');
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
       sections: [{ id: 'hero', component: 'hero_banner', properties: { title: 'x', payment: 'override' } }],
     })).toThrow('Unrecognized key');
+  });
+
+  it('keeps promo presentation separate from authoritative pricing and eligibility', () => {
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'promos',
+        component: 'promo_carousel',
+        properties: {
+          items: [{ id: 'promo-1', title: 'Promo', discount_amount: 10000 }],
+        },
+      }],
+    })).toThrow('Unrecognized key');
+
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'promos',
+        component: 'promo_carousel',
+        properties: {
+          items: [{
+            id: 'promo-1',
+            title: 'Promo',
+            deep_link: '/promo',
+            external_url: 'https://app.bawain.my.id/promo',
+          }],
+        },
+      }],
+    })).toThrow('only one CTA target');
   });
 
   it('rejects undeclared assets and invalid version ranges', () => {

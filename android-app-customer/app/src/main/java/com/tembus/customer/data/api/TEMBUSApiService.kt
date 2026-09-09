@@ -1,6 +1,8 @@
 package com.tembus.customer.data.api
 
 import com.tembus.customer.data.model.*
+import com.tembus.customer.data.config.model.ExperienceBannerEventRequest
+import com.tembus.customer.data.config.model.ExperienceBannerEventResponse
 import com.tembus.customer.data.config.model.ExperienceManifestEnvelope
 import kotlinx.serialization.json.JsonElement
 import retrofit2.Response
@@ -27,6 +29,11 @@ interface TEMBUSApiService {
         @Query("experiment_ref") experimentRef: String? = null,
         @Header("If-None-Match") ifNoneMatch: String? = null,
     ): Response<ExperienceManifestEnvelope>
+
+    @POST("api/v1/customer/experience/events")
+    suspend fun recordCustomerExperienceEvent(
+        @Body request: ExperienceBannerEventRequest,
+    ): Response<ExperienceBannerEventResponse>
 
     @GET("api/v1/maps/config")
     suspend fun getMapsProviderConfig(

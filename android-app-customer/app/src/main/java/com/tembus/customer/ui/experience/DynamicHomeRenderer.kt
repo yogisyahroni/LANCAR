@@ -17,10 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,8 +37,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tembus.customer.data.config.model.ExperienceConfigSnapshot
 import com.tembus.customer.data.config.model.ExperienceSection
+import com.tembus.customer.data.config.ExperienceBannerEvent
+import com.tembus.customer.data.config.ExperienceBannerEventType
 import com.tembus.customer.data.model.DeliveryServiceProduct
 import com.tembus.customer.ui.components.getServiceIcon
+import com.tembus.customer.ui.experience.components.DynamicHeaderBanner
+import com.tembus.customer.ui.experience.components.DynamicPromoCard
+import com.tembus.customer.ui.experience.components.DynamicPromoCardModel
+import com.tembus.customer.ui.navigation.RemoteDeepLinkResolver
+import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
+import com.tembus.customer.ui.navigation.RemoteInternalDestination
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -89,7 +95,9 @@ fun DynamicHomeRenderer(
     snapshot: ExperienceConfigSnapshot,
     services: List<DeliveryServiceProduct>,
     onServiceClick: (String) -> Unit,
-    onDeepLink: (String) -> Unit,
+    onRemoteAction: (RemoteDeepLinkTarget) -> Unit,
+    onBannerEvent: (ExperienceBannerEvent) -> Unit,
+    resolveAssetPath: suspend (String) -> String? = { null },
     onHistoryClick: () -> Unit,
     onFavoritesClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -97,23 +105,74 @@ fun DynamicHomeRenderer(
     val renderableSections = collectRenderableSections(snapshot.manifest.sections) { component ->
         ExperienceRenderTelemetry.unknownComponent(component, snapshot.manifest.revision)
     }
+    val reportedImpressions = remember(snapshot.manifest.manifestId, snapshot.manifest.revision) { mutableSetOf<String>() }
+    val reportEvent: (ExperienceBannerEvent) -> Unit = { event ->
+        if (event.type == ExperienceBannerEventType.IMPRESSION) {
+            val key = "${event.component}|${event.sectionId}|${event.campaignId}"
+            if (reportedImpressions.add(key)) onBannerEvent(event)
+        } else {
+            onBannerEvent(event)
+        }
+    }
+    val marketCode = snapshot.scope?.marketCode ?: snapshot.manifest.marketCode
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         renderableSections.forEach { section ->
             when (section.component) {
-                "hero_banner" -> DynamicHeroBanner(section, onDeepLink)
-                "campaign_strip" -> DynamicCampaignStrip(section, onDeepLink)
-                "promo_carousel" -> DynamicPromoCarousel(section, onDeepLink)
+                "hero_banner" -> DynamicHeaderBanner(
+                    component = section.component,
+                    campaignId = section.properties.string("campaign_id") ?: section.id,
+                    sectionId = section.id,
+                    manifestRevision = snapshot.manifest.revision,
+                    marketCode = marketCode,
+                    title = section.properties.string("title") ?: return@forEach,
+                    body = section.properties.string("body"),
+                    badge = section.properties.string("badge"),
+                    ctaLabel = section.properties.string("cta_label"),
+                    deepLink = section.properties.string("deep_link"),
+                    externalUrl = section.properties.string("external_url"),
+                    imageAssetId = section.properties.string("image_asset_id"),
+                    resolveAssetPath = resolveAssetPath,
+                    onAction = onRemoteAction,
+                    onEvent = reportEvent,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                )
+                "campaign_strip" -> DynamicHeaderBanner(
+                    component = section.component,
+                    campaignId = section.properties.string("campaign_id") ?: section.id,
+                    sectionId = section.id,
+                    manifestRevision = snapshot.manifest.revision,
+                    marketCode = marketCode,
+                    title = section.properties.string("title") ?: return@forEach,
+                    body = section.properties.string("body"),
+                    badge = section.properties.string("badge"),
+                    ctaLabel = section.properties.string("cta_label"),
+                    deepLink = section.properties.string("deep_link"),
+                    externalUrl = section.properties.string("external_url"),
+                    imageAssetId = section.properties.string("image_asset_id"),
+                    resolveAssetPath = resolveAssetPath,
+                    onAction = onRemoteAction,
+                    onEvent = reportEvent,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                )
+                "promo_carousel" -> DynamicPromoCarousel(
+                    section = section,
+                    snapshot = snapshot,
+                    marketCode = marketCode,
+                    resolveAssetPath = resolveAssetPath,
+                    onAction = onRemoteAction,
+                    onEvent = reportEvent,
+                )
                 "service_grid" -> DynamicServiceGrid(
                     section = section,
                     services = services,
                     onServiceClick = onServiceClick,
                 )
-                "quick_actions" -> DynamicQuickActions(section, onDeepLink, onHistoryClick, onFavoritesClick)
-                "info_card" -> DynamicInfoCard(section, onDeepLink)
-                "notice" -> DynamicNotice(section, onDeepLink)
+                "quick_actions" -> DynamicQuickActions(section, onRemoteAction, onHistoryClick, onFavoritesClick)
+                "info_card" -> DynamicInfoCard(section, onRemoteAction)
+                "notice" -> DynamicNotice(section, onRemoteAction)
                 "spacer" -> DynamicSpacer(section)
             }
         }
@@ -150,57 +209,44 @@ internal fun resolveDynamicServices(
 }
 
 @Composable
-private fun DynamicHeroBanner(section: ExperienceSection, onDeepLink: (String) -> Unit) {
-    val properties = section.properties
-    DynamicTextCard(
-        title = properties.string("title") ?: return,
-        body = properties.string("body"),
-        icon = Icons.Default.Campaign,
-        deepLink = properties.string("deep_link"),
-        ctaLabel = properties.string("cta_label"),
-        onDeepLink = onDeepLink,
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-    )
-}
-
-@Composable
-private fun DynamicCampaignStrip(section: ExperienceSection, onDeepLink: (String) -> Unit) {
-    val properties = section.properties
-    DynamicTextCard(
-        title = properties.string("title") ?: return,
-        body = properties.string("body"),
-        icon = Icons.Default.Star,
-        deepLink = properties.string("deep_link"),
-        ctaLabel = properties.string("cta_label"),
-        onDeepLink = onDeepLink,
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-    )
-}
-
-@Composable
-private fun DynamicPromoCarousel(section: ExperienceSection, onDeepLink: (String) -> Unit) {
-    val items = (section.properties["items"] as? JsonArray).orEmpty().mapNotNull { value ->
+private fun DynamicPromoCarousel(
+    section: ExperienceSection,
+    snapshot: ExperienceConfigSnapshot,
+    marketCode: String,
+    resolveAssetPath: suspend (String) -> String?,
+    onAction: (RemoteDeepLinkTarget) -> Unit,
+    onEvent: (ExperienceBannerEvent) -> Unit,
+) {
+    val promoItems = (section.properties["items"] as? JsonArray).orEmpty().mapNotNull { value ->
         val item = value as? JsonObject ?: return@mapNotNull null
-        Triple(item.string("title"), item.string("body"), item.string("deep_link"))
+        DynamicPromoCardModel(
+            id = item.string("id") ?: return@mapNotNull null,
+            campaignId = item.string("campaign_id") ?: item.string("id") ?: return@mapNotNull null,
+            title = item.string("title") ?: return@mapNotNull null,
+            body = item.string("body"),
+            badge = item.string("badge"),
+            imageAssetId = item.string("image_asset_id"),
+            ctaLabel = item.string("cta_label"),
+            deepLink = item.string("deep_link"),
+            externalUrl = item.string("external_url"),
+        )
     }
-    if (items.isEmpty()) return
+    if (promoItems.isEmpty()) return
     Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp)) {
         Text("Untuk kamu", fontSize = 18.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(items) { item ->
-                Card(
-                    modifier = Modifier
-                        .fillParentMaxWidth(0.78f)
-                        .clickable(enabled = item.third != null) { item.third?.let(onDeepLink) },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(18.dp),
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(item.first.orEmpty(), fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        item.second?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-                    }
-                }
+            items(promoItems, key = { it.id }) { item ->
+                DynamicPromoCard(
+                    item = item,
+                    sectionId = section.id,
+                    manifestRevision = snapshot.manifest.revision,
+                    marketCode = marketCode,
+                    resolveAssetPath = resolveAssetPath,
+                    onAction = onAction,
+                    onEvent = onEvent,
+                    modifier = Modifier.fillParentMaxWidth(0.78f),
+                )
             }
         }
     }
@@ -279,27 +325,29 @@ private fun DynamicServiceCard(
 }
 
 @Composable
-private fun DynamicInfoCard(section: ExperienceSection, onDeepLink: (String) -> Unit) {
+private fun DynamicInfoCard(section: ExperienceSection, onAction: (RemoteDeepLinkTarget) -> Unit) {
     DynamicTextCard(
         title = section.properties.string("title") ?: return,
         body = section.properties.string("body"),
         icon = Icons.Default.Info,
         deepLink = section.properties.string("deep_link"),
         ctaLabel = null,
-        onDeepLink = onDeepLink,
+        externalUrl = null,
+        onAction = onAction,
         containerColor = MaterialTheme.colorScheme.surface,
     )
 }
 
 @Composable
-private fun DynamicNotice(section: ExperienceSection, onDeepLink: (String) -> Unit) {
+private fun DynamicNotice(section: ExperienceSection, onAction: (RemoteDeepLinkTarget) -> Unit) {
     DynamicTextCard(
         title = section.properties.string("title") ?: return,
         body = section.properties.string("body"),
         icon = Icons.Default.Info,
         deepLink = section.properties.string("deep_link"),
         ctaLabel = section.properties.string("cta_label"),
-        onDeepLink = onDeepLink,
+        externalUrl = section.properties.string("external_url"),
+        onAction = onAction,
         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
     )
 }
@@ -307,7 +355,7 @@ private fun DynamicNotice(section: ExperienceSection, onDeepLink: (String) -> Un
 @Composable
 private fun DynamicQuickActions(
     section: ExperienceSection,
-    onDeepLink: (String) -> Unit,
+    onAction: (RemoteDeepLinkTarget) -> Unit,
     onHistoryClick: () -> Unit,
     onFavoritesClick: () -> Unit,
 ) {
@@ -320,10 +368,12 @@ private fun DynamicQuickActions(
         actions.take(4).forEach { action ->
             AssistChip(
                 onClick = {
-                    when (action.second) {
-                        "/orders", "lancar://orders" -> onHistoryClick()
-                        "/food/favorites", "lancar://food/favorites" -> onFavoritesClick()
-                        else -> action.second?.let(onDeepLink)
+                    val target = action.second?.let { RemoteDeepLinkResolver.resolve(it, null) }
+                        ?: RemoteDeepLinkTarget.Invalid
+                    when (target) {
+                        RemoteDeepLinkTarget.Internal(RemoteInternalDestination.ORDERS) -> onHistoryClick()
+                        RemoteDeepLinkTarget.Internal(RemoteInternalDestination.FOOD_FAVORITES) -> onFavoritesClick()
+                        else -> onAction(target)
                     }
                 },
                 label = { Text(action.first.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -339,8 +389,9 @@ private fun DynamicTextCard(
     body: String?,
     icon: ImageVector,
     deepLink: String?,
+    externalUrl: String?,
     ctaLabel: String?,
-    onDeepLink: (String) -> Unit,
+    onAction: (RemoteDeepLinkTarget) -> Unit,
     containerColor: Color,
 ) {
     Card(
@@ -355,8 +406,11 @@ private fun DynamicTextCard(
                 Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 body?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 4, overflow = TextOverflow.Ellipsis) }
             }
-            if (deepLink != null && ctaLabel != null) {
-                AssistChip(onClick = { onDeepLink(deepLink) }, label = { Text(ctaLabel, maxLines = 1) })
+            if ((!deepLink.isNullOrBlank() || !externalUrl.isNullOrBlank()) && ctaLabel != null) {
+                AssistChip(
+                    onClick = { onAction(RemoteDeepLinkResolver.resolve(deepLink, externalUrl)) },
+                    label = { Text(ctaLabel, maxLines = 1) },
+                )
             }
         }
     }

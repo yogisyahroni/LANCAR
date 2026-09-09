@@ -37,6 +37,15 @@ const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+// External CTA destinations are intentionally build/platform-owned. A
+// campaign author may choose a URL on these first-party hosts, but may not
+// expand the trust boundary through the remote manifest itself.
+export const EXPERIENCE_EXTERNAL_HOSTS = [
+  'bawain.my.id',
+  'www.bawain.my.id',
+  'app.bawain.my.id',
+] as const;
+
 const PROTECTED_KEYS = [
   'amount', 'authorization', 'commission', 'currency', 'delivery_status',
   'eligibility', 'financial', 'order_state', 'payment', 'payout', 'price',
@@ -68,6 +77,22 @@ const safeDeepLink = z.string().trim().max(512).refine((value) => {
   return /^\/(home|food|promo|orders|support|profile)(?:[/?#].*)?$/.test(value);
 }, 'Deep link must use an allowlisted LANCAR route');
 
+const safeExternalUrl = z.string().trim().max(2048).refine((value) => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:'
+      && EXPERIENCE_EXTERNAL_HOSTS.includes(parsed.hostname.toLowerCase() as (typeof EXPERIENCE_EXTERNAL_HOSTS)[number])
+      && !parsed.username
+      && !parsed.password
+      && (!parsed.port || parsed.port === '443')
+      && !parsed.hash
+      && !parsed.pathname.includes('..')
+      && !/%2e/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}, 'External URL must be HTTPS on an allowlisted first-party host');
+
 const targetingSchema = z.object({
   cohorts: z.array(identifier).max(50).default([]),
   experiment_ref: identifier.nullable().optional(),
@@ -83,15 +108,21 @@ const assetReferenceSchema = z.object({
 const ctaFields = {
   cta_label: text(80).optional(),
   deep_link: safeDeepLink.optional(),
+  external_url: safeExternalUrl.optional(),
 };
 
 const promoItemSchema = z.object({
   id: identifier,
+  campaign_id: identifier.optional(),
   title: text(120),
   body: text(500).optional(),
+  badge: text(40).optional(),
   image_asset_id: identifier.optional(),
   ...ctaFields,
-}).strict();
+}).strict().refine(
+  (value) => !(value.deep_link && value.external_url),
+  'Promo item must contain only one CTA target',
+);
 
 const quickActionSchema = z.object({
   id: identifier,
@@ -108,14 +139,19 @@ const serviceGridCardSchema = z.object({
 
 const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
   hero_banner: z.object({
+    campaign_id: identifier.optional(),
     title: text(120),
     body: text(500).optional(),
+    badge: text(40).optional(),
     image_asset_id: identifier.optional(),
     ...ctaFields,
   }).strict(),
   campaign_strip: z.object({
+    campaign_id: identifier.optional(),
     title: text(120),
     body: text(320).optional(),
+    badge: text(40).optional(),
+    image_asset_id: identifier.optional(),
     ...ctaFields,
   }).strict(),
   promo_carousel: z.object({
@@ -306,6 +342,14 @@ const parseComponent = (value: unknown, index: number): ExperienceSection => {
       'INVALID_EXPERIENCE_COMPONENT_PROPERTIES',
       400,
       parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '),
+    );
+  }
+  const parsedProperties = parsed.data as JsonObject;
+  if (typeof parsedProperties.deep_link === 'string' && typeof parsedProperties.external_url === 'string') {
+    throw new ExperienceManifestError(
+      'EXPERIENCE_MULTIPLE_CTA_TARGETS',
+      400,
+      `sections[${index}].properties must contain only one CTA target`,
     );
   }
   return { id, component: component as ExperienceComponent, properties: parsed.data as JsonObject };

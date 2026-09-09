@@ -100,7 +100,9 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.tembus.customer.R
 import com.tembus.customer.data.model.Order
+import com.tembus.customer.data.config.ExperienceBannerEvent
 import com.tembus.customer.ui.experience.DynamicHomeRenderer
+import com.tembus.customer.ui.navigation.RemoteDeepLinkTarget
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
 import com.tembus.customer.ui.theme.Background
@@ -151,7 +153,8 @@ fun DashboardScreen(
     onProfileClick: () -> Unit = {},
     onHomeClick: () -> Unit = {},
     onFoodClick: () -> Unit = {},
-    onIncomingClick: () -> Unit = {}
+    onIncomingClick: () -> Unit = {},
+    onRemoteAction: (RemoteDeepLinkTarget) -> Unit = {},
 ) {
     HomeStatusBarIcons()
 
@@ -261,16 +264,9 @@ fun DashboardScreen(
                                 snapshot = experienceSnapshot,
                                 services = services,
                                 onServiceClick = onBookingClick,
-                                onDeepLink = { link ->
-                                    when (link) {
-                                        "/home", "lancar://home" -> onHomeClick()
-                                        "/food", "lancar://food" -> onFoodClick()
-                                        "/orders", "lancar://orders" -> onHistoryClick()
-                                        "/profile", "lancar://profile" -> onProfileClick()
-                                        "/promo", "lancar://promo" -> onBookingClick("promo")
-                                        else -> Unit
-                                    }
-                                },
+                                onRemoteAction = onRemoteAction,
+                                onBannerEvent = viewModel::recordExperienceBannerEvent,
+                                resolveAssetPath = { assetId -> viewModel.resolveExperienceAsset(experienceSnapshot, assetId) },
                                 onHistoryClick = onHistoryClick,
                                 onFavoritesClick = { onBookingClick("food_favorites") },
                             )
