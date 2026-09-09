@@ -13,6 +13,8 @@ import { api } from '../lib/api'
 import { toast } from 'sonner'
 import { FocusTrap } from '../components/a11y/FocusTrap'
 import { Skeleton } from '../components/ui/Skeleton'
+import { useAuthStore } from '../store/useAuthStore'
+import { EXPERIENCE_CAPABILITIES, hasExperiencePermission } from '../lib/experiencePermissions'
 
 interface FeatureFlag {
   key: string
@@ -31,6 +33,8 @@ const flagErrorMessage = (error: any, fallback: string) =>
   error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
 
 export default function FeatureFlags() {
+  const { user } = useAuthStore()
+  const canMutate = hasExperiencePermission(user, EXPERIENCE_CAPABILITIES.featureFlagWrite)
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [toggleTarget, setToggleTarget] = useState<FeatureFlag | null>(null)
@@ -208,7 +212,7 @@ export default function FeatureFlags() {
                           role="switch"
                           aria-checked={flag.is_enabled}
                           aria-label={`${flag.is_enabled ? 'Nonaktifkan' : 'Aktifkan'} ${flag.key}`}
-                          disabled={toggleMutation.isPending}
+                          disabled={toggleMutation.isPending || !canMutate}
                           className={cn(
                             'inline-flex items-center gap-3 rounded-full px-1 py-1 transition-colors w-24 justify-start',
                             flag.is_enabled ? 'bg-emerald-500/20' : 'bg-zinc-800',
@@ -356,7 +360,7 @@ export default function FeatureFlags() {
                 <button
                   type="button"
                   onClick={submitToggle}
-                  disabled={toggleMutation.isPending}
+                  disabled={toggleMutation.isPending || !canMutate}
                   className={cn(
                     'inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest text-white transition-colors disabled:opacity-50',
                     toggleTarget.is_enabled ? 'bg-red-500 hover:bg-red-400' : 'bg-emerald-500 hover:bg-emerald-400',

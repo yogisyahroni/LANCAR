@@ -7,6 +7,7 @@ interface User {
   email: string
   // Backend returns 'super_admin', 'admin', 'manager', etc.
   role: string
+  permissions: string[]
 }
 
 interface AuthState {

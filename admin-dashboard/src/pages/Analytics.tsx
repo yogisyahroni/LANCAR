@@ -352,7 +352,7 @@ export default function Analytics() {
 
   const { data: experienceObservabilityPayload, isLoading: experienceObservabilityLoading, isError: experienceObservabilityError, error: experienceObservabilityQueryError, refetch: refetchExperienceObservability } = useQuery({
     queryKey: ['analytics', 'experience-observability', timeRange],
-    queryFn: () => api.get(`/admin/experience/observability?range=${timeRange}`).then(res => res.data?.data),
+    queryFn: () => api.get(`/admin/experience/observability?range=${timeRange}&market_code=id-jk`).then(res => res.data?.data),
     ...analyticsQueryOptions,
   })
 

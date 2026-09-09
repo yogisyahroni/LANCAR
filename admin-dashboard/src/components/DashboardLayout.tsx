@@ -50,6 +50,7 @@ import { toast } from 'sonner'
 
 import { useAuthStore } from '../store/useAuthStore'
 import { APP_EXPERIENCE_NAVIGATION } from '../config/appExperienceNavigation'
+import { hasExperiencePermission } from '../lib/experiencePermissions'
 
 import { createPortal } from 'react-dom'
 
@@ -257,11 +258,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       title: "APP EXPERIENCE",
-      items: APP_EXPERIENCE_NAVIGATION.map(({ icon, label, path, allowedRoles }) => ({
+      items: APP_EXPERIENCE_NAVIGATION.map(({ icon, label, path, allowedRoles, requiredCapability }) => ({
         icon,
         label,
         path,
         allowedRoles,
+        requiredCapability,
       })),
     },
     {
@@ -313,6 +315,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const renderNavGroups = (collapsed: boolean) => {
     return allNavGroups.map((group) => {
       const filteredItems = group.items.filter((item: any) => {
+        if (item.requiredCapability) {
+          return hasExperiencePermission(user, item.requiredCapability)
+        }
         if (item.allowedRoles && user?.role) {
           return item.allowedRoles.includes(user.role)
         }

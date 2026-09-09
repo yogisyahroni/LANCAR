@@ -8,6 +8,7 @@ import {
 } from '../rateLimit';
 import { requireIdempotencyKey } from '../middleware/idempotencyRequirement';
 import { secureUploadSingle } from '../security/uploadSecurity';
+import { EXPERIENCE_PERMISSIONS, requireExperienceAccess } from '../middleware/experienceAuthorization';
 
 // admin routes (extracted from routes.ts)
 export const adminRoutes = Router();
@@ -74,13 +75,12 @@ adminRoutes.get('/admin/business-api-requests/:id', (req, res) => controllers.bu
 adminRoutes.post('/admin/business-api-requests/:id/:action', (req, res) => controllers.businessApiRequest.reviewBusinessApiRequest(req, res));
 adminRoutes.get('/admin/dashboard/stats', (req, res) => controllers.getDashboardStats(req, res));
 adminRoutes.get('/admin/dashboard/events', (req, res) => controllers.getDashboardEvents(req, res));
-const EXPERIENCE_FLAG_ROLES = ['super_admin', 'ops_admin', 'ops_security'];
-adminRoutes.get('/admin/feature-flags', requireRole(EXPERIENCE_FLAG_ROLES), (req, res) => controllers.getAllFlags(req, res));
-adminRoutes.post('/admin/feature-flags', requireRole(EXPERIENCE_FLAG_ROLES), (req, res) => controllers.createFlag(req, res));
-adminRoutes.get('/admin/feature-flags/:key', requireRole(EXPERIENCE_FLAG_ROLES), (req, res) => controllers.getFlagByKey(req, res));
-adminRoutes.patch('/admin/feature-flags/:key/toggle', requireRole(EXPERIENCE_FLAG_ROLES), requireTotp, toggleRateLimiter, (req, res) => controllers.toggleFlag(req, res));
-adminRoutes.patch('/admin/feature-flags/:key/config', requireRole(EXPERIENCE_FLAG_ROLES), requireTotp, (req, res) => controllers.updateFlagConfig(req, res));
-adminRoutes.get('/admin/feature-flags/:key/logs', requireRole(EXPERIENCE_FLAG_ROLES), (req, res) => controllers.getFlagLogs(req, res));
+adminRoutes.get('/admin/feature-flags', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'global' }), (req, res) => controllers.getAllFlags(req, res));
+adminRoutes.post('/admin/feature-flags', requireExperienceAccess(EXPERIENCE_PERMISSIONS.featureFlagWrite, { target: 'global' }), (req, res) => controllers.createFlag(req, res));
+adminRoutes.get('/admin/feature-flags/:key', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'global' }), (req, res) => controllers.getFlagByKey(req, res));
+adminRoutes.patch('/admin/feature-flags/:key/toggle', requireExperienceAccess(EXPERIENCE_PERMISSIONS.featureFlagWrite, { target: 'global' }), requireTotp, toggleRateLimiter, (req, res) => controllers.toggleFlag(req, res));
+adminRoutes.patch('/admin/feature-flags/:key/config', requireExperienceAccess(EXPERIENCE_PERMISSIONS.featureFlagWrite, { target: 'global' }), requireTotp, (req, res) => controllers.updateFlagConfig(req, res));
+adminRoutes.get('/admin/feature-flags/:key/logs', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'global' }), (req, res) => controllers.getFlagLogs(req, res));
 adminRoutes.get('/admin/audit-logs', (req, res) => controllers.getAllLogs(req, res));
 adminRoutes.get('/admin/audit-logs/export', (req, res) => controllers.exportAuditLogs(req, res));
 adminRoutes.get('/admin/experiments', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listExperiments(req, res));
@@ -90,8 +90,8 @@ adminRoutes.patch('/admin/experiments/:key', requireRole(['super_admin', 'ops_ad
 adminRoutes.post('/admin/experiments/:key/kill', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experiment.kill'), (req, res) => controllers.killExperiment(req, res));
 adminRoutes.get('/admin/settings', (req, res) => controllers.getSystemConfigs(req, res));
 adminRoutes.patch('/admin/settings/:key', requireTotp, (req, res) => controllers.updateSystemConfig(req, res));
-adminRoutes.get('/admin/mobile-release-policies', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMobileReleasePolicies(req, res));
-adminRoutes.put('/admin/mobile-release-policies/:marketCode/:clientType/:platform', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.mobile_release_policy.upsert'), (req, res) => controllers.upsertAdminMobileReleasePolicy(req, res));
+adminRoutes.get('/admin/mobile-release-policies', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'mobile-policy' }), (req, res) => controllers.listAdminMobileReleasePolicies(req, res));
+adminRoutes.put('/admin/mobile-release-policies/:marketCode/:clientType/:platform', requireExperienceAccess(EXPERIENCE_PERMISSIONS.versionPolicyWrite, { target: 'mobile-policy' }), requireTotp, requireIdempotencyKey('admin.mobile_release_policy.upsert'), (req, res) => controllers.upsertAdminMobileReleasePolicy(req, res));
 adminRoutes.get('/admin/market-configs', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMarketConfigs(req, res));
 adminRoutes.get('/admin/market-configs/:marketCode', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminMarketConfig(req, res));
 adminRoutes.post('/admin/market-configs', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.market_config.create'), (req, res) => controllers.createAdminMarketConfig(req, res));
@@ -100,16 +100,16 @@ adminRoutes.put('/admin/market-configs/:marketCode/services', requireRole(['supe
 adminRoutes.put('/admin/market-configs/:marketCode/legal-documents', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.market_config.legal.update'), (req, res) => controllers.upsertAdminMarketLegalDocument(req, res));
 adminRoutes.post('/admin/market-configs/:marketCode/approve', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.market_config.approve'), (req, res) => controllers.approveAdminMarketConfig(req, res));
 adminRoutes.get('/admin/market-configs/:marketCode/audit', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminMarketConfigAudit(req, res));
-adminRoutes.get('/admin/experience/manifests', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminExperienceManifests(req, res));
-adminRoutes.get('/admin/experience/manifests/:manifestId', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminExperienceManifest(req, res));
-adminRoutes.post('/admin/experience/manifests', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.experience_manifest.create'), (req, res) => controllers.createAdminExperienceManifest(req, res));
-adminRoutes.patch('/admin/experience/manifests/:manifestId/draft', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.experience_manifest.update'), (req, res) => controllers.updateAdminExperienceManifestDraft(req, res));
-adminRoutes.post('/admin/experience/manifests/:manifestId/preview', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.previewAdminExperienceManifest(req, res));
-adminRoutes.post('/admin/experience/manifests/:manifestId/approve', requireRole(['super_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experience_manifest.approve'), (req, res) => controllers.approveAdminExperienceManifest(req, res));
-adminRoutes.post('/admin/experience/manifests/:manifestId/publish', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.experience_manifest.publish'), (req, res) => controllers.publishAdminExperienceManifest(req, res));
-adminRoutes.post('/admin/experience/manifests/:manifestId/rollback', requireRole(['super_admin']), requireTotp, requireIdempotencyKey('admin.experience_manifest.rollback'), (req, res) => controllers.rollbackAdminExperienceManifest(req, res));
-adminRoutes.post('/admin/experience/manifests/:manifestId/kill', requireRole(['super_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experience_manifest.kill'), (req, res) => controllers.killAdminExperienceManifest(req, res));
-adminRoutes.post('/admin/experience/manifests/:manifestId/restore', requireRole(['super_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experience_manifest.restore'), (req, res) => controllers.restoreAdminExperienceManifest(req, res));
+adminRoutes.get('/admin/experience/manifests', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceManifests(req, res));
+adminRoutes.get('/admin/experience/manifests/:manifestId', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'manifest' }), (req, res) => controllers.getAdminExperienceManifest(req, res));
+adminRoutes.post('/admin/experience/manifests', requireExperienceAccess(EXPERIENCE_PERMISSIONS.draftWrite, { target: 'body' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.create'), (req, res) => controllers.createAdminExperienceManifest(req, res));
+adminRoutes.patch('/admin/experience/manifests/:manifestId/draft', requireExperienceAccess(EXPERIENCE_PERMISSIONS.draftWrite, { target: 'manifest-body' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.update'), (req, res) => controllers.updateAdminExperienceManifestDraft(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/preview', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'manifest' }), (req, res) => controllers.previewAdminExperienceManifest(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/approve', requireExperienceAccess(EXPERIENCE_PERMISSIONS.approve, { target: 'manifest' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.approve'), (req, res) => controllers.approveAdminExperienceManifest(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/publish', requireExperienceAccess(EXPERIENCE_PERMISSIONS.publish, { target: 'manifest' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.publish'), (req, res) => controllers.publishAdminExperienceManifest(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/rollback', requireExperienceAccess(EXPERIENCE_PERMISSIONS.rollback, { target: 'manifest' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.rollback'), (req, res) => controllers.rollbackAdminExperienceManifest(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/kill', requireExperienceAccess(EXPERIENCE_PERMISSIONS.killSwitchExecute, { target: 'manifest' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.kill'), (req, res) => controllers.killAdminExperienceManifest(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/restore', requireExperienceAccess(EXPERIENCE_PERMISSIONS.killSwitchExecute, { target: 'manifest' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.restore'), (req, res) => controllers.restoreAdminExperienceManifest(req, res));
 adminRoutes.get('/admin/compliance/policy', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminCompliancePolicy(req, res));
 adminRoutes.get('/admin/maps-provider-config', (req, res) => controllers.getAdminMapsProviderRuntimeConfig(req, res));
 adminRoutes.patch('/admin/maps-provider-config', requireTotp, (req, res) => controllers.updateAdminMapsProviderRuntimeConfig(req, res));
@@ -302,8 +302,8 @@ adminRoutes.patch('/admin/sla-configs', requireRole(['super_admin', 'ops_admin']
 adminRoutes.get('/admin/analytics/kpis', (req, res) => controllers.getAnalyticsKPIs(req, res));
 adminRoutes.get('/admin/analytics/service-kpis', (req, res) => controllers.getAnalyticsServiceKPIs(req, res));
 adminRoutes.get('/admin/analytics/definitions', (req, res) => controllers.getAnalyticsDefinitions(req, res));
-adminRoutes.get('/admin/experience/observability', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminExperienceObservability(req, res));
-adminRoutes.post('/admin/experience/manifests/:manifestId/guardrail/evaluate', requireRole(['super_admin', 'ops_admin', 'ops_security']), requireTotp, requireIdempotencyKey('admin.experience_manifest.guardrail.evaluate'), (req, res) => controllers.evaluateAdminExperienceGuardrail(req, res));
+adminRoutes.get('/admin/experience/observability', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.getAdminExperienceObservability(req, res));
+adminRoutes.post('/admin/experience/manifests/:manifestId/guardrail/evaluate', requireExperienceAccess(EXPERIENCE_PERMISSIONS.targetingWrite, { target: 'manifest' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.guardrail.evaluate'), (req, res) => controllers.evaluateAdminExperienceGuardrail(req, res));
 adminRoutes.get('/admin/content-packs', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.listAdminLocalizedContentPacks(req, res));
 adminRoutes.post('/admin/content-packs', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.localized_content.create'), (req, res) => controllers.createAdminLocalizedContentPack(req, res));
 adminRoutes.patch('/admin/content-packs/:contentPackId/draft', requireRole(['super_admin', 'ops_admin']), requireTotp, requireIdempotencyKey('admin.localized_content.update'), (req, res) => controllers.updateAdminLocalizedContentPackDraft(req, res));

@@ -88,7 +88,13 @@ export const loginWeb = async (req: Request, res: Response) => {
 
     const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
     const result = await db.query(
-      `SELECT id, full_name as name, email, role, pin_hash
+      `SELECT id, full_name as name, email, role, pin_hash,
+              COALESCE((
+                SELECT array_agg(p.name ORDER BY p.name)
+                FROM permissions p
+                JOIN role_permissions rp ON rp.permission_id = p.id
+                WHERE rp.role = users.role
+              ), ARRAY[]::text[]) AS permissions
        FROM users
        WHERE email = $1
          AND role = ANY($2::text[])
@@ -432,7 +438,13 @@ export const me = async (req: Request, res: Response) => {
   try {
     const userRole = req.user?.role || '';
     const result = await db.query(
-      `SELECT id, full_name as name, email, role, store_name
+      `SELECT id, full_name as name, email, role, store_name,
+              COALESCE((
+                SELECT array_agg(p.name ORDER BY p.name)
+                FROM permissions p
+                JOIN role_permissions rp ON rp.permission_id = p.id
+                WHERE rp.role = users.role
+              ), ARRAY[]::text[]) AS permissions
        FROM users
        WHERE id = $1
          AND role = $2

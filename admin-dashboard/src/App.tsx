@@ -61,14 +61,14 @@ import LocalizedContentPacks from './pages/LocalizedContentPacks'
 import MobileReleasePolicies from './pages/MobileReleasePolicies'
 import DashboardLayout from './components/DashboardLayout'
 import ExperienceScopedPage from './components/experience/ExperienceScopedPage'
-import { APP_EXPERIENCE_ROLES } from './config/appExperienceNavigation'
+import { EXPERIENCE_CAPABILITIES, hasExperiencePermission, type ExperienceCapability } from './lib/experiencePermissions'
 
 import { useEffect } from 'react'
 import { useAuthStore } from './store/useAuthStore'
 
 const queryClient = new QueryClient()
 
-const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
+const ProtectedRoute = ({ children, allowedRoles, allowedCapabilities }: { children: React.ReactNode, allowedRoles?: string[], allowedCapabilities?: ExperienceCapability[] }) => {
   const { user, isAuthenticated, isLoading, checkAuth } = useAuthStore()
 
   useEffect(() => {
@@ -91,14 +91,15 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
     return <Navigate to="/dashboard" />
   }
 
+  if (allowedCapabilities && user && !allowedCapabilities.some((capability) => hasExperiencePermission(user, capability))) {
+    return <Navigate to="/dashboard" />
+  }
+
   return <DashboardLayout>{children}</DashboardLayout>
 }
 
-const APP_EXPERIENCE_ALLOWED_ROLES = [...APP_EXPERIENCE_ROLES]
-const SCHEDULING_ALLOWED_ROLES = ['super_admin', 'ops_admin']
-
 const ProtectedExperienceManifest = () => (
-  <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
+  <ProtectedRoute allowedCapabilities={[EXPERIENCE_CAPABILITIES.read]}>
     <AppExperience />
   </ProtectedRoute>
 )
@@ -428,7 +429,7 @@ function App() {
           <Route
             path="/feature-flags"
             element={
-              <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
+                <ProtectedRoute allowedCapabilities={[EXPERIENCE_CAPABILITIES.read]}>
                 <FeatureFlags />
               </ProtectedRoute>
             }
@@ -451,7 +452,7 @@ function App() {
           <Route
             path="/app-experience/feature-flags"
             element={
-              <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
+                <ProtectedRoute allowedCapabilities={[EXPERIENCE_CAPABILITIES.read]}>
                 <ExperienceScopedPage><FeatureFlags /></ExperienceScopedPage>
               </ProtectedRoute>
             }
@@ -459,7 +460,7 @@ function App() {
           <Route
             path="/app-experience/scheduling"
             element={
-              <ProtectedRoute allowedRoles={SCHEDULING_ALLOWED_ROLES}>
+                <ProtectedRoute allowedCapabilities={[EXPERIENCE_CAPABILITIES.read]}>
                 <ExperienceScopedPage><CampaignCalendar /></ExperienceScopedPage>
               </ProtectedRoute>
             }
@@ -467,7 +468,7 @@ function App() {
           <Route
             path="/app-experience/version-policy"
             element={
-              <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
+              <ProtectedRoute allowedCapabilities={[EXPERIENCE_CAPABILITIES.read]}>
                 <ExperienceScopedPage><MobileReleasePolicies /></ExperienceScopedPage>
               </ProtectedRoute>
             }
@@ -475,7 +476,7 @@ function App() {
           <Route
             path="/app-experience/analytics"
             element={
-              <ProtectedRoute allowedRoles={APP_EXPERIENCE_ALLOWED_ROLES}>
+              <ProtectedRoute allowedCapabilities={[EXPERIENCE_CAPABILITIES.read]}>
                 <ExperienceScopedPage><Analytics /></ExperienceScopedPage>
               </ProtectedRoute>
             }

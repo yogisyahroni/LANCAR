@@ -188,6 +188,17 @@ describe('Admin Service Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (redis.get as jest.Mock).mockResolvedValue(null);
+    (db.query as jest.Mock).mockImplementation((sql: string, values: unknown[] = []) => {
+      const role = values.find((value) => ['super_admin', 'ops_admin', 'ops_security', 'cs_agent', 'finance_admin'].includes(String(value)));
+      if (sql.includes('FROM permissions')) {
+        return Promise.resolve({ rows: [{ allowed: ['super_admin', 'ops_admin', 'ops_security'].includes(String(role)) }] });
+      }
+      if (sql.includes('FROM experience_admin_scope_grants')) {
+        const target = values[2];
+        return Promise.resolve({ rows: [{ allowed: role === 'super_admin' || role === 'ops_security' || (role === 'ops_admin' && target === 'id-jk') }] });
+      }
+      return undefined;
+    });
   });
 
   it('keeps the public health endpoint reachable without admin auth', async () => {
@@ -216,6 +227,7 @@ describe('Admin Service Routes', () => {
 
     const authorizedExperience = await request(app)
       .get('/admin/experience/manifests')
+      .query({ market_code: 'id-jk' })
       .set(gatewayHeaders({ role: 'ops_admin' }));
     expect(authorizedExperience.status).toBe(200);
     expect(controllers.listAdminExperienceManifests).toHaveBeenCalledTimes(1);
@@ -225,6 +237,26 @@ describe('Admin Service Routes', () => {
       .set(gatewayHeaders({ role: 'finance_admin' }));
     expect(unauthorizedFlags.status).toBe(403);
     expect(controllers.getAllFlags).toHaveBeenCalledTimes(0);
+  });
+
+  it('returns a typed and audited denial when an Indonesia operator targets another market', async () => {
+    const operatorId = '11111111-1111-4111-8111-111111111111';
+    const res = await request(app)
+      .get('/admin/experience/manifests')
+      .query({ market_code: 'sg-sg', surface: 'customer_web' })
+      .set(gatewayHeaders({ userId: operatorId, role: 'ops_admin' }));
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual(expect.objectContaining({
+      success: false,
+      code: 'EXPERIENCE_AUTHORIZATION_DENIED',
+      reason_code: 'EXPERIENCE_SCOPE_DENIED',
+      permission: 'experience.read',
+      market_code: 'sg-sg',
+      surface: 'customer_web',
+    }));
+    expect(controllers.listAdminExperienceManifests).not.toHaveBeenCalled();
+    expect((db.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO audit_logs'))).toBe(true);
   });
 
   it('protects the operational order timeline behind admin authentication', async () => {

@@ -2476,12 +2476,12 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `super_admin`: global emergency/admin authority with mandatory audit.
 
 **Checklist**
-- [ ] Market scope and surface scope enforced server-side.
-- [ ] Indonesia admin cannot mutate Singapore/Malaysia/global configuration without explicit global scope.
-- [ ] Global/high-blast-radius publish supports maker-checker/two-person approval.
-- [ ] Where maker-checker is required, author cannot approve their own revision.
-- [ ] Kill-switch permissions are narrower than ordinary marketing edit permission.
-- [ ] Every denied action returns typed reason and is auditable.
+- [x] Market scope and surface scope enforced server-side. Evidence: `docs/task-evidence/ADMEXP-2026-002.md`
+- [x] Indonesia admin cannot mutate Singapore/Malaysia/global configuration without explicit global scope. Evidence: `docs/task-evidence/ADMEXP-2026-002.md`
+- [x] Global/high-blast-radius publish supports maker-checker/two-person approval. Evidence: `docs/task-evidence/ADMEXP-2026-002.md`
+- [x] Where maker-checker is required, author cannot approve their own revision. Evidence: `docs/task-evidence/ADMEXP-2026-002.md`
+- [x] Kill-switch permissions are narrower than ordinary marketing edit permission. Evidence: `docs/task-evidence/ADMEXP-2026-002.md`
+- [x] Every denied action returns typed reason and is auditable. Evidence: `docs/task-evidence/ADMEXP-2026-002.md`
 
 ---
 

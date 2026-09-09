@@ -10,6 +10,7 @@ import ExperiencePreview from '../components/experience/ExperiencePreview'
 import RevisionHistory from '../components/experience/RevisionHistory'
 import ExperienceScopeBar, { type ExperienceScope } from '../components/experience/ExperienceScopeBar'
 import { appExperienceNavigationItem } from '../config/appExperienceNavigation'
+import { EXPERIENCE_CAPABILITIES, hasExperiencePermission } from '../lib/experiencePermissions'
 import { defaultExperienceForm, formFromManifest, formToPayload, hasAudienceConstraints, type ExperienceForm, type ExperienceHistory, type ExperienceManifest, type ExperienceSurface } from '../components/experience/types'
 
 const requestKey = (action: string) => `admin.experience_manifest.${action}.${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`
@@ -26,9 +27,11 @@ export default function AppExperience() {
   const location = useLocation()
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
-  const canEdit = user?.role === 'super_admin' || user?.role === 'ops_admin'
-  const canApprove = user?.role === 'super_admin' || user?.role === 'ops_security'
-  const canKill = user?.role === 'super_admin' || user?.role === 'ops_security'
+  const canEdit = hasExperiencePermission(user, EXPERIENCE_CAPABILITIES.draftWrite)
+  const canApprove = hasExperiencePermission(user, EXPERIENCE_CAPABILITIES.approve)
+  const canPublish = hasExperiencePermission(user, EXPERIENCE_CAPABILITIES.publish)
+  const canKill = hasExperiencePermission(user, EXPERIENCE_CAPABILITIES.killSwitchExecute)
+  const canRollback = hasExperiencePermission(user, EXPERIENCE_CAPABILITIES.rollback)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [form, setForm] = useState<ExperienceForm>(() => defaultExperienceForm())
   const [mode, setMode] = useState<'new' | 'draft' | 'revision'>('new')
@@ -38,8 +41,8 @@ export default function AppExperience() {
   const activeSection = appExperienceNavigationItem(location.pathname)?.label ?? 'Overview'
 
   const manifestsQuery = useQuery({
-    queryKey: ['experience-manifests'],
-    queryFn: async (): Promise<ExperienceManifest[]> => (await api.get('/admin/experience/manifests')).data?.data ?? [],
+    queryKey: ['experience-manifests', form.market_code, form.surface],
+    queryFn: async (): Promise<ExperienceManifest[]> => (await api.get('/admin/experience/manifests', { params: { market_code: form.market_code, surface: form.surface } })).data?.data ?? [],
   })
   const selected = useMemo(() => manifestsQuery.data?.find((manifest) => manifest.manifest_id === selectedId) ?? null, [manifestsQuery.data, selectedId])
   const historyQuery = useQuery({

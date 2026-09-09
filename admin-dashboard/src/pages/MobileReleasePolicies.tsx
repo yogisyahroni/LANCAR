@@ -3,6 +3,8 @@ import { CheckCircle2, ExternalLink, RefreshCw, Save, ShieldCheck, Smartphone } 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
+import { useAuthStore } from '../store/useAuthStore'
+import { EXPERIENCE_CAPABILITIES, hasExperiencePermission } from '../lib/experiencePermissions'
 
 type ClientType = 'customer' | 'courier' | 'merchant' | 'web'
 type Platform = 'android' | 'web'
@@ -96,12 +98,14 @@ const toForm = (policy: ReleasePolicy): FormState => ({
 })
 
 export default function MobileReleasePolicies() {
+  const { user } = useAuthStore()
+  const canMutate = hasExperiencePermission(user, EXPERIENCE_CAPABILITIES.versionPolicyWrite)
   const queryClient = useQueryClient()
   const [form, setForm] = useState<FormState>(newForm)
   const [showForm, setShowForm] = useState(false)
   const query = useQuery({
     queryKey: ['mobile-release-policies'],
-    queryFn: async (): Promise<ReleasePolicy[]> => (await api.get('/admin/mobile-release-policies')).data?.data ?? [],
+    queryFn: async (): Promise<ReleasePolicy[]> => (await api.get('/admin/mobile-release-policies', { params: { market_code: form.market_code } })).data?.data ?? [],
   })
 
   const saveMutation = useMutation({
@@ -150,7 +154,7 @@ export default function MobileReleasePolicies() {
           <div className="flex items-center gap-3"><Smartphone className="text-primary-light" size={26} /><h1 className="text-3xl font-black tracking-tight text-zinc-100">Mobile Release Policies</h1></div>
           <p className="mt-2 max-w-4xl text-sm leading-relaxed text-zinc-500">Kelola minimum version, soft update, dan hard update per market/client/platform. Hard update selalu mempertahankan akses pesanan aktif dan support; transaksi baru ditahan sampai binary diperbarui.</p>
         </div>
-        <div className="flex gap-2"><button type="button" onClick={() => query.refetch()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-300"><RefreshCw size={14} /> Refresh</button><button type="button" onClick={() => { setForm(newForm()); setShowForm(true) }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white"><Save size={14} /> New policy</button></div>
+        <div className="flex gap-2"><button type="button" onClick={() => query.refetch()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-300"><RefreshCw size={14} /> Refresh</button>{canMutate ? <button type="button" onClick={() => { setForm(newForm()); setShowForm(true) }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white"><Save size={14} /> New policy</button> : null}</div>
       </header>
 
       <section className="rounded-3xl border border-amber-400/20 bg-amber-400/5 p-5" aria-label="release policy safety boundary">
@@ -177,7 +181,7 @@ export default function MobileReleasePolicies() {
           <label className="text-xs font-bold text-zinc-400 md:col-span-4">Audit reason<input className={inputClass} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label>
         </div>
         {isHard ? <p className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs leading-relaxed text-red-200">Hard update hanya valid untuk binary unsafe/incompatible. Akses pesanan aktif dan support dipertahankan; transaksi baru otomatis ditahan oleh server.</p> : null}
-        <div className="mt-5 flex flex-wrap items-center gap-3"><button type="button" disabled={!canSave || saveMutation.isPending} onClick={() => saveMutation.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50"><Save size={14} /> {saveMutation.isPending ? 'Saving...' : 'Save policy'}</button><button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-400">Cancel</button><p className="text-xs text-zinc-500">Perubahan dilindungi TOTP dan idempotency key.</p></div>
+        <div className="mt-5 flex flex-wrap items-center gap-3"><button type="button" disabled={!canSave || !canMutate || saveMutation.isPending} onClick={() => saveMutation.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50"><Save size={14} /> {saveMutation.isPending ? 'Saving...' : 'Save policy'}</button><button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-400">Cancel</button><p className="text-xs text-zinc-500">Perubahan dilindungi TOTP dan idempotency key.</p></div>
       </section> : null}
 
       <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" aria-labelledby="release-policy-list-title">
