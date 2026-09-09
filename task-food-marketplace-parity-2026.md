@@ -1927,12 +1927,12 @@ A task is complete only when applicable boxes below are true:
 - `docs/product/translation-key-governance.md`
 
 **Checklist**
-- [ ] Core UI uses localization keys, not hardcoded Indonesian/English strings.
-- [ ] Date/time/timezone/currency/number/address/phone formatting is locale aware.
-- [ ] Layout is tested for long translations and RTL before entering RTL markets.
-- [ ] Dynamic marketing content supports locale fallback chain.
-- [ ] Critical legal/financial copy is versioned and market approved.
-- [ ] Accessibility baseline remains valid after dynamic content/localization.
+- [x] Core UI uses localization keys, not hardcoded Indonesian/English strings.
+- [x] Date/time/timezone/currency/number/address/phone formatting is locale aware.
+- [x] Layout is tested for long translations and RTL before entering RTL markets.
+- [x] Dynamic marketing content supports locale fallback chain.
+- [x] Critical legal/financial copy is versioned and market approved.
+- [x] Accessibility baseline remains valid after dynamic content/localization.
 
 ---
 
