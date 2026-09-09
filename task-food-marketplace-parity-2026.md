@@ -2201,12 +2201,12 @@ A task is complete only when applicable boxes below are true:
 - `docs/runbooks/experience-asset-publishing.md`
 
 **Checklist**
-- [ ] Remote image/animation assets use HTTPS CDN/object storage; app never needs secret bucket credential.
-- [ ] Manifest records content type, dimensions/aspect expectation, size limit, checksum/version and expiry/cache policy.
-- [ ] Client validates content type/size and uses disk cache with bounded eviction.
-- [ ] Prefetch only eligible upcoming assets; do not waste bandwidth downloading every campaign globally.
-- [ ] Deleted/rolled-back campaign does not break old cached manifest; asset lifecycle respects manifest retention window.
-- [ ] Low-bandwidth/data-saver fallback uses lighter asset or no campaign.
+- [x] Remote image/animation assets use HTTPS CDN/object storage; app never needs secret bucket credential.
+- [x] Manifest records content type, dimensions/aspect expectation, size limit, checksum/version and expiry/cache policy.
+- [x] Client validates content type/size and uses disk cache with bounded eviction.
+- [x] Prefetch only eligible upcoming assets; do not waste bandwidth downloading every campaign globally.
+- [x] Deleted/rolled-back campaign does not break old cached manifest; asset lifecycle respects manifest retention window.
+- [x] Low-bandwidth/data-saver fallback uses lighter asset or no campaign.
 
 ---
 
