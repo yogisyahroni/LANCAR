@@ -2945,13 +2945,13 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - corresponding backend endpoints/repositories currently backing these pages
 
 **Checklist**
-- [ ] Inventory current banner/promo/feature-flag persistence and API ownership before creating new tables/services.
-- [ ] Reuse existing proven primitives where semantics match.
-- [ ] Define which existing data migrates into Experience Service and which remains authoritative in Promo/business service.
-- [ ] Promo **financial rule/eligibility** remains in Promo/Pricing domain; Experience Service only controls promo presentation/exposure.
-- [ ] Feature flags with platform/runtime semantics are consolidated or bridged so UI does not write two independent flag stores.
-- [ ] Old direct-write route/page is deprecated/redirected only after migration/backfill and compatibility tests pass.
-- [ ] No period where two admin screens can publish conflicting live banner/service visibility truth without deterministic precedence.
+- [x] Inventory current banner/promo/feature-flag persistence and API ownership before creating new tables/services.
+- [x] Reuse existing proven primitives where semantics match.
+- [x] Define which existing data migrates into Experience Service and which remains authoritative in Promo/business service.
+- [x] Promo **financial rule/eligibility** remains in Promo/Pricing domain; Experience Service only controls promo presentation/exposure.
+- [x] Feature flags with platform/runtime semantics are consolidated or bridged so UI does not write two independent flag stores.
+- [x] Old direct-write route/page is deprecated/redirected only after migration/backfill and compatibility tests pass.
+- [x] No period where two admin screens can publish conflicting live banner/service visibility truth without deterministic precedence.
 
 ---
 

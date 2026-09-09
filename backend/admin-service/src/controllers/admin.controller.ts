@@ -190,8 +190,17 @@ export const listAdminMerchantStaff = async (req: Request, res: Response) => {
 // A4: Global banner (pengumuman in-app platform-wide)
 // ─────────────────────────────────────────────
 
-const normalizeBannerText = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
-const BANNER_STATUSES = ['active', 'inactive'] as const;
+const LEGACY_BANNER_REPLACEMENT = '/app-experience/campaigns';
+
+const rejectLegacyBannerWrite = (res: Response): void => {
+  res.setHeader('Deprecation', 'true');
+  res.setHeader('Sunset', '2026-10-31');
+  res.status(410).json({
+    error: 'Legacy banner writes are disabled after the App Experience cutover',
+    code: 'LEGACY_BANNER_WRITE_DISABLED',
+    replacement: LEGACY_BANNER_REPLACEMENT,
+  });
+};
 
 // GET /admin/banners — list semua banner (super_admin).
 export const listAdminBanners = async (req: Request, res: Response) => {
@@ -210,101 +219,32 @@ export const listAdminBanners = async (req: Request, res: Response) => {
   }
 };
 
-// POST /admin/banners — buat banner (super_admin).
+// POST /admin/banners — legacy compatibility route; writes are disabled after
+// the ADMEXP-2026-018 backfill so the manifest service remains authoritative.
 export const createAdminBanner = async (req: Request, res: Response) => {
   if (req.user?.role !== 'super_admin') {
     res.status(403).json({ error: 'Hanya super_admin yang dapat membuat banner' });
     return;
   }
-  const title = normalizeBannerText(req.body?.title);
-  const message = normalizeBannerText(req.body?.message);
-  if (!title || !message) {
-    res.status(400).json({ error: 'Title dan message wajib diisi' });
-    return;
-  }
-  const priority = Number(req.body?.priority) || 0;
-  const status = BANNER_STATUSES.includes(req.body?.status) ? req.body.status : 'active';
-  try {
-    const { rows } = await db.query(
-      `INSERT INTO global_banners (title, message, image_url, action_url, action_label, priority, status, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, title, message, image_url, action_url, action_label, priority, status, created_at`,
-      [
-        title,
-        message,
-        normalizeBannerText(req.body?.image_url) || null,
-        normalizeBannerText(req.body?.action_url) || null,
-        normalizeBannerText(req.body?.action_label) || null,
-        priority,
-        status,
-        req.user?.id,
-      ]
-    );
-    res.status(201).json(rows[0]);
-  } catch (error: unknown) {
-    handleAdminControllerError(res, 'Failed to create banner', error);
-  }
+  rejectLegacyBannerWrite(res);
 };
 
-// PATCH /admin/banners/:id — update banner (super_admin).
+// PATCH /admin/banners/:id — legacy compatibility route; writes are disabled.
 export const updateAdminBanner = async (req: Request, res: Response) => {
   if (req.user?.role !== 'super_admin') {
     res.status(403).json({ error: 'Hanya super_admin yang dapat mengubah banner' });
     return;
   }
-  const { id } = req.params;
-  const title = normalizeBannerText(req.body?.title);
-  const message = normalizeBannerText(req.body?.message);
-  if (!title || !message) {
-    res.status(400).json({ error: 'Title dan message wajib diisi' });
-    return;
-  }
-  const priority = Number(req.body?.priority) || 0;
-  const status = BANNER_STATUSES.includes(req.body?.status) ? req.body.status : 'active';
-  try {
-    const { rows } = await db.query(
-      `UPDATE global_banners
-       SET title=$2, message=$3, image_url=$4, action_url=$5, action_label=$6, priority=$7, status=$8, updated_at=NOW()
-       WHERE id=$1
-       RETURNING id, title, message, image_url, action_url, action_label, priority, status, created_at`,
-      [
-        id,
-        title,
-        message,
-        normalizeBannerText(req.body?.image_url) || null,
-        normalizeBannerText(req.body?.action_url) || null,
-        normalizeBannerText(req.body?.action_label) || null,
-        priority,
-        status,
-      ]
-    );
-    if (rows.length === 0) {
-      res.status(404).json({ error: 'Banner tidak ditemukan' });
-      return;
-    }
-    res.json(rows[0]);
-  } catch (error: unknown) {
-    handleAdminControllerError(res, 'Failed to update banner', error);
-  }
+  rejectLegacyBannerWrite(res);
 };
 
-// DELETE /admin/banners/:id — hapus banner (super_admin).
+// DELETE /admin/banners/:id — legacy compatibility route; writes are disabled.
 export const deleteAdminBanner = async (req: Request, res: Response) => {
   if (req.user?.role !== 'super_admin') {
     res.status(403).json({ error: 'Hanya super_admin yang dapat menghapus banner' });
     return;
   }
-  const { id } = req.params;
-  try {
-    const result = await db.query('DELETE FROM global_banners WHERE id=$1 RETURNING id', [id]);
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: 'Banner tidak ditemukan' });
-      return;
-    }
-    res.json({ message: 'Banner dihapus' });
-  } catch (error: unknown) {
-    handleAdminControllerError(res, 'Failed to delete banner', error);
-  }
+  rejectLegacyBannerWrite(res);
 };
 
 // GET /customer/banners — customer ambil banner active (prioritas tertinggi dulu).

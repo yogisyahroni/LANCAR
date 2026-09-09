@@ -9,7 +9,6 @@ import Couriers from './pages/Couriers'
 import CourierApplications from './pages/CourierApplications'
 import Merchants from './pages/Merchants'
 import MerchantStaff from './pages/MerchantStaff'
-import Banners from './pages/Banners'
 import CourierFaceVerifications from './pages/CourierFaceVerifications'
 import CourierSafetyEvents from './pages/CourierSafetyEvents'
 import CourierGrowthConfig from './pages/CourierGrowthConfig'
@@ -204,14 +203,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route 
-            path="/banners"
-            element={
-              <ProtectedRoute>
-                <Banners />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/banners" element={<Navigate to="/app-experience/campaigns" replace />} />
           <Route 
             path="/courier-face-verifications" 
             element={
@@ -428,11 +420,7 @@ function App() {
           />
           <Route
             path="/feature-flags"
-            element={
-                <ProtectedRoute allowedCapabilities={[EXPERIENCE_CAPABILITIES.read]}>
-                <FeatureFlags />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/app-experience/feature-flags" replace />}
           />
           <Route path="/experiments" element={<ProtectedRoute allowedRoles={['super_admin', 'ops_admin', 'ops_security']}><Experiments /></ProtectedRoute>} />
           <Route path="/app-experience" element={<Navigate to="/app-experience/overview" replace />} />
