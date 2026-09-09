@@ -2009,11 +2009,11 @@ A task is complete only when applicable boxes below are true:
 - `published_at/published_by`
 
 **Checklist**
-- [ ] Draft/preview/publish/rollback lifecycle.
-- [ ] Immutable published revision for audit.
-- [ ] Client receives one resolved manifest appropriate to market/locale/version/cohort.
-- [ ] Server rejects invalid component/property combinations before publication.
-- [ ] Publish does not allow remote mutation of order/payment/state-machine rules.
+- [x] Draft/preview/publish/rollback lifecycle. Evidence: `docs/task-evidence/APP-2026-001.md`.
+- [x] Immutable published revision for audit. Evidence: `docs/task-evidence/APP-2026-001.md`.
+- [x] Client receives one resolved manifest appropriate to market/locale/version/cohort. Evidence: `docs/task-evidence/APP-2026-001.md`.
+- [x] Server rejects invalid component/property combinations before publication. Evidence: `docs/task-evidence/APP-2026-001.md`.
+- [x] Publish does not allow remote mutation of order/payment/state-machine rules. Evidence: `docs/task-evidence/APP-2026-001.md`.
 
 ---
 
