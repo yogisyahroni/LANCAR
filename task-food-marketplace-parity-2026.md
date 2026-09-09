@@ -2431,11 +2431,11 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - `App Experience → Analytics`
 
 **Checklist**
-- [ ] Tambahkan satu group/menu `APP EXPERIENCE` di sidebar atau sub-navigation yang jelas di bawah Marketing & Promosi; jangan menyembunyikan control plane di Settings generik.
-- [ ] Tambahkan protected routes pada `App.tsx` untuk seluruh halaman Experience.
-- [ ] Existing `Banners`, `Promos`, dan `FeatureFlags` tidak boleh menjadi source of truth paralel yang menghasilkan conflict; reuse/shared-data-layer, migrate, atau redirect ke control plane baru.
-- [ ] Existing admin users melihat menu sesuai permission; menu yang tidak authorized tidak hanya disembunyikan tetapi backend juga menolak akses.
-- [ ] Active market/surface context selalu terlihat agar admin tahu apakah sedang mengubah Indonesia Customer Android, Singapore Customer Web, Courier Android, dll.
+- [x] Tambahkan satu group/menu `APP EXPERIENCE` di sidebar atau sub-navigation yang jelas di bawah Marketing & Promosi; jangan menyembunyikan control plane di Settings generik. (Evidence: `docs/task-evidence/ADMEXP-2026-001.md`, commit `c3ec4369`.)
+- [x] Tambahkan protected routes pada `App.tsx` untuk seluruh halaman Experience. (Evidence: `docs/task-evidence/ADMEXP-2026-001.md`, commit `c3ec4369`.)
+- [x] Existing `Banners`, `Promos`, dan `FeatureFlags` tidak boleh menjadi source of truth paralel yang menghasilkan conflict; reuse/shared-data-layer, migrate, atau redirect ke control plane baru. (Evidence: `docs/task-evidence/ADMEXP-2026-001.md`, commit `c3ec4369`.)
+- [x] Existing admin users melihat menu sesuai permission; menu yang tidak authorized tidak hanya disembunyikan tetapi backend juga menolak akses. (Evidence: `docs/task-evidence/ADMEXP-2026-001.md`, commit `c3ec4369`, route tests 21/21 PASS.)
+- [x] Active market/surface context selalu terlihat agar admin tahu apakah sedang mengubah Indonesia Customer Android, Singapore Customer Web, Courier Android, dll. (Evidence: `docs/task-evidence/ADMEXP-2026-001.md`, commit `c3ec4369`.)
 
 ---
 
