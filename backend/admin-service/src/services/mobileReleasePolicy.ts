@@ -18,7 +18,15 @@ const VERSION_NAME = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/;
 const LOCALE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 const HTTPS_URL = /^https:\/\/[^\s<>]{1,480}$/i;
 
-const localizedMessagesSchema = z.record(z.string(), z.string().trim().min(1).max(240)).superRefine((value, context) => {
+const localizedMessageSchema = z.union([
+  z.string().trim().min(1).max(240),
+  z.object({
+    title: z.string().trim().min(1).max(120),
+    body: z.string().trim().min(1).max(240),
+  }).strict(),
+]);
+
+const localizedMessagesSchema = z.record(z.string(), localizedMessageSchema).superRefine((value, context) => {
   Object.keys(value).forEach((locale) => {
     if (!LOCALE.test(locale)) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: [locale], message: 'locale key is invalid' });
@@ -84,6 +92,7 @@ export const mobileReleasePolicyInputSchema = z.object({
 });
 
 export type MobileReleasePolicyInput = z.infer<typeof mobileReleasePolicyInputSchema>;
+export type LocalizedReleaseMessage = z.infer<typeof localizedMessageSchema>;
 
 export type MobileReleasePolicyRecord = {
   id: string;
@@ -98,7 +107,7 @@ export type MobileReleasePolicyRecord = {
   recommended_version_name: string | null;
   update_mode: ReleaseUpdateMode;
   hard_block_reason: ReleaseHardBlockReason;
-  localized_messages: Record<string, string>;
+  localized_messages: Record<string, LocalizedReleaseMessage>;
   store_destinations: Record<string, string>;
   allow_active_order_access: boolean;
   allow_support_access: boolean;
@@ -156,9 +165,11 @@ const withTransaction = async <T>(work: (client: PoolClient) => Promise<T>): Pro
   }
 };
 
-const normalizeLocaleMap = (messages: Record<string, string>): Record<string, string> => Object.entries(messages)
-  .reduce<Record<string, string>>((result, [locale, message]) => {
-    result[locale.trim().replace('_', '-')] = message.trim();
+const normalizeLocaleMap = (messages: Record<string, LocalizedReleaseMessage>): Record<string, LocalizedReleaseMessage> => Object.entries(messages)
+  .reduce<Record<string, LocalizedReleaseMessage>>((result, [locale, message]) => {
+    result[locale.trim().replace('_', '-')] = typeof message === 'string'
+      ? message.trim()
+      : { title: message.title.trim(), body: message.body.trim() };
     return result;
   }, {});
 
@@ -187,7 +198,7 @@ const rowToRecord = (row: Record<string, any>): MobileReleasePolicyRecord => ({
   recommended_version_name: row.recommended_version_name ? String(row.recommended_version_name) : null,
   update_mode: row.update_mode as ReleaseUpdateMode,
   hard_block_reason: row.hard_block_reason as ReleaseHardBlockReason,
-  localized_messages: (row.localized_messages || {}) as Record<string, string>,
+  localized_messages: (row.localized_messages || {}) as Record<string, LocalizedReleaseMessage>,
   store_destinations: (row.store_destinations || {}) as Record<string, string>,
   allow_active_order_access: Boolean(row.allow_active_order_access),
   allow_support_access: Boolean(row.allow_support_access),
@@ -399,7 +410,7 @@ export const upsertMobileReleasePolicy = async (
   });
 };
 
-const resolvedMessage = (policy: MobileReleasePolicyRecord, requestedLocale: string): string => {
+const resolvedCopy = (policy: MobileReleasePolicyRecord, requestedLocale: string): LocalizedReleaseMessage => {
   const messages = policy.localized_messages || {};
   const chain = localeFallbackChain(requestedLocale || 'id-ID', 'id-ID');
   for (const locale of chain) {
@@ -407,8 +418,18 @@ const resolvedMessage = (policy: MobileReleasePolicyRecord, requestedLocale: str
     if (message) return message;
   }
   return policy.update_mode === 'hard'
-    ? 'Pembaruan wajib diperlukan sebelum fitur transaksi baru dapat digunakan.'
-    : 'Versi baru aplikasi tersedia. Perbarui saat siap.';
+    ? { title: 'Pembaruan wajib', body: 'Pembaruan diperlukan sebelum fitur transaksi baru dapat digunakan.' }
+    : { title: 'Versi baru tersedia', body: 'Perbarui aplikasi saat siap.' };
+};
+
+const resolvedTitle = (policy: MobileReleasePolicyRecord, requestedLocale: string): string => {
+  const copy = resolvedCopy(policy, requestedLocale);
+  return typeof copy === 'string' ? (policy.update_mode === 'hard' ? 'Pembaruan wajib' : 'Versi baru tersedia') : copy.title;
+};
+
+const resolvedMessage = (policy: MobileReleasePolicyRecord, requestedLocale: string): string => {
+  const copy = resolvedCopy(policy, requestedLocale);
+  return typeof copy === 'string' ? copy : copy.body;
 };
 
 const primaryStoreUrl = (policy: MobileReleasePolicyRecord): string =>
@@ -431,8 +452,9 @@ export type MobileReleaseDecision = {
   update_required: boolean;
   hard_block: boolean;
   hard_block_reason: ReleaseHardBlockReason | 'incompatible';
+  title: string;
   message: string;
-  localized_messages: Record<string, string>;
+  localized_messages: Record<string, LocalizedReleaseMessage>;
   store_destinations: Record<string, string>;
   recovery_access: {
     active_order: boolean;
@@ -481,6 +503,7 @@ export const decideMobileRelease = (
     update_required: updateRequired,
     hard_block: hardBlock,
     hard_block_reason: hardReason,
+    title: resolvedTitle(policy, requestedLocale),
     message: resolvedMessage(policy, requestedLocale),
     localized_messages: policy.localized_messages,
     store_destinations: policy.store_destinations,

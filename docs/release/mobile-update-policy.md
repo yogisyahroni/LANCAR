@@ -14,7 +14,9 @@ merchant, and web clients. The authoritative policy is scoped by
   transactions until the client updates. Existing server-authoritative order and
   payment state is not changed by the prompt.
 
-The API returns localized messages and a platform/market store destination. A
+The API returns localized title/body messages and a platform/market store destination. Existing
+locale entries stored as a plain string remain valid as body-only fallback; new
+Admin edits persist explicit `{title, body}` pairs. A
 missing or unknown app version is handled conservatively: release metadata is
 returned, but the client is not hard-blocked solely because its version header
 is unknown.

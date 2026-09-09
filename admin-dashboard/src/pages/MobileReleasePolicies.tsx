@@ -24,7 +24,7 @@ type ReleasePolicy = {
   recommended_version_name: string | null
   update_mode: UpdateMode
   hard_block_reason: HardBlockReason
-  localized_messages: Record<string, string>
+  localized_messages: Record<string, string | { title: string; body: string }>
   store_destinations: Record<string, string>
   allow_active_order_access: boolean
   allow_support_access: boolean
@@ -58,6 +58,8 @@ type FormState = {
   recommended_version_name: string
   update_mode: UpdateMode
   hard_block_reason: HardBlockReason
+  title_id: string
+  title_en: string
   message_id: string
   message_en: string
   store_url: string
@@ -69,6 +71,9 @@ type FormState = {
 const inputClass = 'mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20'
 const clientLabels: Record<ClientType, string> = { customer: 'Customer', courier: 'Courier', merchant: 'Merchant', web: 'Web' }
 const localDateTime = (value: Date) => new Date(value.getTime() - value.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+const localizedCopy = (value: string | { title: string; body: string } | undefined, fallbackTitle: string) => typeof value === 'string'
+  ? { title: fallbackTitle, body: value }
+  : value ?? { title: fallbackTitle, body: '' }
 
 const newForm = (): FormState => ({
   market_code: 'id-jk',
@@ -82,6 +87,8 @@ const newForm = (): FormState => ({
   recommended_version_name: '',
   update_mode: 'none',
   hard_block_reason: 'none',
+  title_id: 'Pembaruan aplikasi',
+  title_en: 'App update available',
   message_id: 'Versi baru tersedia. Perbarui aplikasi saat siap.',
   message_en: 'A new version is available. Update when ready.',
   store_url: '',
@@ -108,8 +115,10 @@ const toForm = (policy: ReleasePolicy): FormState => ({
   recommended_version_name: policy.recommended_version_name ?? '',
   update_mode: policy.update_mode,
   hard_block_reason: policy.hard_block_reason,
-  message_id: policy.localized_messages['id-ID'] ?? '',
-  message_en: policy.localized_messages['en-US'] ?? '',
+  title_id: localizedCopy(policy.localized_messages['id-ID'], 'Pembaruan aplikasi').title,
+  title_en: localizedCopy(policy.localized_messages['en-US'], 'App update available').title,
+  message_id: localizedCopy(policy.localized_messages['id-ID'], 'Pembaruan aplikasi').body,
+  message_en: localizedCopy(policy.localized_messages['en-US'], 'App update available').body,
   store_url: policy.store_destinations.primary ?? policy.store_destinations.default ?? '',
   effective_from: localDateTime(new Date(policy.effective_from)),
   effective_to: policy.effective_to ? localDateTime(new Date(policy.effective_to)) : '',
@@ -152,8 +161,8 @@ export default function MobileReleasePolicies() {
         update_mode: form.update_mode,
         hard_block_reason: isHard ? form.hard_block_reason : 'none',
         localized_messages: {
-          ...(form.message_id.trim() ? { 'id-ID': form.message_id.trim() } : {}),
-          ...(form.message_en.trim() ? { 'en-US': form.message_en.trim() } : {}),
+          ...(form.message_id.trim() ? { 'id-ID': { title: form.title_id.trim(), body: form.message_id.trim() } } : {}),
+          ...(form.message_en.trim() ? { 'en-US': { title: form.title_en.trim(), body: form.message_en.trim() } } : {}),
         },
         store_destinations: form.store_url.trim() ? { primary: form.store_url.trim() } : {},
         effective_from: new Date(form.effective_from).toISOString(),
@@ -226,8 +235,10 @@ export default function MobileReleasePolicies() {
           <label className="text-xs font-bold text-zinc-400">Store destination URL<input type="url" className={inputClass} value={form.store_url} onChange={(event) => setForm({ ...form, store_url: event.target.value })} placeholder="https://..." /></label>
           <label className="text-xs font-bold text-zinc-400">Effective start<input type="datetime-local" className={inputClass} value={form.effective_from} onChange={(event) => setForm({ ...form, effective_from: event.target.value })} /></label>
           <label className="text-xs font-bold text-zinc-400">Effective end<input type="datetime-local" className={inputClass} value={form.effective_to} onChange={(event) => setForm({ ...form, effective_to: event.target.value })} placeholder="Optional" /></label>
-          <label className="text-xs font-bold text-zinc-400 md:col-span-2">Bahasa Indonesia message<textarea className={`${inputClass} min-h-20 resize-y`} maxLength={240} value={form.message_id} onChange={(event) => setForm({ ...form, message_id: event.target.value })} /></label>
-          <label className="text-xs font-bold text-zinc-400 md:col-span-2">English message<textarea className={`${inputClass} min-h-20 resize-y`} maxLength={240} value={form.message_en} onChange={(event) => setForm({ ...form, message_en: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400">Bahasa Indonesia title<input className={inputClass} maxLength={120} value={form.title_id} onChange={(event) => setForm({ ...form, title_id: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400">English title<input className={inputClass} maxLength={120} value={form.title_en} onChange={(event) => setForm({ ...form, title_en: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400 md:col-span-2">Bahasa Indonesia body<textarea className={`${inputClass} min-h-20 resize-y`} maxLength={240} value={form.message_id} onChange={(event) => setForm({ ...form, message_id: event.target.value })} /></label>
+          <label className="text-xs font-bold text-zinc-400 md:col-span-2">English body<textarea className={`${inputClass} min-h-20 resize-y`} maxLength={240} value={form.message_en} onChange={(event) => setForm({ ...form, message_en: event.target.value })} /></label>
           <label className="text-xs font-bold text-zinc-400 md:col-span-4">Audit reason<input className={inputClass} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label>
         </div>
         {isHard ? <p className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs leading-relaxed text-red-200">Hard update hanya valid untuk binary unsafe/incompatible. Akses pesanan aktif dan support dipertahankan; transaksi baru otomatis ditahan oleh server.</p> : null}

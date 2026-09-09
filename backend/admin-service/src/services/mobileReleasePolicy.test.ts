@@ -51,6 +51,15 @@ describe('mobile release policy contract', () => {
       reason: 'Raise the recommended customer release',
     })).toMatchObject({ market_code: 'id-jk', platform: 'android', update_mode: 'soft' });
 
+    expect(parseMobileReleasePolicyInput({
+      market_code: 'id-jk', client_type: 'customer', platform: 'android',
+      latest_version_code: 3, latest_version_name: '1.0.3',
+      min_supported_version_code: 2, min_supported_version_name: '1.0.2',
+      update_mode: 'soft',
+      localized_messages: { 'id-ID': { title: 'Pembaruan aplikasi', body: 'Perbarui aplikasi saat siap.' } },
+      reason: 'Localized release title and body',
+    })).toMatchObject({ localized_messages: { 'id-ID': { title: 'Pembaruan aplikasi', body: 'Perbarui aplikasi saat siap.' } } });
+
     expect(() => parseMobileReleasePolicyInput({
       market_code: 'id-jk', client_type: 'customer', platform: 'android',
       latest_version_code: 3, latest_version_name: '1.0.3',
@@ -92,6 +101,7 @@ describe('mobile release policy contract', () => {
     expect(decision).toMatchObject({
       update_mode: 'soft', update_required: true, hard_block: false, force: false,
       recovery_access: { active_order: true, support: true, new_transactions: true },
+      title: 'Versi baru tersedia',
       message: 'Versi baru tersedia',
     });
   });
