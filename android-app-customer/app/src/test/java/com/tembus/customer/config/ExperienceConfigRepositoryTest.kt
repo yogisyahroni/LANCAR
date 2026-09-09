@@ -47,6 +47,44 @@ class ExperienceConfigRepositoryTest {
     }
 
     @Test
+    fun firstInstallOfflineUsesPackagedDefault() = runTest {
+        val store = mockk<ExperienceConfigStore>()
+        coEvery { store.readCachedManifest() } returns null
+        every { store.isAssetBundleAvailable(any()) } returns true
+        val api = mockk<ExperienceConfigApi>()
+        coEvery { api.fetch(scope, null) } returns ExperienceConfigFetchResult.Failed("offline")
+        val repository = repository(api, store)
+
+        val snapshot = repository.refresh(scope)
+
+        assertEquals(ExperienceConfigSource.PACKAGED_DEFAULT, snapshot.source)
+        assertEquals("packaged-default", snapshot.manifest.manifestId)
+        assertEquals(0, snapshot.manifest.revision)
+        coVerify(exactly = 1) { api.fetch(scope, null) }
+    }
+
+    @Test
+    fun staleCachedManifestRemainsLastKnownGoodWhenNetworkRefreshFails() = runTest {
+        val cachedManifest = manifest(manifestId = "known-good", revision = 4, ttlSeconds = 1)
+        val store = mockk<ExperienceConfigStore>()
+        coEvery { store.readCachedManifest() } returns cached(
+            cachedManifest,
+            storedAtMillis = System.currentTimeMillis() - 10_000,
+            etag = "\"${cachedManifest.checksum}\"",
+        )
+        every { store.isAssetBundleAvailable(any()) } returns true
+        val api = mockk<ExperienceConfigApi>()
+        coEvery { api.fetch(scope, "\"${cachedManifest.checksum}\"") } returns ExperienceConfigFetchResult.Failed("network_timeout")
+        val repository = repository(api, store)
+
+        val snapshot = repository.refresh(scope)
+
+        assertEquals(ExperienceConfigSource.LAST_KNOWN_GOOD, snapshot.source)
+        assertEquals("known-good", snapshot.manifest.manifestId)
+        coVerify(exactly = 0) { store.writeManifestAtomically(any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
     fun expiredLkgSendsEtagAndPublishesNetworkRevisionAfterStaging() = runTest {
         val oldManifest = manifest(manifestId = "old-manifest", revision = 1, ttlSeconds = 1)
         val newManifest = manifest(manifestId = "new-manifest", revision = 2, ttlSeconds = 300)

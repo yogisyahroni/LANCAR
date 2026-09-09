@@ -82,6 +82,23 @@ class ExperienceConfigManagerTest {
         assertTrue(fallback.sections.isEmpty())
     }
 
+    @Test
+    fun oversizedAssetReferenceIsRejectedBeforeItCanBecomeKnownGood() {
+        val oversized = manifest().copy(
+            assetReferences = listOf(
+                com.tembus.customer.data.config.model.ExperienceAssetReference(
+                    assetId = "hero-image",
+                    uri = "https://cdn.example.test/hero.webp",
+                    kind = "image",
+                    checksum = "b".repeat(64),
+                    sizeLimitBytes = 5L * 1024L * 1024L + 1L,
+                ),
+            ),
+        )
+
+        assertNull(ExperienceManifestValidator.sanitize(oversized, scope))
+    }
+
     private fun manifest(
         schemaVersion: Int = 1,
         marketCode: String = "id-jk",
