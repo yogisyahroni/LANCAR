@@ -286,6 +286,18 @@ jobs:
         run: |
           go install github.com/pressly/goose/v3/cmd/goose@latest
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+      - name: Apply migrations before canonical order contract
+        run: |
+          goose -dir database/migrations postgres \
+            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" up-to 20260901000007
+      - name: Seed legacy canonical order fixtures
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: ${{ env.CI_POSTGRES_USER }}
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          PGDATABASE: ${{ env.CI_POSTGRES_DB }}
+        run: psql --set=ON_ERROR_STOP=1 --file=scripts/ci/seed_canonical_order_legacy.sql
       - name: Run migrations UP
         run: |
           goose -dir database/migrations postgres \
@@ -294,6 +306,14 @@ jobs:
         run: |
           goose -dir database/migrations postgres \
             "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" version
+      - name: Verify canonical order backfill and state contract
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: ${{ env.CI_POSTGRES_USER }}
+          PGPASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          PGDATABASE: ${{ env.CI_POSTGRES_DB }}
+        run: psql --set=ON_ERROR_STOP=1 --file=scripts/ci/verify_canonical_order_contract.sql
       - name: Run migrations DOWN (rollback test)
         run: |
           goose -dir database/migrations postgres \
