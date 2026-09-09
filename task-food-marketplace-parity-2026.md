@@ -2290,11 +2290,11 @@ A task is complete only when applicable boxes below are true:
 - store destination per platform/market
 
 **Checklist**
-- [ ] Soft update is dismissible and never impersonates transaction failure.
-- [ ] Hard update only used when old binary is genuinely unsafe/incompatible.
-- [ ] Active order/support access strategy is defined before hard-blocking an old app.
-- [ ] Version rule is market/platform scoped.
-- [ ] Remote config is not used as a way to avoid required store review for new native capability/code.
+- [x] Soft update is dismissible and never impersonates transaction failure. (Evidence: docs/task-evidence/APP-2026-015.md)
+- [x] Hard update only used when old binary is genuinely unsafe/incompatible. (Evidence: docs/task-evidence/APP-2026-015.md)
+- [x] Active order/support access strategy is defined before hard-blocking an old app. (Evidence: docs/task-evidence/APP-2026-015.md)
+- [x] Version rule is market/platform scoped. (Evidence: docs/task-evidence/APP-2026-015.md)
+- [x] Remote config is not used as a way to avoid required store review for new native capability/code. (Evidence: docs/task-evidence/APP-2026-015.md)
 
 ---
 
