@@ -7,6 +7,7 @@ import { api } from '../lib/api'
 import { useAuthStore } from '../store/useAuthStore'
 import AppExperienceEditor from './AppExperienceEditor'
 import AppExperienceOverview from './AppExperienceOverview'
+import ExperienceAssets from './ExperienceAssets'
 import ExperiencePreview from '../components/experience/ExperiencePreview'
 import RevisionHistory from '../components/experience/RevisionHistory'
 import ExperienceScopeBar, { type ExperienceScope } from '../components/experience/ExperienceScopeBar'
@@ -236,6 +237,7 @@ export default function AppExperience() {
 
   if (activeSection === 'Overview') return <AppExperienceOverview />
   if (activeSection === 'Kill Switches') return <KillSwitches />
+  if (activeSection === 'Asset Library') return <div className="space-y-8 animate-in"><ExperienceScopeBar value={scope} onChange={updateScope} /><ExperienceAssets marketCode={form.market_code} surface={form.surface} /></div>
 
   return (
     <div className="space-y-8 animate-in">
