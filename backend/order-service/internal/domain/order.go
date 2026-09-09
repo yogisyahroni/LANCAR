@@ -200,6 +200,7 @@ type CreateOrderRequest struct {
 	DropoffAddress       string  `json:"dropoff_address,omitempty"`
 	DropoffCity          string  `json:"dropoff_city,omitempty"`
 	DropoffZipCode       string  `json:"dropoff_zip_code,omitempty"`
+	MarketCode           string  `json:"market_code,omitempty"`
 	DropoffLat           float64 `json:"dropoff_lat,omitempty"`
 	DropoffLng           float64 `json:"dropoff_lng,omitempty"`
 	Length               float64 `json:"length,omitempty"`

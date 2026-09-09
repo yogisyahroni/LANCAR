@@ -73,7 +73,9 @@ func (s *stubEventRepo) ListEventsByOrderID(ctx context.Context, orderID string)
 
 type stubEventBus struct{}
 
-func (s *stubEventBus) Publish(ctx context.Context, topic string, payload interface{}) error { return nil }
+func (s *stubEventBus) Publish(ctx context.Context, topic string, payload interface{}) error {
+	return nil
+}
 func (s *stubEventBus) Subscribe(ctx context.Context, topic string) (<-chan string, error) {
 	return nil, nil
 }
@@ -131,12 +133,17 @@ func (s *stubFlags) GetFlags(ctx context.Context, keys []string) (map[string]*fe
 func (s *stubFlags) IsFeatureFlagEnabled(ctx context.Context, key string, defaultVal bool) (bool, error) {
 	return defaultVal, nil
 }
+func (s *stubFlags) IsKillSwitchActive(ctx context.Context, switchType, serviceCode, marketCode, cityCode, zoneCode string) (bool, error) {
+	return false, nil
+}
 func (s *stubFlags) InvalidateCache(ctx context.Context, key string) error { return nil }
-func (s *stubFlags) Close() error                                         { return nil }
+func (s *stubFlags) Close() error                                          { return nil }
 
 type stubNotification struct{}
 
-func (s *stubNotification) Send(ctx context.Context, req domain.NotificationRequest) error { return nil }
+func (s *stubNotification) Send(ctx context.Context, req domain.NotificationRequest) error {
+	return nil
+}
 func (s *stubNotification) GetInbox(ctx context.Context, userID uuid.UUID, limit, offset int) ([]domain.Notification, error) {
 	return nil, nil
 }
@@ -170,7 +177,9 @@ func (s *stubTax) CalculatePaymentMDRTax(ctx context.Context, mdrAmountIDR int64
 func (s *stubTax) GenerateEFakturExport(ctx context.Context, period string, requestedBy string) (*domain.TaxEFakturExport, error) {
 	return nil, nil
 }
-func (s *stubTax) UpdateEFakturStatus(ctx context.Context, exportID string, status string) error { return nil }
+func (s *stubTax) UpdateEFakturStatus(ctx context.Context, exportID string, status string) error {
+	return nil
+}
 
 func strPtr(s string) *string { return &s }
 

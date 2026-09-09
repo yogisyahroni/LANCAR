@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ type FlagReader interface {
 	GetFlag(ctx context.Context, key string) (*FeatureFlag, error)
 	GetFlags(ctx context.Context, keys []string) (map[string]*FeatureFlag, error)
 	IsFeatureFlagEnabled(ctx context.Context, key string, defaultVal bool) (bool, error)
+	IsKillSwitchActive(ctx context.Context, switchType, serviceCode, marketCode, cityCode, zoneCode string) (bool, error)
 	InvalidateCache(ctx context.Context, key string) error
 	Close() error
 }
@@ -151,6 +153,97 @@ func (r *flagReaderImpl) IsFeatureFlagEnabled(ctx context.Context, key string, d
 		return defaultVal, err
 	}
 	return flag.IsEnabled, nil
+}
+
+// IsKillSwitchActive reads the typed operational controls stored in the
+// canonical feature_flags table. Presentation hiding is intentionally not
+// consulted here; only transactional gates can prevent a new order. A
+// database error is returned so callers can fail closed instead of allowing a
+// request when the control plane cannot be verified.
+func (f *flagReaderImpl) IsKillSwitchActive(ctx context.Context, switchType, serviceCode, marketCode, cityCode, zoneCode string) (bool, error) {
+	rows, err := f.readDB.QueryContext(ctx, `
+		SELECT is_enabled, config
+		  FROM feature_flags
+		 WHERE category = 'experience_kill_switch'
+		   AND config->>'control_plane' = 'experience'
+		   AND config->>'kill_switch_type' = $1`, switchType)
+	if err != nil {
+		return false, fmt.Errorf("read experience kill switch: %w", err)
+	}
+	defer rows.Close()
+
+	now := time.Now()
+	for rows.Next() {
+		var enabled bool
+		var raw []byte
+		if scanErr := rows.Scan(&enabled, &raw); scanErr != nil {
+			return false, fmt.Errorf("scan experience kill switch: %w", scanErr)
+		}
+		if !enabled {
+			continue
+		}
+		var config map[string]interface{}
+		if len(raw) == 0 || json.Unmarshal(raw, &config) != nil {
+			continue
+		}
+		if !matchesScopedValue(config, "service_code", "service_codes", serviceCode) ||
+			!matchesScopedValue(config, "market_code", "market_codes", marketCode) ||
+			!matchesScopedValue(config, "city_code", "city_codes", cityCode) ||
+			!matchesScopedValue(config, "zone_code", "zone_codes", zoneCode) {
+			continue
+		}
+		if value, ok := config["starts_at"].(string); ok {
+			startsAt, parseErr := time.Parse(time.RFC3339, value)
+			if parseErr == nil && now.Before(startsAt) {
+				continue
+			}
+		}
+		if value, ok := config["expires_at"].(string); ok {
+			expiresAt, parseErr := time.Parse(time.RFC3339, value)
+			if parseErr == nil && !now.Before(expiresAt) {
+				continue
+			}
+		}
+		return true, nil
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("iterate experience kill switches: %w", err)
+	}
+	return false, nil
+}
+
+func matchesScopedValue(config map[string]interface{}, singularKey, pluralKey, actual string) bool {
+	actual = strings.ToLower(strings.TrimSpace(actual))
+	raw, exists := config[pluralKey]
+	if !exists {
+		raw, exists = config[singularKey]
+	}
+	if !exists || raw == nil {
+		return true
+	}
+	values := make([]string, 0)
+	switch typed := raw.(type) {
+	case []interface{}:
+		for _, value := range typed {
+			if text, ok := value.(string); ok {
+				values = append(values, strings.ToLower(strings.TrimSpace(text)))
+			}
+		}
+	case string:
+		values = append(values, strings.ToLower(strings.TrimSpace(typed)))
+	}
+	if len(values) == 0 {
+		return true
+	}
+	if actual == "" {
+		return false
+	}
+	for _, value := range values {
+		if value == "*" || value == actual {
+			return true
+		}
+	}
+	return false
 }
 
 func (f *flagReaderImpl) GetFlags(ctx context.Context, keys []string) (map[string]*FeatureFlag, error) {

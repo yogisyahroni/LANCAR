@@ -54,6 +54,7 @@ const PROTECTED_CATEGORIES = new Set([
   'security',
   'settlement',
   'system',
+  'experience_kill_switch',
 ]);
 
 const HIGH_BLAST_ROLES = new Set(['super_admin', 'ops_security']);

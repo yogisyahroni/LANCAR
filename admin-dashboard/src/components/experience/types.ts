@@ -22,6 +22,17 @@ export type ExperienceSection = {
   properties: Record<string, unknown>
 }
 
+export type ServiceExposureEntry = {
+  service_code: string
+  service_category?: string
+  enabled: boolean
+  position: number
+  label?: string
+  subtitle?: string
+  badge?: string
+  fallback_behavior: 'hide_entry' | 'show_authoritative_name' | 'show_unavailable_notice'
+}
+
 export type ExperienceAsset = {
   asset_id: string
   uri: string
@@ -227,6 +238,29 @@ export const defaultExperienceForm = (): ExperienceForm => ({
   targeting: emptyTargeting(),
   sections: [defaultSection()],
   asset_references: [],
+})
+
+export const defaultServiceVisibilityForm = (): ExperienceForm => ({
+  ...defaultExperienceForm(),
+  sections: [{
+    id: 'service-visibility',
+    component: 'service_grid',
+    enabled: true,
+    properties: {
+      title: 'Services',
+      display_mode: 'cards',
+      service_entries: [{
+        service_code: 'food_delivery',
+        service_category: 'food',
+        enabled: true,
+        position: 0,
+        label: 'Food delivery',
+        subtitle: 'Pesan makanan',
+        badge: '',
+        fallback_behavior: 'hide_entry',
+      } satisfies ServiceExposureEntry],
+    },
+  }],
 })
 
 export const formFromManifest = (manifest: ExperienceManifest): ExperienceForm => ({

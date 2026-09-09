@@ -91,8 +91,27 @@ silently become a customer-home renderer payload.
 
 `service_grid` may use `service_codes` for ordering/visibility and may also
 provide `cards` entries with a service `code`, presentation-only `subtitle`,
-and presentation-only `badge`. The customer app intersects those entries with
-the authoritative enabled-service response before rendering or navigation.
+and presentation-only `badge`. The service-visibility editor may instead use
+`service_entries`, an ordered list containing `service_code`, optional
+`service_category`, `enabled`, `position`, presentation-only `label`,
+`subtitle`, `badge`, and a bounded `fallback_behavior` (`hide_entry`,
+`show_authoritative_name`, or `show_unavailable_notice`). These fields control
+discovery presentation only; service availability, order creation, provider
+capability, checkout, payment, pricing, and active-order state remain owned by
+their existing domain services. The customer app intersects configured entries
+with the authoritative enabled-service response before rendering or navigation,
+and disabled entries never become clickable.
+
+Operational service controls reuse the canonical `feature_flags` store with
+`config.control_plane = experience` and an explicit `kill_switch_type`:
+`marketing_hide` hides only discovery/promo, `new_order_gate` rejects new
+orders while preserving active-order access, `provider_gate` disables a
+selected provider capability, and `checkout_gate` prevents new checkout or
+payment initiation. High-impact controls require elevated authorization,
+reason, rollback plan, optional expiry/review time, and emit immutable audit
+records plus ops notifications. Public feature-flag resolution excludes these
+protected operational controls; business backends revalidate transactional
+gates instead of trusting the dashboard or client visibility.
 
 Each component has a strict property schema. Unknown components and unknown
 properties are rejected before publication. HTML, JavaScript/data URLs,

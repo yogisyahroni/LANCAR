@@ -379,6 +379,22 @@ const serviceGridCardSchema = z.object({
   badge: text(32).optional(),
 }).strict();
 
+// Service exposure is presentation-only. Transactional availability is still
+// resolved by the enabled-service/market control plane and the order domain.
+// Keeping the entry shape inside the existing service_grid manifest avoids a
+// second service catalog while giving operators deterministic ordering and
+// an explicit fallback when a configured service is unavailable.
+const serviceExposureEntrySchema = z.object({
+  service_code: identifier,
+  service_category: identifier.optional(),
+  enabled: z.boolean().default(true),
+  position: z.coerce.number().int().min(0).max(99).optional(),
+  label: text(120).optional(),
+  subtitle: text(160).optional(),
+  badge: text(32).optional(),
+  fallback_behavior: z.enum(['hide_entry', 'show_authoritative_name', 'show_unavailable_notice']).default('hide_entry'),
+}).strict();
+
 const runtimeDesignTokenPalette = {
   accent: {
     brand: { light: '#003A20', dark: '#1A7A4C', onLight: '#FFFFFF', onDark: '#F4F7F5' },
@@ -485,10 +501,19 @@ const componentSchemas: Record<ExperienceComponent, z.ZodTypeAny> = {
     localized_copy: localizedCopyReferenceSchema,
     service_codes: z.array(identifier).min(1).max(20).optional(),
     cards: z.array(serviceGridCardSchema).min(1).max(20).optional(),
+    service_entries: z.array(serviceExposureEntrySchema).min(1).max(20).optional(),
     display_mode: z.enum(['compact', 'cards']).default('cards'),
   }).strict().refine(
-    (value) => (value.service_codes?.length ?? 0) > 0 || (value.cards?.length ?? 0) > 0,
-    'service_grid requires service_codes or cards',
+    (value) => (value.service_codes?.length ?? 0) > 0
+      || (value.cards?.length ?? 0) > 0
+      || (value.service_entries?.length ?? 0) > 0,
+    'service_grid requires service_codes, cards, or service_entries',
+  ).refine(
+    (value) => {
+      const entries = value.service_entries ?? [];
+      return new Set(entries.map((entry) => entry.service_code)).size === entries.length;
+    },
+    'service_grid service_entries must not contain duplicate service_code values',
   ),
   info_card: z.object({
     title: text(120).optional(),

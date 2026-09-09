@@ -29,6 +29,11 @@ import {
   validateExperienceRollout,
   type ExperienceSurface,
 } from '../services/experienceConfig';
+import {
+  ExperienceKillSwitchError,
+  listExperienceKillSwitchControls,
+  upsertExperienceKillSwitch,
+} from '../services/experienceKillSwitches';
 
 const correlationId = (req: Request, res: Response): string | null =>
   (res.locals.correlationId as string | undefined) ||
@@ -42,6 +47,16 @@ const respondWithError = (res: Response, error: unknown, operation: string): voi
       message: error.message,
       ...(error.reasonCodes.length > 0 ? { reason_codes: error.reasonCodes } : {}),
       ...(error.issues.length > 0 ? { issues: error.issues } : {}),
+      request_id: res.locals.requestId || null,
+      correlation_id: res.locals.correlationId || null,
+    });
+    return;
+  }
+  if (error instanceof ExperienceKillSwitchError) {
+    res.status(error.status).json({
+      success: false,
+      code: error.code,
+      message: error.message,
       request_id: res.locals.requestId || null,
       correlation_id: res.locals.correlationId || null,
     });
@@ -417,6 +432,34 @@ export const setAdminExperienceKillSwitch = async (req: Request, res: Response):
     respondSuccess(req, res, data);
   } catch (error) {
     respondWithError(res, error, 'kill_switch');
+  }
+};
+
+/**
+ * Typed service controls reuse the canonical feature_flags store. The
+ * manifest kill-switch endpoints above remain backwards-compatible for
+ * presentation revisions; these endpoints are the operational surface for
+ * marketing_hide/new_order_gate/provider_gate/checkout_gate semantics.
+ */
+export const listAdminExperienceKillSwitchControls = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = await listExperienceKillSwitchControls({
+      market_code: req.query.market_code,
+      service_code: req.query.service_code,
+      kill_switch_type: req.query.kill_switch_type,
+    });
+    respondSuccess(req, res, data);
+  } catch (error) {
+    respondWithError(res, error, 'kill_switch_controls_list');
+  }
+};
+
+export const upsertAdminExperienceKillSwitchControl = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = await upsertExperienceKillSwitch(req.body, getActorId(req), req.user?.role || null);
+    respondSuccess(req, res, data, 200);
+  } catch (error) {
+    respondWithError(res, error, 'kill_switch_control_upsert');
   }
 };
 

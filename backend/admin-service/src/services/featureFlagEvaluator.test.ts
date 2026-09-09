@@ -36,6 +36,7 @@ describe('feature flag evaluator', () => {
 
   it('identifies protected/high-blast flags', () => {
     expect(isProtectedFeatureFlag({ key: 'require_payment_gateway', category: 'feature' })).toBe(true);
+    expect(isProtectedFeatureFlag({ key: 'experience.new_order_gate.food_delivery.id-jk.all', category: 'experience_kill_switch' })).toBe(true);
     expect(isHighBlastRadiusFlag({ key: 'marketing_banner', category: 'feature', config: { high_blast_radius: true }, require_checklist: false })).toBe(true);
     expect(isHighBlastRadiusFlag({ key: 'safe_banner', category: 'feature', config: {}, require_checklist: false })).toBe(false);
   });

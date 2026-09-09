@@ -53,7 +53,9 @@ import com.tembus.customer.ui.theme.RuntimeThemeProvider
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 
 private val RENDERABLE_COMPONENTS = setOf(
     "hero_banner",
@@ -84,6 +86,7 @@ internal fun collectRenderableSections(
 
 internal data class DynamicServicePresentation(
     val service: DeliveryServiceProduct,
+    val label: String?,
     val subtitle: String?,
     val badge: String?,
 )
@@ -217,24 +220,36 @@ internal fun resolveDynamicServices(
     val available = services
         .filter { it.isEnabled }
         .associateBy { it.code.trim().lowercase() }
+    val serviceEntries = properties["service_entries"] as? JsonArray
+    val configuredEntries = serviceEntries.orEmpty().mapIndexedNotNull { index, value ->
+        val entry = value as? JsonObject ?: return@mapIndexedNotNull null
+        val code = entry.string("service_code")?.lowercase() ?: return@mapIndexedNotNull null
+        val enabled = (entry["enabled"] as? JsonPrimitive)?.booleanOrNull ?: true
+        if (!enabled) return@mapIndexedNotNull null
+        val position = (entry["position"] as? JsonPrimitive)?.intOrNull ?: index
+        Triple(position, index, code to Triple(entry.string("label"), entry.string("subtitle"), entry.string("badge")))
+    }.sortedWith(compareBy({ it.first }, { it.second })).map { it.third }
     val cards = properties["cards"] as? JsonArray
     val cardByCode = cards.orEmpty().mapNotNull { value ->
         val card = value as? JsonObject ?: return@mapNotNull null
         val code = card.string("code")?.lowercase() ?: return@mapNotNull null
         code to (card.string("subtitle") to card.string("badge"))
     }.toMap()
-    val configuredCodes = if (cards != null) {
+    val configuredCodes = if (serviceEntries != null) {
+        configuredEntries.map { it.first }
+    } else if (cards != null) {
         cardByCode.keys.toList()
     } else {
         properties.stringArray("service_codes")
     }
     return configuredCodes.distinct().mapNotNull { code ->
         val service = available[code] ?: return@mapNotNull null
-        val presentation = cardByCode[code]
+        val presentation = if (serviceEntries != null) configuredEntries.firstOrNull { it.first == code }?.second else cardByCode[code]?.let { Triple(null, it.first, it.second) }
         DynamicServicePresentation(
             service = service,
-            subtitle = presentation?.first ?: service.description.takeIf { it.isNotBlank() },
-            badge = presentation?.second,
+            label = presentation?.first,
+            subtitle = presentation?.second ?: service.description.takeIf { it.isNotBlank() },
+            badge = presentation?.third,
         )
     }
 }
@@ -355,9 +370,9 @@ private fun DynamicServiceCard(
                 Modifier.fillMaxWidth().padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(getServiceIcon(service.code), contentDescription = service.name, modifier = Modifier.size(28.dp))
+                Icon(getServiceIcon(service.code), contentDescription = presentation.label ?: service.name, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.height(6.dp))
-                Text(service.name, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(presentation.label ?: service.name, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (!compact) {
                     presentation.subtitle?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                 }

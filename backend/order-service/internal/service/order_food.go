@@ -22,6 +22,11 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	if err := validateFoodDestination(req); err != nil {
 		return nil, domain.NewUserFacingError(err.Error())
 	}
+	if gated, gateErr := s.flagReader.IsKillSwitchActive(ctx, "new_order_gate", "food_delivery", req.Market, req.DropoffCity, ""); gateErr != nil {
+		return nil, fmt.Errorf("food service availability control unavailable: %w", gateErr)
+	} else if gated {
+		return nil, domain.NewUserFacingError("layanan food sedang tidak menerima order baru di area ini")
+	}
 	foodQuote, err := s.requireFoodQuote(ctx, req)
 	if err != nil {
 		return nil, err

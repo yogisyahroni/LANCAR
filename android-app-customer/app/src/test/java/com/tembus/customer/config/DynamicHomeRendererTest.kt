@@ -115,4 +115,22 @@ class DynamicHomeRendererTest {
             resolveDynamicServices(properties, available).map { it.service.code },
         )
     }
+
+    @Test
+    fun serviceEntriesRespectEnabledPositionAndPresentationOverrides() {
+        val properties = json.parseToJsonElement(
+            """{"service_entries":[{"service_code":"food_delivery","enabled":true,"position":2,"label":"Makan hemat","subtitle":"Promo","badge":"Baru"},{"service_code":"tembus_instant","enabled":false,"position":0},{"service_code":"ride","enabled":true,"position":1}]}""",
+        ).jsonObject
+        val available = listOf(
+            DeliveryServiceProduct(code = "food_delivery", name = "Food"),
+            DeliveryServiceProduct(code = "tembus_instant", name = "Instant"),
+            DeliveryServiceProduct(code = "ride", name = "Ride"),
+        )
+
+        val resolved = resolveDynamicServices(properties, available)
+
+        assertEquals(listOf("ride", "food_delivery"), resolved.map { it.service.code })
+        assertEquals("Makan hemat", resolved.last().label)
+        assertEquals("Baru", resolved.last().badge)
+    }
 }

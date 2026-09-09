@@ -405,6 +405,39 @@ describe('experience manifest contract', () => {
     });
   });
 
+  it('accepts ordered service visibility entries but rejects duplicate service codes', () => {
+    const parsed = parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'services',
+        component: 'service_grid',
+        properties: {
+          service_entries: [
+            { service_code: 'food_delivery', service_category: 'food', enabled: true, position: 0, label: 'Makanan', subtitle: 'Pesan sekarang', badge: 'Baru', fallback_behavior: 'hide_entry' },
+            { service_code: 'tembus_instant', enabled: false, position: 1, fallback_behavior: 'show_authoritative_name' },
+          ],
+        },
+      }],
+    });
+    expect(parsed.sections[0].properties.service_entries).toMatchObject([
+      { service_code: 'food_delivery', enabled: true, fallback_behavior: 'hide_entry' },
+      { service_code: 'tembus_instant', enabled: false },
+    ]);
+    expect(() => parseExperienceManifestInput({
+      ...validInput,
+      sections: [{
+        id: 'services',
+        component: 'service_grid',
+        properties: {
+          service_entries: [
+            { service_code: 'food_delivery', enabled: true },
+            { service_code: 'food_delivery', enabled: true },
+          ],
+        },
+      }],
+    })).toThrow('duplicate service_code');
+  });
+
   it('validates bounded campaign intro duration and prefetch controls', () => {
     const parsed = parseExperienceManifestInput({
       ...validInput,

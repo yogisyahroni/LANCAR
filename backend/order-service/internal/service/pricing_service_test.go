@@ -158,6 +158,10 @@ func (m *MockFlagReader) IsFeatureFlagEnabled(ctx context.Context, key string, d
 	return defaultVal, nil
 }
 
+func (m *MockFlagReader) IsKillSwitchActive(ctx context.Context, switchType, serviceCode, marketCode, cityCode, zoneCode string) (bool, error) {
+	return false, nil
+}
+
 func (m *MockFlagReader) InvalidateCache(ctx context.Context, key string) error {
 	return nil
 }

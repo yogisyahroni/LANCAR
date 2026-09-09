@@ -234,3 +234,58 @@ func TestFlagReader_InvalidateCache_And_PubSub(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }
+
+func TestFlagReader_IsKillSwitchActive_RespectsScopeAndExpiry(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("open sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	reader := NewFlagReader(db, db, nil)
+	defer reader.Close()
+
+	mock.ExpectQuery(`SELECT is_enabled, config[\s\S]*FROM feature_flags`).
+		WithArgs("new_order_gate").
+		WillReturnRows(sqlmock.NewRows([]string{"is_enabled", "config"}).
+			AddRow(true, []byte(`{"service_code":"food_delivery","market_codes":["id-jk"],"city_codes":["jakarta"]}`)).
+			AddRow(true, []byte(`{"service_code":"food_delivery","market_codes":["id-jk"],"expires_at":"2020-01-01T00:00:00Z"}`)))
+
+	active, err := reader.IsKillSwitchActive(context.Background(), "new_order_gate", "food_delivery", "id-jk", "jakarta", "")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !active {
+		t.Fatal("expected matching scoped kill switch to be active")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unfulfilled SQL expectations: %v", err)
+	}
+}
+
+func TestFlagReader_IsKillSwitchActive_DoesNotMatchDifferentCity(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("open sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	reader := NewFlagReader(db, db, nil)
+	defer reader.Close()
+
+	mock.ExpectQuery(`SELECT is_enabled, config[\s\S]*FROM feature_flags`).
+		WithArgs("new_order_gate").
+		WillReturnRows(sqlmock.NewRows([]string{"is_enabled", "config"}).
+			AddRow(true, []byte(`{"service_code":"food_delivery","market_codes":["id-jk"],"city_codes":["bandung"]}`)))
+
+	active, err := reader.IsKillSwitchActive(context.Background(), "new_order_gate", "food_delivery", "id-jk", "jakarta", "")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if active {
+		t.Fatal("expected city-mismatched kill switch to stay inactive")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unfulfilled SQL expectations: %v", err)
+	}
+}

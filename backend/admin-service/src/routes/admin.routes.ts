@@ -126,6 +126,8 @@ adminRoutes.get('/admin/experience/rollouts', requireExperienceAccess(EXPERIENCE
 adminRoutes.post('/admin/experience/rollouts', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.validateAdminExperienceRollout(req, res));
 adminRoutes.get('/admin/experience/kill-switches', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceKillSwitches(req, res));
 adminRoutes.post('/admin/experience/kill-switches', requireExperienceAccess(EXPERIENCE_PERMISSIONS.killSwitchExecute, { target: 'body' }), requireTotp, requireIdempotencyKey('admin.experience_manifest.kill_switch'), (req, res) => controllers.setAdminExperienceKillSwitch(req, res));
+adminRoutes.get('/admin/experience/service-controls', requireExperienceAccess(EXPERIENCE_PERMISSIONS.read, { target: 'query' }), (req, res) => controllers.listAdminExperienceKillSwitchControls(req, res));
+adminRoutes.post('/admin/experience/service-controls', requireExperienceAccess(EXPERIENCE_PERMISSIONS.killSwitchExecute, { target: 'body' }), requireTotp, requireIdempotencyKey('admin.experience_service_control.upsert'), (req, res) => controllers.upsertAdminExperienceKillSwitchControl(req, res));
 adminRoutes.get('/admin/compliance/policy', requireRole(['super_admin', 'ops_admin', 'ops_security']), (req, res) => controllers.getAdminCompliancePolicy(req, res));
 adminRoutes.get('/admin/maps-provider-config', (req, res) => controllers.getAdminMapsProviderRuntimeConfig(req, res));
 adminRoutes.patch('/admin/maps-provider-config', requireTotp, (req, res) => controllers.updateAdminMapsProviderRuntimeConfig(req, res));

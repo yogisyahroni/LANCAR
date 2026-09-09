@@ -73,6 +73,15 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 	if err := validateDynamicPricingQuote(ctx, s.redisRepo, s.pricingRepo, s.configRepo, estimate); err != nil {
 		return nil, err
 	}
+	if gated, gateErr := s.flagReader.IsKillSwitchActive(ctx, "new_order_gate", estimate.Model, req.MarketCode, req.PickupCity, ""); gateErr != nil {
+		return nil, fmt.Errorf("service availability control unavailable: %w", gateErr)
+	} else if gated {
+		return nil, &domain.ModelUnavailableError{
+			Model:     estimate.Model,
+			MessageID: "MODEL_UNAVAILABLE",
+			UserMsg:   "The selected delivery service is temporarily unavailable for new orders",
+		}
+	}
 
 	if req.IsScheduled {
 		scheduledEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "scheduled_delivery", false)
