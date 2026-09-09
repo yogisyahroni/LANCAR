@@ -2112,12 +2112,12 @@ A task is complete only when applicable boxes below are true:
 - `android-app-customer/app/src/test/java/com/tembus/customer/navigation/RemoteDeepLinkResolverTest.kt`
 
 **Checklist**
-- [ ] Banner image/copy/badge/CTA/deep-link can change remotely.
-- [ ] Internal destination uses allowlisted typed route, not arbitrary string execution.
-- [ ] External URL uses explicit domain allowlist and safe browser handoff.
-- [ ] Promo banner eligibility is presentation-only; final promo/discount is validated by promo/pricing backend.
-- [ ] Banner supports impression/click analytics with manifest revision + campaign id.
-- [ ] Broken target cannot trap/crash user; fallback action is no-op or safe landing page.
+- [x] Banner image/copy/badge/CTA/deep-link can change remotely. Evidence: `docs/task-evidence/APP-2026-005.md`.
+- [x] Internal destination uses allowlisted typed route, not arbitrary string execution. Evidence: `docs/task-evidence/APP-2026-005.md`.
+- [x] External URL uses explicit domain allowlist and safe browser handoff. Evidence: `docs/task-evidence/APP-2026-005.md`.
+- [x] Promo banner eligibility is presentation-only; final promo/discount is validated by promo/pricing backend. Evidence: `docs/task-evidence/APP-2026-005.md`.
+- [x] Banner supports impression/click analytics with manifest revision + campaign id. Evidence: `docs/task-evidence/APP-2026-005.md`.
+- [x] Broken target cannot trap/crash user; fallback action is no-op or safe landing page. Evidence: `docs/task-evidence/APP-2026-005.md`.
 
 ---
 
