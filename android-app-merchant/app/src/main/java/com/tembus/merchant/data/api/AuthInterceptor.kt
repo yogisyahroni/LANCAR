@@ -1,5 +1,6 @@
 package com.tembus.merchant.data.api
 
+import com.tembus.merchant.BuildConfig
 import com.tembus.merchant.data.session.AuthSessionManager
 import com.tembus.merchant.data.session.SessionInvalidationReason
 import kotlinx.coroutines.flow.first
@@ -15,28 +16,35 @@ class AuthInterceptor(private val sessionManager: AuthSessionManager) : Intercep
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
+        val clientRequest = originalRequest.newBuilder()
+            .header("X-App-Type", "merchant")
+            .header("X-App-Platform", "android")
+            .header("X-App-Version", BuildConfig.VERSION_NAME)
+            .header("X-App-Version-Code", BuildConfig.VERSION_CODE.toString())
+            .header("X-App-Schema-Version", "1")
+            .header("X-App-Capabilities", "orders,menu,settlement,promotions")
 
         // Login, register, OTP, dan refresh adalah endpoint publik. Jangan
         // membawa bearer token lama ke request login; token yang sudah expired
         // atau dicabut dapat membuat auth-service menolak proses login baru.
         if (isPublicEndpoint(originalRequest.url.encodedPath)) {
-            return chain.proceed(originalRequest)
+            return chain.proceed(clientRequest.build())
         }
 
         val token = runBlocking { sessionManager.authToken.first() }
 
         if (token.isNullOrEmpty()) {
-            return chain.proceed(originalRequest)
+            return chain.proceed(clientRequest.build())
         }
 
         if (sessionManager.isTokenExpired(token)) {
             runBlocking {
                 sessionManager.clearSession(SessionInvalidationReason.TOKEN_EXPIRED)
             }
-            return chain.proceed(originalRequest)
+            return chain.proceed(clientRequest.build())
         }
 
-        val authorizedRequest = originalRequest.newBuilder()
+        val authorizedRequest = clientRequest
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/json")
             .build()

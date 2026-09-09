@@ -1296,7 +1296,30 @@ data class AppVersion(
     val updateUrl: String,
 
     @SerialName("checksum_sha256")
-    val checksumSha256: String? = null
+    val checksumSha256: String? = null,
+
+    @SerialName("min_supported_code")
+    val minSupportedCode: Int? = null,
+
+    @SerialName("min_supported_name")
+    val minSupportedName: String? = null,
+
+    @SerialName("api_schema_version")
+    val apiSchemaVersion: Int? = null,
+
+    @SerialName("supported_schema_versions")
+    val supportedSchemaVersions: List<Int> = emptyList(),
+
+    @SerialName("compatibility")
+    val compatibility: AppCompatibility? = null
+)
+
+@Serializable
+data class AppCompatibility(
+    @SerialName("status") val status: String = "unknown",
+    @SerialName("upgrade_required") val upgradeRequired: Boolean = false,
+    @SerialName("dynamic_features_enabled") val dynamicFeaturesEnabled: Boolean = false,
+    @SerialName("reason") val reason: String? = null
 )
 
 /**

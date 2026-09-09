@@ -101,7 +101,11 @@ class UpdateManager(
             }
 
             val latest = response.body()
-            if (latest != null && latest.code > BuildConfig.VERSION_CODE) latest else null
+            if (latest != null && (
+                    latest.code > BuildConfig.VERSION_CODE ||
+                        latest.force ||
+                        latest.compatibility?.upgradeRequired == true
+                )) latest else null
         } catch (_: Exception) {
             null
         }

@@ -409,7 +409,19 @@ data class AppVersion(
     @SerializedName("name") val name: String,
     @SerializedName("force") val force: Boolean = false,
     @SerializedName("update_url") val updateUrl: String,
-    @SerializedName("checksum_sha256") val checksumSha256: String? = null
+    @SerializedName("checksum_sha256") val checksumSha256: String? = null,
+    @SerializedName("min_supported_code") val minSupportedCode: Int? = null,
+    @SerializedName("min_supported_name") val minSupportedName: String? = null,
+    @SerializedName("api_schema_version") val apiSchemaVersion: Int? = null,
+    @SerializedName("supported_schema_versions") val supportedSchemaVersions: List<Int> = emptyList(),
+    @SerializedName("compatibility") val compatibility: AppCompatibility? = null
+)
+
+data class AppCompatibility(
+    @SerializedName("status") val status: String = "unknown",
+    @SerializedName("upgrade_required") val upgradeRequired: Boolean = false,
+    @SerializedName("dynamic_features_enabled") val dynamicFeaturesEnabled: Boolean = false,
+    @SerializedName("reason") val reason: String? = null
 )
 
 /** List wrapper menu: {items, total, page, page_size}. */

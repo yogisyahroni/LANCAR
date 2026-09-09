@@ -10,6 +10,13 @@ import { getIO } from '../websocket';
 import { getOnDemandExternalReadiness } from '../services/onDemandExternalReadiness';
 import { getMapsProductionReadiness } from '../services/mapsProductionReadiness';
 import {
+  compatibilityResponse,
+  getClientCompatibilityPolicy,
+  readClientCompatibility,
+  supportedMobileClientTypes,
+  type SupportedMobileClientType,
+} from '../services/clientCompatibility';
+import {
   buildMapsRouteEtaSnapshot,
   fetchOpenStreetMapTile,
   getMapsProviderOpsSnapshot,
@@ -90,11 +97,15 @@ export const getPublicRuntimeConfigs = async (req: Request, res: Response): Prom
 
 export const getLatestVersion = async (req: Request, res: Response): Promise<void> => {
   try {
-    const type = req.query.type as string; // 'courier' or 'customer'
-    if (!type || (type !== 'courier' && type !== 'customer')) {
+    const type = req.query.type as string;
+    if (!type || !supportedMobileClientTypes.includes(type as SupportedMobileClientType)) {
       res.status(400).json({ error: 'Invalid app type' });
       return;
     }
+
+    const clientType = type as SupportedMobileClientType;
+    const policy = getClientCompatibilityPolicy(clientType);
+    const compatibility = readClientCompatibility(req.headers, clientType);
 
     const versionKey = `mobile_${type}_version`;
     const result = await readDb.query(
@@ -112,9 +123,19 @@ export const getLatestVersion = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    const version = result.rows[0].value && typeof result.rows[0].value === 'object'
+      ? result.rows[0].value
+      : {};
+
     res.json({
-      ...result.rows[0].value,
-      update_url: updateUrlResult.rows[0]?.value || 'https://github.com/yogisyahroni/TEMBUS/releases'
+      ...version,
+      update_url: updateUrlResult.rows[0]?.value || 'https://github.com/yogisyahroni/TEMBUS/releases',
+      min_supported_code: policy.minimumSupportedVersionCode,
+      min_supported_name: policy.minimumSupportedVersionName,
+      api_schema_version: policy.currentApiSchemaVersion,
+      supported_schema_versions: policy.supportedApiSchemaVersions,
+      force: Boolean((version as Record<string, unknown>).force) || compatibility.upgradeRequired,
+      compatibility: compatibilityResponse(compatibility, policy),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

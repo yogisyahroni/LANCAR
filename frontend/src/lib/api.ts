@@ -3,6 +3,8 @@ import { useAuthStore } from '../store/authStore';
 import { customerApiUrl } from './runtimeConfig';
 
 const API_URL = customerApiUrl;
+const WEB_APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0';
+const WEB_API_SCHEMA_VERSION = '1';
 
 const PUBLIC_AUTH_PATHS = [
   '/auth/customer/login/start',
@@ -96,6 +98,11 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'X-Portal': 'customer',
+    'X-App-Type': 'web',
+    'X-App-Platform': 'web',
+    'X-App-Version': WEB_APP_VERSION,
+    'X-App-Schema-Version': WEB_API_SCHEMA_VERSION,
+    'X-App-Capabilities': 'orders,food,tracking,payments',
   },
 });
 
