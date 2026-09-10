@@ -195,7 +195,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
             <div className="p-1.5 rounded-lg bg-primary/10">
               <Wallet size={14} className="text-primary" aria-hidden="true" />
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-wider">TEMBUS Wallet</span>
+            <span className="text-xs font-bold">TEMBUS Wallet</span>
           </div>
           <button
             type="button"
@@ -215,7 +215,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
           <p className="text-2xl font-bold tracking-tight text-foreground-muted dark:text-foreground">
             {formatCurrency(balance)}
           </p>
-          <p className="text-[10px] text-foreground-muted dark:text-foreground-muted mt-0.5 flex items-center gap-1">
+          <p className="text-xs text-foreground-muted dark:text-foreground-muted mt-0.5 flex items-center gap-1">
             <ShieldCheck size={12} className="text-success" aria-hidden="true" /> Saldo Terverifikasi (BI-FAST)
           </p>
         </div>
@@ -224,7 +224,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
           <button 
             type="button"
             onClick={() => setShowTopUp(true)}
-            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-primary text-on-primary text-[11px] font-bold hover:brightness-110 active:scale-[0.98] transition-all shadow-md shadow-primary/25"
+            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-primary text-on-primary text-sm font-bold hover:brightness-110 active:scale-[0.98] transition-all shadow-md shadow-primary/25"
           >
             <Plus size={14} aria-hidden="true" />
             Top Up
@@ -232,7 +232,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
           <button 
             type="button"
             onClick={() => setShowWithdraw(true)}
-            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface dark:bg-surface-subtle border border-border dark:border-border text-foreground-muted dark:text-foreground-muted text-[11px] font-bold hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-all shadow-sm"
+            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface dark:bg-surface-subtle border border-border dark:border-border text-foreground-muted dark:text-foreground-muted text-sm font-bold hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-all shadow-sm"
           >
             <ArrowUpRight size={14} aria-hidden="true" />
             Tarik
@@ -310,7 +310,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                   </div>
                   <div>
                     <h2 id="wallet-top-up-title" className="text-lg font-bold text-foreground-muted dark:text-foreground leading-none">Top Up Saldo</h2>
-                    <p className="text-[11px] text-foreground-muted dark:text-foreground-muted mt-1">Sistem Otomatis Instant 24 Jam</p>
+                    <p className="text-xs text-foreground-muted dark:text-foreground-muted mt-1">Sistem Otomatis Instant 24 Jam</p>
                   </div>
                 </div>
                 <button type="button" onClick={() => setShowTopUp(false)} aria-label="Tutup modal top up" title="Tutup modal top up" className="p-2 rounded-full hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-colors">
@@ -353,7 +353,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
 
                 <div className="p-3.5 rounded-2xl bg-info/5 dark:bg-info/10 border border-info/10 dark:border-info/20 flex items-start gap-2.5">
                   <ShieldCheck size={16} className="text-info dark:text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
-                  <p className="text-[11px] text-info dark:text-info leading-relaxed">
+                  <p className="text-xs text-info dark:text-info leading-relaxed">
                     Mendukung pembayaran via **QRIS**, Virtual Account (BCA, Mandiri, BNI, BRI), dan E-Wallet (GoPay, OVO, DANA).
                   </p>
                 </div>
@@ -402,7 +402,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                   </div>
                   <div>
                     <h2 id="wallet-withdraw-title" className="text-lg font-bold text-foreground-muted dark:text-foreground leading-none">Tarik Dana BI-FAST</h2>
-                    <p className="text-[11px] text-foreground-muted dark:text-foreground-muted mt-1">Saldo Tersedia: {formatCurrency(balance)}</p>
+                    <p className="text-xs text-foreground-muted dark:text-foreground-muted mt-1">Saldo Tersedia: {formatCurrency(balance)}</p>
                   </div>
                 </div>
                 <button type="button" onClick={() => setShowWithdraw(false)} aria-label="Tutup modal penarikan" title="Tutup modal penarikan" className="p-2 rounded-full hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-colors">
@@ -423,7 +423,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                       className="w-full pl-10 pr-4 py-3 rounded-2xl bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border focus:outline-none focus:ring-2 focus:ring-primary/50 font-bold text-foreground-muted dark:text-foreground"
                     />
                   </div>
-                  <p className="text-[10px] text-foreground-muted mt-1">* Minimal pencairan Rp 50.000</p>
+                  <p className="text-xs text-foreground-muted mt-1">* Minimal pencairan Rp 50.000</p>
                 </div>
 
                 <div className="space-y-3">
@@ -493,7 +493,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                     </span>
                   </div>
                   {isInsufficientBalance && (
-                    <p className="text-[10px] text-error font-medium pt-1 flex items-center gap-1">
+                    <p className="text-xs text-error font-medium pt-1 flex items-center gap-1">
                       <AlertCircle size={12} aria-hidden="true" /> Saldo tidak cukup untuk penarikan + biaya admin.
                     </p>
                   )}

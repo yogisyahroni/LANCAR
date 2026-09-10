@@ -388,7 +388,7 @@ export function AddressPicker({
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground leading-snug line-clamp-2" title={address}>{address}</p>
                   {location && (
-                    <span className="mt-1 block text-[11px] text-success">✓ Titik lokasi tersimpan</span>
+                    <span className="mt-1 block text-xs text-success">✓ Titik lokasi tersimpan</span>
                   )}
                 </div>
               </div>
@@ -552,7 +552,7 @@ export function AddressPicker({
                 <span className="block truncate text-sm font-medium text-foreground" title={suggestion.label}>{suggestion.label}</span>
                 <span className="block line-clamp-1 text-xs text-muted-foreground" title={suggestion.detail}>{suggestion.detail}</span>
               </span>
-              <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+              <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
                 {addressSuggestionSourceLabel[suggestion.source]}
               </span>
             </button>

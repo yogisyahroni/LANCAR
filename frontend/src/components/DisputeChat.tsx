@@ -198,7 +198,7 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
           </div>
           <div>
             <h3 className="text-sm font-bold text-foreground">Chat Bantuan</h3>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Dispute Resolution</p>
+            <p className="text-xs text-muted-foreground font-bold">Dispute Resolution</p>
           </div>
         </div>
         <button type="button" onClick={onClose} aria-label="Tutup percakapan sengketa" title="Tutup percakapan sengketa" className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-all">
@@ -251,10 +251,10 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
                 )}
               >
                 <div className="flex items-center gap-2 mb-1 px-1">
-                  <span className="text-[10px] font-bold text-muted-foreground">
+                  <span className="text-xs font-bold text-muted-foreground">
                     {isMe ? 'Anda' : msg.sender_role === 'customer' ? msg.sender_name : 'Admin Tembus'}
                   </span>
-                  <span className="text-[9px] text-foreground-muted">
+                  <span className="text-xs text-foreground-muted">
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -276,12 +276,19 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
                       );
                     }
                     return (
-                      <img 
-                        src={safeSrc} 
-                        alt="Attachment" 
-                        className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                      <button
+                        type="button"
+                        className="inline-flex max-w-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label="Buka lampiran gambar pesan"
+                        title="Buka lampiran gambar pesan"
                         onClick={() => window.open(safeSrc, '_blank', 'noopener,noreferrer')}
-                      />
+                      >
+                        <img
+                          src={safeSrc}
+                          alt="Lampiran gambar pesan"
+                          className="max-w-full rounded-xl transition-opacity hover:opacity-90"
+                        />
+                      </button>
                     );
                   })() : (
                     msg.message
@@ -315,8 +322,8 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
               </button>
             </div>
             <div className="flex-1">
-              <p className="text-[10px] font-bold text-primary uppercase">Gambar siap kirim</p>
-              <p className="text-[10px] text-muted-foreground">Klik kirim untuk mengunggah screenshot ini</p>
+              <p className="text-xs font-bold text-primary">Gambar siap kirim</p>
+              <p className="text-xs text-muted-foreground">Klik kirim untuk mengunggah screenshot ini</p>
             </div>
           </motion.div>
         )}
@@ -372,7 +379,7 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
             aria-label="Kirim pesan dispute"
             title="Kirim pesan dispute"
             disabled={(!message.trim() && !previewImage) || sendMutation.isPending || uploading}
-            className="p-2.5 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-all disabled:opacity-60"
+            className="p-2.5 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-all disabled:cursor-not-allowed disabled:opacity-60"
           >
             {sendMutation.isPending || uploading ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Send size={18} aria-hidden="true" />}
           </button>
