@@ -27,6 +27,7 @@ import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
 import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 import ExperienceRenderer from '@/components/experience/ExperienceRenderer';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
+import { OrderServiceBadge } from '@/components/orders/OrderServiceBadge';
 
 interface Order {
   id: string;
@@ -35,6 +36,23 @@ interface Order {
   dropoff_address: string;
   recipient_name: string;
   model: string;
+  service_category?: string | null;
+  service_code?: string | null;
+  order_contract?: {
+    service?: {
+      category?: string | null;
+      degraded?: boolean;
+    } | null;
+  } | null;
+  service_snapshot?: {
+    name?: string | null;
+    service_name?: string | null;
+    category?: string | null;
+    service_category?: string | null;
+  } | null;
+  logistics_provider?: string | null;
+  logistics_service_type?: string | null;
+  awb_number?: string | null;
   status: string;
   distance_km: number;
   total_price_idr: number;
@@ -492,8 +510,19 @@ export default function DashboardPage() {
                       {order.order_number}
                     </span>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {order.recipient_name} • {order.model.toUpperCase()}
+                      {order.recipient_name}
                     </p>
+                    <OrderServiceBadge
+                      compact
+                      model={order.model}
+                      service_category={order.service_category}
+                      service_code={order.service_code}
+                      order_contract={order.order_contract}
+                      service_snapshot={order.service_snapshot}
+                      logistics_provider={order.logistics_provider}
+                      logistics_service_type={order.logistics_service_type}
+                      awb_number={order.awb_number}
+                    />
                   </div>
                   <button
                     onClick={() => toggleRow(order.id)}

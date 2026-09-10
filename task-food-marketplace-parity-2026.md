@@ -3220,7 +3220,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Order/payment/provider statuses use readable label and optionally icon; green/red badge alone is insufficient.
 - [x] Charts provide legend/label/pattern/shape or direct values so series are distinguishable without color perception alone. Evidence: `docs/task-evidence/A11Y-2026-006.md`
 - [ ] Form errors include text and field relationship, not only red border.
-- [ ] Selected navigation/tab/row uses position/indicator/icon/text weight or other non-color cue.
+- [x] Selected navigation/tab/row uses position/indicator/icon/text weight or other non-color cue. Customer desktop/mobile active navigation exposes `aria-current="page"` and the visible current link is keyboard-focusable; Admin collapsed navigation has the same contract. Evidence: `docs/task-evidence/A11Y-2026-002.md`.
 - [x] Links inside body text are identifiable by more than a subtle hue difference; provide underline or equivalent non-color affordance at least in relevant states. Evidence: `docs/task-evidence/A11Y-2026-002.md`
 
 ---

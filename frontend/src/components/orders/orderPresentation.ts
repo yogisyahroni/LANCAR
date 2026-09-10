@@ -60,16 +60,33 @@ export function getOrderServicePresentation(order: OrderPresentationInput): Orde
     };
   }
 
-  if (category === "food" || category === "food_delivery" || code.includes("food")) {
+  if (
+    category === "food" ||
+    category === "food_delivery" ||
+    model === "food" ||
+    model === "food_delivery" ||
+    code.includes("food")
+  ) {
     return { kind: "food", label: "Food delivery", description: "Pengantaran merchant oleh LANCAR" };
   }
 
-  if (category === "package_on_demand" || model === "p2p" || code === "tembus_instant") {
+  if (
+    category === "package_on_demand" ||
+    model === "p2p" ||
+    model === "instant" ||
+    code === "tembus_instant"
+  ) {
     return { kind: "instant", label: "Paket Instan", description: "Cepat · ETA berbasis rute · last-mile LANCAR" };
   }
 
-  if (category === "tambal_ban" || category === "towing") {
-    return { kind: "service", label: category === "towing" ? "Towing" : "Tambal ban", description: "Layanan bantuan kendaraan LANCAR" };
+  if (
+    category === "tambal_ban" ||
+    category === "towing" ||
+    model === "tambal_ban" ||
+    model === "towing"
+  ) {
+    const isTowing = category === "towing" || model === "towing";
+    return { kind: "service", label: isTowing ? "Towing" : "Tambal ban", description: "Layanan bantuan kendaraan LANCAR" };
   }
 
   const serviceName = clean(order.service_snapshot?.service_name || order.service_snapshot?.name);

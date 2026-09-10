@@ -106,6 +106,31 @@ test('Customer order status exposes readable label and supplemental icon semanti
   await expect(page.getByText('Lunas')).toBeVisible()
 })
 
+test('Customer dashboard uses the canonical service icon and visible label @a11y @iconography', async ({ page }) => {
+  await installCustomerSessionFixture(page, {
+    orders: [{
+      id: 'ORDER-FOOD-1',
+      order_number: 'ORD-FOOD-1',
+      pickup_address: 'Merchant Fixture',
+      dropoff_address: 'Customer Fixture',
+      recipient_name: 'Food Customer',
+      model: 'food',
+      service_category: 'food',
+      status: 'in_transit',
+      payment_status: 'paid',
+      distance_km: 3,
+      total_price_idr: 22000,
+      created_at: '2026-09-10T00:00:00.000Z',
+    }],
+  })
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+
+  const service = page.getByLabel('Layanan Food delivery')
+  await expect(service).toBeVisible()
+  await expect(service).toContainText('Food delivery')
+  await expect(service.locator('svg').first()).toHaveAttribute('aria-hidden', 'true')
+})
+
 test('Customer receipt status keeps the same readable status contract @a11y', async ({ page }) => {
   await installCustomerSessionFixture(page, {
     detailOrder: {

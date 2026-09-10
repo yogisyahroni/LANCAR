@@ -46,6 +46,13 @@ describe("customer order service presentation", () => {
       .toBe("Tambal Ban");
   });
 
+  it("keeps legacy server model names on the canonical service mapping", () => {
+    expect(getOrderServicePresentation({ model: "instant" }).kind).toBe("instant");
+    expect(getOrderServicePresentation({ model: "food" }).kind).toBe("food");
+    expect(getOrderServicePresentation({ model: "towing" }).label).toBe("Towing");
+    expect(getOrderServicePresentation({ model: "tambal_ban" }).label).toBe("Tambal ban");
+  });
+
   it("renders unavailable carrier metadata without inventing an AWB", () => {
     const presentation = getOrderServicePresentation({
       service_code: "tembus_aggregator",

@@ -99,6 +99,25 @@ test('Customer login associates server errors with the affected fields @a11y', a
   await expect(password).toHaveAttribute('aria-describedby', 'customer-login-error');
 });
 
+test('Customer navigation exposes the current location on desktop and mobile @keyboard @a11y', async ({ page }) => {
+  await installCustomerFormFixture(page);
+
+  for (const viewport of [
+    { width: 1280, height: 900, navigation: 'Navigasi utama' },
+    { width: 390, height: 844, navigation: 'Navigasi bawah mobile' },
+  ] as const) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+
+    const navigation = page.getByRole('navigation', { name: viewport.navigation });
+    const currentLink = navigation.locator('a[aria-current="page"]');
+    await expect(currentLink).toHaveCount(1);
+    await expect(currentLink).toHaveAttribute('href', '/dashboard');
+    await currentLink.focus();
+    await expect(currentLink).toBeFocused();
+  }
+});
+
 test('Customer aggregator form keeps provider and city controls keyboard reachable @keyboard', async ({ page }) => {
   await installCustomerFormFixture(page);
   await page.goto('/orders/new/aggregator', { waitUntil: 'domcontentloaded' });
