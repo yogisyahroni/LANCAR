@@ -171,7 +171,7 @@ export default function Agreements() {
         </div>
         <button
           onClick={() => refetch()}
-          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
+          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted text-xs font-black uppercase tracking-wide hover:bg-surface-subtle transition-all"
         >
           <RefreshCw size={14} aria-hidden="true" />
           Refresh
@@ -230,12 +230,12 @@ export default function Agreements() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">User</th>
-                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">Tipe</th>
-                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">Jenis Perjanjian</th>
-                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">Ditandatangani</th>
-                <th scope="col" className="text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">IP</th>
-                <th scope="col" className="text-right px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground-muted">Aksi</th>
+                <th scope="col" className="text-left px-6 py-4 text-xs font-black uppercase tracking-wide text-foreground-muted">User</th>
+                <th scope="col" className="text-left px-6 py-4 text-xs font-black uppercase tracking-wide text-foreground-muted">Tipe</th>
+                <th scope="col" className="text-left px-6 py-4 text-xs font-black uppercase tracking-wide text-foreground-muted">Jenis Perjanjian</th>
+                <th scope="col" className="text-left px-6 py-4 text-xs font-black uppercase tracking-wide text-foreground-muted">Ditandatangani</th>
+                <th scope="col" className="text-left px-6 py-4 text-xs font-black uppercase tracking-wide text-foreground-muted">IP</th>
+                <th scope="col" className="text-right px-6 py-4 text-xs font-black uppercase tracking-wide text-foreground-muted">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -254,12 +254,12 @@ export default function Agreements() {
                     <div className="flex flex-col items-center gap-4">
                       <AlertCircle className="w-10 h-10 text-error" aria-hidden="true" />
                       <div>
-                        <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">GAGAL MEMUAT DATA</p>
+                        <p className="text-foreground-muted font-black uppercase tracking-wide text-xs">GAGAL MEMUAT DATA</p>
                         <p className="text-foreground-muted text-xs mt-2">{(error as any)?.response?.data?.error || 'Terjadi kesalahan server'}</p>
                       </div>
                       <button
                         onClick={() => refetch()}
-                        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-[10px] font-black uppercase tracking-widest hover:bg-error-surface transition-all"
+                        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-error-surface border border-error text-error text-xs font-black uppercase tracking-wide hover:bg-error-surface transition-all"
                       >
                         <RefreshCw size={14} aria-hidden="true" />
                         Retry
@@ -272,7 +272,7 @@ export default function Agreements() {
                   <td colSpan={6} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <FileWarning className="w-12 h-12 text-foreground-muted" aria-hidden="true" />
-                      <p className="text-foreground-muted font-black uppercase tracking-widest text-xs">Belum ada perjanjian</p>
+                      <p className="text-foreground-muted font-black uppercase tracking-wide text-xs">Belum ada perjanjian</p>
                       <p className="text-foreground-muted text-xs">Perjanjian akan muncul setelah user menyetujui syarat & ketentuan</p>
                     </div>
                   </td>
@@ -294,7 +294,7 @@ export default function Agreements() {
                         </div>
                         <div>
                           <p className="text-sm font-bold text-foreground-muted">{agreement.user_name || '—'}</p>
-                          <p className="text-[10px] text-foreground-muted font-medium">{agreement.user_phone || agreement.user_email || '—'}</p>
+                          <p className="text-xs text-foreground-muted font-medium">{agreement.user_phone || agreement.user_email || '—'}</p>
                         </div>
                       </div>
                     </td>
@@ -346,7 +346,7 @@ export default function Agreements() {
         {/* Pagination */}
         {total > 0 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-border">
-            <p className="text-[10px] text-foreground-muted font-medium">
+            <p className="text-xs text-foreground-muted font-medium">
               Menampilkan {(page - 1) * limit + 1}–{Math.min(page * limit, total)} dari {total} perjanjian
             </p>
             <div className="flex items-center gap-2">
@@ -369,7 +369,7 @@ export default function Agreements() {
                     key={p}
                     onClick={() => setPage(p)}
                     className={cn(
-                      'w-8 h-8 rounded-xl text-[11px] font-black transition-all',
+                      'w-8 h-8 rounded-xl text-xs font-black transition-all',
                       p === page
                         ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
                         : 'bg-surface-subtle text-foreground-muted hover:bg-surface-subtle'
@@ -426,7 +426,7 @@ export default function Agreements() {
                   </div>
                   <div>
                     <h2 id="agreement-detail-title" className="text-sm font-black uppercase tracking-wider text-foreground-muted">Detail Perjanjian</h2>
-                    <p className="text-[10px] text-foreground-muted font-medium">ID: {detail.id.slice(0, 8)}...</p>
+                    <p className="text-xs text-foreground-muted font-medium">ID: {detail.id.slice(0, 8)}...</p>
                   </div>
                 </div>
                 <button
@@ -455,7 +455,7 @@ export default function Agreements() {
                   {detail.agreed_ip && <DetailField icon={<Globe size={14} aria-hidden="true" />} label="IP Address" value={detail.agreed_ip} />}
                   {detail.user_agent && (
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted mb-1 flex items-center gap-1.5">
+                      <p className="text-xs font-black uppercase tracking-wide text-foreground-muted mb-1 flex items-center gap-1.5">
                         <Smartphone size={12} aria-hidden="true" /> User Agent
                       </p>
                       <p className="text-xs text-foreground-muted break-all font-mono bg-surface-subtle rounded-xl p-3">{detail.user_agent}</p>
@@ -469,14 +469,14 @@ export default function Agreements() {
                 <button
                   type="button"
                   onClick={() => setSelectedId(null)}
-                  className="px-5 py-2.5 rounded-xl bg-surface-subtle text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
+                  className="px-5 py-2.5 rounded-xl bg-surface-subtle text-foreground-muted text-xs font-black uppercase tracking-wide hover:bg-surface-subtle transition-all"
                 >
                   Tutup
                 </button>
                 <button
                   type="button"
                   onClick={() => openPDFView(detail)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary-light text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary-light text-xs font-black uppercase tracking-wide hover:bg-primary/20 transition-all"
                 >
                   <Eye size={14} aria-hidden="true" />
                   Lihat Dokumen
@@ -485,7 +485,7 @@ export default function Agreements() {
                   href={pdfUrl(detail)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-black uppercase tracking-wide hover:bg-primary/90 transition-all"
                 >
                   <Download size={14} aria-hidden="true" />
                   Download
@@ -531,7 +531,7 @@ export default function Agreements() {
                     <h2 id="agreement-pdf-title" className="text-sm font-black uppercase tracking-wider text-foreground-muted truncate" title={agreementTypeLabel(pdfViewAgreement.agreement_type)}>
                       {agreementTypeLabel(pdfViewAgreement.agreement_type)}
                     </h2>
-                    <p className="text-[10px] text-foreground-muted font-medium truncate" title={pdfViewAgreement.user_name || pdfViewAgreement.user_phone || undefined}>
+                    <p className="text-xs text-foreground-muted font-medium truncate" title={pdfViewAgreement.user_name || pdfViewAgreement.user_phone || undefined}>
                       {pdfViewAgreement.user_name || pdfViewAgreement.user_phone}
                     </p>
                   </div>
@@ -540,7 +540,7 @@ export default function Agreements() {
                   <button
                     type="button"
                     onClick={() => window.open(pdfUrl(pdfViewAgreement), '_blank')}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-subtle text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-subtle text-foreground-muted text-xs font-black uppercase tracking-wide hover:bg-surface-subtle transition-all"
                     title="Buka di tab baru"
                   >
                     <ExternalLink size={14} aria-hidden="true" />
@@ -549,7 +549,7 @@ export default function Agreements() {
                   <a
                     href={pdfUrl(pdfViewAgreement)}
                     download
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary-light text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary-light text-xs font-black uppercase tracking-wide hover:bg-primary/20 transition-all"
                     title="Download PDF"
                   >
                     <Download size={14} aria-hidden="true" />
@@ -564,7 +564,7 @@ export default function Agreements() {
                         w.onload = () => w.print()
                       }
                     }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted text-xs font-black uppercase tracking-wide hover:bg-surface-subtle transition-all"
                     title="Cetak"
                   >
                     <Printer size={14} aria-hidden="true" />
@@ -605,7 +605,7 @@ export default function Agreements() {
 function DetailField({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted flex items-center gap-1.5">
+      <p className="text-xs font-black uppercase tracking-wide text-foreground-muted flex items-center gap-1.5">
         {icon} {label}
       </p>
       <p className="text-sm text-foreground-muted font-semibold">{value}</p>

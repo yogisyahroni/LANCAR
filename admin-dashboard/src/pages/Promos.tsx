@@ -255,13 +255,13 @@ function DataState({ title, message, onRetry }: { title: string; message: string
   return (
     <div className="rounded-[32px] border border-error bg-error-surface p-8 text-center">
       <AlertTriangle className="mx-auto h-10 w-10 text-error"  aria-hidden="true"/>
-      <p className="mt-4 text-sm font-black uppercase tracking-widest text-error">{title}</p>
+      <p className="mt-4 text-sm font-black uppercase tracking-wide text-error">{title}</p>
       <p className="mt-2 text-sm text-error">{message}</p>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
-          className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-error bg-error-surface px-5 py-3 text-xs font-black uppercase tracking-widest text-error transition-all hover:bg-error-surface"
+          className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-error bg-error-surface px-5 py-3 text-xs font-black uppercase tracking-wide text-error transition-all hover:bg-error-surface"
         >
           <RefreshCw className="h-4 w-4" aria-hidden="true" />
           Muat ulang
@@ -286,7 +286,7 @@ function MetricCard({ icon: Icon, label, value, tone = 'emerald' }: { icon: any;
           <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-foreground-muted">{label}</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">{label}</p>
           <p className="mt-1 text-2xl font-black tracking-tight text-foreground-muted">{value}</p>
         </div>
       </div>
@@ -489,7 +489,7 @@ export default function Promos() {
     <div className="space-y-8 pb-20">
       <div className="flex flex-col gap-6 rounded-[40px] border border-border bg-gradient-to-br from-surface-subtle via-surface-subtle to-success p-8 shadow-2xl shadow-scrim lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-success bg-success-surface px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-success">
+          <div className="inline-flex items-center gap-2 rounded-full border border-success bg-success-surface px-4 py-2 text-xs font-black uppercase tracking-wide text-success">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             Margin Safe Promotion Control
           </div>
@@ -504,7 +504,7 @@ export default function Promos() {
             campaignsQuery.refetch()
             policiesQuery.refetch()
           }}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface-subtle px-5 py-3 text-xs font-black uppercase tracking-widest text-foreground-muted transition-all hover:bg-surface-subtle active:scale-[0.98]"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface-subtle px-5 py-3 text-xs font-black uppercase tracking-wide text-foreground-muted transition-all hover:bg-surface-subtle active:scale-[0.98]"
         >
           <RefreshCw className={cn('h-4 w-4', (campaignsQuery.isFetching || policiesQuery.isFetching) && 'animate-spin')} aria-hidden="true" />
           Refresh
@@ -582,7 +582,7 @@ export default function Promos() {
             type="button"
             disabled={createMutation.isPending}
             onClick={() => createMutation.mutate()}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-success px-5 py-4 text-sm font-black uppercase tracking-widest text-on-success shadow-lg shadow-success transition-all hover:bg-success active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-success px-5 py-4 text-sm font-black uppercase tracking-wide text-on-success shadow-lg shadow-success transition-all hover:bg-success active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {createMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Send className="h-5 w-5" aria-hidden="true" />}
             Buat Draft Promo
@@ -611,7 +611,7 @@ export default function Promos() {
               type="button"
               disabled={simulateMutation.isPending || !simulation.code.trim()}
               onClick={() => simulateMutation.mutate()}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-success bg-success-surface px-5 py-3 text-xs font-black uppercase tracking-widest text-success transition-all hover:bg-success-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-success bg-success-surface px-5 py-3 text-xs font-black uppercase tracking-wide text-success transition-all hover:bg-success-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {simulateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-4 w-4" aria-hidden="true" />}
               Jalankan simulasi
@@ -701,7 +701,7 @@ export default function Promos() {
           ) : filteredCampaigns.length === 0 ? (
             <div className="xl:col-span-2 rounded-[32px] border border-dashed border-border p-12 text-center">
               <BadgePercent className="mx-auto h-10 w-10 text-foreground-muted" aria-hidden="true" />
-              <p className="mt-4 text-sm font-black uppercase tracking-widest text-foreground-muted">Belum ada campaign promo</p>
+              <p className="mt-4 text-sm font-black uppercase tracking-wide text-foreground-muted">Belum ada campaign promo</p>
             </div>
           ) : filteredCampaigns.map((campaign, index) => (
             <PromoCampaignCard
@@ -778,7 +778,7 @@ function PromoCampaignCard({
             </span>
             <PromoStatusPill status={campaign.status} />
             {campaign.risk_campaign && (
-              <span className="rounded-full border border-error bg-error-surface px-3 py-1 text-[10px] font-black uppercase tracking-widest text-error">
+              <span className="rounded-full border border-error bg-error-surface px-3 py-1 text-xs font-black uppercase tracking-wide text-error">
                 risk
               </span>
             )}
@@ -791,7 +791,7 @@ function PromoCampaignCard({
 
       <div className="mt-5 flex flex-wrap gap-2">
         {services.map((service) => (
-          <span key={service} className="rounded-full border border-border bg-surface/[0.03] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+          <span key={service} className="rounded-full border border-border bg-surface/[0.03] px-3 py-1 text-xs font-black uppercase tracking-wide text-foreground-muted">
             {service}
           </span>
         ))}
@@ -837,7 +837,7 @@ function PromoCampaignCard({
         <div className="mt-5 rounded-[26px] border border-success bg-success/[0.04] p-4">
           <div className="flex items-center gap-2">
             <BellRing className="h-4 w-4 text-success" aria-hidden="true" />
-            <p className="text-xs font-black uppercase tracking-widest text-success">Campaign notification</p>
+            <p className="text-xs font-black uppercase tracking-wide text-success">Campaign notification</p>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <SelectField
@@ -885,10 +885,10 @@ function PromoAnalyticsPanel({ analytics }: { analytics: PromoAnalytics }) {
     <div className="mt-5 rounded-[26px] border border-border bg-surface/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-foreground-muted">Audit & analytics</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Audit & analytics</p>
           <p className="mt-1 text-sm text-foreground-muted">Budget, delivery, redemption, dan event terakhir dari backend.</p>
         </div>
-        <span className="rounded-full border border-success bg-success-surface px-3 py-1 text-[10px] font-black uppercase tracking-widest text-success">
+        <span className="rounded-full border border-success bg-success-surface px-3 py-1 text-xs font-black uppercase tracking-wide text-success">
           {analytics.status}
         </span>
       </div>
@@ -902,13 +902,13 @@ function PromoAnalyticsPanel({ analytics }: { analytics: PromoAnalytics }) {
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="rounded-2xl border border-border bg-surface-subtle p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Redemption</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Redemption</p>
           <p className="mt-2 text-sm text-foreground-muted">
             Redeemed {analytics.redemption.redeemed} dari {analytics.redemption.total}, diskon terpakai {formatIdr(analytics.redemption.discount_redeemed_idr)}, margin rata-rata {analytics.redemption.average_margin_percent}%.
           </p>
         </div>
         <div className="rounded-2xl border border-border bg-surface-subtle p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Delivery</p>
+          <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Delivery</p>
           <p className="mt-2 text-sm text-foreground-muted">
             Queued {analytics.delivery.queued}, failed {analytics.delivery.failed}, opened {analytics.delivery.opened}.
           </p>
@@ -922,10 +922,10 @@ function PromoAnalyticsPanel({ analytics }: { analytics: PromoAnalytics }) {
           <div key={event.id} className="rounded-2xl border border-border bg-surface-subtle p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-black text-foreground-muted">{event.action.split('_').join(' ')}</p>
-              <p className="text-[10px] font-bold text-foreground-muted">{new Date(event.created_at).toLocaleString('id-ID')}</p>
+              <p className="text-xs font-bold text-foreground-muted">{new Date(event.created_at).toLocaleString('id-ID')}</p>
             </div>
             <p className="mt-1 text-xs text-foreground-muted">{event.reason || 'Tidak ada catatan.'}</p>
-            <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted">{event.actor_role || 'system'}</p>
+            <p className="mt-2 text-xs font-black uppercase tracking-wide text-foreground-muted">{event.actor_role || 'system'}</p>
           </div>
         ))}
       </div>
@@ -938,7 +938,7 @@ function MiniMetric({ icon: Icon, label, value }: { icon: any; label: string; va
     <div className="rounded-2xl border border-border bg-surface/[0.03] p-3">
       <div className="flex items-center gap-2 text-foreground-muted">
         <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+        <span className="text-xs font-black uppercase tracking-wide">{label}</span>
       </div>
       <p className="mt-2 truncate text-sm font-black text-foreground-muted" title={value}>{value}</p>
     </div>
@@ -952,7 +952,7 @@ function ActionButton({ label, icon: Icon, disabled, onClick, tone = 'safe' }: {
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-xs font-black uppercase tracking-wide transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60',
         tone === 'danger'
           ? 'border-error bg-error-surface text-error hover:bg-error-surface'
           : 'border-success bg-success-surface text-success hover:bg-success-surface'
@@ -979,7 +979,7 @@ function TextField({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-black uppercase tracking-widest text-foreground-muted">{label}</span>
+      <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{label}</span>
       <input
         type={type}
         value={value}
@@ -1004,7 +1004,7 @@ function SelectField({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-black uppercase tracking-widest text-foreground-muted">{label}</span>
+      <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}

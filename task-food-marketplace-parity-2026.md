@@ -3106,6 +3106,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin Analytics was audited for Part S across KPI/filter metadata, provider and regional legends, heat-map and chart captions, retention headers and report schedules. Operational/chart labels now use the shared readable `text-xs` floor with `tracking-wide`, while large numeric KPI display keeps deliberate compact tracking. The `/analytics` and `/app-experience/analytics` axe slice passes `4/4`, reflow/text-spacing passes `6/6`, and typecheck/ESLint/iconography/table/diff guards pass. Full chart tooltip, dynamic data, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin Promos and Agreements were audited for Part S across campaign lifecycle/risk/audit metadata, agreement tables, detail metadata, PDF viewer actions and retry/empty states. Operational labels, table headers, status chips and actions now use the shared readable `text-xs` floor with `tracking-wide`; the promo campaign code keeps deliberate identifier tracking. The `/promos` and `/agreements` axe slice passes `8/8`, reflow/text-spacing passes `6/6`, and typecheck/ESLint/iconography/table/diff guards pass. Full dynamic state, PDF rendering, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
