@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertCircle,
@@ -44,6 +44,17 @@ const channelLabel = (channel: string) =>
   channel === 'push' ? 'Push (FCM)' : channel === 'in_app' ? 'In-app' : channel
 
 export default function BroadcastDeliveryReport({ broadcastId, title, onClose }: ReportModalProps) {
+  useEffect(() => {
+    if (!broadcastId) return undefined
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [broadcastId, onClose])
+
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['broadcast-report', broadcastId],
     queryFn: async (): Promise<DeliveryReportData> => {

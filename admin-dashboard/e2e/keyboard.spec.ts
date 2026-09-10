@@ -276,6 +276,83 @@ test('Admin broadcast confirmation traps focus and Escape restores focus @keyboa
   await expect(sendButton).toBeFocused();
 });
 
+test('Admin broadcast delivery report dismisses on Escape and restores focus @keyboard @a11y', async ({ page }) => {
+  await page.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/auth/web/me')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: { id: 'broadcast-report-keyboard-fixture', name: 'Broadcast Report Fixture', role: 'super_admin', permissions: [] } }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/broadcasts')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [{
+            id: 'broadcast-report-fixture',
+            title: 'Broadcast report fixture',
+            body: 'Fixture body',
+            category: 'operational',
+            priority: 'normal',
+            channels: ['in_app'],
+            target_type: 'all',
+            status: 'sent',
+            scheduled_at: null,
+            sent_at: '2026-09-11T00:00:00Z',
+            total_targets: 1,
+            sent_count: 1,
+            failed_count: 0,
+            opened_count: 1,
+            created_at: '2026-09-11T00:00:00Z',
+          }],
+          total: 1,
+        }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/broadcasts/broadcast-report-fixture/report')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          broadcast_id: 'broadcast-report-fixture',
+          status: 'sent',
+          totals: { total_targets: 1, sent_count: 1, failed_count: 0, opened_count: 1 },
+          per_channel: [{ channel: 'in_app', pending: 0, sent: 1, failed: 0, opened: 1 }],
+        }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/dashboard/events')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (route.request().resourceType() === 'xhr' || route.request().resourceType() === 'fetch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/broadcasts', { waitUntil: 'domcontentloaded' });
+  const reportButton = page.getByRole('button', { name: 'Lihat report Broadcast report fixture' });
+  await expect(reportButton).toBeVisible();
+  await reportButton.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: 'Delivery Report' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Tutup laporan' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(reportButton).toBeFocused();
+});
+
 test('Admin login associates server errors with both credential fields @a11y', async ({ page }) => {
   await page.route('**/auth/web/login', async (route) => {
     await route.fulfill({

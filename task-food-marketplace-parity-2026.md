@@ -3331,7 +3331,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Entire Customer Web and Admin primary workflows operable keyboard-only per WCAG 2.1.1.
 - [ ] Focus order follows visual/logical reading order.
 - [ ] Focus is never removed without an accessible replacement; retain explicit `:focus-visible` system.
-- [ ] Modal traps focus while open and returns focus to invoking control on close.
+- [ ] Modal traps focus while open and returns focus to invoking control on close. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer/Admin dialogs, including Broadcast delivery report, pass; full modal matrix remains open).
 - [ ] Dropdown/menu/select is keyboard navigable and dismissible.
 - [ ] All inputs have programmatic + visible label; required/optional semantics clear.
 - [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate.
