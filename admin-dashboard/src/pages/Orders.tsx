@@ -129,7 +129,7 @@ export default function Orders() {
 
               <form onSubmit={handleCreateOrder} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-foreground-muted uppercase tracking-widest">Customer ID</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Customer ID</label>
                   <input
                     required
                     value={formData.customer_id}
@@ -140,7 +140,7 @@ export default function Orders() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-foreground-muted uppercase tracking-widest">Type</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Type</label>
                     <select
                       value={formData.type}
                       onChange={e => setFormData({ ...formData, type: e.target.value })}
@@ -152,7 +152,7 @@ export default function Orders() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-foreground-muted uppercase tracking-widest">Total Amount</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Total Amount</label>
                     <input
                       required
                       type="number"
@@ -165,7 +165,7 @@ export default function Orders() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-foreground-muted uppercase tracking-widest">Pickup Address</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Pickup Address</label>
                   <textarea
                     required
                     value={formData.pickup_address}
@@ -176,7 +176,7 @@ export default function Orders() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-foreground-muted uppercase tracking-widest">Delivery Address</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Delivery Address</label>
                   <textarea
                     required
                     value={formData.delivery_address}

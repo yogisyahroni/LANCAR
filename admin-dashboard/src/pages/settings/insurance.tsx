@@ -122,7 +122,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Premium Rate (%)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Premium Rate (%)</label>
                       <div className="relative">
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">%</span>
                         <input 
@@ -137,7 +137,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Minimum Premium (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Minimum Premium (IDR)</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
@@ -153,7 +153,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Maximum Coverage (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Maximum Coverage (IDR)</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
@@ -167,7 +167,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Fixed Ins. Fee (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Fixed Ins. Fee (IDR)</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
@@ -181,7 +181,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Insurance Provider</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Insurance Provider</label>
                       <select 
                         defaultValue={getConfig('insurance_provider', 'Internal / Managed')}
                         onChange={(e) => updateConfigMutation.mutate({ key: 'insurance_provider', value: e.target.value })}
@@ -200,7 +200,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                       <div className="space-y-3">
-                        <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Coverage (IDR)</label>
+                        <label className="text-xs font-bold text-foreground-muted tracking-wide">Coverage (IDR)</label>
                         <input 
                           type="number" 
                           defaultValue={getConfig('bpjstk_coverage_idr', 50000000)}
@@ -209,7 +209,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         />
                       </div>
                       <div className="space-y-3">
-                        <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Monthly Premium (IDR)</label>
+                        <label className="text-xs font-bold text-foreground-muted tracking-wide">Monthly Premium (IDR)</label>
                         <input 
                           type="number" 
                           defaultValue={getConfig('bpjstk_premium_monthly_idr', 16800)}
@@ -218,7 +218,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         />
                       </div>
                       <div className="space-y-3">
-                        <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Company Share (IDR)</label>
+                        <label className="text-xs font-bold text-foreground-muted tracking-wide">Company Share (IDR)</label>
                         <input 
                           type="number" 
                           defaultValue={getConfig('bpjstk_company_share_idr', 10000)}
@@ -227,7 +227,7 @@ export function InsurancePanel({ data }: { data: SettingsData }) {
                         />
                       </div>
                       <div className="space-y-3">
-                        <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Courier Share (IDR)</label>
+                        <label className="text-xs font-bold text-foreground-muted tracking-wide">Courier Share (IDR)</label>
                         <input 
                           type="number" 
                           defaultValue={getConfig('bpjstk_courier_share_idr', 6800)}

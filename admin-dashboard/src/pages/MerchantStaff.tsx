@@ -43,7 +43,7 @@ export default function MerchantStaff() {
       </div>
 
       <div className="flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-surface/[0.03] p-4">
-        <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">
+        <label className="flex flex-col gap-1 text-xs font-bold tracking-wide text-foreground-muted">
           Merchant ID
           <input
             value={merchantId}
@@ -52,7 +52,7 @@ export default function MerchantStaff() {
             className="w-72 rounded-xl border border-border bg-surface-subtle px-3 py-2 text-sm normal-case text-foreground-muted placeholder:text-foreground-muted focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">
+        <label className="flex flex-col gap-1 text-xs font-bold tracking-wide text-foreground-muted">
           Role
           <select
             value={role}
@@ -67,7 +67,7 @@ export default function MerchantStaff() {
             <option value="finance">Finance</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">
+        <label className="flex flex-col gap-1 text-xs font-bold tracking-wide text-foreground-muted">
           Status
           <select
             value={status}

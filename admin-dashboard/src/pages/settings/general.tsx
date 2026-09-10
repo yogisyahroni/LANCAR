@@ -123,7 +123,7 @@ export function GeneralPanel({ data }: { data: SettingsData }) {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Platform Name</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Platform Name</label>
                       <input aria-label="Platform name"
                         type="text" 
                         defaultValue={getConfig('platform_name', 'TEMBUS Logistics Hub')}
@@ -132,7 +132,7 @@ export function GeneralPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Support Email</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Support Email</label>
                       <input aria-label="Support email"
                         type="email" 
                         defaultValue={getConfig('support_email', 'ops@tembus.id')}

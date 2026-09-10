@@ -95,7 +95,7 @@ export default function SettlementConfig() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-foreground-muted uppercase">Commission Basis</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Commission Basis</label>
                   <select
                     value={config.commission_basis}
                     onChange={(e) => handleUpdate(index, 'commission_basis', e.target.value)}
@@ -107,7 +107,7 @@ export default function SettlementConfig() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-foreground-muted uppercase">Commission %</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">Commission %</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -120,7 +120,7 @@ export default function SettlementConfig() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-foreground-muted uppercase">MDR %</label>
+                  <label className="text-xs font-bold text-foreground-muted tracking-wide">MDR %</label>
                   <div className="relative">
                     <input
                       type="number"

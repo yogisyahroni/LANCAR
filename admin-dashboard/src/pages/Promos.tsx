@@ -567,7 +567,7 @@ export default function Promos() {
               <TextField label="Alasan risk atau catatan campaign" value={form.risk_reason} onChange={(value) => updateForm('risk_reason', value)} placeholder="Contoh: kampanye akuisisi terbatas area Jakarta" />
             </div>
             <div className="md:col-span-2">
-              <label className="text-xs font-black uppercase tracking-widest text-foreground-muted">Deskripsi</label>
+              <label className="text-xs font-bold tracking-wide text-foreground-muted">Deskripsi</label>
             <textarea
               aria-label="Promo campaign description"
               value={form.description}

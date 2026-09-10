@@ -3052,6 +3052,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Customer profile session and default-address states now retain readable visible labels with supplemental icons; the targeted Customer profile/address axe slice passes `12/12`. Full Customer/Admin route/state, visual and manual assistive-technology proof remains open where it is not exhaustive.
 
+> **Execution checkpoint 2026-09-11 (continued):** Remaining high-use Admin settings, order, courier, pricing, promo and merchant-staff form labels now use the readable `tracking-wide` hierarchy instead of uppercase/extreme tracking defaults. The expanded Admin route axe slice passes `42/42`; the full typography/manual review remains open.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

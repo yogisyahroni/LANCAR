@@ -122,7 +122,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Customer Withdrawal Fee (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Customer Withdrawal Fee (IDR)</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
@@ -134,7 +134,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       </div>
                     </div>
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Courier Withdrawal Fee (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Courier Withdrawal Fee (IDR)</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                         <input 
@@ -156,7 +156,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Top-Up Fixed Fee (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Top-Up Fixed Fee (IDR)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('topup_fee_fixed', 1000)}
@@ -165,7 +165,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Top-Up Percentage (%)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Top-Up Percentage (%)</label>
                       <input 
                         type="number" 
                         step="0.1"
@@ -175,7 +175,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Direct Service Fee (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Direct Service Fee (IDR)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('service_fee_fixed', 2000)}
@@ -187,7 +187,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-4">
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Platform Fee (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Platform Fee (IDR)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('platform_fee_idr', 1500)}
@@ -196,7 +196,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Platform Fee Pct (%)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Platform Fee Pct (%)</label>
                       <input 
                         type="number" 
                         step="0.001"
@@ -206,7 +206,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Merchant Fee Pct (%)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Merchant Fee Pct (%)</label>
                       <input 
                         type="number" 
                         step="0.001"
@@ -226,7 +226,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">MDR Rate (%)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">MDR Rate (%)</label>
                       <div className="relative">
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">%</span>
                         <input 
@@ -239,7 +239,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       </div>
                     </div>
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">PPN Rate (%)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">PPN Rate (%)</label>
                       <div className="relative">
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">%</span>
                         <input 
@@ -262,7 +262,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Min. Top-Up (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Min. Top-Up (IDR)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('topup_min_amount', 10000)}
@@ -271,7 +271,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Min. Withdrawal (IDR)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Min. Withdrawal (IDR)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('withdrawal_min_amount', 50000)}
@@ -280,7 +280,7 @@ export function WalletFeesPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Auto Disbursement Limit</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Auto Disbursement Limit</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('auto_disbursement_threshold', 1000000)}

@@ -168,7 +168,7 @@ export default function CourierPerformance() {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-foreground-muted uppercase tracking-widest mb-2">New Tier</label>
+                <label className="block text-xs font-bold text-foreground-muted tracking-wide mb-2">New Tier</label>
                 <select 
                   className="w-full bg-surface-subtle border border-border rounded-xl p-3 text-sm text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"
                   value={newTier}
@@ -182,7 +182,7 @@ export default function CourierPerformance() {
               </div>
               
               <div>
-                <label className="block text-xs font-bold text-foreground-muted uppercase tracking-widest mb-2">Reason (Optional)</label>
+                <label className="block text-xs font-bold text-foreground-muted tracking-wide mb-2">Reason (Optional)</label>
                 <textarea 
                   className="w-full bg-surface-subtle border border-border rounded-xl p-3 text-sm text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted"
                   rows={3}

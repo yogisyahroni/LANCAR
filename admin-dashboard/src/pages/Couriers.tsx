@@ -825,7 +825,7 @@ export default function Couriers() {
 
               <div className="space-y-4 mt-6">
                 <div>
-                  <label htmlFor="courier-broadcast-date" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Tanggal</label>
+                  <label htmlFor="courier-broadcast-date" className="text-xs font-bold text-foreground-muted tracking-wide">Tanggal</label>
                   <input
                     id="courier-broadcast-date"
                     name="broadcast-date"
@@ -836,7 +836,7 @@ export default function Couriers() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="courier-broadcast-time" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Jam</label>
+                  <label htmlFor="courier-broadcast-time" className="text-xs font-bold text-foreground-muted tracking-wide">Jam</label>
                   <input
                     id="courier-broadcast-time"
                     name="broadcast-time"
@@ -847,7 +847,7 @@ export default function Couriers() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="courier-broadcast-address" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Alamat Basecamp</label>
+                  <label htmlFor="courier-broadcast-address" className="text-xs font-bold text-foreground-muted tracking-wide">Alamat Basecamp</label>
                   <textarea
                     id="courier-broadcast-address"
                     name="broadcast-address"

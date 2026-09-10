@@ -197,7 +197,7 @@ export default function PricingConfig() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
               <div className="space-y-4">
-                <label htmlFor="pricing-base-fare" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Base Fare (Rp)</label>
+                <label htmlFor="pricing-base-fare" className="text-xs font-bold text-foreground-muted tracking-wide">Base Fare (Rp)</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                   <input 
@@ -222,7 +222,7 @@ export default function PricingConfig() {
               </div>
 
               <div className="space-y-4">
-                <label htmlFor="pricing-distance-rate" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Distance Rate (Rp/km)</label>
+                <label htmlFor="pricing-distance-rate" className="text-xs font-bold text-foreground-muted tracking-wide">Distance Rate (Rp/km)</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted font-bold">Rp</span>
                   <input 
@@ -247,7 +247,7 @@ export default function PricingConfig() {
               </div>
 
               <div className="space-y-4">
-                <label htmlFor="pricing-volumetric-divisor" className="text-xs font-black text-foreground-muted uppercase tracking-widest">Volumetric Divisor</label>
+                <label htmlFor="pricing-volumetric-divisor" className="text-xs font-bold text-foreground-muted tracking-wide">Volumetric Divisor</label>
                 <div className="relative">
                   <input 
                     id="pricing-volumetric-divisor"

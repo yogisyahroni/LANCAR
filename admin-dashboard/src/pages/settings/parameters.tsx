@@ -122,7 +122,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide flex items-center gap-2">
                         <Activity size={14} aria-hidden="true" />
                         Max Courier Weight (KG)
                       </label>
@@ -137,7 +137,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-4">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide flex items-center gap-2">
                         <Activity size={14} aria-hidden="true" />
                         Max Leg Distance (KM)
                       </label>
@@ -152,7 +152,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mt-4">
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Relay Score Wt</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Relay Score Wt</label>
                       <input 
                         type="number" step="0.01"
                         defaultValue={getConfig('relay_score_weight', 0.4)}
@@ -161,7 +161,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Proximity Score Wt</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Proximity Score Wt</label>
                       <input 
                         type="number" step="0.01"
                         defaultValue={getConfig('proximity_score_weight', 0.25)}
@@ -170,7 +170,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Acceptance Score Wt</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Acceptance Score Wt</label>
                       <input 
                         type="number" step="0.01"
                         defaultValue={getConfig('acceptance_score_weight', 0.15)}
@@ -179,7 +179,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Idle Time Wt</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Idle Time Wt</label>
                       <input 
                         type="number" step="0.01"
                         defaultValue={getConfig('idle_time_weight', 0.1)}
@@ -198,7 +198,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Tier 1 Weight (KG)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Tier 1 Weight (KG)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('weight_tier1_threshold_kg', 3)}
@@ -207,7 +207,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Tier 1 Surcharge</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Tier 1 Surcharge</label>
                       <input 
                         type="number" step="0.01"
                         defaultValue={getConfig('weight_surcharge_tier1', 0.15)}
@@ -219,7 +219,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Peak Hour Surge (x)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Peak Hour Surge (x)</label>
                       <input 
                         type="number" step="0.01"
                         defaultValue={getConfig('surge_peak_hour_multiplier', 0.2)}
@@ -228,7 +228,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Tier 2 Weight (KG)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Tier 2 Weight (KG)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('weight_tier2_threshold_kg', 10)}
@@ -237,7 +237,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Tier 2 Surcharge</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Tier 2 Surcharge</label>
                       <input 
                         type="number" step="0.01"
                         defaultValue={getConfig('weight_surcharge_tier2', 0.3)}
@@ -249,7 +249,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">High Demand Surge (x)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">High Demand Surge (x)</label>
                       <input 
                         type="number" step="0.01"
                         defaultValue={getConfig('surge_high_demand_multiplier', 0.15)}
@@ -258,7 +258,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Surge Step Incr.</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Surge Step Incr.</label>
                       <input 
                         type="number" step="0.01"
                         defaultValue={getConfig('surge_demand_multiplier_step', 0.25)}
@@ -267,7 +267,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Demand Ratio Thr.</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Demand Ratio Thr.</label>
                       <input 
                         type="number" step="0.1"
                         defaultValue={getConfig('surge_demand_ratio_threshold', 1.5)}
@@ -276,7 +276,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Max Surge Mult.</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Max Surge Mult.</label>
                       <input 
                         type="number" step="0.1"
                         defaultValue={getConfig('surge_max_multiplier', 2.5)}
@@ -295,7 +295,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Speed Alert (km/h)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Speed Alert (km/h)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('speed_threshold_kmh', 60)}
@@ -304,7 +304,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Battery Alert (%)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Battery Alert (%)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('battery_alert_pct', 20)}
@@ -313,7 +313,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
                       />
                     </div>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Platform Fee (%)</label>
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide">Platform Fee (%)</label>
                       <input 
                         type="number" 
                         defaultValue={getConfig('admin_fee_pct', 5)}
@@ -325,7 +325,7 @@ export function ParametersPanel({ data }: { data: SettingsData }) {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
+                      <label className="text-xs font-bold text-foreground-muted tracking-wide flex items-center gap-2">
                         <Umbrella size={14} aria-hidden="true" />
                         Weather Reserve Fund (IDR)
                       </label>

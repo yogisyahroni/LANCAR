@@ -134,7 +134,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                   </h3>
                   
                   <div className="space-y-4">
-                    <label className="text-xs font-black text-foreground-muted uppercase tracking-widest">Public API Key</label>
+                    <label className="text-xs font-bold text-foreground-muted tracking-wide">Public API Key</label>
                     <div className="relative">
                       <input 
                         type={showApiKey ? "text" : "password"} 
@@ -223,7 +223,7 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                     </h3>
                     <p className="mt-2 text-sm text-foreground-muted">Role verification, consent, retention, artifact access, and service availability are resolved per market.</p>
                   </div>
-                  <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-foreground-muted">
+                  <label className="flex items-center gap-3 text-xs font-bold tracking-wide text-foreground-muted">
                     Market
                     <input
                       value={complianceMarket}
