@@ -35,7 +35,7 @@ export function FinanceContent() {
                 if (code) dispatchApprovedPayoutsMutation.mutate(code);
               }}
               disabled={dispatchApprovedPayoutsMutation.isPending}
-              className="px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-60"
+              className="px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-60"
             >
               {dispatchApprovedPayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
               Dispatch
@@ -46,7 +46,7 @@ export function FinanceContent() {
                 if (code) reconcilePayoutsMutation.mutate(code);
               }}
               disabled={reconcilePayoutsMutation.isPending}
-              className="px-5 py-2.5 rounded-2xl bg-info-surface border border-info text-info font-black text-xs uppercase tracking-widest hover:bg-info-surface transition-all flex items-center gap-2 disabled:opacity-60"
+              className="px-5 py-2.5 rounded-2xl bg-info-surface border border-info text-info font-black text-xs uppercase tracking-wide hover:bg-info-surface transition-all flex items-center gap-2 disabled:opacity-60"
             >
               {reconcilePayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <ShieldCheck size={16} aria-hidden="true" />}
               Reconcile
@@ -63,7 +63,7 @@ export function FinanceContent() {
                   URL.revokeObjectURL(url)
                 } catch (error) { clientLog.error('Payout export failed', { error }) }
               }}
-              className="px-5 py-2.5 rounded-2xl bg-success-surface border border-success text-success font-black text-xs uppercase tracking-widest hover:bg-success-surface transition-all flex items-center gap-2"
+              className="px-5 py-2.5 rounded-2xl bg-success-surface border border-success text-success font-black text-xs uppercase tracking-wide hover:bg-success-surface transition-all flex items-center gap-2"
             >
               <Download size={16} aria-hidden="true" />
               Export CSV
@@ -80,7 +80,7 @@ export function FinanceContent() {
                   URL.revokeObjectURL(url)
                 } catch { toast.error('Audit export failed') }
               }}
-              className="px-5 py-2.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all flex items-center gap-2"
+              className="px-5 py-2.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-wide hover:bg-surface-subtle transition-all flex items-center gap-2"
             >
               <Download size={16} aria-hidden="true" />
               Audit CSV
@@ -97,7 +97,7 @@ export function FinanceContent() {
                   URL.revokeObjectURL(url)
                 } catch { toast.error('Risk audit export failed') }
               }}
-              className="px-5 py-2.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest hover:bg-surface-subtle transition-all flex items-center gap-2"
+              className="px-5 py-2.5 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-wide hover:bg-surface-subtle transition-all flex items-center gap-2"
             >
               <Download size={16} aria-hidden="true" />
               Risk CSV
@@ -124,7 +124,7 @@ export function FinanceContent() {
               <div key={item.label} className="glass-card p-4 rounded-[20px] border-border space-y-2">
                 <div className="flex items-center gap-2">
                   <Icon size={12} className={item.color} aria-hidden="true" />
-                  <p className="text-[9px] font-black text-foreground-muted uppercase tracking-widest leading-tight">{item.label}</p>
+                  <p className="text-xs font-black text-foreground-muted uppercase tracking-wide leading-tight">{item.label}</p>
                 </div>
                 <p className={`text-base font-black ${item.color} leading-none`}>
                   {item.rawLabel ?? `Rp ${Number(item.value || 0).toLocaleString('id-ID')}`}
@@ -151,7 +151,7 @@ export function FinanceContent() {
             key={id}
             onClick={() => setActiveTab(id)}
             className={cn(
-              'flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all',
+              'flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wide transition-all',
               activeTab === id
                 ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
                 : 'text-foreground-muted hover:text-foreground-muted hover:bg-surface-subtle'

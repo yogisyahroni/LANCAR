@@ -212,11 +212,11 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                       {/* LEVEL 1: GTV */}
                       <div className="p-6 rounded-2xl bg-success-surface border border-success flex justify-between items-center">
                         <div>
-                          <p className="text-[10px] font-black text-success uppercase tracking-widest">Level 1: GTV (Total Uang Masuk)</p>
+                          <p className="text-xs font-black text-success uppercase tracking-wide">Level 1: GTV (Total Uang Masuk)</p>
                           <p className="text-3xl font-black text-success mt-1">Rp {gtv.toLocaleString('id-ID')}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] font-black text-success uppercase tracking-widest">Total Transaksi</p>
+                          <p className="text-xs font-black text-success uppercase tracking-wide">Total Transaksi</p>
                           <p className="text-lg font-black text-success">{totalTrx.toLocaleString('id-ID')}</p>
                         </div>
                       </div>
@@ -230,15 +230,15 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                       {/* LEVEL 2: SPLIT GTV */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="p-5 rounded-2xl bg-info-surface border border-info">
-                          <p className="text-[10px] font-black text-info uppercase tracking-widest">Hutang Dagang (Milik Kurir)</p>
+                          <p className="text-xs font-black text-info uppercase tracking-wide">Hutang Dagang (Milik Kurir)</p>
                           <p className="text-xl font-black text-info mt-1">Rp {courierEscrow.toLocaleString('id-ID')}</p>
-                          <p className="text-[10px] text-foreground-muted mt-2 leading-relaxed">Dana ini adalah titipan murni milik mitra kurir, tidak boleh dihitung sebagai pendapatan.</p>
+                          <p className="text-xs text-foreground-muted mt-2 leading-relaxed">Dana ini adalah titipan murni milik mitra kurir, tidak boleh dihitung sebagai pendapatan.</p>
                         </div>
                         
                         <div className="p-6 rounded-2xl bg-primary/10 border border-primary/20 ring-1 ring-primary/30 shadow-[0_0_30px_-5px_rgba(var(--primary-rgb),0.2)]">
-                          <p className="text-[10px] font-black text-primary-light uppercase tracking-widest">Omzet Asli Perusahaan</p>
+                          <p className="text-xs font-black text-primary-light uppercase tracking-wide">Omzet Asli Perusahaan</p>
                           <p className="text-3xl font-black text-foreground mt-1">Rp {realOmzet.toLocaleString('id-ID')}</p>
-                          <p className="text-[10px] text-foreground-muted mt-2">GTV dikurangi Hutang Dagang. Ini adalah angka dasar perusahaan (Komisi + Platform Fee).</p>
+                          <p className="text-xs text-foreground-muted mt-2">GTV dikurangi Hutang Dagang. Ini adalah angka dasar perusahaan (Komisi + Platform Fee).</p>
                         </div>
                       </div>
 
@@ -252,7 +252,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                         <div className="md:col-span-6" /> {/* Spacer */}
                         
                         <div className="md:col-span-6 p-6 rounded-2xl bg-surface-subtle border border-border space-y-4">
-                          <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest border-b border-border pb-2">Potongan Operasional (Dari Omzet)</p>
+                          <p className="text-xs font-black text-foreground-muted uppercase tracking-wide border-b border-border pb-2">Potongan Operasional (Dari Omzet)</p>
                           
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-foreground-muted font-bold">Modal Infra (API/OTP)</span>
@@ -267,7 +267,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                             <span className="text-error font-black">- Rp {totalReserve.toLocaleString('id-ID')}</span>
                           </div>
                           <div className="pt-2 border-t border-border flex justify-between items-center">
-                            <span className="text-[10px] font-black text-foreground-muted uppercase">Total Potongan</span>
+                            <span className="text-xs font-black text-foreground-muted uppercase">Total Potongan</span>
                             <span className="text-error font-black">- Rp {totalCompanyDeductions.toLocaleString('id-ID')}</span>
                           </div>
                         </div>
@@ -287,23 +287,23 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                             "p-6 rounded-2xl border",
                             netProfit >= 0 ? "bg-success-surface border-success" : "bg-error-surface border-error"
                           )}>
-                            <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Profit Bersih Kena Pajak</p>
+                            <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Profit Bersih Kena Pajak</p>
                             <p className={cn(
                               "text-3xl font-black mt-1",
                               netProfit >= 0 ? "text-success" : "text-error"
                             )}>
                               Rp {netProfit.toLocaleString('id-ID')}
                             </p>
-                            <p className="text-[10px] text-foreground-muted mt-2">Omzet dikurangi seluruh potongan.</p>
+                            <p className="text-xs text-foreground-muted mt-2">Omzet dikurangi seluruh potongan.</p>
                           </div>
 
                           <div className="p-6 rounded-2xl bg-error-surface border border-error relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-2 opacity-10"><Ban size={64} aria-hidden="true" /></div>
-                            <p className="text-[10px] font-black text-error uppercase tracking-widest relative z-10">Pajak PPh Badan (22%) Ghoib</p>
+                            <p className="text-xs font-black text-error uppercase tracking-wide relative z-10">Pajak PPh Badan (22%) Ghoib</p>
                             <p className="text-3xl font-black text-error mt-1 relative z-10">
                               Rp {pphBadan22.toLocaleString('id-ID')}
                             </p>
-                            <p className="text-[10px] text-error mt-2 relative z-10">
+                            <p className="text-xs text-error mt-2 relative z-10">
                               Alokasi pajak (Ghoib) wajib disisihkan jika berbentuk PT Badan.
                             </p>
                           </div>
@@ -325,20 +325,20 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div className="p-5 rounded-2xl bg-surface/[0.02] border border-border flex justify-between items-center">
                         <div>
-                          <p className="text-[10px] font-black text-warning uppercase tracking-widest">Total PPN Dipungut</p>
+                          <p className="text-xs font-black text-warning uppercase tracking-wide">Total PPN Dipungut</p>
                           <p className="text-xl font-black text-warning mt-1">Rp {Number(pnlReport.summary.ppn_collected).toLocaleString('id-ID')}</p>
                         </div>
                      </div>
                      <div className="p-5 rounded-2xl bg-surface/[0.02] border border-border flex justify-between items-center">
                         <div>
-                          <p className="text-[10px] font-black text-error uppercase tracking-widest">Subsidi Promo/Voucher</p>
+                          <p className="text-xs font-black text-error uppercase tracking-wide">Subsidi Promo/Voucher</p>
                           <p className="text-xl font-black text-error mt-1">Rp {Number(pnlReport.summary.promo_subsidy).toLocaleString('id-ID')}</p>
                         </div>
                      </div>
                   </div>
 
                   <div className="space-y-3">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Revenue per Layanan</p>
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Revenue per Layanan</p>
                     {pnlReport.model_breakdown.map((m: any) => (
                       <div key={m.model} className="space-y-1">
                         <div className="flex justify-between text-sm">
@@ -351,7 +351,7 @@ export function PnlPanel({ data }: { data: FinanceData }) {
                             style={{ width: `${m.share_pct}%` }}
                           />
                         </div>
-                        <div className="flex justify-between text-[10px] text-foreground-muted">
+                        <div className="flex justify-between text-xs text-foreground-muted">
                           <span>{m.order_count} order</span>
                           <span>{m.share_pct}%</span>
                         </div>

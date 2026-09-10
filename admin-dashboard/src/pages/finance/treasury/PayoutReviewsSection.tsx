@@ -141,7 +141,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
               </h3>
               <p className="text-sm text-foreground-muted mt-1">Review rekening kurir sebelum saldo dapat dicairkan.</p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-[10px] font-black text-foreground-muted uppercase tracking-widest">
+            <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-xs font-black text-foreground-muted uppercase tracking-wide">
               {payoutAccounts?.filter((item: any) => item.status === 'pending_review').length || 0} pending
             </span>
           </div>
@@ -159,15 +159,15 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="p-3 rounded-2xl bg-surface-subtle border border-border">
-                    <p className="text-[9px] text-foreground-muted font-black uppercase tracking-widest">Bank</p>
+                    <p className="text-xs text-foreground-muted font-black uppercase tracking-wide">Bank</p>
                     <p className="text-sm font-black text-foreground-muted mt-1">{account.bank_code}</p>
                   </div>
                   <div className="p-3 rounded-2xl bg-surface-subtle border border-border">
-                    <p className="text-[9px] text-foreground-muted font-black uppercase tracking-widest">Nomor</p>
+                    <p className="text-xs text-foreground-muted font-black uppercase tracking-wide">Nomor</p>
                     <p className="text-sm font-black text-foreground-muted mt-1">{account.account_number}</p>
                   </div>
                   <div className="p-3 rounded-2xl bg-surface-subtle border border-border min-w-0">
-                    <p className="text-[9px] text-foreground-muted font-black uppercase tracking-widest">Nama</p>
+                    <p className="text-xs text-foreground-muted font-black uppercase tracking-wide">Nama</p>
                     <p className="text-sm font-black text-foreground-muted mt-1 truncate" title={account.account_name}>{account.account_name}</p>
                   </div>
                 </div>
@@ -180,7 +180,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                       reason: 'Rekening sesuai dokumen onboarding dan siap untuk pencairan.'
                     })}
                     disabled={account.status === 'verified' || updatePayoutAccountMutation.isPending}
-                    className="px-4 py-2 rounded-xl bg-success-surface border border-success text-success font-black text-[10px] uppercase tracking-widest hover:bg-success-surface disabled:opacity-60 flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-success-surface border border-success text-success font-black text-xs uppercase tracking-wide hover:bg-success-surface disabled:opacity-60 flex items-center gap-2"
                   >
                     <CheckCircle2 size={14} aria-hidden="true" />
                     Verifikasi
@@ -191,7 +191,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                       updatePayoutAccountMutation.mutate({ id: account.id, status: 'rejected', reason });
                     }}
                     disabled={account.status === 'rejected' || updatePayoutAccountMutation.isPending}
-                    className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error font-black text-[10px] uppercase tracking-widest hover:bg-error-surface disabled:opacity-60 flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error font-black text-xs uppercase tracking-wide hover:bg-error-surface disabled:opacity-60 flex items-center gap-2"
                   >
                     <XCircle size={14} aria-hidden="true" />
                     Tolak
@@ -204,7 +204,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                       }
                     }}
                     disabled={account.status === 'suspended' || updatePayoutAccountMutation.isPending}
-                    className="px-4 py-2 rounded-xl bg-warning-surface border border-warning text-warning font-black text-[10px] uppercase tracking-widest hover:bg-warning-surface disabled:opacity-60 flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-warning-surface border border-warning text-warning font-black text-xs uppercase tracking-wide hover:bg-warning-surface disabled:opacity-60 flex items-center gap-2"
                   >
                     <Ban size={14} aria-hidden="true" />
                     Suspend
@@ -227,7 +227,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
               </h3>
               <p className="text-sm text-foreground-muted mt-1">Kontrol status settlement kurir dengan audit trail.</p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-[10px] font-black text-foreground-muted uppercase tracking-widest">
+            <span className="px-3 py-1 rounded-full bg-surface-subtle border border-border text-xs font-black text-foreground-muted uppercase tracking-wide">
               {payoutRequests?.filter((item: any) => activePayoutStatuses.includes(item.status)).length || 0} aktif
             </span>
           </div>
@@ -246,7 +246,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                 {request.risk_decision && (
                   <div className="rounded-2xl border border-border bg-surface-subtle p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Risk Engine</p>
+                      <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Risk Engine</p>
                       <StatusBadge status={request.risk_decision === 'auto_approved' ? 'approved_auto' : request.risk_decision === 'blocked' ? 'blocked' : 'pending_review'} label={`${riskActionLabel(request)} • ${request.risk_score ?? 0}`} labelPrefix="Risk decision" />
                     </div>
                     {request.risk_reasons?.length > 0 && (
@@ -258,7 +258,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                 {(request.provider_reference || request.provider_status || request.provider_payload_hash) && (
                   <div className="rounded-2xl border border-primary/10 bg-primary/5 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Provider Dispatch</p>
+                      <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Provider Dispatch</p>
                       <StatusBadge status={request.provider_status || request.status} labelPrefix="Provider payout status" />
                     </div>
                     <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-foreground-muted">
@@ -272,11 +272,11 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-2xl bg-surface-subtle border border-border">
-                    <p className="text-[9px] text-foreground-muted font-black uppercase tracking-widest">Nominal</p>
+                    <p className="text-xs text-foreground-muted font-black uppercase tracking-wide">Nominal</p>
                     <p className="text-lg font-black text-foreground-muted mt-1">{formatCurrency(request.amount_idr)}</p>
                   </div>
                   <div className="p-3 rounded-2xl bg-surface-subtle border border-border">
-                    <p className="text-[9px] text-foreground-muted font-black uppercase tracking-widest">Tujuan</p>
+                    <p className="text-xs text-foreground-muted font-black uppercase tracking-wide">Tujuan</p>
                     <p className="text-sm font-black text-foreground-muted mt-1">
                       {request.destination_snapshot?.bank_code} • **** {request.destination_snapshot?.account_number_last4}
                     </p>
@@ -292,7 +292,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                         reason: 'Masuk proses review treasury.'
                       })}
                       disabled={!['requested', 'risk_screening', 'risk_hold'].includes(request.status) || updatePayoutRequestMutation.isPending}
-                      className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted font-black text-[10px] uppercase tracking-widest hover:bg-surface-subtle disabled:opacity-60"
+                      className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-wide hover:bg-surface-subtle disabled:opacity-60"
                     >
                       Review
                     </button>
@@ -303,7 +303,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                         reason: 'Disetujui untuk proses settlement.'
                       })}
                       disabled={!['requested', 'risk_screening', 'risk_hold', 'manual_review', 'under_review', 'approved_auto'].includes(request.status) || updatePayoutRequestMutation.isPending}
-                      className="px-4 py-2 rounded-xl bg-success-surface border border-success text-success font-black text-[10px] uppercase tracking-widest hover:bg-success-surface disabled:opacity-60"
+                      className="px-4 py-2 rounded-xl bg-success-surface border border-success text-success font-black text-xs uppercase tracking-wide hover:bg-success-surface disabled:opacity-60"
                     >
                       Approve
                     </button>
@@ -314,7 +314,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                         reason: 'Dana sudah dikirim ke rekening terverifikasi.'
                       })}
                       disabled={!['approved_auto', 'approved', 'processing'].includes(request.status) || updatePayoutRequestMutation.isPending}
-                      className="px-4 py-2 rounded-xl bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary-light disabled:opacity-60"
+                      className="px-4 py-2 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide hover:bg-primary-light disabled:opacity-60"
                     >
                       Mark Paid
                     </button>
@@ -325,7 +325,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                         }
                       }}
                       disabled={updatePayoutRequestMutation.isPending}
-                      className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error font-black text-[10px] uppercase tracking-widest hover:bg-error-surface disabled:opacity-60"
+                      className="px-4 py-2 rounded-xl bg-error-surface border border-error text-error font-black text-xs uppercase tracking-wide hover:bg-error-surface disabled:opacity-60"
                     >
                       Reject
                     </button>

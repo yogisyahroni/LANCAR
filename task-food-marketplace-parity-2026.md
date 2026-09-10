@@ -3094,6 +3094,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Customer receipt, address and notification surfaces plus shared push/feature-flag helper copy were audited for Part S typography. Essential receipt identifiers, dates, QR guidance, totals, coordinates, notification counts/timestamps and helper text now use the readable `text-xs` floor with restrained tracking; the receipt theme assertion now verifies both canonical order-status badges instead of failing on strict duplicate resolution. The affected route axe slice passes `27/27`, reflow/text-spacing passes `19/19`, address keyboard proof passes `1/1`, receipt theme proof passes `1/1`, and typecheck/ESLint/diff checks pass. Broader long-string, visual and manual assistive-technology review remains open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin finance overview, P&L, tax and treasury payout-review surfaces were audited for Part S typography. Essential financial labels, explanatory copy, table headers, risk/account metadata and approval/rejection actions now use the readable `text-xs` floor with restrained tracking; the dense-data iconography and table-semantics guards remain green. Admin `/finance` axe coverage passes `6/6`, finance reflow/text-spacing coverage passes `4/4`, and typecheck/ESLint/diff checks pass. Remaining finance state variants, chart/tooltip behavior, visual contrast and manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

@@ -150,10 +150,10 @@ export function TaxPanel({ data }: { data: FinanceData }) {
               )}>
                 <AlertCircle size={20} aria-hidden="true" />
                 <div className="flex-1">
-                  <p className="font-black text-sm uppercase tracking-widest">
+                  <p className="font-black text-sm uppercase tracking-wide">
                     Deadline Lapor SPT Masa PPN: {taxDashboard.deadline_date}
                   </p>
-                  <p className="text-[11px] opacity-70 mt-0.5">
+                  <p className="text-xs opacity-70 mt-0.5">
                     {taxDashboard.days_until_deadline > 0
                       ? `${taxDashboard.days_until_deadline} hari lagi — pastikan PPN masa ${taxDashboard.current_masa} sudah dilaporkan ke DJP`
                       : 'Deadline telah lewat!'}
@@ -169,11 +169,11 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                   { label: 'Jumlah Transaksi', value: null, rawLabel: taxDashboard.transaction_count_current_masa?.toLocaleString('id-ID'), color: 'text-info', desc: 'Transaksi kena PPN' },
                 ].map((item) => (
                   <div key={item.label} className="glass-card p-6 rounded-[28px] border-border space-y-2">
-                    <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{item.label}</p>
+                    <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{item.label}</p>
                     <p className={`text-3xl font-black ${item.color} tracking-tight`}>
                       {item.rawLabel ?? `Rp ${Number(item.value || 0).toLocaleString('id-ID')}`}
                     </p>
-                    <p className="text-[10px] text-foreground-muted">{item.desc}</p>
+                    <p className="text-xs text-foreground-muted">{item.desc}</p>
                   </div>
                 ))}
               </div>
@@ -185,7 +185,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                   <div className="flex gap-2">
                     <button
                       onClick={handleExportEfaktur}
-                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-light text-on-primary font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
+                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-light text-on-primary font-black text-xs uppercase tracking-wide transition-all flex items-center gap-2"
                     >
                       <Download size={12} aria-hidden="true" />Export e-Faktur
                     </button>
@@ -201,7 +201,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                           URL.revokeObjectURL(url)
                         } catch { toast.error('Export gagal') }
                       }}
-                      className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted font-black text-[10px] uppercase tracking-widest hover:bg-surface-subtle transition-all flex items-center gap-2"
+                      className="px-4 py-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-wide hover:bg-surface-subtle transition-all flex items-center gap-2"
                     >
                       <Download size={12} aria-hidden="true" />Export Laporan PPN
                     </button>
@@ -211,7 +211,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                   <thead>
                     <tr className="border-b border-border">
                       {['Masa', 'Transaksi', 'Gross Revenue', 'PPN Dipungut', 'Status'].map(h => (
-                        <th scope="col" key={h} className="pb-4 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest">{h}</th>
+                        <th scope="col" key={h} className="pb-4 text-left text-xs font-black text-foreground-muted uppercase tracking-wide">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -243,7 +243,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleExportPPh23}
-                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-light text-on-primary font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
+                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-light text-on-primary font-black text-xs uppercase tracking-wide transition-all flex items-center gap-2"
                 >
                   <Download size={12} aria-hidden="true" />Export PPh 23
                 </button>
@@ -270,7 +270,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                     { label: 'Est. PPh 21 Total', value: pphReport.summary.estimated_pph21_total, color: 'text-error' },
                   ].map((item) => (
                     <div key={item.label} className="glass-card p-5 rounded-[24px] border-border space-y-2">
-                      <p className="text-[9px] font-black text-foreground-muted uppercase tracking-widest">{item.label}</p>
+                      <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{item.label}</p>
                       <p className={`text-xl font-black ${item.color}`}>
                         {item.rawLabel ?? `Rp ${Number(item.value || 0).toLocaleString('id-ID')}`}
                       </p>
@@ -281,7 +281,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                 <div className="glass-card p-8 rounded-[36px] border-border space-y-4">
                   <div className="flex items-center gap-3">
                     <h4 className="text-base font-black text-foreground-muted uppercase italic">Detail Kurir</h4>
-                    <span className="px-2 py-0.5 rounded-full bg-accent-surface text-accent text-[10px] font-black uppercase tracking-widest">
+                    <span className="px-2 py-0.5 rounded-full bg-accent-surface text-accent text-xs font-black uppercase tracking-wide">
                       {pphReport.couriers.filter((c: any) => c.subject_to_pph).length} kena PPh
                     </span>
                   </div>
@@ -290,7 +290,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                       <thead>
                         <tr className="border-b border-border">
                           {['Kurir', 'Total Payout', 'Jml Payout', 'Est. PPh 21', 'Status'].map(h => (
-                            <th scope="col" key={h} className="pb-3 text-left text-[10px] font-black text-foreground-muted uppercase tracking-widest">{h}</th>
+                            <th scope="col" key={h} className="pb-3 text-left text-xs font-black text-foreground-muted uppercase tracking-wide">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -300,7 +300,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                             <td className="py-3">
                               <div>
                                 <p className="font-bold text-foreground-muted text-sm">{c.courier_name}</p>
-                                <p className="text-[10px] text-foreground-muted">{c.phone}</p>
+                                <p className="text-xs text-foreground-muted">{c.phone}</p>
                               </div>
                             </td>
                             <td className="py-3 font-bold text-foreground-muted">Rp {Number(c.total_earned).toLocaleString('id-ID')}</td>
@@ -314,7 +314,7 @@ export function TaxPanel({ data }: { data: FinanceData }) {
                             </td>
                             <td className="py-3">
                               <span className={cn(
-                                'px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest',
+                                'px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wide',
                                 c.subject_to_pph ? 'bg-error-surface text-error' : 'bg-success-surface text-success'
                               )}>
                                 {c.subject_to_pph ? 'Kena PPh' : 'Bebas Pajak'}
