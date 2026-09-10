@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ClipboardCheck, Loader2, PlayCircle, RefreshCw, UserRound } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 
 type CourierRetentionRow = {
   courier_profile_id: string
@@ -40,6 +41,19 @@ export default function CourierRetention() {
     onSuccess: () => { toast.success('Rencana retraining dibuat'); setSelected(null); setNotes(''); setScheduledAt(''); queryClient.invalidateQueries({ queryKey: ['courier-retention'] }) },
     onError: (error: any) => toast.error(error.response?.data?.error || 'Gagal membuat rencana retraining'),
   })
+  useEffect(() => {
+    if (!selected) return undefined
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !createAction.isPending) {
+        event.preventDefault()
+        setSelected(null)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [createAction.isPending, selected])
   const updateAction = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: string }) => api.patch(`/admin/courier-retention/retraining/${id}`, { status }),
     onSuccess: () => { toast.success('Status retraining diperbarui'); queryClient.invalidateQueries({ queryKey: ['courier-retention'] }) },
@@ -57,7 +71,34 @@ export default function CourierRetention() {
         <div className="px-6 py-5 border-b border-border flex items-center justify-between"><div className="flex items-center gap-3"><UserRound className="text-primary-light" size={20} aria-hidden="true" /><span className="font-bold text-foreground-muted">{candidates.length} courier profiles</span></div><span className="text-xs text-foreground-muted">Periode aktivitas {days} hari</span></div>
         <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-xs uppercase tracking-wider text-foreground-muted bg-surface/[0.03]"><tr><th scope="col" className="px-6 py-4">Courier</th><th scope="col" className="px-6 py-4">Aktivitas terakhir</th><th scope="col" className="px-6 py-4">Order / batal</th><th scope="col" className="px-6 py-4">Training</th><th scope="col" className="px-6 py-4">Retraining</th><th scope="col" className="px-6 py-4" /></tr></thead><tbody className="divide-y divide-border">{candidates.map(courier => <tr key={courier.courier_profile_id} className="hover:bg-surface/[0.03]"><td className="px-6 py-4"><p className="font-bold text-foreground-muted">{courier.full_name || 'Tanpa nama'}</p><p className="text-xs text-foreground-muted">{courier.email || courier.phone || courier.user_status}</p></td><td className="px-6 py-4 text-foreground-muted">{formatDate(courier.last_order_at)}</td><td className="px-6 py-4"><span className="text-foreground-muted">{courier.completed_orders}</span><span className="text-foreground-muted"> / </span><span className="text-warning">{courier.cancelled_orders}</span></td><td className="px-6 py-4 text-foreground-muted">{courier.training_count} completion</td><td className="px-6 py-4">{courier.retraining_status ? <span className="text-primary-light">{statusLabel[courier.retraining_status] || courier.retraining_status}</span> : <span className="text-foreground-muted">Belum ada</span>}</td><td className="px-6 py-4 text-right">{courier.retraining_id ? <select value={courier.retraining_status || 'planned'} onChange={event => updateAction.mutate({ id: courier.retraining_id!, status: event.target.value })} className="bg-surface-subtle border border-border rounded-lg px-2 py-1 text-xs text-foreground-muted"><option value="planned">Direncanakan</option><option value="in_progress">Berjalan</option><option value="completed">Selesai</option><option value="cancelled">Dibatalkan</option></select> : <button onClick={() => setSelected(courier)} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary"><PlayCircle size={14} aria-hidden="true" /> Retraining</button>}</td></tr>)}</tbody></table>{candidates.length === 0 && <div className="p-10 text-center text-foreground-muted">Belum ada courier approved pada periode ini.</div>}</div>
       </div>}
-      {selected && <div className="fixed inset-0 z-50 bg-scrim/70 flex items-center justify-center p-4" role="dialog" aria-modal="true"><div className="w-full max-w-lg rounded-3xl border border-border bg-background p-6 space-y-5"><div><h2 className="text-xl font-black text-foreground">Buat retraining</h2><p className="text-sm text-foreground-muted mt-1">{selected.full_name}</p></div><label className="block text-sm text-foreground-muted">Alasan<input value={reason} onChange={event => setReason(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-foreground" /></label><label className="block text-sm text-foreground-muted">Jadwal<input type="datetime-local" value={scheduledAt} onChange={event => setScheduledAt(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-foreground" /></label><label className="block text-sm text-foreground-muted">Catatan<textarea value={notes} onChange={event => setNotes(event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-foreground" /></label><div className="flex justify-end gap-3"><button onClick={() => setSelected(null)} className="px-4 py-2 text-sm text-foreground-muted">Batal</button><button disabled={!reason.trim() || createAction.isPending} onClick={() => createAction.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary disabled:opacity-50"><ClipboardCheck size={16}  aria-hidden="true"/> Simpan</button></div></div></div>}
+      {selected && (
+        <div className="fixed inset-0 z-50 bg-scrim/70 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="courier-retention-dialog-title">
+          <FocusTrap className="w-full max-w-lg">
+            <div className="w-full rounded-3xl border border-border bg-background p-6 space-y-5">
+              <div>
+                <h2 id="courier-retention-dialog-title" className="text-xl font-black text-foreground">Buat retraining</h2>
+                <p className="text-sm text-foreground-muted mt-1">{selected.full_name}</p>
+              </div>
+              <label className="block text-sm text-foreground-muted">
+                Alasan
+                <input value={reason} onChange={event => setReason(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-foreground" />
+              </label>
+              <label className="block text-sm text-foreground-muted">
+                Jadwal
+                <input type="datetime-local" value={scheduledAt} onChange={event => setScheduledAt(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-foreground" />
+              </label>
+              <label className="block text-sm text-foreground-muted">
+                Catatan
+                <textarea value={notes} onChange={event => setNotes(event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-border bg-surface-subtle px-3 py-2 text-foreground" />
+              </label>
+              <div className="flex justify-end gap-3">
+                <button type="button" onClick={() => setSelected(null)} className="px-4 py-2 text-sm text-foreground-muted">Batal</button>
+                <button type="button" disabled={!reason.trim() || createAction.isPending} onClick={() => createAction.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary disabled:opacity-50"><ClipboardCheck size={16} aria-hidden="true" /> Simpan</button>
+              </div>
+            </div>
+          </FocusTrap>
+        </div>
+      )}
     </div>
   )
 }

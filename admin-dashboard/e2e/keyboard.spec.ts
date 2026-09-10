@@ -114,6 +114,107 @@ test('Admin feature flag switch exposes state and Escape restores focus @keyboar
   await expect(switchControl).toBeFocused();
 });
 
+test('Admin courier retention dialog traps focus and Escape restores focus @keyboard @a11y', async ({ page }) => {
+  await page.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/auth/web/me')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: { id: 'retention-keyboard-fixture', name: 'Retention Fixture', role: 'super_admin', permissions: [] } }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/courier-retention')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ couriers: [{ courier_profile_id: 'courier-retention-1', full_name: 'Retention Fixture Courier', email: 'retention@example.test', user_status: 'approved', completed_orders: 12, cancelled_orders: 1, training_count: 2 }] }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/dashboard/events')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (route.request().resourceType() === 'xhr' || route.request().resourceType() === 'fetch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/courier-retention', { waitUntil: 'domcontentloaded' });
+  const retrainingButton = page.getByRole('button', { name: 'Retraining' });
+  await expect(retrainingButton).toBeVisible();
+  await retrainingButton.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: 'Buat retraining' });
+  await expect(dialog).toBeVisible();
+  const reason = page.getByLabel('Alasan');
+  const cancelButton = dialog.getByRole('button', { name: 'Batal' });
+  const saveButton = dialog.getByRole('button', { name: 'Simpan' });
+  await expect(reason).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(saveButton).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(reason).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(retrainingButton).toBeFocused();
+  await expect(cancelButton).not.toBeVisible();
+});
+
+test('Admin meeting point form traps focus and Escape restores focus @keyboard @a11y', async ({ page }) => {
+  await page.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/auth/web/me')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: { id: 'meeting-point-keyboard-fixture', name: 'Meeting Point Fixture', role: 'super_admin', permissions: [] } }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/meeting-points')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/dashboard/events')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (route.request().resourceType() === 'xhr' || route.request().resourceType() === 'fetch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/meeting-points', { waitUntil: 'domcontentloaded' });
+  const addButton = page.getByRole('button', { name: 'Tambah titik' });
+  await expect(addButton).toBeVisible();
+  await addButton.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: 'Tambah meeting point' });
+  await expect(dialog).toBeVisible();
+  const closeButton = page.getByRole('button', { name: 'Tutup form meeting point' });
+  const saveButton = dialog.getByRole('button', { name: 'Simpan' });
+  await expect(closeButton).toBeFocused();
+  await expect(page.getByLabel('Nama')).toBeVisible();
+  await expect(page.getByLabel('Alamat')).toBeVisible();
+  await expect(page.getByLabel('Aktif untuk matching')).toBeChecked();
+  await page.keyboard.press('Shift+Tab');
+  await expect(saveButton).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(closeButton).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(addButton).toBeFocused();
+});
+
 test('Admin login associates server errors with both credential fields @a11y', async ({ page }) => {
   await page.route('**/auth/web/login', async (route) => {
     await route.fulfill({
