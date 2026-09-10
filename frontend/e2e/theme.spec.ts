@@ -131,6 +131,43 @@ test('Customer dashboard uses the canonical service icon and visible label @a11y
   await expect(service.locator('svg').first()).toHaveAttribute('aria-hidden', 'true')
 })
 
+test('Customer orders table exposes selected-row semantics and deliberate overflow in both themes @a11y', async ({ page }) => {
+  await installCustomerSessionFixture(page, {
+    orders: [{
+      id: 'ORDER-SELECT-1',
+      order_number: 'ORD-SELECT-1',
+      pickup_address: 'Jakarta',
+      dropoff_address: 'Bekasi',
+      recipient_name: 'Selected Customer',
+      model: 'p2p',
+      service_category: 'package_on_demand',
+      status: 'in_transit',
+      payment_status: 'paid',
+      distance_km: 12,
+      total_price_idr: 12500,
+      created_at: '2026-09-10T00:00:00.000Z',
+    }],
+  })
+
+  await page.goto('/orders', { waitUntil: 'domcontentloaded' })
+  const table = page.getByRole('table', { name: 'Daftar order' })
+  const tableWrapper = table.locator('..')
+  const row = table.locator('tbody tr').first()
+  const checkbox = page.getByLabel('Pilih order ORD-SELECT-1')
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((selectedTheme) => window.localStorage.setItem('tembus-theme', selectedTheme), theme)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(tableWrapper).toHaveCSS('overflow-x', 'auto')
+    await expect(page.getByRole('link', { name: 'Lihat detail order ORD-SELECT-1' })).toBeVisible()
+
+    await checkbox.check()
+    await expect(checkbox).toBeChecked()
+    await expect(row).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByText('1 order dipilih')).toBeVisible()
+  }
+})
+
 test('Customer receipt status keeps the same readable status contract @a11y', async ({ page }) => {
   await installCustomerSessionFixture(page, {
     detailOrder: {
