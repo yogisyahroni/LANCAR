@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-async function installCustomerFormFixture(page: Page) {
+async function installCustomerFormFixture(page: Page, options: { disputes?: Array<Record<string, unknown>> } = {}) {
   await page.context().addCookies([
     { name: 'tembus_web_session', value: 'keyboard-customer-fixture', domain: 'localhost', path: '/' },
   ]);
@@ -17,6 +17,10 @@ async function installCustomerFormFixture(page: Page) {
     }
     if (url.pathname.endsWith('/auth/web/notifications')) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ notifications: [] }) });
+      return;
+    }
+    if (url.pathname.endsWith('/auth/web/disputes')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: options.disputes ?? [] }) });
       return;
     }
     if (url.pathname.endsWith('/logistics/providers')) {
@@ -269,4 +273,69 @@ test('Customer On-Demand validation connects visible errors to invalid fields @a
       await expect(page.locator(`#${id}`)).toContainText(field.error);
     }
   }
+});
+
+test('Customer address dialog traps focus and restores the add trigger @keyboard @a11y', async ({ page }) => {
+  await installCustomerFormFixture(page);
+  await page.goto('/alamat', { waitUntil: 'domcontentloaded' });
+
+  const trigger = page.getByRole('button', { name: 'Tambah Alamat' });
+  await expect(trigger).toBeVisible();
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: 'Tambah Alamat Baru' });
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Shift+Tab');
+  await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Tab');
+  await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
+test('Customer product dialogs expose names, focus containment and Escape dismissal @keyboard @a11y', async ({ page }) => {
+  await installCustomerFormFixture(page);
+  await page.goto('/products', { waitUntil: 'domcontentloaded' });
+
+  const trigger = page.getByRole('button', { name: 'Tambah Produk', exact: true });
+  await expect(trigger).toBeVisible();
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: 'Tambah Produk' });
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
+test('Customer dispute cards and detail dialog are keyboard reachable @keyboard @a11y', async ({ page }) => {
+  await installCustomerFormFixture(page, {
+    disputes: [{
+      id: 'keyboard-dispute-1',
+      order_number: 'ORD-KEYBOARD-1',
+      category: 'Paket belum diterima',
+      description: 'Customer membutuhkan bantuan.',
+      status: 'investigating',
+      created_at: '2026-09-10T00:00:00.000Z',
+      updated_at: '2026-09-10T00:00:00.000Z',
+    }],
+  });
+  await page.goto('/disputes', { waitUntil: 'domcontentloaded' });
+
+  const card = page.getByRole('button', { name: 'Buka detail dispute ORD-KEYBOARD-1' });
+  await expect(card).toBeVisible();
+  await card.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: 'Paket belum diterima' });
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(card).toBeFocused();
 });

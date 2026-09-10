@@ -1,5 +1,29 @@
 import { expect, test } from '@playwright/test';
 
+async function installAdminShellFixture(page: import('@playwright/test').Page) {
+  await page.route('**/*', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/auth/web/me')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: { id: 'admin-modal-keyboard-fixture', name: 'Admin Modal Fixture', role: 'super_admin', permissions: [] } }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/admin/dashboard/events')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      return;
+    }
+    if (request.resourceType() === 'xhr' || request.resourceType() === 'fetch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+}
+
 test('Admin login keeps the primary form keyboard reachable and announces auth errors @keyboard', async ({ page }) => {
   await page.goto('/login', { waitUntil: 'networkidle' });
   const email = page.getByLabel('Email Address');
@@ -374,4 +398,42 @@ test('Admin login associates server errors with both credential fields @a11y', a
   await expect(password).toHaveAttribute('aria-invalid', 'true');
   await expect(email).toHaveAttribute('aria-describedby', 'admin-login-error');
   await expect(password).toHaveAttribute('aria-describedby', 'admin-login-error');
+});
+
+test('Admin manual order dialog traps focus and restores the create trigger @keyboard @a11y', async ({ page }) => {
+  await installAdminShellFixture(page);
+  await page.goto('/orders', { waitUntil: 'domcontentloaded' });
+
+  const trigger = page.getByRole('button', { name: 'Create Manual Order' });
+  await expect(trigger).toBeVisible();
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: 'Create Manual Order' });
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Shift+Tab');
+  await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Tab');
+  await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
+test('Admin chart-of-accounts dialog exposes a name and Escape dismissal @keyboard @a11y', async ({ page }) => {
+  await installAdminShellFixture(page);
+  await page.goto('/chart-of-accounts', { waitUntil: 'domcontentloaded' });
+
+  const trigger = page.getByRole('button', { name: 'Add Account' });
+  await expect(trigger).toBeVisible();
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', { name: 'Add Account' });
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
 });

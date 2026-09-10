@@ -10,6 +10,7 @@ import {
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { AdminPageSkeleton } from '../components/ui/Skeleton';
+import { FocusTrap } from '../components/a11y/FocusTrap';
 interface Account {
   id: string;
   account_code: string;
@@ -147,6 +148,7 @@ export default function ChartOfAccounts() {
           <p className="text-foreground-muted mt-1">Manage general ledger accounts for accounting and reporting.</p>
         </div>
         <button
+          type="button"
           onClick={openAddModal}
           className="bg-info text-on-info px-4 py-2 rounded-lg font-medium hover:bg-info flex items-center gap-2"
         >
@@ -218,9 +220,18 @@ export default function ChartOfAccounts() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-scrim/70 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="relative w-full max-w-md bg-surface rounded-xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <FocusTrap active={isModalOpen} className="relative w-full max-w-md">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-form-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setIsModalOpen(false);
+            }}
+            className="relative w-full max-w-md bg-surface rounded-xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200"
+          >
             <div className="flex items-center justify-between p-6 border-b border-border">
-              <h3 className="text-lg font-bold text-foreground-muted">
+              <h3 id="account-form-title" className="text-lg font-bold text-foreground-muted">
                 {editingAccount ? "Edit Account" : "Add Account"}
               </h3>
               <button type="button" onClick={() => setIsModalOpen(false)} aria-label="Close account form" title="Close account form" className="text-foreground-muted hover:text-foreground-muted transition-colors">
@@ -314,6 +325,7 @@ export default function ChartOfAccounts() {
               </form>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
     </div>

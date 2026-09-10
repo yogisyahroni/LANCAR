@@ -8,6 +8,7 @@ import { Wallet, Plus, ArrowUpRight, RefreshCw, X, Loader2, Landmark, User, Cred
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { clientLog } from '@/lib/clientLogger';
+import { FocusTrap } from '@/components/a11y/FocusTrap';
 
 interface WalletWidgetProps {
   isCollapsed?: boolean;
@@ -221,6 +222,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
 
         <div className="grid grid-cols-2 gap-2">
           <button 
+            type="button"
             onClick={() => setShowTopUp(true)}
             className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-primary text-on-primary text-[11px] font-bold hover:brightness-110 active:scale-[0.98] transition-all shadow-md shadow-primary/25"
           >
@@ -228,6 +230,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
             Top Up
           </button>
           <button 
+            type="button"
             onClick={() => setShowWithdraw(true)}
             className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface dark:bg-surface-subtle border border-border dark:border-border text-foreground-muted dark:text-foreground-muted text-[11px] font-bold hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-all shadow-sm"
           >
@@ -287,19 +290,26 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
               onClick={() => setShowTopUp(false)}
               className="absolute inset-0 bg-scrim/60 backdrop-blur-sm"
             />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md bg-surface dark:bg-surface rounded-3xl p-6 shadow-2xl border border-border dark:border-border overflow-hidden"
-            >
+            <FocusTrap active={showTopUp} className="relative w-full max-w-md">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="wallet-top-up-title"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setShowTopUp(false);
+                }}
+                className="relative w-full max-w-md bg-surface dark:bg-surface rounded-3xl p-6 shadow-2xl border border-border dark:border-border overflow-hidden"
+              >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-primary/10 text-primary">
                     <Sparkles size={18} aria-hidden="true" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-foreground-muted dark:text-foreground leading-none">Top Up Saldo</h2>
+                    <h2 id="wallet-top-up-title" className="text-lg font-bold text-foreground-muted dark:text-foreground leading-none">Top Up Saldo</h2>
                     <p className="text-[11px] text-foreground-muted dark:text-foreground-muted mt-1">Sistem Otomatis Instant 24 Jam</p>
                   </div>
                 </div>
@@ -314,6 +324,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                   <div className="grid grid-cols-3 gap-2 mb-4">
                     {['20000', '50000', '100000', '200000', '500000', '1000000'].map((val) => (
                       <button 
+                        type="button"
                         key={val}
                         onClick={() => setAmountRaw(val)}
                         className={cn(
@@ -348,6 +359,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                 </div>
 
                 <button 
+                  type="button"
                   onClick={handleTopUp}
                   disabled={isSubmitting || !amountRaw || parseInt(amountRaw, 10) < 10000}
                   className="w-full py-4 rounded-2xl bg-primary text-on-primary font-bold text-sm shadow-lg shadow-primary/25 disabled:opacity-60 disabled:shadow-none hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
@@ -355,7 +367,8 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : `Bayar ${amountRaw ? formatCurrency(parseInt(amountRaw, 10)) : ''}`}
                 </button>
               </div>
-            </motion.div>
+              </motion.div>
+            </FocusTrap>
           </div>
         )}
 
@@ -369,19 +382,26 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
               onClick={() => setShowWithdraw(false)}
               className="absolute inset-0 bg-scrim/60 backdrop-blur-sm"
             />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md bg-surface dark:bg-surface rounded-3xl p-6 shadow-2xl border border-border dark:border-border overflow-y-auto max-h-[90vh]"
-            >
+            <FocusTrap active={showWithdraw} className="relative w-full max-w-md max-h-[90vh]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="wallet-withdraw-title"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setShowWithdraw(false);
+                }}
+                className="relative w-full max-w-md bg-surface dark:bg-surface rounded-3xl p-6 shadow-2xl border border-border dark:border-border overflow-y-auto max-h-[90vh]"
+              >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-success/10 text-success">
                     <ArrowUpRight size={18} aria-hidden="true" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-foreground-muted dark:text-foreground leading-none">Tarik Dana BI-FAST</h2>
+                    <h2 id="wallet-withdraw-title" className="text-lg font-bold text-foreground-muted dark:text-foreground leading-none">Tarik Dana BI-FAST</h2>
                     <p className="text-[11px] text-foreground-muted dark:text-foreground-muted mt-1">Saldo Tersedia: {formatCurrency(balance)}</p>
                   </div>
                 </div>
@@ -480,6 +500,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                 </div>
 
                 <button 
+                  type="button"
                   onClick={handleWithdraw}
                   disabled={isSubmitting || !withdrawForm.amountRaw || isInsufficientBalance || parseInt(withdrawForm.amountRaw, 10) < 50000}
                   className="w-full py-4 rounded-2xl bg-surface dark:bg-surface text-foreground dark:text-foreground-muted font-bold text-sm shadow-xl disabled:opacity-60 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
@@ -487,7 +508,8 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : `Ajukan Penarikan ${numWithdrawAmount ? formatCurrency(numWithdrawAmount) : ''}`}
                 </button>
               </div>
-            </motion.div>
+              </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>

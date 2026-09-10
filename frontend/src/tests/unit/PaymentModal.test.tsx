@@ -73,4 +73,30 @@ describe("PaymentModal server-owned payment state", () => {
     ));
     expect(onSuccess).not.toHaveBeenCalled();
   });
+
+  it("contains focus and dismisses on Escape", async () => {
+    const onClose = vi.fn();
+
+    render(
+      <I18nProvider initialLocale="id-ID">
+        <PaymentModal
+          isOpen
+          onClose={onClose}
+          orderId="order-3"
+          snapToken="snap-token"
+          snapJsUrl="https://example.test/snap.js"
+          clientKey="client-key"
+          amount={32000}
+          onSuccess={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "Pembayaran Midtrans Snap" });
+    const trap = dialog.parentElement;
+    expect(trap).not.toBeNull();
+    await waitFor(() => expect(trap).toContainElement(document.activeElement as HTMLElement));
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

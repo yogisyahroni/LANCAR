@@ -7,6 +7,7 @@ import { parseCsvText } from '@/lib/csv';
 import readXlsxFile from 'read-excel-file/browser';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+import { FocusTrap } from '@/components/a11y/FocusTrap';
 import { 
   MapPin, 
   Plus, 
@@ -463,6 +464,7 @@ export default function AddressBookPage() {
             />
           </label>
           <button
+            type="button"
             onClick={handleDownloadTemplate}
             className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 hover:bg-muted text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm select-none"
             title="Unduh Template CSV untuk Alamat"
@@ -470,6 +472,7 @@ export default function AddressBookPage() {
             <Download className="h-3.5 w-3.5" aria-hidden="true" /> Template
           </button>
           <button
+            type="button"
             onClick={openAddModal}
             className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
           >
@@ -617,14 +620,21 @@ export default function AddressBookPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto select-none"
           >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-card border border-border/40 max-w-lg w-full rounded-2xl p-6 shadow-xl space-y-4 my-auto select-none"
-            >
+            <FocusTrap active={isFormOpen} className="w-full max-w-lg">
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="address-form-title"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setIsFormOpen(false);
+                }}
+                className="bg-card border border-border/40 max-w-lg w-full rounded-2xl p-6 shadow-xl space-y-4 my-auto select-none"
+              >
               <div className="flex items-center justify-between select-none">
-                <h3 className="text-base font-bold text-foreground">
+                <h3 id="address-form-title" className="text-base font-bold text-foreground">
                   {formMode === 'add' ? 'Tambah Alamat Baru' : 'Edit Alamat'}
                 </h3>
                 <button
@@ -743,7 +753,8 @@ export default function AddressBookPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
+              </motion.div>
+            </FocusTrap>
           </motion.div>
         )}
       </AnimatePresence>
@@ -757,32 +768,42 @@ export default function AddressBookPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center p-4 z-50 select-none"
           >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-card border border-border/40 max-w-md w-full rounded-2xl p-6 shadow-xl space-y-4 my-auto select-none"
-            >
-              <h3 className="text-base font-bold text-foreground select-none">Hapus Alamat</h3>
+            <FocusTrap active={isDeleteOpen} className="w-full max-w-md">
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="delete-address-title"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setIsDeleteOpen(false);
+                }}
+                className="bg-card border border-border/40 max-w-md w-full rounded-2xl p-6 shadow-xl space-y-4 my-auto select-none"
+              >
+              <h3 id="delete-address-title" className="text-base font-bold text-foreground select-none">Hapus Alamat</h3>
               <p className="text-xs text-muted-foreground select-none leading-relaxed">
                 Apakah Anda yakin ingin menghapus alamat ini dari daftar buku alamat? Tindakan ini tidak dapat dibatalkan.
               </p>
 
               <div className="flex justify-end gap-3 pt-2 select-none">
                 <button
+                  type="button"
                   onClick={() => setIsDeleteOpen(false)}
                   className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer select-none"
                 >
                   Batal
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirmDelete}
                   className="px-4 py-2 bg-destructive hover:bg-destructive/90 text-foreground font-bold text-xs rounded-xl shadow-md shadow-destructive/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                 >
                   Hapus
                 </button>
               </div>
-            </motion.div>
+              </motion.div>
+            </FocusTrap>
           </motion.div>
         )}
       </AnimatePresence>

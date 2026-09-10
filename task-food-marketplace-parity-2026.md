@@ -3044,7 +3044,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 >
 > **Style decision:** Customer Web menggunakan **Modern Marketplace / Calm Utility UI**: warm-neutral surfaces, green brand sebagai primary action, orange sebagai accent terbatas, medium information density, soft elevation, rounded but not playful, dan glass/transparency hanya untuk decorative/marketing surface yang contrast-nya dapat dijamin. Admin menggunakan **Modern Enterprise Operations Console**: solid surfaces, compact-but-readable density, hierarchy kuat, minimal decorative gradients/glass, tables/forms/status lebih dominan daripada decoration.
 
-> **Execution checkpoint 2026-09-11:** Part S continued beyond GLOB-2026-014. The latest local batches added a direct icon-only button source guard, contextual names/types for audited Customer/Admin actions, boolean switch state semantics, labeled keyboard-reachable overflow regions for dense Admin tables, full-content title paths for audited dynamic truncation, shared order-status meaning markers, and a global non-color cursor cue for disabled controls. Customer `56/56` and Admin `142/142` local Chromium inventories pass, and Customer/Admin reflow suites pass `101/101` and `221/221`. Remaining Part S checklist items stay explicitly unchecked where full route/state, visual, zoom, tooltip, provider-map or native/manual AT proof is still required; see the linked evidence documents.
+> **Execution checkpoint 2026-09-11:** Part S continued beyond GLOB-2026-014. The latest local batches added a direct icon-only button source guard, contextual names/types for audited Customer/Admin actions, boolean switch state semantics, labeled keyboard-reachable overflow regions for dense Admin tables, full-content title paths for audited dynamic truncation, shared order-status meaning markers, a global non-color cursor cue for disabled controls, and focus-contained/Escape-dismissible Customer/Admin modal paths. Customer `56/56` and Admin `142/142` local Chromium inventories pass, Customer/Admin reflow suites pass `101/101` and `221/221`, and new modal keyboard slices pass Customer `3/3` plus Admin `2/2`. Remaining Part S checklist items stay explicitly unchecked where full route/state, visual, zoom, tooltip, provider-map or native/manual AT proof is still required; see the linked evidence documents.
 
 ## S0 — Audited baseline / known visual risks
 
@@ -3333,7 +3333,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Entire Customer Web and Admin primary workflows operable keyboard-only per WCAG 2.1.1.
 - [ ] Focus order follows visual/logical reading order.
 - [ ] Focus is never removed without an accessible replacement; retain explicit `:focus-visible` system.
-- [ ] Modal traps focus while open and returns focus to invoking control on close. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer/Admin dialogs, including Broadcast delivery report, pass; full modal matrix remains open).
+- [ ] Modal traps focus while open and returns focus to invoking control on close. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer address/product/dispute/payment and Admin order/account/dispute/agreement dialogs plus existing high-risk dialogs pass; full modal matrix remains open).
 - [ ] Dropdown/menu/select is keyboard navigable and dismissible.
 - [ ] All inputs have programmatic + visible label; required/optional semantics clear.
 - [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate.

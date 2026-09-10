@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Download, Plus, Loader2, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQueryClient } from '@tanstack/react-query'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 
 export default function Orders() {
   const queryClient = useQueryClient()
@@ -73,6 +74,7 @@ export default function Orders() {
         </div>
         <div className="flex gap-3">
           <button 
+            type="button"
             onClick={handleExport}
             disabled={isExporting}
             className="px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-surface-subtle transition-all flex items-center gap-2 disabled:opacity-60"
@@ -81,6 +83,7 @@ export default function Orders() {
             Export CSV
           </button>
           <button 
+            type="button"
             onClick={() => setIsCreateModalOpen(true)}
             className="px-6 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
           >
@@ -104,14 +107,21 @@ export default function Orders() {
               onClick={() => setIsCreateModalOpen(false)}
               className="absolute inset-0 bg-scrim/80 backdrop-blur-sm"
             />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card w-full max-w-lg p-8 rounded-[32px] relative z-10 border-border shadow-2xl"
-            >
+            <FocusTrap active={isCreateModalOpen} className="w-full max-w-lg">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="create-order-title"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setIsCreateModalOpen(false)
+                }}
+                className="glass-card w-full max-w-lg p-8 rounded-[32px] relative z-10 border-border shadow-2xl"
+              >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-foreground-muted">Create Manual Order</h2>
+                <h2 id="create-order-title" className="text-xl font-bold text-foreground-muted">Create Manual Order</h2>
                 <button type="button" onClick={() => setIsCreateModalOpen(false)} aria-label="Close create order form" title="Close create order form" className="p-2 hover:bg-surface-subtle rounded-full transition-colors">
                   <X size={20} className="text-foreground-muted" aria-hidden="true" />
                 </button>
@@ -186,7 +196,8 @@ export default function Orders() {
                   Create Order
                 </button>
               </form>
-            </motion.div>
+              </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>

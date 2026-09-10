@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, Loader2, X } from 
 import { api } from "@/lib/api";
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { formatCurrency } from '@/i18n/format';
+import { FocusTrap } from '@/components/a11y/FocusTrap';
 
 declare global {
   interface Window {
@@ -45,40 +46,6 @@ export function PaymentModal({
   const [isChecking, setIsChecking] = useState(false);
   const paymentCheckKeyRef = useRef<string>("");
   const checkInFlightRef = useRef(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
-    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      if (event.key === "Tab" && dialogRef.current) {
-        const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
-        ));
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.removeEventListener("keydown", handleKeyDown);
-      previousFocusRef.current?.focus();
-    };
-  }, [isOpen, onClose]);
-
   useEffect(() => {
     paymentCheckKeyRef.current = "";
     checkInFlightRef.current = false;
@@ -224,15 +191,18 @@ export function PaymentModal({
             className="absolute inset-0 bg-background/80 backdrop-blur-sm"
             onClick={onClose}
           />
+          <FocusTrap active={isOpen} className="relative max-h-[min(90vh,720px)] w-full max-w-md">
           <motion.div
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="payment-modal-title"
             tabIndex={-1}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') onClose();
+            }}
             className="relative max-h-[min(90vh,720px)] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-background/95 shadow-2xl backdrop-blur-md"
           >
             <div className="flex items-start justify-between border-b border-border p-5">
@@ -240,7 +210,7 @@ export function PaymentModal({
                 <h2 id="payment-modal-title" className="text-xl font-bold tracking-tight text-foreground">{t('payment.title')}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{t('payment.description')}</p>
               </div>
-              <button ref={closeButtonRef} type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={t('payment.close')}>
+              <button type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={t('payment.close')}>
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
@@ -313,6 +283,7 @@ export function PaymentModal({
               </div>
             </div>
           </motion.div>
+          </FocusTrap>
         </div>
       )}
     </AnimatePresence>

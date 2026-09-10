@@ -20,6 +20,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import DisputeChat from '../components/DisputeChat'
 import { useAuthStore } from '../store/useAuthStore'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 
 export default function Disputes() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null)
@@ -227,10 +228,17 @@ export default function Disputes() {
               onClick={() => setSelectedDispute(null)}
               className="absolute inset-0 bg-scrim/90 backdrop-blur-md"
             />
+            <FocusTrap active={Boolean(selectedDispute)} className="w-full max-w-4xl max-h-[90vh]">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-dispute-detail-title"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setSelectedDispute(null)
+              }}
               className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-12 rounded-[48px] relative z-10 border-border"
             >
               <div className="space-y-12">
@@ -241,7 +249,7 @@ export default function Disputes() {
                        <span className="text-foreground-muted">/</span>
                        <span className="text-xs font-black text-primary-light uppercase tracking-widest">{selectedDispute.order_number}</span>
                     </div>
-                    <h2 className="text-4xl font-black text-foreground-muted tracking-tighter">{selectedDispute.category}</h2>
+                    <h2 id="admin-dispute-detail-title" className="text-4xl font-black text-foreground-muted tracking-tighter">{selectedDispute.category}</h2>
                   </div>
                   <button type="button" onClick={() => setSelectedDispute(null)} aria-label="Close dispute detail" title="Close dispute detail" className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
                     <XCircle size={24} aria-hidden="true" />
@@ -348,6 +356,7 @@ export default function Disputes() {
                  </AnimatePresence>
                </div>
             </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>

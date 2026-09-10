@@ -23,6 +23,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { cn } from '../lib/utils'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 import { format, parseISO } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -404,11 +405,18 @@ export default function Agreements() {
               onClick={() => setSelectedId(null)}
               className="fixed inset-0 bg-scrim/60 backdrop-blur-sm z-50"
             />
+            <FocusTrap active={Boolean(selectedId && detail)} className="fixed inset-4 md:inset-auto md:top-[10%] md:left-1/2 md:-translate-x-1/2 md:w-[600px] md:max-h-[75vh] z-50">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-4 md:inset-auto md:top-[10%] md:left-1/2 md:-translate-x-1/2 md:w-[600px] md:max-h-[75vh] bg-surface border border-border rounded-[32px] z-50 flex flex-col overflow-hidden shadow-2xl shadow-scrim"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="agreement-detail-title"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setSelectedId(null)
+              }}
+              className="h-full bg-surface border border-border rounded-[32px] flex flex-col overflow-hidden shadow-2xl shadow-scrim"
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between px-6 py-5 border-b border-border">
@@ -417,7 +425,7 @@ export default function Agreements() {
                     <FileText size={16}  aria-hidden="true"/>
                   </div>
                   <div>
-                    <h2 className="text-sm font-black uppercase tracking-wider text-foreground-muted">Detail Perjanjian</h2>
+                    <h2 id="agreement-detail-title" className="text-sm font-black uppercase tracking-wider text-foreground-muted">Detail Perjanjian</h2>
                     <p className="text-[10px] text-foreground-muted font-medium">ID: {detail.id.slice(0, 8)}...</p>
                   </div>
                 </div>
@@ -459,12 +467,14 @@ export default function Agreements() {
               {/* Modal Footer */}
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-subtle">
                 <button
+                  type="button"
                   onClick={() => setSelectedId(null)}
                   className="px-5 py-2.5 rounded-xl bg-surface-subtle text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
                 >
                   Tutup
                 </button>
                 <button
+                  type="button"
                   onClick={() => openPDFView(detail)}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary-light text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
                 >
@@ -482,6 +492,7 @@ export default function Agreements() {
                 </a>
               </div>
             </motion.div>
+            </FocusTrap>
           </>
         )}
       </AnimatePresence>
@@ -497,11 +508,18 @@ export default function Agreements() {
               onClick={() => setShowPDF(false)}
               className="fixed inset-0 bg-scrim/80 backdrop-blur-sm z-50"
             />
+            <FocusTrap active={Boolean(showPDF && pdfViewAgreement)} className="fixed inset-4 md:inset-8 z-50">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed inset-4 md:inset-8 bg-surface border border-border rounded-[32px] z-50 flex flex-col overflow-hidden shadow-2xl shadow-scrim"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="agreement-pdf-title"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setShowPDF(false)
+              }}
+              className="h-full bg-surface border border-border rounded-[32px] flex flex-col overflow-hidden shadow-2xl shadow-scrim"
             >
               {/* PDF Toolbar Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-subtle">
@@ -510,7 +528,7 @@ export default function Agreements() {
                     <FileText size={16}  aria-hidden="true"/>
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-sm font-black uppercase tracking-wider text-foreground-muted truncate" title={agreementTypeLabel(pdfViewAgreement.agreement_type)}>
+                    <h2 id="agreement-pdf-title" className="text-sm font-black uppercase tracking-wider text-foreground-muted truncate" title={agreementTypeLabel(pdfViewAgreement.agreement_type)}>
                       {agreementTypeLabel(pdfViewAgreement.agreement_type)}
                     </h2>
                     <p className="text-[10px] text-foreground-muted font-medium truncate" title={pdfViewAgreement.user_name || pdfViewAgreement.user_phone || undefined}>
@@ -520,6 +538,7 @@ export default function Agreements() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={() => window.open(pdfUrl(pdfViewAgreement), '_blank')}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-subtle text-foreground-muted text-[10px] font-black uppercase tracking-widest hover:bg-surface-subtle transition-all"
                     title="Buka di tab baru"
@@ -537,6 +556,7 @@ export default function Agreements() {
                     Download
                   </a>
                   <button
+                    type="button"
                     onClick={() => {
                       // Open in new tab, then print
                       const w = window.open(pdfUrl(pdfViewAgreement), '_blank')
@@ -572,6 +592,7 @@ export default function Agreements() {
                 />
               </div>
             </motion.div>
+            </FocusTrap>
           </>
         )}
       </AnimatePresence>

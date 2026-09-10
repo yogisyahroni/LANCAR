@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { downloadCsv } from '@/lib/csv';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+import { FocusTrap } from '@/components/a11y/FocusTrap';
 import { 
   Package, 
   Plus, 
@@ -231,6 +232,7 @@ export default function ProductsPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setIsBulkOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm"
           >
@@ -238,6 +240,7 @@ export default function ProductsPage() {
             Import CSV
           </button>
           <button
+            type="button"
             onClick={openAddForm}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium text-sm"
           >
@@ -364,14 +367,21 @@ export default function ProductsPage() {
       <AnimatePresence>
         {isFormOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card w-full max-w-lg rounded-xl shadow-lg border border-border overflow-hidden flex flex-col max-h-[90vh]"
-            >
+            <FocusTrap active={isFormOpen} className="w-full max-w-lg max-h-[90vh]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="product-form-title"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setIsFormOpen(false);
+                }}
+                className="bg-card w-full max-w-lg rounded-xl shadow-lg border border-border overflow-hidden flex flex-col max-h-[90vh]"
+              >
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                <h2 className="text-lg font-semibold">
+                <h2 id="product-form-title" className="text-lg font-semibold">
                   {formMode === 'add' ? 'Tambah Produk' : 'Edit Produk'}
                 </h2>
                 <button
@@ -469,7 +479,8 @@ export default function ProductsPage() {
                   {isSubmitting ? 'Menyimpan...' : 'Simpan Produk'}
                 </button>
               </div>
-            </motion.div>
+              </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>
@@ -478,14 +489,21 @@ export default function ProductsPage() {
       <AnimatePresence>
         {isBulkOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card w-full max-w-md rounded-xl shadow-lg border border-border overflow-hidden"
-            >
+            <FocusTrap active={isBulkOpen} className="w-full max-w-md">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="product-import-title"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setIsBulkOpen(false);
+                }}
+                className="bg-card w-full max-w-md rounded-xl shadow-lg border border-border overflow-hidden"
+              >
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
+                <h2 id="product-import-title" className="text-lg font-semibold flex items-center gap-2">
                   <FileSpreadsheet className="w-5 h-5 text-primary" aria-hidden="true" />
                   Import CSV
                 </h2>
@@ -507,6 +525,7 @@ export default function ProductsPage() {
                     Download template CSV ini lalu isi dengan data produk Anda. Jangan ubah baris pertama (header).
                   </p>
                   <button
+                    type="button"
                     onClick={downloadTemplate}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg transition-colors text-sm font-medium"
                   >
@@ -566,6 +585,7 @@ export default function ProductsPage() {
 
               <div className="p-6 border-t border-border bg-muted/20 flex justify-end gap-3">
                 <button
+                  type="button"
                   onClick={() => setIsBulkOpen(false)}
                   className="px-4 py-2 bg-background border border-input hover:bg-muted text-foreground rounded-lg transition-colors text-sm font-medium"
                 >
@@ -586,7 +606,8 @@ export default function ProductsPage() {
                   )}
                 </button>
               </div>
-            </motion.div>
+              </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>
@@ -595,17 +616,24 @@ export default function ProductsPage() {
       <AnimatePresence>
         {isDeleteOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card w-full max-w-sm rounded-xl shadow-lg border border-border overflow-hidden"
-            >
+            <FocusTrap active={isDeleteOpen} className="w-full max-w-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="delete-product-title"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setIsDeleteOpen(false);
+                }}
+                className="bg-card w-full max-w-sm rounded-xl shadow-lg border border-border overflow-hidden"
+              >
               <div className="p-6 text-center">
                 <div className="w-12 h-12 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto mb-4">
                   <Trash2 className="w-6 h-6" aria-hidden="true" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Hapus Produk?</h3>
+                <h3 id="delete-product-title" className="text-lg font-semibold mb-2">Hapus Produk?</h3>
                 <p className="text-muted-foreground text-sm">
                   Tindakan ini tidak dapat dibatalkan. Produk yang dihapus tidak akan muncul lagi di pencarian saat membuat resi.
                 </p>
@@ -628,7 +656,8 @@ export default function ProductsPage() {
                   {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : 'Ya, Hapus'}
                 </button>
               </div>
-            </motion.div>
+              </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>

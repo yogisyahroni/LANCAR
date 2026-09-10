@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import DisputeChat from '@/components/DisputeChat';
 import { CustomerPageSkeleton } from '@/components/ui/Skeleton';
+import { FocusTrap } from '@/components/a11y/FocusTrap';
 
 const getDisputeStatusPresentation = (status?: string) => {
   const normalizedStatus = (status || '').toLowerCase();
@@ -145,8 +146,17 @@ export default function DisputesPage() {
             <motion.div 
               key={dispute.id}
               whileHover={{ scale: 1.01 }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Buka detail dispute ${dispute.order_number || dispute.id}`}
               className="p-6 bg-surface-raised rounded-[24px] border border-border hover:border-primary/30 transition-all cursor-pointer group"
               onClick={() => setSelectedDispute(dispute)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setSelectedDispute(dispute);
+                }
+              }}
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex-1 space-y-3">
@@ -188,12 +198,19 @@ export default function DisputesPage() {
               onClick={() => setSelectedDispute(null)}
               className="absolute inset-0 bg-scrim/60 backdrop-blur-md"
             />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-background w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[40px] shadow-2xl relative z-10 border border-border p-8 md:p-12"
-            >
+            <FocusTrap active={Boolean(selectedDispute)} className="w-full max-w-4xl max-h-[90vh]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="customer-dispute-detail-title"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setSelectedDispute(null);
+                }}
+                className="bg-background w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[40px] shadow-2xl relative z-10 border border-border p-8 md:p-12"
+              >
               <div className="space-y-10">
                 <div className="flex items-start justify-between">
                   <div>
@@ -202,7 +219,7 @@ export default function DisputesPage() {
                        <span className="text-foreground-muted">/</span>
                        <DisputeStatusBadge status={selectedDispute.status} />
                     </div>
-                    <h2 className="text-3xl font-black text-foreground tracking-tight">{selectedDispute.category}</h2>
+                    <h2 id="customer-dispute-detail-title" className="text-3xl font-black text-foreground tracking-tight">{selectedDispute.category}</h2>
                   </div>
                   <button type="button" onClick={() => setSelectedDispute(null)} aria-label="Tutup detail sengketa" title="Tutup detail sengketa" className="p-3 rounded-2xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all">
                     <X aria-hidden="true" size={24} />
@@ -252,7 +269,8 @@ export default function DisputesPage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+              </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>
