@@ -1011,6 +1011,7 @@ export default function ProfilPage() {
                   onClick={handleCloseCrop}
                   disabled={isUploadingPhoto}
                   aria-label="Tutup editor foto profil"
+                  title="Tutup editor foto profil"
                   className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />

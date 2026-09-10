@@ -165,7 +165,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
             
             <div className="flex items-center justify-between mb-8">
               <h2 id="schedule-report-title" className="text-2xl font-black text-foreground-muted italic uppercase tracking-tight">Schedule Report</h2>
-              <button type="button" onClick={onClose} aria-label="Tutup analitik" className="p-2 rounded-xl bg-surface-subtle hover:bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
+              <button type="button" onClick={onClose} aria-label="Tutup analitik" title="Tutup analitik" className="p-2 rounded-xl bg-surface-subtle hover:bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
                 <X size={20} aria-hidden="true" />
               </button>
             </div>
@@ -478,6 +478,7 @@ export default function Analytics() {
             onClick={exportAnalytics}
             type="button"
             aria-label="Unduh laporan analitik"
+            title="Unduh laporan analitik"
             className="p-3 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground transition-all"
           >
             <Download size={20} aria-hidden="true" />
@@ -1009,7 +1010,7 @@ export default function Analytics() {
                       <div className="p-3 rounded-2xl bg-surface border border-border group-hover:border-primary/20 transition-all">
                          <HistoryIcon size={20} className="text-foreground-muted group-hover:text-primary-light" aria-hidden="true" />
                       </div>
-                      <button type="button" aria-label={`Delete scheduled report ${report.name}`}
+                      <button type="button" aria-label={`Delete scheduled report ${report.name}`} title={`Delete scheduled report ${report.name}`}
                         onClick={() => {
                           if (confirm('Are you sure you want to delete this schedule?')) {
                             deleteReport.mutate(report.id)
@@ -1033,7 +1034,7 @@ export default function Analytics() {
                          <Mail size={12} className="text-foreground-muted" aria-hidden="true" />
                          <span className="text-[10px] font-bold text-foreground-muted">{report.recipient_emails?.length} Recipients</span>
                       </div>
-                      <button type="button" aria-label={`Open scheduled report ${report.name}`} className="p-2 text-foreground-muted hover:text-foreground-muted transition-colors">
+                      <button type="button" aria-label={`Open scheduled report ${report.name}`} title={`Open scheduled report ${report.name}`} className="p-2 text-foreground-muted hover:text-foreground-muted transition-colors">
                          <ChevronRight size={18} aria-hidden="true" />
                       </button>
                    </div>

@@ -386,7 +386,7 @@ export default function PortalLayout({
         <div className="p-4 border-t border-border shrink-0">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             className="w-full flex items-center justify-center p-3 rounded-xl bg-surface-subtle hover:bg-border text-foreground-muted hover:text-foreground transition-all group"
           >
             <ChevronLeft
@@ -434,7 +434,7 @@ export default function PortalLayout({
                 <button
                   type="button"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  aria-label="Tutup navigasi"
+                  aria-label="Tutup navigasi" title="Tutup navigasi"
                   className="p-2 text-foreground-muted hover:bg-surface-subtle rounded-xl transition-all"
                 >
                   <X size={24} aria-hidden="true" />
@@ -497,7 +497,7 @@ export default function PortalLayout({
         <header className="h-20 border-b border-border bg-surface flex items-center justify-between px-6 sticky top-0 z-50 transition-colors duration-300">
           <div className="flex items-center gap-4 flex-1">
             <button
-              aria-label="Open navigation"
+              aria-label="Open navigation" title="Open navigation"
               className="lg:hidden p-2.5 text-foreground-muted hover:text-foreground hover:bg-surface-subtle rounded-xl transition-all"
               onClick={() => setIsMobileMenuOpen(true)}
             >
@@ -549,7 +549,7 @@ export default function PortalLayout({
             <div className="relative">
               <button
                 type="button"
-                aria-label={t("common.notifications")}
+                aria-label={t("common.notifications")} title={t("common.notifications")}
                 onClick={() => {
                   setIsNotifOpen(!isNotifOpen);
                   setIsUserOpen(false);
@@ -938,7 +938,7 @@ export default function PortalLayout({
                   <button
                     type="button"
                     onClick={() => removeNotification(notif.id)}
-                    aria-label="Tutup notifikasi"
+                    aria-label="Tutup notifikasi" title="Tutup notifikasi"
                     className="p-1.5 h-7 w-7 flex items-center justify-center rounded-lg text-foreground-muted hover:bg-surface-subtle dark:hover:bg-surface-subtle hover:text-foreground transition-all cursor-pointer shrink-0 select-none"
                   >
                     <X className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

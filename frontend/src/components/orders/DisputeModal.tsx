@@ -139,6 +139,7 @@ export function DisputeModal({ isOpen, onClose, orderId, isOnDemand = false, onS
             type="button"
             onClick={onClose}
             aria-label="Tutup dialog laporan"
+            title="Tutup dialog laporan"
             className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground transition hover:bg-surface-subtle hover:text-foreground"
           >
             <X className="h-5 w-5" aria-hidden="true" />

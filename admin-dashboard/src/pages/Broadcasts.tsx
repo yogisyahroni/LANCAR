@@ -371,7 +371,7 @@ export default function Broadcasts() {
                 type="button"
                 disabled={page === 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                aria-label="Halaman sebelumnya"
+                aria-label="Halaman sebelumnya" title="Halaman sebelumnya"
                 className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-60 transition-all"
               >
                 <ChevronLeft size={18} aria-hidden="true" />
@@ -381,7 +381,7 @@ export default function Broadcasts() {
                 type="button"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                aria-label="Halaman berikutnya"
+                aria-label="Halaman berikutnya" title="Halaman berikutnya"
                 className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-60 transition-all"
               >
                 <ChevronRight size={18} aria-hidden="true" />

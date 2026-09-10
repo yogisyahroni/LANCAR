@@ -90,7 +90,7 @@ export default function CampaignCalendar() {
           />
           <button
             type="button"
-            aria-label="Refresh campaign calendar"
+            aria-label="Refresh campaign calendar" title="Refresh campaign calendar"
             onClick={() => query.refetch()}
             className="rounded-xl border border-border p-3 text-foreground-muted hover:bg-surface-subtle"
           >

@@ -128,6 +128,7 @@ export default function PushNotificationPrompt() {
               onClick={handleDismiss}
               type="button"
               aria-label="Tutup pemberitahuan"
+              title="Tutup pemberitahuan"
               className="p-1 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
             >
               <X className="h-4 w-4" aria-hidden="true" />

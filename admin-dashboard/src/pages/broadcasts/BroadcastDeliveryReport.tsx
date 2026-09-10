@@ -147,6 +147,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
               type="button"
               onClick={onClose}
               aria-label="Tutup laporan"
+              title="Tutup laporan"
               className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all shrink-0"
             >
               <X size={18} aria-hidden="true" />

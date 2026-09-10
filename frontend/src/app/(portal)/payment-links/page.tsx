@@ -462,7 +462,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               </h2>
               <p className="text-muted-foreground text-xs mt-1 font-medium">Create a new invoice for your customer.</p>
             </div>
-            <button type="button" onClick={onClose} aria-label="Tutup detail tautan pembayaran" className="p-3 rounded-2xl bg-surface-subtle dark:bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
+            <button type="button" onClick={onClose} aria-label="Tutup detail tautan pembayaran" title="Tutup detail tautan pembayaran" className="p-3 rounded-2xl bg-surface-subtle dark:bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
               <X size={20} aria-hidden="true" />
             </button>
           </div>

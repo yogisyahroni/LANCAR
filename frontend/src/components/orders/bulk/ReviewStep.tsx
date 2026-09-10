@@ -281,10 +281,10 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         if (editingRowId === rowId) {
           return (
             <div className="flex gap-2">
-              <button type="button" onClick={saveEdit} disabled={isSaving} aria-label="Simpan perubahan item" className="text-success hover:text-success">
+              <button type="button" onClick={saveEdit} disabled={isSaving} aria-label="Simpan perubahan item" title="Simpan perubahan item" className="text-success hover:text-success">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save className="w-4 h-4" aria-hidden="true" />}
               </button>
-              <button type="button" onClick={cancelEdit} disabled={isSaving} aria-label="Batalkan perubahan item" className="text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={cancelEdit} disabled={isSaving} aria-label="Batalkan perubahan item" title="Batalkan perubahan item" className="text-muted-foreground hover:text-foreground">
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>

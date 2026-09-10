@@ -355,7 +355,7 @@ export default function Zones() {
            {/* Toolbar Overlays */}
            <div className="absolute top-8 left-8 flex flex-col gap-3 z-[1000]">
               <div className="p-1 rounded-2xl bg-scrim/60 backdrop-blur-xl border border-border flex flex-col">
-                <button type="button" aria-label="Maximize zone map" className="p-4 text-foreground hover:text-primary-light transition-all rounded-xl">
+                <button type="button" aria-label="Maximize zone map" title="Maximize zone map" className="p-4 text-foreground hover:text-primary-light transition-all rounded-xl">
                    <Maximize2 size={18} aria-hidden="true" />
                 </button>
                 <button
@@ -363,6 +363,7 @@ export default function Zones() {
                   onClick={() => setMapThemeOverride(mapTheme === 'dark' ? 'light' : 'dark')}
                   className="p-4 text-foreground hover:text-primary-light transition-all rounded-xl active:scale-[0.98]"
                   aria-label={mapTheme === 'dark' ? 'Switch to light map' : 'Switch to dark map'}
+                  title={mapTheme === 'dark' ? 'Switch to light map' : 'Switch to dark map'}
                 >
                    {mapTheme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
                 </button>
@@ -728,7 +729,7 @@ function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }:
         <div className="p-10 space-y-8">
           <div className="flex items-center justify-between">
             <h2 id="zone-parameters-title" className="text-xl font-black text-foreground-muted uppercase italic tracking-tight">Zone Parameters</h2>
-            <button type="button" onClick={onClose} aria-label="Tutup detail zona" className="p-2 text-foreground-muted hover:text-foreground"><X size={20} aria-hidden="true" /></button>
+            <button type="button" onClick={onClose} aria-label="Tutup detail zona" title="Tutup detail zona" className="p-2 text-foreground-muted hover:text-foreground"><X size={20} aria-hidden="true" /></button>
           </div>
 
           <div className="space-y-6">

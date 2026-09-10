@@ -204,7 +204,7 @@ export default function Customers() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button aria-label="Open customer filters" className="p-3.5 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground border border-border transition-all">
+          <button type="button" aria-label="Open customer filters" title="Open customer filters" className="p-3.5 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground border border-border transition-all">
             <Filter size={20} aria-hidden="true" />
           </button>
         </div>

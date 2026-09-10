@@ -914,7 +914,7 @@ export function AggregatorWizard() {
                     <span className="h-5 w-5 rounded-full bg-success/20 flex items-center justify-center">
                       <Check className="h-3 w-3 text-success" aria-hidden="true" />
                     </span>
-                    <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground" aria-label="Ubah tipe penjemputan">
+                    <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground" aria-label="Ubah tipe penjemputan" title="Ubah tipe penjemputan">
                       <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </div>
@@ -933,7 +933,7 @@ export function AggregatorWizard() {
                     <span className="h-5 w-5 rounded-full bg-success/20 flex items-center justify-center">
                       <Check className="h-3 w-3 text-success" aria-hidden="true" />
                     </span>
-                    <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground" aria-label="Ubah alamat pickup">
+                    <button type="button" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground" aria-label="Ubah alamat pickup" title="Ubah alamat pickup">
                       <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </div>
@@ -1263,10 +1263,10 @@ export function AggregatorWizard() {
                           <span className="flex-1 text-sm">{tpl.name}</span>
                           <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{tpl.tag}</span>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <button type="button" className="hover:text-foreground" aria-label={`Hapus template ${tpl.name}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
-                            <button type="button" className="hover:text-foreground" aria-label={`Edit template ${tpl.name}`}><Pencil className="h-4 w-4" aria-hidden="true" /></button>
-                            <button type="button" className="hover:text-foreground" aria-label={`Preview template ${tpl.name}`}><Eye className="h-4 w-4" aria-hidden="true" /></button>
-                            <button type="button" className="hover:text-foreground" aria-label={`Download template ${tpl.name}`}><Download className="h-4 w-4" aria-hidden="true" /></button>
+                            <button type="button" className="hover:text-foreground" aria-label={`Hapus template ${tpl.name}`} title={`Hapus template ${tpl.name}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+                            <button type="button" className="hover:text-foreground" aria-label={`Edit template ${tpl.name}`} title={`Edit template ${tpl.name}`}><Pencil className="h-4 w-4" aria-hidden="true" /></button>
+                            <button type="button" className="hover:text-foreground" aria-label={`Preview template ${tpl.name}`} title={`Preview template ${tpl.name}`}><Eye className="h-4 w-4" aria-hidden="true" /></button>
+                            <button type="button" className="hover:text-foreground" aria-label={`Download template ${tpl.name}`} title={`Download template ${tpl.name}`}><Download className="h-4 w-4" aria-hidden="true" /></button>
                           </div>
                         </div>
                       ))}

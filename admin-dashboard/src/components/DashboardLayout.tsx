@@ -470,7 +470,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   e.stopPropagation()
                   removeToast(toastNotif.id)
                 }}
-                aria-label="Dismiss notification"
+                aria-label="Dismiss notification" title="Dismiss notification"
                 className="p-1.5 h-7 w-7 flex items-center justify-center rounded-xl text-foreground-muted hover:bg-surface-subtle hover:text-foreground transition-all shrink-0"
               >
                 <X size={14} aria-hidden="true" />
@@ -511,7 +511,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="p-4 border-t border-border">
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className="w-full flex items-center justify-center p-3 rounded-xl bg-surface-subtle hover:bg-border text-foreground-muted hover:text-foreground transition-all group"
           >
             <ChevronLeft aria-hidden="true" className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", isCollapsed && "rotate-180")} />
@@ -547,7 +547,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="flex items-center gap-3">
                   <img src="/tembusweb.svg" alt="Tembus Logo" className="h-10 object-contain drop-shadow-md" />
                 </div>
-                <button type="button" onClick={() => setIsMobileMenuOpen(false)} aria-label="Close navigation" className="p-2 text-foreground-muted hover:text-foreground rounded-lg">
+                <button type="button" onClick={() => setIsMobileMenuOpen(false)} aria-label="Close navigation" title="Close navigation" className="p-2 text-foreground-muted hover:text-foreground rounded-lg">
                   <X size={24} aria-hidden="true" />
                 </button>
               </div>
@@ -565,7 +565,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <button 
               type="button"
-              aria-label="Open navigation"
+              aria-label="Open navigation" title="Open navigation"
               className="lg:hidden p-2 text-foreground-muted hover:text-foreground rounded-lg"
               onClick={() => setIsMobileMenuOpen(true)}
             >
@@ -603,7 +603,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     ? "bg-primary/20 text-primary-light" 
                     : "text-foreground-muted hover:text-foreground hover:bg-surface-subtle"
                 )}
-                aria-label="Notifications"
+                aria-label="Notifications" title="Notifications"
               >
                 <Bell className={cn("h-5 w-5 transition-transform", isNotifOpen && "scale-110")} aria-hidden="true" />
                 {notifications.some(n => !n.is_read) && (
@@ -650,7 +650,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           >
                             Clear All
                           </button>
-                          <button type="button" onClick={() => setIsNotifOpen(false)} aria-label="Close notifications">
+                          <button type="button" onClick={() => setIsNotifOpen(false)} aria-label="Close notifications" title="Close notifications">
                             <X size={14} aria-hidden="true" className="text-foreground-muted hover:text-foreground transition-colors" />
                           </button>
                         </div>

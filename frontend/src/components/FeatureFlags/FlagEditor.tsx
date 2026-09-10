@@ -62,7 +62,7 @@ export default function FlagEditor({ flagKey, initialConfig, isEnabled, onSave, 
             <h2 id="feature-flag-editor-title" className="text-lg font-bold text-foreground">Edit Configuration: {flagKey}</h2>
             <p className="text-xs text-muted-foreground mt-1">Status saat ini: <span className={isEnabled ? "text-success font-bold" : "text-destructive font-bold"}>{isEnabled ? 'ACTIVE' : 'INACTIVE'}</span></p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Tutup editor feature flag" className="p-2 hover:bg-muted rounded-xl transition-all">
+          <button type="button" onClick={onClose} aria-label="Tutup editor feature flag" title="Tutup editor feature flag" className="p-2 hover:bg-muted rounded-xl transition-all">
             <X className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>
         </div>

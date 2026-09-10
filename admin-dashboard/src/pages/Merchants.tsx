@@ -196,7 +196,7 @@ export default function Merchants() {
                   type="button"
                   onClick={() => setSearch('')}
                   className="text-foreground-muted hover:text-foreground-muted"
-                  aria-label="Bersihkan pencarian"
+                  aria-label="Bersihkan pencarian" title="Bersihkan pencarian"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </button>

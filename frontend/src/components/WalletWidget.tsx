@@ -199,7 +199,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
           </div>
           <button
             type="button"
-            aria-label="Refresh saldo wallet"
+            aria-label="Refresh saldo wallet" title="Refresh saldo wallet"
             onClick={() => fetchBalance()}
             disabled={isLoading}
             className={cn(
@@ -269,7 +269,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
             </div>
             <button
               type="button"
-              aria-label="Tutup notifikasi wallet"
+              aria-label="Tutup notifikasi wallet" title="Tutup notifikasi wallet"
               onClick={() => setNotification(null)}
               className="text-foreground-muted hover:text-foreground-muted dark:hover:text-foreground-muted transition-colors p-1"
             >
@@ -313,7 +313,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                     <p className="text-[11px] text-foreground-muted dark:text-foreground-muted mt-1">Sistem Otomatis Instant 24 Jam</p>
                   </div>
                 </div>
-                <button type="button" onClick={() => setShowTopUp(false)} aria-label="Tutup modal top up" className="p-2 rounded-full hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-colors">
+                <button type="button" onClick={() => setShowTopUp(false)} aria-label="Tutup modal top up" title="Tutup modal top up" className="p-2 rounded-full hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-colors">
                   <X size={18} className="text-foreground-muted" aria-hidden="true" />
                 </button>
               </div>
@@ -405,7 +405,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
                     <p className="text-[11px] text-foreground-muted dark:text-foreground-muted mt-1">Saldo Tersedia: {formatCurrency(balance)}</p>
                   </div>
                 </div>
-                <button type="button" onClick={() => setShowWithdraw(false)} aria-label="Tutup modal penarikan" className="p-2 rounded-full hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-colors">
+                <button type="button" onClick={() => setShowWithdraw(false)} aria-label="Tutup modal penarikan" title="Tutup modal penarikan" className="p-2 rounded-full hover:bg-surface-subtle dark:hover:bg-surface-subtle transition-colors">
                   <X size={18} className="text-foreground-muted" aria-hidden="true" />
                 </button>
               </div>

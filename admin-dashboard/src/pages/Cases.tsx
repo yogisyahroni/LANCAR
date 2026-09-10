@@ -119,7 +119,7 @@ export default function Cases() {
                   <td className="px-6 py-5 text-xs text-foreground-muted"><p className="font-bold text-foreground-muted">{item.service_code}</p><p className="mt-1 uppercase tracking-widest text-foreground-muted">{item.market_code}</p></td>
                   <td className="px-6 py-5 text-xs">{item.sla_breached ? <span className="inline-flex items-center gap-1.5 font-bold text-error"><AlertTriangle size={14}  aria-hidden="true"/> Breached</span> : <span className="inline-flex items-center gap-1.5 text-foreground-muted"><Clock3 size={14} aria-hidden="true" /> {new Date(item.sla_due_at).toLocaleString('id-ID')}</span>}</td>
                   <td className="px-6 py-5 text-xs text-foreground-muted">{item.assigned_to_name || 'Unassigned'}</td>
-                  <td className="px-6 py-5 text-right"><button type="button" onClick={() => setSelected(item)} aria-label={`Open ${item.case_number}`} className="rounded-xl border border-border p-2.5 text-foreground-muted hover:bg-surface-subtle hover:text-foreground"><ChevronRight size={18} aria-hidden="true" /></button></td>
+                  <td className="px-6 py-5 text-right"><button type="button" onClick={() => setSelected(item)} aria-label={`Open ${item.case_number}`} title={`Open ${item.case_number}`} className="rounded-xl border border-border p-2.5 text-foreground-muted hover:bg-surface-subtle hover:text-foreground"><ChevronRight size={18} aria-hidden="true" /></button></td>
                 </tr>)}
               </tbody>
             </table>

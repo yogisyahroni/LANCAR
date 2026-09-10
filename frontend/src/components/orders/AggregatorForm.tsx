@@ -151,7 +151,7 @@ function AddressModal({
         type="button"
         className="absolute inset-0 bg-scrim/60 backdrop-blur-sm"
         onClick={onClose}
-        aria-label="Tutup"
+        aria-label="Tutup" title="Tutup"
       />
       <FocusTrap active={isOpen} className="relative w-full max-w-lg">
       <div role="dialog" aria-modal="true" aria-labelledby="aggregator-address-title" className="rounded-t-2xl sm:rounded-2xl border border-border bg-surface-raised shadow-2xl overflow-hidden">
@@ -166,7 +166,7 @@ function AddressModal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Tutup form aggregator"
+              aria-label="Tutup form aggregator" title="Tutup form aggregator"
               className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-subtle transition-colors"
           >
             <X className="h-4 w-4 text-muted-foreground" aria-hidden="true" />

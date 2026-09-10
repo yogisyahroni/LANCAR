@@ -888,7 +888,7 @@ export default function ActiveOrdersTable() {
             <Filter aria-hidden="true" size={18} />
             Stuck
           </button>
-          <button type="button" aria-label="Refresh orders"
+          <button type="button" aria-label="Refresh orders" title="Refresh orders"
             onClick={() => refetchOrders()}
             className="p-3 bg-primary/10 border border-primary/20 rounded-2xl text-primary-light hover:bg-primary/20 transition-all"
           >
@@ -1082,7 +1082,7 @@ export default function ActiveOrdersTable() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            aria-label="Previous orders page"
+            aria-label="Previous orders page" title="Previous orders page"
             disabled={page === 1}
             onClick={() => setPage(p => Math.max(1, p - 1))}
             className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted disabled:opacity-60 hover:text-foreground transition-all"
@@ -1103,7 +1103,7 @@ export default function ActiveOrdersTable() {
                </button>
              ))}
           </div>
-          <button type="button" aria-label="Next orders page"
+          <button type="button" aria-label="Next orders page" title="Next orders page"
             disabled={page === totalPages}
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted disabled:opacity-60 hover:text-foreground transition-all"

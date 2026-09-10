@@ -140,7 +140,7 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
             <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest">Live Support Channel</p>
           </div>
         </div>
-        <button type="button" onClick={onClose} aria-label="Tutup percakapan sengketa" className="p-2 hover:bg-surface-subtle rounded-lg text-foreground-muted hover:text-foreground transition-all">
+        <button type="button" onClick={onClose} aria-label="Tutup percakapan sengketa" title="Tutup percakapan sengketa" className="p-2 hover:bg-surface-subtle rounded-lg text-foreground-muted hover:text-foreground transition-all">
           <X size={20} aria-hidden="true" />
         </button>
       </div>

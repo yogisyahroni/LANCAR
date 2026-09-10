@@ -1101,7 +1101,7 @@ export function OnDemandOrderFormContent({
                         onClick={() =>
                           setIsDatePickerOpen((open: any) => !open)
                         }
-                        aria-label="Pilih tanggal pickup"
+                        aria-label="Pilih tanggal pickup" title="Pilih tanggal pickup"
                         aria-haspopup="dialog"
                         aria-expanded={isDatePickerOpen}
                         aria-controls="ondemand-scheduled-date-picker"
@@ -1241,7 +1241,7 @@ export function OnDemandOrderFormContent({
                         onClick={() =>
                           setIsTimePickerOpen((open: any) => !open)
                         }
-                        aria-label="Pilih jam pickup"
+                        aria-label="Pilih jam pickup" title="Pilih jam pickup"
                         aria-haspopup="listbox"
                         aria-expanded={isTimePickerOpen}
                         aria-controls="ondemand-scheduled-time-picker"

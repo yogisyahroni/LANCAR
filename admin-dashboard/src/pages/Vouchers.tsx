@@ -192,7 +192,7 @@ export default function Vouchers() {
           />
         </div>
         <div className="flex items-center gap-2">
-           <button type="button" aria-label="Open voucher filters" className="p-3.5 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground border border-border transition-all">
+           <button type="button" aria-label="Open voucher filters" title="Open voucher filters" className="p-3.5 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground border border-border transition-all">
               <Filter size={20} aria-hidden="true" />
            </button>
         </div>
@@ -374,7 +374,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               </h2>
               <p className="text-foreground-muted text-xs mt-1 font-medium">Configure discount logic and redemption constraints.</p>
             </div>
-            <button type="button" onClick={onClose} aria-label="Tutup detail voucher" className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
+            <button type="button" onClick={onClose} aria-label="Tutup detail voucher" title="Tutup detail voucher" className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
               <X size={20} aria-hidden="true" />
             </button>
           </div>

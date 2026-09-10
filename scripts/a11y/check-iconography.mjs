@@ -66,7 +66,6 @@ function checkIconOnlyButtonNames(source, filePath) {
     if (buttonStart < 0 || previousButtonEnd > buttonStart) continue
 
     const attributesAndBody = source.slice(buttonStart, match.index)
-    if (/\baria-label\s*=|\btitle\s*=/.test(attributesAndBody)) continue
     if (/<\/[A-Za-z]/.test(attributesAndBody)) continue
 
     // The last `>` before the icon is the opening tag terminator. If nothing
@@ -76,7 +75,11 @@ function checkIconOnlyButtonNames(source, filePath) {
     if (openingEnd < 0 || attributesAndBody.slice(openingEnd + 1).trim()) continue
 
     const line = source.slice(0, match.index).split('\n').length
-    violations.push(`${filePath}:${line}: icon-only button needs aria-label/title for keyboard and assistive technology users`)
+    if (/\baria-label\s*=/.test(attributesAndBody) && !/\btitle\s*=/.test(attributesAndBody)) {
+      violations.push(`${filePath}:${line}: icon-only button with an accessible name needs a visible title tooltip`)
+    } else if (!/\baria-label\s*=|\btitle\s*=/.test(attributesAndBody)) {
+      violations.push(`${filePath}:${line}: icon-only button needs aria-label/title for keyboard and assistive technology users`)
+    }
   }
 }
 

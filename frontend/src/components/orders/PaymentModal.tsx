@@ -210,7 +210,7 @@ export function PaymentModal({
                 <h2 id="payment-modal-title" className="text-xl font-bold tracking-tight text-foreground">{t('payment.title')}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{t('payment.description')}</p>
               </div>
-              <button type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={t('payment.close')}>
+              <button type="button" onClick={onClose} className="min-h-11 min-w-11 rounded-full p-2 hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={t('payment.close')} title={t('payment.close')}>
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>

@@ -201,7 +201,7 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Dispute Resolution</p>
           </div>
         </div>
-        <button type="button" onClick={onClose} aria-label="Tutup percakapan sengketa" className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-all">
+        <button type="button" onClick={onClose} aria-label="Tutup percakapan sengketa" title="Tutup percakapan sengketa" className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-all">
           <X size={20} aria-hidden="true" />
         </button>
       </div>

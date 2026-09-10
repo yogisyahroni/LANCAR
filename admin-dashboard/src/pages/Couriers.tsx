@@ -763,7 +763,7 @@ export default function Couriers() {
           </p>
           <div className="flex items-center gap-2">
             <button 
-              aria-label="Previous courier page"
+              aria-label="Previous courier page" title="Previous courier page"
               disabled={page === 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
               className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-60 disabled:hover:bg-surface-subtle transition-all"
@@ -785,7 +785,7 @@ export default function Couriers() {
               ))}
             </div>
             <button 
-              aria-label="Next courier page"
+              aria-label="Next courier page" title="Next courier page"
               disabled={page === (couriersData?.pagination?.pages || 1)}
               onClick={() => setPage(p => p + 1)}
               className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground disabled:opacity-60 disabled:hover:bg-surface-subtle transition-all"

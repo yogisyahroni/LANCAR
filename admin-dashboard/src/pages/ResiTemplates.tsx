@@ -366,7 +366,7 @@ const ResiTemplates = () => {
                     ))}
                   </select>
                 </div>
-                <button type="button" onClick={handleCloseModal} aria-label="Tutup editor template resi" className="text-foreground-muted hover:text-foreground">
+                <button type="button" onClick={handleCloseModal} aria-label="Tutup editor template resi" title="Tutup editor template resi" className="text-foreground-muted hover:text-foreground">
                   <XCircle className="w-6 h-6" aria-hidden="true" />
                 </button>
               </div>

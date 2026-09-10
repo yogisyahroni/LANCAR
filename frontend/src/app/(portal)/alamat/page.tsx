@@ -485,7 +485,7 @@ export default function AddressBookPage() {
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 space-y-4" role="dialog" aria-label="Preview import alamat">
           <div className="flex items-start justify-between gap-4">
             <div><p className="text-sm font-bold text-foreground">Preview {importFileName}</p><p className="text-xs text-muted-foreground mt-1">{importPreview.filter(row => row.payload).length} valid · {importPreview.filter(row => row.error).length} perlu diperbaiki</p></div>
-            <button type="button" onClick={() => setImportPreview(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Tutup preview"><X className="h-4 w-4" aria-hidden="true" /></button>
+            <button type="button" onClick={() => setImportPreview(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Tutup preview" title="Tutup preview"><X className="h-4 w-4" aria-hidden="true" /></button>
           </div>
           <div className="max-h-64 overflow-auto rounded-xl border border-border/40 bg-card/60">
             <table className="w-full text-xs"><thead className="sticky top-0 bg-card text-muted-foreground"><tr><th scope="col" className="p-3 text-left">Baris</th><th scope="col" className="p-3 text-left">Label</th><th scope="col" className="p-3 text-left">Penerima</th><th scope="col" className="p-3 text-left">Status</th></tr></thead><tbody>{importPreview.map(row => <tr key={row.rowNumber} className="border-t border-border/30"><td className="p-3">{row.rowNumber}</td><td className="p-3">{row.label || '-'}</td><td className="p-3">{row.recipientName || '-'}</td><td className={`p-3 ${row.error ? 'text-destructive' : 'text-success'}`}>{row.error || 'Valid'}</td></tr>)}</tbody></table>

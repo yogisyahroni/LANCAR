@@ -319,6 +319,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
             type="button"
             onClick={onBack}
             aria-label="Kembali ke daftar broadcast"
+            title="Kembali ke daftar broadcast"
             className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
           >
             <ChevronLeft size={20} aria-hidden="true" />
@@ -701,7 +702,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                         <button
                           type="button"
                           onClick={() => setManualRecipients((prev) => prev.filter((r) => r.id !== recipient.id))}
-                          aria-label={`Hapus penerima ${recipient.full_name}`}
+                          aria-label={`Hapus penerima ${recipient.full_name}`} title={`Hapus penerima ${recipient.full_name}`}
                           className="p-1 rounded-lg text-foreground-muted hover:text-error transition-colors"
                         >
                           <X size={14} aria-hidden="true" />

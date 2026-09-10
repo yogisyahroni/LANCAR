@@ -581,7 +581,7 @@ export function OrderDetailContent({
                         setPreviewImage(null);
                         setSelectedFile(null);
                       }}
-                      aria-label="Hapus gambar terpilih"
+                      aria-label="Hapus gambar terpilih" title="Hapus gambar terpilih"
                       className="absolute -top-2 -right-2 p-1 bg-error text-on-error rounded-full shadow-lg"
                     >
                       <X size={10} aria-hidden="true" />
@@ -1319,7 +1319,7 @@ export function OrderDetailContent({
                     type="button"
                     onClick={() => setShowCancelModal(false)}
                     disabled={cancellingOrder}
-                    aria-label="Tutup konfirmasi pembatalan"
+                    aria-label="Tutup konfirmasi pembatalan" title="Tutup konfirmasi pembatalan"
                     className="rounded-lg p-1 text-muted-foreground hover:bg-surface-subtle hover:text-foreground transition"
                   >
                     <X className="h-5 w-5" aria-hidden="true" />
