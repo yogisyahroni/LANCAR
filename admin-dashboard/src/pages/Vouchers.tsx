@@ -284,8 +284,11 @@ export default function Vouchers() {
                     Modify Parameters
                  </button>
                  <button 
+                   type="button"
                    onClick={() => handleDelete(voucher.id)}
                    disabled={deleteMutation.isPending}
+                   aria-label={`Delete voucher ${voucher.code || voucher.name || voucher.id}`}
+                   title="Delete voucher"
                    className="p-4 rounded-2xl bg-error-surface border border-error text-error hover:bg-error hover:text-on-error transition-all disabled:opacity-60"
                  >
                     {deleteMutation.isPending ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Trash2 size={18} aria-hidden="true" />}

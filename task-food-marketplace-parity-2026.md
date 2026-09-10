@@ -3044,6 +3044,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 >
 > **Style decision:** Customer Web menggunakan **Modern Marketplace / Calm Utility UI**: warm-neutral surfaces, green brand sebagai primary action, orange sebagai accent terbatas, medium information density, soft elevation, rounded but not playful, dan glass/transparency hanya untuk decorative/marketing surface yang contrast-nya dapat dijamin. Admin menggunakan **Modern Enterprise Operations Console**: solid surfaces, compact-but-readable density, hierarchy kuat, minimal decorative gradients/glass, tables/forms/status lebih dominan daripada decoration.
 
+> **Execution checkpoint 2026-09-11:** Part S continued beyond GLOB-2026-014. The latest local batch added a direct icon-only button source guard, contextual names/types for audited Customer/Admin actions, boolean switch state semantics, and labeled keyboard-reachable overflow regions for dense Admin tables. Customer `56/56` and Admin `142/142` local Chromium inventories pass. Remaining Part S checklist items stay explicitly unchecked where full route/state, visual, zoom, tooltip, provider-map or native/manual AT proof is still required; see the linked evidence documents.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
@@ -3264,7 +3266,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 **Checklist**
 - [x] Do not mix Lucide line icon, filled Material icon, emoji and random SVG styles in one functional navigation system. Evidence: `docs/task-evidence/ICON-2026-001.md`
 - [x] Decorative icon uses `aria-hidden="true"` when adjacent text already provides the name. Evidence: `docs/task-evidence/ICON-2026-001.md`
-- [ ] Icon-only button has accessible name (`aria-label`/equivalent) and visible tooltip where useful. Evidence: `docs/task-evidence/ICON-2026-001.md` (Customer Food quantity controls and On-Demand service-card paths pass; complete tooltip/state inventory remains open).
+- [ ] Icon-only button has accessible name (`aria-label`/equivalent) and visible tooltip where useful. Evidence: `docs/task-evidence/ICON-2026-001.md` (direct single-icon source guard and audited Customer/Admin controls pass; conditional state and complete tooltip inventory remains open).
 - [ ] Essential meaning is not encoded only in icon shape; critical/destructive actions have visible label in high-risk contexts.
 - [ ] Custom SVG allowed only where Lucide lacks adequate service meaning; normalize viewBox/stroke/optical size and document it.
 - [ ] Icons inherit semantic foreground/status tokens rather than hardcoded colors.
@@ -3318,9 +3320,9 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - App Experience → `Layers` or one approved single Lucide icon used consistently
 
 **Checklist**
-- [ ] One concept has one canonical icon throughout sidebar, page title and actions unless context materially changes meaning.
-- [ ] Avoid multiple near-identical icons for destructive actions; delete/cancel/block must be semantically explicit with labels/confirmation.
-- [ ] Table row action icons expose accessible names and keyboard focus.
+- [ ] One concept has one canonical icon throughout sidebar, page title and actions unless context materially changes meaning. Evidence: `docs/task-evidence/ICON-2026-003.md` (audited action batch updated; full page-title/action inventory remains open).
+- [ ] Avoid multiple near-identical icons for destructive actions; delete/cancel/block must be semantically explicit with labels/confirmation. Evidence: `docs/task-evidence/ICON-2026-003.md` (audited row/destructive controls named; complete workflow inventory remains open).
+- [ ] Table row action icons expose accessible names and keyboard focus. Evidence: `docs/task-evidence/ICON-2026-003.md` (audited Admin row actions named and route inventory passes; all stateful rows remain open).
 - [x] Collapsed sidebar provides tooltip/accessibility name for every icon. Evidence: `docs/task-evidence/ICON-2026-003.md`
 
 ---
@@ -3336,7 +3338,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] All inputs have programmatic + visible label; required/optional semantics clear.
 - [ ] Error message associated to field with `aria-describedby`/equivalent where appropriate.
 - [ ] Checkbox/radio/switch expose name, role, state and disabled state correctly.
-- [ ] Icon-only controls have accessible name.
+- [ ] Icon-only controls have accessible name. Evidence: `docs/task-evidence/A11Y-2026-004.md` (audited Customer/Admin controls and route inventories pass; complete conditional-control matrix remains open).
 - [x] Skip-to-content or equivalent exists for long Customer/Admin shell navigation where appropriate.
 
 ---
@@ -3359,7 +3361,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
  - [x] Header/cell semantics are correct; every explicit application `<th>` declares `scope`, and no interactive sortable-column control exists in the current Admin surface that requires `aria-sort`. Evidence: `docs/task-evidence/A11Y-2026-006.md` and `scripts/a11y/check-table-semantics.mjs`.
 - [ ] Row hover/selection/focus states are distinguishable in both themes without color alone.
 - [x] Sticky header/background does not become transparent over scrolling text. Evidence: `docs/task-evidence/A11Y-2026-006.md` (Admin Orders populated browser fixture asserts the sticky header row has a solid background in Light/Dark).
-- [ ] Horizontal overflow has deliberate responsive strategy; essential actions remain reachable.
+- [ ] Horizontal overflow has deliberate responsive strategy; essential actions remain reachable. Evidence: `docs/task-evidence/A11Y-2026-006.md` (Customer Orders plus audited Admin dense-table regions pass; full table/state inventory remains open).
 
 **Charts**
 - [ ] Chart colors pass applicable non-text contrast against background where needed.

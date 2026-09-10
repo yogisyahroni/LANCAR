@@ -350,8 +350,11 @@ export default function Agreements() {
             </p>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page <= 1}
+                aria-label="Previous agreements page"
+                title="Previous agreements page"
                 className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:bg-surface-subtle disabled:opacity-60 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft size={14} aria-hidden="true" />
@@ -376,8 +379,11 @@ export default function Agreements() {
                 )
               })}
               <button
+                type="button"
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
+                aria-label="Next agreements page"
+                title="Next agreements page"
                 className="p-2 rounded-xl bg-surface-subtle border border-border text-foreground-muted hover:bg-surface-subtle disabled:opacity-60 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronRight size={14} aria-hidden="true" />
@@ -416,7 +422,10 @@ export default function Agreements() {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSelectedId(null)}
+                  aria-label="Close agreement details"
+                  title="Close agreement details"
                   className="p-2 rounded-xl text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
                 >
                   <X size={16} aria-hidden="true" />
@@ -542,7 +551,10 @@ export default function Agreements() {
                     Cetak
                   </button>
                   <button
+                    type="button"
                     onClick={() => setShowPDF(false)}
+                    aria-label="Close document preview"
+                    title="Close document preview"
                     className="p-2 rounded-xl text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
                   >
                     <X size={18} aria-hidden="true" />

@@ -711,21 +711,30 @@ export default function Couriers() {
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
+                        type="button"
                         onClick={() => setSelectedCourierId(courier.id)}
+                        aria-label={`View courier ${courier.full_name || courier.id}`}
+                        title="View courier details"
                         className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
                       >
                         <ExternalLink size={18} aria-hidden="true" />
                       </button>
                       {courier.status !== 'Suspended' ? (
                         <button 
+                          type="button"
                           onClick={() => updateStatus.mutate({ id: courier.id, status: 'Suspended' })}
+                          aria-label={`Suspend courier ${courier.full_name || courier.id}`}
+                          title="Suspend courier"
                           className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-error hover:bg-error-surface transition-all"
                         >
                           <Ban size={18} aria-hidden="true" />
                         </button>
                       ) : (
                         <button 
+                          type="button"
                           onClick={() => updateStatus.mutate({ id: courier.id, status: 'Active' })}
+                          aria-label={`Reactivate courier ${courier.full_name || courier.id}`}
+                          title="Reactivate courier"
                           className="p-2.5 rounded-xl bg-surface-subtle text-foreground-muted hover:text-success hover:bg-success-surface transition-all"
                         >
                           <CheckCircle size={18} aria-hidden="true" />
@@ -1126,7 +1135,10 @@ export default function Couriers() {
                         <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden border border-border">
                           <img src={capturedPhoto} alt="Captured" className="w-full h-full object-cover" />
                           <button
+                            type="button"
                             onClick={() => setCapturedPhoto(null)}
+                            aria-label="Retake courier photo"
+                            title="Retake courier photo"
                             className="absolute top-2 right-2 p-2 bg-scrim/50 hover:bg-scrim/80 rounded-full text-foreground transition"
                           >
                             <RefreshCw size={16} aria-hidden="true" />

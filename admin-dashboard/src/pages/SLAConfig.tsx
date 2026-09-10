@@ -52,7 +52,10 @@ export default function SLAConfig() {
         </div>
         <div className="flex items-center gap-3">
            <button 
+             type="button"
              onClick={() => queryClient.invalidateQueries({ queryKey: ['sla', activeModel] })}
+             aria-label="Refresh SLA thresholds"
+             title="Refresh SLA thresholds"
              className="p-3 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all"
            >
               <RotateCcw size={18} aria-hidden="true" />

@@ -146,17 +146,23 @@ export function TeamPanel({ data }: { data: SettingsData }) {
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                          <button 
+                           type="button"
                            onClick={() => toast.info('Member permissions can be tuned in IAM section.')}
+                           aria-label={`Manage permissions for ${member.full_name}`}
+                           title="Manage permissions"
                            className="p-2 text-foreground-muted hover:text-foreground transition-colors"
                          >
                             <SettingsIcon size={18} aria-hidden="true" />
                          </button>
                          <button 
+                           type="button"
                            onClick={() => {
                              if (confirm(`Remove ${member.full_name} from Admin team?`)) {
                                deleteAdminMutation.mutate(member.id)
                              }
                            }}
+                           aria-label={`Remove ${member.full_name} from Admin team`}
+                           title="Remove admin"
                            className="p-2 text-foreground-muted hover:text-error transition-colors"
                          >
                             <Trash2 size={18} aria-hidden="true" />

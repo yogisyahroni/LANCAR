@@ -442,7 +442,7 @@ export default function Zones() {
                   <h3 className="text-xl font-black text-foreground-muted uppercase italic">Zone Revision Preview</h3>
                   <p className="text-xs text-foreground-muted mt-2">Revision {zonePreview.draft?.revision_number} · {zonePreview.diff?.active_orders_count || 0} active order assignments preserved</p>
                 </div>
-                <button onClick={() => setZonePreview(null)} className="p-2 text-foreground-muted hover:text-foreground"><X size={20} aria-hidden="true" /></button>
+                <button type="button" onClick={() => setZonePreview(null)} aria-label="Close zone revision preview" title="Close zone revision preview" className="p-2 text-foreground-muted hover:text-foreground"><X size={20} aria-hidden="true" /></button>
               </div>
               <div className="rounded-2xl bg-surface-subtle border border-border p-5 text-xs text-foreground-muted space-y-2">
                 <p className="font-black uppercase tracking-widest text-warning">Changed fields</p>

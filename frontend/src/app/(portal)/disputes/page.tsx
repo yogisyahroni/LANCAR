@@ -204,7 +204,7 @@ export default function DisputesPage() {
                     </div>
                     <h2 className="text-3xl font-black text-foreground tracking-tight">{selectedDispute.category}</h2>
                   </div>
-                  <button onClick={() => setSelectedDispute(null)} className="p-3 rounded-2xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all">
+                  <button type="button" onClick={() => setSelectedDispute(null)} aria-label="Tutup detail sengketa" title="Tutup detail sengketa" className="p-3 rounded-2xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all">
                     <X aria-hidden="true" size={24} />
                   </button>
                 </div>

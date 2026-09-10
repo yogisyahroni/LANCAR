@@ -245,7 +245,8 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                 {isLoadingCashLiability ? (
                    <div className="py-4 flex justify-center"><Loader2 size={24} className="animate-spin text-primary" aria-hidden="true" /></div>
                 ) : (
-                   <table className="w-full text-left text-sm">
+                   <div role="region" aria-label="Cash and liability summary table" tabIndex={0} className="overflow-x-auto">
+                   <table className="min-w-[420px] w-full text-left text-sm">
                       <thead>
                          <tr className="text-foreground-muted font-bold uppercase text-[10px] border-b border-border">
                             <th scope="col" className="pb-2">Account</th>
@@ -263,6 +264,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                          ))}
                       </tbody>
                    </table>
+                   </div>
                 )}
              </div>
 
@@ -271,7 +273,8 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                 {isLoadingTaxSummary ? (
                    <div className="py-4 flex justify-center"><Loader2 size={24} className="animate-spin text-primary" aria-hidden="true" /></div>
                 ) : (
-                   <table className="w-full text-left text-sm">
+                   <div role="region" aria-label="Tax summary table" tabIndex={0} className="overflow-x-auto">
+                   <table className="min-w-[420px] w-full text-left text-sm">
                       <thead>
                          <tr className="text-foreground-muted font-bold uppercase text-[10px] border-b border-border">
                             <th scope="col" className="pb-2">Tax Type</th>
@@ -289,6 +292,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                          ))}
                       </tbody>
                    </table>
+                   </div>
                 )}
              </div>
           </div>
@@ -298,7 +302,8 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
              {isLoadingSettlementOutstanding ? (
                 <div className="py-4 flex justify-center"><Loader2 size={24} className="animate-spin text-primary" aria-hidden="true" /></div>
              ) : (
-                <table className="w-full text-left text-sm">
+                <div role="region" aria-label="Settlement outstanding table" tabIndex={0} className="overflow-x-auto">
+                <table className="min-w-[420px] w-full text-left text-sm">
                    <thead>
                       <tr className="text-foreground-muted font-bold uppercase text-[10px] border-b border-border">
                          <th scope="col" className="pb-2">Status</th>
@@ -318,6 +323,7 @@ export function ClosingPanel({ data }: { data: FinanceData }) {
                       ))}
                    </tbody>
                 </table>
+                </div>
              )}
           </div>
         </div>

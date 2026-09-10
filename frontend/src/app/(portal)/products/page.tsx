@@ -375,7 +375,10 @@ export default function ProductsPage() {
                   {formMode === 'add' ? 'Tambah Produk' : 'Edit Produk'}
                 </h2>
                 <button
+                  type="button"
                   onClick={() => setIsFormOpen(false)}
+                  aria-label="Tutup formulir produk"
+                  title="Tutup formulir produk"
                   className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
                 >
                   <X className="w-5 h-5" aria-hidden="true" />
@@ -487,7 +490,10 @@ export default function ProductsPage() {
                   Import CSV
                 </h2>
                 <button
+                  type="button"
                   onClick={() => setIsBulkOpen(false)}
+                  aria-label="Tutup impor produk"
+                  title="Tutup impor produk"
                   className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
                 >
                   <X className="w-5 h-5" aria-hidden="true" />
@@ -545,7 +551,10 @@ export default function ProductsPage() {
                         <span className="text-sm font-medium truncate">{bulkFile.name}</span>
                       </div>
                       <button
+                        type="button"
                         onClick={() => setBulkFile(null)}
+                        aria-label="Hapus file impor produk"
+                        title="Hapus file impor produk"
                         className="text-muted-foreground hover:text-destructive transition-colors p-1"
                       >
                         <X className="w-4 h-4" aria-hidden="true" />
@@ -603,6 +612,7 @@ export default function ProductsPage() {
               </div>
               <div className="p-4 border-t border-border bg-muted/20 flex gap-3">
                 <button
+                  type="button"
                   onClick={() => setIsDeleteOpen(false)}
                   disabled={isDeleting}
                   className="flex-1 px-4 py-2 bg-background border border-input hover:bg-muted text-foreground rounded-lg transition-colors text-sm font-medium"
@@ -610,6 +620,7 @@ export default function ProductsPage() {
                   Batal
                 </button>
                 <button
+                  type="button"
                   onClick={confirmDelete}
                   disabled={isDeleting}
                   className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg transition-colors text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-60"

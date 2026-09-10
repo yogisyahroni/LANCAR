@@ -305,7 +305,10 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
             <div className="relative group">
               <img src={previewImage} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-border" />
               <button 
+                type="button"
                 onClick={() => { setPreviewImage(null); setSelectedFile(null); }}
+                aria-label="Hapus pratinjau gambar"
+                title="Hapus pratinjau gambar"
                 className="absolute -top-2 -right-2 p-1 bg-destructive text-destructive-foreground rounded-full shadow-lg"
               >
                 <X size={10} aria-hidden="true" />

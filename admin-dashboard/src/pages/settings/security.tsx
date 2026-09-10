@@ -142,7 +142,12 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                         className="w-full bg-surface-subtle border border-border rounded-2xl py-4 px-5 text-foreground-muted font-mono text-sm focus:outline-none"
                       />
                       <button 
+                        type="button"
                         onClick={() => setShowApiKey(!showApiKey)}
+                        role="switch"
+                        aria-checked={showApiKey}
+                        aria-label={showApiKey ? 'Hide public API key' : 'Show public API key'}
+                        title={showApiKey ? 'Hide public API key' : 'Show public API key'}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground"
                       >
                         {showApiKey ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
@@ -165,7 +170,12 @@ export function SecurityPanel({ data }: { data: SettingsData }) {
                           <span className="text-sm font-black text-foreground-muted">{rule.label}</span>
                           {isToggle ? (
                             <button 
+                              type="button"
                               onClick={() => updateConfigMutation.mutate({ key: rule.key, value: !value })}
+                              role="switch"
+                              aria-checked={value}
+                              aria-label={rule.label}
+                              title={rule.label}
                               className={cn(
                                 "w-12 h-6 rounded-full relative transition-all duration-300",
                                 value ? "bg-primary" : "bg-surface-raised"

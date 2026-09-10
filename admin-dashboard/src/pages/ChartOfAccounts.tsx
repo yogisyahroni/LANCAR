@@ -156,7 +156,8 @@ export default function ChartOfAccounts() {
       </div>
 
       <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden">
-        <table className="min-w-full divide-y divide-border">
+        <div role="region" aria-label="Chart of accounts table" tabIndex={0} className="overflow-x-auto">
+        <table className="min-w-[720px] w-full divide-y divide-border">
           <thead className="bg-surface-subtle">
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">Account Code</th>
@@ -191,7 +192,10 @@ export default function ChartOfAccounts() {
                 <td className="px-6 py-4 text-sm text-foreground-muted truncate max-w-xs">{acc.description}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button 
+                    type="button"
                     onClick={() => openEditModal(acc)}
+                    aria-label={`Edit account ${acc.account_name}`}
+                    title="Edit account"
                     className="text-info hover:text-info p-1 rounded-md hover:bg-info transition-colors"
                   >
                     <Pencil className="w-5 h-5" aria-hidden="true" />
@@ -208,6 +212,7 @@ export default function ChartOfAccounts() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {isModalOpen && (
@@ -218,7 +223,7 @@ export default function ChartOfAccounts() {
               <h3 className="text-lg font-bold text-foreground-muted">
                 {editingAccount ? "Edit Account" : "Add Account"}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-foreground-muted hover:text-foreground-muted transition-colors">
+              <button type="button" onClick={() => setIsModalOpen(false)} aria-label="Close account form" title="Close account form" className="text-foreground-muted hover:text-foreground-muted transition-colors">
                 <XCircle className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>

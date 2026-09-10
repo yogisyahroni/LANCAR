@@ -58,6 +58,28 @@ function checkSvgSemantics(source, filePath) {
   }
 }
 
+function checkIconOnlyButtonNames(source, filePath) {
+  const iconPattern = /<([A-Z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)?)\b[^<>]*\baria-hidden=["']true["'][^<>]*\/\s*>\s*<\/button>/g
+  for (const match of source.matchAll(iconPattern)) {
+    const buttonStart = source.lastIndexOf('<button', match.index)
+    const previousButtonEnd = source.lastIndexOf('</button>', match.index)
+    if (buttonStart < 0 || previousButtonEnd > buttonStart) continue
+
+    const attributesAndBody = source.slice(buttonStart, match.index)
+    if (/\baria-label\s*=|\btitle\s*=/.test(attributesAndBody)) continue
+    if (/<\/[A-Za-z]/.test(attributesAndBody)) continue
+
+    // The last `>` before the icon is the opening tag terminator. If nothing
+    // follows it, the icon is the complete button content. Conditional icon
+    // buttons and buttons with visible text are left to rendered checks.
+    const openingEnd = attributesAndBody.lastIndexOf('>')
+    if (openingEnd < 0 || attributesAndBody.slice(openingEnd + 1).trim()) continue
+
+    const line = source.slice(0, match.index).split('\n').length
+    violations.push(`${filePath}:${line}: icon-only button needs aria-label/title for keyboard and assistive technology users`)
+  }
+}
+
 function walk(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const filePath = path.join(directory, entry.name)
@@ -70,6 +92,7 @@ function walk(directory) {
     if (forbiddenPackages.test(source)) violations.push(`${filePath}: non-LUCIDE icon package import`)
     if (emojiPattern.test(source)) violations.push(`${filePath}: emoji used in application source; use Lucide or text`)
     checkSvgSemantics(source, filePath)
+    checkIconOnlyButtonNames(source, filePath)
   }
 }
 

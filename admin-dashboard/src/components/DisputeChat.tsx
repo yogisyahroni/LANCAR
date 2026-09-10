@@ -217,7 +217,10 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
             <div className="relative group">
               <img src={previewImage} alt="Preview" className="h-20 w-20 object-cover rounded-lg border border-border" />
               <button 
+                type="button"
                 onClick={() => { setPreviewImage(null); setSelectedFile(null); }}
+                aria-label="Remove image preview"
+                title="Remove image preview"
                 className="absolute -top-2 -right-2 p-1 bg-error text-on-error rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <X size={12} aria-hidden="true" />
@@ -250,6 +253,8 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
           <button 
             type="button"
             onClick={triggerFileInput}
+            aria-label="Attach image to dispute message"
+            title="Attach image"
             className="p-3 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all"
           >
             <ImageIcon size={20} aria-hidden="true" />
@@ -265,6 +270,8 @@ export default function DisputeChat({ disputeId, onClose, currentUserId }: Dispu
           <button 
             type="submit"
             disabled={(!message.trim() && !previewImage) || sendMutation.isPending || uploading}
+            aria-label="Send dispute message"
+            title="Send message"
             className="p-3 rounded-xl bg-primary text-on-primary hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:opacity-60 disabled:grayscale disabled:hover:scale-100"
           >
             {sendMutation.isPending || uploading ? <Loader2 className="animate-spin" size={20} aria-hidden="true" /> : <Send size={20}  aria-hidden="true"/>}

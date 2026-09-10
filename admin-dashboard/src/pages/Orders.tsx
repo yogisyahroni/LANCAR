@@ -112,7 +112,7 @@ export default function Orders() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-foreground-muted">Create Manual Order</h2>
-                <button onClick={() => setIsCreateModalOpen(false)} className="p-2 hover:bg-surface-subtle rounded-full transition-colors">
+                <button type="button" onClick={() => setIsCreateModalOpen(false)} aria-label="Close create order form" title="Close create order form" className="p-2 hover:bg-surface-subtle rounded-full transition-colors">
                   <X size={20} className="text-foreground-muted" aria-hidden="true" />
                 </button>
               </div>

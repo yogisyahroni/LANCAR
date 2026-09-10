@@ -628,7 +628,10 @@ export default function AddressBookPage() {
                   {formMode === 'add' ? 'Tambah Alamat Baru' : 'Edit Alamat'}
                 </h3>
                 <button
+                  type="button"
                   onClick={() => setIsFormOpen(false)}
+                  aria-label="Tutup formulir alamat"
+                  title="Tutup formulir alamat"
                   className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />

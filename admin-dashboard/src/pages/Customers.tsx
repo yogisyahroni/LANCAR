@@ -295,8 +295,11 @@ export default function Customers() {
           </p>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
+              aria-label="Previous customers page"
+              title="Previous customers page"
               className="p-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={18} aria-hidden="true" />
@@ -319,8 +322,11 @@ export default function Customers() {
               )
             })}
             <button
+              type="button"
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
+              aria-label="Next customers page"
+              title="Next customers page"
               className="p-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <ChevronRight size={18} aria-hidden="true" />

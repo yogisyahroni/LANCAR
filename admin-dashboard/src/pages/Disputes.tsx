@@ -173,7 +173,10 @@ export default function Disputes() {
                     <StatusBadge status={dispute.status} labelPrefix="Dispute status" className="rounded-lg text-[10px] uppercase tracking-widest" />
                   </div>
                   <button 
+                    type="button"
                     onClick={() => setSelectedDispute(dispute)}
+                    aria-label={`View dispute ${dispute.order_number || dispute.id}`}
+                    title="View dispute details"
                     className="p-4 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground hover:bg-surface-subtle transition-all border border-border"
                   >
                     <ExternalLink size={20} aria-hidden="true" />
@@ -240,7 +243,7 @@ export default function Disputes() {
                     </div>
                     <h2 className="text-4xl font-black text-foreground-muted tracking-tighter">{selectedDispute.category}</h2>
                   </div>
-                  <button onClick={() => setSelectedDispute(null)} className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
+                  <button type="button" onClick={() => setSelectedDispute(null)} aria-label="Close dispute detail" title="Close dispute detail" className="p-3 rounded-2xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
                     <XCircle size={24} aria-hidden="true" />
                   </button>
                 </div>

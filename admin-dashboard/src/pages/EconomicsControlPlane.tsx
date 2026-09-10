@@ -226,7 +226,7 @@ export default function EconomicsControlPlane() {
           </div>
 
           {selected && <div className="glass-card rounded-[40px] border-border p-8 space-y-6">
-            <div className="flex items-center justify-between"><div><h2 className="text-lg font-black text-foreground-muted">Preview & simulation</h2><p className="text-xs text-foreground-muted mt-1">{selected.runtime_config_key}</p></div><button type="button" onClick={() => previewQuery.refetch()} className="text-foreground-muted hover:text-foreground"><Play size={18} aria-hidden="true" /></button></div>
+            <div className="flex items-center justify-between"><div><h2 className="text-lg font-black text-foreground-muted">Preview & simulation</h2><p className="text-xs text-foreground-muted mt-1">{selected.runtime_config_key}</p></div><button type="button" onClick={() => previewQuery.refetch()} aria-label="Refresh economics preview" title="Refresh economics preview" className="text-foreground-muted hover:text-foreground"><Play size={18} aria-hidden="true" /></button></div>
             {previewQuery.isLoading ? <Loader2 className="animate-spin text-primary" aria-hidden="true" /> : previewQuery.isError ? <p className="text-sm text-error">Preview gagal dimuat.</p> : <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-surface-subtle rounded-xl p-3"><p className="text-[10px] uppercase text-foreground-muted">Market</p><p className="font-black text-foreground-muted">{previewQuery.data?.affected_scope?.market_codes.join(', ')}</p></div>

@@ -812,8 +812,13 @@ export default function ProfilPage() {
                       <p className="text-[11px] text-muted-foreground select-none">Munculkan notifikasi pop-up saat ada update status kiriman di browser Anda.</p>
                     </div>
                     <button
+                      type="button"
                       onClick={togglePushNotification}
                       disabled={isPushLoading}
+                      role="switch"
+                      aria-checked={pushEnabled}
+                      aria-label="Notifikasi push"
+                      title={pushEnabled ? 'Nonaktifkan notifikasi push' : 'Aktifkan notifikasi push'}
                       className="cursor-pointer select-none disabled:opacity-60 flex items-center gap-2"
                     >
                       {isPushLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />}

@@ -135,11 +135,14 @@ export default function Notifications() {
                   </div>
                   <div className="flex items-center gap-2">
                      <button 
+                        type="button"
                         onClick={() => setFormData({
                           subject: selectedTemplate.subject,
                           content: selectedTemplate.content,
                           channels: selectedTemplate.channels || []
                         })}
+                        aria-label="Reset notification template"
+                        title="Reset notification template"
                         className="p-3 rounded-xl bg-surface-subtle text-foreground-muted hover:text-foreground transition-all"
                       >
                         <RotateCcw size={18} aria-hidden="true" />

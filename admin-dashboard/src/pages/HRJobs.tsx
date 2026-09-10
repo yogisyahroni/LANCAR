@@ -99,6 +99,7 @@ export default function HRJobs() {
       </div>
 
       <div className="glass-card rounded-[40px] border-border overflow-hidden">
+        <div role="region" aria-label="Job postings table" tabIndex={0} className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-border bg-surface/[0.01]">
@@ -119,13 +120,14 @@ export default function HRJobs() {
                   <StatusBadge status={job.status} labelPrefix="Job status" className="text-xs uppercase" />
                 </td>
                 <td className="px-8 py-6 flex gap-3">
-                  <button onClick={() => openEdit(job)} className="text-foreground-muted hover:text-foreground"><Edit size={18} aria-hidden="true" /></button>
-                  <button onClick={() => deleteJob.mutate(job.id)} className="text-error hover:text-error"><Trash2 size={18} aria-hidden="true" /></button>
+                  <button type="button" onClick={() => openEdit(job)} aria-label={`Edit job ${job.title}`} title="Edit job" className="text-foreground-muted hover:text-foreground"><Edit size={18} aria-hidden="true" /></button>
+                  <button type="button" onClick={() => deleteJob.mutate(job.id)} aria-label={`Delete job ${job.title}`} title="Delete job" className="text-error hover:text-error"><Trash2 size={18} aria-hidden="true" /></button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {isModalOpen && (

@@ -798,7 +798,10 @@ export default function PortalLayout({
                   autoFocus
                 />
                 <button
+                  type="button"
                   onClick={() => setIsSearchOpen(false)}
+                  aria-label={t("common.close")}
+                  title={t("common.close")}
                   className="p-1.5 rounded-lg text-foreground-muted hover:bg-surface-subtle dark:hover:bg-surface-subtle hover:text-foreground transition-all cursor-pointer select-none"
                 >
                   <X className="h-4 w-4 shrink-0" aria-hidden="true" />
