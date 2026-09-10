@@ -191,7 +191,7 @@ export default function ChartOfAccounts() {
                     </span>
                   )}
                 </td>
-                <td className="px-6 py-4 text-sm text-foreground-muted truncate max-w-xs">{acc.description}</td>
+                <td className="px-6 py-4 text-sm text-foreground-muted truncate max-w-xs" title={acc.description}>{acc.description}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button 
                     type="button"

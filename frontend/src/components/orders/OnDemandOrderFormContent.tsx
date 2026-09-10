@@ -309,7 +309,7 @@ export function OnDemandOrderFormContent({
                             <p className="font-semibold text-foreground">
                               {service.name}
                             </p>
-                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground" title={service.description}>
                               {service.description}
                             </p>
                             </div>

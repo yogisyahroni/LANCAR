@@ -77,7 +77,7 @@ export const ShippingSelector: React.FC<ShippingSelectorProps> = ({ request, onS
                   <div>
                     <h4 className="font-semibold text-foreground-muted">{tariff.service_name}</h4>
                     <p className="text-xs text-foreground-muted mt-1">Estimasi: {tariff.etd}</p>
-                    <p className="text-xs text-foreground-muted mt-0.5 line-clamp-1">{tariff.description}</p>
+                    <p className="text-xs text-foreground-muted mt-0.5 line-clamp-1" title={tariff.description}>{tariff.description}</p>
                   </div>
                 </div>
                 <div className="text-right">

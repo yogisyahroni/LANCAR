@@ -180,7 +180,7 @@ export default function CourierGrowthConfig() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           {campaign.is_active ? <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" /> : <Target className="h-4 w-4 text-foreground-muted" aria-hidden="true" />}
-                          <h3 className="truncate font-black text-foreground">{campaign.title}</h3>
+                          <h3 className="truncate font-black text-foreground" title={campaign.title}>{campaign.title}</h3>
                         </div>
                         <p className="mt-1 text-xs font-bold uppercase tracking-widest text-foreground-muted">{campaign.code}</p>
                       </div>

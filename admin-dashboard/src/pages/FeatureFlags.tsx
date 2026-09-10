@@ -206,7 +206,7 @@ export default function FeatureFlags() {
                           <p className="text-[10px] text-foreground-muted font-mono mt-0.5">{flag.key}</p>
                         )}
                         {flag.description && (
-                          <p className="text-xs text-foreground-muted mt-1 line-clamp-1">{flag.description}</p>
+                          <p className="text-xs text-foreground-muted mt-1 line-clamp-1" title={flag.description}>{flag.description}</p>
                         )}
                       </td>
                       <td className="px-6 py-5">
@@ -286,10 +286,10 @@ export default function FeatureFlags() {
                   key={String(log.id ?? i)}
                   className="rounded-2xl bg-surface/[0.03] border border-border p-4"
                 >
-                  <p className="text-[11px] font-black text-foreground-muted truncate">
+                  <p className="text-[11px] font-black text-foreground-muted truncate" title={(log.action as string)?.replace(/_/g, ' ') || 'perubahan'}>
                     {(log.action as string)?.replace(/_/g, ' ') || 'perubahan'}
                   </p>
-                  <p className="text-[10px] text-foreground-muted mt-1 line-clamp-2">
+                  <p className="text-[10px] text-foreground-muted mt-1 line-clamp-2" title={log.payload?.reason || log.reason || (typeof log.payload === 'string' ? log.payload : '') || '—'}>
                     {log.payload?.reason || log.reason || (typeof log.payload === 'string' ? log.payload : '') || '—'}
                   </p>
                   <p className="text-[9px] text-foreground-muted font-bold uppercase tracking-widest mt-2">

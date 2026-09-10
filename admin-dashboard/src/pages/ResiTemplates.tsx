@@ -283,7 +283,7 @@ const ResiTemplates = () => {
               )}
               
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-xl font-bold text-foreground truncate">{t.name}</h3>
+                <h3 className="text-xl font-bold text-foreground truncate" title={t.name}>{t.name}</h3>
                 {t.provider_code && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-raised text-foreground-muted uppercase">
                     {t.provider_code}

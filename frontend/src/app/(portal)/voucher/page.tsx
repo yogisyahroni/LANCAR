@@ -310,9 +310,9 @@ export default function VoucherPage() {
                       </span>
                       <BadgePercent className="h-5 w-5 shrink-0 text-success"  aria-hidden="true"/>
                     </div>
-                    <h3 className="mt-3 line-clamp-2 text-sm font-bold text-foreground">{promo.name}</h3>
+                    <h3 className="mt-3 line-clamp-2 text-sm font-bold text-foreground" title={promo.name}>{promo.name}</h3>
                     {promo.description && (
-                      <p className="mt-1.5 line-clamp-3 text-xs leading-5 text-muted-foreground">
+                      <p className="mt-1.5 line-clamp-3 text-xs leading-5 text-muted-foreground" title={promo.description}>
                         {promo.description}
                       </p>
                     )}

@@ -446,10 +446,10 @@ export default function MerchantSettlements() {
                       className="hover:bg-muted/30 transition-colors"
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium text-foreground truncate max-w-[180px]">
+                        <div className="font-medium text-foreground truncate max-w-[180px]" title={`Order: ${item.order_id}`}>
                           Order: {item.order_id}
                         </div>
-                        <div className="text-xs text-muted-foreground truncate max-w-[180px]">
+                        <div className="text-xs text-muted-foreground truncate max-w-[180px]" title={`Merchant: ${item.merchant_id || item.user_id}`}>
                           Merchant: {item.merchant_id || item.user_id}
                         </div>
                       </td>

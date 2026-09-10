@@ -161,7 +161,7 @@ export function AutoPayoutControlSection({ data }: { data: FinanceData }) {
           <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
             {payoutOps?.risk_reason_breakdown?.map((item: any) => (
               <div key={item.reason} className="flex items-center justify-between gap-4 rounded-2xl bg-surface/[0.03] border border-border p-4">
-                <p className="text-xs font-bold text-foreground-muted line-clamp-2">{item.reason}</p>
+                <p className="text-xs font-bold text-foreground-muted line-clamp-2" title={item.reason}>{item.reason}</p>
                 <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary-light">{item.count}</span>
               </div>
             ))}

@@ -98,10 +98,10 @@ export default function MerchantStaff() {
                 <div className="flex min-w-0 items-center gap-3">
                   <UserCircle2 className="h-5 w-5 shrink-0 text-foreground-muted" aria-hidden="true" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-foreground-muted">
+                    <p className="truncate text-sm font-bold text-foreground-muted" title={s.staff_name || s.staff_email || s.staff_phone || '(belum accept)'}>
                       {s.staff_name || s.staff_email || s.staff_phone || '(belum accept)'}
                     </p>
-                    <p className="truncate text-xs text-foreground-muted">
+                    <p className="truncate text-xs text-foreground-muted" title={s.merchant_name || s.merchant_id}>
                       <Store className="mr-1 inline h-3 w-3"  aria-hidden="true"/>
                       {s.merchant_name || s.merchant_id}
                     </p>

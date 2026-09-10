@@ -585,7 +585,7 @@ export default function Couriers() {
                   className="mt-3 flex w-full items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-left text-xs text-foreground-muted"
                 >
                   <Copy size={14} className="shrink-0 text-primary-light" aria-hidden="true" />
-                  <span className="truncate">{generatedLink}</span>
+                  <span className="truncate" title={generatedLink}>{generatedLink}</span>
                 </button>
               )}
               {generatedLinkExpiresAt && (

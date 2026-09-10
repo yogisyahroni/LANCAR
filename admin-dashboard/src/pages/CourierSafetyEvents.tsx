@@ -199,7 +199,7 @@ export default function CourierSafetyEvents() {
                         {event.severity}
                       </span>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-sm text-foreground-muted">{event.message || 'Tidak ada catatan tambahan.'}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-foreground-muted" title={event.message || 'Tidak ada catatan tambahan.'}>{event.message || 'Tidak ada catatan tambahan.'}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest">
                       <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-primary-light">
                         {queueLabels[event.routing?.queueCode] || event.routing?.queueCode || 'Queue belum dipetakan'}
@@ -214,11 +214,11 @@ export default function CourierSafetyEvents() {
                 <div className="grid gap-2 text-sm text-foreground-muted sm:grid-cols-2">
                   <div className="flex items-center gap-2">
                     <UserRound className="h-4 w-4 text-primary-light" aria-hidden="true" />
-                    <span className="truncate">{event.courier_name || 'Courier'}</span>
+                    <span className="truncate" title={event.courier_name || 'Courier'}>{event.courier_name || 'Courier'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-primary-light" aria-hidden="true" />
-                    <span className="truncate">{event.order_id || 'Tanpa order'}</span>
+                    <span className="truncate" title={event.order_id || 'Tanpa order'}>{event.order_id || 'Tanpa order'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-primary-light" aria-hidden="true" />

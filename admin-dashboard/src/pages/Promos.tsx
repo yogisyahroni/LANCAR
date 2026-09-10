@@ -781,7 +781,7 @@ function PromoCampaignCard({
             )}
           </div>
           <h3 className="mt-4 text-xl font-black tracking-tight text-foreground-muted">{campaign.name}</h3>
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground-muted">{campaign.description || 'Tidak ada deskripsi campaign.'}</p>
+          <p className="mt-2 line-clamp-2 text-sm leading-6 text-foreground-muted" title={campaign.description || 'Tidak ada deskripsi campaign.'}>{campaign.description || 'Tidak ada deskripsi campaign.'}</p>
         </div>
         <BadgePercent className="h-8 w-8 text-success" aria-hidden="true" />
       </div>
@@ -937,7 +937,7 @@ function MiniMetric({ icon: Icon, label, value }: { icon: any; label: string; va
         <Icon className="h-3.5 w-3.5" aria-hidden="true" />
         <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
       </div>
-      <p className="mt-2 truncate text-sm font-black text-foreground-muted">{value}</p>
+      <p className="mt-2 truncate text-sm font-black text-foreground-muted" title={value}>{value}</p>
     </div>
   )
 }

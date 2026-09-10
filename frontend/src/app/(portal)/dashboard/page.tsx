@@ -379,7 +379,7 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between z-10">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Total Belanja</p>
-              <p className="text-xl font-extrabold text-foreground mt-2 truncate">
+              <p className="text-xl font-extrabold text-foreground mt-2 truncate" title={formatIDR(totalSpend)}>
                 {formatIDR(totalSpend)}
               </p>
             </div>

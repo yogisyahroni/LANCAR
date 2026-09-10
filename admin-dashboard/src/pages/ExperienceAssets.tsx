@@ -317,7 +317,7 @@ export default function ExperienceAssets({
                 className={`w-full rounded-2xl border p-3 text-left transition ${selected?.key === asset.key ? "border-primary/50 bg-primary/10" : "border-border bg-surface-subtle hover:border-border"}`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="truncate font-mono text-xs font-bold text-foreground-muted">
+                  <span className="truncate font-mono text-xs font-bold text-foreground-muted" title={asset.asset_id}>
                     {asset.asset_id}
                   </span>
                   <span
@@ -326,7 +326,7 @@ export default function ExperienceAssets({
                     {asset.lifecycle.replace("_", " ")}
                   </span>
                 </div>
-                <p className="mt-2 truncate text-[10px] text-foreground-muted">
+                <p className="mt-2 truncate text-[10px] text-foreground-muted" title={`${asset.content_type || asset.kind} · v${asset.version || "1"}`}>
                   {asset.content_type || asset.kind} · v{asset.version || "1"}
                 </p>
                 <p className="mt-1 text-[10px] text-foreground-muted">

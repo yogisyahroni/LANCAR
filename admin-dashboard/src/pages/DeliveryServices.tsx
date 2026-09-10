@@ -460,7 +460,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
                 <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-bold">{count}</span>
               </div>
               <p className="mt-3 text-sm font-bold">{category.label}</p>
-              <p className="mt-1 line-clamp-2 text-xs text-foreground-muted">{category.description}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-foreground-muted" title={category.description}>{category.description}</p>
             </button>
           )
         })}
@@ -509,7 +509,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
                       {service.is_enabled ? 'Active' : 'Off'}
                     </span>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-xs text-foreground-muted">{service.description}</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-foreground-muted" title={service.description}>{service.description}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-foreground-muted">
                     <span className="rounded-full border border-border px-2 py-1">{displayLabel(service.service_category || 'on_demand', serviceCategories)}</span>
                     <span className="rounded-full border border-border px-2 py-1">{displayLabel(service.service_family, serviceFamilies)}</span>

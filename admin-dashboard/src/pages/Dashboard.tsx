@@ -281,7 +281,7 @@ export default function Dashboard() {
                       <p className="text-sm font-bold text-foreground-muted">{item.title}</p>
                       <p className="text-[10px] text-foreground-muted uppercase">{item.type}</p>
                     </div>
-                    <p className="text-xs text-foreground-muted mt-0.5 line-clamp-1">{item.description}</p>
+                    <p className="text-xs text-foreground-muted mt-0.5 line-clamp-1" title={item.description}>{item.description}</p>
                     <p className="text-[10px] text-foreground-muted mt-1">{new Date(item.created_at).toLocaleTimeString()}</p>
                   </div>
                 </div>

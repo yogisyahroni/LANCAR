@@ -167,7 +167,7 @@ export default function News() {
                   </div>
                 </div>
               </div>
-              <p className="text-sm text-foreground-muted line-clamp-3 mb-6 flex-1">
+              <p className="text-sm text-foreground-muted line-clamp-3 mb-6 flex-1" title={item.content}>
                 {item.content}
               </p>
               <div className="flex items-center gap-2 mt-auto pt-4 border-t border-border">

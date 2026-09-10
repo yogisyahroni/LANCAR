@@ -637,7 +637,7 @@ export function OrderSummary({
             <p className="mb-3 font-semibold text-info">{t('order.packageFacts')}</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
               <span className="text-muted-foreground">{t('order.quantity')}</span><span className="text-right font-semibold">{formatNumber(pricing.package_facts.quantity || 1, locale)}</span>
-              <span className="text-muted-foreground">{t('order.category')}</span><span className="truncate text-right font-semibold">{pricing.package_facts.category || '-'}</span>
+              <span className="text-muted-foreground">{t('order.category')}</span><span className="truncate text-right font-semibold" title={pricing.package_facts.category || '-'}>{pricing.package_facts.category || '-'}</span>
               <span className="text-muted-foreground">{t('order.actualWeight')}</span><span className="text-right font-semibold">{t('order.weightUnit', { weight: formatNumber(pricing.actual_weight_kg ?? 0, locale) })}</span>
               <span className="text-muted-foreground">{t('order.volumetricWeight')}</span><span className="text-right font-semibold">{t('order.weightUnit', { weight: formatNumber(pricing.dimensional_weight_kg ?? 0, locale) })}</span>
               <span className="text-muted-foreground">{t('order.itemValue')}</span><span className="text-right font-semibold">{formatMoneyForLocale(Number(pricing.package_facts.item_value_idr || 0), "IDR", 0)}</span>

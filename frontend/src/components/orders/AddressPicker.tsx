@@ -386,7 +386,7 @@ export function AddressPicker({
               <div className="flex items-start gap-3 min-w-0">
                 <MapPin aria-hidden="true" className={`mt-0.5 h-4 w-4 shrink-0 ${accentClass}`} />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">{address}</p>
+                  <p className="text-sm font-medium text-foreground leading-snug line-clamp-2" title={address}>{address}</p>
                   {location && (
                     <span className="mt-1 block text-[11px] text-success">✓ Titik lokasi tersimpan</span>
                   )}
@@ -525,7 +525,7 @@ export function AddressPicker({
               <p className="font-medium text-foreground">
                 {location ? "Titik lokasi siap" : "Titik lokasi belum dipilih"}
               </p>
-              <span data-testid={`${mode}-coordinate-label`} className="mt-1 block truncate">
+              <span data-testid={`${mode}-coordinate-label`} className="mt-1 block truncate" title={formatCoordinate(location)}>
                 {formatCoordinate(location)}
               </span>
             </div>
@@ -549,8 +549,8 @@ export function AddressPicker({
             >
               <MapPin aria-hidden="true" className={`mt-0.5 h-4 w-4 shrink-0 ${accentClass}`} />
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-foreground">{suggestion.label}</span>
-                <span className="block line-clamp-1 text-xs text-muted-foreground">{suggestion.detail}</span>
+                <span className="block truncate text-sm font-medium text-foreground" title={suggestion.label}>{suggestion.label}</span>
+                <span className="block line-clamp-1 text-xs text-muted-foreground" title={suggestion.detail}>{suggestion.detail}</span>
               </span>
               <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
                 {addressSuggestionSourceLabel[suggestion.source]}

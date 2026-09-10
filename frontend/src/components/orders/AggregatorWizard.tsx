@@ -926,7 +926,7 @@ export function AggregatorWizard() {
                     <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Alamat
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-info truncate">{watch("pickup_address") || "—"}</p>
+                    <p className="text-sm text-info truncate" title={watch("pickup_address") || "—"}>{watch("pickup_address") || "—"}</p>
                     <p className="text-xs text-muted-foreground/60 mt-0.5">Lokasi belum dipinpoint</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1213,8 +1213,8 @@ export function AggregatorWizard() {
                           <div className="flex items-start justify-between">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">Pesanan 1</p>
-                              <p className="truncate text-xs text-muted-foreground">{watch("recipient_name") || "—"}</p>
-                              <p className="truncate text-xs text-muted-foreground">{watch("recipient_phone") || "—"}</p>
+                              <p className="truncate text-xs text-muted-foreground" title={watch("recipient_name") || "—"}>{watch("recipient_name") || "—"}</p>
+                              <p className="truncate text-xs text-muted-foreground" title={watch("recipient_phone") || "—"}>{watch("recipient_phone") || "—"}</p>
                             </div>
                             <span className="ml-2 shrink-0 text-xs text-warning">Editing</span>
                           </div>

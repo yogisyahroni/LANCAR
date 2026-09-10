@@ -175,7 +175,7 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-foreground-muted">{item.courier_name}</p>
+                    <p className="truncate text-sm font-black text-foreground-muted" title={item.courier_name}>{item.courier_name}</p>
                     <p className="mt-1 text-[11px] font-mono text-foreground-muted">{item.request_number}</p>
                   </div>
                   <span className={cn(
@@ -192,7 +192,7 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                   <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{payoutStatusLabel(item)}</p>
                 </div>
                 {item.risk_reasons?.length > 0 && (
-                  <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-foreground-muted">{item.risk_reasons.slice(0, 2).join(' • ')}</p>
+                  <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-foreground-muted" title={item.risk_reasons.slice(0, 2).join(' • ')}>{item.risk_reasons.slice(0, 2).join(' • ')}</p>
                 )}
               </button>
             ))}
@@ -252,9 +252,9 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                       Device / IP Metadata
                     </p>
                     <div className="grid grid-cols-1 gap-3 text-sm">
-                      <div className="flex justify-between gap-4"><span className="text-foreground-muted">Device</span><b className="text-foreground-muted truncate">{reviewRisk?.device_id || '-'}</b></div>
+                      <div className="flex justify-between gap-4"><span className="text-foreground-muted">Device</span><b className="text-foreground-muted truncate" title={reviewRisk?.device_id || '-'}>{reviewRisk?.device_id || '-'}</b></div>
                       <div className="flex justify-between gap-4"><span className="text-foreground-muted">IP Address</span><b className="text-foreground-muted">{reviewRisk?.ip_address || '-'}</b></div>
-                      <div className="flex justify-between gap-4"><span className="text-foreground-muted">User Agent</span><b className="text-foreground-muted truncate">{reviewRisk?.user_agent || '-'}</b></div>
+                      <div className="flex justify-between gap-4"><span className="text-foreground-muted">User Agent</span><b className="text-foreground-muted truncate" title={reviewRisk?.user_agent || '-'}>{reviewRisk?.user_agent || '-'}</b></div>
                     </div>
                   </div>
 

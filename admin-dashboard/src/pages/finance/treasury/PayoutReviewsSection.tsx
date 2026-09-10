@@ -151,7 +151,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
               <div key={account.id} className="p-5 rounded-[28px] bg-surface/[0.02] border border-border space-y-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-base font-black text-foreground-muted truncate">{account.courier_name}</p>
+                    <p className="text-base font-black text-foreground-muted truncate" title={account.courier_name}>{account.courier_name}</p>
                     <p className="text-xs text-foreground-muted mt-1">{account.courier_phone || '-'} • {account.application_channel || 'courier'}</p>
                   </div>
                   <StatusBadge status={account.status} labelPrefix="Payout account status" className="text-[10px] uppercase tracking-widest" />
@@ -168,7 +168,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                   </div>
                   <div className="p-3 rounded-2xl bg-surface-subtle border border-border min-w-0">
                     <p className="text-[9px] text-foreground-muted font-black uppercase tracking-widest">Nama</p>
-                    <p className="text-sm font-black text-foreground-muted mt-1 truncate">{account.account_name}</p>
+                    <p className="text-sm font-black text-foreground-muted mt-1 truncate" title={account.account_name}>{account.account_name}</p>
                   </div>
                 </div>
 
@@ -237,7 +237,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
               <div key={request.id} className="p-5 rounded-[28px] bg-surface/[0.02] border border-border space-y-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-base font-black text-foreground-muted truncate">{request.courier_name}</p>
+                    <p className="text-base font-black text-foreground-muted truncate" title={request.courier_name}>{request.courier_name}</p>
                     <p className="text-xs text-foreground-muted mt-1">{request.request_number} • {format(new Date(request.requested_at), 'dd MMM yyyy HH:mm')}</p>
                   </div>
                   <StatusBadge status={request.status} label={payoutStatusLabel(request)} labelPrefix="Payout request status" className="text-[10px] uppercase tracking-widest" />
@@ -250,7 +250,7 @@ export function PayoutReviewsSection({ data }: { data: FinanceData }) {
                       <StatusBadge status={request.risk_decision === 'auto_approved' ? 'approved_auto' : request.risk_decision === 'blocked' ? 'blocked' : 'pending_review'} label={`${riskActionLabel(request)} • ${request.risk_score ?? 0}`} labelPrefix="Risk decision" className="text-[9px] uppercase tracking-widest" />
                     </div>
                     {request.risk_reasons?.length > 0 && (
-                      <p className="mt-2 line-clamp-2 text-xs text-foreground-muted">{request.risk_reasons.slice(0, 2).join(' • ')}</p>
+                      <p className="mt-2 line-clamp-2 text-xs text-foreground-muted" title={request.risk_reasons.slice(0, 2).join(' • ')}>{request.risk_reasons.slice(0, 2).join(' • ')}</p>
                     )}
                   </div>
                 )}

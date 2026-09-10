@@ -407,7 +407,7 @@ export default function Merchants() {
                   <dl className="mt-3 space-y-2 text-sm">
                     <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Badan usaha</dt><dd className="text-right text-foreground-muted">{merchantDetail?.legal_entity_type || merchantDetail?.business_type || '—'}</dd></div>
                     <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Nama legal</dt><dd className="text-right text-foreground-muted">{merchantDetail?.legal_name || merchantDetail?.nama_toko || '—'}</dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Payout reference</dt><dd className="max-w-[65%] truncate text-right text-foreground-muted">{merchantDetail?.payout_account_reference || '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Payout reference</dt><dd className="max-w-[65%] truncate text-right text-foreground-muted" title={merchantDetail?.payout_account_reference || '—'}>{merchantDetail?.payout_account_reference || '—'}</dd></div>
                     <div className="flex justify-between gap-3"><dt className="text-foreground-muted">Bank</dt><dd className="text-right text-foreground-muted">{merchantDetail?.bank_name || '—'}{merchantDetail?.bank_account_verified ? ' · terverifikasi' : ''}</dd></div>
                   </dl>
                 </div>
@@ -437,7 +437,7 @@ export default function Merchants() {
                       >
                         <FileCheck2 className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-foreground-muted">{docTypeLabels[doc.doc_type] || doc.doc_type}</p>
+                          <p className="truncate text-sm font-bold text-foreground-muted" title={docTypeLabels[doc.doc_type] || doc.doc_type}>{docTypeLabels[doc.doc_type] || doc.doc_type}</p>
                           <p className="text-xs text-foreground-muted">{new Date(doc.uploaded_at).toLocaleString('id-ID')}</p>
                         </div>
                         <ExternalLink className="h-4 w-4 shrink-0 text-foreground-muted" aria-hidden="true" />

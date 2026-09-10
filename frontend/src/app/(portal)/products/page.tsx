@@ -567,7 +567,7 @@ export default function ProductsPage() {
                     <div className="mt-3 flex items-center justify-between p-3 bg-muted rounded-lg border border-border">
                       <div className="flex items-center gap-2 overflow-hidden">
                         <FileSpreadsheet className="w-4 h-4 text-primary flex-shrink-0" aria-hidden="true" />
-                        <span className="text-sm font-medium truncate">{bulkFile.name}</span>
+                        <span className="text-sm font-medium truncate" title={bulkFile.name}>{bulkFile.name}</span>
                       </div>
                       <button
                         type="button"

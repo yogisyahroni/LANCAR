@@ -487,8 +487,8 @@ function RegisterContent() {
                 <UserRound className="h-4 w-4 text-primary" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                {fullName && <p className="text-sm font-semibold text-foreground truncate">{fullName}</p>}
-                {email && <p className="text-xs text-muted-foreground truncate">{email}</p>}
+                {fullName && <p className="text-sm font-semibold text-foreground truncate" title={fullName}>{fullName}</p>}
+                {email && <p className="text-xs text-muted-foreground truncate" title={email}>{email}</p>}
               </div>
               <span className="ml-auto text-xs font-semibold text-primary bg-primary/10 px-2 py-1 rounded-lg shrink-0">
                 Google

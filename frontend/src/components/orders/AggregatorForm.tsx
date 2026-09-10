@@ -511,7 +511,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                 {pickupAddress.city && (
                   <p className="mt-0.5 text-xs text-muted-foreground">{pickupAddress.city}</p>
                 )}
-                <p className="mt-0.5 text-xs text-foreground leading-snug line-clamp-2">{pickupAddress.address}</p>
+                <p className="mt-0.5 text-xs text-foreground leading-snug line-clamp-2" title={pickupAddress.address}>{pickupAddress.address}</p>
               </div>
             </div>
             <button

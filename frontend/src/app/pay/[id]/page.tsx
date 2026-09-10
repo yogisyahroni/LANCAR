@@ -107,7 +107,7 @@ export default async function PaymentLinkPage({ params }: { params: Promise<{ id
                   {link.store_name}
                 </div>
               )}
-              <h3 className="text-xl font-bold text-foreground line-clamp-2">{link.item_name}</h3>
+              <h3 className="text-xl font-bold text-foreground line-clamp-2" title={link.item_name}>{link.item_name}</h3>
               <p className="text-primary font-semibold mt-1">{formatPrice(link.item_price)}</p>
             </div>
           </div>
