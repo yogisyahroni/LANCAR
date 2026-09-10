@@ -237,7 +237,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
               <div className="pt-4">
                 <button 
                   disabled={mutation.isPending}
-                  className="w-full py-5 rounded-2xl bg-primary hover:bg-primary-light text-on-primary font-black uppercase tracking-widest shadow-xl shadow-primary/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-5 rounded-2xl bg-primary hover:bg-primary-light text-on-primary font-black uppercase tracking-wide shadow-xl shadow-primary/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {mutation.isPending ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
                   Confirm Schedule
@@ -274,7 +274,7 @@ function DataState({
     )}>
       <AlertCircle className={cn("w-10 h-10", isError ? "text-error" : "text-foreground-muted")} aria-hidden="true" />
       <div>
-        <p className="text-sm font-black uppercase tracking-widest text-foreground-muted">{title}</p>
+        <p className="text-sm font-black uppercase tracking-wide text-foreground-muted">{title}</p>
         <p className="text-xs text-foreground-muted mt-2 max-w-sm">{message}</p>
       </div>
       {onRetry && (
@@ -282,7 +282,7 @@ function DataState({
           type="button"
           onClick={onRetry}
           className={cn(
-            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
+            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-xs font-black uppercase tracking-wide transition-all",
             isError ? "bg-error-surface border-error text-error hover:bg-error-surface" : "bg-surface-subtle border-border text-foreground-muted hover:text-foreground"
           )}
         >
@@ -466,7 +466,7 @@ export default function Analytics() {
                 key={r}
                 onClick={() => setTimeRange(r)}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all",
                   timeRange === r ? "bg-primary text-on-primary shadow-lg shadow-primary/20" : "text-foreground-muted hover:text-foreground-muted"
                 )}
               >
@@ -514,7 +514,7 @@ export default function Analytics() {
                      <Icon size={24} aria-hidden="true" />
                   </div>
                   <div className={cn(
-                    "flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full",
+                    "flex items-center gap-1 text-xs font-black px-2 py-1 rounded-full",
                     stat.up ? "bg-success-surface text-success" : "bg-error-surface text-error"
                   )}>
                      {stat.up ? <ArrowUpRight size={10} aria-hidden="true" /> : <ArrowDownRight size={10} aria-hidden="true" />}
@@ -522,7 +522,7 @@ export default function Analytics() {
                   </div>
                </div>
                <div className="mt-6">
-                  <p className="text-xs font-black text-foreground-muted uppercase tracking-widest">{stat.label}</p>
+                  <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{stat.label}</p>
                   <p className="text-3xl font-black text-foreground-muted mt-1 tracking-tighter">{stat.value}</p>
                </div>
             </div>
@@ -539,7 +539,7 @@ export default function Analytics() {
             </h2>
             <p className="text-xs text-foreground-muted mt-2">Semua metrik global berasal dari governed event stream dan memakai definisi kontrak yang sama.</p>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Contract {canonicalAnalyticsPayload?.contract_version || '—'}</span>
+          <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">Contract {canonicalAnalyticsPayload?.contract_version || '—'}</span>
         </div>
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-3">
           {(canonicalAnalyticsPayload?.definitions || []).map((definition: any) => (
@@ -549,7 +549,7 @@ export default function Analytics() {
                 <span className="text-xs font-bold text-primary-light">{definition.unit}</span>
               </div>
               <p className="mt-2 text-xs leading-relaxed text-foreground-muted">{definition.description}</p>
-              <p className="mt-2 text-[10px] text-foreground-muted">Source: {definition.source_of_truth}</p>
+              <p className="mt-2 text-xs text-foreground-muted">Source: {definition.source_of_truth}</p>
             </div>
           ))}
         </div>
@@ -564,7 +564,7 @@ export default function Analytics() {
             </h2>
             <p className="text-xs text-foreground-muted mt-2">Fetch, render, asset, deeplink, startup, dan network metrics per revision. Impression/click/dismiss dipisahkan dari guardrail reliability.</p>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Window {timeRange}</span>
+          <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">Window {timeRange}</span>
         </div>
         {experienceObservabilityLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-8 gap-3">
@@ -602,7 +602,7 @@ export default function Analytics() {
                 </div>
               ))}
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-widest text-foreground-muted">
+            <div className="flex flex-wrap items-center gap-3 text-xs font-black uppercase tracking-wide text-foreground-muted">
               <span className="rounded-full bg-success-surface px-3 py-2 text-success">Core guardrail: {experienceSummary.reliability_failures}/{experienceSummary.reliability_total} failures</span>
               <span className="rounded-full bg-primary/10 px-3 py-2 text-primary-light">Fetch latency p95: {experienceSummary.fetch_latency_p95_ms} ms</span>
               <span className="rounded-full bg-surface-subtle px-3 py-2">Marketing: {experienceSummary.impressions} imp • {experienceSummary.clicks} click • {experienceSummary.dismissals} dismiss</span>
@@ -646,7 +646,7 @@ export default function Analytics() {
             </h2>
             <p className="text-xs text-foreground-muted mt-2">Metrik dihitung dari fakta order, leg, proof, merchant, provider, dan finance pada window yang dipilih.</p>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">{serviceKpiPayload?.window?.range || timeRange} • no-data = belum ada fakta</span>
+          <span className="text-xs font-black uppercase tracking-wide text-foreground-muted">{serviceKpiPayload?.window?.range || timeRange} • no-data = belum ada fakta</span>
         </div>
         {serviceKpisLoading ? (
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -679,7 +679,7 @@ export default function Analytics() {
                 <div className="space-y-2">
                   {Object.entries(service.metrics || {}).map(([key, value]) => (
                     <div key={key} className="flex items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
-                      <span className="text-[10px] font-bold capitalize text-foreground-muted">{serviceKpiMetricLabel(key)}</span>
+                      <span className="text-xs font-bold capitalize text-foreground-muted">{serviceKpiMetricLabel(key)}</span>
                       <span className={cn('text-xs font-black text-right', value === null || value === undefined ? 'text-foreground-muted' : 'text-foreground-muted')}>
                         {formatServiceKpiMetric(key, value)}
                       </span>
@@ -689,7 +689,7 @@ export default function Analytics() {
                 {service.provider_mix?.length > 0 && (
                   <div className="border-t border-border pt-3">
                     <p className="text-xs font-bold text-foreground-muted">Provider mix</p>
-                    <p className="mt-1 text-[10px] text-foreground-muted">{service.provider_mix.map((provider: any) => `${provider.provider} ${provider.share_pct ?? 'No data'}%`).join(' • ')}</p>
+                    <p className="mt-1 text-xs text-foreground-muted">{service.provider_mix.map((provider: any) => `${provider.provider} ${provider.share_pct ?? 'No data'}%`).join(' • ')}</p>
                   </div>
                 )}
               </div>
@@ -709,15 +709,15 @@ export default function Analytics() {
               <div className="flex gap-4">
                  <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-primary" />
-                    <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">South</span>
+                    <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">South</span>
                  </div>
                  <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-success" />
-                    <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Central</span>
+                    <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">Central</span>
                  </div>
                  <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-info" />
-                    <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">West</span>
+                    <span className="text-xs font-black text-foreground-muted uppercase tracking-wide">West</span>
                  </div>
               </div>
            </div>
@@ -811,7 +811,7 @@ export default function Analytics() {
                 </div>
               )}
               <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
-                <div className="px-3 py-1.5 rounded-lg bg-scrim/60 backdrop-blur-md border border-border text-[10px] font-black text-foreground-muted uppercase tracking-widest">
+                <div className="px-3 py-1.5 rounded-lg bg-scrim/60 backdrop-blur-md border border-border text-xs font-black text-foreground-muted uppercase tracking-wide">
                   {hasRows(heatData) ? 'Live Courier Density' : 'Waiting for Database Points'}
                 </div>
               </div>
@@ -828,7 +828,7 @@ export default function Analytics() {
                  <Zap className="text-warning" size={24} aria-hidden="true" />
                  Surge Intelligence
               </h2>
-              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Peak Frequency vs Impact</p>
+              <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Peak Frequency vs Impact</p>
            </div>
           <div className="h-[350px] w-full" role="group" aria-label="Grafik frekuensi dan dampak surge" aria-describedby="surge-chart-summary">
               <p id="surge-chart-summary" className="sr-only">Grafik membandingkan frekuensi surge dan impact multiplier dari data pricing analytics.</p>
@@ -874,7 +874,7 @@ export default function Analytics() {
                  <Package className="text-primary-light" size={24}  aria-hidden="true"/>
                  Scan Reliability
               </h2>
-              <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Confidence Distribution</p>
+              <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">Confidence Distribution</p>
            </div>
            <div className="h-[350px] w-full" role="group" aria-label="Histogram reliabilitas hasil scan" aria-describedby="accuracy-chart-summary">
               <p id="accuracy-chart-summary" className="sr-only">Histogram menampilkan distribusi confidence hasil scan dimensi.</p>
@@ -912,7 +912,7 @@ export default function Analytics() {
       <div className="glass-card p-10 rounded-[48px] border-border space-y-10">
          <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black text-foreground-muted italic uppercase">Retention Cohort</h2>
-            <span className="px-4 py-2 rounded-full bg-primary/10 text-primary-light text-[10px] font-black uppercase tracking-widest">Retention Matrix %</span>
+            <span className="px-4 py-2 rounded-full bg-primary/10 text-primary-light text-xs font-black uppercase tracking-wide">Retention Matrix %</span>
          </div>
          {retentionLoading ? (
            <div className="space-y-3">
@@ -938,10 +938,10 @@ export default function Analytics() {
             <table className="w-full text-left border-separate border-spacing-y-2">
                <thead>
                   <tr>
-                     <th scope="col" className="pb-4 pl-4 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Cohort</th>
-                     <th scope="col" className="pb-4 text-[10px] font-black text-foreground-muted uppercase tracking-widest">Size</th>
+                     <th scope="col" className="pb-4 pl-4 text-xs font-black text-foreground-muted uppercase tracking-wide">Cohort</th>
+                     <th scope="col" className="pb-4 text-xs font-black text-foreground-muted uppercase tracking-wide">Size</th>
                      {['M1', 'M2', 'M3', 'M4', 'M5'].map(m => (
-                       <th scope="col" key={m} className="pb-4 text-center text-[10px] font-black text-foreground-muted uppercase tracking-widest">{m}</th>
+                       <th scope="col" key={m} className="pb-4 text-center text-xs font-black text-foreground-muted uppercase tracking-wide">{m}</th>
                      ))}
                   </tr>
                </thead>
@@ -984,7 +984,7 @@ export default function Analytics() {
             </h2>
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2"
+              className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide hover:bg-primary-light transition-all flex items-center gap-2"
             >
               <Plus size={16} aria-hidden="true" />
               New Schedule
@@ -1024,15 +1024,15 @@ export default function Analytics() {
                    <div>
                       <h3 className="font-bold text-foreground-muted">{report.name}</h3>
                       <div className="flex items-center gap-4 mt-2">
-                         <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{report.frequency}</p>
+                         <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{report.frequency}</p>
                          <div className="h-1 w-1 rounded-full bg-surface-raised" />
-                         <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">{report.time_slot}</p>
+                         <p className="text-xs font-black text-foreground-muted uppercase tracking-wide">{report.time_slot}</p>
                       </div>
                    </div>
                    <div className="flex items-center justify-between pt-4 border-t border-border">
                       <div className="flex items-center gap-2">
                          <Mail size={12} className="text-foreground-muted" aria-hidden="true" />
-                         <span className="text-[10px] font-bold text-foreground-muted">{report.recipient_emails?.length} Recipients</span>
+                         <span className="text-xs font-bold text-foreground-muted">{report.recipient_emails?.length} Recipients</span>
                       </div>
                       <button type="button" aria-label={`Open scheduled report ${report.name}`} title={`Open scheduled report ${report.name}`} className="p-2 text-foreground-muted hover:text-foreground-muted transition-colors">
                          <ChevronRight size={18} aria-hidden="true" />
@@ -1043,7 +1043,7 @@ export default function Analytics() {
               {reports?.length === 0 && (
                 <div className="col-span-full py-20 text-center space-y-4">
                   <Calendar className="mx-auto text-foreground-muted" size={48} aria-hidden="true" />
-                  <p className="text-foreground-muted font-bold uppercase tracking-[0.2em] text-xs">No active automation schedules</p>
+                  <p className="text-foreground-muted font-bold uppercase tracking-wide text-xs">No active automation schedules</p>
                 </div>
               )}
            </div>
