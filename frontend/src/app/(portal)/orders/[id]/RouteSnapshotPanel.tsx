@@ -72,11 +72,12 @@ export function RouteSnapshotPanel({
         </div>
         <div className="flex flex-col items-end gap-2">
           <span
-            className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${isCancelled ? "bg-surface-subtle text-foreground-muted" : "bg-success/10 text-success"}`}
+            className={`rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${isCancelled ? "border-border bg-surface-subtle text-foreground-muted" : "border-success/20 bg-success-surface text-success"}`}
+            aria-label={`Provider rute: ${provider}`}
           >
             {provider}
           </span>
-          <span className="rounded-full bg-surface-subtle px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span className="rounded-full border border-border bg-surface-subtle px-3 py-1 text-xs font-bold tracking-wide text-muted-foreground" aria-label={`Profil rute: ${routeProfile}`}>
             {routeProfile}
           </span>
         </div>
@@ -90,10 +91,10 @@ export function RouteSnapshotPanel({
 
         {isCancelled ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-scrim/60 backdrop-blur-[2px]">
-            <p className="text-sm font-bold text-foreground-muted uppercase tracking-widest text-center">
-              RUTE DIBATALKAN
+            <p className="text-sm font-bold text-foreground-muted text-center">
+              Rute dibatalkan
             </p>
-            <p className="text-[10px] text-foreground-muted mt-1">
+            <p className="text-xs text-foreground-muted mt-1">
               Sistem pelacakan dihentikan
             </p>
           </div>

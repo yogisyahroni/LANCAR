@@ -13,14 +13,14 @@ export function OrderServiceBadge({ compact = false, ...order }: OrderServiceBad
   return (
     <div className="space-y-1.5" aria-label={`Layanan ${presentation.label}`}>
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold ${isAggregator ? "border-info bg-info-surface text-info" : "border-success bg-success-surface text-success"}`}>
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold ${isAggregator ? "border-info bg-info-surface text-info" : "border-success bg-success-surface text-success"}`}>
           {createElement(ServiceIcon, { className: "h-3 w-3", "aria-hidden": true })}
           {presentation.label}
         </span>
         {!compact && <span className="text-xs text-foreground-secondary">{presentation.description}</span>}
       </div>
       {isAggregator && (
-        <div className="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+        <div className="flex flex-wrap items-center gap-1 text-xs font-semibold">
           <span className="rounded border border-success/20 bg-success/5 px-2 py-0.5 text-success">{presentation.firstMileLabel}</span>
           <ArrowRight className="h-3 w-3 text-foreground-muted" aria-hidden="true" />
           <span className="inline-flex items-center gap-1 rounded border border-info bg-info-surface px-2 py-0.5 text-info">

@@ -60,7 +60,7 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
           type="button"
           onClick={onRetry}
           className={cn(
-            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
+            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-sm font-bold transition-all",
             isError ? "bg-error-surface border-error text-error dark:text-error hover:bg-error-surface" : "bg-surface-subtle dark:bg-surface-subtle border-border dark:border-border text-foreground-muted hover:text-foreground"
           )}
         >
@@ -133,7 +133,7 @@ export default function PaymentLinksPage() {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-black text-sm uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          className="px-6 py-3 rounded-2xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-light shadow-lg shadow-primary/20 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
         >
           <Plus size={18} aria-hidden="true" />
           Create Link
@@ -188,7 +188,7 @@ export default function PaymentLinksPage() {
                     <span
                       aria-label={`Status payment link: ${paymentLinkStatusLabel(link.status)}`}
                       className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold",
                       isPaid ? "bg-success/10 text-success dark:text-success" :
                       isExpired ? "bg-error-surface text-error dark:text-error" : "bg-warning-surface text-warning dark:text-warning"
                     )}>
@@ -228,7 +228,7 @@ export default function PaymentLinksPage() {
                     <p className="text-xs font-bold text-foreground mt-3">{new Date(link.expired_at).toLocaleDateString()} {new Date(link.expired_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     <div className="flex items-center gap-1.5 mt-2">
                        <p className={cn(
-                         "text-[10px] font-black uppercase tracking-wider",
+                         "text-xs font-bold",
                          !isExpired ? "text-primary-light" : "text-error"
                        )}>
                         {!isExpired ? 'Active' : 'Expired'}
@@ -242,7 +242,7 @@ export default function PaymentLinksPage() {
                    onClick={() => handleCopy(link.id, link.payment_url)}
                    disabled={isExpired || isPaid}
                    className={cn(
-                       "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
+                       "flex-1 py-4 rounded-2xl font-bold text-sm transition-all border flex items-center justify-center gap-2",
                        copiedId === link.id ? "bg-success/20 text-success dark:text-success border-success/30" : "bg-surface-subtle dark:bg-surface-subtle text-foreground-muted dark:text-foreground-muted hover:bg-primary/20 hover:text-primary-light border-border dark:border-border hover:border-primary/20",
                        (isExpired || isPaid) ? "opacity-60 cursor-not-allowed" : ""
                    )}

@@ -43,7 +43,7 @@ const getDisputeStatusPresentation = (status?: string) => {
 function DisputeStatusBadge({ status }: { status?: string }) {
   const presentation = getDisputeStatusPresentation(status);
   return (
-    <span aria-label={`Status dispute: ${presentation.label}`} className={cn('inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-[10px] font-black', presentation.className)}>
+    <span aria-label={`Status dispute: ${presentation.label}`} data-status-badge="true" className={cn('inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-bold', presentation.className)}>
       {createElement(presentation.icon, { size: 13, 'aria-hidden': true })}
       {presentation.label}
     </span>
@@ -154,7 +154,7 @@ export default function DisputesPage() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-primary uppercase tracking-widest px-2 py-1 bg-primary/10 rounded-md">
+                    <span className="text-xs font-bold text-primary px-2 py-1 bg-primary/10 rounded-md">
                       {dispute.order_number}
                     </span>
                     <span className="text-xs font-bold text-muted-foreground">
@@ -169,7 +169,7 @@ export default function DisputesPage() {
 
                 <div className="flex items-center gap-6">
                   <div className="text-right hidden md:block">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Status</p>
+                    <p className="text-xs font-bold text-muted-foreground mb-1">Status</p>
                     <DisputeStatusBadge status={dispute.status} />
                   </div>
                   <ChevronRight aria-hidden="true" size={20} className="text-muted-foreground group-hover:text-primary transition-all" />
