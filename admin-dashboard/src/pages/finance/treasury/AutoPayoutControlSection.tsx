@@ -8,6 +8,7 @@ import { format, parseISO } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { ConfirmPayoutModal, type PayoutReviewAction } from '../../../components/ConfirmPayoutModal';
+import { StatusBadge } from '../../../components/StatusBadge';
 import type { FinanceData } from '../../useFinanceData';
 
 export function AutoPayoutControlSection({ data }: { data: FinanceData }) {
@@ -186,7 +187,11 @@ export function AutoPayoutControlSection({ data }: { data: FinanceData }) {
               <div key={item.id} className="rounded-2xl bg-surface/[0.03] border border-border p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs font-black text-foreground-muted uppercase">{String(item.check_type || '').replaceAll('_', ' ')}</p>
-                  <span className={cn("text-[10px] font-black uppercase", item.severity === 'critical' ? "text-error" : "text-warning")}>{item.severity}</span>
+                  <StatusBadge
+                    status={item.severity || 'warning'}
+                    labelPrefix="Reconciliation severity"
+                    className={item.severity === 'critical' ? 'border-error bg-error-surface' : 'border-warning bg-warning-surface'}
+                  />
                 </div>
                 <p className="mt-2 text-[11px] text-foreground-muted">{item.expected_value || '-'} {'->'} {item.actual_value || '-'}</p>
               </div>

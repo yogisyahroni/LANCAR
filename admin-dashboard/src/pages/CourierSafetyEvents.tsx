@@ -195,9 +195,11 @@ export default function CourierSafetyEvents() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-black text-foreground-muted">{eventLabels[event.event_type] || event.event_type}</h3>
-                      <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-widest', severityStyles[event.severity] || severityStyles.medium)}>
-                        {event.severity}
-                      </span>
+                      <StatusBadge
+                        status={event.severity || 'medium'}
+                        labelPrefix="Safety severity"
+                        className={cn('rounded-full', severityStyles[event.severity] || severityStyles.medium)}
+                      />
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm text-foreground-muted" title={event.message || 'Tidak ada catatan tambahan.'}>{event.message || 'Tidak ada catatan tambahan.'}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest">
@@ -302,11 +304,16 @@ export default function CourierSafetyEvents() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-black text-foreground-muted">{item.courier_name || 'Courier'} · {item.proof_step}</p>
-                      <span className="rounded-full border border-error bg-error-surface px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-error">{item.spoof_risk || item.rejection_reason}</span>
+                      <StatusBadge
+                        status={item.spoof_risk || 'critical'}
+                        labelPrefix="GPS spoof risk"
+                        label={item.spoof_risk || item.rejection_reason || 'Risk terdeteksi'}
+                        className="border-error bg-error-surface text-error"
+                      />
                     </div>
                     <p className="mt-1 text-xs text-foreground-muted">Order {item.order_number || item.order_id} · {item.distance_m ?? '-'}m / radius {item.radius_m ?? '-'}m · akurasi {item.accuracy_m ?? '-'}m</p>
                   </div>
-                  <p className="text-xs text-foreground-muted">Status tindak lanjut: <strong className="text-foreground-muted">{item.action_status}</strong></p>
+                  <p className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">Status tindak lanjut: <StatusBadge status={item.action_status} labelPrefix="GPS risk action" /></p>
                   <div className="flex justify-end gap-2">
                     {item.action_status === 'open' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'acknowledged' })} disabled={gpsRiskMutation.isPending} className="rounded-xl border border-border px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground-muted hover:bg-surface-subtle disabled:opacity-60">Acknowledge</button>}
                     {item.action_status !== 'resolved' && <button type="button" onClick={() => gpsRiskMutation.mutate({ id: item.id, status: 'resolved' })} disabled={gpsRiskMutation.isPending} className="inline-flex items-center gap-1 rounded-xl bg-accent px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-accent hover:bg-accent disabled:opacity-60"><Check className="h-3 w-3" aria-hidden="true" /> Resolve</button>}

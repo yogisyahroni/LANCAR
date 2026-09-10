@@ -1,5 +1,5 @@
 import { createElement } from 'react'
-import { CalendarClock, CheckCircle2, CircleHelp, Clock, Info, Loader2, ShieldCheck, XCircle, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CheckCircle2, CircleHelp, Clock, Info, Loader2, ShieldCheck, XCircle, type LucideIcon } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 type StatusPresentation = {
@@ -40,6 +40,12 @@ export const getStatusPresentation = (status?: unknown): StatusPresentation => {
       return { label: 'Deprecated', icon: Info, className: 'text-foreground-muted' }
     case 'scheduled_deletion':
       return { label: 'Penghapusan terjadwal', icon: CalendarClock, className: 'text-warning' }
+    case 'high':
+      return { label: 'Tinggi', icon: AlertTriangle, className: 'text-accent' }
+    case 'medium':
+      return { label: 'Sedang', icon: AlertTriangle, className: 'text-warning' }
+    case 'low':
+      return { label: 'Rendah', icon: CheckCircle2, className: 'text-success' }
     case 'allow':
       return { label: 'Diizinkan', icon: CheckCircle2, className: 'text-success' }
     case 'failed':
