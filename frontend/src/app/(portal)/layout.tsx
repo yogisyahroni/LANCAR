@@ -520,7 +520,7 @@ export default function PortalLayout({
                 }}
                 className="w-full bg-surface-subtle dark:bg-surface-subtle border border-border dark:border-border rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted dark:placeholder:text-foreground-muted text-foreground"
               />
-              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border dark:border-border text-foreground-muted font-mono">
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-border dark:border-border text-foreground-muted font-mono">
                 Ctrl K
               </kbd>
             </div>
@@ -598,7 +598,7 @@ export default function PortalLayout({
                               });
                             }
                           }}
-                          className="text-[10px] text-primary hover:underline"
+                          className="min-h-11 px-2 text-xs text-primary hover:underline"
                         >
                           {t("common.clearAll")}
                         </button>
@@ -661,10 +661,10 @@ export default function PortalLayout({
                                   <span className="w-2 h-2 bg-primary rounded-full mt-1" />
                                 )}
                               </div>
-                              <p className="text-[11px] text-foreground-muted dark:text-foreground-muted mt-0.5 leading-relaxed">
+                              <p className="text-sm text-foreground-muted dark:text-foreground-muted mt-0.5 leading-relaxed">
                                 {notif.body}
                               </p>
-                              <span className="text-[9px] text-foreground-muted dark:text-foreground-muted mt-1 block">
+                              <span className="text-xs text-foreground-muted dark:text-foreground-muted mt-1 block">
                                 {formatTime(notif.created_at, locale)}
                               </span>
                             </button>
@@ -703,7 +703,7 @@ export default function PortalLayout({
                   <p className="text-sm font-bold text-foreground group-hover:text-primary-light transition-colors">
                     {user?.name || t("nav.profileDefault")}
                   </p>
-                  <p className="text-[10px] tracking-widest text-foreground-muted font-bold">
+                  <p className="text-xs tracking-wide text-foreground-muted font-bold">
                     {user?.awb_sender_name
                       ? t("nav.sender", {
                           name: user.awb_sender_name.toUpperCase(),
@@ -786,7 +786,7 @@ export default function PortalLayout({
                 key={item.href}
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex flex-col items-center justify-center gap-1 px-3 py-1 rounded-xl transition-all duration-200 select-none ${
+                className={`flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 px-3 py-1 rounded-xl transition-all duration-200 select-none ${
                   isActive
                     ? "text-primary font-bold"
                     : "text-foreground-muted dark:text-foreground-muted"
@@ -799,7 +799,7 @@ export default function PortalLayout({
                   )}
                   aria-hidden="true"
                 />
-                <span className="text-[10px] tracking-tight">
+                <span className="text-xs tracking-tight">
                   {t(item.labelKey)}
                 </span>
               </Link>
@@ -929,7 +929,7 @@ export default function PortalLayout({
                         <p className="text-xs font-semibold text-foreground truncate" title={notif.title || t("common.notifications")}>
                           {notif.title || t("common.notifications")}
                         </p>
-                        <p className="text-[11px] text-foreground-muted mt-0.5 leading-normal">
+                        <p className="text-sm text-foreground-muted mt-0.5 leading-normal">
                           {notif.message}
                         </p>
                       </div>
