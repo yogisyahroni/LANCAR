@@ -1217,7 +1217,7 @@ export function OnDemandOrderFormContent({
                                       ? "text-foreground"
                                       : "text-muted-foreground/40",
                                     isPast
-                                      ? "cursor-not-allowed opacity-30 hover:bg-transparent"
+                                      ? "cursor-not-allowed opacity-60 hover:bg-transparent"
                                       : "",
                                   ].join(" ")}
                                 >

@@ -728,7 +728,7 @@ export function AggregatorWizard() {
                         currentProvider === provider.code
                           ? "border-info bg-surface-subtle shadow-lg shadow-surface-raised"
                           : "border-border bg-background/40 hover:bg-surface-subtle hover:border-border",
-                        !isLogisticsProviderAvailable(provider) ? "cursor-not-allowed opacity-50" : ""
+                        !isLogisticsProviderAvailable(provider) ? "cursor-not-allowed opacity-60" : ""
                       ].join(" ")}
                     >
                       <span className="block font-bold text-foreground">{provider.name}</span>

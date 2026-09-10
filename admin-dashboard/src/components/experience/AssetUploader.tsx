@@ -199,7 +199,7 @@ export default function AssetUploader({ disabled = false, onValidate }: Props) {
             never enter the browser.
           </p>
         </div>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-primary/30 bg-primary-soft px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-primary/30 bg-primary-soft px-3 py-2 text-[10px] font-black uppercase tracking-widest text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
           <UploadCloud size={14} aria-hidden="true" /> Preflight file
           <input
             type="file"

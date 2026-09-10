@@ -244,7 +244,7 @@ export default function PaymentLinksPage() {
                    className={cn(
                        "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
                        copiedId === link.id ? "bg-success/20 text-success dark:text-success border-success/30" : "bg-surface-subtle dark:bg-surface-subtle text-foreground-muted dark:text-foreground-muted hover:bg-primary/20 hover:text-primary-light border-border dark:border-border hover:border-primary/20",
-                       (isExpired || isPaid) ? "opacity-50 cursor-not-allowed" : ""
+                       (isExpired || isPaid) ? "opacity-60 cursor-not-allowed" : ""
                    )}
                  >
                     {copiedId === link.id ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}

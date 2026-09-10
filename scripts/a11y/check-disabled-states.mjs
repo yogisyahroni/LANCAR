@@ -13,7 +13,12 @@ const roots = [
   path.resolve('admin-dashboard/src'),
 ]
 const extensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.css'])
-const lowOpacityPattern = /\bdisabled:opacity-(?:0|10|20|30|40|50)\b/g
+const lowOpacityPatterns = [
+  /\bdisabled:opacity-(?:0|10|20|30|40|50)\b/g,
+  /\bhas-\[:disabled\]:opacity-(?:0|10|20|30|40|50)\b/g,
+  /\bcursor-not-allowed\s+opacity-(?:0|10|20|30|40|50)\b/g,
+  /\bopacity-(?:0|10|20|30|40|50)\s+cursor-not-allowed\b/g,
+]
 const violations = []
 
 function walk(directory) {
@@ -26,9 +31,11 @@ function walk(directory) {
     if (!extensions.has(path.extname(entry.name))) continue
 
     const source = fs.readFileSync(filePath, 'utf8')
-    for (const match of source.matchAll(lowOpacityPattern)) {
-      const line = source.slice(0, match.index).split('\n').length
-      violations.push(`${filePath}:${line}: ${match[0]} is below the 60% disabled readability baseline`)
+    for (const lowOpacityPattern of lowOpacityPatterns) {
+      for (const match of source.matchAll(lowOpacityPattern)) {
+        const line = source.slice(0, match.index).split('\n').length
+        violations.push(`${filePath}:${line}: ${match[0]} is below the 60% disabled readability baseline`)
+      }
     }
   }
 }

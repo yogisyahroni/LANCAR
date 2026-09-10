@@ -467,7 +467,7 @@ export function AggregatorForm({ onProviderSelect }: AggregatorFormProps) {
                 selectedProviderId === provider.code
                   ? "border-info bg-info-surface shadow-lg scale-[1.02]"
                   : "border-border bg-background/40 hover:border-border hover:bg-surface-subtle",
-                !isLogisticsProviderAvailable(provider) ? "cursor-not-allowed opacity-50" : ""
+                !isLogisticsProviderAvailable(provider) ? "cursor-not-allowed opacity-60" : ""
               ].join(" ")}
             >
               <span className="block text-sm font-bold text-foreground">
