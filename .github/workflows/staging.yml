@@ -810,7 +810,7 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 7
 
-  staging-core-part-a-contract:
+  staging_core_part_a_contract:
     name: Authenticated Core Part A Contract
     needs: [deploy]
     if: github.ref == 'refs/heads/staging' && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true' && vars.STAGING_CORE_GATE_ENABLED == 'true'
@@ -868,7 +868,7 @@ jobs:
 
   notify:
     name: Notification
-    needs: [deploy, release-validation-pending, e2e-browser-validation, regression-api]
+    needs: [deploy, release-validation-pending, e2e-browser-validation, regression-api, staging_core_part_a_contract]
     runs-on: ubuntu-latest
     if: always() && github.ref == 'refs/heads/staging'
     steps:
@@ -886,6 +886,9 @@ jobs:
           elif [ "${{ needs.deploy.outputs.deployed }}" != "true" ]; then
             STATUS="🟡 *VALIDATION PENDING*"
             MESSAGE="Repository verification lulus, tetapi staging belum dideploy karena environment deployment belum tersedia. SHA: \`${{ github.sha }}\`"
+          elif [ "${{ vars.STAGING_CORE_GATE_ENABLED }}" = "true" ] && [ "${{ needs.staging_core_part_a_contract.result }}" != "success" ]; then
+            STATUS="🚨 *VALIDATION FAILED*"
+            MESSAGE="Staging berhasil dideploy tetapi authenticated Core Part A contract gate gagal. SHA: \`${{ github.sha }}\`"
           elif [ "${{ needs.e2e-browser-validation.result }}" != "success" ] || [ "${{ needs.regression-api.result }}" != "success" ]; then
             STATUS="🚨 *VALIDATION FAILED*"
             MESSAGE="Staging berhasil dideploy tetapi external E2E/API validation gagal. SHA: \`${{ github.sha }}\`"
