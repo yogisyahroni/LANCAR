@@ -3,12 +3,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, RefreshCw, ShieldAlert, UserRound } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
-import { StatusBadge } from '../components/StatusBadge'
+import { getStatusPresentation, StatusBadge } from '../components/StatusBadge'
 
 const decisions = ['ALLOW', 'CHALLENGE', 'REVIEW', 'HOLD', 'BLOCK'] as const
 type RiskDecision = typeof decisions[number]
 
 const idempotencyKey = (id: string) => `risk-review-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+const riskFilterLabels: Record<'PENDING' | 'RESOLVED' | 'ALL', string> = {
+  PENDING: 'Menunggu review',
+  RESOLVED: 'Selesai',
+  ALL: 'Semua',
+}
 
 type RiskReview = {
   id: string
@@ -83,7 +88,7 @@ export default function RiskReview() {
 
       <div className="flex gap-2">
         {(['PENDING', 'RESOLVED', 'ALL'] as const).map((item) => (
-          <button key={item} type="button" onClick={() => setStatus(item === 'ALL' ? '' : item)} className={`rounded-full px-4 py-2 text-xs font-black ${status === (item === 'ALL' ? '' : item) ? 'bg-primary text-on-primary' : 'bg-surface-subtle text-foreground-secondary hover:bg-surface-raised'}`}>{item}</button>
+          <button key={item} type="button" onClick={() => setStatus(item === 'ALL' ? '' : item)} aria-pressed={status === (item === 'ALL' ? '' : item)} className={`rounded-full px-4 py-2 text-xs font-bold ${status === (item === 'ALL' ? '' : item) ? 'bg-primary text-on-primary' : 'bg-surface-subtle text-foreground-secondary hover:bg-surface-raised'}`}>{riskFilterLabels[item]}</button>
         ))}
       </div>
 
@@ -117,7 +122,7 @@ export default function RiskReview() {
               </div>
 
               {pending ? <div className="mt-5 grid gap-3 rounded-2xl border border-border bg-surface/[0.03] p-4 md:grid-cols-[180px_1fr_1fr_auto] md:items-end">
-                <label className="text-xs text-foreground-muted">Decision<select value={draft.decision} onChange={(event) => updateDraft(review.id, { decision: event.target.value as RiskDecision })} className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground-muted">{decisions.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label className="text-xs text-foreground-muted">Decision<select value={draft.decision} onChange={(event) => updateDraft(review.id, { decision: event.target.value as RiskDecision })} className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground-muted">{decisions.map((item) => <option key={item} value={item}>{getStatusPresentation(item).label}</option>)}</select></label>
                 <label className="text-xs text-foreground-muted">Reason<textarea value={draft.reason} onChange={(event) => updateDraft(review.id, { reason: event.target.value })} rows={2} placeholder="Alasan keputusan manual" className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground-muted" /></label>
                 <label className="text-xs text-foreground-muted">Evidence summary<textarea value={draft.summary} onChange={(event) => updateDraft(review.id, { summary: event.target.value })} rows={2} placeholder="Bukti non-rahasia / referensi kasus" className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground-muted" /></label>
                 <button type="button" onClick={() => resolveMutation.mutate({ review, draft })} disabled={resolveMutation.isPending} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-black text-on-primary hover:opacity-90 disabled:opacity-60"><CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Resolve</button>

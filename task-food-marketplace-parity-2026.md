@@ -3068,6 +3068,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Courier verification filters/cards, App Experience manifest/approval/rollout/exposure summary, Design Tokens lifecycle, revision target/rollback controls and Localized Content metadata/actions now use shared status/icon semantics or readable labels. The Admin `/courier-applications`, App Experience route inventory and `/localized-content` axe slice passes `54/54`; an initial 4.47:1 Design Tokens neutral badge contrast finding was fixed and the full slice rerun passed. Dynamic provider/content variants and full visual/manual route review remain open.
 
+> **Execution checkpoint 2026-09-11 (continued):** Risk Review filters/decision labels, Meeting Point availability, Face Verification filters/metadata, Tax reconciliation/certificate states, Voucher lifecycle and Deep Link compatibility metadata now use readable labels, shared status/icon semantics or pressed-state semantics. The targeted Admin axe slice passes `20/20`; dynamic data variants plus full visual/manual route review remain open.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**

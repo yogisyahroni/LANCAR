@@ -8,7 +8,6 @@ import {
   Calendar, 
   Users, 
   TrendingUp,
-  Clock,
   Loader2,
   X,
   CheckCircle2,
@@ -23,6 +22,7 @@ import { format, differenceInDays } from 'date-fns'
 import { toast } from 'sonner'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
 import { FocusTrap } from '../components/a11y/FocusTrap'
+import { StatusBadge } from '../components/StatusBadge'
 
 const queryErrorMessage = (error: any, fallback: string) =>
   error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
@@ -228,12 +228,7 @@ export default function Vouchers() {
                     <div className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary-light font-black text-lg tracking-wider">
                       {voucher.code}
                     </div>
-                    <span className={cn(
-                      "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                      voucher.is_active ? "bg-success-surface text-success" : "bg-surface-raised text-foreground-muted"
-                    )}>
-                      {voucher.is_active ? 'Active' : 'Inactive'}
-                    </span>
+                    <StatusBadge status={voucher.is_active ? 'active' : 'disabled'} label={voucher.is_active ? 'Aktif' : 'Nonaktif'} labelPrefix="Voucher status" />
                   </div>
                   <div>
                      <h4 className="font-bold text-foreground-muted text-lg">{voucher.name || 'Nama voucher belum tersedia'}</h4>
@@ -265,15 +260,7 @@ export default function Vouchers() {
                        <Calendar size={12} aria-hidden="true" /> Expiration
                     </p>
                     <p className="text-xs font-bold text-foreground-muted mt-3">{format(new Date(voucher.valid_until || voucher.expiry_date), 'dd MMM yyyy')}</p>
-                    <div className="flex items-center gap-1.5 mt-2">
-                       <Clock size={10} className="text-foreground-muted" aria-hidden="true" />
-                       <p className={cn(
-                         "text-[10px] font-black uppercase tracking-wider",
-                         daysLeft > 0 ? "text-primary-light" : "text-error"
-                       )}>
-                        {daysLeft > 0 ? `${daysLeft} Days Left` : 'Expired'}
-                       </p>
-                    </div>
+                    <StatusBadge status={daysLeft > 0 ? 'healthy' : 'expired'} label={daysLeft > 0 ? `${daysLeft} hari lagi` : 'Kedaluwarsa'} labelPrefix="Voucher expiration" className="mt-2 rounded-md px-2 py-1" />
                  </div>
               </div>
 

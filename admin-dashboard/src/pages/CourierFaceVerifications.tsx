@@ -76,6 +76,7 @@ export default function CourierFaceVerifications() {
                   'rounded-xl px-4 py-2 text-sm font-bold transition',
                   status === item.key ? 'bg-primary text-on-primary' : 'text-foreground-muted hover:text-foreground'
                 )}
+                aria-pressed={status === item.key}
               >
                 {item.label}
               </button>
@@ -116,9 +117,9 @@ export default function CourierFaceVerifications() {
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-foreground-muted text-sm truncate" title={item.full_name || 'Tanpa Nama'}>{item.full_name || 'Tanpa Nama'}</p>
                       <p className="text-xs text-foreground-muted mt-1">NIK: {item.nik || '-'}</p>
-                      <div className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase">
-                        <span className="rounded-full border border-border px-2 py-0.5 text-foreground-muted">{item.verification_type}</span>
-                        <span className="rounded-full border border-border px-2 py-0.5 text-foreground-muted">Score: {item.liveness_score || '-'}/1</span>
+                      <div className="mt-2 flex items-center gap-2 text-xs font-bold tracking-wide">
+                        <span className="rounded-full border border-border px-2.5 py-1 text-foreground-muted">{item.verification_type}</span>
+                        <span className="rounded-full border border-border px-2.5 py-1 text-foreground-muted">Score: {item.liveness_score || '-'}/1</span>
                       </div>
                     </div>
                   </button>
@@ -138,7 +139,7 @@ export default function CourierFaceVerifications() {
                   <p className="text-xs font-bold uppercase tracking-[0.25em] text-foreground-muted">Face Verification Detail</p>
                   <h2 className="mt-2 text-2xl font-black text-foreground-muted">{active.full_name || 'Tanpa Nama'}</h2>
                 </div>
-                <StatusBadge status={active.status} labelPrefix="Face verification status" className="text-xs uppercase tracking-wider" />
+                <StatusBadge status={active.status} labelPrefix="Face verification status" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -172,7 +173,7 @@ export default function CourierFaceVerifications() {
                   <div className="rounded-2xl border border-border bg-surface-subtle p-5 space-y-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-foreground-muted border-b border-border pb-2">Data Verifikasi</h3>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between py-1"><span className="text-foreground-muted">Tipe:</span> <span className="text-foreground-muted uppercase font-bold text-xs bg-surface-subtle px-2 py-0.5 rounded">{active.verification_type}</span></div>
+                      <div className="flex justify-between py-1"><span className="text-foreground-muted">Tipe:</span> <span className="text-foreground-muted font-bold text-xs bg-surface-subtle px-2.5 py-1 rounded">{active.verification_type}</span></div>
                       {active.order_id && (
                         <div className="flex justify-between py-1"><span className="text-foreground-muted">Order ID:</span> <span className="font-mono text-xs text-primary">{active.order_id}</span></div>
                       )}

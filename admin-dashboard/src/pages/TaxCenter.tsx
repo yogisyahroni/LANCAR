@@ -285,9 +285,7 @@ export default function TaxCenter() {
                 <p className="text-sm text-foreground-muted mt-1">Snapshot faktur pajak untuk ekspor e-Faktur DJP dan audit rekonsiliasi.</p>
               </div>
               {mismatchList.length > 0 && (
-                <span className="px-3 py-1 bg-error-surface text-error text-xs font-black uppercase tracking-widest rounded-full flex items-center gap-1.5">
-                  <AlertTriangle size={14} aria-hidden="true" /> {mismatchList.length} Mismatches Terdeteksi
-                </span>
+                <StatusBadge status="critical" label={`${mismatchList.length} mismatch terdeteksi`} labelPrefix="Tax reconciliation" className="border-error bg-error-surface" />
               )}
             </div>
 
@@ -345,7 +343,7 @@ export default function TaxCenter() {
                     <tr key={i} className="border-b border-border/[0.03] hover:bg-surface/[0.02] transition-colors">
                       <td className="py-4 font-bold text-foreground-muted">{w.period || w.month || '-'}</td>
                       <td className="py-4">
-                        <span className="px-2.5 py-1 rounded-md bg-info-surface text-info text-[10px] font-black uppercase">
+                        <span className="px-2.5 py-1 rounded-md bg-info-surface text-info text-xs font-bold tracking-wide">
                           {w.tax_type || 'PPh 23'}
                         </span>
                       </td>
@@ -353,9 +351,7 @@ export default function TaxCenter() {
                       <td className="py-4 text-foreground-muted">{formatCurrency(Number(w.total_dpp || 0))}</td>
                       <td className="py-4 font-bold text-warning">{formatCurrency(Number(w.total_pph || 0))}</td>
                       <td className="py-4">
-                        <span className="px-2.5 py-1 rounded-md bg-success-surface text-success text-[10px] font-black uppercase">
-                          TERBIT
-                        </span>
+                        <StatusBadge status="published" label="Terbit" labelPrefix="Withholding certificate status" className="rounded-md" />
                       </td>
                     </tr>
                   ))}
@@ -398,7 +394,7 @@ export default function TaxCenter() {
                     <td className="py-4 font-bold text-foreground-muted">{rule.name}</td>
                     <td className="py-4">
                       <span className={cn(
-                        "px-2 py-1 rounded-md text-[10px] font-black uppercase",
+                        "px-2.5 py-1 rounded-md text-xs font-bold tracking-wide",
                         rule.tax_type === 'PPN' ? "bg-success-surface text-success" : "bg-info-surface text-info"
                       )}>
                         {rule.tax_type}
@@ -416,7 +412,8 @@ export default function TaxCenter() {
                     <td className="py-4">
                       <button 
                         onClick={() => handleOpenModal(rule)}
-                        className="text-[10px] font-bold text-primary hover:text-primary-light uppercase tracking-widest transition-colors"
+                        type="button"
+                        className="text-xs font-bold tracking-wide text-primary hover:text-primary-light transition-colors"
                       >
                         Edit
                       </button>
