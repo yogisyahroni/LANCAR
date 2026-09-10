@@ -142,17 +142,17 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
           </div>
           <div className="grid grid-cols-3 gap-3 min-w-[320px]">
             <div className="rounded-2xl bg-surface/[0.03] border border-border p-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Queue</p>
+              <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Queue</p>
               <p className="text-2xl font-black text-foreground-muted">{payoutReviewQueue?.length || 0}</p>
             </div>
             <div className="rounded-2xl bg-error-surface border border-error p-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-error">Critical</p>
+              <p className="text-xs font-black uppercase tracking-wide text-error">Critical</p>
               <p className="text-2xl font-black text-error">
                 {payoutReviewQueue?.filter((item: any) => item.status === 'blocked' || item.risk_level === 'critical').length || 0}
               </p>
             </div>
             <div className="rounded-2xl bg-warning-surface border border-warning p-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-warning">High</p>
+              <p className="text-xs font-black uppercase tracking-wide text-warning">High</p>
               <p className="text-2xl font-black text-warning">
                 {payoutReviewQueue?.filter((item: any) => item.risk_level === 'high').length || 0}
               </p>
@@ -176,10 +176,10 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-foreground-muted" title={item.courier_name}>{item.courier_name}</p>
-                    <p className="mt-1 text-[11px] font-mono text-foreground-muted">{item.request_number}</p>
+                    <p className="mt-1 text-xs font-mono text-foreground-muted">{item.request_number}</p>
                   </div>
                   <span className={cn(
-                    "rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest",
+                    "rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
                     item.status === 'blocked' ? "bg-error-surface text-error" :
                     item.risk_level === 'high' || item.risk_level === 'critical' ? "bg-warning-surface text-warning" :
                     "bg-surface-subtle text-foreground-muted"
@@ -189,7 +189,7 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <p className="text-sm font-black text-foreground-muted">{formatCurrency(item.amount_idr)}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted">{payoutStatusLabel(item)}</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground-muted">{payoutStatusLabel(item)}</p>
                 </div>
                 {item.risk_reasons?.length > 0 && (
                   <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-foreground-muted" title={item.risk_reasons.slice(0, 2).join(' • ')}>{item.risk_reasons.slice(0, 2).join(' • ')}</p>
@@ -206,17 +206,17 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
               <>
                 <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-foreground-muted">Review Case</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Review Case</p>
                     <h4 className="mt-2 text-3xl font-black text-foreground-muted">{reviewRequest.courier_name}</h4>
                     <p className="mt-1 text-sm text-foreground-muted">{reviewRequest.request_number} • {format(new Date(reviewRequest.requested_at), 'dd MMM yyyy HH:mm')}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 min-w-[320px]">
                     <div className="rounded-2xl bg-surface-subtle border border-border p-4">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Risk Score</p>
+                      <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Risk Score</p>
                       <p className={cn("mt-2 text-3xl font-black", (reviewRisk?.score || 0) >= 80 ? "text-error" : "text-warning")}>{reviewRisk?.score || 0}</p>
                     </div>
                     <div className="rounded-2xl bg-surface-subtle border border-border p-4">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">Nominal</p>
+                      <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Nominal</p>
                       <p className="mt-3 text-lg font-black text-foreground-muted">{formatCurrency(reviewRequest.amount_idr)}</p>
                     </div>
                   </div>
@@ -224,7 +224,7 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="rounded-[28px] border border-error bg-error/[0.03] p-5 lg:col-span-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-error flex items-center gap-2">
+                    <p className="text-xs font-black uppercase tracking-wide text-error flex items-center gap-2">
                       <AlertTriangle size={14} aria-hidden="true" />
                       Alasan Hold / Block
                     </p>
@@ -238,7 +238,7 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                     </div>
                   </div>
                   <div className="rounded-[28px] border border-border bg-surface/[0.02] p-5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Rekening Tujuan</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Rekening Tujuan</p>
                     <p className="mt-4 text-lg font-black text-foreground-muted">{reviewAccount?.bank_code || '-'}</p>
                     <p className="mt-1 text-sm text-foreground-muted">{reviewAccount?.account_number || '-'}</p>
                     <p className="mt-1 text-xs text-foreground-muted">{reviewAccount?.account_name || '-'}</p>
@@ -247,7 +247,7 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="rounded-[28px] border border-border bg-surface/[0.02] p-5 space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted flex items-center gap-2">
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted flex items-center gap-2">
                       <Smartphone size={14} aria-hidden="true" />
                       Device / IP Metadata
                     </p>
@@ -259,13 +259,13 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                   </div>
 
                   <div className="rounded-[28px] border border-border bg-surface/[0.02] p-5 space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Ledger Source</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Ledger Source</p>
                     <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
                       {payoutReviewDetail?.ledger_sources?.slice(0, 6).map((ledger: any) => (
                         <div key={ledger.id} className="flex items-center justify-between gap-4 rounded-2xl bg-surface-subtle border border-border px-4 py-3">
                           <div>
                             <p className="text-xs font-black text-foreground-muted">{ledger.transaction_type}</p>
-                            <p className="text-[11px] text-foreground-muted">{ledger.description || ledger.source}</p>
+                            <p className="text-xs text-foreground-muted">{ledger.description || ledger.source}</p>
                           </div>
                           <span className={cn("text-sm font-black", ledger.direction === 'credit' ? "text-success" : "text-error")}>{formatCurrency(ledger.amount_idr)}</span>
                         </div>
@@ -279,13 +279,13 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="rounded-[28px] border border-border bg-surface/[0.02] p-5 space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">History Payout Kurir</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">History Payout Kurir</p>
                     <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                       {payoutReviewDetail?.payout_history?.map((history: any) => (
                         <div key={history.id} className="flex items-center justify-between gap-4 rounded-2xl bg-surface-subtle border border-border px-4 py-3">
                           <div>
                             <p className="text-xs font-black text-foreground-muted">{history.request_number}</p>
-                            <p className="text-[11px] text-foreground-muted">{format(new Date(history.requested_at), 'dd MMM HH:mm')}</p>
+                            <p className="text-xs text-foreground-muted">{format(new Date(history.requested_at), 'dd MMM HH:mm')}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-black text-foreground-muted">{formatCurrency(history.amount_idr)}</p>
@@ -297,15 +297,15 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                   </div>
 
                   <div className="rounded-[28px] border border-border bg-surface/[0.02] p-5 space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">Audit Trail Terakhir</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-foreground-muted">Audit Trail Terakhir</p>
                     <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                       {payoutReviewDetail?.security_events?.slice(0, 8).map((event: any) => (
                         <div key={event.id} className="rounded-2xl bg-surface-subtle border border-border px-4 py-3">
                           <div className="flex items-center justify-between gap-3">
                             <p className="text-xs font-black text-foreground-muted">{String(event.event_type || '').replaceAll('_', ' ')}</p>
-                            <p className="text-[10px] font-bold text-foreground-muted">{format(new Date(event.created_at), 'dd MMM HH:mm')}</p>
+                            <p className="text-xs font-bold text-foreground-muted">{format(new Date(event.created_at), 'dd MMM HH:mm')}</p>
                           </div>
-                          <p className="mt-1 text-[11px] text-foreground-muted">{event.old_status || '-'} {'->'} {event.new_status || '-'}</p>
+                          <p className="mt-1 text-xs text-foreground-muted">{event.old_status || '-'} {'->'} {event.new_status || '-'}</p>
                         </div>
                       ))}
                     </div>
@@ -313,34 +313,34 @@ export function ManualReviewSection({ data }: { data: FinanceData }) {
                 </div>
 
                 <div className="rounded-[28px] border border-warning bg-warning/[0.03] p-5">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-warning">Admin Actions</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-warning">Admin Actions</p>
                   <p className="mt-2 text-sm text-foreground-muted">Semua aksi di bawah wajib TOTP melalui middleware admin dan dicatat ke audit trail payout.</p>
                   <div className="mt-5 flex flex-wrap gap-3">
                     <button
                       onClick={() => runReviewAction('approve')}
                       disabled={payoutReviewActionMutation.isPending || reviewRequest.status === 'blocked'}
-                      className="px-5 py-3 rounded-2xl bg-success text-on-success font-black text-xs uppercase tracking-widest disabled:opacity-60"
+                      className="px-5 py-3 rounded-2xl bg-success text-on-success font-black text-xs uppercase tracking-wide disabled:opacity-60"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => runReviewAction('reject')}
                       disabled={payoutReviewActionMutation.isPending}
-                      className="px-5 py-3 rounded-2xl bg-error-surface border border-error text-error font-black text-xs uppercase tracking-widest disabled:opacity-60"
+                      className="px-5 py-3 rounded-2xl bg-error-surface border border-error text-error font-black text-xs uppercase tracking-wide disabled:opacity-60"
                     >
                       Reject
                     </button>
                     <button
                       onClick={() => runReviewAction('request_more_verification')}
                       disabled={payoutReviewActionMutation.isPending}
-                      className="px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-widest disabled:opacity-60"
+                      className="px-5 py-3 rounded-2xl bg-surface-subtle border border-border text-foreground-muted font-black text-xs uppercase tracking-wide disabled:opacity-60"
                     >
                       Request Verification
                     </button>
                     <button
                       onClick={() => runReviewAction('suspend_payout_account')}
                       disabled={payoutReviewActionMutation.isPending}
-                      className="px-5 py-3 rounded-2xl bg-warning-surface border border-warning text-warning font-black text-xs uppercase tracking-widest disabled:opacity-60"
+                      className="px-5 py-3 rounded-2xl bg-warning-surface border border-warning text-warning font-black text-xs uppercase tracking-wide disabled:opacity-60"
                     >
                       Suspend Account
                     </button>

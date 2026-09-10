@@ -164,7 +164,7 @@ export function PayoutGatewaySection({ data }: { data: FinanceData }) {
                 }
               }}
               disabled={batchReleaseMutation.isPending}
-              className="flex items-center gap-2 text-xs font-black text-primary-light uppercase tracking-widest hover:text-primary transition-all disabled:opacity-60"
+              className="flex items-center gap-2 text-xs font-black text-primary-light uppercase tracking-wide hover:text-primary transition-all disabled:opacity-60"
             >
                {batchReleaseMutation.isPending ? 'Processing Batch...' : 'Batch Trigger All'}
                <ChevronRight size={14} aria-hidden="true" />
@@ -176,14 +176,14 @@ export function PayoutGatewaySection({ data }: { data: FinanceData }) {
                <thead>
                   <tr className="border-b border-border">
                     {['Payout ID', 'Courier Partner', 'Created', 'Amount', 'Status', 'Actions'].map(h => (
-                       <th key={h} scope="col" className="pb-6 text-[10px] font-black text-foreground-muted uppercase tracking-widest">{h}</th>
+                       <th key={h} scope="col" className="pb-6 text-xs font-black text-foreground-muted uppercase tracking-wide">{h}</th>
                      ))}
                   </tr>
                </thead>
                <tbody className="divide-y divide-border">
                   {payouts?.map((set: any) => (
                     <tr key={set.id} className="group hover:bg-surface/[0.01] transition-all">
-                       <td className="py-8 font-mono text-[10px] text-foreground-muted uppercase">{set.id.split('-')[0]}...</td>
+                       <td className="py-8 font-mono text-xs text-foreground-muted uppercase">{set.id.split('-')[0]}...</td>
                        <td className="py-8">
                           <div className="flex items-center gap-3">
                              <div className="h-8 w-8 rounded-lg bg-surface border border-border flex items-center justify-center font-bold text-xs text-foreground-muted">
@@ -191,11 +191,11 @@ export function PayoutGatewaySection({ data }: { data: FinanceData }) {
                              </div>
                              <div className="flex flex-col">
                                 <span className="font-bold text-foreground-muted">{set.courier_name}</span>
-                                <span className="text-[10px] text-foreground-muted">{set.courier_phone}</span>
+                                <span className="text-xs text-foreground-muted">{set.courier_phone}</span>
                              </div>
                           </div>
                        </td>
-                       <td className="py-8 text-[10px] font-bold text-foreground-muted">
+                       <td className="py-8 text-xs font-bold text-foreground-muted">
                           {format(new Date(set.created_at), 'dd MMM yyyy HH:mm')}
                        </td>
                        <td className="py-8 text-sm font-black text-foreground-muted">
@@ -209,7 +209,7 @@ export function PayoutGatewaySection({ data }: { data: FinanceData }) {
                             <button 
                               onClick={() => releaseMutation.mutate(set.id)}
                               disabled={releaseMutation.isPending}
-                              className="px-4 py-2 rounded-xl bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary/10 disabled:opacity-60"
+                              className="px-4 py-2 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-wide hover:bg-primary-light transition-all shadow-lg shadow-primary/10 disabled:opacity-60"
                             >
                                {releaseMutation.isPending ? 'Processing...' : 'Release'}
                             </button>
@@ -219,7 +219,7 @@ export function PayoutGatewaySection({ data }: { data: FinanceData }) {
                   ))}
                   {(!payouts || payouts.length === 0) && (
                     <tr>
-                      <td colSpan={6} className="py-20 text-center text-foreground-muted font-bold italic uppercase tracking-widest">
+                      <td colSpan={6} className="py-20 text-center text-foreground-muted font-bold italic uppercase tracking-wide">
                         No pending payouts found
                       </td>
                     </tr>

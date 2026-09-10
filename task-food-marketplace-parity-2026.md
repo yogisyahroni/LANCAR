@@ -3088,6 +3088,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 > **Execution checkpoint 2026-09-11 (continued):** Admin Broadcast Center and Active Orders were audited for Part S. Broadcast status/target/delivery metadata, provider raw evidence, operational diagnostics, order detail contacts/food/revenue/evidence data, and force-cancel controls now use readable labels and restrained tracking; existing row/status icons retain accessible semantics. The targeted Admin `/orders`, `/orders/exceptions` and `/broadcasts` axe slice passes `18/18` Light/Dark/System cases; dynamic states and full visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Admin finance/treasury manual payout review and payout gateway rows were audited for Part S. Queue severity, risk score, account/audit metadata, payout history, provider status and approval/release actions now use readable labels and restrained tracking; status semantics remain explicit. The `/finance` axe slice passes `6/6` Light/Dark/System cases; chart sizing warnings and fixture WebSocket authentication logs remain known non-blocking noise, while dynamic payout states and full visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
