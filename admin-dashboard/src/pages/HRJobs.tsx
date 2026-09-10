@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { Briefcase, Plus, Loader2, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from '../components/StatusBadge';
+import { FocusTrap } from '../components/a11y/FocusTrap';
 
 export default function HRJobs() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -132,8 +133,19 @@ export default function HRJobs() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-scrim/80 backdrop-blur-sm">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card w-full max-w-2xl p-8 rounded-3xl overflow-y-auto max-h-[90vh]">
-            <h2 className="text-2xl font-bold text-foreground mb-6">{editingId ? 'Edit Job' : 'Create Job'}</h2>
+          <FocusTrap active={isModalOpen} className="glass-card w-full max-w-2xl p-8 rounded-3xl overflow-y-auto max-h-[90vh]">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="job-form-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setIsModalOpen(false);
+            }}
+            className="h-full"
+          >
+            <h2 id="job-form-title" className="text-2xl font-bold text-foreground mb-6">{editingId ? 'Edit Job' : 'Create Job'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -177,6 +189,7 @@ export default function HRJobs() {
               </div>
             </form>
           </motion.div>
+          </FocusTrap>
         </div>
       )}
     </div>

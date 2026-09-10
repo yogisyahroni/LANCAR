@@ -30,6 +30,7 @@ import {
   type PricingRecommendation
 } from '../services/costIntelligenceService';
 import { useAuthStore } from '../store/useAuthStore';
+import { FocusTrap } from '../components/a11y/FocusTrap';
 
 export default function CostIntelligence() {
   const { user } = useAuthStore();
@@ -1460,13 +1461,20 @@ export default function CostIntelligence() {
       <AnimatePresence>
         {rejectModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 backdrop-blur-sm p-4">
+            <FocusTrap active={rejectModalOpen} className="w-full max-w-md">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reject-recommendation-title"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setRejectModalOpen(false);
+              }}
               className="bg-surface border border-border rounded-2xl p-6 max-w-md w-full space-y-4"
             >
-              <h3 className="text-lg font-bold text-foreground">Alasan Penolakan Rekomendasi</h3>
+              <h3 id="reject-recommendation-title" className="text-lg font-bold text-foreground">Alasan Penolakan Rekomendasi</h3>
               <textarea
                 value={rejectReason}
                 onChange={e => setRejectReason(e.target.value)}
@@ -1476,12 +1484,14 @@ export default function CostIntelligence() {
               />
               <div className="flex justify-end gap-3 pt-2">
                 <button
+                  type="button"
                   onClick={() => setRejectModalOpen(false)}
                   className="px-4 py-2 rounded-xl bg-surface-raised hover:bg-surface-subtle text-sm font-medium text-foreground-muted"
                 >
                   Batal
                 </button>
                 <button
+                  type="button"
                   onClick={handleRejectRecommendation}
                   className="px-4 py-2 rounded-xl bg-error hover:bg-error text-sm font-semibold text-on-error"
                 >
@@ -1489,6 +1499,7 @@ export default function CostIntelligence() {
                 </button>
               </div>
             </motion.div>
+            </FocusTrap>
           </div>
         )}
       </AnimatePresence>

@@ -22,6 +22,7 @@ import { api } from '../lib/api'
 import { format, differenceInDays } from 'date-fns'
 import { toast } from 'sonner'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 
 const queryErrorMessage = (error: any, fallback: string) =>
   error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
@@ -353,15 +354,22 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-subtle backdrop-blur-sm animate-in fade-in duration-200">
+      <FocusTrap active={Boolean(voucher || isOpen)} className="w-full max-w-2xl">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="voucher-form-title"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onClose()
+        }}
         className="w-full max-w-2xl bg-surface border border-border rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10"
       >
         <div className="p-10 space-y-8">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-black text-foreground-muted italic uppercase tracking-tight">
+              <h2 id="voucher-form-title" className="text-2xl font-black text-foreground-muted italic uppercase tracking-tight">
                 {voucher ? 'Update Parameter' : 'Forge Digital Token'}
               </h2>
               <p className="text-foreground-muted text-xs mt-1 font-medium">Configure discount logic and redemption constraints.</p>
@@ -463,7 +471,8 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
 
           <div className="pt-8 border-t border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button 
+              <button
+                type="button"
                 onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                 className={cn(
                   "w-12 h-6 rounded-full relative transition-all duration-300",
@@ -478,13 +487,15 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
               <span className="text-[10px] font-black text-foreground-muted uppercase tracking-widest">Active Status</span>
             </div>
             <div className="flex gap-4">
-              <button 
+              <button
+                type="button"
                 onClick={onClose}
                 className="px-8 py-4 rounded-2xl bg-surface-raised text-foreground-muted font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
               >
                 Abort
               </button>
-              <button 
+              <button
+                type="button"
                 onClick={() => onSave(formData)}
                 disabled={isSaving}
                 className="px-10 py-4 rounded-2xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
@@ -496,6 +507,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
           </div>
         </div>
       </motion.div>
+      </FocusTrap>
     </div>
   );
 }

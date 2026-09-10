@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { Search, ShieldOff, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { FocusTrap } from '../components/a11y/FocusTrap';
 
 // FOOD-BIKE-054: Visibilitas admin ke hold_balance wallet driver,
 // driver_penalty_log, dan status appeal — investigasi manual banding.
@@ -185,8 +186,16 @@ export default function DriverWalletHold() {
       {appealAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-scrim/80 backdrop-blur-sm" onClick={() => setAppealAction(null)} />
-          <div className="glass-card bg-surface-subtle border border-border rounded-[32px] shadow-2xl max-w-md w-full p-8 relative z-10">
-            <h2 className="text-xl font-bold text-foreground-muted mb-1">Proses Banding Penalty</h2>
+          <FocusTrap active={Boolean(appealAction)} className="glass-card bg-surface-subtle border border-border rounded-[32px] shadow-2xl max-w-md w-full p-8 relative z-10">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="penalty-appeal-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setAppealAction(null);
+            }}
+          >
+            <h2 id="penalty-appeal-title" className="text-xl font-bold text-foreground-muted mb-1">Proses Banding Penalty</h2>
             <p className="text-xs text-foreground-muted font-mono mb-4 break-all">Order {appealAction.order_id.slice(0, 8)} • {violationLabel[appealAction.violation_type] || appealAction.violation_type} • {formatIDR(appealAction.amount_deducted)}</p>
             <textarea
               className="w-full bg-surface-subtle border border-border rounded-xl p-3 text-sm text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-foreground-muted mb-6"
@@ -218,6 +227,7 @@ export default function DriverWalletHold() {
               </button>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
     </div>

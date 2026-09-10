@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { Search, Award, Loader2 } from 'lucide-react';
+import { FocusTrap } from '../components/a11y/FocusTrap';
 
 interface CourierPerformanceStats {
   courier_id: string;
@@ -152,8 +153,16 @@ export default function CourierPerformance() {
             className="absolute inset-0 bg-scrim/80 backdrop-blur-sm"
             onClick={() => setSelectedCourier(null)}
           />
-          <div className="glass-card bg-surface-subtle border border-border rounded-[32px] shadow-2xl max-w-md w-full p-8 relative z-10">
-            <h2 className="text-xl font-bold text-foreground-muted mb-1">Override Tier for Courier</h2>
+          <FocusTrap active={Boolean(selectedCourier)} className="glass-card bg-surface-subtle border border-border rounded-[32px] shadow-2xl max-w-md w-full p-8 relative z-10">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="courier-tier-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setSelectedCourier(null);
+            }}
+          >
+            <h2 id="courier-tier-title" className="text-xl font-bold text-foreground-muted mb-1">Override Tier for Courier</h2>
             <p className="text-sm font-semibold text-foreground-muted mb-0.5">{selectedCourier.courier_name || `Courier ${String(selectedCourier.courier_id || '').slice(0, 8)}`}</p>
             <p className="text-xs text-foreground-muted font-mono mb-6 break-all">ID: {selectedCourier.courier_id}</p>
             
@@ -200,6 +209,7 @@ export default function CourierPerformance() {
               </button>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
     </div>

@@ -52,6 +52,7 @@ import {
   useMapsRuntimeConfig
 } from '../components/TomTomMapsRuntime'
 import { useTheme } from '../providers/ThemeProvider'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 import { AttributionControl, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -146,16 +147,23 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
             onClick={onClose}
             className="absolute inset-0 bg-scrim/60 backdrop-blur-sm"
           />
+          <FocusTrap active={isOpen} className="relative w-full max-w-lg">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="schedule-report-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') onClose()
+            }}
             className="relative w-full max-w-lg glass-card p-8 rounded-[40px] border-border shadow-2xl overflow-hidden"
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-success" />
             
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-black text-foreground-muted italic uppercase tracking-tight">Schedule Report</h2>
+              <h2 id="schedule-report-title" className="text-2xl font-black text-foreground-muted italic uppercase tracking-tight">Schedule Report</h2>
               <button type="button" onClick={onClose} aria-label="Tutup analitik" className="p-2 rounded-xl bg-surface-subtle hover:bg-surface-subtle text-foreground-muted hover:text-foreground transition-all">
                 <X size={20} aria-hidden="true" />
               </button>
@@ -236,6 +244,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
               </div>
             </form>
           </motion.div>
+          </FocusTrap>
         </div>
       )}
     </AnimatePresence>

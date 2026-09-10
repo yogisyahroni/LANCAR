@@ -14,6 +14,7 @@ import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 
@@ -360,8 +361,17 @@ export default function TariffEngine() {
       {/* Modal for Create Card */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/60 backdrop-blur-sm">
-          <div className="bg-surface border border-border p-8 rounded-[36px] w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-black text-foreground italic uppercase tracking-tight mb-6">Create Rate Card</h2>
+          <FocusTrap active={isModalOpen} className="w-full max-w-3xl max-h-[90vh]">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rate-card-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setIsModalOpen(false)
+            }}
+            className="bg-surface border border-border p-8 rounded-[36px] w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+          >
+            <h2 id="rate-card-title" className="text-2xl font-black text-foreground italic uppercase tracking-tight mb-6">Create Rate Card</h2>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -423,13 +433,15 @@ export default function TariffEngine() {
               </div>
 
               <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-border">
-                <button 
+                <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="px-6 py-2 rounded-xl text-foreground-muted font-bold hover:text-foreground hover:bg-surface-subtle transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
+                  type="button"
                   onClick={handleSaveCard}
                   disabled={saveCardMutation.isPending}
                   className="px-6 py-2 rounded-xl bg-primary text-on-primary font-black uppercase tracking-widest hover:bg-primary-light transition-colors flex items-center gap-2"
@@ -440,6 +452,7 @@ export default function TariffEngine() {
               </div>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
     </div>

@@ -29,6 +29,7 @@ import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { AdminPageSkeleton } from '../components/ui/Skeleton'
+import { FocusTrap } from '../components/a11y/FocusTrap'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 
@@ -436,8 +437,17 @@ export default function TaxCenter() {
       {/* Modal for Edit/Create */}
       {isRuleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/60 backdrop-blur-sm">
-          <div className="bg-surface border border-border p-8 rounded-[36px] w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-black text-foreground italic uppercase tracking-tight mb-6">
+          <FocusTrap active={isRuleModalOpen} className="w-full max-w-2xl max-h-[90vh]">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tax-rule-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setIsRuleModalOpen(false)
+            }}
+            className="bg-surface border border-border p-8 rounded-[36px] w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <h2 id="tax-rule-title" className="text-2xl font-black text-foreground italic uppercase tracking-tight mb-6">
               {editingRule ? 'Edit Tax Rule' : 'Create Tax Rule'}
             </h2>
             <div className="space-y-4">
@@ -494,13 +504,15 @@ export default function TaxCenter() {
               </div>
 
               <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-border">
-                <button 
+                <button
+                  type="button"
                   onClick={() => setIsRuleModalOpen(false)}
                   className="px-6 py-2 rounded-xl text-foreground-muted font-bold hover:text-foreground hover:bg-surface-subtle transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
+                  type="button"
                   onClick={handleSaveRule}
                   disabled={saveRuleMutation.isPending}
                   className="px-6 py-2 rounded-xl bg-primary text-on-primary font-black uppercase tracking-widest hover:bg-primary-light transition-colors flex items-center gap-2"
@@ -511,6 +523,7 @@ export default function TaxCenter() {
               </div>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
     </div>

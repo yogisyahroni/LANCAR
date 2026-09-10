@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { Newspaper, Plus, Loader2, Trash2, Edit, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from '../components/StatusBadge';
+import { FocusTrap } from '../components/a11y/FocusTrap';
 
 export default function News() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -200,16 +201,23 @@ export default function News() {
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-scrim/60 backdrop-blur-sm">
+          <FocusTrap active={isModalOpen} className="w-full max-w-2xl max-h-[90vh]">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="news-form-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') closeModal();
+            }}
             className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
           >
             <div className="p-6 border-b border-border flex items-center justify-between">
-              <h2 className="text-xl font-bold">
+              <h2 id="news-form-title" className="text-xl font-bold">
                 {editingId ? 'Edit Berita' : 'Tambah Berita'}
               </h2>
-              <button onClick={closeModal} className="text-foreground-muted hover:text-foreground">
+              <button type="button" onClick={closeModal} aria-label="Tutup form berita" title="Tutup form berita" className="text-foreground-muted hover:text-foreground">
                 ✕
               </button>
             </div>
@@ -302,6 +310,7 @@ export default function News() {
               </button>
             </div>
           </motion.div>
+          </FocusTrap>
         </div>
       )}
     </div>
