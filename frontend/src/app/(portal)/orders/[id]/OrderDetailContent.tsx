@@ -235,9 +235,7 @@ export function OrderDetailContent({
               <div className="space-y-1">
                 <h2 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
                   Belum Ada Kurir Ditemukan
-                  <span className="inline-flex items-center rounded-full bg-accent-surface px-2.5 py-0.5 text-[10px] font-semibold text-accent border border-accent">
-                    Pencarian Berakhir
-                  </span>
+                  <OrderStatusBadge status="no_courier_found" className="px-2.5 py-0.5" />
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-2xl">
                   Pencarian otomatis telah selesai namun belum ada mitra kurir
@@ -538,22 +536,30 @@ export function OrderDetailContent({
                         )}
                       >
                         {isImage ? (
-                          <img
-                            src={`${api.defaults.baseURL}${msg.message}`}
-                            alt="Attachment"
-                            className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                          <button
+                            type="button"
+                            className="inline-flex max-w-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            aria-label="Buka lampiran gambar chat kurir"
+                            title="Buka lampiran gambar chat kurir"
                             onClick={() =>
                               window.open(
                                 `${api.defaults.baseURL}${msg.message}`,
                                 "_blank",
+                                "noopener,noreferrer",
                               )
                             }
-                          />
+                          >
+                            <img
+                              src={`${api.defaults.baseURL}${msg.message}`}
+                              alt="Lampiran gambar chat kurir"
+                              className="max-w-full rounded-xl transition-opacity hover:opacity-90"
+                            />
+                          </button>
                         ) : (
                           msg.message
                         )}
                       </div>
-                      <span className="text-[10px] text-muted-foreground px-1 select-none">
+                      <span className="text-xs text-muted-foreground px-1 select-none">
                         {formatTime(msg.created_at)}
                       </span>
                     </div>
@@ -589,10 +595,10 @@ export function OrderDetailContent({
                     </button>
                   </div>
                   <div className="flex-1">
-                    <p className="text-[10px] font-bold text-primary uppercase">
+                    <p className="text-xs font-bold text-primary">
                       Gambar siap kirim
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Klik kirim untuk mengunggah
                     </p>
                   </div>
@@ -620,7 +626,7 @@ export function OrderDetailContent({
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Lampirkan gambar"
                 title="Lampirkan gambar"
-                className="p-3 rounded-xl bg-surface-subtle border border-border text-muted-foreground hover:text-foreground transition-all disabled:opacity-60"
+                className="p-3 rounded-xl bg-surface-subtle border border-border text-muted-foreground hover:text-foreground transition-all disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <ImageIcon size={18} aria-hidden="true" />
               </button>
@@ -638,7 +644,7 @@ export function OrderDetailContent({
                       ? "Ketik pesan atau paste gambar..."
                       : "Menunggu kurir ditugaskan..."
                 }
-                className="flex-1 bg-background/50 border border-border rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition duration-200 disabled:opacity-60"
+                className="flex-1 bg-background/50 border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition duration-200 disabled:cursor-not-allowed disabled:opacity-60"
               />
               <button
                 type="submit"
@@ -649,7 +655,7 @@ export function OrderDetailContent({
                 }
                 aria-label={uploading ? "Mengunggah pesan" : "Kirim pesan"}
                 title={uploading ? "Mengunggah pesan" : "Kirim pesan"}
-                className="p-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition duration-200 shadow-sm disabled:opacity-60 disabled:grayscale"
+                className="p-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition duration-200 shadow-sm disabled:cursor-not-allowed disabled:opacity-60 disabled:grayscale"
               >
                 {uploading ? (
                   <Loader2
@@ -1081,7 +1087,7 @@ export function OrderDetailContent({
                             proof.override_reason?.replace(/^[^:]+:\s*/, "") ||
                             "Kurir mengirim alasan pembatalan sebelum barang dipickup."}
                         </p>
-                        <p className="mt-2 text-[11px] font-medium text-error">
+                        <p className="mt-2 text-xs font-medium text-error">
                           {formatTrackingTime(proof.recorded_at || undefined)}
                         </p>
                       </div>
@@ -1136,7 +1142,7 @@ export function OrderDetailContent({
                                   proof.scan_type ||
                                   "Bukti pengiriman"}
                               </p>
-                              <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                              <p className="mt-1 text-xs font-medium text-muted-foreground">
                                 {formatTrackingTime(
                                   proof.recorded_at || undefined,
                                 )}

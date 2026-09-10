@@ -3078,6 +3078,8 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 >
 > **Execution checkpoint 2026-09-11 (continued):** Customer shell notification/profile/mobile navigation labels and controls were audited for Part S. Notification content/timestamps and shell status text now use readable scale, the clear-all control has an adequate touch target, and mobile navigation links meet the minimum target size. The authenticated and registered-route shell slice passes `58/58` Light/Dark/System axe cases; dynamic data and full visual/manual assistive-technology review remain open. Commit/push to `origin/staging` follows this checkpoint.
 
+> **Execution checkpoint 2026-09-11 (continued):** Customer order-detail no-courier state, courier chat attachments, chat input feedback and proof timestamps were audited for Part S. The terminal search state now uses the canonical order-status badge, image attachments are keyboard-operable controls with accessible names and safe external-window flags, and essential chat/proof labels use readable text sizes. The registered order-detail axe slice passes `2/2`; the fixture does not render a dynamic courier-chat image, so that state remains source-audited rather than E2E-proven. Commit/push to `origin/staging` follows this checkpoint.
+
 ## S0 — Audited baseline / known visual risks
 
 **Customer Web**
