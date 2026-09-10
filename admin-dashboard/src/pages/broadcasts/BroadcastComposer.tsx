@@ -692,7 +692,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                   <ul className="space-y-2" aria-label="Penerima manual terpilih">
                     {manualRecipients.map((recipient) => (
                       <li key={recipient.id} className="flex items-center justify-between rounded-xl bg-surface-subtle border border-border px-4 py-2">
-                        <span className="text-xs font-bold text-foreground-muted truncate">
+                        <span className="text-xs font-bold text-foreground-muted truncate" title={`${recipient.full_name === recipient.id ? recipient.id : recipient.full_name}${recipient.full_name !== recipient.id ? ` ${recipient.id}` : ''}`}>
                           {recipient.full_name === recipient.id ? recipient.id : recipient.full_name}
                           {recipient.full_name !== recipient.id && (
                             <span className="ml-2 text-[10px] text-foreground-muted font-mono">{recipient.id}</span>
@@ -817,7 +817,7 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
               ].map(([term, value]) => (
                 <div key={term} className="rounded-2xl bg-surface/[0.03] border border-border p-4">
                   <dt className="text-[9px] font-black uppercase tracking-widest text-foreground-muted">{term}</dt>
-                  <dd className="mt-1 font-bold text-foreground-muted truncate">{value}</dd>
+                  <dd className="mt-1 font-bold text-foreground-muted truncate" title={value}>{value}</dd>
                 </div>
               ))}
             </dl>
@@ -873,10 +873,10 @@ export default function BroadcastComposer({ initial, onBack }: ComposerProps) {
                     <p className="text-[10px] font-black uppercase tracking-widest text-foreground-muted">TEM BUS</p>
                     <span className="text-[9px] text-foreground-muted">sekarang</span>
                   </div>
-                  <p className="mt-1 text-sm font-black text-foreground-muted truncate">
+                  <p className="mt-1 text-sm font-black text-foreground-muted truncate" title={title || 'Judul notifikasi'}>
                     {title || 'Judul notifikasi'}
                   </p>
-                  <p className="mt-1 text-xs text-foreground-muted line-clamp-3 leading-relaxed break-words">
+                  <p className="mt-1 text-xs text-foreground-muted line-clamp-3 leading-relaxed break-words" title={body || 'Isi pesan akan tampil di sini...'}>
                     {body || 'Isi pesan akan tampil di sini...'}
                   </p>
                 </div>

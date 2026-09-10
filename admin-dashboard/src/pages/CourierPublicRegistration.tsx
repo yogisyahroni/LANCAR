@@ -222,7 +222,7 @@ export default function CourierPublicRegistration() {
                 <label key={key} className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-surface-subtle p-4">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-foreground-muted">{label}</p>
-                    <p className="truncate text-xs text-foreground-muted">{documentNames[key] || 'JPG, PNG, WEBP, atau PDF. Maksimal 10 MB.'}</p>
+                    <p className="truncate text-xs text-foreground-muted" title={documentNames[key] || 'JPG, PNG, WEBP, atau PDF. Maksimal 10 MB.'}>{documentNames[key] || 'JPG, PNG, WEBP, atau PDF. Maksimal 10 MB.'}</p>
                   </div>
                   <span className={cn('inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold', documents[key] ? 'bg-success-surface text-success' : 'bg-primary text-on-primary')}>
                     {uploadingDoc === key ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileUp className="h-4 w-4" aria-hidden="true" />}

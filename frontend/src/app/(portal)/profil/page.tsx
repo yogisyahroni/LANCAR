@@ -763,7 +763,7 @@ export default function ProfilPage() {
                         <div className="flex items-center gap-3 select-none">
                           <Smartphone className="h-4 w-4 text-muted-foreground flex-shrink-0" aria-hidden="true" />
                           <div className="select-none">
-                            <h4 className="text-xs font-bold text-foreground truncate max-w-[200px] select-none">
+                            <h4 className="text-xs font-bold text-foreground truncate max-w-[200px] select-none" title={item.device}>
                               {item.device}
                             </h4>
                             <span className="text-[10px] text-muted-foreground block select-none">

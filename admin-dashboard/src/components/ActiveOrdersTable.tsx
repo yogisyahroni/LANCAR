@@ -1546,7 +1546,7 @@ export default function ActiveOrdersTable() {
                     if (!itemId) return null
                     return (
                       <label key={`${itemId}-${index}`} className="flex items-center justify-between gap-3 text-sm text-foreground-muted">
-                        <span className="min-w-0 truncate">{item.quantity || 1}× {item.item_name || 'Item menu'}</span>
+                        <span className="min-w-0 truncate" title={`${item.quantity || 1}× ${item.item_name || 'Item menu'}`}>{item.quantity || 1}× {item.item_name || 'Item menu'}</span>
                         <input
                           type="number"
                           min={0}

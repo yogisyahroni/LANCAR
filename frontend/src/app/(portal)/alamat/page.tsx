@@ -538,7 +538,7 @@ export default function AddressBookPage() {
             <div className="flex items-start justify-between select-none">
               <div className="flex-1">
                 <div className="flex items-center gap-2 select-none">
-                  <h3 className="text-sm font-bold text-foreground truncate select-none">
+                  <h3 className="text-sm font-bold text-foreground truncate select-none" title={addr.label}>
                     {addr.label}
                   </h3>
                   {addr.is_default && (
@@ -572,7 +572,7 @@ export default function AddressBookPage() {
             </div>
 
             {/* Address text string details */}
-            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 flex-1 select-none font-medium">
+            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 flex-1 select-none font-medium" title={addr.address}>
               {addr.address}
             </p>
 

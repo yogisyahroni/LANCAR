@@ -506,7 +506,7 @@ export default function DashboardPage() {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-bold text-foreground font-mono truncate">
+                    <span className="text-xs font-bold text-foreground font-mono truncate" title={order.order_number}>
                       {order.order_number}
                     </span>
                     <p className="text-[10px] text-muted-foreground mt-0.5">

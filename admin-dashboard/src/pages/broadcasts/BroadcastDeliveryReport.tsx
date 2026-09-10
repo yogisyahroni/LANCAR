@@ -136,7 +136,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
               <h2 id="bc-report-title" className="text-xl font-black text-foreground-muted tracking-tight">
                 Delivery Report
               </h2>
-              <p className="text-xs text-foreground-muted mt-1 truncate max-w-sm">
+              <p className="text-xs text-foreground-muted mt-1 truncate max-w-sm" title={title || 'Detail pengiriman broadcast'}>
                 {title || 'Detail pengiriman broadcast'}
               </p>
               {data && (
@@ -304,7 +304,7 @@ export default function BroadcastDeliveryReport({ broadcastId, title, onClose }:
                         key={`${item.reason}-${i}`}
                         className="flex items-center justify-between rounded-2xl bg-error-surface border border-error px-4 py-3"
                       >
-                        <span className="text-xs font-bold text-error truncate">{item.reason}</span>
+                        <span className="text-xs font-bold text-error truncate" title={item.reason}>{item.reason}</span>
                         <span className="text-xs font-black text-foreground-muted tabular-nums ml-4 shrink-0">
                           {item.count.toLocaleString('id-ID')}x
                         </span>

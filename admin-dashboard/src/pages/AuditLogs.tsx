@@ -192,7 +192,7 @@ export default function AuditLogs() {
                       </div>
                     </td>
                     <td className="px-8 py-6 max-w-xs">
-                      <p className="text-xs text-foreground-muted line-clamp-2 italic">{log.change_reason || 'No reason provided.'}</p>
+                      <p className="text-xs text-foreground-muted line-clamp-2 italic" title={log.change_reason || 'No reason provided.'}>{log.change_reason || 'No reason provided.'}</p>
                     </td>
                   </tr>
                 ))

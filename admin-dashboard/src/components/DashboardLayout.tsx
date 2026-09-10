@@ -428,7 +428,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       ? <AlertTriangle size={14} aria-hidden="true" />
                       : <Bell size={14} className="animate-bounce" aria-hidden="true" />}
                   </div>
-                  <h4 className="text-[14px] font-black text-foreground uppercase tracking-tighter truncate">
+                  <h4 className="text-[14px] font-black text-foreground uppercase tracking-tighter truncate" title={toastNotif.title || 'Notification'}>
                     {toastNotif.title || 'Notification'}
                   </h4>
                 </div>
@@ -665,10 +665,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               }}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <h4 className="text-[11px] font-black text-foreground-muted uppercase tracking-widest">{notif.title}</h4>
+                                <h4 className="text-[11px] font-black text-foreground-muted uppercase tracking-widest" title={notif.title}>{notif.title}</h4>
                                 {!notif.is_read && <span className="w-2 h-2 bg-success rounded-full mt-1 shrink-0 animate-pulse" />}
                               </div>
-                              <p className="text-[11px] text-foreground-muted mt-1.5 leading-relaxed line-clamp-2 font-medium">{notif.body}</p>
+                              <p className="text-[11px] text-foreground-muted mt-1.5 leading-relaxed line-clamp-2 font-medium" title={notif.body}>{notif.body}</p>
                               <div className="flex items-center justify-between mt-3">
                                 <span className="text-[9px] text-foreground-muted font-bold uppercase tracking-widest bg-surface-subtle px-1.5 py-0.5 rounded">
                                   {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -886,7 +886,7 @@ export default function PortalLayout({
                         />
                       </span>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-foreground truncate">
+                        <p className="text-xs font-semibold text-foreground truncate" title={notif.title || t("common.notifications")}>
                           {notif.title || t("common.notifications")}
                         </p>
                         <p className="text-[11px] text-foreground-muted mt-0.5 leading-normal">

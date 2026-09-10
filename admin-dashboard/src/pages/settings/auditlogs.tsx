@@ -161,7 +161,7 @@ export function AuditLogsPanel({ data }: { data: SettingsData }) {
                                </div>
                             </td>
                             <td className="px-6 py-4 bg-surface/[0.02] border-y border-border">
-                               <p className="text-[10px] font-medium text-foreground-muted line-clamp-1 max-w-[200px]">{log.change_reason}</p>
+                               <p className="text-[10px] font-medium text-foreground-muted line-clamp-1 max-w-[200px]" title={log.change_reason}>{log.change_reason}</p>
                             </td>
                             <td className="px-6 py-4 bg-surface/[0.02] border-y border-r border-border rounded-r-2xl">
                                <div className="flex items-center gap-2 text-foreground-muted">

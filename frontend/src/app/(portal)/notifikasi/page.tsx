@@ -313,12 +313,12 @@ export default function NotifikasiPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
-                            <h2 className="truncate text-sm font-bold text-foreground">{notif.title}</h2>
+                            <h2 className="truncate text-sm font-bold text-foreground" title={notif.title}>{notif.title}</h2>
                             {!notif.is_read && (
                               <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-primary-light" aria-hidden="true" />
                             )}
                           </div>
-                          <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{notif.body}</p>
+                          <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground" title={notif.body}>{notif.body}</p>
                           <span className="mt-1.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
                             {CATEGORY_META[category].label} · {formatTime(notif.created_at)}
                           </span>

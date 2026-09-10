@@ -114,7 +114,7 @@ export default function CourierFaceVerifications() {
                       <UserCheck className="h-4 w-4 text-foreground-muted"  aria-hidden="true"/>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-foreground-muted text-sm truncate">{item.full_name || 'Tanpa Nama'}</p>
+                      <p className="font-bold text-foreground-muted text-sm truncate" title={item.full_name || 'Tanpa Nama'}>{item.full_name || 'Tanpa Nama'}</p>
                       <p className="text-xs text-foreground-muted mt-1">NIK: {item.nik || '-'}</p>
                       <div className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase">
                         <span className="rounded-full border border-border px-2 py-0.5 text-foreground-muted">{item.verification_type}</span>

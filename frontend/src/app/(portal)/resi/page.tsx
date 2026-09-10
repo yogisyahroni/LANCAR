@@ -371,10 +371,10 @@ export default function ResiPage() {
                         className="rounded border-border h-4 w-4 cursor-pointer select-none"
                       />
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-xs font-bold select-none truncate">
+                    <td className="px-5 py-3.5 font-mono text-xs font-bold select-none truncate" title={order.order_number}>
                       {order.order_number}
                     </td>
-                    <td className="px-5 py-3.5 select-none truncate">
+                    <td className="px-5 py-3.5 select-none truncate" title={order.recipient_name}>
                       {order.recipient_name}
                     </td>
                     <td className="px-5 py-3.5 select-none">
@@ -393,10 +393,10 @@ export default function ResiPage() {
                     <td className="px-5 py-3.5 select-none">
                       <OrderStatusBadge status={order.status} className="px-2 py-0.5 text-[10px]" />
                     </td>
-                    <td className="px-5 py-3.5 text-xs select-none truncate">
+                    <td className="px-5 py-3.5 text-xs select-none truncate" title={`${order.total_price_idr} · ${order.payment_status || ''} · ${order.status || ''}`}>
                       <OrderPriceBreakdown compact totalPriceIdr={order.total_price_idr} paymentStatus={order.payment_status} deliveryStatus={order.status} />
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-muted-foreground select-none truncate">
+                    <td className="px-5 py-3.5 text-xs text-muted-foreground select-none truncate" title={new Date(order.created_at).toLocaleDateString('id-ID')}>
                       {new Date(order.created_at).toLocaleDateString('id-ID')}
                     </td>
                     <td className="px-5 py-3.5 text-right select-none">

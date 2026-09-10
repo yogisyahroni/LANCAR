@@ -365,7 +365,7 @@ export function OrderDetailContent({
                           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                             Posisi kurir
                           </p>
-                          <p className="text-xs text-foreground max-w-[220px] truncate">
+                          <p className="text-xs text-foreground max-w-[220px] truncate" title={`${tracking.location.latitude.toFixed(6)}, ${tracking.location.longitude.toFixed(6)}`}>
                             {tracking.location.latitude.toFixed(6)},{" "}
                             {tracking.location.longitude.toFixed(6)}
                           </p>

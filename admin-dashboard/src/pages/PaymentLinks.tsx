@@ -203,7 +203,7 @@ export default function PaymentLinks() {
                     <p className="text-[10px] font-black text-foreground-muted uppercase tracking-widest flex items-center gap-2">
                        <MapPin size={12} aria-hidden="true" /> Destination
                     </p>
-                    <p className="text-xs font-bold text-foreground-muted mt-3 tracking-tight line-clamp-2">
+                    <p className="text-xs font-bold text-foreground-muted mt-3 tracking-tight line-clamp-2" title={link.dropoff_address}>
                       {link.dropoff_address}
                     </p>
                  </div>

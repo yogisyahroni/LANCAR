@@ -3219,7 +3219,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 
 **Checklist**
 - [ ] Success/warning/error/info use icon + text/label + color, not color alone. Evidence: `docs/task-evidence/A11Y-2026-002.md` (shared Admin status vocabulary and rendered badge guard cover audited operational states; complete route/state inventory remains open).
-- [ ] Order/payment/provider statuses use readable label and optionally icon; green/red badge alone is insufficient. Evidence: `docs/task-evidence/A11Y-2026-002.md` (Customer/Admin order/status badges retain labels and icons; full dynamic status inventory remains open).
+- [ ] Order/payment/provider statuses use readable label and optionally icon; green/red badge alone is insufficient. Evidence: `docs/task-evidence/A11Y-2026-002.md` and `docs/task-evidence/A11Y-2026-005.md` (Customer/Admin order badges expose visible text + icon and are now checked by the shared route-inventory marker; full dynamic payment/provider state inventory remains open).
 - [x] Charts provide legend/label/pattern/shape or direct values so series are distinguishable without color perception alone. Evidence: `docs/task-evidence/A11Y-2026-006.md`
 - [x] Form errors include text and field relationship, not only red border. Customer On-Demand pickup/dropoff, recipient name/phone and package category errors expose visible text, `aria-invalid` and matching `aria-describedby`; login, dispute and aggregator paths are also covered. Evidence: `docs/task-evidence/A11Y-2026-002.md`.
 - [x] Selected navigation/tab/row uses position/indicator/icon/text weight or other non-color cue. Customer desktop/mobile active navigation exposes `aria-current="page"` and the visible current link is keyboard-focusable; Admin collapsed navigation has the same contract. Evidence: `docs/task-evidence/A11Y-2026-002.md`.
@@ -3240,7 +3240,7 @@ After `APP-2026-*` is implemented, these are intended to be remotely changeable 
 - [ ] Font weight hierarchy remains readable in both themes; do not depend on low-contrast gray for hierarchy alone.
 - [x] Layout survives WCAG text-spacing overrides without clipping/overlap/loss of content. Full Customer 27/27 and Admin 70/70 route inventories pass at 320px with runtime/overflow assertions; evidence: `docs/task-evidence/A11Y-2026-003.md`.
 - [ ] Do not use uppercase + extreme tracking for long operational labels.
-- [ ] Truncated content has accessible/full-content path where information is required.
+- [ ] Truncated content has accessible/full-content path where information is required. Evidence: `docs/task-evidence/A11Y-2026-003.md` (audited dynamic Customer/Admin truncations now expose native full-content titles; remaining/new surfaces still require inventory).
 
 ---
 

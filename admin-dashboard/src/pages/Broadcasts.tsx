@@ -236,8 +236,8 @@ export default function Broadcasts() {
                       className="hover:bg-surface/[0.02] transition-colors group"
                     >
                       <td className="px-6 py-6 max-w-xs">
-                        <p className="font-bold text-foreground-muted truncate">{row.title}</p>
-                        <p className="text-[11px] text-foreground-muted mt-1 line-clamp-1">{row.body}</p>
+                        <p className="font-bold text-foreground-muted truncate" title={row.title}>{row.title}</p>
+                        <p className="text-[11px] text-foreground-muted mt-1 line-clamp-1" title={row.body}>{row.body}</p>
                         <div className="flex gap-1.5 mt-2">
                           <span className="px-2 py-0.5 rounded-md bg-surface-raised text-foreground-muted border border-border text-[9px] uppercase font-bold">
                             {row.category}

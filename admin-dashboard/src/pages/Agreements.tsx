@@ -510,10 +510,10 @@ export default function Agreements() {
                     <FileText size={16}  aria-hidden="true"/>
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-sm font-black uppercase tracking-wider text-foreground-muted truncate">
+                    <h2 className="text-sm font-black uppercase tracking-wider text-foreground-muted truncate" title={agreementTypeLabel(pdfViewAgreement.agreement_type)}>
                       {agreementTypeLabel(pdfViewAgreement.agreement_type)}
                     </h2>
-                    <p className="text-[10px] text-foreground-muted font-medium truncate">
+                    <p className="text-[10px] text-foreground-muted font-medium truncate" title={pdfViewAgreement.user_name || pdfViewAgreement.user_phone || undefined}>
                       {pdfViewAgreement.user_name || pdfViewAgreement.user_phone}
                     </p>
                   </div>

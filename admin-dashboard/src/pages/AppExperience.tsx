@@ -701,7 +701,7 @@ export default function AppExperience() {
                   className={`w-full rounded-2xl border p-3 text-left transition ${manifest.manifest_id === selectedId ? "border-primary/50 bg-primary/10" : "border-border bg-surface-subtle hover:border-border"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-mono text-[10px] text-foreground-muted">
+                    <span className="truncate font-mono text-[10px] text-foreground-muted" title={manifest.manifest_id}>
                       {manifest.manifest_id.slice(0, 8)}…
                     </span>
                     <StatusBadge

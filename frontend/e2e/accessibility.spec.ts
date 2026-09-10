@@ -180,6 +180,10 @@ async function assertVisibleInteractiveNames(page: Page) {
         .filter(visible)
         .filter((element) => Number.parseFloat(getComputedStyle(element).opacity) < 0.6)
         .map((element) => ({ opacity: getComputedStyle(element).opacity, html: element.outerHTML.slice(0, 180) })),
+      statusBadgesWithoutMeaning: Array.from(document.querySelectorAll<HTMLElement>('[data-status-badge="true"]'))
+        .filter(visible)
+        .filter((element) => !element.textContent?.trim() || !element.querySelector('svg'))
+        .map((element) => ({ html: element.outerHTML.slice(0, 180) })),
     };
 
     return { unnamed, labelMismatches, interactiveIconFindings, semanticFindings };
@@ -195,6 +199,7 @@ async function assertVisibleInteractiveNames(page: Page) {
     invalidSortStates: [],
     invalidControlledStates: [],
     lowReadabilityDisabledStates: [],
+    statusBadgesWithoutMeaning: [],
   });
 }
 

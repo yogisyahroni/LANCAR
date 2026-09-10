@@ -160,7 +160,7 @@ export default function DisputesPage() {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">{dispute.category}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-1 italic">"{dispute.description}"</p>
+                    <p className="text-sm text-muted-foreground line-clamp-1 italic" title={dispute.description}>"{dispute.description}"</p>
                   </div>
                 </div>
 

@@ -514,7 +514,7 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm truncate">{product.item_name}</p>
+                            <p className="font-bold text-sm truncate" title={product.item_name}>{product.item_name}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {product.sku && <span className="mr-2">SKU: {product.sku}</span>}
                               <span>Berat: {product.weight_kg}kg</span>
